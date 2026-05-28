@@ -117,6 +117,13 @@ const titleStyle = css({
   color: theme.colors.text.primary,
 })
 
+const headerBarStyle = css({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: theme.space.lg,
+})
+
 const errorBannerStyle = css({
   padding: theme.space.sm,
   marginBottom: theme.space.md,
@@ -454,7 +461,10 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     if (editRow || creating) {
       return (
         <div mix={pageStyle}>
-          <h2 mix={titleStyle}>Appointments</h2>
+          <div mix={headerBarStyle}>
+            <h2 mix={titleStyle}>Appointments</h2>
+            <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
+          </div>
           <div mix={twoColumnStyle}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
@@ -482,16 +492,17 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               ) : null}
             </div>
           </div>
-          <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
         </div>
       )
     }
 
     return (
       <div mix={pageStyle}>
-        <h2 mix={titleStyle}>Appointments</h2>
+        <div mix={headerBarStyle}>
+          <h2 mix={titleStyle}>Appointments</h2>
+          <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
+        </div>
         {gridSection}
-        <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
       </div>
     )
   }

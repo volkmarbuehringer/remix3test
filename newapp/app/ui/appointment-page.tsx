@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Layout } from './layout.tsx'
 import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.tsx'
+import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import { frames } from '../routes.ts'
 import type { AppointOffering, Appointment, Resource } from '../data/schema.ts'
 import { parseDuring } from '../data/appointofferings.ts'
@@ -74,6 +75,9 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
             <Frame name={frames.appointTypes} src="/appointment/types" />
           </div>
       <div mix={gridColumnStyle}>
+        <div mix={indicatorBarStyle}>
+          <ConnectionIndicator {...({ url: '/appointment/events', reloadMode: 'window' } as any)} />
+        </div>
         <AppointmentGrid />
       </div>
     </div>
@@ -100,4 +104,18 @@ const sidebarColumnStyle = css({
 
 const gridColumnStyle = css({
   minWidth: 0,
+})
+
+const indicatorBarStyle = css({
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+  display: 'flex',
+  justifyContent: 'flex-end',
+  marginBottom: theme.space.sm,
+  padding: `${theme.space.xs} ${theme.space.xs} 0`,
+  pointerEvents: 'none',
+  '& > *': {
+    pointerEvents: 'auto',
+  },
 })
