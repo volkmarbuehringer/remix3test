@@ -75,10 +75,10 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
       let message = parseResult.message
 
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
-        return Response.json({ error: 'Please enter a message' }, { status: 400 })
+        return context.json({ error: 'Please enter a message' }, { status: 400 })
       }
       if (message.length > MAX_MESSAGE_LENGTH) {
-        return Response.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
+        return context.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
       }
 
       logger.log('message parsed:', message, 'conversationId:', conversationId)
@@ -149,7 +149,7 @@ Use tools to provide accurate, real-time information.`,
         logger.log('Agent response received, length:', responseText.length)
 
         if (!responseText || responseText.trim().length === 0) {
-          return Response.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
+          return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
         }
 
         logger.log('Tool calls captured:', capturedToolCalls.length)

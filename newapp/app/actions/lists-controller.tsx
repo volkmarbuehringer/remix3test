@@ -38,10 +38,7 @@ export default createController<typeof routes, AppContext>(routes, {
       try {
         body = await context.request.json()
       } catch {
-        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
       let parsed: { description: string; items: Array<{ id: string; label: string }> }
@@ -52,35 +49,17 @@ export default createController<typeof routes, AppContext>(routes, {
         if (err instanceof s.ValidationError && err.issues.length > 0) {
           message = err.issues[0].message
         }
-        return new Response(
-          JSON.stringify({ error: message }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        )
+        return context.json({ error: message }, { status: 400 })
       }
 
       let { description, items } = parsed
 
       if (!description.trim()) {
-        return new Response(
-          JSON.stringify({ error: 'Description is required' }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        )
+        return context.json({ error: 'Description is required' }, { status: 400 })
       }
 
       if (items.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Items array is required and must not be empty' }),
-          {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        )
+        return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
       let now = Date.now()
@@ -90,10 +69,7 @@ export default createController<typeof routes, AppContext>(routes, {
         { returnRow: true },
       )
 
-      return new Response(JSON.stringify({ id: row.id, description }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return context.json({ id: row.id, description })
     },
     async listsData(context) {
       let db = context.db
@@ -102,41 +78,26 @@ export default createController<typeof routes, AppContext>(routes, {
       try {
         listId = s.parse(s.number(), Number(context.params.id))
       } catch {
-        return new Response(JSON.stringify({ error: 'Invalid list ID' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
       if (listId < 1) {
-        return new Response(JSON.stringify({ error: 'Invalid list ID' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
       let row = await db.findOne(lists, { where: { id: listId } })
 
       if (!row) {
-        return new Response(JSON.stringify({ error: 'List not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      return new Response(
-        JSON.stringify({
-          id: row.id,
-          items: row.list,
-          description: row.description,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
+      return context.json({
+        id: row.id,
+        items: row.list,
+        description: row.description,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })
     },
     listsShow(context) {
       return context.render(

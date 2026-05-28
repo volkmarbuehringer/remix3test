@@ -61,17 +61,13 @@ export default createController<typeof routes.ai.workflow, AppContext>(routes.ai
       try {
         ({ workflowId } = s.parse(workflowSchema, formData))
       } catch {
-        return new Response(JSON.stringify({ error: 'Workflow ID is required' }), {
-          status: 400, headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'Workflow ID is required' }, { status: 400 })
       }
 
       let workflow = getWorkflow(workflowId)
       if (!workflow) {
         logger.log('workflow not found:', workflowId)
-        return new Response(JSON.stringify({ error: 'Workflow not found' }), {
-          status: 404, headers: { 'Content-Type': 'application/json' },
-        })
+        return context.json({ error: 'Workflow not found' }, { status: 404 })
       }
 
       let params: Record<string, unknown> = {}

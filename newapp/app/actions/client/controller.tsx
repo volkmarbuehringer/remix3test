@@ -173,14 +173,14 @@ export default createController<typeof routes.client, AppContext>(routes.client,
 
       let id = Number(context.params.id)
       if (!Number.isFinite(id) || id < 1) {
-        return Response.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
       let parsed: Record<string, string>
       try {
         parsed = s.parse(clientSaveSchema, formData) as Record<string, string>
       } catch {
-        return Response.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
 
       // Row existence is not checked here (updateMany handles 0-matches gracefully).
@@ -211,7 +211,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
 
       let id = Number(context.params.id)
       if (!Number.isFinite(id) || id < 1) {
-        return Response.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
       await db.delete(clients, { id })
@@ -235,7 +235,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       try {
         parsed = s.parse(clientSaveSchema, formData) as Record<string, string>
       } catch {
-        return Response.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
 
       let row = await db.create(

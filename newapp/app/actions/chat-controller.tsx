@@ -65,10 +65,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
       logger.log('POST action - processing message')
 
       if (!chatRateLimiter.attempt()) {
-        return Response.json(
-          { error: 'Please wait before sending another message' },
-          { status: 429 },
-        )
+        return context.json({ error: 'Please wait before sending another message' }, { status: 429 })
       }
 
       let formData = context.formData
@@ -86,12 +83,12 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
 
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
         logger.log('empty message rejected')
-        return Response.json({ error: 'Please enter a message' }, { status: 400 })
+        return context.json({ error: 'Please enter a message' }, { status: 400 })
       }
 
       if (message.length > MAX_MESSAGE_LENGTH) {
         logger.log('message too long:', message.length)
-        return Response.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
+        return context.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
       }
 
       let chatId: string
@@ -145,7 +142,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
 
         if (!responseText || responseText.trim().length === 0) {
           logger.warn('empty LLM response for chatId:', chatId)
-          return Response.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
+          return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
         }
 
         await appendMessage(chatId, {

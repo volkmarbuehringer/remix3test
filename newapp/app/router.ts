@@ -34,6 +34,7 @@ import appointTypeController from './actions/appointtype-controller.tsx'
 import { authLogout } from './actions/auth-logout.tsx'
 import { loadAssetEntry } from './middleware/asset-entry.ts'
 import { securityHeaders } from './middleware/security-headers.ts'
+import { json } from './middleware/json-render.ts'
 import { render } from './middleware/render.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { loadDatabase } from './middleware/database.ts'
@@ -73,6 +74,7 @@ export function createNewappRouter(options?: NewappRouterOptions): Router {
       loadAuth(),
       loadAssetEntry(),
       render(),
+      json(),
     ],
   })
 

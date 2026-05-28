@@ -10,6 +10,7 @@ newapp/.env
 .artifacts
 tmp/
 .devtools
+oc.sh
 
 # Self-signed TLS certificates (local dev)
 *.pem

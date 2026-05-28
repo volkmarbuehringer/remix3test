@@ -55,7 +55,7 @@ export default createController<typeof routes.appointment.types, AppContext>(
       async create(context) {
         let auth = context.auth
         if (!auth?.ok) {
-          return Response.json({ error: 'Authentication required.' }, { status: 401 })
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
         }
         let userId = (auth.identity as User).id
 
@@ -63,22 +63,22 @@ export default createController<typeof routes.appointment.types, AppContext>(
         try {
           body = await context.request.json()
         } catch {
-          return Response.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+          return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
         }
 
         let parsed = s.parseSafe(createSchema, body)
         if (!parsed.success) {
-          return Response.json({ error: 'Validation failed.' }, { status: 400 })
+          return context.json({ error: 'Validation failed.' }, { status: 400 })
         }
 
         let type = await createAppointType(context.db, userId, parsed.value)
-        return Response.json({ type }, { status: 201 })
+        return context.json({ type }, { status: 201 })
       },
 
       async update(context) {
         let auth = context.auth
         if (!auth?.ok) {
-          return Response.json({ error: 'Authentication required.' }, { status: 401 })
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
         }
         let userId = (auth.identity as User).id
         let typeId = Number(context.params.id)
@@ -87,20 +87,20 @@ export default createController<typeof routes.appointment.types, AppContext>(
         try {
           body = await context.request.json()
         } catch {
-          return Response.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+          return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
         }
 
         let parsed = s.parseSafe(updateSchema, body)
         if (!parsed.success) {
-          return Response.json({ error: 'Validation failed.' }, { status: 400 })
+          return context.json({ error: 'Validation failed.' }, { status: 400 })
         }
 
         try {
           let type = await updateAppointType(context.db, userId, typeId, parsed.value)
-          return Response.json({ type })
+          return context.json({ type })
         } catch (error) {
           if (error instanceof AppointTypeError) {
-            return Response.json({ error: error.message }, { status: error.status })
+            return context.json({ error: error.message }, { status: error.status })
           }
           throw error
         }
@@ -109,17 +109,17 @@ export default createController<typeof routes.appointment.types, AppContext>(
       async destroy(context) {
         let auth = context.auth
         if (!auth?.ok) {
-          return Response.json({ error: 'Authentication required.' }, { status: 401 })
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
         }
         let userId = (auth.identity as User).id
         let typeId = Number(context.params.id)
 
         try {
           await deleteAppointType(context.db, userId, typeId)
-          return Response.json({ deleted: true })
+          return context.json({ deleted: true })
         } catch (error) {
           if (error instanceof AppointTypeError) {
-            return Response.json({ error: error.message }, { status: error.status })
+            return context.json({ error: error.message }, { status: error.status })
           }
           throw error
         }

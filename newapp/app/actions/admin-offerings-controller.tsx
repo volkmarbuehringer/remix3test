@@ -242,7 +242,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         try {
           parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
         } catch {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige Formulardaten.' },
             { status: 400 },
           )
@@ -250,7 +250,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         let validationError = validateOfferingForm(parsed)
         if (validationError) {
-          return Response.json({ ok: false, error: validationError }, { status: 400 })
+          return context.json({ ok: false, error: validationError }, { status: 400 })
         }
 
         // Reject offerings on public holidays
@@ -349,7 +349,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         try {
           parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
         } catch {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige Formulardaten.' },
             { status: 400 },
           )
@@ -357,7 +357,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         let validationError = validateOfferingForm(parsed)
         if (validationError) {
-          return Response.json({ ok: false, error: validationError }, { status: 400 })
+          return context.json({ ok: false, error: validationError }, { status: 400 })
         }
 
         // Reject offerings on public holidays
@@ -381,7 +381,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         let id = context.params.id
         if (!id) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige ID.' },
             { status: 400 },
           )
@@ -423,7 +423,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           )
 
           if (result.rowCount === 0) {
-            return Response.json(
+            return context.json(
               { ok: false, error: 'Eintrag nicht gefunden.' },
               { status: 404 },
             )
@@ -467,7 +467,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
       async destroy(context) {
         let id = context.params.id
         if (!id) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige ID.' },
             { status: 400 },
           )
@@ -481,7 +481,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         )
 
         if (result.rowCount === 0) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Eintrag nicht gefunden.' },
             { status: 404 },
           )
@@ -507,7 +507,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let resourceIdStr = formData.get('resource_id') as string | null
 
         if (!resourceIdStr) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'resource_id ist erforderlich.' },
             { status: 400 },
           )
@@ -515,7 +515,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         let resourceId = parseInt(resourceIdStr, 10)
         if (isNaN(resourceId)) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige resource_id.' },
             { status: 400 },
           )
@@ -551,7 +551,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let weekStr = formData.get('week') as string | null
 
         if (!yearStr || !weekStr) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'year und week sind erforderlich.' },
             { status: 400 },
           )
@@ -561,7 +561,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let week = parseInt(weekStr, 10)
 
         if (isNaN(year) || isNaN(week)) {
-          return Response.json(
+          return context.json(
             { ok: false, error: 'Ungültige Parameter.' },
             { status: 400 },
           )

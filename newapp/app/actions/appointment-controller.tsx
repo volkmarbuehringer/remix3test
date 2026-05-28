@@ -176,19 +176,19 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
     async create(context) {
       let auth = context.auth
       if (!auth?.ok) {
-        return Response.json({ error: 'Authentication required.' }, { status: 401 })
+        return context.json({ error: 'Authentication required.' }, { status: 401 })
       }
       let userId = (auth.identity as User).id
 
       if (!createLimiter.attempt(userId)) {
-        return Response.json({ error: 'Too many requests. Please wait before creating another appointment.' }, { status: 429 })
+        return context.json({ error: 'Too many requests. Please wait before creating another appointment.' }, { status: 429 })
       }
 
       let body: Record<string, unknown>
       try {
         body = await context.request.json()
       } catch {
-        return Response.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+        return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
       // If typeId is present, use INSERT...SELECT from appointtypes
@@ -196,21 +196,21 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
       // Keep behavior in sync (timestamps, field defaults) if beforeWrite changes.
       if (typeof body.typeId === 'number') {
         if (typeof body.date !== 'number' || typeof body.start_min !== 'number') {
-          return Response.json({ error: 'date and start_min are required with typeId.' }, { status: 400 })
+          return context.json({ error: 'date and start_min are required with typeId.' }, { status: 400 })
         }
         if (typeof body.resource_id !== 'number') {
-          return Response.json({ error: 'resource_id is required.' }, { status: 400 })
+          return context.json({ error: 'resource_id is required.' }, { status: 400 })
         }
 
         // Reject past-date creation
         if (isDateInPast(body.date)) {
-          return Response.json({ error: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }, { status: 422 })
+          return context.json({ error: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }, { status: 422 })
         }
 
         // Validate that the requested slot is within an offering
         let bookable = await isSlotBookable(context.db, body.date, body.resource_id, body.start_min, body.start_min + 15)
         if (!bookable) {
-          return Response.json({ error: 'Slot is not bookable.' }, { status: 403 })
+          return context.json({ error: 'Slot is not bookable.' }, { status: 403 })
         }
 
         let now = Date.now()
@@ -225,14 +225,14 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
           )
 
           if (result.rows.length === 0) {
-            return Response.json({ error: 'Appointment type not found or access denied.' }, { status: 404 })
+            return context.json({ error: 'Appointment type not found or access denied.' }, { status: 404 })
           }
 
           appointmentChannel.broadcast('invalidate')
-          return Response.json({ id: result.rows[0].id }, { status: 201 })
+          return context.json({ id: result.rows[0].id }, { status: 201 })
         } catch (error) {
           if (isExclusionViolation(error)) {
-            return Response.json({ error: 'Time slot already taken.', code: 'collision' }, { status: 409 })
+            return context.json({ error: 'Time slot already taken.', code: 'collision' }, { status: 409 })
           }
           throw error
         }
@@ -241,11 +241,11 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
       // Fall back to manual creation with title
       let parsed = s.parseSafe(createSchema, body)
       if (!parsed.success) {
-        return Response.json({ error: 'Validation failed.' }, { status: 400 })
+        return context.json({ error: 'Validation failed.' }, { status: 400 })
       }
 
       if (parsed.value.end_min - parsed.value.start_min < MINIMUM_DURATION) {
-        return Response.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
+        return context.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
       }
 
       // Validate that the requested slot is within an offering
@@ -257,16 +257,16 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
         parsed.value.end_min,
       )
       if (!bookable) {
-        return Response.json({ error: 'Slot is not bookable.' }, { status: 403 })
+        return context.json({ error: 'Slot is not bookable.' }, { status: 403 })
       }
 
       try {
         let appointment = await createAppointment(context.db, userId, parsed.value)
         appointmentChannel.broadcast('invalidate')
-        return Response.json({ appointment }, { status: 201 })
+        return context.json({ appointment }, { status: 201 })
       } catch (error) {
         if (error instanceof AppointmentCollisionError) {
-          return Response.json({ error: error.message, code: 'collision' }, { status: error.status })
+          return context.json({ error: error.message, code: 'collision' }, { status: error.status })
         }
         throw error
       }
@@ -275,14 +275,14 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
     async update(context) {
       let auth = context.auth
       if (!auth?.ok) {
-        return Response.json({ error: 'Authentication required.' }, { status: 401 })
+        return context.json({ error: 'Authentication required.' }, { status: 401 })
       }
       let currentUser = auth.identity as User
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
       if (!updateLimiter.attempt(userId)) {
-        return Response.json({ error: 'Too many requests. Please wait before updating.' }, { status: 429 })
+        return context.json({ error: 'Too many requests. Please wait before updating.' }, { status: 429 })
       }
 
       let appointmentId = Number(context.params.id)
@@ -291,17 +291,17 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
       try {
         body = await context.request.json()
       } catch {
-        return Response.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+        return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
       let parsed = s.parseSafe(updateSchema, body)
       if (!parsed.success) {
-        return Response.json({ error: 'Validation failed.' }, { status: 400 })
+        return context.json({ error: 'Validation failed.' }, { status: 400 })
       }
 
       let { start_min, end_min } = parsed.value
       if (start_min !== undefined && end_min !== undefined && end_min - start_min < MINIMUM_DURATION) {
-        return Response.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
+        return context.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
       }
 
       // Validate against offerings if time/date/resource is changing (e.g., drag/resize)
@@ -316,7 +316,7 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
         if (!isAdmin) apptQuery.user_id = userId
         let current = await context.db.findOne(appointments, { where: apptQuery })
         if (!current) {
-          return Response.json({ error: 'Appointment not found.' }, { status: 404 })
+          return context.json({ error: 'Appointment not found.' }, { status: 404 })
         }
         let mergedDate = parsed.value.date ?? Number(current.date)
         let mergedStartMin = parsed.value.start_min ?? (current.start_min as number)
@@ -324,7 +324,7 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
         let mergedResourceId = parsed.value.resource_id ?? (current.resource_id as number)
         let bookable = await isSlotBookable(context.db, mergedDate, mergedResourceId, mergedStartMin, mergedEndMin)
         if (!bookable) {
-          return Response.json({ error: 'Slot is not bookable.' }, { status: 403 })
+          return context.json({ error: 'Slot is not bookable.' }, { status: 403 })
         }
       }
 
@@ -337,10 +337,10 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
           isAdmin ? { adminBypass: true } : undefined,
         )
         appointmentChannel.broadcast('invalidate')
-        return Response.json({ appointment })
+        return context.json({ appointment })
       } catch (error) {
         if (error instanceof AppointmentError) {
-          return Response.json({ error: error.message }, { status: error.status })
+          return context.json({ error: error.message }, { status: error.status })
         }
         throw error
       }
@@ -349,14 +349,14 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
     async destroy(context) {
       let auth = context.auth
       if (!auth?.ok) {
-        return Response.json({ error: 'Authentication required.' }, { status: 401 })
+        return context.json({ error: 'Authentication required.' }, { status: 401 })
       }
       let currentUser = auth.identity as User
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
       if (!deleteLimiter.attempt(userId)) {
-        return Response.json({ error: 'Too many requests. Please wait before deleting.' }, { status: 429 })
+        return context.json({ error: 'Too many requests. Please wait before deleting.' }, { status: 429 })
       }
 
       let appointmentId = Number(context.params.id)
@@ -369,10 +369,10 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
           isAdmin ? { adminBypass: true } : undefined,
         )
         appointmentChannel.broadcast('invalidate')
-        return Response.json({ deleted: true })
+        return context.json({ deleted: true })
       } catch (error) {
         if (error instanceof AppointmentError) {
-          return Response.json({ error: error.message }, { status: error.status })
+          return context.json({ error: error.message }, { status: error.status })
         }
         throw error
       }

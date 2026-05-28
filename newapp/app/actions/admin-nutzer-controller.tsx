@@ -139,20 +139,20 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       try {
         parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
       } catch {
-        return Response.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
 
       let id = context.params.id
       if (!id) {
-        return Response.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
       let lId = parsed._l_id
       if (!lId) {
-        return Response.json({ ok: false, error: 'Missing login reference' }, { status: 400 })
+        return context.json({ ok: false, error: 'Missing login reference' }, { status: 400 })
       }
       if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return Response.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
       }
 
       let client = await pool.connect()
@@ -198,15 +198,15 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       try {
         parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
       } catch {
-        return Response.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
 
       // Validate required fields
       if (!parsed.login || !parsed.login.trim()) {
-        return Response.json({ ok: false, error: 'Login is required' }, { status: 400 })
+        return context.json({ ok: false, error: 'Login is required' }, { status: 400 })
       }
       if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return Response.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
       }
 
       let client = await pool.connect()
@@ -255,7 +255,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
     async destroy(context) {
       let id = context.params.id
       if (!id) {
-        return Response.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
       let formData = context.formData
@@ -270,7 +270,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         )
         if (nutzerResult.rows.length === 0) {
           await client.query('ROLLBACK')
-          return Response.json({ ok: false, error: 'Row not found' }, { status: 404 })
+          return context.json({ ok: false, error: 'Row not found' }, { status: 404 })
         }
         nLid = nutzerResult.rows[0].n_lid
 
@@ -301,7 +301,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
     async resetPassword(context) {
       let id = context.params.id
       if (!id) {
-        return Response.json({ error: 'Invalid id' }, { status: 400 })
+        return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
       // Verify user exists and get their l_id
@@ -312,7 +312,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         [id],
       )
       if (result.rows.length === 0) {
-        return Response.json({ error: 'User not found' }, { status: 404 })
+        return context.json({ error: 'User not found' }, { status: 404 })
       }
 
       // Generate 12-char password (mixed case + digits, no ambiguous chars like 0/O/1/l/I)
@@ -329,24 +329,24 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         result.rows[0].l_id,
       ])
 
-      return Response.json({ ok: true })
+      return context.json({ ok: true })
     },
 
     async toggleLock(context) {
       let id = context.params.id
       if (!id) {
-        return Response.json({ error: 'Invalid id' }, { status: 400 })
+        return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
       let body: { locked?: boolean }
       try {
         body = await context.request.json()
       } catch {
-        return Response.json({ error: 'Expected JSON body' }, { status: 400 })
+        return context.json({ error: 'Expected JSON body' }, { status: 400 })
       }
 
       if (typeof body.locked !== 'boolean') {
-        return Response.json({ error: 'Expected boolean "locked" field' }, { status: 400 })
+        return context.json({ error: 'Expected boolean "locked" field' }, { status: 400 })
       }
 
       let updateResult = await pool.query(
@@ -356,27 +356,27 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       )
 
       if (updateResult.rowCount === 0) {
-        return Response.json({ error: 'User not found' }, { status: 404 })
+        return context.json({ error: 'User not found' }, { status: 404 })
       }
 
-      return Response.json({ ok: true, locked: body.locked })
+      return context.json({ ok: true, locked: body.locked })
     },
 
     async toggleActive(context) {
       let id = context.params.id
       if (!id) {
-        return Response.json({ error: 'Invalid id' }, { status: 400 })
+        return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
       let body: { active?: boolean }
       try {
         body = await context.request.json()
       } catch {
-        return Response.json({ error: 'Expected JSON body' }, { status: 400 })
+        return context.json({ error: 'Expected JSON body' }, { status: 400 })
       }
 
       if (typeof body.active !== 'boolean') {
-        return Response.json({ error: 'Expected boolean "active" field' }, { status: 400 })
+        return context.json({ error: 'Expected boolean "active" field' }, { status: 400 })
       }
 
       let updateResult = await pool.query(
@@ -386,10 +386,10 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       )
 
       if (updateResult.rowCount === 0) {
-        return Response.json({ error: 'User not found' }, { status: 404 })
+        return context.json({ error: 'User not found' }, { status: 404 })
       }
 
-      return Response.json({ ok: true, active: body.active })
+      return context.json({ ok: true, active: body.active })
     },
   },
 })
