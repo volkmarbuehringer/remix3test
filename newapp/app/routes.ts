@@ -109,6 +109,7 @@ export const adminRoutes = route({
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),
+      events: get('/events'),
     }),
 
     // Fragment routes for nested frame content

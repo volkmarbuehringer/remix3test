@@ -35,6 +35,18 @@ export const AdminAppointmentsContextMenu = clientEntry(
       triggerRef = null
     })
 
+    // ── SSE subscription for cross-session invalidation (like AppointmentGrid) ──
+    if (typeof document !== 'undefined') {
+      let sseUrl = '/admin/appointments/events'
+      let eventSource = new EventSource(sseUrl)
+      eventSource.addEventListener('invalidate', () => {
+        let params = new URLSearchParams(window.location.search)
+        if (params.has('editing') || params.get('creating') === 'true') return
+        window.location.reload()
+      })
+      handle.signal.addEventListener('abort', () => eventSource.close())
+    }
+
     // ── Render ──
 
     return () => (

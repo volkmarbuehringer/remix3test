@@ -14,6 +14,7 @@ import { AdminAppointmentsPage } from '../ui/admin-appointments-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams, gridStateFromForm, gridStateFromFormData } from '../utils/grid-state.ts'
 import { createRateLimiter } from '../utils/rate-limiter.ts'
+import { appointmentChannel } from '../lib/appointments-sse.ts'
 
 const PAGE_SIZE = 15
 
@@ -407,6 +408,9 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           throw error
         }
 
+        // Broadcast invalidation so other sessions reload
+        appointmentChannel.broadcast('invalidate')
+
         // Redirect back with preserved grid state, showing the new record in edit mode
         let params = gridStateToParams(gridStateFromForm(parsed))
         params.set('editing', String(newId))
@@ -487,6 +491,9 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           throw error
         }
 
+        // Broadcast invalidation so other sessions reload
+        appointmentChannel.broadcast('invalidate')
+
         // Redirect back with preserved grid state
         let params = gridStateToParams(gridStateFromForm(parsed))
         let qs = params.toString()
@@ -533,6 +540,9 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           throw error
         }
 
+        // Broadcast invalidation so other sessions reload
+        appointmentChannel.broadcast('invalidate')
+
         // Redirect back with preserved grid state
         let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
@@ -540,6 +550,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           status: 302,
           headers: { Location: '/admin/appointments' + (qs ? '?' + qs : '') },
         })
+      },
+
+      async events(context) {
+        return appointmentChannel.subscribe(context.request)
       },
     },
   },
