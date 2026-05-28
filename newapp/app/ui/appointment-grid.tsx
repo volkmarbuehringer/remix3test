@@ -230,21 +230,56 @@ export const AppointmentGrid = clientEntry(
     let currentOfferingStartMin = 0
     let currentOfferingEndMin = 1440
 
-    // Always-active listeners for type-drag from types panel (client-side only)
-    if (typeof document !== 'undefined') {
-      document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
-      document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
-      document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
+      // Always-active listeners for type-drag from types panel (client-side only)
+      if (typeof document !== 'undefined') {
+        document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
+        document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
+        document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
 
-      // SSE subscription for cross-session invalidation
-      let sseUrl = '/appointment/events'
-      let eventSource = new EventSource(sseUrl)
-      eventSource.addEventListener('invalidate', () => {
-        if (interactionState.active) return
-        window.location.reload()
-      })
-      handle.signal?.addEventListener('abort', () => eventSource.close())
-    }
+        // SSE subscription for cross-session invalidation
+        let sseUrl = '/appointment/events'
+        let eventSource = new EventSource(sseUrl)
+        eventSource.addEventListener('invalidate', () => {
+          if (interactionState.active) return
+          window.location.reload()
+        })
+        handle.signal?.addEventListener('abort', () => eventSource.close())
+
+        // SSE status indicator as fixed-position DOM element (always visible)
+        let indicator = document.createElement('div')
+        indicator.id = 'appointment-sse-status'
+        indicator.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:9999;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:500;line-height:1;background:#fff;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.1);color:#374151;'
+        let indicatorDot = document.createElement('span')
+        indicatorDot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#f59e0b;'
+        let indicatorLabel = document.createElement('span')
+        indicatorLabel.textContent = 'Connecting...'
+        indicator.appendChild(indicatorDot)
+        indicator.appendChild(indicatorLabel)
+        document.body.appendChild(indicator)
+        if (!document.getElementById('sse-pulse-style')) {
+          let s = document.createElement('style')
+          s.id = 'sse-pulse-style'
+          s.textContent = '@keyframes sse-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }'
+          document.head.appendChild(s)
+        }
+        eventSource.addEventListener('open', () => {
+          indicatorDot.style.background = '#22c55e'
+          indicatorDot.style.animation = 'none'
+          indicatorLabel.textContent = 'Connected'
+        })
+        eventSource.addEventListener('error', () => {
+          if (eventSource.readyState === EventSource.CLOSED) {
+            indicatorDot.style.background = '#ef4444'
+            indicatorDot.style.animation = 'none'
+            indicatorLabel.textContent = 'Disconnected'
+          } else {
+            indicatorDot.style.background = '#f59e0b'
+            indicatorDot.style.animation = 'sse-pulse 1.5s ease-in-out infinite'
+            indicatorLabel.textContent = 'Reconnecting...'
+          }
+        })
+        handle.signal?.addEventListener('abort', () => indicator.remove())
+      }
 
     return () => {
       // Client-only rendering — SSR has no DOM so readData() can't work.
@@ -314,6 +349,7 @@ export const AppointmentGrid = clientEntry(
           data-resizing={isResizing ? 'true' : undefined}
           mix={gridWrapperStyle}
         >
+
           <div mix={headerRowStyle} style={`grid-template-columns: ${gridTemplateCols};`}>
             <div mix={cornerCellStyle}>
               {/* Trashcan — visible during drag */}

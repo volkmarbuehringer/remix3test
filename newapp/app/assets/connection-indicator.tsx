@@ -4,6 +4,14 @@ type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecti
 
 interface ConnectionIndicatorProps extends SerializableProps {
   url: string
+  /** How to reload when an 'invalidate' event is received.
+   *  'frame' (default) calls handle.frame.reload() — for pages inside a Frame.
+   *  'window' calls window.location.reload() — for standalone pages. */
+  reloadMode?: 'frame' | 'window'
+  /** Optional list of URL search param names. When any of these params
+   *  are present in the current URL, invalidate events will NOT trigger
+   *  a reload (e.g., skip reload during editing). */
+  skipReloadParams?: string[]
 }
 
 /**
@@ -27,6 +35,8 @@ export const ConnectionIndicator = clientEntry(
     let eventSource: EventSource | null = null
     let props = handle.props as unknown as ConnectionIndicatorProps
     let subscriptionUrl = props.url
+    let reloadMode = props.reloadMode ?? 'frame'
+    let skipReloadParams = props.skipReloadParams ?? []
 
     // Post-hydration setup: establish the SSE connection
     handle.queueTask(() => {
@@ -45,9 +55,21 @@ export const ConnectionIndicator = clientEntry(
       })
 
       eventSource.addEventListener('invalidate', () => {
+        // Skip reload if any guard params are present (e.g., editing, creating)
+        if (skipReloadParams.length > 0) {
+          let params = new URLSearchParams(window.location.search)
+          for (let p of skipReloadParams) {
+            if (params.has(p)) return
+          }
+        }
         // An invalidate event signals that data has changed on the server.
-        // Reload the parent frame so the page reflects the latest state.
-        handle.frame.reload()
+        // Reload according to the reloadMode: window reload for standalone
+        // pages, frame reload for pages inside a Remix Frame.
+        if (reloadMode === 'window') {
+          window.location.reload()
+        } else {
+          handle.frame.reload()
+        }
       })
 
       eventSource.addEventListener('error', () => {

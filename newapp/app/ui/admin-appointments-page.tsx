@@ -10,6 +10,7 @@ import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.ts
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminAppointmentsContextMenu } from '../assets/admin-appointments-context-menu.tsx'
+import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admin-appointments-controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
@@ -481,6 +482,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               ) : null}
             </div>
           </div>
+          <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
         </div>
       )
     }
@@ -489,6 +491,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       <div mix={pageStyle}>
         <h2 mix={titleStyle}>Appointments</h2>
         {gridSection}
+        <ConnectionIndicator {...({ url: '/admin/appointments/events', reloadMode: 'frame', skipReloadParams: ['editing', 'creating'] } as any)} />
       </div>
     )
   }
