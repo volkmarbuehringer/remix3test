@@ -31,6 +31,11 @@ type: navigation
 | [`lookup/pages-registry.md`](lookup/pages-registry.md) | All 16 `ShowcasePageDefinition` entries with nav sections |
 | [`lookup/component-examples.md`](lookup/component-examples.md) | All ~28 examples with slug, title, description, directory |
 
+### errors/
+| File | Description |
+|------|-------------|
+| [`errors/navigation.md`](errors/navigation.md) | Troubleshooting guide index for common issues |
+
 ### examples/
 | File | Description |
 |------|-------------|

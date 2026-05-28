@@ -22,6 +22,8 @@ ui/web/
 ├── examples/
 │   ├── animation-components.md   # Button, card, modal animations [high]
 │   └── animation-chat.md         # Chat UI and message animations [medium]
+├── lookup/
+│   └── navigation.md             # Quick reference index (component APIs, tokens)
 └── design/
     ├── navigation.md             # Advanced design navigation
     ├── concepts/

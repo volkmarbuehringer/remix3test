@@ -18,6 +18,7 @@
 | **Navigation Design** | navigation-design-basics.md | navigation.md requirements | high |
 | **Navigation Templates** | navigation-templates.md | navigation.md templates | medium |
 | **Organizing** | organizing-context.md | Best practices for context organization | medium |
+| **Changelog** | changelog.md | System evolution history | low |
 
 ---
 
