@@ -1,0 +1,1713 @@
+import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
+import { theme } from 'remix/ui/theme'
+
+import {
+  previewMoveBlock,
+  previewResizeBlockTime,
+  type AppointmentLayoutBlock,
+  type LayoutResult,
+} from './schedule-layout.ts'
+import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../lib/appointtype-drag.ts'
+import { interactionState } from './appointment-interaction-state.ts'
+import { readAppointmentData } from '../utils/appointment.ts'
+
+const HOURS = 24
+const SLOT_HEIGHT = 160         // pixels per hour (4x so 15min = same as old 1h row)
+const SUB_SLOTS = 4             // quarter-hour subdivisions per hour
+const SUB_SLOT_HEIGHT = SLOT_HEIGHT / SUB_SLOTS  // 40px per 15-min slot
+const LABEL_WIDTH = 44
+const DRAG_THRESHOLD = 4
+const COLLISION_STATUS = 409
+
+/**
+ * Handle a fetch response: show error message for collisions, then reload.
+ * Returns true if the page is being reloaded (caller should stop processing).
+ */
+function handleMutationResponse(response: Response): boolean {
+  if (response.ok) {
+    window.location.reload()
+    return true
+  }
+  if (response.status === COLLISION_STATUS) {
+    response.json().then((body) => {
+      alert(body?.error || 'Time slot already taken.')
+      window.location.reload()
+    }).catch(() => {
+      window.location.reload()
+    })
+    return true
+  }
+  if (response.status === 403) {
+    response.json().then((body) => {
+      alert(body?.error || 'Slot ist nicht buchbar.')
+    }).catch(() => {})
+    return true
+  }
+  if (response.status === 422) {
+    response.json().then((body) => {
+      alert(body?.error || 'Änderung konnte nicht gespeichert werden.')
+    }).catch(() => {})
+    return true
+  }
+  return false
+}
+
+/**
+ * Handle a batch of mutation responses (from move/resize commits).
+ * Shows a single alert if any collision occurred, then reloads.
+ */
+function handleBatchMutationResponses(results: PromiseSettledResult<Response>[]): void {
+  let hasCollision = false
+  let anyOk = false
+  for (let r of results) {
+    if (r.status === 'fulfilled') {
+      if (r.value.ok) anyOk = true
+      if (r.value.status === COLLISION_STATUS) hasCollision = true
+    }
+  }
+  if (hasCollision) {
+    alert('Time slot already taken.')
+  } else if (!anyOk) {
+    alert('Failed to save changes.')
+  }
+  window.location.reload()
+}
+
+type AppData = {
+  days: Array<{ dayName: string; date: number; dateStr: string }>
+  appointments: Array<AppointmentLayoutBlock>
+  offerings: Array<{ day: number; start_min: number; end_min: number }>
+  csrfToken: string
+  weekStart: number
+  currentUserId: number
+  selectedResourceId: number
+  isAdmin: boolean
+}
+
+
+
+type DragState = {
+  active: boolean
+  blockId: number
+  grid: GridMeasurement
+  moved: boolean
+  offsetX: number
+  offsetY: number
+  originalBlocks: AppointmentLayoutBlock[]
+  placement: { date: number; startMinute: number }
+  pointerId: number
+  startX: number
+  startY: number
+}
+
+type ResizeState = {
+  active: boolean
+  blockId: number
+  edge: 'start' | 'end'
+  grid: GridMeasurement
+  moved: boolean
+  offsetY: number
+  originalBlock: AppointmentLayoutBlock
+  originalBlocks: AppointmentLayoutBlock[]
+  pointerId: number
+  startY: number
+}
+
+type GridMeasurement = {
+  dayWidth: number
+  labelWidth: number
+  left: number
+  rowHeight: number
+  top: number
+}
+
+type GestureKind = 'drag' | 'resize'
+
+function readData(): AppData {
+  let data = readAppointmentData()
+  return {
+    days: (data.days ?? []) as AppData['days'],
+    appointments: (data.appointments ?? []) as AppData['appointments'],
+    offerings: (data.offerings ?? []) as AppData['offerings'],
+    csrfToken: (data.csrfToken as string) ?? '',
+    weekStart: (data.weekStart as number) ?? 0,
+    currentUserId: (data.currentUserId as number) ?? 0,
+    selectedResourceId: (data.selectedResourceId as number) ?? 0,
+    isAdmin: (data.isAdmin as boolean) ?? false,
+  }
+}
+
+function computeVisibleDays(days: AppData['days'], offerings: AppData['offerings']): AppData['days'] {
+  return days.filter((d) => offerings.some((o) => o.day === d.date))
+}
+
+function computeOfferingTimeRange(offerings: AppData['offerings']): { startMin: number; endMin: number } {
+  if (offerings.length === 0) return { startMin: 0, endMin: 1440 }
+  let startMin = Math.min(...offerings.map((o) => o.start_min))
+  let endMin = Math.max(...offerings.map((o) => o.end_min))
+  // Snap to 15-min boundaries
+  startMin = Math.floor(startMin / 15) * 15
+  endMin = Math.ceil(endMin / 15) * 15
+  return { startMin, endMin }
+}
+
+/**
+ * Build a per-day map of bookable 15-min minutes from offerings.
+ * Returns both a sorted list of all bookable minutes (for row rendering)
+ * and per-day Sets for O(1) per-cell bookability checks.
+ */
+function computeBookableSlots(
+  offerings: AppData['offerings'],
+  visibleDays: AppData['days'],
+): { allBookableMinutes: number[]; bookableByDay: Map<number, Set<number>> } {
+  let visibleDates = new Set(visibleDays.map((d) => d.date))
+  let byDay = new Map<number, Set<number>>()
+  let globalSet = new Set<number>()
+
+  for (let o of offerings) {
+    if (!visibleDates.has(o.day)) continue
+    let daySet = byDay.get(o.day)
+    if (!daySet) {
+      daySet = new Set<number>()
+      byDay.set(o.day, daySet)
+    }
+    for (let m = o.start_min; m < o.end_min; m += 15) {
+      daySet.add(m)
+      globalSet.add(m)
+    }
+  }
+
+  return {
+    allBookableMinutes: [...globalSet].sort((a, b) => a - b),
+    bookableByDay: byDay,
+  }
+}
+
+export const AppointmentGrid = clientEntry(
+  import.meta.url + '#AppointmentGrid',
+  function AppointmentGrid(handle: Handle) {
+    let draftInput: HTMLTextAreaElement | null = null
+    let renameInputs = new Map<number, HTMLTextAreaElement>()
+
+    let draftState: {
+      active: boolean
+      dayIdx: number
+      start: number
+      end: number
+    } = { active: false, dayIdx: 0, start: 0, end: 60 }
+
+    let editingId: number | null = null
+    let hoveredBlockId: number | null = null
+    let lastClick = { time: 0, blockId: -1 }
+
+    // Drag and resize state
+    let preview: LayoutResult | null = null
+    let dragState: DragState | null = null
+    let resizeState: ResizeState | null = null
+    let activeGesture: GestureKind | null = null
+
+    // Sync interaction state for SSE subscriber
+    function syncInteractionState() {
+      interactionState.active = activeGesture !== null || editingId !== null || draftState.active
+    }
+    let gridBodyElement: HTMLElement | null = null
+    let draggedBlockOffset = { x: 0, y: 0 }
+    let isOverTrashcan = false
+    let isOverTypesPanel = false
+    let sidebarColElement: HTMLElement | null = null
+    let sidebarElement: HTMLElement | null = null
+    let trashcanElement: HTMLElement | null = null
+
+    // Type-drag state (from appointtype panel drop)
+    let typeDragPreview: { date: number; startMinute: number; dayIdx: number } | null = null
+
+    // Current visible days (computed from offerings) — updated each render
+    let currentVisibleDays: AppData['days'] = []
+    let currentVisibleDayDates: number[] = []
+    // Offering time range for positioning calculations — the grid rows start
+    // at currentOfferingStartMin, so all absolute pixel positions must be
+    // relative to this offset rather than absolute midnight.
+    let currentOfferingStartMin = 0
+    let currentOfferingEndMin = 1440
+
+    // Always-active listeners for type-drag from types panel (client-side only)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
+      document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
+      document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
+
+      // SSE subscription for cross-session invalidation
+      let sseUrl = '/appointment/events'
+      let eventSource = new EventSource(sseUrl)
+      eventSource.addEventListener('invalidate', () => {
+        if (interactionState.active) return
+        window.location.reload()
+      })
+      handle.signal?.addEventListener('abort', () => eventSource.close())
+    }
+
+    return () => {
+      // Client-only rendering — SSR has no DOM so readData() can't work.
+      // During SSR, return a bare wrapper matching the client root tag to
+      // avoid hydration mismatch. The real grid renders only on the client
+      // after hydration reads the embedded JSON from the DOM.
+      if (typeof document === 'undefined') {
+        return <div mix={ssrPlaceholderWrapper}></div>
+      }
+
+      let data = readData()
+      let days = data.days
+      let offerings = data.offerings ?? []
+      let csrfToken = data.csrfToken
+
+      // Compute visible days from offerings
+      let visibleDays = computeVisibleDays(days, offerings)
+
+      // Check if there are any bookable days
+      let hasNoOfferings = visibleDays.length === 0 || offerings.length === 0
+
+      // Compute the set of bookable minutes across all visible days.
+      // Only rows with at least one bookable slot on any day are rendered.
+      let { allBookableMinutes, bookableByDay } = computeBookableSlots(offerings, visibleDays)
+      let offeringRange = computeOfferingTimeRange(offerings)
+
+      // Store visible days and offering range for event handler access
+      currentVisibleDays = visibleDays
+      currentVisibleDayDates = visibleDays.map((d) => d.date)
+      currentOfferingStartMin = offeringRange.startMin
+      currentOfferingEndMin = offeringRange.endMin
+
+      // Use preview blocks if available, otherwise original appointments
+      let sourceBlocks: AppointmentLayoutBlock[] = preview?.blocks ?? data.appointments
+
+      // Group appointments by visible day (O(n) via Map)
+      let byDate = new Map<number, AppointmentLayoutBlock[]>()
+      for (let appt of sourceBlocks) {
+        let list = byDate.get(appt.date)
+        if (!list) {
+          list = []
+          byDate.set(appt.date, list)
+        }
+        list.push(appt)
+      }
+      let groups = visibleDays.map((d) => byDate.get(d.date) ?? [])
+
+      let isDragging = dragState?.active === true
+      let isResizing = resizeState?.active === true
+
+      // Empty state when no offerings exist
+      if (hasNoOfferings) {
+        return (
+          <div mix={emptyStateWrapperStyle}>
+            <p mix={emptyStateTextStyle}>No bookable slots this week.</p>
+          </div>
+        )
+      }
+
+      let numDays = visibleDays.length
+      let gridTemplateCols = `${LABEL_WIDTH}px repeat(${numDays}, 1fr)`
+
+      return (
+        <div
+          aria-label="Weekly appointment grid"
+          data-dragging={isDragging ? 'true' : undefined}
+          data-resizing={isResizing ? 'true' : undefined}
+          mix={gridWrapperStyle}
+        >
+          <div mix={headerRowStyle} style={`grid-template-columns: ${gridTemplateCols};`}>
+            <div mix={cornerCellStyle}>
+              {/* Trashcan — visible during drag */}
+              <div
+                aria-label="Delete appointment"
+                mix={[
+                  trashcanZoneStyle,
+                  isDragging ? trashcanVisibleStyle : undefined,
+                  isOverTrashcan ? trashcanHoverStyle : undefined,
+                  ref((el) => { if (el) trashcanElement = el }),
+                ]}
+              >
+                <svg
+                  aria-hidden="true"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+              </div>
+            </div>
+            {visibleDays.map((day, i) => (
+              <div key={i} mix={dayHeaderStyle}>
+                <span mix={dayNameStyle}>{day.dayName}</span>
+                <span mix={dayDateStyle}>{day.dateStr}</span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            mix={[gridBodyStyle, ref((el) => { if (el) gridBodyElement = el })]}
+            style={`grid-template-columns: ${gridTemplateCols};`}
+          >
+            <div mix={timeColumnStyle}>
+              {allBookableMinutes.map((minute: number) => {
+                let isHour = minute % 60 === 0
+                let isHalf = minute % 60 === 30
+                return (
+                  <div key={`t${minute}`} mix={timeSlotRowStyle}>
+                    {isHour && minute > 0 ? (
+                      <span mix={timeLabelStyle}>{minute / 60}:00</span>
+                    ) : isHalf ? (
+                      <span mix={subTimeLabelStyle}>:30</span>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+
+            {visibleDays.map((day, dayIdx) => {
+              let date = day.date
+              return (
+              <div key={`day${date}`} mix={dayColumnStyle} style={`min-height: ${(offeringRange.endMin - offeringRange.startMin) / 60 * SLOT_HEIGHT}px;`}>
+                {allBookableMinutes.map((minute: number) => {
+                  let isHour = minute % 60 === 0
+                  let dayBookable = bookableByDay.get(date)
+                  let bookable = dayBookable?.has(minute) ?? false
+                  return (
+                    <div
+                      key={`m${minute}`}
+                      mix={[
+                        isHour ? hourLineStyle : subHourLineStyle,
+                        bookable ? undefined : nonOfferingSlotStyle,
+                        bookable ? on('click', () => startDraft(dayIdx, minute)) : undefined,
+                      ]}
+                    />
+                  )
+                })}
+
+                {groups[dayIdx].map((appt) => {
+                  let isEditing = editingId === appt.id
+                  let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
+                  let isRestrictedBlock = isForeign && !data.isAdmin
+                  // Position relative to offering start — grid rows begin at currentOfferingStartMin
+                  let topPx = ((appt.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT
+                  let heightPx = Math.max(
+                    isEditing ? 84 :
+                    ((appt.end_min - appt.start_min) / 60) * SLOT_HEIGHT,
+                  )
+                  let isBlockDragging = isDragging && dragState?.blockId === appt.id
+                  let isBlockResizing = isResizing && resizeState?.blockId === appt.id
+                  let isHovered = hoveredBlockId === appt.id && !isDragging && !isResizing && !isRestrictedBlock
+
+                  return (
+                    <div
+                      key={`a${appt.id}`}
+                      data-appointment-block="true"
+                      data-block-id={appt.id}
+                      mix={[
+                        blockBoxStyle,
+                        isRestrictedBlock ? foreignBlockStyle : undefined,
+                        isBlockDragging ? draggingBlockStyle : undefined,
+                        isHovered ? hoveredBlockStyle : undefined,
+                        isEditing ? editingBlockStyle : undefined,
+                        on('pointerdown', (e) => handleBlockPointerDown(appt, e)),
+                        on('mouseenter', () => {
+                          if (activeGesture) return
+                          if (isRestrictedBlock) return
+                          hoveredBlockId = appt.id
+                          handle.update()
+                        }),
+                        on('mouseleave', () => {
+                          if (isRestrictedBlock) return
+                          hoveredBlockId = null
+                          handle.update()
+                        }),
+                      ]}
+                      style={`top: ${topPx}px; height: ${heightPx}px; transform: ${isBlockDragging ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)` : 'none'};`}
+                      title={undefined}
+                    >
+                      {!isEditing ? (
+                        data.isAdmin && appt.user_email && !isRestrictedBlock ? (
+                          <div mix={adminBlockInnerStyle}>
+                            <span mix={adminEmailStyle}>{appt.user_email}</span>
+                            <span
+                              mix={[
+                                blockTitleStyle,
+                                isHovered ? expandedTitleStyle : undefined,
+                              ]}
+                            >
+                              {appt.title}
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            mix={[
+                              blockTitleStyle,
+                              isHovered ? expandedTitleStyle : undefined,
+                            ]}
+                          >
+                            {isRestrictedBlock ? '' : appt.title}
+                          </span>
+                        )
+                      ) : null}
+                      <textarea
+                        aria-label="Appointment title"
+                        rows={2}
+                        defaultValue={appt.title}
+                        mix={[
+                          inputStyle,
+                          isEditing ? undefined : hiddenStyle,
+                          ref((el) => {
+                            if (el) {
+                              renameInputs.set(appt.id, el)
+                            } else {
+                              renameInputs.delete(appt.id)
+                            }
+                          }),
+                          on('keydown', (e: any) => {
+                            if (e.key === 'Escape') { cancelEdit(); return }
+                            if (e.key === 'Enter') {
+                              if (e.shiftKey) {
+                                e.preventDefault()
+                                commitEdit(appt, csrfToken)
+                              }
+                              return
+                            }
+                          }),
+                          on('blur', () => cancelEdit()),
+                        ]}
+                      />
+                      {isEditing ? (
+                        <div mix={draftButtonsStyle}>
+                          <button
+                            type="button"
+                            aria-label="Save appointment"
+                            mix={[draftSaveButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); commitEdit(appt, csrfToken) })]}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Cancel appointment"
+                            mix={[draftCancelButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); cancelEdit() })]}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : null}
+                      {/* Resize handles — only when own block, not dragging or editing */}
+                      {!isRestrictedBlock && !isDragging && !isEditing ? (
+                        <>
+                          <div
+                            aria-label="Resize start"
+                            mix={[
+                              resizeHandleStyle,
+                              startResizeHandleStyle,
+                              isBlockResizing && resizeState?.edge === 'start' ? activeResizeHandleStyle : undefined,
+                              on('pointerdown', (e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                startResize(appt, 'start', e)
+                              }),
+                            ]}
+                          />
+                          <div
+                            aria-label="Resize end"
+                            mix={[
+                              resizeHandleStyle,
+                              endResizeHandleStyle,
+                              isBlockResizing && resizeState?.edge === 'end' ? activeResizeHandleStyle : undefined,
+                              on('pointerdown', (e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                startResize(appt, 'end', e)
+                              }),
+                            ]}
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                  )
+                })}
+
+                {/* Ghost block during drag — show where dropped block will land */}
+                {isDragging && preview ? (
+                  preview.blocks
+                    .filter((b) => b.id === dragState?.blockId)
+                    .map((ghost) => (
+                      <div
+                        key="ghost"
+                        mix={ghostBlockStyle}
+                        style={{
+                          top: `${((ghost.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
+                          height: `${Math.max(20, ((ghost.end_min - ghost.start_min) / 60) * SLOT_HEIGHT)}px`,
+                        }}
+                      />
+                    ))
+                ) : null}
+
+                {/* Ghost block during type-drag from types panel */}
+                {typeDragPreview && typeDragPreview.dayIdx === dayIdx && !isDragging && !isResizing ? (
+                  <div
+                    key="type-ghost"
+                    mix={typeDragGhostStyle}
+                    style={{
+                      top: `${((typeDragPreview.startMinute - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
+                      height: `${Math.max(20, (15 / 60) * SLOT_HEIGHT)}px`,
+                    }}
+                  />
+                ) : null}
+
+                {draftState.active && draftState.dayIdx === dayIdx ? (
+                  <div
+                    key="draft"
+                    mix={draftBlockStyle}
+                    style={`top: ${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px; height: ${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px;`}
+                  >
+                    <textarea
+                      aria-label="New appointment title"
+                      rows={2}
+                      placeholder="Title"
+                      mix={[
+                        inputStyle,
+                        ref((el) => { if (el instanceof HTMLTextAreaElement) draftInput = el }),
+                          on('keydown', (e: any) => {
+                          if (e.key === 'Escape') { cancelDraft(); return }
+                          if (e.key === 'Enter' && e.shiftKey) {
+                            e.preventDefault()
+                            commitDraft(csrfToken)
+                          }
+                        }),
+                        on('blur', () => cancelDraft()),
+                      ]}
+                    />
+                    <div mix={draftButtonsStyle}>
+                      <button
+                        type="button"
+                        aria-label="Save appointment"
+                        mix={[draftSaveButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); commitDraft(csrfToken) })]}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Cancel appointment"
+                        mix={[draftCancelButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); cancelDraft() })]}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              )
+            })}
+          </div>
+
+        </div>
+      )
+    }
+
+    // ── Draft handlers ──
+
+    function startDraft(dayIdx: number, startMin: number) {
+      if (draftState.active || activeGesture) return
+      draftState.active = true
+      syncInteractionState()
+      draftState.dayIdx = dayIdx
+      draftState.start = startMin
+      draftState.end = startMin + 15
+      handle.update()
+      requestAnimationFrame(() => draftInput?.focus())
+    }
+
+    function cancelDraft() {
+      draftState.active = false
+      syncInteractionState()
+      handle.update()
+    }
+
+    async function commitDraft(csrfToken: string) {
+      if (!draftState.active) return
+      let title = (draftInput?.value ?? '').trim()
+      if (!title) {
+        cancelDraft()
+        return
+      }
+
+      let date = currentVisibleDays[draftState.dayIdx]?.date ?? 0
+      let start = draftState.start
+      let end = draftState.end
+      let resourceId = readData().selectedResourceId
+
+      draftState.active = false
+      syncInteractionState()
+      handle.update()
+
+      try {
+        let response = await fetch('/appointment', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Csrf-Token': csrfToken,
+          },
+          body: JSON.stringify({ title, date, start_min: start, end_min: end, resource_id: resourceId }),
+          signal: handle.signal,
+        })
+        if (response.ok || response.status === COLLISION_STATUS || response.status === 403) {
+          handleMutationResponse(response)
+        }
+      } catch {
+        // silent
+      }
+    }
+
+    // ── Edit handlers ──
+
+    function startEdit(appt: { id: number; title: string }) {
+      if (editingId !== null || activeGesture) return
+      editingId = appt.id
+      syncInteractionState()
+      handle.update()
+      requestAnimationFrame(() => {
+        let input = renameInputs.get(appt.id)
+        if (input) {
+          input.value = appt.title
+          input.focus()
+          input.select()
+        }
+      })
+    }
+
+    function cancelEdit() {
+      editingId = null
+      syncInteractionState()
+      handle.update()
+    }
+
+    function getEditValue(apptId: number): string {
+      let input = renameInputs.get(apptId)
+      return input ? input.value.trim() : ''
+    }
+
+    function commitEdit(
+      appt: { id: number; title: string },
+      csrfToken: string,
+    ) {
+      if (editingId !== appt.id) return
+
+      let newTitle = getEditValue(appt.id)
+      if (!newTitle || newTitle === appt.title) {
+        editingId = null
+        syncInteractionState()
+        handle.update()
+        return
+      }
+
+      let id = appt.id
+      editingId = null
+      syncInteractionState()
+      handle.update()
+
+      fetch(`/appointment/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': csrfToken,
+        },
+        body: JSON.stringify({ title: newTitle }),
+      })
+        .then((r) => {
+          if (handleMutationResponse(r)) return
+        })
+        .catch(() => {})
+    }
+
+    // ── Block pointer dispatch ──
+
+    function handleBlockPointerDown(
+      appt: AppointmentLayoutBlock,
+      event: PointerEvent,
+    ) {
+      // Ignore if gesture active, draft active, editing, or right-click
+      if (activeGesture || draftState.active || editingId !== null || event.button !== 0) return
+      // Ignore if target is an input or button
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) return
+
+      // Foreign blocks are read-only for non-admin users
+      let data = readData()
+      if (!data.isAdmin && data.currentUserId > 0 && appt.user_id !== data.currentUserId) return
+
+      // Detect double-click via timing (preventDefault kills native dblclick)
+      let now = Date.now()
+      if (now - lastClick.time < 350 && lastClick.blockId === appt.id) {
+        lastClick.time = 0
+        startEdit(appt)
+        return
+      }
+      lastClick.time = now
+      lastClick.blockId = appt.id
+
+      event.preventDefault()
+      startDrag(appt, event)
+    }
+
+    // ── Drag handlers ──
+
+    function startDrag(appt: AppointmentLayoutBlock, event: PointerEvent) {
+      if (!gridBodyElement) return
+
+      let grid = measureGrid(gridBodyElement)
+      let data = readData()
+      let dayIdx = currentVisibleDays.findIndex((d) => d.date === appt.date)
+      if (dayIdx === -1) dayIdx = 0
+
+      let blockLeft = grid.left + grid.labelWidth + dayIdx * grid.dayWidth
+      let blockTop = grid.top + ((appt.start_min - currentOfferingStartMin) / 60) * grid.rowHeight
+
+      dragState = {
+        active: true,
+        blockId: appt.id,
+        grid,
+        moved: false,
+        offsetX: event.clientX - blockLeft,
+        offsetY: event.clientY - blockTop,
+        originalBlocks: data.appointments.map(copyAppt),
+        placement: { date: appt.date, startMinute: appt.start_min },
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+      }
+      activeGesture = 'drag'
+      syncInteractionState()
+      bindWindowEvents()
+      handle.update()
+    }
+
+    function moveDrag(event: PointerEvent) {
+      if (!dragState || dragState.pointerId !== event.pointerId) return
+
+      let distance = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY)
+      if (!dragState.moved && distance < DRAG_THRESHOLD) return
+
+      dragState.moved = true
+      event.preventDefault()
+
+      // Check if pointer is over the trashcan zone
+      if (trashcanElement) {
+        let rect = trashcanElement.getBoundingClientRect()
+        let overTrashcan =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        if (overTrashcan !== isOverTrashcan) {
+          isOverTrashcan = overTrashcan
+          if (preview) preview = null
+          handle.update()
+        }
+      }
+
+      // Check if pointer is over the left column below the sidebar (types panel area)
+      if (!sidebarColElement) {
+        sidebarColElement = document.querySelector<HTMLElement>('[data-sidebar-col]')
+      }
+      if (!sidebarElement) {
+        sidebarElement = document.querySelector<HTMLElement>('[data-appointment-sidebar]')
+      }
+      if (sidebarColElement && sidebarElement) {
+        let colRect = sidebarColElement.getBoundingClientRect()
+        let sidebarRect = sidebarElement.getBoundingClientRect()
+        let overPanel =
+          event.clientX >= colRect.left &&
+          event.clientX <= colRect.right &&
+          event.clientY > sidebarRect.bottom &&
+          event.clientY <= colRect.bottom
+        if (overPanel !== isOverTypesPanel) {
+          isOverTypesPanel = overPanel
+          setPanelDropActive(overPanel)
+          if (preview) preview = null
+          handle.update()
+        }
+      }
+
+      // When over trashcan or types panel, skip placement preview.
+      // Still update draggedBlockOffset so the block tracks the cursor visually.
+      if (isOverTrashcan || isOverTypesPanel) {
+        if (isOverTypesPanel) {
+          let gs = dragState!
+          let snappedDay = currentVisibleDays.findIndex((d) => d.date === gs.placement.date)
+          if (snappedDay === -1) snappedDay = 0
+          let snappedBlockLeft = gs.grid.left + gs.grid.labelWidth + snappedDay * gs.grid.dayWidth
+          let snappedBlockTop = gs.grid.top + (gs.placement.startMinute / 60) * gs.grid.rowHeight
+          draggedBlockOffset.x = (event.clientX - gs.offsetX) - snappedBlockLeft
+          draggedBlockOffset.y = (event.clientY - gs.offsetY) - snappedBlockTop
+          handle.update()
+        }
+        return
+      }
+
+      let nextPlacement = pointerToPlacement(event, dragState.grid, currentVisibleDays)
+      if (!nextPlacement) return
+
+      // Compute visual offset for sub-cell snapping
+      let snappedDay = currentVisibleDays.findIndex((d) => d.date === nextPlacement.date)
+      if (snappedDay === -1) snappedDay = 0
+      let snappedBlockLeft = dragState.grid.left + dragState.grid.labelWidth + snappedDay * dragState.grid.dayWidth
+      let snappedBlockTop = dragState.grid.top + (nextPlacement.startMinute / 60) * dragState.grid.rowHeight
+      draggedBlockOffset.x = (event.clientX - dragState.offsetX) - snappedBlockLeft
+      draggedBlockOffset.y = (event.clientY - dragState.offsetY) - snappedBlockTop
+
+      // Check if placement actually changed
+      if (
+        nextPlacement.date === dragState.placement.date &&
+        nextPlacement.startMinute === dragState.placement.startMinute
+      ) {
+        handle.update()
+        return
+      }
+
+      try {
+        let nextPreview = previewMoveBlock(
+          dragState.originalBlocks,
+          dragState.blockId,
+          nextPlacement,
+          { minimumMinute: currentOfferingStartMin, dayMinutes: currentOfferingEndMin },
+        )
+
+        if (nextPreview.unresolved) {
+          handle.update()
+          return
+        }
+
+        dragState.placement = nextPlacement
+        preview = nextPreview
+        handle.update()
+      } catch {
+        cancelDrag()
+      }
+    }
+
+    function cancelDrag() {
+      unbindWindowEvents()
+      draggedBlockOffset.x = 0
+      draggedBlockOffset.y = 0
+      preview = null
+      dragState = null
+      activeGesture = null
+      isOverTrashcan = false
+      isOverTypesPanel = false
+      setPanelDropActive(false)
+      sidebarColElement = null
+      sidebarElement = null
+      handle.update()
+    }
+
+    async function endDrag(event: PointerEvent) {
+      if (!dragState || dragState.pointerId !== event.pointerId) return
+
+      unbindWindowEvents()
+
+      let blockId = dragState.blockId
+      let wasMoved = dragState.moved
+      let wasOverTrashcan = isOverTrashcan
+      let wasOverTypesPanel = isOverTypesPanel
+      // Capture title before dragState is nulled (used in types panel drop)
+      let draggedTitle = dragState.originalBlocks.find((b) => b.id === blockId)?.title
+
+      draggedBlockOffset.x = 0
+      draggedBlockOffset.y = 0
+      dragState = null
+      isOverTrashcan = false
+      isOverTypesPanel = false
+      setPanelDropActive(false)
+
+      // Drop on trashcan → delete appointment
+      if (wasOverTrashcan && blockId) {
+        activeGesture = null
+        syncInteractionState()
+        let csrfToken = readData().csrfToken
+        preview = null
+        handle.update()
+        fetch(`/appointment/${blockId}`, {
+          method: 'DELETE',
+          headers: {
+            'Accept': 'application/json',
+            'X-Csrf-Token': csrfToken,
+          },
+        })
+          .then((r) => {
+            if (handleMutationResponse(r)) return
+          })
+          .catch(() => {})
+        return
+      }
+
+      // Drop on types panel → create type from appointment title
+      if (wasOverTypesPanel && blockId && draggedTitle) {
+        let csrfToken = readData().csrfToken
+        preview = null
+        handle.update()
+        fetch('/appointment/types', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Csrf-Token': csrfToken,
+          },
+          body: JSON.stringify({ title: draggedTitle }),
+          signal: handle.signal,
+        })
+          .then((r) => {
+            if (r.ok) window.location.reload()
+            else alert('Fehler beim Erstellen des Typs.')
+          })
+          .catch((err) => {
+            if (err instanceof DOMException && err.name === 'AbortError') return
+            alert('Fehler beim Erstellen des Typs.')
+          })
+        return
+      }
+
+      let finalPreview = wasMoved && preview && !preview.unresolved ? preview : null
+
+      if (finalPreview) {
+        event.preventDefault()
+        // Save ALL changed blocks from solver result — wait for all PUTs before reload
+        let saves: Promise<Response>[] = []
+        let csrfToken = readData().csrfToken
+        for (let change of finalPreview.changes) {
+          if ((change.kind === 'moved' || change.kind === 'resized') && change.after) {
+            saves.push(saveBlockPosition(change.id, change.after, csrfToken))
+          }
+        }
+        preview = null
+        handle.update()
+        if (saves.length > 0) {
+          let results = await Promise.allSettled(saves)
+          activeGesture = null
+          syncInteractionState()
+          handleBatchMutationResponses(results)
+        } else {
+          activeGesture = null
+          syncInteractionState()
+        }
+        return
+      }
+
+      if (preview) {
+        activeGesture = null
+        syncInteractionState()
+        preview = null
+        handle.update()
+        return
+      }
+
+      activeGesture = null
+      syncInteractionState()
+      handle.update()
+    }
+
+    // ── Resize handlers ──
+
+    function startResize(
+      appt: AppointmentLayoutBlock,
+      edge: 'start' | 'end',
+      event: PointerEvent,
+    ) {
+      if (activeGesture || !gridBodyElement) return
+      try {
+        let grid = measureGrid(gridBodyElement)
+        let data = readData()
+
+        resizeState = {
+          active: true,
+          blockId: appt.id,
+          edge,
+          grid,
+          moved: false,
+          offsetY: event.clientY - (grid.top + (((edge === 'end' ? appt.end_min : appt.start_min) - currentOfferingStartMin) / 60) * grid.rowHeight),
+          originalBlock: copyAppt(appt),
+          originalBlocks: data.appointments.map(copyAppt),
+          pointerId: event.pointerId,
+          startY: event.clientY,
+        }
+        activeGesture = 'resize'
+        syncInteractionState()
+        bindWindowEvents()
+      } catch (e) {
+        console.error('[AppointmentGrid] startResize error:', e)
+        cancelResize()
+        return
+      }
+      handle.update()
+    }
+
+    function moveResize(event: PointerEvent) {
+      if (!resizeState || resizeState.pointerId !== event.pointerId) return
+
+      let distance = Math.abs(event.clientY - resizeState.startY)
+      if (!resizeState.moved && distance < DRAG_THRESHOLD) return
+
+      resizeState.moved = true
+      event.preventDefault()
+
+      try {
+        let edgeMinute = pointerToResizeMinute(event, resizeState)
+        let nextPreview = previewResizeBlockTime(
+          resizeState.originalBlocks,
+          resizeState.blockId,
+          { edge: resizeState.edge, minute: edgeMinute },
+          { minimumMinute: currentOfferingStartMin, dayMinutes: currentOfferingEndMin },
+        )
+
+        if (nextPreview.unresolved) return
+
+        preview = nextPreview
+        handle.update()
+      } catch {
+        cancelResize()
+      }
+    }
+
+    function cancelResize() {
+      unbindWindowEvents()
+      preview = null
+      resizeState = null
+      activeGesture = null
+      syncInteractionState()
+      handle.update()
+    }
+
+    async function endResize(event: PointerEvent) {
+      if (!resizeState || resizeState.pointerId !== event.pointerId) return
+
+      unbindWindowEvents()
+      let finalPreview = resizeState.moved && preview && !preview.unresolved ? preview : null
+      resizeState = null
+
+      if (finalPreview) {
+        event.preventDefault()
+        let saves: Promise<Response>[] = []
+        let csrfToken = readData().csrfToken
+        for (let change of finalPreview.changes) {
+          if ((change.kind === 'resized' || change.kind === 'moved') && change.after) {
+            saves.push(saveBlockPosition(change.id, change.after, csrfToken))
+          }
+        }
+        preview = null
+        handle.update()
+        if (saves.length > 0) {
+          let results = await Promise.allSettled(saves)
+          activeGesture = null
+          syncInteractionState()
+          handleBatchMutationResponses(results)
+        } else {
+          activeGesture = null
+          syncInteractionState()
+        }
+        return
+      }
+
+      if (preview) {
+        activeGesture = null
+        syncInteractionState()
+        preview = null
+        handle.update()
+        return
+      }
+
+      handle.update()
+    }
+
+    // ── Window event binding ──
+
+    function bindWindowEvents() {
+      window.addEventListener('pointermove', onWindowPointerMove)
+      window.addEventListener('pointerup', onWindowPointerEnd)
+      window.addEventListener('pointercancel', onWindowPointerCancel)
+    }
+
+    function unbindWindowEvents() {
+      window.removeEventListener('pointermove', onWindowPointerMove)
+      window.removeEventListener('pointerup', onWindowPointerEnd)
+      window.removeEventListener('pointercancel', onWindowPointerCancel)
+    }
+
+    function onWindowPointerMove(event: PointerEvent) {
+      if (activeGesture === 'drag') {
+        moveDrag(event)
+      } else if (activeGesture === 'resize') {
+        moveResize(event)
+      }
+    }
+
+    function onWindowPointerEnd(event: PointerEvent) {
+      if (activeGesture === 'drag') {
+        endDrag(event)
+      } else if (activeGesture === 'resize') {
+        endResize(event)
+      }
+    }
+
+    function onWindowPointerCancel(event: PointerEvent) {
+      // pointercancel = system interrupted gesture — revert, don't save
+      if (activeGesture === 'drag') {
+        cancelDrag()
+      } else if (activeGesture === 'resize') {
+        cancelResize()
+      }
+    }
+
+    // ── Save ──
+
+    function saveBlockPosition(
+      id: number,
+      after: AppointmentLayoutBlock,
+      csrfToken: string,
+    ): Promise<Response> {
+      return fetch(`/appointment/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          date: after.date,
+          start_min: after.start_min,
+          end_min: after.end_min,
+        }),
+      })
+    }
+
+    // ── Type-drag handlers (from appointtype panel) ──
+
+    function onTypeDragMove(event: PointerEvent) {
+      let state = getTypeDragState()
+      if (activeGesture || draftState.active || editingId !== null) return
+      if (!state?.active || !gridBodyElement) return
+
+      let grid = measureGrid(gridBodyElement)
+
+      // Compute snapped grid position (cursor point, no offset since not dragging a block)
+      let rawDay = (event.clientX - grid.left - grid.labelWidth) / grid.dayWidth
+      let dayIdx = clamp(Math.round(rawDay), 0, currentVisibleDays.length - 1)
+      let date = currentVisibleDays[dayIdx]?.date
+      if (!date) { clearTypeDragPreview(); return }
+
+      let rawMinute = ((event.clientY - grid.top) / grid.rowHeight) * 60 + currentOfferingStartMin
+      let startMinute = clamp(Math.round(rawMinute / 15) * 15, currentOfferingStartMin, currentOfferingEndMin - 15)
+
+      if (
+        typeDragPreview &&
+        typeDragPreview.date === date &&
+        typeDragPreview.startMinute === startMinute
+      ) return
+
+      typeDragPreview = { date, startMinute, dayIdx }
+      handle.update()
+    }
+
+    function onTypeDragEnd(_event: PointerEvent) {
+      let state = getTypeDragState()
+      if (!state?.active) return
+
+      let preview = typeDragPreview
+      clearTypeDragPreview()
+
+      if (preview) {
+        let data = readData()
+        let csrfToken = data.csrfToken
+        fetch('/appointment', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Csrf-Token': csrfToken,
+          },
+          body: JSON.stringify({
+            typeId: state.typeId,
+            date: preview.date,
+            start_min: preview.startMinute,
+            resource_id: data.selectedResourceId,
+          }),
+          signal: handle.signal,
+        })
+          .then((r) => {
+            if (handleMutationResponse(r)) return
+            alert('Fehler beim Erstellen des Termins.')
+          })
+          .catch(() => alert('Fehler beim Erstellen des Termins.'))
+      }
+
+      setTypeDragState(null)
+    }
+
+    function onTypeDragCancel() {
+      clearTypeDragPreview()
+      if (getTypeDragState()) setTypeDragState(null)
+    }
+
+    function clearTypeDragPreview() {
+      if (typeDragPreview) {
+        typeDragPreview = null
+        handle.update()
+      }
+    }
+
+    // ── Grid measurement ──
+
+    function measureGrid(element: HTMLElement): GridMeasurement {
+      let rect = element.getBoundingClientRect()
+      let numDays = currentVisibleDays.length || 1
+      return {
+        dayWidth: Math.max(1, (rect.width - LABEL_WIDTH) / numDays),
+        labelWidth: LABEL_WIDTH,
+        left: rect.left,
+        rowHeight: SLOT_HEIGHT,
+        top: rect.top,
+      }
+    }
+
+    // ── Pointer helpers ──
+
+    function pointerToPlacement(
+      event: PointerEvent,
+      grid: GridMeasurement,
+      days: AppData['days'],
+    ): { date: number; startMinute: number } | null {
+      let blockLeft = event.clientX - (dragState?.offsetX ?? 0)
+      let blockTop = event.clientY - (dragState?.offsetY ?? 0)
+
+      let rawDay = (blockLeft - grid.left - grid.labelWidth) / grid.dayWidth
+      let dayIdx = clamp(Math.round(rawDay), 0, days.length - 1)
+      let date = days[dayIdx]?.date
+      if (!date) return null
+
+      // Grid rows begin at currentOfferingStartMin, so add the offset
+      let rawMinute = ((blockTop - grid.top) / grid.rowHeight) * 60 + currentOfferingStartMin
+      let snappedMinute = Math.round(rawMinute / 15) * 15
+      let startMinute = clamp(snappedMinute, currentOfferingStartMin, currentOfferingEndMin - 15)
+
+      return { date, startMinute }
+    }
+
+    function pointerToResizeMinute(event: PointerEvent, state: ResizeState): number {
+      let edgeY = event.clientY - state.offsetY
+      // Grid rows begin at currentOfferingStartMin, so add the offset
+      let rawMinute = ((edgeY - state.grid.top) / state.grid.rowHeight) * 60 + currentOfferingStartMin
+      let snapped = Math.round(rawMinute / 15) * 15
+
+      if (state.edge === 'start') {
+        return clamp(snapped, currentOfferingStartMin, state.originalBlock.end_min - 15)
+      }
+      return clamp(snapped, state.originalBlock.start_min + 15, currentOfferingEndMin)
+    }
+  },
+)
+
+import { clamp } from '../lib/math.ts'
+
+function copyAppt(block: AppointmentLayoutBlock): AppointmentLayoutBlock {
+  return { ...block }
+}
+
+// ── Styles ──
+
+const gridWrapperStyle = css({
+  display: 'grid',
+  gridTemplateRows: 'auto minmax(0, 1fr)',
+  '&[data-dragging="true"], &[data-dragging="true"] *': {
+    cursor: 'grabbing !important',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+  },
+  '&[data-resizing="true"], &[data-resizing="true"] *': {
+    cursor: 'ns-resize !important',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+  },
+})
+
+const headerRowStyle = css({
+  display: 'grid',
+  gridTemplateColumns: `${LABEL_WIDTH}px repeat(7, 1fr)`,
+  borderBottom: `1px solid ${theme.colors.border.strong}`,
+  backgroundColor: theme.surface.lvl0,
+  position: 'sticky',
+  top: 0,
+  zIndex: 2,
+})
+
+const cornerCellStyle = css({
+  alignItems: 'center',
+  borderRight: `1px solid ${theme.colors.border.subtle}`,
+  display: 'flex',
+  justifyContent: 'center',
+  padding: `${theme.space.xs} 0`,
+})
+
+const dayHeaderStyle = css({
+  alignItems: 'center',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0px',
+  padding: `${theme.space.xs} 0`,
+  textAlign: 'center',
+})
+
+const dayNameStyle = css({
+  color: theme.colors.text.primary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const dayDateStyle = css({
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xxs,
+})
+
+const gridBodyStyle = css({
+  display: 'grid',
+  gridTemplateColumns: `${LABEL_WIDTH}px repeat(7, 1fr)`,
+  borderBottom: `1px solid ${theme.colors.border.subtle}`,
+  position: 'relative',
+})
+
+const timeColumnStyle = css({
+  position: 'relative',
+})
+
+const timeSlotRowStyle = css({
+  height: `${SUB_SLOT_HEIGHT}px`,
+  position: 'relative',
+})
+
+const timeLabelStyle = css({
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xxs,
+  paddingRight: theme.space.xs,
+  position: 'absolute',
+  right: 0,
+  top: '-6px',
+})
+
+const subTimeLabelStyle = css({
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xxs,
+  paddingRight: theme.space.xs,
+  position: 'absolute',
+  right: 0,
+  top: '-3px',
+  opacity: 0.4,
+})
+
+const dayColumnStyle = css({
+  borderLeft: `1px solid ${theme.colors.border.subtle}`,
+  minHeight: `${HOURS * SLOT_HEIGHT}px`,
+  position: 'relative',
+})
+
+const hourLineStyle = css({
+  borderTop: `1px solid ${theme.colors.border.default}`,
+  height: `${SUB_SLOT_HEIGHT}px`,
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: theme.surface.lvl2,
+  },
+})
+
+const subHourLineStyle = css({
+  borderTop: `1px dashed ${theme.colors.border.subtle}`,
+  height: `${SUB_SLOT_HEIGHT}px`,
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: theme.surface.lvl2,
+  },
+})
+
+const blockBoxStyle = css({
+  alignItems: 'center',
+  backgroundColor: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.sm,
+  boxShadow: theme.shadow.xs,
+  color: theme.colors.text.primary,
+  cursor: 'pointer',
+  display: 'flex',
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.medium,
+  justifyContent: 'center',
+  left: '2px',
+  margin: '1px 0',
+  overflow: 'hidden',
+  padding: `0 ${theme.space.xs}`,
+  position: 'absolute',
+  right: '2px',
+  textAlign: 'center',
+  touchAction: 'none',
+  zIndex: 1,
+})
+
+const foreignBlockStyle = css({
+  backgroundColor: 'rgb(243 232 255 / 0.8)',
+  borderColor: 'rgb(192 132 252)',
+  color: 'rgb(107 33 168)',
+  cursor: 'default',
+})
+
+const draggingBlockStyle = css({
+  opacity: 0.6,
+  zIndex: 4,
+  transition: 'none !important',
+  pointerEvents: 'none',
+})
+
+const blockTitleStyle = css({
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+})
+
+const adminBlockInnerStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  height: '100%',
+  overflow: 'hidden',
+})
+
+const adminEmailStyle = css({
+  fontSize: '10px',
+  lineHeight: 1.2,
+  color: theme.colors.text.secondary,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
+  padding: '1px 0',
+})
+
+const hoveredBlockStyle = css({
+  boxShadow: theme.shadow.md,
+  overflow: 'visible',
+  transition: 'box-shadow 0.15s ease, overflow 0.15s ease',
+  zIndex: 10,
+})
+
+const expandedTitleStyle = css({
+  display: 'block',
+  overflow: 'visible',
+  whiteSpace: 'pre-wrap',
+})
+
+const editingBlockStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'stretch',
+  justifyContent: 'flex-start',
+  overflow: 'visible',
+  padding: '4px',
+  gap: '4px',
+  zIndex: 11,
+})
+
+const hiddenStyle = css({
+  display: 'none',
+})
+
+const inputStyle = css({
+  background: 'transparent',
+  border: 0,
+  color: theme.colors.text.primary,
+  font: 'inherit',
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.medium,
+  lineHeight: theme.lineHeight.tight,
+  minHeight: '32px',
+  outline: 'none',
+  overflowY: 'auto',
+  padding: `${theme.space.px} 0`,
+  resize: 'none',
+  textAlign: 'center',
+  whiteSpace: 'pre-wrap',
+  width: '100%',
+  wordBreak: 'break-word',
+})
+
+const draftBlockStyle = css({
+  backgroundColor: theme.surface.lvl1,
+  border: `2px dashed ${theme.colors.text.secondary}`,
+  borderRadius: theme.radius.md,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  left: '2px',
+  margin: '1px 0',
+  opacity: 0.85,
+  padding: '6px 4px',
+  position: 'absolute',
+  right: '2px',
+  zIndex: 3,
+})
+
+const draftButtonsStyle = css({
+  display: 'flex',
+  gap: '4px',
+  justifyContent: 'flex-end',
+})
+
+const draftSaveButtonStyle = css({
+  background: theme.colors.action.primary.background,
+  border: 0,
+  borderRadius: theme.radius.sm,
+  color: theme.colors.action.primary.foreground,
+  cursor: 'pointer',
+  fontSize: theme.fontSize.xs,
+  lineHeight: theme.lineHeight.normal,
+  padding: '2px 8px',
+})
+
+const draftCancelButtonStyle = css({
+  background: 'transparent',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  fontSize: theme.fontSize.xs,
+  lineHeight: theme.lineHeight.normal,
+  padding: '2px 8px',
+})
+
+const ghostBlockStyle = css({
+  backgroundColor: 'rgb(209 213 219 / 0.72)',
+  border: `2px dashed ${theme.colors.text.secondary}`,
+  borderRadius: theme.radius.md,
+  left: '2px',
+  margin: '1px 0',
+  opacity: 0.5,
+  position: 'absolute',
+  right: '2px',
+  pointerEvents: 'none',
+  zIndex: 2,
+})
+
+const typeDragGhostStyle = css({
+  backgroundColor: 'rgb(147 197 253 / 0.5)',
+  border: `2px dashed ${theme.colors.action.primary.background}`,
+  borderRadius: theme.radius.md,
+  left: '2px',
+  margin: '1px 0',
+  opacity: 0.55,
+  position: 'absolute',
+  right: '2px',
+  pointerEvents: 'none',
+  zIndex: 2,
+})
+
+const resizeHandleStyle = css({
+  cursor: 'ns-resize',
+  height: '12px',
+  left: theme.space.xs,
+  opacity: 0,
+  position: 'absolute',
+  right: theme.space.xs,
+  touchAction: 'none',
+  zIndex: 3,
+  '&::before': {
+    backgroundColor: theme.colors.focus.ring,
+    borderRadius: '999px',
+    content: '""',
+    height: '3px',
+    left: '50%',
+    position: 'absolute',
+    top: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '28px',
+  },
+  '&:hover': {
+    opacity: 1,
+  },
+})
+
+const activeResizeHandleStyle = css({
+  opacity: 1,
+})
+
+const startResizeHandleStyle = css({
+  top: 0,
+  transform: 'translateY(-4px)',
+})
+
+const endResizeHandleStyle = css({
+  bottom: 0,
+  transform: 'translateY(4px)',
+})
+
+const trashcanZoneStyle = css({
+  alignItems: 'center',
+  backgroundColor: 'transparent',
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.muted,
+  display: 'flex',
+  height: '100%',
+  justifyContent: 'center',
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 0.2s, background-color 0.2s, color 0.2s',
+  width: '100%',
+})
+
+const trashcanVisibleStyle = css({
+  opacity: 1,
+  pointerEvents: 'auto',
+})
+
+const trashcanHoverStyle = css({
+  backgroundColor: theme.colors.action.danger.background,
+  color: theme.colors.action.danger.foreground,
+})
+
+const nonOfferingSlotStyle = css({
+  backgroundColor: 'rgb(254 226 226 / 0.55)',
+  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(252 165 165 / 0.3) 8px, rgb(252 165 165 / 0.3) 16px)',
+  cursor: 'default',
+  borderTop: `1px solid rgb(252 165 165 / 0.6)`,
+  '&:hover': {
+    backgroundColor: 'rgb(252 165 165 / 0.5)',
+    backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(239 68 68 / 0.25) 8px, rgb(239 68 68 / 0.25) 16px)',
+  },
+})
+
+const emptyStateWrapperStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '200px',
+  padding: theme.space.xl,
+})
+
+const emptyStateTextStyle = css({
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.md,
+})
+
+const ssrPlaceholderWrapper = css({
+  minHeight: '200px',
+})

@@ -1,0 +1,146 @@
+import { clientEntry, ref, type Handle } from 'remix/ui'
+import * as menu from 'remix/ui/menu'
+import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
+
+// ── Types ──
+
+interface GridState {
+  offset: string
+  sort: string
+  order: string
+  filter: string
+}
+
+/**
+ * ClientEntry that adds a right-click context menu to admin appointments table rows.
+ *
+ * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
+ * mouse coordinates of the right-click. Event delegation on the table container
+ * captures `contextmenu` events from server-rendered rows and dispatches a
+ * synthetic event to the hidden trigger — avoiding the fragile hidden-trigger
+ * + setTimeout pattern used in `appointtype-panel.tsx`.
+ */
+export const AdminAppointmentsContextMenu = clientEntry(
+  import.meta.url + '#AdminAppointmentsContextMenu',
+  function AdminAppointmentsContextMenu(handle: Handle) {
+    let triggerRef: HTMLDivElement | null = null
+    let rightClickedRowId: string | null = null
+    let mounted = false
+
+    // ── Mount: attach contextmenu delegation on the table ──
+
+    handle.signal.addEventListener('abort', () => {
+      // The ref callback checks `if (!el) return` for cleanup, but the abort
+      // signal provides an additional safety net for component disposal.
+      triggerRef = null
+    })
+
+    // ── Render ──
+
+    return () => (
+      <menu.Context label="Terminaktionen">
+        {/*
+          Hidden trigger element — positioned at right-click coordinates.
+          Uses `opacity: 0` (not `display: none`) so the synthetic `contextmenu`
+          event dispatches correctly and `getBoundingClientRect()` works.
+        */}
+        <div
+          mix={[
+            menu.contextTrigger(),
+            ref((el) => {
+              triggerRef = el
+              if (mounted) return
+              mounted = true
+
+              let table = document.querySelector('[data-appointments-table]')
+              if (!table) return
+
+              function onContextMenu(event: Event) {
+                let mouseEvent = event as MouseEvent
+                mouseEvent.preventDefault()
+
+                let target = mouseEvent.target as HTMLElement | null
+                let row = target?.closest?.('[data-row-id]') as HTMLElement | null
+                if (!row) return // clicked header, pagination, or empty space
+
+                rightClickedRowId = row.dataset.rowId ?? null
+
+                // Position the hidden trigger at the mouse coordinates
+                el.style.left = mouseEvent.clientX + 'px'
+                el.style.top = mouseEvent.clientY + 'px'
+
+                // Dispatch synthetic contextmenu — the contextTrigger mixin
+                // picks up the coordinates and opens the menu
+                el.dispatchEvent(
+                  new MouseEvent('contextmenu', {
+                    clientX: mouseEvent.clientX,
+                    clientY: mouseEvent.clientY,
+                    bubbles: true,
+                    cancelable: true,
+                  }),
+                )
+              }
+
+              table.addEventListener('contextmenu', onContextMenu)
+
+              // Cleanup on unmount
+              handle.signal.addEventListener('abort', () => {
+                table.removeEventListener('contextmenu', onContextMenu)
+              })
+            }),
+          ]}
+          style="position:fixed;width:0;height:0;opacity:0;pointer-events:none"
+        />
+
+        <MenuList
+          mix={onMenuSelect((event) => {
+            let rowId = rightClickedRowId
+            if (!rowId) return
+
+            if (event.item.name === 'edit') {
+              handleEditAction(rowId)
+            } else if (event.item.name === 'delete') {
+              handleDeleteAction(rowId)
+            }
+          })}
+        >
+          <MenuItem name="edit">Bearbeiten</MenuItem>
+          <div role="separator" />
+          <MenuItem name="delete">Löschen</MenuItem>
+        </MenuList>
+      </menu.Context>
+    )
+
+    // ── Action handlers ──
+
+    function handleEditAction(rowId: string) {
+      let dataEl = document.getElementById('appointments-grid-state')
+      if (!dataEl) return
+
+      try {
+        let state: GridState = JSON.parse(dataEl.textContent || '{}')
+        let params = new URLSearchParams()
+        params.set('editing', rowId)
+        if (state.offset) params.set('offset', state.offset)
+        params.set('sort', state.sort || 'a.date')
+        params.set('order', state.order || 'asc')
+        if (state.filter) params.set('filter', state.filter)
+        window.location.href = '/admin/appointments?' + params.toString()
+      } catch {
+        // Fallback: navigate without grid state
+        window.location.href = '/admin/appointments?editing=' + rowId
+      }
+    }
+
+    function handleDeleteAction(rowId: string) {
+      if (!confirm('Wirklich löschen?')) return
+
+      let form = document.querySelector<HTMLFormElement>(
+        `form[data-delete-form="${rowId}"]`,
+      )
+      if (form) {
+        form.requestSubmit()
+      }
+    }
+  },
+)

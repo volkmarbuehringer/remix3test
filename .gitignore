@@ -1,0 +1,17 @@
+node_modules
+newapp/node_modules
+dist
+build
+.env
+bun.lock
+newapp/.env
+.env.local
+*.tsbuildinfo
+.artifacts
+tmp/
+.devtools
+
+# Self-signed TLS certificates (local dev)
+*.pem
+*.crt
+*.key

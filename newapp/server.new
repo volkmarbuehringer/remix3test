@@ -1,0 +1,49 @@
+import { serve } from 'remix/node-serve'
+
+import { createNewappRouter } from './app/router.ts'
+import { initializeAppDatabase, closeAppDatabase } from './app/data/setup.ts'
+
+await initializeAppDatabase()
+
+const router = createNewappRouter()
+
+const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
+
+let server = serve(
+  async (request) => {
+    try {
+      return await router.fetch(request)
+    } catch (error) {
+      console.error(error)
+      return new Response('Internal Server Error', { status: 500 })
+    }
+  },
+  {
+    port,
+    tls: {
+      keyFile: './key.pem',
+      certFile: './cert.pem',
+    },
+  },
+)
+
+await server.ready
+console.log(`Server listening on https://localhost:${server.port}`)
+console.log('')
+console.log('Demo accounts:')
+console.log('  Admin:    admin@newapp.com / admin123')
+console.log('  Customer: user@newapp.com / password123')
+console.log('')
+
+let shuttingDown = false
+
+function shutdown() {
+  if (shuttingDown) return
+  shuttingDown = true
+  closeAppDatabase()
+  server.close()
+  process.exit(0)
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)

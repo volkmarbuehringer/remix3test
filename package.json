@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.15.11",
+    "openspec": "^0.0.0"
+  }
+}
