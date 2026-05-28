@@ -1,8 +1,8 @@
-<!-- Context: project-intelligence/newapp/concepts/middleware-chain | Priority: critical | Version: 1.1 | Updated: 2026-05-14 -->
+<!-- Context: project-intelligence/newapp/concepts/middleware-chain | Priority: critical | Version: 1.2 | Updated: 2026-05-28 -->
 
 # Concept: Middleware Chain Architecture
 
-**Core Idea**: Every request passes through a fixed 10-middleware stack in `app/router.ts` that installs request-scoped services on the context. The order is strict — each middleware depends on the previous one.
+**Core Idea**: Every request passes through a fixed 11-middleware stack in `app/router.ts` that installs request-scoped services on the context. The order is strict — each middleware depends on the previous one.
 
 ---
 
@@ -28,6 +28,8 @@ loadAuth()          → context.auth          (auth state with identity)
 loadAssetEntry()    → scripts for render    (resolved script src/preloads)
   ↓
 render()            → context.render        (SSR render function)
+  ↓
+json()              → context.json          (JSON response helper)
 ```
 
 ## What Each Middleware Provides
@@ -44,6 +46,7 @@ render()            → context.render        (SSR render function)
 | `loadAuth` | `context.auth` | `AuthState<User>` | `app/middleware/auth.ts` |
 | `loadAssetEntry` | `getAssetEntry()` | `AssetEntry` | `app/middleware/asset-entry.ts` |
 | `render` | `context.render` | `Renderer` | `app/middleware/render.tsx` |
+| `json` | `context.json` | `(data, init?) => Response` | `app/middleware/json-render.ts` |
 
 ## Key Rules
 
@@ -62,6 +65,7 @@ type RootMiddleware = [
   ReturnType<typeof loadDatabase>,
   ReturnType<typeof loadAuth>,
   ReturnType<typeof render>,
+  ReturnType<typeof json>,
 ]
 export type AppContext = MiddlewareContext<RootMiddleware>
 ```
@@ -74,11 +78,12 @@ See [middleware-custom example](../examples/middleware-custom.md) for a working 
 
 ## 📂 Codebase References
 
-- **Stack definition**: `app/router.ts` — 10-item `middleware: [...]` array
+- **Stack definition**: `app/router.ts` — 11-item `middleware: [...]` array
 - **Context type**: `app/types/context.ts` — `AppContext` type definition
 - **Database middleware**: `app/middleware/database.ts` — `loadDatabase()` installs `context.db`
 - **Auth middleware**: `app/middleware/auth.ts` — `loadAuth()` installs `context.auth`
 - **Render middleware**: `app/middleware/render.tsx` — `render()` installs `context.render`
+- **JSON render middleware**: `app/middleware/json-render.ts` — `json()` installs `context.json`
 - **Session config**: `app/middleware/session.ts` — `sessionCookie` + `sessionStorage`
 
 ## Related

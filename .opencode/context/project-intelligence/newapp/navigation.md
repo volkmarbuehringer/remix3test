@@ -1,11 +1,11 @@
-<!-- Context: project-intelligence/newapp | Priority: high | Version: 2.7 | Updated: 2026-05-26 -->
+<!-- Context: project-intelligence/newapp | Priority: high | Version: 2.8 | Updated: 2026-05-28 -->
 
 # Newapp Context Index
 
 ## Overview
 Scaffolded Remix 3 app (`remix new`) with:
-- 10-layer middleware stack (logger → compression → formData → methodOverride → session → asyncContext → database → auth → loadAssetEntry → render)
-- Direct context property access (`context.render`, `context.db`, `context.auth`, etc.)
+- 11-layer middleware stack (logger → compression → formData → methodOverride → session → asyncContext → database → auth → loadAssetEntry → render → json)
+- Direct context property access (`context.render`, `context.json`, `context.db`, `context.auth`, etc.)
 - `RouterTypes` declaration for fully-typed `getContext()`
 - Session-based auth with `createCredentialsAuthProvider` + admin role checks
 - PostgreSQL via `remix/data-table-postgres` with 7 tables (appointments uses `int4range` with `btree_gist` exclusion constraint for overlap prevention)
@@ -55,7 +55,8 @@ newapp/
 ## Key Patterns
 
 ### Infrastructure & Middleware
-- **[Middleware Chain](./concepts/middleware-chain.md)** — 10-layer stack: logger, compression, formData, methodOverride, session, asyncContext, database, auth, loadAssetEntry, render
+- **[Middleware Chain](./concepts/middleware-chain.md)** — 11-layer stack: logger, compression, formData, methodOverride, session, asyncContext, database, auth, loadAssetEntry, render, json
+- **[Dual Renderer Pattern](./concepts/dual-renderer.md)** — `context.render()` for HTML UI, `context.json()` for JSON API responses
 - **[App Architecture](./concepts/architecture.md)** — Route-to-controller mapping, middleware stack, file ownership (22 key decisions)
 - **[Router Factory Pattern](./concepts/architecture.md)** — `createNewappRouter()` exported from `app/router.ts`, used in `server.ts` with optional cookie/storage overrides
 

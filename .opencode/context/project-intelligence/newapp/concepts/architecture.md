@@ -72,7 +72,7 @@ theme.tsx          →  Light + Dark createTheme() definitions
 
 - **Main controller**: `app/actions/controller.tsx` — Home, assets, UI showcase
 - **Lists controller**: `app/actions/lists-controller.tsx` — Lists routes with requireAuth
-- **Router**: `app/router.ts` — `createNewappRouter()` factory, 10-layer stack
+- **Router**: `app/router.ts` — `createNewappRouter()` factory, 11-layer stack
 - **Config**: `app/routes.ts` — Route definitions
 - **Document**: `app/ui/document.tsx` — Theme-driven body + asset script
 - **Layout**: `app/ui/layout.tsx` — Flexbox sticky footer, nav rendering

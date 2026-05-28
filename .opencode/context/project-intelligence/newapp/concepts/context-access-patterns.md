@@ -1,4 +1,4 @@
-<!-- Context: project-intelligence/newapp/concepts/context-access-patterns | Priority: critical | Version: 1.0 | Updated: 2026-05-13 -->
+<!-- Context: project-intelligence/newapp/concepts/context-access-patterns | Priority: critical | Version: 1.1 | Updated: 2026-05-28 -->
 
 # Concept: Context Access Patterns
 
@@ -10,7 +10,7 @@
 
 ### Tier 1: Direct Properties (Controllers) ✅
 
-Use `context.render`, `context.db`, `context.auth`, `context.session`, `context.formData` directly.
+Use `context.render`, `context.json`, `context.db`, `context.auth`, `context.session`, `context.formData` directly.
 
 ```tsx
 // Controller actions — preferred pattern
@@ -70,6 +70,7 @@ Are you in a controller action with typed AppContext?
 | Property | Type | Available After |
 |----------|------|-----------------|
 | `context.render(node)` | `(node, init?) => Response` | render() middleware |
+| `context.json(data)` | `(data, init?) => Response` | json() middleware |
 | `context.db` | `Database` | loadDatabase() |
 | `context.auth` | `AuthState<User>` | loadAuth() |
 | `context.session` | `Session` | session() |
