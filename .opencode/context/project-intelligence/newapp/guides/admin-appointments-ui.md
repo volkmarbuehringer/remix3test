@@ -1,8 +1,8 @@
-<!-- Context: project-intelligence/newapp/guides/admin-appointments-ui | Priority: high | Version: 1.0 | Updated: 2026-05-26 -->
+<!-- Context: project-intelligence/newapp/guides/admin-appointments-ui | Priority: high | Version: 1.1 | Updated: 2026-05-28 -->
 
 # Guide: Admin Appointments UI
 
-**Purpose**: UI components for the admin appointments CRUD grid — grid page, edit/create sidebar forms, and grid state preservation pattern.
+**Purpose**: UI components for the admin appointments CRUD grid — grid page, edit/create sidebar forms, grid state preservation pattern, and SSE connection indicator.
 
 ---
 
@@ -17,8 +17,40 @@ Single-page component that conditionally renders in one or two columns:
 - **Pagination**: Offset-based, "Zurück"/"Weiter" links, shows "Zeige N–M"
 - **Empty states**: `Keine Termine gefunden` (with filter) / `Keine Termine vorhanden` (without)
 - **Two-column layout**: `gridTemplateColumns: '1fr 380px'` with sticky sidebar when editing/creating
+- **SSE connection indicator**: `ConnectionIndicator` in the header bar (see below)
 
-### Format Helpers
+### SSE Connection Indicator
+
+The `ConnectionIndicator` appears in the page header bar, next to the "Appointments" title, in both the single-column and two-column layouts:
+
+```tsx
+<div mix={headerBarStyle}>
+  <h2>Appointments</h2>
+  <ConnectionIndicator
+    url="/admin/appointments/events"
+    reloadMode="frame"
+    skipReloadParams={['editing', 'creating']}
+  />
+</div>
+```
+
+Configuration details:
+- **`reloadMode: 'frame'`** — The admin page renders inside a Remix Frame. On `invalidate`, the indicator calls `handle.frame.reload()` to refresh only the frame content, not the whole page.
+- **`skipReloadParams: ['editing', 'creating']`** — When the sidebar edit/create form is open (indicated by `?editing=<id>` or `?creating=true` in the URL), `invalidate` events are suppressed. This prevents the form from being reloaded mid-edit.
+- **Positioning**: In-flow in the flex header bar (not sticky). The bar is always visible since the admin page layout fits within its Frame.
+
+The underlying SSE channel is the same `appointmentChannel` used by the public appointment page — mutations from either side broadcast to all sessions.
+
+### SSE Endpoint
+
+| Detail | Value |
+|--------|-------|
+| Route | `/admin/appointments/events` |
+| Controller action | `events` in `admin-appointments-controller.tsx` |
+| Channel | `appointmentChannel.subscribe(request)` |
+| Broadcast | `appointmentChannel.broadcast('invalidate')` after create/update/delete |
+
+## Format Helpers
 
 | Helper | Input | Output |
 |--------|-------|--------|

@@ -12,9 +12,9 @@ import { interactionState } from './appointment-interaction-state.ts'
 import { readAppointmentData } from '../utils/appointment.ts'
 
 const HOURS = 24
-const SLOT_HEIGHT = 160         // pixels per hour (4x so 15min = same as old 1h row)
-const SUB_SLOTS = 4             // quarter-hour subdivisions per hour
-const SUB_SLOT_HEIGHT = SLOT_HEIGHT / SUB_SLOTS  // 40px per 15-min slot
+const SLOT_HEIGHT = 160 // pixels per hour (4x so 15min = same as old 1h row)
+const SUB_SLOTS = 4 // quarter-hour subdivisions per hour
+const SUB_SLOT_HEIGHT = SLOT_HEIGHT / SUB_SLOTS // 40px per 15-min slot
 const LABEL_WIDTH = 44
 const DRAG_THRESHOLD = 4
 const COLLISION_STATUS = 409
@@ -29,24 +29,33 @@ function handleMutationResponse(response: Response): boolean {
     return true
   }
   if (response.status === COLLISION_STATUS) {
-    response.json().then((body) => {
-      alert(body?.error || 'Time slot already taken.')
-      window.location.reload()
-    }).catch(() => {
-      window.location.reload()
-    })
+    response
+      .json()
+      .then((body) => {
+        alert(body?.error || 'Time slot already taken.')
+        window.location.reload()
+      })
+      .catch(() => {
+        window.location.reload()
+      })
     return true
   }
   if (response.status === 403) {
-    response.json().then((body) => {
-      alert(body?.error || 'Slot ist nicht buchbar.')
-    }).catch(() => {})
+    response
+      .json()
+      .then((body) => {
+        alert(body?.error || 'Slot ist nicht buchbar.')
+      })
+      .catch(() => {})
     return true
   }
   if (response.status === 422) {
-    response.json().then((body) => {
-      alert(body?.error || 'Änderung konnte nicht gespeichert werden.')
-    }).catch(() => {})
+    response
+      .json()
+      .then((body) => {
+        alert(body?.error || 'Änderung konnte nicht gespeichert werden.')
+      })
+      .catch(() => {})
     return true
   }
   return false
@@ -83,8 +92,6 @@ type AppData = {
   selectedResourceId: number
   isAdmin: boolean
 }
-
-
 
 type DragState = {
   active: boolean
@@ -137,11 +144,17 @@ function readData(): AppData {
   }
 }
 
-function computeVisibleDays(days: AppData['days'], offerings: AppData['offerings']): AppData['days'] {
+function computeVisibleDays(
+  days: AppData['days'],
+  offerings: AppData['offerings'],
+): AppData['days'] {
   return days.filter((d) => offerings.some((o) => o.day === d.date))
 }
 
-function computeOfferingTimeRange(offerings: AppData['offerings']): { startMin: number; endMin: number } {
+function computeOfferingTimeRange(offerings: AppData['offerings']): {
+  startMin: number
+  endMin: number
+} {
   if (offerings.length === 0) return { startMin: 0, endMin: 1440 }
   let startMin = Math.min(...offerings.map((o) => o.start_min))
   let endMin = Math.max(...offerings.map((o) => o.end_min))
@@ -230,12 +243,12 @@ export const AppointmentGrid = clientEntry(
     let currentOfferingStartMin = 0
     let currentOfferingEndMin = 1440
 
-      // Always-active listeners for type-drag from types panel (client-side only)
-      if (typeof document !== 'undefined') {
-        document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
-        document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
-        document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
-      }
+    // Always-active listeners for type-drag from types panel (client-side only)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('pointermove', onTypeDragMove, { signal: handle.signal })
+      document.addEventListener('pointerup', onTypeDragEnd, { signal: handle.signal })
+      document.addEventListener('pointercancel', onTypeDragCancel, { signal: handle.signal })
+    }
 
     return () => {
       // Client-only rendering — SSR has no DOM so readData() can't work.
@@ -305,7 +318,6 @@ export const AppointmentGrid = clientEntry(
           data-resizing={isResizing ? 'true' : undefined}
           mix={gridWrapperStyle}
         >
-
           <div mix={headerRowStyle} style={`grid-template-columns: ${gridTemplateCols};`}>
             <div mix={cornerCellStyle}>
               {/* Trashcan — visible during drag */}
@@ -315,7 +327,9 @@ export const AppointmentGrid = clientEntry(
                   trashcanZoneStyle,
                   isDragging ? trashcanVisibleStyle : undefined,
                   isOverTrashcan ? trashcanHoverStyle : undefined,
-                  ref((el) => { if (el) trashcanElement = el }),
+                  ref((el) => {
+                    if (el) trashcanElement = el
+                  }),
                 ]}
               >
                 <svg
@@ -345,7 +359,12 @@ export const AppointmentGrid = clientEntry(
           </div>
 
           <div
-            mix={[gridBodyStyle, ref((el) => { if (el) gridBodyElement = el })]}
+            mix={[
+              gridBodyStyle,
+              ref((el) => {
+                if (el) gridBodyElement = el
+              }),
+            ]}
             style={`grid-template-columns: ${gridTemplateCols};`}
           >
             <div mix={timeColumnStyle}>
@@ -367,242 +386,278 @@ export const AppointmentGrid = clientEntry(
             {visibleDays.map((day, dayIdx) => {
               let date = day.date
               return (
-              <div key={`day${date}`} mix={dayColumnStyle} style={`min-height: ${(offeringRange.endMin - offeringRange.startMin) / 60 * SLOT_HEIGHT}px;`}>
-                {allBookableMinutes.map((minute: number) => {
-                  let isHour = minute % 60 === 0
-                  let dayBookable = bookableByDay.get(date)
-                  let bookable = dayBookable?.has(minute) ?? false
-                  return (
-                    <div
-                      key={`m${minute}`}
-                      mix={[
-                        isHour ? hourLineStyle : subHourLineStyle,
-                        bookable ? undefined : nonOfferingSlotStyle,
-                        bookable ? on('click', () => startDraft(dayIdx, minute)) : undefined,
-                      ]}
-                    />
-                  )
-                })}
-
-                {groups[dayIdx].map((appt) => {
-                  let isEditing = editingId === appt.id
-                  let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
-                  let isRestrictedBlock = isForeign && !data.isAdmin
-                  // Position relative to offering start — grid rows begin at currentOfferingStartMin
-                  let topPx = ((appt.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT
-                  let heightPx = Math.max(
-                    isEditing ? 84 :
-                    ((appt.end_min - appt.start_min) / 60) * SLOT_HEIGHT,
-                  )
-                  let isBlockDragging = isDragging && dragState?.blockId === appt.id
-                  let isBlockResizing = isResizing && resizeState?.blockId === appt.id
-                  let isHovered = hoveredBlockId === appt.id && !isDragging && !isResizing && !isRestrictedBlock
-
-                  return (
-                    <div
-                      key={`a${appt.id}`}
-                      data-appointment-block="true"
-                      data-block-id={appt.id}
-                      mix={[
-                        blockBoxStyle,
-                        isRestrictedBlock ? foreignBlockStyle : undefined,
-                        isBlockDragging ? draggingBlockStyle : undefined,
-                        isHovered ? hoveredBlockStyle : undefined,
-                        isEditing ? editingBlockStyle : undefined,
-                        on('pointerdown', (e) => handleBlockPointerDown(appt, e)),
-                        on('mouseenter', () => {
-                          if (activeGesture) return
-                          if (isRestrictedBlock) return
-                          hoveredBlockId = appt.id
-                          handle.update()
-                        }),
-                        on('mouseleave', () => {
-                          if (isRestrictedBlock) return
-                          hoveredBlockId = null
-                          handle.update()
-                        }),
-                      ]}
-                      style={`top: ${topPx}px; height: ${heightPx}px; transform: ${isBlockDragging ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)` : 'none'};`}
-                      title={undefined}
-                    >
-                      {!isEditing ? (
-                        data.isAdmin && appt.user_email && !isRestrictedBlock ? (
-                          <div mix={adminBlockInnerStyle}>
-                            <span mix={adminEmailStyle}>{appt.user_email}</span>
-                            <span
-                              mix={[
-                                blockTitleStyle,
-                                isHovered ? expandedTitleStyle : undefined,
-                              ]}
-                            >
-                              {appt.title}
-                            </span>
-                          </div>
-                        ) : (
-                          <span
-                            mix={[
-                              blockTitleStyle,
-                              isHovered ? expandedTitleStyle : undefined,
-                            ]}
-                          >
-                            {isRestrictedBlock ? '' : appt.title}
-                          </span>
-                        )
-                      ) : null}
-                      <textarea
-                        aria-label="Appointment title"
-                        rows={2}
-                        defaultValue={appt.title}
+                <div
+                  key={`day${date}`}
+                  mix={dayColumnStyle}
+                  style={`min-height: ${((offeringRange.endMin - offeringRange.startMin) / 60) * SLOT_HEIGHT}px;`}
+                >
+                  {allBookableMinutes.map((minute: number) => {
+                    let isHour = minute % 60 === 0
+                    let dayBookable = bookableByDay.get(date)
+                    let bookable = dayBookable?.has(minute) ?? false
+                    return (
+                      <div
+                        key={`m${minute}`}
                         mix={[
-                          inputStyle,
-                          isEditing ? undefined : hiddenStyle,
-                          ref((el) => {
-                            if (el) {
-                              renameInputs.set(appt.id, el)
-                            } else {
-                              renameInputs.delete(appt.id)
-                            }
-                          }),
-                          on('keydown', (e: any) => {
-                            if (e.key === 'Escape') { cancelEdit(); return }
-                            if (e.key === 'Enter') {
-                              if (e.shiftKey) {
-                                e.preventDefault()
-                                commitEdit(appt, csrfToken)
-                              }
-                              return
-                            }
-                          }),
-                          on('blur', () => cancelEdit()),
+                          isHour ? hourLineStyle : subHourLineStyle,
+                          bookable ? undefined : nonOfferingSlotStyle,
+                          bookable ? on('click', () => startDraft(dayIdx, minute)) : undefined,
                         ]}
                       />
-                      {isEditing ? (
-                        <div mix={draftButtonsStyle}>
-                          <button
-                            type="button"
-                            aria-label="Save appointment"
-                            mix={[draftSaveButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); commitEdit(appt, csrfToken) })]}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Cancel appointment"
-                            mix={[draftCancelButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); cancelEdit() })]}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : null}
-                      {/* Resize handles — only when own block, not dragging or editing */}
-                      {!isRestrictedBlock && !isDragging && !isEditing ? (
-                        <>
-                          <div
-                            aria-label="Resize start"
-                            mix={[
-                              resizeHandleStyle,
-                              startResizeHandleStyle,
-                              isBlockResizing && resizeState?.edge === 'start' ? activeResizeHandleStyle : undefined,
-                              on('pointerdown', (e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                startResize(appt, 'start', e)
-                              }),
-                            ]}
-                          />
-                          <div
-                            aria-label="Resize end"
-                            mix={[
-                              resizeHandleStyle,
-                              endResizeHandleStyle,
-                              isBlockResizing && resizeState?.edge === 'end' ? activeResizeHandleStyle : undefined,
-                              on('pointerdown', (e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                startResize(appt, 'end', e)
-                              }),
-                            ]}
-                          />
-                        </>
-                      ) : null}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
 
-                {/* Ghost block during drag — show where dropped block will land */}
-                {isDragging && preview ? (
-                  preview.blocks
-                    .filter((b) => b.id === dragState?.blockId)
-                    .map((ghost) => (
+                  {groups[dayIdx].map((appt) => {
+                    let isEditing = editingId === appt.id
+                    let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
+                    let isRestrictedBlock = isForeign && !data.isAdmin
+                    // Position relative to offering start — grid rows begin at currentOfferingStartMin
+                    let topPx = ((appt.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT
+                    let heightPx = Math.max(
+                      isEditing ? 84 : ((appt.end_min - appt.start_min) / 60) * SLOT_HEIGHT,
+                    )
+                    let isBlockDragging = isDragging && dragState?.blockId === appt.id
+                    let isBlockResizing = isResizing && resizeState?.blockId === appt.id
+                    let isHovered =
+                      hoveredBlockId === appt.id && !isDragging && !isResizing && !isRestrictedBlock
+
+                    return (
                       <div
-                        key="ghost"
-                        mix={ghostBlockStyle}
-                        style={{
-                          top: `${((ghost.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
-                          height: `${Math.max(20, ((ghost.end_min - ghost.start_min) / 60) * SLOT_HEIGHT)}px`,
-                        }}
-                      />
-                    ))
-                ) : null}
+                        key={`a${appt.id}`}
+                        data-appointment-block="true"
+                        data-block-id={appt.id}
+                        mix={[
+                          blockBoxStyle,
+                          isRestrictedBlock ? foreignBlockStyle : undefined,
+                          isBlockDragging ? draggingBlockStyle : undefined,
+                          isHovered ? hoveredBlockStyle : undefined,
+                          isEditing ? editingBlockStyle : undefined,
+                          on('pointerdown', (e) => handleBlockPointerDown(appt, e)),
+                          on('mouseenter', () => {
+                            if (activeGesture) return
+                            if (isRestrictedBlock) return
+                            hoveredBlockId = appt.id
+                            handle.update()
+                          }),
+                          on('mouseleave', () => {
+                            if (isRestrictedBlock) return
+                            hoveredBlockId = null
+                            handle.update()
+                          }),
+                        ]}
+                        style={`top: ${topPx}px; height: ${heightPx}px; transform: ${isBlockDragging ? `translate(${draggedBlockOffset.x.toFixed(1)}px, ${draggedBlockOffset.y.toFixed(1)}px)` : 'none'};`}
+                        title={undefined}
+                      >
+                        {!isEditing ? (
+                          data.isAdmin && appt.user_email && !isRestrictedBlock ? (
+                            <div mix={adminBlockInnerStyle}>
+                              <span mix={adminEmailStyle}>{appt.user_email}</span>
+                              <span
+                                mix={[blockTitleStyle, isHovered ? expandedTitleStyle : undefined]}
+                              >
+                                {appt.title}
+                              </span>
+                            </div>
+                          ) : (
+                            <span
+                              mix={[blockTitleStyle, isHovered ? expandedTitleStyle : undefined]}
+                            >
+                              {isRestrictedBlock ? '' : appt.title}
+                            </span>
+                          )
+                        ) : null}
+                        <textarea
+                          aria-label="Appointment title"
+                          rows={2}
+                          defaultValue={appt.title}
+                          mix={[
+                            inputStyle,
+                            isEditing ? undefined : hiddenStyle,
+                            ref((el) => {
+                              if (el) {
+                                renameInputs.set(appt.id, el)
+                              } else {
+                                renameInputs.delete(appt.id)
+                              }
+                            }),
+                            on('keydown', (e: any) => {
+                              if (e.key === 'Escape') {
+                                cancelEdit()
+                                return
+                              }
+                              if (e.key === 'Enter') {
+                                if (e.shiftKey) {
+                                  e.preventDefault()
+                                  commitEdit(appt, csrfToken)
+                                }
+                                return
+                              }
+                            }),
+                            on('blur', () => cancelEdit()),
+                          ]}
+                        />
+                        {isEditing ? (
+                          <div mix={draftButtonsStyle}>
+                            <button
+                              type="button"
+                              aria-label="Save appointment"
+                              mix={[
+                                draftSaveButtonStyle,
+                                on('pointerdown', (e: any) => {
+                                  e.preventDefault()
+                                  commitEdit(appt, csrfToken)
+                                }),
+                              ]}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Cancel appointment"
+                              mix={[
+                                draftCancelButtonStyle,
+                                on('pointerdown', (e: any) => {
+                                  e.preventDefault()
+                                  cancelEdit()
+                                }),
+                              ]}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : null}
+                        {/* Resize handles — only when own block, not dragging or editing */}
+                        {!isRestrictedBlock && !isDragging && !isEditing ? (
+                          <>
+                            <div
+                              aria-label="Resize start"
+                              mix={[
+                                resizeHandleStyle,
+                                startResizeHandleStyle,
+                                isBlockResizing && resizeState?.edge === 'start'
+                                  ? activeResizeHandleStyle
+                                  : undefined,
+                                on('pointerdown', (e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  startResize(appt, 'start', e)
+                                }),
+                              ]}
+                            />
+                            <div
+                              aria-label="Resize end"
+                              mix={[
+                                resizeHandleStyle,
+                                endResizeHandleStyle,
+                                isBlockResizing && resizeState?.edge === 'end'
+                                  ? activeResizeHandleStyle
+                                  : undefined,
+                                on('pointerdown', (e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  startResize(appt, 'end', e)
+                                }),
+                              ]}
+                            />
+                          </>
+                        ) : null}
+                      </div>
+                    )
+                  })}
 
-                {/* Ghost block during type-drag from types panel */}
-                {typeDragPreview && typeDragPreview.dayIdx === dayIdx && !isDragging && !isResizing ? (
-                  <div
-                    key="type-ghost"
-                    mix={typeDragGhostStyle}
-                    style={{
-                      top: `${((typeDragPreview.startMinute - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
-                      height: `${Math.max(20, (15 / 60) * SLOT_HEIGHT)}px`,
-                    }}
-                  />
-                ) : null}
+                  {/* Ghost block during drag — show where dropped block will land */}
+                  {isDragging && preview
+                    ? preview.blocks
+                        .filter((b) => b.id === dragState?.blockId)
+                        .map((ghost) => (
+                          <div
+                            key="ghost"
+                            mix={ghostBlockStyle}
+                            style={{
+                              top: `${((ghost.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
+                              height: `${Math.max(20, ((ghost.end_min - ghost.start_min) / 60) * SLOT_HEIGHT)}px`,
+                            }}
+                          />
+                        ))
+                    : null}
 
-                {draftState.active && draftState.dayIdx === dayIdx ? (
-                  <div
-                    key="draft"
-                    mix={draftBlockStyle}
-                    style={`top: ${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px; height: ${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px;`}
-                  >
-                    <textarea
-                      aria-label="New appointment title"
-                      rows={2}
-                      placeholder="Title"
-                      mix={[
-                        inputStyle,
-                        ref((el) => { if (el instanceof HTMLTextAreaElement) draftInput = el }),
-                          on('keydown', (e: any) => {
-                          if (e.key === 'Escape') { cancelDraft(); return }
-                          if (e.key === 'Enter' && e.shiftKey) {
-                            e.preventDefault()
-                            commitDraft(csrfToken)
-                          }
-                        }),
-                        on('blur', () => cancelDraft()),
-                      ]}
+                  {/* Ghost block during type-drag from types panel */}
+                  {typeDragPreview &&
+                  typeDragPreview.dayIdx === dayIdx &&
+                  !isDragging &&
+                  !isResizing ? (
+                    <div
+                      key="type-ghost"
+                      mix={typeDragGhostStyle}
+                      style={{
+                        top: `${((typeDragPreview.startMinute - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px`,
+                        height: `${Math.max(20, (15 / 60) * SLOT_HEIGHT)}px`,
+                      }}
                     />
-                    <div mix={draftButtonsStyle}>
-                      <button
-                        type="button"
-                        aria-label="Save appointment"
-                        mix={[draftSaveButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); commitDraft(csrfToken) })]}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Cancel appointment"
-                        mix={[draftCancelButtonStyle, on('pointerdown', (e: any) => { e.preventDefault(); cancelDraft() })]}
-                      >
-                        Cancel
-                      </button>
+                  ) : null}
+
+                  {draftState.active && draftState.dayIdx === dayIdx ? (
+                    <div
+                      key="draft"
+                      mix={draftBlockStyle}
+                      style={`top: ${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px; height: ${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px;`}
+                    >
+                      <textarea
+                        aria-label="New appointment title"
+                        rows={2}
+                        placeholder="Title"
+                        mix={[
+                          inputStyle,
+                          ref((el) => {
+                            if (el instanceof HTMLTextAreaElement) draftInput = el
+                          }),
+                          on('keydown', (e: any) => {
+                            if (e.key === 'Escape') {
+                              cancelDraft()
+                              return
+                            }
+                            if (e.key === 'Enter' && e.shiftKey) {
+                              e.preventDefault()
+                              commitDraft(csrfToken)
+                            }
+                          }),
+                          on('blur', () => cancelDraft()),
+                        ]}
+                      />
+                      <div mix={draftButtonsStyle}>
+                        <button
+                          type="button"
+                          aria-label="Save appointment"
+                          mix={[
+                            draftSaveButtonStyle,
+                            on('pointerdown', (e: any) => {
+                              e.preventDefault()
+                              commitDraft(csrfToken)
+                            }),
+                          ]}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Cancel appointment"
+                          mix={[
+                            draftCancelButtonStyle,
+                            on('pointerdown', (e: any) => {
+                              e.preventDefault()
+                              cancelDraft()
+                            }),
+                          ]}
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                </div>
               )
             })}
           </div>
-
         </div>
       )
     }
@@ -647,11 +702,17 @@ export const AppointmentGrid = clientEntry(
         let response = await fetch('/appointment', {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-Csrf-Token': csrfToken,
           },
-          body: JSON.stringify({ title, date, start_min: start, end_min: end, resource_id: resourceId }),
+          body: JSON.stringify({
+            title,
+            date,
+            start_min: start,
+            end_min: end,
+            resource_id: resourceId,
+          }),
           signal: handle.signal,
         })
         if (response.ok || response.status === COLLISION_STATUS || response.status === 403) {
@@ -690,10 +751,7 @@ export const AppointmentGrid = clientEntry(
       return input ? input.value.trim() : ''
     }
 
-    function commitEdit(
-      appt: { id: number; title: string },
-      csrfToken: string,
-    ) {
+    function commitEdit(appt: { id: number; title: string }, csrfToken: string) {
       if (editingId !== appt.id) return
 
       let newTitle = getEditValue(appt.id)
@@ -712,7 +770,7 @@ export const AppointmentGrid = clientEntry(
       fetch(`/appointment/${id}`, {
         method: 'PUT',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-Csrf-Token': csrfToken,
         },
@@ -726,14 +784,16 @@ export const AppointmentGrid = clientEntry(
 
     // ── Block pointer dispatch ──
 
-    function handleBlockPointerDown(
-      appt: AppointmentLayoutBlock,
-      event: PointerEvent,
-    ) {
+    function handleBlockPointerDown(appt: AppointmentLayoutBlock, event: PointerEvent) {
       // Ignore if gesture active, draft active, editing, or right-click
       if (activeGesture || draftState.active || editingId !== null || event.button !== 0) return
       // Ignore if target is an input or button
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) return
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLButtonElement
+      )
+        return
 
       // Foreign blocks are read-only for non-admin users
       let data = readData()
@@ -841,8 +901,8 @@ export const AppointmentGrid = clientEntry(
           if (snappedDay === -1) snappedDay = 0
           let snappedBlockLeft = gs.grid.left + gs.grid.labelWidth + snappedDay * gs.grid.dayWidth
           let snappedBlockTop = gs.grid.top + (gs.placement.startMinute / 60) * gs.grid.rowHeight
-          draggedBlockOffset.x = (event.clientX - gs.offsetX) - snappedBlockLeft
-          draggedBlockOffset.y = (event.clientY - gs.offsetY) - snappedBlockTop
+          draggedBlockOffset.x = event.clientX - gs.offsetX - snappedBlockLeft
+          draggedBlockOffset.y = event.clientY - gs.offsetY - snappedBlockTop
           handle.update()
         }
         return
@@ -854,10 +914,12 @@ export const AppointmentGrid = clientEntry(
       // Compute visual offset for sub-cell snapping
       let snappedDay = currentVisibleDays.findIndex((d) => d.date === nextPlacement.date)
       if (snappedDay === -1) snappedDay = 0
-      let snappedBlockLeft = dragState.grid.left + dragState.grid.labelWidth + snappedDay * dragState.grid.dayWidth
-      let snappedBlockTop = dragState.grid.top + (nextPlacement.startMinute / 60) * dragState.grid.rowHeight
-      draggedBlockOffset.x = (event.clientX - dragState.offsetX) - snappedBlockLeft
-      draggedBlockOffset.y = (event.clientY - dragState.offsetY) - snappedBlockTop
+      let snappedBlockLeft =
+        dragState.grid.left + dragState.grid.labelWidth + snappedDay * dragState.grid.dayWidth
+      let snappedBlockTop =
+        dragState.grid.top + (nextPlacement.startMinute / 60) * dragState.grid.rowHeight
+      draggedBlockOffset.x = event.clientX - dragState.offsetX - snappedBlockLeft
+      draggedBlockOffset.y = event.clientY - dragState.offsetY - snappedBlockTop
 
       // Check if placement actually changed
       if (
@@ -933,7 +995,7 @@ export const AppointmentGrid = clientEntry(
         fetch(`/appointment/${blockId}`, {
           method: 'DELETE',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'X-Csrf-Token': csrfToken,
           },
         })
@@ -952,7 +1014,7 @@ export const AppointmentGrid = clientEntry(
         fetch('/appointment/types', {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-Csrf-Token': csrfToken,
           },
@@ -1011,11 +1073,7 @@ export const AppointmentGrid = clientEntry(
 
     // ── Resize handlers ──
 
-    function startResize(
-      appt: AppointmentLayoutBlock,
-      edge: 'start' | 'end',
-      event: PointerEvent,
-    ) {
+    function startResize(appt: AppointmentLayoutBlock, edge: 'start' | 'end', event: PointerEvent) {
       if (activeGesture || !gridBodyElement) return
       try {
         let grid = measureGrid(gridBodyElement)
@@ -1027,7 +1085,11 @@ export const AppointmentGrid = clientEntry(
           edge,
           grid,
           moved: false,
-          offsetY: event.clientY - (grid.top + (((edge === 'end' ? appt.end_min : appt.start_min) - currentOfferingStartMin) / 60) * grid.rowHeight),
+          offsetY:
+            event.clientY -
+            (grid.top +
+              (((edge === 'end' ? appt.end_min : appt.start_min) - currentOfferingStartMin) / 60) *
+                grid.rowHeight),
           originalBlock: copyAppt(appt),
           originalBlocks: data.appointments.map(copyAppt),
           pointerId: event.pointerId,
@@ -1170,7 +1232,7 @@ export const AppointmentGrid = clientEntry(
       return fetch(`/appointment/${id}`, {
         method: 'PUT',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-Csrf-Token': csrfToken,
         },
@@ -1195,16 +1257,24 @@ export const AppointmentGrid = clientEntry(
       let rawDay = (event.clientX - grid.left - grid.labelWidth) / grid.dayWidth
       let dayIdx = clamp(Math.round(rawDay), 0, currentVisibleDays.length - 1)
       let date = currentVisibleDays[dayIdx]?.date
-      if (!date) { clearTypeDragPreview(); return }
+      if (!date) {
+        clearTypeDragPreview()
+        return
+      }
 
       let rawMinute = ((event.clientY - grid.top) / grid.rowHeight) * 60 + currentOfferingStartMin
-      let startMinute = clamp(Math.round(rawMinute / 15) * 15, currentOfferingStartMin, currentOfferingEndMin - 15)
+      let startMinute = clamp(
+        Math.round(rawMinute / 15) * 15,
+        currentOfferingStartMin,
+        currentOfferingEndMin - 15,
+      )
 
       if (
         typeDragPreview &&
         typeDragPreview.date === date &&
         typeDragPreview.startMinute === startMinute
-      ) return
+      )
+        return
 
       typeDragPreview = { date, startMinute, dayIdx }
       handle.update()
@@ -1223,7 +1293,7 @@ export const AppointmentGrid = clientEntry(
         fetch('/appointment', {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-Csrf-Token': csrfToken,
           },
@@ -1297,7 +1367,8 @@ export const AppointmentGrid = clientEntry(
     function pointerToResizeMinute(event: PointerEvent, state: ResizeState): number {
       let edgeY = event.clientY - state.offsetY
       // Grid rows begin at currentOfferingStartMin, so add the offset
-      let rawMinute = ((edgeY - state.grid.top) / state.grid.rowHeight) * 60 + currentOfferingStartMin
+      let rawMinute =
+        ((edgeY - state.grid.top) / state.grid.rowHeight) * 60 + currentOfferingStartMin
       let snapped = Math.round(rawMinute / 15) * 15
 
       if (state.edge === 'start') {
@@ -1678,12 +1749,14 @@ const trashcanHoverStyle = css({
 
 const nonOfferingSlotStyle = css({
   backgroundColor: 'rgb(254 226 226 / 0.55)',
-  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(252 165 165 / 0.3) 8px, rgb(252 165 165 / 0.3) 16px)',
+  backgroundImage:
+    'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(252 165 165 / 0.3) 8px, rgb(252 165 165 / 0.3) 16px)',
   cursor: 'default',
   borderTop: `1px solid rgb(252 165 165 / 0.6)`,
   '&:hover': {
     backgroundColor: 'rgb(252 165 165 / 0.5)',
-    backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(239 68 68 / 0.25) 8px, rgb(239 68 68 / 0.25) 16px)',
+    backgroundImage:
+      'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(239 68 68 / 0.25) 8px, rgb(239 68 68 / 0.25) 16px)',
   },
 })
 

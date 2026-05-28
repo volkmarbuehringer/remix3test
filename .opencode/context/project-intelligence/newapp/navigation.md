@@ -160,10 +160,11 @@ These files document the general patterns that newapp applies in its specific co
 | Typed SSE channel factory | `development/remix3/sse/concepts/channel-factory.md` | [admin SSE channel](../newapp/app/lib/messages-sse.ts) |
 | SSE connection indicator | `development/remix3/sse/guides/connection-indicator.md` | [ConnectionIndicator](../newapp/app/assets/connection-indicator.tsx) |
 
-## Recent SSE Infrastructure
+## SSE Infrastructure
 
-The admin messages feature now uses the `createChannel` factory for real-time invalidation:
+Both admin messages and appointment pages use `createChannel` for real-time invalidation:
 
+### Messages SSE
 | File | Purpose |
 |------|---------|
 | `app/lib/sse.ts` | `createChannel` factory (generic, see remix3/sse docs) |
@@ -172,6 +173,15 @@ The admin messages feature now uses the `createChannel` factory for real-time in
 | `app/assets/connection-indicator.tsx` | SSE connection status indicator (clientEntry) |
 | `app/actions/admin-messages-controller.tsx` | `adminChannel.subscribe()` in subscribe action |
 | `app/ui/admin-messages-page.tsx` | Shows `ConnectionIndicator` in header |
+
+### Appointments SSE (shared channel, public + admin)
+| File | Purpose |
+|------|---------|
+| `app/lib/appointments-sse.ts` | `appointmentChannel = createChannel<{ invalidate: void }>()` — shared channel |
+| `app/actions/appointment-controller.tsx` | `appointmentChannel.subscribe()` at `/appointment/events` + broadcast on mutations |
+| `app/actions/admin-appointments-controller.tsx` | `appointmentChannel.subscribe()` at `/admin/appointments/events` + broadcast on mutations |
+| `app/ui/appointment-page.tsx` | `ConnectionIndicator` in sticky bar, `reloadMode: 'window'` |
+| `app/ui/admin-appointments-page.tsx` | `ConnectionIndicator` in header bar, `reloadMode: 'frame'`, `skipReloadParams: ['editing', 'creating']` |
 
 ## Commands
 

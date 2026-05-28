@@ -16,6 +16,7 @@ GET    /admin/appointments        (index)   → Renders grid + optional sidebar
 POST   /admin/appointments        (create)  → 302 → /admin/appointments?editing=<newId>
 PUT    /admin/appointments/:id    (update)  → 302 → /admin/appointments
 DELETE /admin/appointments/:id    (destroy) → 302 → /admin/appointments
+GET    /admin/appointments/events (events)  → SSE stream via `appointmentChannel.subscribe(request)`
 ```
 
 All actions protected by `requireAuth() + requireAdmin()` middleware. Uses raw SQL via `pool.query()`.

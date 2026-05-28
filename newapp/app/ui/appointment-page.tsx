@@ -33,7 +33,18 @@ interface AppointmentPageProps {
 
 export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
   return () => {
-    let { year, week, days, appointments, offerings, resources, selectedResourceId, csrfToken, currentUserId, isAdmin } = handle.props
+    let {
+      year,
+      week,
+      days,
+      appointments,
+      offerings,
+      resources,
+      selectedResourceId,
+      csrfToken,
+      currentUserId,
+      isAdmin,
+    } = handle.props
     let mondayMs = days[0]?.date ?? 0
 
     // Normalize offerings to a simpler shape for the client.
@@ -43,7 +54,9 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
       .map((o) => {
         let parsed = parseDuring(o.during)
         if (!parsed) {
-          console.warn(`[appointment-page] Skipping corrupt offering ${o.id}: unparseable during="${o.during}"`)
+          console.warn(
+            `[appointment-page] Skipping corrupt offering ${o.id}: unparseable during="${o.during}"`,
+          )
           return null
         }
         return { day: o.day, start_min: parsed.startMin, end_min: parsed.endMin }
@@ -74,14 +87,16 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
             <AppointmentSidebar />
             <Frame name={frames.appointTypes} src="/appointment/types" />
           </div>
-      <div mix={gridColumnStyle}>
-        <div mix={indicatorBarStyle}>
-          <ConnectionIndicator {...({ url: '/appointment/events', reloadMode: 'window' } as any)} />
+          <div mix={gridColumnStyle}>
+            <div mix={indicatorBarStyle}>
+              <ConnectionIndicator
+                {...({ url: '/appointment/events', reloadMode: 'window' } as any)}
+              />
+            </div>
+            <AppointmentGrid />
+          </div>
         </div>
-        <AppointmentGrid />
-      </div>
-    </div>
-  </Layout>
+      </Layout>
     )
   }
 }
@@ -115,6 +130,7 @@ const indicatorBarStyle = css({
   marginBottom: theme.space.sm,
   padding: `${theme.space.xs} ${theme.space.xs} 0`,
   pointerEvents: 'none',
+  background: theme.surface.lvl0,
   '& > *': {
     pointerEvents: 'auto',
   },

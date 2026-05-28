@@ -1,8 +1,8 @@
-<!-- Context: project-intelligence/newapp/concepts/appointment-calendar | Priority: high | Version: 1.2 | Updated: 2026-05-25 -->
+<!-- Context: project-intelligence/newapp/concepts/appointment-calendar | Priority: high | Version: 1.3 | Updated: 2026-05-28 -->
 
 # Concept: Appointment Calendar Architecture
 
-**Core Idea**: Auth-protected weekly calendar at `/appointment` with its own controller, data layer, and client-hydrated grid. Uses server-embedded JSON for data passing and JSON fetch API for mutations. All mutations trigger `window.location.reload()` (Phase 1 limitation — no Frame-based fragment swapping).
+**Core Idea**: Auth-protected weekly calendar at `/appointment` with its own controller, data layer, and client-hydrated grid. Uses server-embedded JSON for data passing and JSON fetch API for mutations. Mutations trigger `window.location.reload()` plus SSE-based `invalidate` broadcast to other sessions.
 
 ---
 
@@ -16,12 +16,17 @@ app/
     schema.ts                 → appointments table (BIGINT date, afterRead conversion)
     appointments.ts           → Data functions (listByWeek, create, update, delete)
   actions/
-    appointment-controller.tsx → createController with requireAuth, 4 actions
+    appointment-controller.tsx → createController with requireAuth, 5 actions (incl. events)
+  lib/
+    sse.ts                    → createChannel factory
+    appointments-sse.ts       → appointmentChannel (shared SSE channel)
   ui/
     schedule-layout.ts        → Pure-function layout solver for collision resolution (Phase 2)
-    appointment-page.tsx      → Layout shell: sidebar + grid shell via gridTemplateColumns
+    appointment-page.tsx      → Layout shell: sidebar + grid + ConnectionIndicator via gridTemplateColumns
     appointment-grid.tsx      → clientEntry: weekly grid with click/dblclick/drag/resize (1518 lines)
     appointment-sidebar.tsx   → clientEntry: year/week dropdown pickers
+  assets/
+    connection-indicator.tsx  → clientEntry: SSE connection status indicator
 ```
 
 ## Route Wiring
@@ -100,13 +105,15 @@ The appointment page nests inside the main `<Layout>` but overrides the content 
 Layout (title="Appointment")
   <script id="appointment-data" type="application/json">  ← server-embedded data
   div shellStyle (display: grid; gridTemplateColumns: '240px 1fr')
-    AppointmentSidebar     ← position: sticky; top: theme.space.lg
+    AppointmentSidebar       ← position: sticky; top: theme.space.lg
       <select year> <select week>  ← on('change') → navigate()
     div contentStyle (minWidth: 0)
-      AppointmentGrid      ← clientEntry: grid with sticky header
+      div indicatorBarStyle  ← position: sticky; top: 0; z-index: 10 (stay visible when grid scrolls)
+        ConnectionIndicator  ← SSE connection status, reloadMode='window'
+      AppointmentGrid        ← clientEntry: grid with sticky header
 ```
 
-**Sticky behavior**: Sidebar sticks at `theme.space.lg` below the `<Layout>` header. Grid header sticks at `top: 0` inside its overflow container (`pageStyle` has `overflowY: auto`). `minWidth: 0` on content wrapper prevents grid blowout.
+**Sticky behavior**: Sidebar sticks at `theme.space.lg` below the `<Layout>` header. Grid header sticks at `top: 0` inside its overflow container (`pageStyle` has `overflowY: auto`). A separate `indicatorBarStyle` with `position: sticky; top: 0; z-index: 10; background: theme.surface.lvl0` keeps the `ConnectionIndicator` visible when the grid scrolls beneath it. The bar uses `pointerEvents: 'none'` on the container with `pointerEvents: 'auto'` on the indicator so clicks pass through the bar. `minWidth: 0` on content wrapper prevents grid blowout.
 
 ## Data Layer
 
@@ -118,17 +125,37 @@ Single `<script id="appointment-data">` tag carries all page state: `year`, `wee
 
 ## Mutation Strategy
 
-All mutations use `fetch()` with JSON body and `X-Csrf-Token` header. On success, the page calls `window.location.reload()`. No Frame-based fragment swapping, no inline update, no optimistic rendering.
+All mutations use `fetch()` with JSON body and `X-Csrf-Token` header. On success, the page calls `window.location.reload()` via `handleMutationResponse`. Additionally, every mutation action broadcasts an `invalidate` event via `appointmentChannel` so other sessions (both public `/appointment` and admin `/admin/appointments`) receive real-time updates.
 
-| Operation | HTTP | Reload? | Notes |
-|-----------|------|---------|-------|
-| Create | POST | ✅ | Single block — min 15-min duration enforced server-side |
-| Rename | PUT | ✅ | Single block — title only via textarea; Shift+Enter/Save button commits; blur/Escape/Cancel button cancels |
-| Delete (drag-to-trashcan) | DELETE | ✅ | Single block — triggered by dropping dragged block on trashcan in header |
-| Drag to move | PUT | ✅ | Batch — may update multiple blocks if collision solver shifted neighbors |
-| Resize | PUT | ✅ | Batch — min 15-min duration enforced server-side and by layout solver; end-edge offsetY relative to `end_min` |
+| Operation | HTTP | Reload via fetch? | SSE invalidate? | Notes |
+|-----------|------|-------------------|-----------------|-------|
+| Create | POST | ✅ | ✅ | Single block — min 15-min duration enforced server-side |
+| Rename | PUT | ✅ | ✅ | Single block — title only via textarea; Shift+Enter/Save button commits; blur/Escape/Cancel button cancels |
+| Delete (drag-to-trashcan) | DELETE | ✅ | ✅ | Single block — triggered by dropping dragged block on trashcan in header |
+| Drag to move | PUT | ✅ | ✅ | Batch — may update multiple blocks if collision solver shifted neighbors |
+| Resize | PUT | ✅ | ✅ | Batch — min 15-min duration enforced server-side and by layout solver; end-edge offsetY relative to `end_min` |
 
-Phase 2 (drag/resize) added **batch PUT**: the collision solver (`schedule-layout.ts`) may shift multiple blocks during resolution. All changed blocks are saved with parallel `fetch()` calls on drop/release, followed by a single reload.
+### Dual Reload Behavior
+
+The `ConnectionIndicator` at the top of the page also listens for `event: invalidate` and calls `window.location.reload()` (`reloadMode: 'window'`). This means:
+
+- **Mutating session**: The `handleMutationResponse` reload triggers first. The SSE `invalidate` arrives shortly after — the second reload is a harmless no-op during page navigation.
+- **Other sessions**: They receive only the SSE `invalidate` and reload via the `ConnectionIndicator`. This ensures all browser windows/tabs see up-to-date data without manual refresh.
+
+This is an accepted tradeoff — the SSE channel ensures cross-session consistency while the direct reload gives immediate feedback to the mutating user.
+
+### SSE Channel Architecture
+
+```typescript
+// shared channel — used by both public and admin controllers
+export const appointmentChannel = createChannel<{ invalidate: void }>()
+
+// Public: /appointment/events → appointmentChannel.subscribe(request)
+// Admin: /admin/appointments/events → appointmentChannel.subscribe(request)
+// Mutations: appointmentChannel.broadcast('invalidate')
+```
+
+Same channel means mutations from either the public page or the admin panel broadcast to ALL connected sessions. See `newapp/app/lib/appointments-sse.ts` and `newapp/app/lib/sse.ts`.
 
 Phase 2 (drag/resize) added **batch PUT**: the collision solver (`schedule-layout.ts`) may shift multiple blocks during resolution. All changed blocks are saved with parallel `fetch()` calls on drop/release, followed by a single reload.
 
@@ -140,14 +167,17 @@ Registered in `app/ui/nav.ts` under "Pages" section: `{ label: 'Appointment', hr
 
 | File | Purpose |
 |------|---------|
-| `app/routes.ts` | `appointmentRoutes` definition (lines 37-44) |
+| `app/routes.ts` | `appointmentRoutes` definition (lines 37-44) — includes `events: get('/events')` |
 | `app/router.ts` | Route-to-controller wiring (line 80) |
-| `app/actions/appointment-controller.tsx` | Controller: index, create, update, destroy |
+| `app/actions/appointment-controller.tsx` | Controller: index, create, update, destroy, events (SSE subscribe) |
 | `app/data/appointments.ts` | Data functions + AppointmentError |
 | `app/data/schema.ts` | `appointments` table (lines 286-320) |
-| `app/ui/appointment-page.tsx` | Layout shell with sidebar+grid gridTemplateColumns |
+| `app/lib/appointments-sse.ts` | `appointmentChannel` — shared SSE channel for both public and admin |
+| `app/lib/sse.ts` | `createChannel` factory (generic) |
+| `app/assets/connection-indicator.tsx` | clientEntry: SSE connection status indicator |
+| `app/ui/appointment-page.tsx` | Layout shell with sidebar+grid + ConnectionIndicator in sticky bar |
 | `app/ui/schedule-layout.ts` | Pure-function layout solver — collision resolution for drag/resize |
-| `app/ui/appointment-grid.tsx` | clientEntry: weekly grid with click, textarea rename, manual dblclick detection, drag, resize |
+| `app/ui/appointment-grid.tsx` | clientEntry: weekly grid with click, textarea rename, manual dblclick detection, drag, resize (SSE code removed — now delegated to ConnectionIndicator) |
 | `app/ui/appointment-sidebar.tsx` | clientEntry: year/week pickers |
 | `app/ui/nav.ts` | Nav entry (line 29) |
 
