@@ -46,6 +46,25 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/lists/:id': 'Item Details',
   '/lists/:id/data': 'Data',
 
+  // Appointment section
+  '/appointment': 'Terminbuchung',
+  '/appointment/events': 'Termine',
+  '/appointment/types': 'Termintypen',
+
+  // Admin — nutzer
+  '/admin/nutzer': 'Nutzer',
+
+  // Admin — offerings
+  // Note: config and week are POST-only action endpoints (not navigable pages),
+  // included here for completeness if they appear as frame navigation targets.
+  '/admin/offerings': 'Leistungen',
+  '/admin/offerings/config': 'Konfiguration',
+  '/admin/offerings/week': 'Wochenansicht',
+
+  // Admin — appointments
+  '/admin/appointments': 'Termine',
+  '/admin/appointments/events': 'Termine',
+
   // Client Lab
   '/client': 'Client Lab',
   '/client/grid': 'Grid',

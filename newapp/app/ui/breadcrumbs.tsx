@@ -15,7 +15,7 @@ export type { BreadcrumbItem }
 export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
   let path = pathname.replace(/\/+$/, '') || '/'
 
-  // Exact match — build hierarchial trail from root segments
+  // Exact match — build hierarchical trail from root segments
   let exactLabel = ROUTE_LABELS[path]
   if (exactLabel) {
     return buildTrail(path, exactLabel)

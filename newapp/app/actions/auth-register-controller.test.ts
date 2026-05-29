@@ -154,6 +154,55 @@ describe('Auth Register controller', () => {
     assert.ok(html.includes('Invalid input'), 'should show validation error for empty email')
   })
 
+  // -----------------------------------------------------------------------
+  // POST /register — rate limiting
+  // -----------------------------------------------------------------------
+  it('POST /register with repeated attempts for same email returns 429 after limit', async () => {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let email = `${TEST_PREFIX}ratelimit@example.com`
+
+    // Fire 6 rapid attempts (plus one final) — the first succeeds (new user),
+    // then the next 5 fail as duplicates. Each duplicate increments the rate
+    // limiter. After 5 duplicates, the rate limit threshold (5) is reached.
+    // The final 7th attempt is blocked with 429.
+    // We use a fresh CSRF session for each attempt since tokens are single-use.
+    for (let i = 0; i < 6; i++) {
+      let session = await createCsrfSession(`${BASE}/register`)
+      await router.fetch(`${BASE}/register`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          name: 'Rate Limit User',
+          email,
+          password: 'password123',
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+    }
+
+    // 6th attempt should be blocked by rate limiter
+    let finalSession = await createCsrfSession(`${BASE}/register`)
+    let response = await router.fetch(`${BASE}/register`, {
+      method: 'POST',
+      headers: { Cookie: finalSession.cookie },
+      body: new URLSearchParams({
+        name: 'Rate Limit User',
+        email,
+        password: 'password123',
+        _csrf: finalSession.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 429, 'should return 429 when rate limited')
+    let html = await response.text()
+    assert.ok(
+      html.toLowerCase().includes('too many'),
+      'should show rate limit error message',
+    )
+  })
+
   // Note: hashPassword('') produces a non-empty hash string, so an empty
   // password passes schema validation (password_hash is not empty).
   // The empty-password edge case is already tested in password-hash.test.ts.
