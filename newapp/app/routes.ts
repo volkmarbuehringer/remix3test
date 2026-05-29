@@ -1,4 +1,4 @@
-import { del, get, post, put, route, form } from 'remix/routes'
+import { del, get, post, put, route, form, resources } from 'remix/routes'
 
 export const frames = {
   adminContent: 'admin-content',
@@ -43,12 +43,7 @@ export const appointmentRoutes = route({
     destroy: del('/:id'),
     events: get('/events'),
 
-    types: route('types', {
-      index: get('/'),
-      create: post('/'),
-      update: put('/:id'),
-      destroy: del('/:id'),
-    }),
+    types: resources('types', { exclude: ['new', 'show', 'edit'] }),
   }),
 })
 
@@ -113,20 +108,10 @@ export const adminRoutes = route({
     }),
 
     // Admin users CRUD
-    users: route('users', {
-      index: get('/'),
-      create: post('/'),
-      update: put('/:id'),
-      destroy: del('/:id'),
-    }),
+    users: resources('users', { exclude: ['new', 'show', 'edit'] }),
 
     // Admin resources CRUD
-    resources: route('resources', {
-      index: get('/'),
-      create: post('/'),
-      update: put('/:id'),
-      destroy: del('/:id'),
-    }),
+    resources: resources('resources', { exclude: ['new', 'show', 'edit'] }),
 
     // Fragment routes for nested frame content
     fragments: route('fragments', {

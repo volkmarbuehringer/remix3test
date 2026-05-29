@@ -24,11 +24,11 @@ Scaffolded Remix 3 app (`remix new`) with:
 
 ```
 newapp/
-├── concepts/          # Architecture, middleware, context access, auth, database, theme, form ergonomics, appointment hydration, rate limiting, performance patterns
-├── guides/            # Controller patterns, mixins, nav, client entry, layout, frame CRUD, inline CRUD, admin offerings/appointments CRUD
+├── concepts/          # Architecture, middleware, context access, auth, database, theme, form ergonomics, appointment hydration, rate limiting, performance patterns, resource route adoption
+├── guides/            # Controller patterns, mixins, nav, client entry, layout, frame CRUD, inline CRUD, admin offerings/appointments CRUD, resource route migration
 ├── examples/          # Controller example, custom middleware template
 ├── errors/            # Client lab gotchas, raw SQL afterRead bypass, pre-built SSR bridge, resize offset bug
-└── lookup/            # Pagination, sort, data-schema API, shared utilities, known issues
+└── lookup/            # Pagination, sort, data-schema API, shared utilities, known issues, crud route audit
 ```
 
 ## Quick Reference
@@ -40,6 +40,9 @@ newapp/
 | Theme     | `app/theme.tsx`             |
 | Routes    | `app/routes.ts`             |
 | Router    | `app/router.ts` (factory: `createNewappRouter()`) |
+| CRUD route audit | `lookup/crud-route-audit.md` |
+| resources() adoption | `concepts/resource-route-adoption.md` |
+| Route migration guide | `guides/resource-route-migration.md` |
 | Main controller | `app/actions/controller.tsx`|
 | Lists controller | `app/actions/lists-controller.tsx` (auth-protected)|
 | Client controller | `app/actions/client/controller.tsx` (auth-protected CRUD)|
@@ -78,6 +81,11 @@ newapp/
 - **[Pagination & Sort Utilities](./lookup/pagination-sort-utils.md)** — `paginate()` and `parseSort()` quick reference
 - **[AppointOffering Concept](./concepts/appointoffering.md)** — Resource availability, `during` (int4range) handling, server-side 403 validation flow
 - **[AppointOffering CRUD Guide](./guides/appointoffering-crud.md)** — `listOfferingsByWeek`, `isSlotBookable`, `parseDuring`, controller validation integration
+
+### Route Definition & CRUD
+- **[Resource Route Adoption (`resources()`)](./concepts/resource-route-adoption.md)** — Which routes converted, why `exclude` is required, composition with `route()` nesting
+- **[CRUD Route Audit](./lookup/crud-route-audit.md)** — Full table of all CRUD-like routes with conversion status
+- **[Route Migration Guide](./guides/resource-route-migration.md)** — Step-by-step process for converting manual CRUD blocks to `resources()`
 
 ### CRUD & UI Patterns
 - **[Appointment Schema & Queries](./guides/appointment-schema-queries.md)** — Table schema, week-range queries, ownership isolation
