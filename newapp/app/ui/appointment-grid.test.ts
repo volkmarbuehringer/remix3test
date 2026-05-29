@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 import { db, initializeAppDatabase, pool } from '../data/setup.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../router.ts'
+import { listResources } from '../data/resources.ts'
 import { appointments, appointofferings, appointtypes } from '../data/schema.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
 
@@ -76,6 +77,7 @@ function parseAppointmentData(html: string): AppointmentData | null {
 describe('Appointment Grid', () => {
   let userCookie: string
   let userCsrfToken: string
+  let firstResourceId: number
   let tuesdayMs: number
   let wednesdayMs: number
 
@@ -91,6 +93,14 @@ describe('Appointment Grid', () => {
     }
     userCookie = auth.cookie
     userCsrfToken = auth.csrfToken
+
+    // Look up the first resource (by description order, matching the controller's
+    // index action which uses listResources().orderBy('description', 'asc')).
+    let allResources = await listResources(db)
+    if (allResources.length === 0) {
+      throw new Error('No resources found in the database')
+    }
+    firstResourceId = allResources[0].id
 
     // Compute test dates in the current week using Saturday and Sunday
     // (always >24h from any day/ time in the current week, avoiding
@@ -117,9 +127,9 @@ describe('Appointment Grid', () => {
     await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2`, [tuesdayMs, wednesdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-       VALUES ($1::bigint, 1, int4range(0, 1440, '[)'), $3, $3),
-              ($2::bigint, 1, int4range(0, 1440, '[)'), $3, $3)`,
-      [tuesdayMs, wednesdayMs, Date.now()],
+       VALUES ($1::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
+              ($2::bigint, $4, int4range(0, 1440, '[)'), $3, $3)`,
+      [tuesdayMs, wednesdayMs, Date.now(), firstResourceId],
     )
   }
 
@@ -181,7 +191,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -297,7 +307,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 480, // 8:00 AM
         end_min: 540, // 9:00 AM
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -336,7 +346,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 540,
         end_min: 600,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -370,7 +380,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 600,
         end_min: 660,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -396,7 +406,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 660,
         end_min: 720,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -430,7 +440,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 720,
         end_min: 780,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -463,7 +473,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 780,
         end_min: 840,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -494,7 +504,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 840,
         end_min: 900,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -522,7 +532,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 900,
         end_min: 960,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -556,7 +566,7 @@ describe('Appointment Grid', () => {
         date: wednesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -600,7 +610,7 @@ describe('Appointment Grid', () => {
         date: wednesdayMs,
         start_min: 540,
         end_min: 600,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -621,7 +631,7 @@ describe('Appointment Grid', () => {
           date: wednesdayMs,
           start_min: 600,
           end_min: 660,
-        resource_id: 1,
+        resource_id: firstResourceId,
         }),
       },
     )
@@ -679,7 +689,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 960,
         end_min: 1020,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -744,7 +754,7 @@ describe('Appointment Grid', () => {
           date: tuesdayMs,
           start_min: 1020 + i * 60,
           end_min: 1080 + i * 60,
-        resource_id: 1,
+        resource_id: firstResourceId,
         }),
       })
       assert.equal(response.status, 201)
@@ -794,7 +804,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 1200,
         end_min: 1260,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -855,7 +865,7 @@ describe('Appointment Grid', () => {
         typeId: typeBody.type.id,
         date: tuesdayMs,
         start_min: 1260,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -898,7 +908,7 @@ describe('Appointment Grid', () => {
         date: wednesdayMs,
         start_min: 660,
         end_min: 720,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -970,8 +980,8 @@ describe('Appointment Grid', () => {
     await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-       VALUES ($1::bigint, 1, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now()],
+       VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
+      [tuesdayMs, Date.now(), firstResourceId],
     )
 
     // Act: POST a slot at 0-60, which is outside [480,1080)
@@ -987,7 +997,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 0,
         end_min: 60,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -1014,7 +1024,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -1044,8 +1054,8 @@ describe('Appointment Grid', () => {
     await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-       VALUES ($1::bigint, 1, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now()],
+       VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
+      [tuesdayMs, Date.now(), firstResourceId],
     )
 
     // Act: POST typeId with start_min=0 (outside [480,1080))
@@ -1060,7 +1070,7 @@ describe('Appointment Grid', () => {
         typeId: typeBody.type.id,
         date: tuesdayMs,
         start_min: 0,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -1098,7 +1108,7 @@ describe('Appointment Grid', () => {
         typeId: typeBody.type.id,
         date: tuesdayMs,
         start_min: 480,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -1120,8 +1130,8 @@ describe('Appointment Grid', () => {
     await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-       VALUES ($1::bigint, 1, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now()],
+       VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
+      [tuesdayMs, Date.now(), firstResourceId],
     )
 
     let createResponse = await router.fetch(APPT_URL, {
@@ -1136,7 +1146,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -1177,7 +1187,7 @@ describe('Appointment Grid', () => {
         date: tuesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -1199,7 +1209,7 @@ describe('Appointment Grid', () => {
         date: wednesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
 
@@ -1210,7 +1220,9 @@ describe('Appointment Grid', () => {
   })
 
   it('PUT /appointment/:id moving slot within offering range returns 200', async () => {
-    // Arrange: create appt at 480-540 on tuesdayMs (full-day offering [0,1440))
+    // Arrange: create appt at 480-540 on wednesdayMs (full-day offering [0,1440)).
+    // Use wednesdayMs (Sunday) to avoid the 24h cancellation policy flakiness
+    // when tests run late on Friday (saturday morning would be <24h away).
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -1220,10 +1232,10 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Movable appt',
-        date: tuesdayMs,
+        date: wednesdayMs,
         start_min: 480,
         end_min: 540,
-        resource_id: 1,
+        resource_id: firstResourceId,
       }),
     })
     assert.equal(createResponse.status, 201)
@@ -1264,8 +1276,8 @@ describe('Appointment Grid', () => {
     let mondayMs = currentMonday()
     let nextMondayMs = mondayMs + 7 * 86_400_000
     await pool.query(
-      `DELETE FROM appointoffering WHERE resource_id = 1 AND day >= $1 AND day < $2`,
-      [mondayMs, nextMondayMs],
+      `DELETE FROM appointoffering WHERE resource_id = $3 AND day >= $1 AND day < $2`,
+      [mondayMs, nextMondayMs, firstResourceId],
     )
 
     // Act
