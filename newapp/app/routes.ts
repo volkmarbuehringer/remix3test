@@ -112,6 +112,22 @@ export const adminRoutes = route({
       events: get('/events'),
     }),
 
+    // Admin users CRUD
+    users: route('users', {
+      index: get('/'),
+      create: post('/'),
+      update: put('/:id'),
+      destroy: del('/:id'),
+    }),
+
+    // Admin resources CRUD
+    resources: route('resources', {
+      index: get('/'),
+      create: post('/'),
+      update: put('/:id'),
+      destroy: del('/:id'),
+    }),
+
     // Fragment routes for nested frame content
     fragments: route('fragments', {
       stats: get('/stats'),

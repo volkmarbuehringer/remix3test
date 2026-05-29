@@ -65,6 +65,12 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/admin/appointments': 'Termine',
   '/admin/appointments/events': 'Termine',
 
+  // Admin — users
+  '/admin/users': 'Users',
+
+  // Admin — resources
+  '/admin/resources': 'Resources',
+
   // Client Lab
   '/client': 'Client Lab',
   '/client/grid': 'Grid',

@@ -41,10 +41,14 @@ async function initialize(): Promise<void> {
       password_hash TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'customer',
-      created_at BIGINT NOT NULL
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL DEFAULT 0
     )
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS users_email_idx ON users (email)`)
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT 0
+  `)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chatlog (

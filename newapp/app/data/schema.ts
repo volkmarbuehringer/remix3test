@@ -10,6 +10,7 @@ export const users = table({
     name: c.text(),
     role: c.enum(['customer', 'admin']),
     created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -32,6 +33,14 @@ export const users = table({
 
     if (operation === 'create' && next.created_at === undefined) {
       next.created_at = Date.now()
+    }
+
+    if (operation === 'create' && next.updated_at === undefined) {
+      next.updated_at = Date.now()
+    }
+
+    if (operation === 'update') {
+      next.updated_at = Date.now()
     }
 
     return { value: next }
@@ -74,6 +83,9 @@ export const users = table({
     // Use c.integer() + afterRead instead of c.bigint() (which returns unknown)
     if (typeof value.created_at === 'string') {
       value.created_at = parseInt(value.created_at, 10)
+    }
+    if (typeof value.updated_at === 'string') {
+      value.updated_at = parseInt(value.updated_at, 10)
     }
     return { value }
   },

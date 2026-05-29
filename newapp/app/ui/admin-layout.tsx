@@ -17,6 +17,8 @@ export type AdminNavItem =
   | 'nutzer'
   | 'offerings'
   | 'appointments'
+  | 'users'
+  | 'resources'
 
 // ── Nav data ────────────────────────────────────────────────────
 
@@ -34,6 +36,8 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'lists', label: 'Lists', route: routes.admin.lists.index },
       { id: 'client', label: 'Client Lab', href: '/client', iframeNav: false },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
+      { id: 'users', label: 'Users', route: routes.admin.users.index },
+      { id: 'resources', label: 'Resources', route: routes.admin.resources.index },
       { id: 'offerings', label: 'Offerings', route: routes.admin.offerings.index },
       { id: 'appointments', label: 'Appointments', route: routes.admin.appointments.index },
     ],
@@ -64,6 +68,10 @@ function navIcon(id: AdminNavItem): RemixNode {
       return listSvg()
     case 'appointments':
       return calendarSvg()
+    case 'users':
+      return usersSvg()
+    case 'resources':
+      return listSvg()
   }
 }
 
