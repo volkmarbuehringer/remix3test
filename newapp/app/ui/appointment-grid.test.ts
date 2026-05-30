@@ -78,8 +78,8 @@ describe('Appointment Grid', () => {
   let userCookie: string
   let userCsrfToken: string
   let firstResourceId: number
-  let tuesdayMs: number
-  let wednesdayMs: number
+  let saturdayMs: number
+  let sundayMs: number
   let farFutureDateMs: number
 
   before(async () => {
@@ -105,17 +105,17 @@ describe('Appointment Grid', () => {
 
     // Compute test dates in the current week using Saturday and Sunday.
     let mondayMs = currentMonday()
-    tuesdayMs = mondayMs + 5 * 86_400_000 // Saturday
-    wednesdayMs = mondayMs + 6 * 86_400_000 // Sunday
+    saturdayMs = mondayMs + 5 * 86_400_000
+    sundayMs = mondayMs + 6 * 86_400_000
     // Date guaranteed >24h from now for PUT tests (next week's Sunday).
     // This avoids flakiness with the 24h cancellation policy when tests
     // run late on Saturday/Sunday.
-    farFutureDateMs = mondayMs + 13 * 86_400_000 // Next Sunday
+    farFutureDateMs = mondayMs + 13 * 86_400_000
 
     // Clean up any leftover appointments from previous runs to prevent collisions.
     await pool.query(
       `DELETE FROM appointments WHERE user_id = (SELECT id FROM users WHERE email = $1) AND (date = $2 OR date = $3 OR date = $4)`,
-      ['user@newapp.com', tuesdayMs, wednesdayMs, farFutureDateMs],
+      ['user@newapp.com', saturdayMs, sundayMs, farFutureDateMs],
     )
   })
 
@@ -126,14 +126,14 @@ describe('Appointment Grid', () => {
    */
   async function seedTestOfferings(): Promise<void> {
     // Remove ALL appointments on test dates (from any user) to prevent collisions
-    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2 OR date = $3`, [tuesdayMs, wednesdayMs, farFutureDateMs])
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2 OR day = $3`, [tuesdayMs, wednesdayMs, farFutureDateMs])
+    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2 OR date = $3`, [saturdayMs, sundayMs, farFutureDateMs])
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2 OR day = $3`, [saturdayMs, sundayMs, farFutureDateMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
               ($2::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
               ($5::bigint, $4, int4range(0, 1440, '[)'), $3, $3)`,
-      [tuesdayMs, wednesdayMs, Date.now(), firstResourceId, farFutureDateMs],
+      [saturdayMs, sundayMs, Date.now(), firstResourceId, farFutureDateMs],
     )
   }
 
@@ -192,7 +192,7 @@ describe('Appointment Grid', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: 'Unauthorized',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -308,7 +308,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: multilineTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480, // 8:00 AM
         end_min: 540, // 9:00 AM
         resource_id: firstResourceId,
@@ -347,7 +347,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: multilineTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 540,
         end_min: 600,
         resource_id: firstResourceId,
@@ -381,7 +381,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Single line meeting',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 600,
         end_min: 660,
         resource_id: firstResourceId,
@@ -407,7 +407,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: '',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 660,
         end_min: 720,
         resource_id: firstResourceId,
@@ -441,7 +441,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: '   ',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 720,
         end_min: 780,
         resource_id: firstResourceId,
@@ -474,7 +474,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: longTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 780,
         end_min: 840,
         resource_id: firstResourceId,
@@ -505,7 +505,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: boundaryTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 840,
         end_min: 900,
         resource_id: firstResourceId,
@@ -533,7 +533,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: multilineBoundary,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 900,
         end_min: 960,
         resource_id: firstResourceId,
@@ -690,7 +690,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: multilineTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 960,
         end_min: 1020,
         resource_id: firstResourceId,
@@ -755,7 +755,7 @@ describe('Appointment Grid', () => {
         },
         body: JSON.stringify({
           title: titles[i],
-          date: tuesdayMs,
+          date: saturdayMs,
           start_min: 1020 + i * 60,
           end_min: 1080 + i * 60,
         resource_id: firstResourceId,
@@ -805,7 +805,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: uniqueTitle,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 1200,
         end_min: 1260,
         resource_id: firstResourceId,
@@ -830,7 +830,7 @@ describe('Appointment Grid', () => {
       'created appointment should be findable by title in page data',
     )
     assert.equal(found!.id, appointment.id, 'appointment id should match')
-    assert.equal(found!.date, tuesdayMs, 'appointment date should match')
+    assert.equal(found!.date, saturdayMs, 'appointment date should match')
     assert.equal(found!.start_min, 1200, 'appointment start_min should match')
     assert.equal(found!.end_min, 1260, 'appointment end_min should match')
   })
@@ -867,7 +867,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         typeId: typeBody.type.id,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 1260,
         resource_id: firstResourceId,
       }),
@@ -909,7 +909,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Initial title',
-        date: wednesdayMs,
+        date: farFutureDateMs,
         start_min: 660,
         end_min: 720,
         resource_id: firstResourceId,
@@ -980,12 +980,12 @@ describe('Appointment Grid', () => {
   // -----------------------------------------------------------------------
 
   it('POST /appointment with slot outside offering returns 403 (narrowed offerings [480,1080))', async () => {
-    // Arrange: replace full-day [0,1440) with narrower [480,1080) on tuesdayMs
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
+    // Arrange: replace full-day [0,1440) with narrower [480,1080) on saturdayMs
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [saturdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now(), firstResourceId],
+      [saturdayMs, Date.now(), firstResourceId],
     )
 
     // Act: POST a slot at 0-60, which is outside [480,1080)
@@ -998,7 +998,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Outside offering',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 0,
         end_min: 60,
         resource_id: firstResourceId,
@@ -1025,7 +1025,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Within full-day offering',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -1055,11 +1055,11 @@ describe('Appointment Grid', () => {
     assert.ok(typeBody.type?.id, 'should create appointtype')
     testAppointTypeIds.push(typeBody.type.id)
 
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [saturdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now(), firstResourceId],
+      [saturdayMs, Date.now(), firstResourceId],
     )
 
     // Act: POST typeId with start_min=0 (outside [480,1080))
@@ -1072,7 +1072,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         typeId: typeBody.type.id,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 0,
         resource_id: firstResourceId,
       }),
@@ -1110,7 +1110,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         typeId: typeBody.type.id,
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480,
         resource_id: firstResourceId,
       }),
@@ -1131,11 +1131,11 @@ describe('Appointment Grid', () => {
 
   it('PUT /appointment/:id moving slot outside offering range returns 403', async () => {
     // Arrange: narrow offerings to [480,1080), then create appt at 480-540
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [tuesdayMs])
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [saturdayMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $3, int4range(480, 1080, '[)'), $2, $2)`,
-      [tuesdayMs, Date.now(), firstResourceId],
+      [saturdayMs, Date.now(), firstResourceId],
     )
 
     let createResponse = await router.fetch(APPT_URL, {
@@ -1147,7 +1147,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Movable appt',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -1178,7 +1178,7 @@ describe('Appointment Grid', () => {
   })
 
   it('PUT /appointment/:id moving to date with no offerings returns 403', async () => {
-    // Arrange: create appt at 480-540 on tuesdayMs (full-day offering [0,1440))
+    // Arrange: create appt at 480-540 on saturdayMs (full-day offering [0,1440))
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -1188,7 +1188,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Tuesday appt',
-        date: tuesdayMs,
+        date: saturdayMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -1198,10 +1198,10 @@ describe('Appointment Grid', () => {
     let { appointment } = await createResponse.json()
     testAppointmentIds.push(appointment.id)
 
-    // Remove the offering for wednesdayMs so that date has no bookable slots
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [wednesdayMs])
+    // Remove the offering for sundayMs so that date has no bookable slots
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1`, [sundayMs])
 
-    // Act: PUT to move the appt to wednesdayMs (no offerings)
+    // Act: PUT to move the appt to sundayMs (no offerings)
     let response = await router.fetch(`${APPT_URL}/${appointment.id}`, {
       method: 'PUT',
       headers: {
@@ -1210,7 +1210,7 @@ describe('Appointment Grid', () => {
         Cookie: userCookie,
       },
       body: JSON.stringify({
-        date: wednesdayMs,
+        date: sundayMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -1273,7 +1273,7 @@ describe('Appointment Grid', () => {
 
   it('GET /appointment has empty offerings when no offerings exist for the week', async () => {
     // Arrange: delete all offerings for the current week for resource 1
-    // seedTestOfferings seeds tuesdayMs and wednesdayMs with [0,1440).
+    // seedTestOfferings seeds saturdayMs and sundayMs with [0,1440).
     // The demo data also seeds Mon–Fri. Delete everything in the current week.
     let mondayMs = currentMonday()
     let nextMondayMs = mondayMs + 7 * 86_400_000

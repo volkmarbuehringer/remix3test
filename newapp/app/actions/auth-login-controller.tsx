@@ -12,6 +12,7 @@ import { redirect } from 'remix/response/redirect'
 import { routes, authRoutes } from '../routes.ts'
 import type { AppContext } from '../types/context.ts'
 
+import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { passwordProvider } from '../middleware/auth.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
 import { Layout } from '../ui/layout.tsx'
@@ -26,33 +27,7 @@ const loginSchema = f.object({
 })
 
 // Per-email rate limiter: blocks after 5 failed attempts in 15 seconds
-const loginFailures = new Map<string, { count: number; firstAt: number }>()
-const LOGIN_WINDOW_MS = 15_000
-const LOGIN_MAX_ATTEMPTS = 5
-
-function isLoginRateLimited(email: string): boolean {
-  let entry = loginFailures.get(email)
-  if (!entry) return false
-  if (Date.now() - entry.firstAt > LOGIN_WINDOW_MS) {
-    loginFailures.delete(email)
-    return false
-  }
-  return entry.count >= LOGIN_MAX_ATTEMPTS
-}
-
-function recordLoginFailure(email: string): void {
-  let now = Date.now()
-  let entry = loginFailures.get(email)
-  if (!entry || now - entry.firstAt > LOGIN_WINDOW_MS) {
-    loginFailures.set(email, { count: 1, firstAt: now })
-  } else {
-    entry.count++
-  }
-}
-
-function clearLoginRateLimit(email: string): void {
-  loginFailures.delete(email)
-}
+const loginLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
 
 export default createController<typeof authRoutes.authLogin, AppContext>(authRoutes.authLogin, {
   middleware: [],
@@ -72,18 +47,17 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
         return context.render(<LoginPage error="Invalid email or password format." returnTo={returnTo} />, { status: 400 })
       }
 
-      if (isLoginRateLimited(parsed.email)) {
+      if (!loginLimiter.attempt(parsed.email)) {
         return context.render(<LoginPage error="Too many attempts. Please try again later." returnTo={returnTo} />, { status: 429 })
       }
 
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
-        recordLoginFailure(parsed.email)
         return context.render(<LoginPage error="Invalid email or password." returnTo={returnTo} />, { status: 401 })
       }
 
-      clearLoginRateLimit(parsed.email)
+      loginLimiter.reset(parsed.email)
 
       let session = completeAuth(context)
       session.regenerateId()

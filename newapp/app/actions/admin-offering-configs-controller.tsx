@@ -3,7 +3,7 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
 import { adminRoutes as routes } from '../routes.ts'
-import { offeringConfigs } from '../data/schema.ts'
+import { offeringConfigs, resources } from '../data/schema.ts'
 import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
@@ -12,6 +12,7 @@ import { AdminOfferingConfigsPage } from '../ui/admin-offering-configs-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import {
   gridStateFromForm,
+  gridStateFromFormData,
   gridStateToParams,
 } from '../utils/grid-state.ts'
 import { pool } from '../data/setup.ts'
@@ -33,6 +34,23 @@ export interface ResourceOption {
 const PAGE_SIZE = 15
 
 const SORTABLE_FIELDS = ['id', 'resource_description', 'created_at', 'updated_at'] as const
+
+const ORDER_BY_COLUMNS: Record<string, string> = {
+  id: 'oc.id',
+  resource_description: 'r.description',
+  created_at: 'oc.created_at',
+  updated_at: 'oc.updated_at',
+}
+
+const PG_FOREIGN_KEY_VIOLATION = '23503'
+
+function isForeignKeyViolation(error: unknown): boolean {
+  if (error && typeof error === 'object') {
+    let err = error as { code?: string }
+    return err.code === PG_FOREIGN_KEY_VIOLATION
+  }
+  return false
+}
 
 const offeringConfigSchema = f.object({
   resource_id: f.field(s.string()),
@@ -75,7 +93,7 @@ function rulesFromParsed(parsed: Record<string, string>): Record<string, [number
     if (start && end) {
       let startMin = Number(start)
       let endMin = Number(end)
-      if (Number.isFinite(startMin) && Number.isFinite(endMin) && startMin < endMin) {
+      if (Number.isFinite(startMin) && Number.isFinite(endMin) && startMin >= 0 && endMin <= 1440 && startMin < endMin) {
         rules[day] = [startMin, endMin]
       }
     }
@@ -83,9 +101,15 @@ function rulesFromParsed(parsed: Record<string, string>): Record<string, [number
   return rules
 }
 
-function columnName(col: string): string {
-  if (col === 'resource_description') return 'r.description'
-  return `oc.${col}`
+function toRow(row: Record<string, unknown>): OfferingConfigRow {
+  return {
+    id: Number(row.id),
+    resource_id: Number(row.resource_id),
+    resource_description: (row.resource_description as string) ?? null,
+    rules: typeof row.rules === 'string' ? JSON.parse(row.rules as string) : (row.rules as Record<string, [number, number]>),
+    created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
+    updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
+  }
 }
 
 export default createController<typeof routes.admin.offeringConfigs, AppContext>(routes.admin.offeringConfigs, {
@@ -109,7 +133,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         params.push(`%${filter}%`)
       }
 
-      let orderCol = columnName(column)
+      let orderCol = ORDER_BY_COLUMNS[column] || 'oc.id'
       let orderDir = direction === 'desc' ? 'DESC' : 'ASC'
 
       let countResult = await pool.query(
@@ -132,14 +156,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         dataParams,
       )
 
-      let rows: OfferingConfigRow[] = dataResult.rows.map((row: Record<string, unknown>) => ({
-        id: Number(row.id),
-        resource_id: Number(row.resource_id),
-        resource_description: (row.resource_description as string) ?? null,
-        rules: typeof row.rules === 'string' ? JSON.parse(row.rules as string) : (row.rules as Record<string, [number, number]>),
-        created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-        updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
-      }))
+      let rows: OfferingConfigRow[] = dataResult.rows.map(toRow)
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam ? Number(editingParam) : null
@@ -153,15 +170,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
           [editingRowId],
         )
         if (editResult.rows.length > 0) {
-          let row = editResult.rows[0] as Record<string, unknown>
-          editRow = {
-            id: Number(row.id),
-            resource_id: Number(row.resource_id),
-            resource_description: (row.resource_description as string) ?? null,
-            rules: typeof row.rules === 'string' ? JSON.parse(row.rules as string) : (row.rules as Record<string, [number, number]>),
-            created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-            updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
-          }
+          editRow = toRow(editResult.rows[0] as Record<string, unknown>)
         }
       }
 
@@ -210,6 +219,11 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         return context.json({ ok: false, error: 'Resource is required' }, { status: 400 })
       }
 
+      let resource = await db.findOne(resources, { where: { id: resourceId } })
+      if (!resource) {
+        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+      }
+
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
       if (existing) {
         return context.json({ ok: false, error: 'Resource already has a config' }, { status: 400 })
@@ -220,14 +234,22 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         return context.json({ ok: false, error: 'At least one day must have a time range' }, { status: 400 })
       }
 
-      let row = await db.create(
-        offeringConfigs,
-        {
-          resource_id: resourceId,
-          rules: JSON.stringify(rules),
-        },
-        { returnRow: true },
-      )
+      let row: Record<string, unknown>
+      try {
+        row = await db.create(
+          offeringConfigs,
+          {
+            resource_id: resourceId,
+            rules: JSON.stringify(rules),
+          },
+          { returnRow: true },
+        )
+      } catch (error) {
+        if (isForeignKeyViolation(error)) {
+          return context.json({ ok: false, error: 'Resource was deleted' }, { status: 409 })
+        }
+        throw error
+      }
 
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
@@ -248,6 +270,11 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
+      let target = await db.findOne(offeringConfigs, { where: { id } })
+      if (!target) {
+        return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
+      }
+
       let parsed: Record<string, string>
       try {
         parsed = s.parse(offeringConfigSchema, formData) as Record<string, string>
@@ -260,6 +287,11 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         return context.json({ ok: false, error: 'Resource is required' }, { status: 400 })
       }
 
+      let resource = await db.findOne(resources, { where: { id: resourceId } })
+      if (!resource) {
+        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+      }
+
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
       if (existing && Number(existing.id) !== id) {
         return context.json({ ok: false, error: 'Resource already has a config' }, { status: 400 })
@@ -270,11 +302,18 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         return context.json({ ok: false, error: 'At least one day must have a time range' }, { status: 400 })
       }
 
-      await db.updateMany(
-        offeringConfigs,
-        { resource_id: resourceId, rules: JSON.stringify(rules) },
-        { where: { id } },
-      )
+      try {
+        await db.updateMany(
+          offeringConfigs,
+          { resource_id: resourceId, rules: JSON.stringify(rules) },
+          { where: { id } },
+        )
+      } catch (error) {
+        if (isForeignKeyViolation(error)) {
+          return context.json({ ok: false, error: 'Resource was deleted' }, { status: 409 })
+        }
+        throw error
+      }
 
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
@@ -302,13 +341,8 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
 
       await db.deleteMany(offeringConfigs, { where: { id } })
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(offeringConfigSchema, formData) as Record<string, string>
-      } catch {
-        parsed = { resource_id: '', monday_enabled: '', monday_start: '', monday_end: '', tuesday_enabled: '', tuesday_start: '', tuesday_end: '', wednesday_enabled: '', wednesday_start: '', wednesday_end: '', thursday_enabled: '', thursday_start: '', thursday_end: '', friday_enabled: '', friday_start: '', friday_end: '', saturday_enabled: '', saturday_start: '', saturday_end: '', sunday_enabled: '', sunday_start: '', sunday_end: '', _offset: '', _sort: '', _order: '', _filter: '' }
-      }
-      let params = gridStateToParams(gridStateFromForm(parsed))
+      let redirectState = gridStateFromFormData(formData)
+      let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.admin.offeringConfigs.index.href()
       return new Response(null, {

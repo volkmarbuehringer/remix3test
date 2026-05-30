@@ -3,34 +3,48 @@ export interface RateLimiterOptions {
   windowMs: number
   /** Track per-user (by ID) vs global */
   perUser?: boolean
+  /** Track per-key by string (email, IP, etc.) */
+  perKey?: boolean
+  /** Max attempts within the window before blocking (default: 1 for throttle) */
+  maxAttempts?: number
   /** Cleanup interval for per-user maps (default: windowMs * 100) */
   cleanupInterval?: number
 }
 
+interface RateLimiterEntry {
+  attempts: number
+  firstAt: number
+}
+
 export interface RateLimiter {
-  check(userId?: number): { allowed: boolean; retryAfter?: number }
+  check(key?: number | string): { allowed: boolean; retryAfter?: number }
 
-  set(userId?: number): void
+  set(key?: number | string): void
 
-  reset(userId?: number): void
+  reset(key?: number | string): void
 
   /** Atomically checks and sets. Returns false if rate-limited. */
-  attempt(userId?: number): boolean
+  attempt(key?: number | string): boolean
 }
 
 export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
-  let { windowMs, perUser = false, cleanupInterval = windowMs * 100 } = options
+  let { windowMs, perUser = false, perKey = false, maxAttempts = 1, cleanupInterval = windowMs * 100 } = options
 
-  let GLOBAL_KEY = -1
-  let timestamps = new Map<number, number>()
+  if (perUser && perKey) {
+    throw new Error('Cannot set both perUser and perKey on a rate limiter')
+  }
 
+  let GLOBAL_KEY = Symbol('global')
+  let entries = new Map<number | string | symbol, RateLimiterEntry>()
+
+  let hasKeyedMode = perUser || perKey
   let cleanupTimer: ReturnType<typeof setInterval> | undefined
-  if (perUser) {
+  if (hasKeyedMode) {
     cleanupTimer = setInterval(() => {
       let now = Date.now()
-      for (let [key, time] of timestamps) {
-        if (now - time > cleanupInterval) {
-          timestamps.delete(key)
+      for (let [key, entry] of entries) {
+        if (now - entry.firstAt > cleanupInterval) {
+          entries.delete(key)
         }
       }
     }, cleanupInterval)
@@ -40,47 +54,74 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
     }
   }
 
-  function getKey(userId?: number): number {
+  function getKey(key?: number | string): number | string | symbol {
     if (perUser) {
-      if (userId == null) {
+      if (key == null || typeof key !== 'number') {
         throw new Error('userId is required for per-user rate limiter')
       }
-      return userId
+      return key
+    }
+    if (perKey) {
+      if (key == null || typeof key !== 'string') {
+        throw new Error('key is required for per-key rate limiter')
+      }
+      return key
     }
     return GLOBAL_KEY
   }
 
-  return {
-    check(userId?: number): { allowed: boolean; retryAfter?: number } {
-      let key = getKey(userId)
-      let lastTime = timestamps.get(key) ?? 0
-      let now = Date.now()
+  function entryCount(key: number | string | symbol): number {
+    let entry = entries.get(key)
+    if (!entry) return 0
+    if (Date.now() - entry.firstAt > windowMs) {
+      entries.delete(key)
+      return 0
+    }
+    return entry.attempts
+  }
 
-      if (now - lastTime < windowMs) {
-        let retryAfter = Math.ceil((windowMs - (now - lastTime)) / 1000)
+  return {
+    check(key?: number | string): { allowed: boolean; retryAfter?: number } {
+      let k = getKey(key)
+      let count = entryCount(k)
+      if (count >= maxAttempts) {
+        let entry = entries.get(k)!
+        let retryAfter = Math.ceil((windowMs - (Date.now() - entry.firstAt)) / 1000)
         return { allowed: false, retryAfter }
       }
-
       return { allowed: true }
     },
 
-    set(userId?: number): void {
-      let key = getKey(userId)
-      timestamps.set(key, Date.now())
+    set(key?: number | string): void {
+      let k = getKey(key)
+      let entry = entries.get(k)
+      let now = Date.now()
+      if (!entry || now - entry.firstAt > windowMs) {
+        entries.set(k, { attempts: 1, firstAt: now })
+      } else {
+        entry.attempts++
+      }
     },
 
-    attempt(userId?: number): boolean {
-      let result = this.check(userId)
-      if (!result.allowed) return false
-      this.set(userId)
+    attempt(key?: number | string): boolean {
+      let k = getKey(key)
+      let count = entryCount(k)
+      if (count >= maxAttempts) return false
+      let entry = entries.get(k)
+      let now = Date.now()
+      if (!entry || now - entry.firstAt > windowMs) {
+        entries.set(k, { attempts: 1, firstAt: now })
+      } else {
+        entry.attempts++
+      }
       return true
     },
 
-    reset(userId?: number): void {
-      if (perUser && userId != null) {
-        timestamps.delete(userId)
+    reset(key?: number | string): void {
+      if (hasKeyedMode && key != null) {
+        entries.delete(key)
       } else {
-        timestamps.delete(GLOBAL_KEY)
+        entries.delete(GLOBAL_KEY)
       }
     },
   }

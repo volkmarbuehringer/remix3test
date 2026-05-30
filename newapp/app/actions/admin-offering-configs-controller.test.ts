@@ -163,6 +163,94 @@ describe('Admin Offering Configs Controller', () => {
       assert.ok(json.error.includes('already'))
     })
 
+    it('rejects non-existent resource_id', async () => {
+      let body = new URLSearchParams({
+        resource_id: '9999999',
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 404)
+      let json = await response.json()
+      assert.ok(json.error.includes('not found'))
+    })
+
+    it('rejects start >= end time range', async () => {
+      // Create a fresh resource for this test
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
+        [`Offering Config Time Range Res ${now}`, now, now],
+      )
+      let resId = resResult.rows[0].id as number
+      createdResourceIds.push(resId)
+
+      let body = new URLSearchParams({
+        resource_id: String(resId),
+        monday_enabled: '1',
+        monday_start: '600',
+        monday_end: '300',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400)
+    })
+
+    it('rejects time values outside 0-1440 range', async () => {
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
+        [`Offering Config Out Of Range Res ${now}`, now, now],
+      )
+      let resId = resResult.rows[0].id as number
+      createdResourceIds.push(resId)
+
+      let body = new URLSearchParams({
+        resource_id: String(resId),
+        monday_enabled: '1',
+        monday_start: '-1',
+        monday_end: '100',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400)
+    })
+
     it('rejects missing resource_id', async () => {
       let body = new URLSearchParams({
         resource_id: '',
@@ -247,6 +335,32 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/offering-configs'))
+    })
+
+    it('returns 404 when updating non-existent config', async () => {
+      let body = new URLSearchParams({
+        resource_id: String(seedResourceId),
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/offering-configs/9999999`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 404)
+      let json = await response.json()
+      assert.ok(json.error.includes('not found'))
     })
 
     it('denies update for non-admin users', async () => {

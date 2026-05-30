@@ -10,6 +10,7 @@ import { redirect } from 'remix/response/redirect'
 import { routes, authRoutes } from '../routes.ts'
 import type { AppContext } from '../types/context.ts'
 
+import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { users } from '../data/schema.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 import { Layout } from '../ui/layout.tsx'
@@ -19,47 +20,7 @@ import { Button } from 'remix/ui/button'
 import { input } from '../ui/mixins/input.ts'
 
 // Per-email rate limiter: blocks after 5 failed registration attempts in 15 seconds.
-// Uses an inline Map (matching the login controller pattern in auth-login-controller.tsx)
-// rather than the shared createRateLimiter() utility, because the utility's API
-// expects numeric userId keys and registration rate limiting keys on email (string).
-const registerAttempts = new Map<string, { count: number; firstAt: number }>()
-const REGISTER_WINDOW_MS = 15_000
-const REGISTER_MAX_ATTEMPTS = 5
-
-// Periodic cleanup of stale rate limiter entries (every 25 minutes)
-const CLEANUP_INTERVAL_MS = REGISTER_WINDOW_MS * 100
-setInterval(() => {
-  let cutoff = Date.now() - REGISTER_WINDOW_MS
-  for (let [key, entry] of registerAttempts) {
-    if (entry.firstAt < cutoff) {
-      registerAttempts.delete(key)
-    }
-  }
-}, CLEANUP_INTERVAL_MS).unref()
-
-function isRegisterRateLimited(email: string): boolean {
-  let entry = registerAttempts.get(email)
-  if (!entry) return false
-  if (Date.now() - entry.firstAt > REGISTER_WINDOW_MS) {
-    registerAttempts.delete(email)
-    return false
-  }
-  return entry.count >= REGISTER_MAX_ATTEMPTS
-}
-
-function recordRegisterAttempt(email: string): void {
-  let now = Date.now()
-  let entry = registerAttempts.get(email)
-  if (!entry || now - entry.firstAt > REGISTER_WINDOW_MS) {
-    registerAttempts.set(email, { count: 1, firstAt: now })
-  } else {
-    entry.count++
-  }
-}
-
-function clearRegisterRateLimit(email: string): void {
-  registerAttempts.delete(email)
-}
+const registerLimiter = createRateLimiter({ windowMs: 15_000, perKey: true })
 
 const registerSchema = f.object({
   name: f.field(s.string().pipe(minLength(1))),
@@ -86,13 +47,12 @@ export default createController<typeof authRoutes.authRegister, AppContext>(auth
       let normalizedEmail = email.trim().toLowerCase()
 
       // Rate limit check — keyed on normalized email (case-insensitive)
-      if (isRegisterRateLimited(normalizedEmail)) {
+      if (!registerLimiter.attempt(normalizedEmail)) {
         return context.render(
           <RegisterPage error="Too many registration attempts. Please try again later." />,
           { status: 429 },
         )
       }
-      recordRegisterAttempt(normalizedEmail)
 
       if (await context.db.findOne(users, { where: { email: normalizedEmail } })) {
         return context.render(
@@ -114,7 +74,7 @@ export default createController<typeof authRoutes.authRegister, AppContext>(auth
       )
 
       // Registration succeeded — reset rate limit counter for this email
-      clearRegisterRateLimit(normalizedEmail)
+      registerLimiter.reset(normalizedEmail)
 
       let session = context.session
       if (session == null) {
