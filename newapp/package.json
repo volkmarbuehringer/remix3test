@@ -2,6 +2,11 @@
   "name": "newapp",
   "private": true,
   "type": "module",
+   "pnpm": {
+    "executionEnv": {
+      "nodeVersion": "26.2.0"
+    }
+   },
   "scripts": {
     "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --import remix/node-tsx server.ts",
     "start": "node --env-file-if-exists=.env --import remix/node-tsx server.ts",
@@ -14,7 +19,7 @@
     "postinstall": "node ./scripts/postinstall.ts"
   },
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=26.2.0"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
