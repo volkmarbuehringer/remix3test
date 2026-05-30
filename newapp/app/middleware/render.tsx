@@ -98,9 +98,9 @@ async function followFrameRedirects(
 }
 
 export function fragmentResponseInit(init?: ResponseInit): ResponseInit {
-  let headers = new Headers(init?.headers)
-  if (!headers.has('Cache-Control')) {
-    headers.set('Cache-Control', 'no-store')
+  let headers = new SuperHeaders(init?.headers)
+  if (!headers.cacheControl) {
+    headers.cacheControl = { noStore: true }
   }
 
   return { ...init, headers }
