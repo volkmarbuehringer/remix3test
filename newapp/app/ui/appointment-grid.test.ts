@@ -80,6 +80,7 @@ describe('Appointment Grid', () => {
   let firstResourceId: number
   let tuesdayMs: number
   let wednesdayMs: number
+  let farFutureDateMs: number
 
   before(async () => {
     await initializeAppDatabase()
@@ -102,17 +103,19 @@ describe('Appointment Grid', () => {
     }
     firstResourceId = allResources[0].id
 
-    // Compute test dates in the current week using Saturday and Sunday
-    // (always >24h from any day/ time in the current week, avoiding
-    // flakiness with the 24h cancellation policy on update tests)
+    // Compute test dates in the current week using Saturday and Sunday.
     let mondayMs = currentMonday()
     tuesdayMs = mondayMs + 5 * 86_400_000 // Saturday
     wednesdayMs = mondayMs + 6 * 86_400_000 // Sunday
+    // Date guaranteed >24h from now for PUT tests (next week's Sunday).
+    // This avoids flakiness with the 24h cancellation policy when tests
+    // run late on Saturday/Sunday.
+    farFutureDateMs = mondayMs + 13 * 86_400_000 // Next Sunday
 
     // Clean up any leftover appointments from previous runs to prevent collisions.
     await pool.query(
-      `DELETE FROM appointments WHERE user_id = (SELECT id FROM users WHERE email = $1) AND (date = $2 OR date = $3)`,
-      ['user@newapp.com', tuesdayMs, wednesdayMs],
+      `DELETE FROM appointments WHERE user_id = (SELECT id FROM users WHERE email = $1) AND (date = $2 OR date = $3 OR date = $4)`,
+      ['user@newapp.com', tuesdayMs, wednesdayMs, farFutureDateMs],
     )
   })
 
@@ -123,13 +126,14 @@ describe('Appointment Grid', () => {
    */
   async function seedTestOfferings(): Promise<void> {
     // Remove ALL appointments on test dates (from any user) to prevent collisions
-    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2`, [tuesdayMs, wednesdayMs])
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2`, [tuesdayMs, wednesdayMs])
+    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2 OR date = $3`, [tuesdayMs, wednesdayMs, farFutureDateMs])
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2 OR day = $3`, [tuesdayMs, wednesdayMs, farFutureDateMs])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
-              ($2::bigint, $4, int4range(0, 1440, '[)'), $3, $3)`,
-      [tuesdayMs, wednesdayMs, Date.now(), firstResourceId],
+              ($2::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
+              ($5::bigint, $4, int4range(0, 1440, '[)'), $3, $3)`,
+      [tuesdayMs, wednesdayMs, Date.now(), firstResourceId, farFutureDateMs],
     )
   }
 
@@ -553,7 +557,7 @@ describe('Appointment Grid', () => {
   // -----------------------------------------------------------------------
 
   it('PUT /appointment/:id with multiline title updates successfully', async () => {
-    // Arrange: create an appointment first
+    // Arrange: create an appointment on a date >24h from now
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -563,7 +567,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Original title',
-        date: wednesdayMs,
+        date: farFutureDateMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
@@ -607,7 +611,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Existing title',
-        date: wednesdayMs,
+        date: farFutureDateMs,
         start_min: 540,
         end_min: 600,
         resource_id: firstResourceId,
@@ -628,7 +632,7 @@ describe('Appointment Grid', () => {
           Cookie: userCookie,
         },
         body: JSON.stringify({
-          date: wednesdayMs,
+          date: farFutureDateMs,
           start_min: 600,
           end_min: 660,
         resource_id: firstResourceId,
@@ -1220,9 +1224,7 @@ describe('Appointment Grid', () => {
   })
 
   it('PUT /appointment/:id moving slot within offering range returns 200', async () => {
-    // Arrange: create appt at 480-540 on wednesdayMs (full-day offering [0,1440)).
-    // Use wednesdayMs (Sunday) to avoid the 24h cancellation policy flakiness
-    // when tests run late on Friday (saturday morning would be <24h away).
+    // Arrange: create appt at 480-540 on farFutureDateMs (full-day offering).
     let createResponse = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -1232,7 +1234,7 @@ describe('Appointment Grid', () => {
       },
       body: JSON.stringify({
         title: 'Movable appt',
-        date: wednesdayMs,
+        date: farFutureDateMs,
         start_min: 480,
         end_min: 540,
         resource_id: firstResourceId,
