@@ -1,4 +1,5 @@
 import { createSession, createSessionId } from 'remix/session'
+import { SetCookie } from 'remix/headers'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { pool } from './data/setup.ts'
 import { router } from './router.ts'
@@ -160,7 +161,7 @@ export async function createTestUser(email?: string): Promise<number | null> {
  * Extract the session cookie name=value from a Set-Cookie header.
  */
 export function extractCookie(response: Response): string {
-  let setCookie = response.headers.get('Set-Cookie')
-  if (!setCookie) return ''
-  return setCookie.split(';')[0]
+  let parsed = SetCookie.from(response.headers.get('Set-Cookie'))
+  if (!parsed.name) return ''
+  return `${parsed.name}=${parsed.value ?? ''}`
 }
