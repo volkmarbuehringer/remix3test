@@ -22,6 +22,8 @@
  * ```
  */
 
+import { SuperHeaders } from 'remix/headers'
+
 // ── Types ──
 
 export interface ChannelOptions {
@@ -117,9 +119,9 @@ export function createChannel<EventMap extends Record<string, unknown>>(
       },
     })
 
-    let headers = new Headers()
-    headers.set('Content-Type', 'text/event-stream')
-    headers.set('Cache-Control', 'no-cache')
+    let headers = new SuperHeaders()
+    headers.contentType = { mediaType: 'text/event-stream' }
+    headers.cacheControl = { noCache: true }
     headers.set('Connection', 'keep-alive')
     headers.set('X-Accel-Buffering', 'no')
 
