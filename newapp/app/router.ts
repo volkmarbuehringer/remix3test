@@ -31,6 +31,7 @@ import adminOfferingsController from './actions/admin-offerings-controller.tsx'
 import adminAppointmentsController from './actions/admin-appointments-controller.tsx'
 import adminUsersController from './actions/admin-users-controller.tsx'
 import adminResourcesController from './actions/admin-resources-controller.tsx'
+import adminOfferingConfigsController from './actions/admin-offering-configs-controller.tsx'
 import appointmentController from './actions/appointment-controller.tsx'
 import appointTypeController from './actions/appointtype-controller.tsx'
 import { authLogout } from './actions/auth-logout.tsx'
@@ -137,6 +138,9 @@ export function createNewappRouter(options?: NewappRouterOptions): Router {
 
   // Admin resources route
   router.map(adminRoutes.admin.resources, adminResourcesController)
+
+  // Admin offering configs route
+  router.map(adminRoutes.admin.offeringConfigs, adminOfferingConfigsController)
 
   return router
 }

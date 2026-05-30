@@ -113,6 +113,9 @@ export const adminRoutes = route({
     // Admin resources CRUD
     resources: resources('resources', { exclude: ['new', 'show', 'edit'] }),
 
+    // Admin offering configs CRUD
+    offeringConfigs: resources('offering-configs', { exclude: ['new', 'show', 'edit'] }),
+
     // Fragment routes for nested frame content
     fragments: route('fragments', {
       stats: get('/stats'),

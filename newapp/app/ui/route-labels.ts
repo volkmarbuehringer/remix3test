@@ -71,6 +71,9 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Admin — resources
   '/admin/resources': 'Resources',
 
+  // Admin — offering configs
+  '/admin/offering-configs': 'Offering Configs',
+
   // Client Lab
   '/client': 'Client Lab',
   '/client/grid': 'Grid',

@@ -2,6 +2,7 @@
   "name": "newapp",
   "private": true,
   "type": "module",
+    "packageManager": "pnpm@10.34.1",
    "pnpm": {
     "executionEnv": {
       "nodeVersion": "26.2.0"
