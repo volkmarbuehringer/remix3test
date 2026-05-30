@@ -5,6 +5,7 @@ import { renderWith } from 'remix/middleware/render'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import type { RemixNode } from 'remix/ui'
+import { Accept, AcceptEncoding, SuperHeaders } from 'remix/headers'
 import { renderToStream, type ResolveFrameContext } from 'remix/ui/server'
 
 import { assetServer } from '../assets.ts'
@@ -48,9 +49,9 @@ async function resolveFrame(
   let frameSrc = context?.currentFrameSrc ?? request.url
   let url = new URL(src, frameSrc)
 
-  let headers = new Headers()
-  headers.set('Accept', 'text/html')
-  headers.set('Accept-Encoding', 'identity')
+  let headers = new SuperHeaders()
+  headers.accept = new Accept('text/html')
+  headers.acceptEncoding = new AcceptEncoding('identity')
   headers.set('X-Remix-Frame', 'true')
 
   let cookie = request.headers.get('Cookie')
