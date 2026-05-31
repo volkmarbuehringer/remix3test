@@ -5,28 +5,6 @@
  * used by multiple appointment UI components.
  */
 
-export type AppointmentPageData = {
-  days: Array<{ dayName: string; date: number; dateStr: string }>
-  appointments: Array<{
-    id: number
-    user_id: number
-    resource_id: number
-    title: string
-    date: number
-    start_min: number
-    end_min: number
-  }>
-  offerings: Array<{ day: number; start_min: number; end_min: number }>
-  csrfToken: string
-  weekStart: number
-  currentUserId: number
-  selectedResourceId: number
-  isAdmin: boolean
-  year: number
-  week: number
-  resources: Array<{ id: number; description: string }>
-}
-
 /**
  * Read appointment page data from the embedded JSON script tag.
  * Falls back to empty object if the element or content is missing.

@@ -12,18 +12,18 @@ import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admi
 // ── Shared constants ─────────────────────────────────────────────
 
 /** 15-minute interval options (matching /appointment calendar granularity). */
-export const START_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => i * 15)
-export const END_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15)
+const START_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => i * 15)
+const END_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15)
 
 // ── Shared helpers ───────────────────────────────────────────────
 
-export function formatMinOption(minutes: number): string {
+function formatMinOption(minutes: number): string {
   let h = String(Math.floor(minutes / 60)).padStart(2, '0')
   let m = String(minutes % 60).padStart(2, '0')
   return `${h}:${m}`
 }
 
-export function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
+function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
   let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
   return '/admin/appointments' + (qs ? '?' + qs : '')
 }
