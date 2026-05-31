@@ -20,15 +20,15 @@ const hd = new Holidays('DE', 'rp')
 
 const PAGE_SIZE = 12
 
-const SORTABLE_COLUMNS = [
-  'ao.id',
-  'ao.day',
-  'ao.resource_id',
-  'r.description',
-  'ao.during',
-  'ao.created_at',
-  'ao.updated_at',
-] as const
+const ORDER_BY_COLUMNS: Record<string, string> = {
+  'ao.id': 'ao.id',
+  'ao.day': 'ao.day',
+  'ao.resource_id': 'ao.resource_id',
+  'r.description': 'r.description',
+  'ao.during': 'ao.during',
+  'ao.created_at': 'ao.created_at',
+  'ao.updated_at': 'ao.updated_at',
+}
 
 const SEARCH_COLUMNS = ['r.description'] as const
 
@@ -134,7 +134,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let filter = context.url.searchParams.get('filter') || undefined
 
         let { column, direction } = parseSort(context.url, {
-          allowedColumns: SORTABLE_COLUMNS,
+          allowedColumns: Object.keys(ORDER_BY_COLUMNS),
           defaultColumn: 'ao.day',
           defaultDirection: 'asc',
         })
@@ -160,7 +160,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         }
 
         paramIndex++
-        query += ` ORDER BY ${column} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+        query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
         query += ` LIMIT $${paramIndex}`
         params.push(PAGE_SIZE + 1)
 

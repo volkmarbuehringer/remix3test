@@ -10,6 +10,10 @@ if (!databaseUrl) {
 
 export const pool = new Pool({
   connectionString: databaseUrl,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  maxUses: 7500,
 })
 
 const adapter = createPostgresDatabaseAdapter(pool)

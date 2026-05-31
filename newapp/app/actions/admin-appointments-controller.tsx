@@ -29,16 +29,16 @@ const CACHE_TTL_MS = 60_000 // 60 seconds
 let resourcesCache: { data: ResourceOption[]; expiresAt: number } | null = null
 let usersCache: { data: UserOption[]; expiresAt: number } | null = null
 
-const SORTABLE_COLUMNS = [
-  'a.id',
-  'a.title',
-  'u.email',
-  'r.description',
-  'a.date',
-  'a.during',
-  'a.created_at',
-  'a.updated_at',
-] as const
+const ORDER_BY_COLUMNS: Record<string, string> = {
+  'a.id': 'a.id',
+  'a.title': 'a.title',
+  'u.email': 'u.email',
+  'r.description': 'r.description',
+  'a.date': 'a.date',
+  'a.during': 'a.during',
+  'a.created_at': 'a.created_at',
+  'a.updated_at': 'a.updated_at',
+}
 
 const SEARCH_COLUMNS = ['a.title', 'u.email', 'r.description'] as const
 
@@ -203,7 +203,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         let filter = context.url.searchParams.get('filter') || undefined
 
         let { column, direction } = parseSort(context.url, {
-          allowedColumns: SORTABLE_COLUMNS,
+          allowedColumns: Object.keys(ORDER_BY_COLUMNS),
           defaultColumn: 'a.date',
           defaultDirection: 'asc',
         })
@@ -232,7 +232,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         }
 
         paramIndex++
-        query += ` ORDER BY ${column} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+        query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
         query += ` LIMIT $${paramIndex}`
         params.push(PAGE_SIZE + 1)
 

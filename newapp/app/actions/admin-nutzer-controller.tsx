@@ -15,16 +15,16 @@ import { hashPassword } from '../utils/password-hash.ts'
 
 const PAGE_SIZE = 15
 
-const SORTABLE_COLUMNS = [
-  'n_vorname',
-  'n_name',
-  'n_email',
-  'n_verpflichtung',
-  'l_login',
-  'l_aktiv',
-  'l_gesperrt',
-  'l_letzte_login',
-] as const
+const ORDER_BY_COLUMNS: Record<string, string> = {
+  'n_vorname': 'n_vorname',
+  'n_name': 'n_name',
+  'n_email': 'n_email',
+  'n_verpflichtung': 'n_verpflichtung',
+  'l_login': 'l_login',
+  'l_aktiv': 'l_aktiv',
+  'l_gesperrt': 'l_gesperrt',
+  'l_letzte_login': 'l_letzte_login',
+}
 
 const SEARCH_COLUMNS = ['n_vorname', 'n_name', 'n_email', 'l_login']
 
@@ -58,7 +58,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       let filter = context.url.searchParams.get('filter') || undefined
 
       let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_COLUMNS,
+        allowedColumns: Object.keys(ORDER_BY_COLUMNS),
         defaultColumn: 'n_name',
         defaultDirection: 'asc',
       })
@@ -82,7 +82,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       }
 
       paramIndex++
-      query += ` ORDER BY ${column} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+      query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
       query += ` LIMIT $${paramIndex}`
       params.push(PAGE_SIZE + 1)
 
