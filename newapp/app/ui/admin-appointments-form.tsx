@@ -6,7 +6,8 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
+import { formatMinOption } from '../utils/date-utils.ts'
 import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admin-appointments-controller.tsx'
 
 // ── Shared constants ─────────────────────────────────────────────
@@ -14,19 +15,6 @@ import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admi
 /** 15-minute interval options (matching /appointment calendar granularity). */
 const START_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => i * 15)
 const END_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15)
-
-// ── Shared helpers ───────────────────────────────────────────────
-
-function formatMinOption(minutes: number): string {
-  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  let m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
-}
-
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/appointments' + (qs ? '?' + qs : '')
-}
 
 // ── Shared styles ────────────────────────────────────────────────
 
@@ -267,7 +255,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   {submitLabel}
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

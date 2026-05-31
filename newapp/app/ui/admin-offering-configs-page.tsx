@@ -8,13 +8,12 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow, buildSortUrl, buildPaginationUrl,
-  buildCreateUrl, buildEditUrl, formatTimestamp,
+  buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp,
 } from './mixins/admin-urls.ts'
 
 import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
 import type { OfferingConfigRow, ResourceOption } from '../actions/admin-offering-configs-controller.tsx'
 
 interface AdminOfferingConfigsPageProps {
@@ -337,11 +336,6 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
   }
 }
 
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/offering-configs' + (qs ? '?' + qs : '')
-}
-
 interface EditPanelProps {
   row: OfferingConfigRow
   resources: ResourceOption[]
@@ -418,7 +412,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -494,7 +488,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

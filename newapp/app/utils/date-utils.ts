@@ -17,3 +17,11 @@ export function isDateInPast(epochMs: number): boolean {
 export function isWithinHours(epochMs: number, hours: number): boolean {
   return epochMs - Date.now() >= hours * 3600000
 }
+
+export function formatMinOption(minutes: number): string {
+  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
+  let m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
+

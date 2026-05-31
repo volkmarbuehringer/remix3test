@@ -6,7 +6,8 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
+import { formatMinOption } from '../utils/date-utils.ts'
 import type { ResourceOption } from '../actions/admin-offerings-controller.tsx'
 
 interface AdminOfferingsCreatePageProps {
@@ -20,12 +21,6 @@ interface AdminOfferingsCreatePageProps {
 // Hourly interval options
 const START_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
 const END_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 60)
-
-function formatMinOption(minutes: number): string {
-  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  let m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
-}
 
 // ── Styles ──
 
@@ -93,11 +88,6 @@ const actionsStyle = css({
 })
 
 // ── Helpers ──
-
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/offerings' + (qs ? '?' + qs : '')
-}
 
 // ── Component ──
 
@@ -183,7 +173,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offerings', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

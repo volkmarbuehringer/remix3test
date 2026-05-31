@@ -6,7 +6,7 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
-import { gridStateToParams } from '../../utils/grid-state.ts'
+import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
 
 import type { Client } from '../../data/schema.ts'
 
@@ -104,11 +104,6 @@ const actionsStyle = css({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/client' + (qs ? '?' + qs : '')
-}
-
 function formatDate(ts: number): string {
   return new Date(ts).toISOString().split('T')[0]
 }
@@ -205,7 +200,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                 Save Changes
               </Button>
-              <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+              <a href={buildCancelUrl('/client', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                 <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                   Cancel
                 </Button>

@@ -9,9 +9,8 @@ import { input } from './mixins/input.ts'
 import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
 const ADMIN_BASE = '/admin/users'
 
@@ -269,11 +268,6 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
 // ── Inline Edit Panel ──
 
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/users' + (qs ? '?' + qs : '')
-}
-
 interface EditPanelProps {
   row: DisplayUser
   offset?: string
@@ -334,7 +328,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -421,7 +415,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

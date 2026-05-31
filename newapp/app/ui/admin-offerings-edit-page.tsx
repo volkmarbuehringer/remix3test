@@ -6,7 +6,8 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
+import { formatMinOption } from '../utils/date-utils.ts'
 import type { OfferingRow, ResourceOption } from '../actions/admin-offerings-controller.tsx'
 
 interface AdminOfferingsEditPageProps {
@@ -17,6 +18,16 @@ interface AdminOfferingsEditPageProps {
   order: string
   filter?: string
 }
+
+// ── Helpers ──
+
+function dayToInputDate(day: string): string {
+  return new Date(Number(day)).toISOString().split('T')[0]
+}
+
+// Hourly interval options
+const START_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
+const END_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 60)
 
 // ── Helpers ──
 
@@ -38,25 +49,6 @@ function parseDuring(during: unknown): { startMin: number; endMin: number } {
     return { startMin: parseInt(fallback[1], 10), endMin: parseInt(fallback[2], 10) }
   }
   return { startMin: 0, endMin: 60 }
-}
-
-function dayToInputDate(day: string): string {
-  return new Date(Number(day)).toISOString().split('T')[0]
-}
-
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/offerings' + (qs ? '?' + qs : '')
-}
-
-// Hourly interval options
-const START_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
-const END_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 60)
-
-function formatMinOption(minutes: number): string {
-  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  let m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
 }
 
 // ── Styles ──
@@ -228,7 +220,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offerings', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

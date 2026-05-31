@@ -6,7 +6,7 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
 import type { NutzerRow } from './admin-nutzer-page.tsx'
 
 interface AdminNutzerEditPageProps {
@@ -100,11 +100,6 @@ const actionsStyle = css({
 })
 
 // ── Helpers ──
-
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/nutzer' + (qs ? '?' + qs : '')
-}
 
 // ── Component ──
 
@@ -215,7 +210,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

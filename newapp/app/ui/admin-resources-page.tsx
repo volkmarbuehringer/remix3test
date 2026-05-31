@@ -5,13 +5,12 @@ import { Glyph } from 'remix/ui/glyph'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
 import { frames } from '../routes.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { gridStateToParams } from '../utils/grid-state.ts'
 
 interface AdminResourcesPageProps {
   rows: Resource[]
@@ -248,11 +247,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
 
 // ── Inline Edit Panel ──
 
-function cancelUrl(offset: string, sort: string, order: string, filter?: string): string {
-  let qs = gridStateToParams({ offset, sort, order, filter: filter ?? '' }).toString()
-  return '/admin/resources' + (qs ? '?' + qs : '')
-}
-
 interface EditPanelProps {
   row: Resource
   offset?: string
@@ -290,7 +284,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -342,7 +336,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={cancelUrl(offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

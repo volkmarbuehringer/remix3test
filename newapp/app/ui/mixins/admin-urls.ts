@@ -68,6 +68,16 @@ export function buildEditUrl(
   return `${base}?${params.toString()}`
 }
 
+export function buildCancelUrl(base: string, offset: string, sort: string, order: string, filter?: string): string {
+  let params = new URLSearchParams()
+  if (offset) params.set('offset', offset)
+  if (sort) params.set('sort', sort)
+  if (order) params.set('order', order)
+  if (filter) params.set('filter', filter)
+  let qs = params.toString()
+  return base + (qs ? '?' + qs : '')
+}
+
 export function formatTimestamp(ts: number | string | null | undefined): string {
   if (ts == null) return '\u2014'
   return new Date(Number(ts)).toLocaleString('de-DE', {
