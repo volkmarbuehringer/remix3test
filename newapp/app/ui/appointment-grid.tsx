@@ -1,5 +1,4 @@
-import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { clientEntry, on, ref, type Handle } from 'remix/ui'
 
 import {
   previewMoveBlock,
@@ -9,193 +8,76 @@ import {
 } from './schedule-layout.ts'
 import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../lib/appointtype-drag.ts'
 import { interactionState } from './appointment-interaction-state.ts'
-import { readAppointmentData } from '../utils/appointment.ts'
 import { showToast } from './toast.ts'
+import { clamp } from '../lib/math.ts'
 
-const HOURS = 24
-const SLOT_HEIGHT = 160 // pixels per hour (4x so 15min = same as old 1h row)
-const SUB_SLOTS = 4 // quarter-hour subdivisions per hour
-const SUB_SLOT_HEIGHT = SLOT_HEIGHT / SUB_SLOTS // 40px per 15-min slot
-const LABEL_WIDTH = 44
-const DRAG_THRESHOLD = 4
-const COLLISION_STATUS = 409
-
-/**
- * Handle a fetch response: show error message for collisions, then reload.
- * Returns true if the page is being reloaded (caller should stop processing).
- */
-function handleMutationResponse(response: Response): boolean {
-  if (response.ok) {
-    window.location.reload()
-    return true
-  }
-  if (response.status === COLLISION_STATUS) {
-    response
-      .json()
-      .then((body) => {
-        showToast(body?.error || 'Time slot already taken.')
-        window.location.reload()
-      })
-      .catch(() => {
-        window.location.reload()
-      })
-    return true
-  }
-  if (response.status === 403) {
-    response
-      .json()
-      .then((body) => {
-        showToast(body?.error || 'Slot ist nicht buchbar.')
-      })
-      .catch((err) => console.warn('403 error parsing:', err))
-    return true
-  }
-  if (response.status === 422) {
-    response
-      .json()
-      .then((body) => {
-        showToast(body?.error || 'Änderung konnte nicht gespeichert werden.')
-      })
-      .catch((err) => console.warn('422 error parsing:', err))
-    return true
-  }
-  return false
-}
-
-/**
- * Handle a batch of mutation responses (from move/resize commits).
- * Shows a single alert if any collision occurred, then reloads.
- */
-function handleBatchMutationResponses(results: PromiseSettledResult<Response>[]): void {
-  let hasCollision = false
-  let anyOk = false
-  for (let r of results) {
-    if (r.status === 'fulfilled') {
-      if (r.value.ok) anyOk = true
-      if (r.value.status === COLLISION_STATUS) hasCollision = true
-    }
-  }
-  if (hasCollision) {
-    showToast('Time slot already taken.')
-  } else if (!anyOk) {
-    showToast('Failed to save changes.')
-  }
-  window.location.reload()
-}
-
-type AppData = {
-  days: Array<{ dayName: string; date: number; dateStr: string }>
-  appointments: Array<AppointmentLayoutBlock>
-  offerings: Array<{ day: number; start_min: number; end_min: number }>
-  csrfToken: string
-  weekStart: number
-  currentUserId: number
-  selectedResourceId: number
-  isAdmin: boolean
-}
-
-type DragState = {
-  active: boolean
-  blockId: number
-  grid: GridMeasurement
-  moved: boolean
-  offsetX: number
-  offsetY: number
-  originalBlocks: AppointmentLayoutBlock[]
-  placement: { date: number; startMinute: number }
-  pointerId: number
-  startX: number
-  startY: number
-}
-
-type ResizeState = {
-  active: boolean
-  blockId: number
-  edge: 'start' | 'end'
-  grid: GridMeasurement
-  moved: boolean
-  offsetY: number
-  originalBlock: AppointmentLayoutBlock
-  originalBlocks: AppointmentLayoutBlock[]
-  pointerId: number
-  startY: number
-}
-
-type GridMeasurement = {
-  dayWidth: number
-  labelWidth: number
-  left: number
-  rowHeight: number
-  top: number
-}
-
-type GestureKind = 'drag' | 'resize'
-
-function readData(): AppData {
-  let data = readAppointmentData()
-  return {
-    days: (data.days ?? []) as AppData['days'],
-    appointments: (data.appointments ?? []) as AppData['appointments'],
-    offerings: (data.offerings ?? []) as AppData['offerings'],
-    csrfToken: (data.csrfToken as string) ?? '',
-    weekStart: (data.weekStart as number) ?? 0,
-    currentUserId: (data.currentUserId as number) ?? 0,
-    selectedResourceId: (data.selectedResourceId as number) ?? 0,
-    isAdmin: (data.isAdmin as boolean) ?? false,
-  }
-}
-
-function computeVisibleDays(
-  days: AppData['days'],
-  offerings: AppData['offerings'],
-): AppData['days'] {
-  return days.filter((d) => offerings.some((o) => o.day === d.date))
-}
-
-function computeOfferingTimeRange(offerings: AppData['offerings']): {
-  startMin: number
-  endMin: number
-} {
-  if (offerings.length === 0) return { startMin: 0, endMin: 1440 }
-  let startMin = Math.min(...offerings.map((o) => o.start_min))
-  let endMin = Math.max(...offerings.map((o) => o.end_min))
-  // Snap to 15-min boundaries
-  startMin = Math.floor(startMin / 15) * 15
-  endMin = Math.ceil(endMin / 15) * 15
-  return { startMin, endMin }
-}
-
-/**
- * Build a per-day map of bookable 15-min minutes from offerings.
- * Returns both a sorted list of all bookable minutes (for row rendering)
- * and per-day Sets for O(1) per-cell bookability checks.
- */
-function computeBookableSlots(
-  offerings: AppData['offerings'],
-  visibleDays: AppData['days'],
-): { allBookableMinutes: number[]; bookableByDay: Map<number, Set<number>> } {
-  let visibleDates = new Set(visibleDays.map((d) => d.date))
-  let byDay = new Map<number, Set<number>>()
-  let globalSet = new Set<number>()
-
-  for (let o of offerings) {
-    if (!visibleDates.has(o.day)) continue
-    let daySet = byDay.get(o.day)
-    if (!daySet) {
-      daySet = new Set<number>()
-      byDay.set(o.day, daySet)
-    }
-    for (let m = o.start_min; m < o.end_min; m += 15) {
-      daySet.add(m)
-      globalSet.add(m)
-    }
-  }
-
-  return {
-    allBookableMinutes: [...globalSet].sort((a, b) => a - b),
-    bookableByDay: byDay,
-  }
-}
+import {
+  HOURS,
+  LABEL_WIDTH,
+  DRAG_THRESHOLD,
+  COLLISION_STATUS,
+  SUB_SLOT_HEIGHT,
+  SUB_SLOTS,
+  SLOT_HEIGHT,
+  type AppData,
+  type DragState,
+  type ResizeState,
+  type GridMeasurement,
+  type GestureKind,
+} from './appointment-grid-types.ts'
+import {
+  handleMutationResponse,
+  handleBatchMutationResponses,
+  readData,
+  computeVisibleDays,
+  computeOfferingTimeRange,
+  computeBookableSlots,
+  copyAppt,
+} from './appointment-grid-lib.ts'
+import {
+  gridWrapperStyle,
+  headerRowStyle,
+  cornerCellStyle,
+  dayHeaderStyle,
+  dayNameStyle,
+  dayDateStyle,
+  gridBodyStyle,
+  timeColumnStyle,
+  timeSlotRowStyle,
+  timeLabelStyle,
+  subTimeLabelStyle,
+  dayColumnStyle,
+  hourLineStyle,
+  subHourLineStyle,
+  blockBoxStyle,
+  foreignBlockStyle,
+  draggingBlockStyle,
+  blockTitleStyle,
+  adminBlockInnerStyle,
+  adminEmailStyle,
+  hoveredBlockStyle,
+  expandedTitleStyle,
+  editingBlockStyle,
+  hiddenStyle,
+  inputStyle,
+  draftBlockStyle,
+  draftButtonsStyle,
+  draftSaveButtonStyle,
+  draftCancelButtonStyle,
+  ghostBlockStyle,
+  typeDragGhostStyle,
+  resizeHandleStyle,
+  activeResizeHandleStyle,
+  startResizeHandleStyle,
+  endResizeHandleStyle,
+  trashcanZoneStyle,
+  trashcanVisibleStyle,
+  trashcanHoverStyle,
+  nonOfferingSlotStyle,
+  emptyStateWrapperStyle,
+  emptyStateTextStyle,
+  ssrPlaceholderWrapper,
+} from './appointment-grid-styles.ts'
 
 export const AppointmentGrid = clientEntry(
   import.meta.url + '#AppointmentGrid',
@@ -1382,401 +1264,3 @@ export const AppointmentGrid = clientEntry(
     }
   },
 )
-
-import { clamp } from '../lib/math.ts'
-
-function copyAppt(block: AppointmentLayoutBlock): AppointmentLayoutBlock {
-  return { ...block }
-}
-
-// ── Styles ──
-
-const gridWrapperStyle = css({
-  display: 'grid',
-  gridTemplateRows: 'auto minmax(0, 1fr)',
-  '&[data-dragging="true"], &[data-dragging="true"] *': {
-    cursor: 'grabbing !important',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-  },
-  '&[data-resizing="true"], &[data-resizing="true"] *': {
-    cursor: 'ns-resize !important',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-  },
-})
-
-const headerRowStyle = css({
-  display: 'grid',
-  gridTemplateColumns: `${LABEL_WIDTH}px repeat(7, 1fr)`,
-  borderBottom: `1px solid ${theme.colors.border.strong}`,
-  backgroundColor: theme.surface.lvl0,
-  position: 'sticky',
-  top: 0,
-  zIndex: 2,
-})
-
-const cornerCellStyle = css({
-  alignItems: 'center',
-  borderRight: `1px solid ${theme.colors.border.subtle}`,
-  display: 'flex',
-  justifyContent: 'center',
-  padding: `${theme.space.xs} 0`,
-})
-
-const dayHeaderStyle = css({
-  alignItems: 'center',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0px',
-  padding: `${theme.space.xs} 0`,
-  textAlign: 'center',
-})
-
-const dayNameStyle = css({
-  color: theme.colors.text.primary,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
-})
-
-const dayDateStyle = css({
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xxs,
-})
-
-const gridBodyStyle = css({
-  display: 'grid',
-  gridTemplateColumns: `${LABEL_WIDTH}px repeat(7, 1fr)`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  position: 'relative',
-})
-
-const timeColumnStyle = css({
-  position: 'relative',
-})
-
-const timeSlotRowStyle = css({
-  height: `${SUB_SLOT_HEIGHT}px`,
-  position: 'relative',
-})
-
-const timeLabelStyle = css({
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.xxs,
-  paddingRight: theme.space.xs,
-  position: 'absolute',
-  right: 0,
-  top: '-6px',
-})
-
-const subTimeLabelStyle = css({
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.xxs,
-  paddingRight: theme.space.xs,
-  position: 'absolute',
-  right: 0,
-  top: '-3px',
-  opacity: 0.4,
-})
-
-const dayColumnStyle = css({
-  borderLeft: `1px solid ${theme.colors.border.subtle}`,
-  minHeight: `${HOURS * SLOT_HEIGHT}px`,
-  position: 'relative',
-})
-
-const hourLineStyle = css({
-  borderTop: `1px solid ${theme.colors.border.default}`,
-  height: `${SUB_SLOT_HEIGHT}px`,
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: theme.surface.lvl2,
-  },
-})
-
-const subHourLineStyle = css({
-  borderTop: `1px dashed ${theme.colors.border.subtle}`,
-  height: `${SUB_SLOT_HEIGHT}px`,
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: theme.surface.lvl2,
-  },
-})
-
-const blockBoxStyle = css({
-  alignItems: 'center',
-  backgroundColor: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.sm,
-  boxShadow: theme.shadow.xs,
-  color: theme.colors.text.primary,
-  cursor: 'pointer',
-  display: 'flex',
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.medium,
-  justifyContent: 'center',
-  left: '2px',
-  margin: '1px 0',
-  overflow: 'hidden',
-  padding: `0 ${theme.space.xs}`,
-  position: 'absolute',
-  right: '2px',
-  textAlign: 'center',
-  touchAction: 'none',
-  zIndex: 1,
-})
-
-const foreignBlockStyle = css({
-  backgroundColor: 'rgb(243 232 255 / 0.8)',
-  borderColor: 'rgb(192 132 252)',
-  color: 'rgb(107 33 168)',
-  cursor: 'default',
-})
-
-const draggingBlockStyle = css({
-  opacity: 0.6,
-  zIndex: 4,
-  transition: 'none !important',
-  pointerEvents: 'none',
-})
-
-const blockTitleStyle = css({
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  overflow: 'hidden',
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-})
-
-const adminBlockInnerStyle = css({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  height: '100%',
-  overflow: 'hidden',
-})
-
-const adminEmailStyle = css({
-  fontSize: '10px',
-  lineHeight: 1.2,
-  color: theme.colors.text.secondary,
-  maxWidth: '100%',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  flexShrink: 0,
-  padding: '1px 0',
-})
-
-const hoveredBlockStyle = css({
-  boxShadow: theme.shadow.md,
-  overflow: 'visible',
-  transition: 'box-shadow 0.15s ease, overflow 0.15s ease',
-  zIndex: 10,
-})
-
-const expandedTitleStyle = css({
-  display: 'block',
-  overflow: 'visible',
-  whiteSpace: 'pre-wrap',
-})
-
-const editingBlockStyle = css({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'stretch',
-  justifyContent: 'flex-start',
-  overflow: 'visible',
-  padding: '4px',
-  gap: '4px',
-  zIndex: 11,
-})
-
-const hiddenStyle = css({
-  display: 'none',
-})
-
-const inputStyle = css({
-  background: 'transparent',
-  border: 0,
-  color: theme.colors.text.primary,
-  font: 'inherit',
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.medium,
-  lineHeight: theme.lineHeight.tight,
-  minHeight: '32px',
-  outline: 'none',
-  overflowY: 'auto',
-  padding: `${theme.space.px} 0`,
-  resize: 'none',
-  textAlign: 'center',
-  whiteSpace: 'pre-wrap',
-  width: '100%',
-  wordBreak: 'break-word',
-})
-
-const draftBlockStyle = css({
-  backgroundColor: theme.surface.lvl1,
-  border: `2px dashed ${theme.colors.text.secondary}`,
-  borderRadius: theme.radius.md,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  left: '2px',
-  margin: '1px 0',
-  opacity: 0.85,
-  padding: '6px 4px',
-  position: 'absolute',
-  right: '2px',
-  zIndex: 3,
-})
-
-const draftButtonsStyle = css({
-  display: 'flex',
-  gap: '4px',
-  justifyContent: 'flex-end',
-})
-
-const draftSaveButtonStyle = css({
-  background: theme.colors.action.primary.background,
-  border: 0,
-  borderRadius: theme.radius.sm,
-  color: theme.colors.action.primary.foreground,
-  cursor: 'pointer',
-  fontSize: theme.fontSize.xs,
-  lineHeight: theme.lineHeight.normal,
-  padding: '2px 8px',
-})
-
-const draftCancelButtonStyle = css({
-  background: 'transparent',
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.sm,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  fontSize: theme.fontSize.xs,
-  lineHeight: theme.lineHeight.normal,
-  padding: '2px 8px',
-})
-
-const ghostBlockStyle = css({
-  backgroundColor: 'rgb(209 213 219 / 0.72)',
-  border: `2px dashed ${theme.colors.text.secondary}`,
-  borderRadius: theme.radius.md,
-  left: '2px',
-  margin: '1px 0',
-  opacity: 0.5,
-  position: 'absolute',
-  right: '2px',
-  pointerEvents: 'none',
-  zIndex: 2,
-})
-
-const typeDragGhostStyle = css({
-  backgroundColor: 'rgb(147 197 253 / 0.5)',
-  border: `2px dashed ${theme.colors.action.primary.background}`,
-  borderRadius: theme.radius.md,
-  left: '2px',
-  margin: '1px 0',
-  opacity: 0.55,
-  position: 'absolute',
-  right: '2px',
-  pointerEvents: 'none',
-  zIndex: 2,
-})
-
-const resizeHandleStyle = css({
-  cursor: 'ns-resize',
-  height: '12px',
-  left: theme.space.xs,
-  opacity: 0,
-  position: 'absolute',
-  right: theme.space.xs,
-  touchAction: 'none',
-  zIndex: 3,
-  '&::before': {
-    backgroundColor: theme.colors.focus.ring,
-    borderRadius: '999px',
-    content: '""',
-    height: '3px',
-    left: '50%',
-    position: 'absolute',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '28px',
-  },
-  '&:hover': {
-    opacity: 1,
-  },
-})
-
-const activeResizeHandleStyle = css({
-  opacity: 1,
-})
-
-const startResizeHandleStyle = css({
-  top: 0,
-  transform: 'translateY(-4px)',
-})
-
-const endResizeHandleStyle = css({
-  bottom: 0,
-  transform: 'translateY(4px)',
-})
-
-const trashcanZoneStyle = css({
-  alignItems: 'center',
-  backgroundColor: 'transparent',
-  borderRadius: theme.radius.sm,
-  color: theme.colors.text.muted,
-  display: 'flex',
-  height: '100%',
-  justifyContent: 'center',
-  opacity: 0,
-  pointerEvents: 'none',
-  transition: 'opacity 0.2s, background-color 0.2s, color 0.2s',
-  width: '100%',
-})
-
-const trashcanVisibleStyle = css({
-  opacity: 1,
-  pointerEvents: 'auto',
-})
-
-const trashcanHoverStyle = css({
-  backgroundColor: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-})
-
-const nonOfferingSlotStyle = css({
-  backgroundColor: 'rgb(254 226 226 / 0.55)',
-  backgroundImage:
-    'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(252 165 165 / 0.3) 8px, rgb(252 165 165 / 0.3) 16px)',
-  cursor: 'default',
-  borderTop: `1px solid rgb(252 165 165 / 0.6)`,
-  '&:hover': {
-    backgroundColor: 'rgb(252 165 165 / 0.5)',
-    backgroundImage:
-      'repeating-linear-gradient(45deg, transparent, transparent 8px, rgb(239 68 68 / 0.25) 8px, rgb(239 68 68 / 0.25) 16px)',
-  },
-})
-
-const emptyStateWrapperStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '200px',
-  padding: theme.space.xl,
-})
-
-const emptyStateTextStyle = css({
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.md,
-})
-
-const ssrPlaceholderWrapper = css({
-  minHeight: '200px',
-})

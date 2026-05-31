@@ -44,6 +44,7 @@ export function Document(handle: Handle<DocumentProps>) {
           <meta name="color-scheme" content="light dark" />
           <CsrfMetaTag />
           <title>{title}</title>
+          <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232dacf9'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='sans' fill='white'>R</text></svg>" />
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
           <link
