@@ -11,6 +11,13 @@ npm test
 npm run typecheck
 ```
 
+## Remix Source References
+
+When you need API docs or usage examples for a `remix/*` subpath:
+
+- READMEs: `~/remix/packages/<package>/README.md` or `~/remix/packages/remix/src/<subpath>/README.md`
+- Demos: `~/remix/demos/<demo-name>/`
+
 ## Building Features
 
 Refer to ./.agents/skills/remix/SKILL.md
