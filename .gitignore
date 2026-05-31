@@ -11,6 +11,11 @@ newapp/.env
 tmp/
 .devtools
 oc.sh
+newapp/playwright-report/
+newapp/playwright-results.json
+newapp/playwright-results.xml
+newapp/test-results/
+newapp/tests/
 
 # Self-signed TLS certificates (local dev)
 *.pem
