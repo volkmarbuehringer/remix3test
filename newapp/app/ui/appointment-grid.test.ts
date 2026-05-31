@@ -55,6 +55,18 @@ function currentMonday(): number {
 }
 
 /**
+ * Compute the ISO 8601 week number for a given Monday's epoch ms.
+ * Returns the year and week that contain this Monday.
+ */
+function isoWeekFromMonday(mondayMs: number): { year: number; week: number } {
+  let d = new Date(mondayMs)
+  d.setUTCDate(d.getUTCDate() + 3) // Thursday — always in the same ISO week as Monday
+  let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  let weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  return { year: d.getUTCFullYear(), week: weekNum }
+}
+
+/**
  * Parse appointment data from the embedded JSON in the HTML page.
  * Uses the server-embedded `<script id="appointment-data">` tag.
  */
@@ -81,6 +93,7 @@ describe('Appointment Grid', () => {
   let saturdayMs: number
   let sundayMs: number
   let farFutureDateMs: number
+  let appointmentWeekUrl: string
 
   before(async () => {
     await initializeAppDatabase()
@@ -103,14 +116,18 @@ describe('Appointment Grid', () => {
     }
     firstResourceId = allResources[0].id
 
-    // Compute test dates in the current week using Saturday and Sunday.
-    let mondayMs = currentMonday()
+    // Compute test dates starting from next week so Saturday/Sunday
+    // are always in the future regardless of the current day.
+    let mondayMs = currentMonday() + 7 * 86_400_000
     saturdayMs = mondayMs + 5 * 86_400_000
     sundayMs = mondayMs + 6 * 86_400_000
-    // Date guaranteed >24h from now for PUT tests (next week's Sunday).
+    // Date guaranteed >24h from now for PUT tests (Sunday after next).
     // This avoids flakiness with the 24h cancellation policy when tests
     // run late on Saturday/Sunday.
     farFutureDateMs = mondayMs + 13 * 86_400_000
+    // ISO week params for fetching the correct week's appointment page
+    let { year, week } = isoWeekFromMonday(mondayMs)
+    appointmentWeekUrl = `${APPT_URL}?year=${year}&week=${week}`
 
     // Clean up any leftover appointments from previous runs to prevent collisions.
     await pool.query(
@@ -705,8 +722,8 @@ describe('Appointment Grid', () => {
     )
     testAppointmentIds.push(created.id)
 
-    // Act: fetch the page
-    let pageResponse = await router.fetch(APPT_URL, {
+    // Act: fetch the page for the week containing the appointment
+    let pageResponse = await router.fetch(appointmentWeekUrl, {
       headers: { Cookie: userCookie },
     })
     assert.equal(pageResponse.status, 200)
@@ -768,7 +785,7 @@ describe('Appointment Grid', () => {
     }
 
     // Act
-    let pageResponse = await router.fetch(APPT_URL, {
+    let pageResponse = await router.fetch(appointmentWeekUrl, {
       headers: { Cookie: userCookie },
     })
     let html = await pageResponse.text()
@@ -816,7 +833,7 @@ describe('Appointment Grid', () => {
     testAppointmentIds.push(appointment.id)
 
     // Act: GET and find the appointment by its unique title
-    let getResponse = await router.fetch(APPT_URL, {
+    let getResponse = await router.fetch(appointmentWeekUrl, {
       headers: { Cookie: userCookie },
     })
     let html = await getResponse.text()
@@ -880,7 +897,7 @@ describe('Appointment Grid', () => {
     testAppointmentIds.push(createBody.id)
 
     // Verify via GET that the appointment exists with the template title
-    let getResponse = await router.fetch(APPT_URL, {
+    let getResponse = await router.fetch(appointmentWeekUrl, {
       headers: { Cookie: userCookie },
     })
     let html = await getResponse.text()

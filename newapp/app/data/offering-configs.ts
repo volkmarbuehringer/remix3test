@@ -114,11 +114,6 @@ export async function generateWeek(
   year: number,
   week: number,
 ): Promise<{ created: number; skipped: number; errors: string[] }> {
-  let config = await getConfig(
-    { query: () => { throw new Error('use pool directly') }, findOne: async () => null } as unknown as Database,
-    resourceId,
-  )
-
   // Read config via raw SQL to get the JSONB
   let configResult = await pool.query(
     'SELECT rules FROM offering_configs WHERE resource_id = $1',

@@ -79,8 +79,9 @@ export const users = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    // BIGINT columns are returned as strings by PostgreSQL driver
-    // Use c.integer() + afterRead instead of c.bigint() (which returns unknown)
+    // BIGINT columns are returned as strings by PostgreSQL driver,
+    // so when the column maps to c.integer() we parse the string
+    // back to a number here. The DB schema (migrate.ts) uses BIGINT.
     if (typeof value.created_at === 'string') {
       value.created_at = parseInt(value.created_at, 10)
     }
@@ -97,8 +98,8 @@ export const chatlog = table({
   columns: {
     id: c.text(),
     conversation: c.json(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ value }) {
     if (Array.isArray(value.conversation)) {
@@ -135,8 +136,8 @@ export const workflowRuns = table({
     steps: c.text(),
     result: c.text(),
     error: c.text(),
-    created_at: c.bigint(),
-    completed_at: c.bigint(),
+    created_at: c.integer(),
+    completed_at: c.integer(),
     created_by: c.integer(),
     parent_run_id: c.text(),
     chain_depth: c.integer(),
@@ -174,6 +175,9 @@ export const messages = table({
     return { value }
   },
   afterRead({ value }) {
+    // BIGINT columns are returned as strings by PostgreSQL driver,
+    // so when the column maps to c.integer() we parse the string
+    // back to a number here. The DB schema (migrate.ts) uses BIGINT.
     if (typeof value.created_at === 'string') {
       value.created_at = parseInt(value.created_at, 10)
     }
@@ -190,7 +194,7 @@ export const clients = table({
     email: c.text(),
     role: c.text(),
     status: c.text(),
-    registered: c.bigint(),
+    registered: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -251,8 +255,8 @@ export const lists = table({
     id: c.integer(),
     list: c.json(),
     description: c.text(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -303,9 +307,9 @@ export const appointments = table({
     user_id: c.integer(),
     resource_id: c.integer(),
     title: c.text(),
-    date: c.bigint(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    date: c.integer(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
     during: c.text(),
     start_min: c.integer(),
     end_min: c.integer(),
@@ -403,8 +407,8 @@ export const appointtypes = table({
     id: c.integer(),
     user_id: c.integer(),
     title: c.text(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -434,8 +438,8 @@ export const resources = table({
   columns: {
     id: c.integer(),
     description: c.text(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -468,11 +472,11 @@ export const appointofferings = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
-    day: c.bigint(),
+    day: c.integer(),
     resource_id: c.integer(),
     during: c.text(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   validate({ value }) {
     let issues: Array<{ message: string; path?: Array<string | number> }> = []
@@ -527,8 +531,8 @@ export const offeringConfigs = table({
     id: c.integer(),
     resource_id: c.integer(),
     rules: c.json(),
-    created_at: c.bigint(),
-    updated_at: c.bigint(),
+    created_at: c.integer(),
+    updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
