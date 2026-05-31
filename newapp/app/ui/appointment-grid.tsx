@@ -10,6 +10,7 @@ import {
 import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../lib/appointtype-drag.ts'
 import { interactionState } from './appointment-interaction-state.ts'
 import { readAppointmentData } from '../utils/appointment.ts'
+import { showToast } from './toast.ts'
 
 const HOURS = 24
 const SLOT_HEIGHT = 160 // pixels per hour (4x so 15min = same as old 1h row)
@@ -32,7 +33,7 @@ function handleMutationResponse(response: Response): boolean {
     response
       .json()
       .then((body) => {
-        alert(body?.error || 'Time slot already taken.')
+        showToast(body?.error || 'Time slot already taken.')
         window.location.reload()
       })
       .catch(() => {
@@ -44,18 +45,18 @@ function handleMutationResponse(response: Response): boolean {
     response
       .json()
       .then((body) => {
-        alert(body?.error || 'Slot ist nicht buchbar.')
+        showToast(body?.error || 'Slot ist nicht buchbar.')
       })
-      .catch(() => {})
+      .catch((err) => console.warn('403 error parsing:', err))
     return true
   }
   if (response.status === 422) {
     response
       .json()
       .then((body) => {
-        alert(body?.error || 'Änderung konnte nicht gespeichert werden.')
+        showToast(body?.error || 'Änderung konnte nicht gespeichert werden.')
       })
-      .catch(() => {})
+      .catch((err) => console.warn('422 error parsing:', err))
     return true
   }
   return false
@@ -75,9 +76,9 @@ function handleBatchMutationResponses(results: PromiseSettledResult<Response>[])
     }
   }
   if (hasCollision) {
-    alert('Time slot already taken.')
+    showToast('Time slot already taken.')
   } else if (!anyOk) {
-    alert('Failed to save changes.')
+    showToast('Failed to save changes.')
   }
   window.location.reload()
 }
@@ -779,7 +780,7 @@ export const AppointmentGrid = clientEntry(
         .then((r) => {
           if (handleMutationResponse(r)) return
         })
-        .catch(() => {})
+        .catch((err) => console.warn('Failed to update appointment title:', err))
     }
 
     // ── Block pointer dispatch ──
@@ -1002,7 +1003,7 @@ export const AppointmentGrid = clientEntry(
           .then((r) => {
             if (handleMutationResponse(r)) return
           })
-          .catch(() => {})
+          .catch((err) => console.warn('Failed to delete appointment:', err))
         return
       }
 
@@ -1023,11 +1024,11 @@ export const AppointmentGrid = clientEntry(
         })
           .then((r) => {
             if (r.ok) window.location.reload()
-            else alert('Fehler beim Erstellen des Typs.')
+            else showToast('Fehler beim Erstellen des Typs.')
           })
           .catch((err) => {
             if (err instanceof DOMException && err.name === 'AbortError') return
-            alert('Fehler beim Erstellen des Typs.')
+            showToast('Fehler beim Erstellen des Typs.')
           })
         return
       }
@@ -1307,9 +1308,12 @@ export const AppointmentGrid = clientEntry(
         })
           .then((r) => {
             if (handleMutationResponse(r)) return
-            alert('Fehler beim Erstellen des Termins.')
+            showToast('Fehler beim Erstellen des Termins.')
           })
-          .catch(() => alert('Fehler beim Erstellen des Termins.'))
+          .catch((err) => {
+            if (err instanceof DOMException && err.name === 'AbortError') return
+            showToast('Fehler beim Erstellen des Termins.')
+          })
       }
 
       setTypeDragState(null)

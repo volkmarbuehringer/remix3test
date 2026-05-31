@@ -2,6 +2,7 @@ import { clientEntry, css, on, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
 import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
 import { theme } from 'remix/ui/theme'
+import { showToast } from '../ui/toast.ts'
 
 interface NutzerRow {
   n_id: string
@@ -138,10 +139,10 @@ function handleRowAction(
           return r.json()
         })
         .then(() => {
-          alert(`Passwort für ${row.n_name || row.n_l_login} wurde zurückgesetzt.`)
+          showToast(`Passwort für ${row.n_name || row.n_l_login} wurde zurückgesetzt.`, 'success')
           window.location.reload()
         })
-        .catch(() => alert('Fehler beim Zurücksetzen des Passworts.'))
+        .catch(() => showToast('Fehler beim Zurücksetzen des Passworts.'))
       break
     }
     case 'lock':
@@ -157,9 +158,9 @@ function handleRowAction(
       })
         .then((r) => {
           if (r.ok) window.location.reload()
-          else alert('Fehler beim Ändern des Sperrstatus.')
+          else showToast('Fehler beim Ändern des Sperrstatus.')
         })
-        .catch(() => alert('Fehler beim Ändern des Sperrstatus.'))
+        .catch(() => showToast('Fehler beim Ändern des Sperrstatus.'))
       break
     }
     case 'activate':
@@ -175,14 +176,14 @@ function handleRowAction(
       })
         .then((r) => {
           if (r.ok) window.location.reload()
-          else alert('Fehler beim Ändern des Aktiv-Status.')
+          else showToast('Fehler beim Ändern des Aktiv-Status.')
         })
-        .catch(() => alert('Fehler beim Ändern des Aktiv-Status.'))
+        .catch(() => showToast('Fehler beim Ändern des Aktiv-Status.'))
       break
     }
     case 'copy-email': {
       if (!row.n_email) return
-      navigator.clipboard.writeText(row.n_email).catch(() => {})
+      navigator.clipboard.writeText(row.n_email).catch((err) => console.warn('Failed to copy email:', err))
       break
     }
     case 'delete': {
@@ -204,9 +205,9 @@ function handleRowAction(
       })
         .then((r) => {
           if (r.ok) window.location.reload()
-          else alert('Fehler beim Löschen.')
+          else showToast('Fehler beim Löschen.')
         })
-        .catch(() => alert('Fehler beim Löschen.'))
+        .catch(() => showToast('Fehler beim Löschen.'))
       break
     }
   }

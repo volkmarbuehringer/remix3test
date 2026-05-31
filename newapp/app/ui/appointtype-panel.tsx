@@ -5,6 +5,7 @@ import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
 
 import { getTypeDragState, setTypeDragState, getPanelDropActive } from '../lib/appointtype-drag.ts'
 import type { AppointType } from '../data/schema.ts'
+import { showToast } from './toast.ts'
 
 // ── Props ──
 
@@ -177,10 +178,10 @@ export const AppointTypePanel = clientEntry(
         if (response.ok) {
           await handle.frame?.reload()
         } else {
-          alert('Fehler beim Speichern.')
+          showToast('Fehler beim Speichern.')
         }
       } catch {
-        alert('Fehler beim Speichern.')
+        showToast('Fehler beim Speichern.')
       }
     }
 
@@ -228,9 +229,9 @@ export const AppointTypePanel = clientEntry(
       })
         .then((r) => {
           if (r.ok) handle.frame?.reload()
-          else alert('Fehler beim Speichern.')
+          else showToast('Fehler beim Speichern.')
         })
-        .catch(() => alert('Fehler beim Speichern.'))
+        .catch(() => showToast('Fehler beim Speichern.'))
     }
 
     // ── Context menu handler ──
@@ -257,9 +258,9 @@ export const AppointTypePanel = clientEntry(
           })
             .then((r) => {
               if (r.ok) handle.frame?.reload()
-              else alert('Fehler beim Löschen.')
+              else showToast('Fehler beim Löschen.')
             })
-            .catch(() => alert('Fehler beim Löschen.'))
+            .catch(() => showToast('Fehler beim Löschen.'))
           break
         }
       }

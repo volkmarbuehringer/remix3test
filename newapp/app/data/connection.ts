@@ -17,5 +17,5 @@ const adapter = createPostgresDatabaseAdapter(pool)
 export const db = createDatabase(adapter)
 
 export function closeAppDatabase(): void {
-  pool.end().catch(() => {})
+  pool.end().catch((err) => console.error('Error closing database pool:', err))
 }
