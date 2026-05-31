@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
 import { renderAdminPage } from '../ui/admin-layout.tsx'
 import { AdminListsPage } from '../ui/admin-lists-page.tsx'
+import { logAdminAction } from '../data/audit-log.ts'
 
 const PAGE_LIMIT = 10
 
@@ -78,6 +79,18 @@ export default createController<typeof routes.admin.lists, AppContext>(routes.ad
       }
 
       await db.delete(lists, { id: listId })
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'lists',
+          target_id: listId,
+        })
+      }
 
       // Preserve filter in redirect
       let filter = context.url.searchParams.get('filter')

@@ -13,6 +13,7 @@ import { AdminOfferingsConfigPage } from './admin-offerings-config-page.tsx'
 import { AdminOfferingsWeekPage } from './admin-offerings-week-page.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 import { RestfulForm } from './restful-form.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminOfferingsContextMenu } from '../assets/admin-offerings-context-menu.tsx'
 import type { OfferingRow, ResourceOption } from '../actions/admin-offerings-controller.tsx'
@@ -313,7 +314,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="offerings-grid-state" type="application/json">
+        <script id="offerings-grid-state" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
             offset: String(offset),
             sort: sortColumn,

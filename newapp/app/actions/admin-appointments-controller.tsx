@@ -15,6 +15,7 @@ import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams, gridStateFromForm, gridStateFromFormData } from '../utils/grid-state.ts'
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { appointmentChannel } from '../lib/appointments-sse.ts'
+import { logAdminAction } from '../data/audit-log.ts'
 
 const PAGE_SIZE = 15
 
@@ -401,6 +402,19 @@ export default createController<typeof routes.admin.appointments, AppContext>(
             [userId, resourceId, title, dayMs, during, now, now],
           )
           newId = insertResult.rows[0].id
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'create',
+              target_type: 'appointment',
+              target_id: newId,
+              details: { resource_id: resourceId, user_id: userId, title, date: parsed.date, during },
+            })
+          }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             return errorRedirect(parsed, 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.', { creating: true })
@@ -484,6 +498,19 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           if (result.rowCount === 0) {
             return errorRedirect(parsed, 'Eintrag nicht gefunden.', { editing: id })
           }
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'update',
+              target_type: 'appointment',
+              target_id: id,
+              details: { resource_id: resourceId, user_id: userId, title, date: parsed.date, during },
+            })
+          }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             return errorRedirect(parsed, 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.', { editing: id })
@@ -528,6 +555,18 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
           if (result.rowCount === 0) {
             return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
+          }
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'destroy',
+              target_type: 'appointment',
+              target_id: id,
+            })
           }
         } catch (error: unknown) {
           if (error && typeof error === 'object') {

@@ -6,6 +6,8 @@ import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
 import { deleteConversation, getAllConversations } from '../lib/chatlog.ts'
 import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { logAdminAction } from '../data/audit-log.ts'
+import { pool } from '../data/setup.ts'
 import { ChatLogPage } from '../ui/admin-chatlog-page.tsx'
 
 const MAX_FILTER_LENGTH = 200
@@ -43,8 +45,22 @@ export default createController<typeof routes.admin.chatlog, AppContext>(routes.
       }
     },
 
-    async destroy({ params }) {
+    async destroy(context) {
+      let { params } = context
       await deleteConversation(params.id)
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'chatlog',
+          target_id: params.id,
+        })
+      }
+
       return redirect(routes.admin.chatlog.index.href())
     },
   },

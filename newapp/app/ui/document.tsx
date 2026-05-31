@@ -10,6 +10,7 @@ import { DarkTheme, Theme } from '../theme.tsx'
 import { RMX_01_GLYPHS } from 'remix/ui/theme'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getAssetEntry } from '../middleware/asset-entry.ts'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 export interface DocumentProps {
   children?: RemixNode
@@ -58,7 +59,7 @@ export function Document(handle: Handle<DocumentProps>) {
               body { transition: none !important; }
             }
           `}</style>
-          <script>{`
+          <script nonce={getCspNonce()}>{`
             (function() {
               try {
                 var t = localStorage.getItem('theme');
@@ -84,7 +85,7 @@ export function Document(handle: Handle<DocumentProps>) {
           {(() => {
             let entry = getAssetEntry()
             let src = entry?.scriptSrc ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
-            return <script type="module" src={src} />
+            return <script type="module" src={src} nonce={getCspNonce()} />
           })()}
         </body>
       </html>

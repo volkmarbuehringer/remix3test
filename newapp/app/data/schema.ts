@@ -560,6 +560,27 @@ export const offeringConfigs = table({
   },
 })
 
+export const auditLogs = table({
+  name: 'audit_logs',
+  columns: {
+    id: c.integer(),
+    admin_user_id: c.integer(),
+    admin_email: c.text(),
+    action_type: c.text(),
+    target_type: c.text(),
+    target_id: c.text(),
+    details: c.json(),
+    created_at: c.integer(),
+  },
+  afterRead({ value }) {
+    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
+    if (typeof value.details === 'string') {
+      try { value.details = JSON.parse(value.details) } catch { value.details = null }
+    }
+    return { value }
+  },
+})
+
 export type User = TableRow<typeof users>
 export type Client = TableRow<typeof clients>
 export type Appointment = TableRow<typeof appointments>

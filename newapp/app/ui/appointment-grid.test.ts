@@ -72,7 +72,7 @@ function isoWeekFromMonday(mondayMs: number): { year: number; week: number } {
  */
 function parseAppointmentData(html: string): AppointmentData | null {
   let match = html.match(
-    /<script id="appointment-data" type="application\/json">([\s\S]*?)<\/script>/,
+    /<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/,
   )
   if (!match) return null
   try {

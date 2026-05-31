@@ -15,6 +15,7 @@ import { isDateInPast } from '../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 import Holidays from 'date-holidays'
+import { logAdminAction } from '../data/audit-log.ts'
 
 const hd = new Holidays('DE', 'rp')
 
@@ -306,6 +307,19 @@ export default createController<typeof routes.admin.offerings, AppContext>(
             [dayMs, resourceId, during, now, now],
           )
           newId = insertResult.rows[0].id
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'create',
+              target_type: 'appointoffering',
+              target_id: newId,
+              details: { resource_id: resourceId, day: parsed.day, during },
+            })
+          }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             let backState = {
@@ -428,6 +442,19 @@ export default createController<typeof routes.admin.offerings, AppContext>(
               { status: 404 },
             )
           }
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'update',
+              target_type: 'appointoffering',
+              target_id: id,
+              details: { resource_id: resourceId, day: parsed.day, during },
+            })
+          }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             let backState = {
@@ -487,6 +514,18 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           )
         }
 
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'destroy',
+            target_type: 'appointoffering',
+            target_id: id,
+          })
+        }
+
         // Redirect back with preserved grid state
         let redirectState = {
           offset: (formData.get('_offset') as string) ?? '',
@@ -539,6 +578,19 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         await upsertConfig(pool, resourceId, rules)
 
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'config_save',
+            target_type: 'offering_configs',
+            target_id: resourceId,
+            details: { rules },
+          })
+        }
+
         return new Response(null, {
           status: 302,
           headers: { Location: '/admin/offerings' },
@@ -587,6 +639,19 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         } else {
           params.set('error', `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`)
         }
+
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'week_generate',
+            target_type: 'appointoffering',
+            details: { year, week, totalCreated, totalSkipped },
+          })
+        }
+
         let qs = params.toString()
         return new Response(null, {
           status: 302,

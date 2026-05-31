@@ -68,14 +68,12 @@ describe('Security headers middleware', () => {
     assert.equal(response.headers.get('Strict-Transport-Security'), null)
   })
 
-  it('does not overwrite existing headers', async () => {
+  it('CSP includes a per-request nonce for scripts', async () => {
     let response = await router.fetch(`${BASE}/login`)
-    let csp1 = response.headers.get('Content-Security-Policy')
-
-    let response2 = await router.fetch(`${BASE}/login`)
-    let csp2 = response2.headers.get('Content-Security-Policy')
-
-    assert.equal(csp1, csp2, 'CSP should be consistent across requests')
+    let csp = response.headers.get('Content-Security-Policy')!
+    assert.ok(csp.includes("'nonce-"), 'CSP should include a nonce for scripts')
+    let scriptSrc = csp.split(';').find(p => p.trim().startsWith('script-src'))
+    assert.ok(scriptSrc && !scriptSrc.includes("'unsafe-inline'"), 'script-src should not allow unsafe-inline')
   })
 
   it('all 6 headers present on a non-auth route too', async () => {

@@ -13,6 +13,7 @@ import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.ts
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminAppointmentsContextMenu } from '../assets/admin-appointments-context-menu.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import type {
   AppointmentRow,
@@ -386,7 +387,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         )}
 
         {/* Context menu data and clientEntry */}
-        <script id="appointments-grid-state" type="application/json">
+        <script id="appointments-grid-state" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
             offset: String(offset),
             sort: sortColumn,

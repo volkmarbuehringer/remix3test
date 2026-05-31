@@ -12,6 +12,7 @@ import { AdminNutzerPage, type NutzerRow } from '../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams } from '../utils/grid-state.ts'
 import { hashPassword } from '../utils/password-hash.ts'
+import { logAdminAction } from '../data/audit-log.ts'
 
 const PAGE_SIZE = 15
 
@@ -169,6 +170,19 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           [parsed.login, boolFromString(parsed.aktiv), boolFromString(parsed.gesperrt), lId],
         )
         await client.query('COMMIT')
+
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'nutzer',
+            target_id: id,
+            details: { changes: { vorname: parsed.vorname, name: parsed.name } },
+          })
+        }
       } catch (error) {
         await client.query('ROLLBACK')
         throw error
@@ -231,6 +245,18 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
 
         await client.query('COMMIT')
 
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'create',
+            target_type: 'nutzer',
+            target_id: newNId,
+          })
+        }
+
         // Redirect back with editing=NEW_NID to show and allow further edits
         let redirectState = {
           offset: parsed._offset,
@@ -276,6 +302,18 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
 
         await client.query(`DELETE FROM login WHERE l_id=$1`, [nLid])
         await client.query('COMMIT')
+
+        let auth = context.auth
+        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'destroy',
+            target_type: 'nutzer',
+            target_id: id,
+          })
+        }
       } catch (error) {
         await client.query('ROLLBACK')
         throw error
@@ -329,6 +367,18 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         result.rows[0].l_id,
       ])
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'password_reset',
+          target_type: 'nutzer',
+          target_id: id,
+        })
+      }
+
       return context.json({ ok: true })
     },
 
@@ -359,6 +409,19 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'toggle_lock',
+          target_type: 'nutzer',
+          target_id: id,
+          details: { locked: body.locked },
+        })
+      }
+
       return context.json({ ok: true, locked: body.locked })
     },
 
@@ -387,6 +450,19 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
 
       if (updateResult.rowCount === 0) {
         return context.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'toggle_active',
+          target_type: 'nutzer',
+          target_id: id,
+          details: { active: body.active },
+        })
       }
 
       return context.json({ ok: true, active: body.active })

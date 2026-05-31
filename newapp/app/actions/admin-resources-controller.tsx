@@ -17,6 +17,8 @@ import {
   gridStateFromForm,
   gridStateToParams,
 } from '../utils/grid-state.ts'
+import { logAdminAction } from '../data/audit-log.ts'
+import { pool } from '../data/setup.ts'
 
 type Row = Resource
 
@@ -121,6 +123,19 @@ export default createController<typeof routes.admin.resources, AppContext>(route
         { returnRow: true },
       )
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'resources',
+          target_id: row.id as number,
+          details: { description: parsed.description.trim() },
+        })
+      }
+
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
@@ -153,6 +168,19 @@ export default createController<typeof routes.admin.resources, AppContext>(route
 
       await db.updateMany(resources, { description: parsed.description.trim() }, { where: { id } })
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'resources',
+          target_id: id,
+          details: { description: parsed.description.trim() },
+        })
+      }
+
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
@@ -184,6 +212,18 @@ export default createController<typeof routes.admin.resources, AppContext>(route
           return context.json({ ok: false, error: 'Resource is in use and cannot be deleted' }, { status: 400 })
         }
         throw error
+      }
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'resources',
+          target_id: id,
+        })
       }
 
       let parsed: Record<string, string>

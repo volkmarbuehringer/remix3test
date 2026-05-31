@@ -2,6 +2,7 @@ import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 import { getCsrfToken } from 'remix/middleware/csrf'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 import { requireAuth } from '../middleware/auth.ts'
 import type { AppContext } from '../types/context.ts'
@@ -45,7 +46,7 @@ export default createController<typeof routes.appointment.types, AppContext>(
 
         return context.render(
           <>
-            <script id="appointtype-data" type="application/json">{data}</script>
+            <script id="appointtype-data" type="application/json" nonce={getCspNonce()}>{data}</script>
             <AppointTypePanel csrfToken={csrfToken} />
           </>,
           fragmentResponseInit(),

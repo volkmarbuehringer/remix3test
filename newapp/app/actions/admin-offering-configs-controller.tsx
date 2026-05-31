@@ -16,6 +16,7 @@ import {
   gridStateToParams,
 } from '../utils/grid-state.ts'
 import { pool } from '../data/setup.ts'
+import { logAdminAction } from '../data/audit-log.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -251,6 +252,19 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         throw error
       }
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'offering_configs',
+          target_id: row.id as number,
+          details: { resource_id: resourceId, rules },
+        })
+      }
+
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
@@ -315,6 +329,19 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         throw error
       }
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'offering_configs',
+          target_id: id,
+          details: { resource_id: resourceId, rules },
+        })
+      }
+
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
@@ -340,6 +367,18 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
       }
 
       await db.deleteMany(offeringConfigs, { where: { id } })
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'offering_configs',
+          target_id: id,
+        })
+      }
 
       let redirectState = gridStateFromFormData(formData)
       let params = gridStateToParams(redirectState)

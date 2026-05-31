@@ -10,6 +10,7 @@ import { frames } from '../routes.ts'
 import { AdminNutzerEditPage } from './admin-nutzer-edit-page.tsx'
 import { AdminNutzerCreatePage } from './admin-nutzer-create-page.tsx'
 import { NutzerTableInteractive } from '../assets/nutzer-table-interactive.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 export interface NutzerRow {
   n_id: string
@@ -204,7 +205,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
         )}
 
         {/* JSON data for clientEntry context menu */}
-        <script id="nutzer-table-data" type="application/json">
+        <script id="nutzer-table-data" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
             rows: rows.map(r => ({
               n_id: r.n_id,

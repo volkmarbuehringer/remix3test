@@ -12,6 +12,7 @@ import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
 import { renderAdminPage } from '../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../ui/admin-messages-page.tsx'
+import { logAdminAction } from '../data/audit-log.ts'
 
 const messageSchema = f.object({
   content: f.field(s.string()),
@@ -89,7 +90,7 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
       }
 
       let now = Date.now()
-      await db.create(
+      let row = await db.create(
         messages,
         {
           sender_id: user.id,
@@ -98,6 +99,15 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
         },
         { returnRow: true },
       )
+
+      logAdminAction(pool, {
+        admin_user_id: user.id,
+        admin_email: user.email,
+        action_type: 'create',
+        target_type: 'messages',
+        target_id: row.id as number,
+        details: { content_preview: content.slice(0, 100) },
+      })
 
       broadcastInvalidate()
 
@@ -117,6 +127,16 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
       }
 
       await db.delete(messages, { id: messageId })
+
+      let user = getCurrentUser()
+      logAdminAction(pool, {
+        admin_user_id: user.id,
+        admin_email: user.email,
+        action_type: 'destroy',
+        target_type: 'messages',
+        target_id: messageId,
+      })
+
       broadcastInvalidate()
 
       return new Response(null, {

@@ -8,6 +8,7 @@ import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import { frames } from '../routes.ts'
 import type { AppointOffering, Appointment, Resource } from '../data/schema.ts'
 import { parseDuring } from '../data/appointofferings.ts'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 function formatDateRange(mondayMs: number): string {
   let monday = new Date(mondayMs)
@@ -79,7 +80,7 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
 
     return (
       <Layout title="Appointment">
-        <script id="appointment-data" type="application/json">
+        <script id="appointment-data" type="application/json" nonce={getCspNonce()}>
           {data}
         </script>
         <div mix={shellStyle}>

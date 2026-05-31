@@ -18,6 +18,8 @@ import {
   gridStateToParams,
 } from '../utils/grid-state.ts'
 import { hashPassword } from '../utils/password-hash.ts'
+import { logAdminAction } from '../data/audit-log.ts'
+import { pool } from '../data/setup.ts'
 
 /** User view returned to the client — password_hash is never serialized. */
 type SafeUser = Omit<User, 'password_hash'>
@@ -156,6 +158,19 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
         { returnRow: true },
       )
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'users',
+          target_id: row.id as number,
+          details: { name: parsed.name.trim(), email: parsed.email.trim().toLowerCase(), role },
+        })
+      }
+
       // Redirect back with editing=NEW_ID
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
@@ -206,6 +221,19 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       await db.updateMany(users, changes, { where: { id } })
 
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'users',
+          target_id: id,
+          details: { changes },
+        })
+      }
+
       // Redirect back with preserved grid state
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
@@ -232,6 +260,18 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       }
 
       await db.deleteMany(users, { where: { id } })
+
+      let auth = context.auth
+      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      if (authIdentity) {
+        logAdminAction(pool, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'users',
+          target_id: id,
+        })
+      }
 
       // Redirect back with preserved grid state
       let parsed: Record<string, string>

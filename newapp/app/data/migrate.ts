@@ -152,5 +152,21 @@ export async function migrate(): Promise<void> {
     )
   `)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      admin_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      admin_email TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id TEXT,
+      details JSONB,
+      created_at BIGINT NOT NULL
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_admin_idx ON audit_logs (admin_user_id)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action_type)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`)
+
   console.log('[DB] Tables created/verified')
 }
