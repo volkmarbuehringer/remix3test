@@ -16,7 +16,7 @@ newapp/playwright-results.json
 newapp/playwright-results.xml
 newapp/test-results/
 newapp/tests/
-
+newapp/.coverage
 # Self-signed TLS certificates (local dev)
 *.pem
 *.crt

@@ -1,10 +1,21 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["ecc-universal"],
+  "command": {
+    "remember": {
+      "description": "Save a successful fix or solution as project knowledge with auto-tagging and instinct creation",
+      "template": "{file:.opencode/commands/remember.md}\n\n$ARGUMENTS"
+    },
+    "knowledge": {
+      "description": "List, filter, archive, or delete project knowledge files",
+      "template": "{file:.opencode/commands/knowledge.md}\n\n$ARGUMENTS"
+    }
+  },
   "permission": {
-  "external_directory": {
-    "/home/lucky/remix/**": "allow",
-    "*": "ask"
+    "external_directory": {
+      "/home/lucky/remix/**": "allow",
+      "/home/lucky/.local/share/ecc-homunculus/**": "allow",
+      "*": "ask"
+    }
   }
-}
 }
