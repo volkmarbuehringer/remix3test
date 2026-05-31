@@ -5,7 +5,7 @@ import { ShowcaseButtonPage, ShowcaseFormPage, ShowcaseThemePage } from './showc
 // ── Types ──
 
 export type ShowcasePageId = 'button' | 'form' | 'theme'
-export type ShowcaseSectionId = 'components' | 'theme'
+type ShowcaseSectionId = 'components' | 'theme'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ShowcaseComponent = (handle?: any) => () => RemixNode

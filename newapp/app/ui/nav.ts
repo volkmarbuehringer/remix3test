@@ -8,13 +8,13 @@ export type BaseNavItem = {
   href?: string
 }
 
-export type NavItem = BaseNavItem & {
+type NavItem = BaseNavItem & {
   href: string
   icon?: string
   adminOnly?: boolean
 }
 
-export type NavSection = {
+type NavSection = {
   id: string
   label?: string
   items: NavItem[]

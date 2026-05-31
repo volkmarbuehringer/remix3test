@@ -10,7 +10,7 @@ import type { BaseNavItem } from './nav.ts'
 
 // ── Types ──────────────────────────────────────────────────────
 
-export type NavItem<ID extends string> = BaseNavItem & {
+type NavItem<ID extends string> = BaseNavItem & {
   id: ID
   route?: { href: () => string }
   /** When false, the link forces a full-page navigation instead of frame-based. */

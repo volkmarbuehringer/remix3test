@@ -27,25 +27,11 @@ export type Workflow = (
   params: Record<string, unknown>
 ) => AsyncGenerator<WorkflowStep, unknown, unknown>
 
-export interface WorkflowParameter {
+interface WorkflowParameter {
   name: string
   type: 'string' | 'number' | 'boolean'
   required: boolean
   description: string
-}
-
-export interface ToolCall {
-  toolName: string
-  input: Record<string, unknown>
-  output?: unknown
-  error?: string
-  elapsed?: number
-}
-
-export interface WorkflowResult {
-  continueWith?: string
-  continueParams?: Record<string, unknown>
-  toolCalls?: ToolCall[]
 }
 
 export interface WorkflowDefinition {

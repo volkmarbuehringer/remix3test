@@ -561,11 +561,7 @@ export const offeringConfigs = table({
 })
 
 export type User = TableRow<typeof users>
-export type ChatLog = TableRow<typeof chatlog>
-export type WorkflowRun = TableRow<typeof workflowRuns>
-export type Message = TableRow<typeof messages>
 export type Client = TableRow<typeof clients>
-export type List = TableRow<typeof lists>
 export type Appointment = TableRow<typeof appointments>
 export type AppointType = TableRow<typeof appointtypes>
 export type Resource = TableRow<typeof resources>

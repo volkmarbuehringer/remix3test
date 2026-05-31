@@ -12,7 +12,7 @@ export interface AppointmentLayoutBlock {
 }
 
 export type ResizeEdge = 'start' | 'end'
-export type ReflowDirection = 'down' | 'up'
+type ReflowDirection = 'down' | 'up'
 
 export interface LayoutPolicy {
   dayMinutes: number
@@ -21,9 +21,9 @@ export interface LayoutPolicy {
   slotMinutes: number
 }
 
-export type LayoutChangeKind = 'created' | 'deleted' | 'moved' | 'resized'
+type LayoutChangeKind = 'created' | 'deleted' | 'moved' | 'resized'
 
-export interface LayoutChange {
+interface LayoutChange {
   after?: AppointmentLayoutBlock
   before?: AppointmentLayoutBlock
   id: number
