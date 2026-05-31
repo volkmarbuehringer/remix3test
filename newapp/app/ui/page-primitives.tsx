@@ -64,33 +64,10 @@ export const panelInsetCss = css({
   backgroundColor: theme.surface.lvl1,
 })
 
-export const panelElevatedCss = css({
-  boxShadow: theme.shadow.sm,
-})
-
-export const panelHeaderCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-})
-
-export const panelBodyCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-  minWidth: 0,
-})
-
 export const pageStackCss = css({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.space.xxl,
-})
-
-export const featureGridCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.lg,
 })
 
 export const exampleGridCss = css({
@@ -106,7 +83,7 @@ export const bodyTextCss = css({
   color: theme.colors.text.secondary,
 })
 
-export const eyebrowTextCss = css({
+const eyebrowTextCss = css({
   margin: 0,
   fontSize: theme.fontSize.xxxs,
   fontWeight: theme.fontWeight.semibold,
@@ -115,7 +92,7 @@ export const eyebrowTextCss = css({
   color: theme.colors.text.muted,
 })
 
-export const panelTitleTextCss = css({
+const panelTitleTextCss = css({
   margin: 0,
   fontSize: theme.fontSize.lg,
   lineHeight: theme.lineHeight.tight,
@@ -123,7 +100,7 @@ export const panelTitleTextCss = css({
   color: theme.colors.text.primary,
 })
 
-export const panelDescriptionTextCss = css({
+const panelDescriptionTextCss = css({
   margin: 0,
   fontSize: theme.fontSize.sm,
   lineHeight: theme.lineHeight.relaxed,
@@ -135,75 +112,6 @@ export const captionTextCss = css({
   fontSize: theme.fontSize.xs,
   lineHeight: theme.lineHeight.normal,
   color: theme.colors.text.muted,
-})
-
-export const labelTextCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-export const compactGridCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.md,
-})
-
-export const panelFooterCss = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: theme.space.sm,
-})
-
-export const noteCardCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-})
-
-export const noteListCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-  margin: 0,
-  paddingLeft: theme.space.lg,
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.sm,
-  lineHeight: theme.lineHeight.relaxed,
-})
-
-export const tokenGroupGridCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.md,
-})
-
-export const tokenGroupCardCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-  minHeight: '140px',
-})
-
-export const tokenChipRowCss = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: theme.space.xs,
-})
-
-export const tokenChipCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: theme.control.height.sm,
-  paddingInline: theme.space.sm,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  borderRadius: theme.radius.full,
-  backgroundColor: theme.surface.lvl1,
-  fontFamily: theme.fontFamily.mono,
-  fontSize: theme.fontSize.xxs,
-  color: theme.colors.text.secondary,
 })
 
 // ── Private CSS for primitives ──
