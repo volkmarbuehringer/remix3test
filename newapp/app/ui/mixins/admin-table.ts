@@ -1,0 +1,190 @@
+import { css } from 'remix/ui'
+import { theme } from 'remix/ui/theme'
+
+const surface = theme.surface as Record<string, string>
+
+export const table = {
+  page: css({ maxWidth: '1000px' }),
+  title: css({
+    margin: 0,
+    fontSize: theme.fontSize.xxl,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.text.primary,
+  }),
+
+  filterBar: css({
+    display: 'flex', alignItems: 'center', gap: theme.space.sm, marginBottom: theme.space.md,
+  }),
+  filterInput: css({
+    flex: '1', maxWidth: '300px', padding: `${theme.space.xs} ${theme.space.sm}`,
+    fontSize: theme.fontSize.sm, border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.md, background: theme.surface.lvl0, color: theme.colors.text.primary,
+    outline: 'none',
+    '&:focus': {
+      borderColor: theme.colors.action.primary.background,
+      boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
+    },
+    '&::placeholder': { color: theme.colors.text.muted },
+  }),
+  searchBtn: css({
+    padding: `${theme.space.xs} ${theme.space.md}`,
+    background: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.foreground,
+    border: 'none', borderRadius: theme.radius.md, fontSize: theme.fontSize.sm, cursor: 'pointer',
+    '&:hover': { opacity: 0.9 },
+  }),
+  clearLink: css({
+    fontSize: theme.fontSize.xs, color: theme.colors.text.muted, textDecoration: 'none',
+    '&:hover': { color: theme.colors.text.primary, textDecoration: 'underline' },
+  }),
+
+  wrap: css({
+    marginBottom: theme.space.xl, background: surface.lvl1,
+    borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border.default}`, overflowX: 'auto',
+  }),
+  table: css({
+    width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: theme.fontSize.sm,
+  }),
+  th: css({
+    textAlign: 'left', padding: `${theme.space.sm} ${theme.space.md}`,
+    background: surface.lvl2, borderBottom: `1px solid ${theme.colors.border.default}`,
+    whiteSpace: 'nowrap', fontWeight: theme.fontWeight.semibold,
+    fontSize: theme.fontSize.xs, textTransform: 'uppercase', letterSpacing: '0.06em',
+    color: theme.colors.text.secondary,
+  }),
+  thSortable: css({
+    textAlign: 'left', padding: `${theme.space.sm} ${theme.space.md}`,
+    background: surface.lvl2, borderBottom: `1px solid ${theme.colors.border.default}`,
+    whiteSpace: 'nowrap',
+  }),
+  sortLink: css({
+    color: theme.colors.text.secondary, textDecoration: 'none', display: 'inline-flex',
+    alignItems: 'center', gap: '4px', fontWeight: theme.fontWeight.semibold,
+    fontSize: theme.fontSize.xs, textTransform: 'uppercase', letterSpacing: '0.06em',
+    '&:hover': { color: theme.colors.text.primary },
+  }),
+  sortArrow: css({
+    display: 'inline-block', fontSize: '0.7rem', lineHeight: '1', color: theme.colors.text.muted,
+  }),
+  sortArrowActive: css({
+    display: 'inline-block', fontSize: '0.8rem', lineHeight: '1',
+    color: theme.colors.action.primary.background, fontWeight: theme.fontWeight.bold,
+  }),
+  td: css({
+    padding: `${theme.space.sm} ${theme.space.md}`,
+    borderBottom: `1px solid ${theme.colors.border.subtle}`,
+    color: theme.colors.text.primary, verticalAlign: 'middle',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  }),
+  actionCell: css({
+    padding: `${theme.space.sm} ${theme.space.md}`,
+    borderBottom: `1px solid ${theme.colors.border.subtle}`,
+    whiteSpace: 'nowrap', textAlign: 'right',
+  }),
+  btnGroup: css({
+    display: 'inline-flex', alignItems: 'stretch',
+  }),
+  editBtn: css({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
+    background: surface.lvl2, color: theme.colors.text.secondary,
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRight: 'none',
+    borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
+    fontSize: theme.fontSize.xs, textDecoration: 'none', cursor: 'pointer',
+    '&:hover': { background: surface.lvl3, color: theme.colors.text.primary },
+  }),
+  delBtn: css({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
+    background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground,
+    border: 'none',
+    borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+    fontSize: theme.fontSize.xs, cursor: 'pointer',
+    '&:hover': { opacity: 0.9 },
+  }),
+  empty: css({
+    textAlign: 'center', padding: theme.space.xxl, color: theme.colors.text.muted,
+  }),
+  pagination: css({
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: theme.space.md, background: surface.lvl0,
+    borderRadius: theme.radius.md, border: `1px solid ${theme.colors.border.default}`,
+  }),
+  paginationInfo: css({
+    fontSize: theme.fontSize.sm, color: theme.colors.text.muted,
+  }),
+  pageLink: css({
+    padding: `${theme.space.sm} ${theme.space.md}`, background: surface.lvl2,
+    color: theme.colors.text.secondary, borderRadius: theme.radius.md,
+    fontSize: theme.fontSize.sm, textDecoration: 'none',
+    '&:hover': { background: surface.lvl3, color: theme.colors.text.primary },
+  }),
+  pageLinkDisabled: css({
+    padding: `${theme.space.sm} ${theme.space.md}`, borderRadius: theme.radius.md,
+    fontSize: theme.fontSize.sm, opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none',
+  }),
+  row: css({
+    '&:nth-child(even)': { background: surface.lvl0 },
+    '&:hover': { background: surface.lvl3 },
+  }),
+  twoColumn: css({
+    display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px', alignItems: 'start',
+  }),
+
+  panel: css({
+    background: surface.lvl1,
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.lg,
+    overflow: 'hidden',
+  }),
+  panelHeader: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.space.sm,
+    padding: `${theme.space.md} ${theme.space.lg}`,
+    borderBottom: `1px solid ${theme.colors.border.default}`,
+    background: surface.lvl2,
+  }),
+  panelTitle: css({
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.text.primary,
+  }),
+  panelBody: css({
+    padding: theme.space.lg,
+  }),
+  fieldGroup: css({
+    marginBottom: theme.space.md,
+  }),
+  label: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: '3px',
+    marginBottom: theme.space.xs,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.text.secondary,
+  }),
+  select: css({
+    width: '100%',
+    padding: `${theme.space.xs} ${theme.space.sm}`,
+    fontSize: theme.fontSize.sm,
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.md,
+    background: theme.surface.lvl0,
+    color: theme.colors.text.primary,
+    outline: 'none',
+    '&:focus': {
+      borderColor: theme.colors.action.primary.background,
+      boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
+    },
+  }),
+  actions: css({
+    display: 'flex',
+    gap: theme.space.sm,
+    marginTop: theme.space.lg,
+    paddingTop: theme.space.md,
+    borderTop: `1px solid ${theme.colors.border.default}`,
+  }),
+}

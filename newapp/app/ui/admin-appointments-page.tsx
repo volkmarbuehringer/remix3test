@@ -4,6 +4,9 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { Glyph } from 'remix/ui/glyph'
 
+import { table } from './mixins/admin-table.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, formatTimestamp } from './mixins/admin-urls.ts'
+
 import { frames } from '../routes.ts'
 import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
@@ -17,6 +20,8 @@ import type {
   UserOption,
 } from '../actions/admin-appointments-controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
+
+const ADMIN_BASE = '/admin/appointments'
 
 interface AdminAppointmentsPageProps {
   rows: AppointmentRow[]
@@ -34,64 +39,6 @@ interface AdminAppointmentsPageProps {
   error?: string
   defaultStartMin?: number
   defaultEndMin?: number
-}
-
-// ── Helpers ──
-
-function sortArrow(field: string, sortField: string, sortOrder: 'asc' | 'desc'): string {
-  if (field !== sortField) return '\u2195'
-  return sortOrder === 'asc' ? '\u2191' : '\u2193'
-}
-
-function buildSortUrl(
-  field: string,
-  currentSort: string,
-  currentOrder: 'asc' | 'desc',
-  offset: number,
-  filter?: string,
-): string {
-  let newOrder = field === currentSort ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'
-  let params = new URLSearchParams()
-  params.set('offset', '0')
-  params.set('sort', field)
-  params.set('order', newOrder)
-  if (filter) params.set('filter', filter)
-  return '/admin/appointments?' + params.toString()
-}
-
-function buildPaginationUrl(
-  newOffset: number,
-  sort: string,
-  order: 'asc' | 'desc',
-  filter?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('offset', String(newOffset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/appointments?' + params.toString()
-}
-
-function buildCreateUrl(offset: number, sort: string, order: string, filter?: string): string {
-  let params = new URLSearchParams()
-  params.set('creating', 'true')
-  if (offset > 0) params.set('offset', String(offset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/appointments?' + params.toString()
-}
-
-function formatTimestamp(ts: string | null): string {
-  if (!ts) return '\u2014'
-  return new Date(Number(ts)).toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function formatDate(day: string): string {
@@ -126,14 +73,6 @@ function formatDuring(during: unknown): string {
 
 // ── Styles ──
 
-const pageStyle = css({ maxWidth: '1000px' })
-const titleStyle = css({
-  margin: 0,
-  fontSize: theme.fontSize.xxl,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
 const headerBarStyle = css({
   display: 'flex',
   justifyContent: 'space-between',
@@ -148,156 +87,6 @@ const errorBannerStyle = css({
   color: theme.colors.action.danger.foreground,
   borderRadius: theme.radius.md,
   fontSize: theme.fontSize.sm,
-})
-
-const filterBarStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  marginBottom: theme.space.md,
-})
-const filterInputStyle = css({
-  flex: '1',
-  maxWidth: '300px',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
-  '&::placeholder': { color: theme.colors.text.muted },
-})
-const searchBtnStyle = css({
-  padding: `${theme.space.xs} ${theme.space.md}`,
-  background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
-  border: 'none',
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-  cursor: 'pointer',
-  '&:hover': { opacity: 0.9 },
-})
-const clearLinkStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-  textDecoration: 'none',
-  '&:hover': { color: theme.colors.text.primary, textDecoration: 'underline' },
-})
-const tableWrapStyle = css({
-  marginBottom: theme.space.xl,
-  background: theme.surface.lvl1,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
-  overflowX: 'auto',
-})
-const tableStyle = css({
-  width: '100%',
-  tableLayout: 'fixed',
-  borderCollapse: 'collapse',
-  fontSize: theme.fontSize.sm,
-})
-const thStyle = css({
-  textAlign: 'left',
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  whiteSpace: 'nowrap',
-  fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.xs,
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  color: theme.colors.text.secondary,
-})
-const thSortableStyle = css({
-  textAlign: 'left',
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  whiteSpace: 'nowrap',
-})
-const sortLinkStyle = css({
-  color: theme.colors.text.secondary,
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '4px',
-  fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.xs,
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  '&:hover': { color: theme.colors.text.primary },
-})
-const sortArrowStyle = css({
-  display: 'inline-block',
-  fontSize: '0.7rem',
-  lineHeight: '1',
-  color: theme.colors.text.muted,
-})
-const sortArrowActiveStyle = css({
-  display: 'inline-block',
-  fontSize: '0.8rem',
-  lineHeight: '1',
-  color: theme.colors.action.primary.background,
-  fontWeight: theme.fontWeight.bold,
-})
-const tdStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  color: theme.colors.text.primary,
-  verticalAlign: 'middle',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-})
-const emptyStateStyle = css({
-  textAlign: 'center',
-  padding: theme.space.xxl,
-  color: theme.colors.text.muted,
-})
-const paginationStyle = css({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: theme.space.md,
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.md,
-  border: `1px solid ${theme.colors.border.default}`,
-})
-const paginationInfoStyle = css({
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-})
-const pageLinkStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-const pageLinkDisabledStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-  opacity: 0.4,
-  cursor: 'not-allowed',
-  pointerEvents: 'none',
-})
-const rowStyle = css({
-  '&:nth-child(even)': { background: theme.surface.lvl0 },
-  '&:hover': { background: theme.surface.lvl3 },
-})
-const twoColumnStyle = css({
-  display: 'grid',
-  gridTemplateColumns: '1fr 380px',
-  gap: '24px',
-  alignItems: 'start',
 })
 
 // ── Component ──
@@ -332,26 +121,26 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           method="GET"
           action="/admin/appointments"
           rmx-target={frames.adminContent}
-          mix={filterBarStyle}
+          mix={table.filterBar}
         >
           <input
             type="text"
             name="filter"
             placeholder="Suche nach Titel, E-Mail oder Ressource..."
             defaultValue={filter ?? ''}
-            mix={filterInputStyle}
+            mix={table.filterInput}
           />
-          <button type="submit" mix={searchBtnStyle}>
+          <button type="submit" mix={table.searchBtn}>
             Suchen
           </button>
           {filter && (
-            <a href="/admin/appointments" rmx-target={frames.adminContent} mix={clearLinkStyle}>
+            <a href="/admin/appointments" rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
           <span style="flex:1" />
           <a
-            href={buildCreateUrl(offset, sortColumn, sortDirection, filter)}
+            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
@@ -360,13 +149,13 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         </form>
 
         {/* Table */}
-        <div mix={tableWrapStyle} data-appointments-table="true">
+        <div mix={table.wrap} data-appointments-table="true">
           {rows.length === 0 ? (
-            <div mix={emptyStateStyle}>
+            <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
             </div>
           ) : (
-            <table mix={tableStyle}>
+            <table mix={table.table}>
               <colgroup>
                 <col style={{ width: '40px' }} />
                 <col />
@@ -379,45 +168,45 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={thSortableStyle} title="ID">
+                  <th mix={table.thSortable} title="ID">
                     <a
-                      href={buildSortUrl('a.id', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.id', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       ID
-                      <span mix={'a.id' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'a.id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('a.id', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Titel">
+                  <th mix={table.thSortable} title="Titel">
                     <a
-                      href={buildSortUrl('a.title', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.title', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Titel
-                      <span mix={'a.title' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'a.title' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('a.title', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="E-Mail">
+                  <th mix={table.thSortable} title="E-Mail">
                     <a
-                      href={buildSortUrl('u.email', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'u.email', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       E-Mail
-                      <span mix={'u.email' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'u.email' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('u.email', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Ressource">
+                  <th mix={table.thSortable} title="Ressource">
                     <a
-                      href={buildSortUrl(
+                      href={buildSortUrl(ADMIN_BASE, 
                         'r.description',
                         sortColumn,
                         sortDirection,
@@ -425,63 +214,63 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         filter,
                       )}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Ressource
                       <span
-                        mix={'r.description' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}
+                        mix={'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow}
                       >
                         {sortArrow('r.description', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Datum">
+                  <th mix={table.thSortable} title="Datum">
                     <a
-                      href={buildSortUrl('a.date', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.date', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Datum
-                      <span mix={'a.date' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'a.date' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('a.date', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Zeit">
+                  <th mix={table.thSortable} title="Zeit">
                     <a
-                      href={buildSortUrl('a.during', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.during', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Zeit
-                      <span mix={'a.during' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('a.during', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Erstellt">
+                  <th mix={table.thSortable} title="Erstellt">
                     <a
-                      href={buildSortUrl('a.created_at', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.created_at', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Erstellt
                       <span
-                        mix={'a.created_at' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}
+                        mix={'a.created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
                       >
                         {sortArrow('a.created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle} title="Aktualisiert">
+                  <th mix={table.thSortable} title="Aktualisiert">
                     <a
-                      href={buildSortUrl('a.updated_at', sortColumn, sortDirection, offset, filter)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.updated_at', sortColumn, sortDirection, offset, filter)}
                       rmx-target={frames.adminContent}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Aktualisiert
                       <span
-                        mix={'a.updated_at' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}
+                        mix={'a.updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
                       >
                         {sortArrow('a.updated_at', sortColumn, sortDirection)}
                       </span>
@@ -491,29 +280,29 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={rowStyle} data-row-id={row.id}>
-                    <td mix={tdStyle} title={row.id}>
+                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                    <td mix={table.td} title={row.id}>
                       {row.id}
                     </td>
-                    <td mix={tdStyle} title={row.title}>
+                    <td mix={table.td} title={row.title}>
                       {row.title}
                     </td>
-                    <td mix={tdStyle} title={row.user_email ?? ''}>
+                    <td mix={table.td} title={row.user_email ?? ''}>
                       {row.user_email ?? '\u2014'}
                     </td>
-                    <td mix={tdStyle} title={row.resource_description ?? ''}>
+                    <td mix={table.td} title={row.resource_description ?? ''}>
                       {row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={tdStyle} title={formatDate(row.date)}>
+                    <td mix={table.td} title={formatDate(row.date)}>
                       {formatDate(row.date)}
                     </td>
-                    <td mix={tdStyle} title={row.during}>
+                    <td mix={table.td} title={row.during}>
                       {formatDuring(row.during)}
                     </td>
-                    <td mix={tdStyle} title={formatTimestamp(row.created_at)}>
+                    <td mix={table.td} title={formatTimestamp(row.created_at)}>
                       {formatTimestamp(row.created_at)}
                     </td>
-                    <td mix={tdStyle} title={formatTimestamp(row.updated_at)}>
+                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>
                       {formatTimestamp(row.updated_at)}
                     </td>
                   </tr>
@@ -547,18 +336,18 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
 
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
-          <div mix={paginationStyle}>
+          <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={paginationInfoStyle}>
+              <span mix={table.paginationInfo}>
                 Zeige {pageStart}–{pageEnd}
               </span>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
                   rmx-target={frames.adminContent}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 >
                   <Glyph
                     name="chevronRight"
@@ -569,7 +358,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   Zurück
                 </a>
               ) : (
-                <span mix={pageLinkDisabledStyle}>
+                <span mix={table.pageLinkDisabled}>
                   <Glyph
                     name="chevronRight"
                     width={14}
@@ -581,14 +370,14 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
                   rmx-target={frames.adminContent}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
               ) : (
-                <span mix={pageLinkDisabledStyle}>
+                <span mix={table.pageLinkDisabled}>
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
@@ -612,9 +401,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     // Two-column layout when editing or creating
     if (editRow || creating) {
       return (
-        <div mix={pageStyle}>
+        <div mix={table.page}>
           <div mix={headerBarStyle}>
-            <h2 mix={titleStyle}>Appointments</h2>
+            <h2 mix={table.title}>Appointments</h2>
             <ConnectionIndicator
               {...({
                 url: '/admin/appointments/events',
@@ -623,7 +412,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               } as any)}
             />
           </div>
-          <div mix={twoColumnStyle}>
+          <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
               {editRow ? (
@@ -655,9 +444,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     }
 
     return (
-      <div mix={pageStyle}>
+      <div mix={table.page}>
         <div mix={headerBarStyle}>
-          <h2 mix={titleStyle}>Appointments</h2>
+          <h2 mix={table.title}>Appointments</h2>
           <ConnectionIndicator
             {...({
               url: '/admin/appointments/events',

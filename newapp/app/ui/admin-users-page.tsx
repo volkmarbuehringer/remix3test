@@ -10,6 +10,10 @@ import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { gridStateToParams } from '../utils/grid-state.ts'
+import { table } from './mixins/admin-table.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
+
+const ADMIN_BASE = '/admin/users'
 
 /** User display type — password_hash is never sent to the client. */
 type DisplayUser = {
@@ -34,250 +38,6 @@ interface AdminUsersPageProps {
   creating?: boolean
 }
 
-// ── Helpers ──
-
-function sortArrow(field: string, sortField: string, sortOrder: 'asc' | 'desc'): string {
-  if (field !== sortField) return '\u2195'
-  return sortOrder === 'asc' ? '\u2191' : '\u2193'
-}
-
-function buildSortUrl(
-  field: string, currentSort: string, currentOrder: 'asc' | 'desc',
-  offset: number, filter?: string,
-): string {
-  let newOrder = field === currentSort ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'
-  let params = new URLSearchParams()
-  params.set('offset', '0')
-  params.set('sort', field)
-  params.set('order', newOrder)
-  if (filter) params.set('filter', filter)
-  return '/admin/users?' + params.toString()
-}
-
-function buildPaginationUrl(
-  newOffset: number, sort: string, order: 'asc' | 'desc', filter?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('offset', String(newOffset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/users?' + params.toString()
-}
-
-function buildCreateUrl(offset: number, sort: string, order: string, filter?: string): string {
-  let params = new URLSearchParams()
-  params.set('creating', 'true')
-  if (offset > 0) params.set('offset', String(offset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/users?' + params.toString()
-}
-
-function buildEditUrl(id: string | number, offset: number, sort: string, order: string, filter?: string): string {
-  let params = new URLSearchParams()
-  params.set('editing', String(id))
-  params.set('offset', String(offset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/users?' + params.toString()
-}
-
-function formatTimestamp(ts: number | string | null | undefined): string {
-  if (ts == null) return '\u2014'
-  return new Date(Number(ts)).toLocaleString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-// ── Styles ──
-
-const pageStyle = css({ maxWidth: '1000px' })
-const titleStyle = css({
-  margin: 0, fontSize: theme.fontSize.xxl, fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const filterBarStyle = css({
-  display: 'flex', alignItems: 'center', gap: theme.space.sm, marginBottom: theme.space.md,
-})
-const filterInputStyle = css({
-  flex: '1', maxWidth: '300px', padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm, border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md, background: theme.surface.lvl0, color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
-  '&::placeholder': { color: theme.colors.text.muted },
-})
-const searchBtnStyle = css({
-  padding: `${theme.space.xs} ${theme.space.md}`,
-  background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
-  border: 'none', borderRadius: theme.radius.md, fontSize: theme.fontSize.sm, cursor: 'pointer',
-  '&:hover': { opacity: 0.9 },
-})
-const clearLinkStyle = css({
-  fontSize: theme.fontSize.xs, color: theme.colors.text.muted, textDecoration: 'none',
-  '&:hover': { color: theme.colors.text.primary, textDecoration: 'underline' },
-})
-const tableWrapStyle = css({
-  marginBottom: theme.space.xl, background: theme.surface.lvl1,
-  borderRadius: theme.radius.lg, border: `1px solid ${theme.colors.border.default}`, overflowX: 'auto',
-})
-const tableStyle = css({
-  width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: theme.fontSize.sm,
-})
-const thStyle = css({
-  textAlign: 'left', padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2, borderBottom: `1px solid ${theme.colors.border.default}`,
-  whiteSpace: 'nowrap', fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.xs, textTransform: 'uppercase', letterSpacing: '0.06em',
-  color: theme.colors.text.secondary,
-})
-const thSortableStyle = css({
-  textAlign: 'left', padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2, borderBottom: `1px solid ${theme.colors.border.default}`,
-  whiteSpace: 'nowrap',
-})
-const sortLinkStyle = css({
-  color: theme.colors.text.secondary, textDecoration: 'none', display: 'inline-flex',
-  alignItems: 'center', gap: '4px', fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.xs, textTransform: 'uppercase', letterSpacing: '0.06em',
-  '&:hover': { color: theme.colors.text.primary },
-})
-const sortArrowStyle = css({
-  display: 'inline-block', fontSize: '0.7rem', lineHeight: '1', color: theme.colors.text.muted,
-})
-const sortArrowActiveStyle = css({
-  display: 'inline-block', fontSize: '0.8rem', lineHeight: '1',
-  color: theme.colors.action.primary.background, fontWeight: theme.fontWeight.bold,
-})
-const tdStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  color: theme.colors.text.primary, verticalAlign: 'middle',
-  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-})
-const actionCellStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  whiteSpace: 'nowrap', textAlign: 'right',
-})
-const btnGroupStyle = css({
-  display: 'inline-flex', alignItems: 'stretch',
-})
-const editBtnStyle = css({
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
-  background: theme.surface.lvl2, color: theme.colors.text.secondary,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRight: 'none',
-  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
-  fontSize: theme.fontSize.xs, textDecoration: 'none', cursor: 'pointer',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-const delBtnStyle = css({
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
-  background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground,
-  border: 'none',
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  fontSize: theme.fontSize.xs, cursor: 'pointer',
-  '&:hover': { opacity: 0.9 },
-})
-const emptyStateStyle = css({
-  textAlign: 'center', padding: theme.space.xxl, color: theme.colors.text.muted,
-})
-const paginationStyle = css({
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: theme.space.md, background: theme.surface.lvl0,
-  borderRadius: theme.radius.md, border: `1px solid ${theme.colors.border.default}`,
-})
-const paginationInfoStyle = css({
-  fontSize: theme.fontSize.sm, color: theme.colors.text.muted,
-})
-const pageLinkStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`, background: theme.surface.lvl2,
-  color: theme.colors.text.secondary, borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm, textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-const pageLinkDisabledStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`, borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm, opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none',
-})
-const rowStyle = css({
-  '&:nth-child(even)': { background: theme.surface.lvl0 },
-  '&:hover': { background: theme.surface.lvl3 },
-})
-const twoColumnStyle = css({
-  display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px', alignItems: 'start',
-})
-
-// ── Inline Edit Panel ──
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
-const selectStyle = css({
-  width: '100%',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
-})
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
-})
-
 // ── Component ──
 
 export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
@@ -297,28 +57,28 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           method="GET"
           action="/admin/users"
           rmx-target={frames.adminContent}
-          mix={filterBarStyle}
+          mix={table.filterBar}
         >
           <input
             type="text"
             name="filter"
             placeholder="Suche nach Name oder E-Mail..."
             defaultValue={filter ?? ''}
-            mix={filterInputStyle}
+            mix={table.filterInput}
           />
-          <button type="submit" mix={searchBtnStyle}>Suchen</button>
+          <button type="submit" mix={table.searchBtn}>Suchen</button>
           {filter && (
             <a
               href="/admin/users"
               rmx-target={frames.adminContent}
-              mix={clearLinkStyle}
+              mix={table.clearLink}
             >
               Zurücksetzen
             </a>
           )}
           <span style="flex:1" />
           <a
-            href={buildCreateUrl(offset, sortColumn, sortDirection, filter)}
+            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
@@ -327,15 +87,15 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={tableWrapStyle}>
+        <div mix={table.wrap}>
           {rows.length === 0 ? (
-            <div mix={emptyStateStyle}>
+            <div mix={table.empty}>
               {filter
                 ? 'Keine Benutzer gefunden für diese Suche.'
                 : 'Keine Benutzer vorhanden.'}
             </div>
           ) : (
-            <table mix={tableStyle}>
+            <table mix={table.table}>
               <colgroup>
                 <col style={{ width: '60px' }} />
                 <col />
@@ -346,68 +106,68 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={thSortableStyle}>
-                    <a href={buildSortUrl('id', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={sortLinkStyle}>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'id', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
                       ID
-                      <span mix={'id' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('id', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
-                    <a href={buildSortUrl('name', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={sortLinkStyle}>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'name', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
                       Name
-                      <span mix={'name' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'name' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('name', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
-                    <a href={buildSortUrl('email', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={sortLinkStyle}>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'email', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
                       E-Mail
-                      <span mix={'email' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'email' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('email', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
-                    <a href={buildSortUrl('role', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={sortLinkStyle}>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'role', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
                       Rolle
-                      <span mix={'role' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'role' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('role', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
-                    <a href={buildSortUrl('created_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={sortLinkStyle}>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'created_at', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
                       Erstellt
-                      <span mix={'created_at' === sortColumn ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thStyle} />
+                  <th mix={table.th} />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={rowStyle} data-row-id={row.id}>
-                    <td mix={tdStyle} title={String(row.id)}>{row.id}</td>
-                    <td mix={tdStyle} title={row.name}>{row.name}</td>
-                    <td mix={tdStyle} title={row.email}>{row.email}</td>
-                    <td mix={tdStyle}>{row.role}</td>
-                    <td mix={tdStyle} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
-                    <td mix={actionCellStyle}>
-                      <div mix={btnGroupStyle}>
+                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                    <td mix={table.td} title={String(row.id)}>{row.id}</td>
+                    <td mix={table.td} title={row.name}>{row.name}</td>
+                    <td mix={table.td} title={row.email}>{row.email}</td>
+                    <td mix={table.td}>{row.role}</td>
+                    <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
+                    <td mix={table.actionCell}>
+                      <div mix={table.btnGroup}>
                         <a
-                          href={buildEditUrl(row.id!, offset, sortColumn, sortDirection, filter)}
+                          href={buildEditUrl(ADMIN_BASE, row.id!, offset, sortColumn, sortDirection, filter)}
                           rmx-target={frames.adminContent}
-                          mix={editBtnStyle}
+                          mix={table.editBtn}
                         >
                           <Glyph name="edit" width={14} height={14} />
                         </a>
@@ -424,7 +184,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                               filter: filter ?? '',
                             }}
                           />
-                          <button type="submit" mix={delBtnStyle}>
+                          <button type="submit" mix={table.delBtn}>
                             <Glyph name="trash" width={14} height={14} />
                           </button>
                         </RestfulForm>
@@ -439,28 +199,28 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
-          <div mix={paginationStyle}>
+          <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={paginationInfoStyle}>Zeige {pageStart}–{pageEnd}</span>
+              <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
                   rmx-target={frames.adminContent}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
               ) : (
-                <span mix={pageLinkDisabledStyle}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
+                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
                   rmx-target={frames.adminContent}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
               ) : (
-                <span mix={pageLinkDisabledStyle}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
+                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
               )}
             </div>
           </div>
@@ -471,9 +231,9 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     // Two-column layout when editing or creating
     if (editRow || creating) {
       return (
-        <div mix={pageStyle}>
-          <h2 mix={titleStyle}>Users</h2>
-          <div mix={twoColumnStyle}>
+        <div mix={table.page}>
+          <h2 mix={table.title}>Users</h2>
+          <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
               {editRow ? (
@@ -499,8 +259,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     }
 
     return (
-      <div mix={pageStyle}>
-        <h2 mix={titleStyle}>Users</h2>
+      <div mix={table.page}>
+        <h2 mix={table.title}>Users</h2>
         {gridSection}
       </div>
     )
@@ -530,14 +290,14 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
         <RestfulForm method="PUT" action={`/admin/users/${row.id}`}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
-              <span mix={panelTitleStyle}>Benutzer bearbeiten</span>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <span mix={table.panelTitle}>Benutzer bearbeiten</span>
             </div>
 
-            <div mix={panelBodyStyle}>
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-name">Name</label>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-name">Name</label>
                 <input
                   id="au-name"
                   name="name"
@@ -547,8 +307,8 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-email">E-Mail</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-email">E-Mail</label>
                 <input
                   id="au-email"
                   name="email"
@@ -558,19 +318,19 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-role">Rolle</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-role">Rolle</label>
                 <select
                   id="au-role"
                   name="role"
-                  mix={[input.base, input.focus, selectStyle]}
+                  mix={[input.base, input.focus, table.select]}
                 >
                   <option value="customer" selected={row.role === 'customer'}>Customer</option>
                   <option value="admin" selected={row.role === 'admin'}>Admin</option>
                 </select>
               </div>
 
-              <div mix={actionsStyle}>
+              <div mix={table.actions}>
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
@@ -605,14 +365,14 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
         <RestfulForm method="POST" action="/admin/users">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
-              <span mix={panelTitleStyle}>Neuer Benutzer</span>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <span mix={table.panelTitle}>Neuer Benutzer</span>
             </div>
 
-            <div mix={panelBodyStyle}>
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-name-c">Name</label>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-name-c">Name</label>
                 <input
                   id="au-name-c"
                   name="name"
@@ -622,8 +382,8 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-email-c">E-Mail</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-email-c">E-Mail</label>
                 <input
                   id="au-email-c"
                   name="email"
@@ -633,20 +393,20 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-role-c">Rolle</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-role-c">Rolle</label>
                 <select
                   id="au-role-c"
                   name="role"
-                  mix={[input.base, input.focus, selectStyle]}
+                  mix={[input.base, input.focus, table.select]}
                 >
                   <option value="customer" selected>Customer</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="au-password-c">Passwort</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-password-c">Passwort</label>
                 <input
                   id="au-password-c"
                   name="password"
@@ -657,7 +417,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 />
               </div>
 
-              <div mix={actionsStyle}>
+              <div mix={table.actions}>
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
