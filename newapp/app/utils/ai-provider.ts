@@ -5,7 +5,7 @@ import { devToolsMiddleware } from '@ai-sdk/devtools'
 let _provider: ReturnType<typeof createOpenAICompatible> | undefined
 let _model: ReturnType<typeof wrapLanguageModel> | undefined
 
-export function getProvider() {
+function getProvider() {
   if (!_provider) {
     let apiKey = process.env.OPENCODE_API_KEY
     if (!apiKey) {

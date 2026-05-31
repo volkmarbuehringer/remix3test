@@ -1,6 +1,6 @@
 import { getCurrentUserSafely } from './context.ts'
 
-export function getUserLogId(): string {
+function getUserLogId(): string {
   let user = getCurrentUserSafely()
   if (user) {
     return `user:${user.id}`

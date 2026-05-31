@@ -107,7 +107,7 @@ export const baseTools = {
   }),
 }
 
-export const workflowTools = {
+const workflowTools = {
   runQuery: tool({
     description: 'Execute a database query and return results',
     inputSchema: z.object({

@@ -21,21 +21,6 @@ const DAY_NAMES: Record<number, string> = {
   7: 'sunday',
 }
 
-export interface DayRule {
-  start: number
-  end: number
-}
-
-export interface WeekPreviewItem {
-  day: number
-  dateStr: string
-  dayName: string
-  startMin: number | null
-  endMin: number | null
-  isHoliday: boolean
-  exists: boolean
-}
-
 /**
  * Compute the epoch-midnight (00:00 UTC) of the Monday of a given ISO week.
  */
@@ -178,20 +163,7 @@ export async function generateWeek(
   return { created, skipped, errors }
 }
 
-/**
- * Preview what would be generated for a week without inserting anything.
- */
-export async function previewWeek(
-  pool: Pool,
-  resourceId: number,
-  year: number,
-  week: number,
-): Promise<WeekPreviewItem[]> {
-  let configResult = await pool.query(
-    'SELECT rules FROM offering_configs WHERE resource_id = $1',
-    [resourceId],
-  )
-  if (configResult.rows.length === 0) return []
+
 
   let rules: Record<string, [number, number]> = configResult.rows[0].rules
   if (typeof rules === 'string') {

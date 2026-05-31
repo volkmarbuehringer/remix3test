@@ -40,7 +40,7 @@ export async function listOfferingsByDayRange(
     .all()
 }
 
-export async function listOfferingsByDayAndResource(
+async function listOfferingsByDayAndResource(
   db: Database,
   date: number,
   resourceId: number,

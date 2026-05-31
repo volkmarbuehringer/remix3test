@@ -1,13 +1,8 @@
-import { createSession, createSessionId } from 'remix/session'
+import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { pool } from './data/setup.ts'
 import { router } from './router.ts'
-
-export interface AuthCookieResult {
-  cookie: string | null
-  userId: number | null
-}
 
 /**
  * Generate a CSRF token matching the format used by remix/csrf-middleware.
@@ -40,47 +35,6 @@ export async function createCsrfSession(url: string): Promise<{ cookie: string; 
     throw new Error('Could not extract CSRF token from response. Ensure csrf() middleware is active and the page renders a form with _csrf input.')
   }
   return { cookie, csrfToken: match[1] }
-}
-
-/**
- * Create an authenticated session cookie for testing.
- * Returns the cookie string and userId, or null if setup fails.
- *
- * @example
- * let { cookie, userId } = await createAuthCookie()
- * if (cookie) {
- *   // Use in request headers: { Cookie: cookie }
- * }
- */
-export async function createAuthCookie(): Promise<AuthCookieResult> {
-  try {
-    let result = await pool.query('SELECT id FROM users LIMIT 1')
-    if (result.rows.length === 0) {
-      return { cookie: null, userId: null }
-    }
-
-    let userId = result.rows[0].id as number
-
-    let session = createSession<{ auth: { userId: number } }>()
-    session.set('auth', { userId })
-
-    let sid = await sessionStorage.save(session)
-    if (!sid) {
-      return { cookie: null, userId: null }
-    }
-
-    let setCookieValue = await sessionCookie.serialize(sid)
-    let match = setCookieValue.match(/session=([^;]+)/)
-
-    if (!match) {
-      return { cookie: null, userId: null }
-    }
-
-    return { cookie: `session=${match[1]}`, userId }
-  } catch {
-    // Database might not be available
-    return { cookie: null, userId: null }
-  }
 }
 
 /**

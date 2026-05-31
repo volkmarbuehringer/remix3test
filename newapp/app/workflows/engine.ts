@@ -41,13 +41,7 @@ export interface WorkflowRunResult {
   error?: string
 }
 
-export interface WorkflowChainResult {
-  runId: string
-  status: 'completed' | 'failed' | 'stopped'
-  result?: unknown
-  error?: string
-  chainDepth: number
-}
+
 
 async function callLlm(prompt: string, logger: ReturnType<typeof userLogger>): Promise<string> {
   logger.log('Calling LLM with prompt:', prompt.slice(0, 200) + (prompt.length > 200 ? '...' : ''))
@@ -193,81 +187,4 @@ export async function listWorkflowRuns(
   return (result.rows ?? []).map(r => rowToWorkflowRun(r as Record<string, unknown>))
 }
 
-export async function executeWorkflowChain(
-  runId: string,
-  options: RunWorkflowOptions
-): Promise<WorkflowChainResult[]> {
-  let results: WorkflowChainResult[] = []
-  let chainDepth = 0
-  let currentParams = { ...options.params }
-  let currentRunId = runId
-  let parentRunId = options.parentRunId
-  let workflowId = options.workflowId
 
-  while (chainDepth < MAX_CHAIN_DEPTH) {
-    let logger = userLogger('WorkflowEngine')
-
-    if (chainDepth > 0) {
-      let newRunId = await createWorkflowRun(
-        options.db,
-        workflowId,
-        currentParams,
-        options.user?.id ?? null
-      )
-      await options.db.exec(sql`
-        UPDATE workflow_runs
-        SET parent_run_id = ${parentRunId}, chain_depth = ${chainDepth}
-        WHERE id = ${newRunId}
-      `)
-      currentRunId = newRunId
-    }
-
-    let result = await executeWorkflow(currentRunId, {
-      ...options,
-      workflowId,
-      params: currentParams,
-    })
-
-    results.push({
-      ...result,
-      chainDepth,
-    })
-
-    if (result.status === 'failed') {
-      break
-    }
-
-    let output = result.result as Record<string, unknown> | undefined
-    let nextWorkflowId = output?.continueWith as string | undefined
-
-    if (!nextWorkflowId) {
-      break
-    }
-
-    let nextWorkflow = getWorkflow(nextWorkflowId)
-    if (!nextWorkflow) {
-      logger.error(`Chained workflow ${nextWorkflowId} not found`)
-      break
-    }
-
-    let nextParams = output?.continueParams as Record<string, unknown> | undefined
-    if (nextParams) {
-      currentParams = { ...currentParams, ...nextParams }
-    }
-
-    parentRunId = currentRunId
-    workflowId = nextWorkflowId
-    chainDepth++
-  }
-
-  if (chainDepth >= MAX_CHAIN_DEPTH) {
-    results.push({
-      runId: currentRunId,
-      status: 'stopped',
-      error: `Chain depth limit (${MAX_CHAIN_DEPTH}) reached`,
-      chainDepth,
-    })
-  }
-
-  return results
-}

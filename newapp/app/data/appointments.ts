@@ -34,13 +34,13 @@ export class AppointmentCollisionError extends AppointmentError {
   }
 }
 
-export class AppointmentPastDateError extends AppointmentError {
+class AppointmentPastDateError extends AppointmentError {
   constructor() {
     super('Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.', 422)
   }
 }
 
-export class AppointmentPastDeleteError extends AppointmentError {
+class AppointmentPastDeleteError extends AppointmentError {
   constructor() {
     super('Termine können nur bis 24 Stunden vor Beginn gelöscht werden.', 403)
   }
