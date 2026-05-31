@@ -11,8 +11,8 @@ const createdAppointmentIds: number[] = []
 let testResourceId: number
 let testResource2Id: number
 
-let offeringBoundsStart = 480
-let offeringBoundsEnd = 1080
+const offeringBoundsStart = 480
+const offeringBoundsEnd = 1080
 let _slotCounter = 0
 // Returns a unique 1-hour slot within the offering, so tests don't collide.
 // Each call OUTSIDE a test (e.g., in before/after hooks) should NOT use this.
