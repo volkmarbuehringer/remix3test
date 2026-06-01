@@ -357,6 +357,15 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
   }
 }
 
+// ── Inline Create Panel ──
+
+interface CreatePanelProps {
+  offset?: string
+  sort?: string
+  order?: string
+  filter?: string
+}
+
 function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '' } = handle.props
