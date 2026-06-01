@@ -84,13 +84,13 @@ const nestedFrameContainer = css({
 
 function timeAgo(date: Date): string {
   let seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return 'gerade eben'
   let minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
+  if (minutes < 60) return `vor ${minutes} Min.`
   let hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 24) return `vor ${hours} Std.`
   let days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return `vor ${days} Tagen`
 }
 
 export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProps>) {
@@ -98,10 +98,10 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
     let { activities } = handle.props
     return (
     <div mix={cardStyle}>
-      <h2 mix={titleStyle}>Recent Activity</h2>
+      <h2 mix={titleStyle}>Letzte Aktivitäten</h2>
       {activities.length === 0 ? (
         <p style={{ color: theme.colors.text.muted, fontSize: theme.fontSize.sm, margin: 0 }}>
-          No recent activity.
+          Keine aktuellen Aktivitäten.
         </p>
       ) : (
         <div mix={listStyle}>
@@ -111,7 +111,7 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                 <div mix={activityInfoStyle}>
                   <div mix={activityActionStyle}>{activity.action}</div>
                   <div mix={activityTimeStyle}>
-                    by <strong>User #{activity.userId}</strong> &middot; {timeAgo(activity.time)}
+                    von <strong>Benutzer #{activity.userId}</strong> &middot; {timeAgo(activity.time)}
                   </div>
                 </div>
               </div>
@@ -121,14 +121,14 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                   Document frame with fragment HTML, causing
                   Node.insertBefore DOMException. */}
               <details>
-                <summary mix={detailBtnStyle}>View details</summary>
+                <summary mix={detailBtnStyle}>Details anzeigen</summary>
                 <div mix={nestedFrameContainer}>
                   <Frame
                     name={`user-detail-${activity.userId}`}
                     src={routes.admin.fragments.userDetail.href({ userId: String(activity.userId) })}
                     fallback={
                       <div style={{ fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>
-                        Loading user details…
+                        Benutzerdetails werden geladen…
                       </div>
                     }
                   />

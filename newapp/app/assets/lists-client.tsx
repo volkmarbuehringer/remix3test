@@ -19,6 +19,8 @@ export const ListsClient = clientEntry(
     let showSavedToast = false
     let toastTimeout: ReturnType<typeof setTimeout> | null = null
     let saving = false
+    let updating = false
+    let loadedListId: number | null = null
     let loadingList = false
     let loadError = ''
     let editingIndex: number | null = null
@@ -66,6 +68,43 @@ export const ListsClient = clientEntry(
         // network error — button recovers
       }
       saving = false
+
+      if (ok) {
+        showSavedToast = true
+        handle.update()
+        if (toastTimeout) clearTimeout(toastTimeout)
+        toastTimeout = setTimeout(() => {
+          showSavedToast = false
+          toastTimeout = null
+          handle.update()
+        }, 2000)
+      } else {
+        handle.update()
+      }
+    }
+
+    let updateList = async () => {
+      if (loadedListId === null) return
+      updating = true
+      handle.update()
+
+      let ok = false
+      try {
+        let csrfToken = typeof document !== 'undefined'
+          ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+          : undefined
+        let headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (csrfToken) headers['X-Csrf-Token'] = csrfToken
+        let response = await fetch(`/lists/${loadedListId}/update`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ description, items }),
+        })
+        ok = response.ok
+      } catch {
+        // network error — button recovers
+      }
+      updating = false
 
       if (ok) {
         showSavedToast = true
@@ -171,6 +210,7 @@ export const ListsClient = clientEntry(
         let data = await response.json()
         items = Array.isArray(data.items) ? data.items : []
         description = typeof data.description === 'string' ? data.description : ''
+        loadedListId = typeof data.id === 'number' ? data.id : null
         // Derive nextId from max existing ID + 1 to avoid key collisions
         nextId =
           items.reduce((max, item) => {
@@ -262,14 +302,29 @@ export const ListsClient = clientEntry(
             >
               ✕ Clear All
             </Button>
-            <Button
-              tone="primary"
-              mix={on('click', saveToStorage)}
-              disabled={!description.trim() || items.length === 0 || saving}
-              style={{ marginLeft: 'auto', minWidth: '120px' }}
+            <div
+              style={{
+                display: 'inline-flex',
+                marginLeft: 'auto',
+              }}
             >
-              {saving ? '⏳ Saving...' : '💾 Save List'}
-            </Button>
+              <Button
+                tone="primary"
+                mix={on('click', updateList)}
+                disabled={loadedListId === null || !description.trim() || items.length === 0 || updating}
+                style={{ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+              >
+                {updating ? '⏳ Updating...' : '🔄 Update'}
+              </Button>
+              <Button
+                tone="primary"
+                mix={on('click', saveToStorage)}
+                disabled={!description.trim() || items.length === 0 || saving}
+                style={{ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }}
+              >
+                {saving ? '⏳ Saving...' : '💾 Add'}
+              </Button>
+            </div>
           </div>
 
           {/* Description input */}

@@ -66,24 +66,24 @@ export function AdminDashboardContent() {
         })}
       >
         <div mix={cardStyle}>
-          <h2 mix={cardTitleStyle}>Chat Logs</h2>
-          <p mix={cardDescStyle}>View AI conversation history from Chat and Agent.</p>
+          <h2 mix={cardTitleStyle}>Chat-Protokolle</h2>
+          <p mix={cardDescStyle}>Zeigt den Verlauf der KI-Konversationen aus Chat und Agent.</p>
           <a href={routes.admin.chatlog.index.href()} mix={btnStyle}>
-            View Chat Logs
+            Chat-Protokolle anzeigen
           </a>
         </div>
         <div mix={cardStyle}>
-          <h2 mix={cardTitleStyle}>Lists</h2>
-          <p mix={cardDescStyle}>View and manage list items from across the app.</p>
+          <h2 mix={cardTitleStyle}>Listen</h2>
+          <p mix={cardDescStyle}>Listeneinträge aus der gesamten App anzeigen und verwalten.</p>
           <a href={routes.admin.lists.index.href()} mix={btnStyle}>
-            Open Lists
+            Listen öffnen
           </a>
         </div>
         <div mix={cardStyle}>
-          <h2 mix={cardTitleStyle}>Client Lab</h2>
-          <p mix={cardDescStyle}>CRUD grid with pagination, sorting, and filtering.</p>
+          <h2 mix={cardTitleStyle}>Client-Test</h2>
+          <p mix={cardDescStyle}>CRUD-Tabelle mit Paginierung, Sortierung und Filterung.</p>
           <a href="/client" mix={btnStyle}>
-            Open Client Lab
+            Client-Test öffnen
           </a>
         </div>
       </div>
@@ -102,7 +102,7 @@ export function AdminDashboardContent() {
             name="admin-stats"
             src={routes.admin.fragments.stats.href()}
             fallback={
-              <div mix={fallbackStyle}>Loading server stats…</div>
+              <div mix={fallbackStyle}>Server-Statistiken werden geladen…</div>
             }
           />
         </div>
@@ -112,7 +112,7 @@ export function AdminDashboardContent() {
             name="admin-recent-activity"
             src={routes.admin.fragments.recentActivity.href()}
             fallback={
-              <div mix={fallbackStyle}>Loading recent activity…</div>
+              <div mix={fallbackStyle}>Letzte Aktivitäten werden geladen…</div>
             }
           />
         </div>

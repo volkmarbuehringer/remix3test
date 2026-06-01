@@ -265,6 +265,153 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // PUT /lists/:id/update — update an existing list
+  // -----------------------------------------------------------------------
+
+  it('PUT /lists/:id/update updates list description and items', async () => {
+    // First save a list
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Original list',
+        items: [{ id: '1', label: 'Item A' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+    testListIds.push(id)
+
+    // Update it
+    let updateResponse = await router.fetch(`${LISTS_URL}/${id}/update`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Updated list',
+        items: [
+          { id: '1', label: 'Updated Item A' },
+          { id: '2', label: 'Item B' },
+        ],
+      }),
+    })
+
+    assert.equal(updateResponse.status, 200)
+    let body = await updateResponse.json()
+    assert.equal(body.id, id)
+    assert.equal(body.description, 'Updated list')
+
+    // Verify data was persisted
+    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(dataResponse.status, 200)
+    let data = await dataResponse.json()
+    assert.equal(data.description, 'Updated list')
+    assert.equal(data.items.length, 2)
+  })
+
+  it('PUT /lists/:id/update with invalid ID returns 400', async () => {
+    let response = await router.fetch(`${LISTS_URL}/invalid/update`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  it('PUT /lists/:id/update for non-existent list returns 404', async () => {
+    let response = await router.fetch(`${LISTS_URL}/9999999/update`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(response.status, 404)
+  })
+
+  it('PUT /lists/:id/update without description returns 400', async () => {
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'List for update test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    let { id } = await saveResponse.json()
+    testListIds.push(id)
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  it('PUT /lists/:id/update with empty items returns 400', async () => {
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'List for empty items test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    let { id } = await saveResponse.json()
+    testListIds.push(id)
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Test',
+        items: [],
+      }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  // -----------------------------------------------------------------------
   // GET /admin/lists — admin page (admin-gated)
   // -----------------------------------------------------------------------
 

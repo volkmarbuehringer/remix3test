@@ -30,6 +30,7 @@ export const routes = route({
 export const listsRoutes = route({
   lists: get('/lists'),
   listsSave: post('/lists/save'),
+  listsUpdate: put('/lists/:id/update'),
   listsShow: get('/lists/:id'),
   listsData: get('/lists/:id/data'),
 })

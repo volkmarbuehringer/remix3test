@@ -55,10 +55,10 @@ export function StatsFragment(handle: Handle<StatsFragmentProps>) {
     let { serverTime, serverDate, uptime, nodeVersion } = handle.props
     return (
     <div mix={cardStyle}>
-      <h2 mix={titleStyle}>Server Stats</h2>
+      <h2 mix={titleStyle}>Server-Statistiken</h2>
       <div mix={statGridStyle}>
         <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Server Time</div>
+          <div mix={statLabelStyle}>Serverzeit</div>
           <div mix={statValueStyle}>{serverTime}</div>
         </div>
         <div mix={statItemStyle}>
@@ -66,7 +66,7 @@ export function StatsFragment(handle: Handle<StatsFragmentProps>) {
           <div mix={statValueStyle}>{serverDate}</div>
         </div>
         <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Uptime</div>
+          <div mix={statLabelStyle}>Betriebszeit</div>
           <div mix={statValueStyle}>{uptime}</div>
         </div>
         <div mix={statItemStyle}>
