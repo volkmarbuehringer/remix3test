@@ -30,6 +30,10 @@ const lightColors = {
   },
   focus: { ring: '#2dacf9' },
   overlay: { scrim: 'rgba(0, 0, 0, 0.28)' },
+  brand: {
+    accent: '#c73d2a',
+    accentHover: '#a83222',
+  },
   action: {
     primary: {
       background: '#2dacf9',
@@ -161,6 +165,10 @@ const darkColors = {
   },
   focus: { ring: '#5bc0ff' },
   overlay: { scrim: 'rgba(0, 0, 0, 0.7)' },
+  brand: {
+    accent: '#d64d3a',
+    accentHover: '#c73d2a',
+  },
   action: {
     primary: {
       background: '#2dacf9',
@@ -198,3 +206,16 @@ export const DarkTheme = createTheme(
   { ...BASE_THEME_VALUES, surface: darkSurface, shadow: darkShadow, colors: darkColors },
   { selector: '[data-theme="dark"]', reset: false },
 )
+
+// ── Brand palette (extracts raw values for use outside the theme contract) ──
+
+export const brand = {
+  light: {
+    accent: lightColors.brand.accent,
+    accentHover: lightColors.brand.accentHover,
+  },
+  dark: {
+    accent: darkColors.brand.accent,
+    accentHover: darkColors.brand.accentHover,
+  },
+}

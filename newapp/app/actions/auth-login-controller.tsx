@@ -1,15 +1,14 @@
 import { verifyCredentials, completeAuth } from 'remix/auth'
 import * as s from 'remix/data-schema'
-import { email, minLength } from 'remix/data-schema/checks'
+import { email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
-import { getContext } from 'remix/middleware/async-context'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
-import { routes, authRoutes } from '../routes.ts'
+import { authRoutes } from '../routes.ts'
 import type { AppContext } from '../types/context.ts'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
@@ -20,6 +19,7 @@ import { CsrfTokenInput } from '../ui/csrf-token-input.tsx'
 import { panelCss, panelInsetCss, pageStackCss, bodyTextCss, captionTextCss } from '../ui/page-primitives.tsx'
 import { Button } from 'remix/ui/button'
 import { input } from '../ui/mixins/input.ts'
+import { brand } from '../theme.tsx'
 
 const loginSchema = f.object({
   email: f.field(s.defaulted(s.string(), '').pipe(email())),
@@ -69,6 +69,8 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
   },
 })
 
+// ── Page component ──
+
 type LoginPageProps = {
   error?: string
   returnTo?: string
@@ -79,15 +81,20 @@ function LoginPage(handle: Handle<LoginPageProps>) {
     let { error, returnTo } = handle.props
     return (
     <Layout title="Login">
-      <div mix={pageStackCss} style={{ maxWidth: '500px', margin: '2rem auto' }}>
+      <div mix={pageStackCss} style={{ maxWidth: '480px', margin: '4rem auto' }}>
         <div mix={panelCss}>
-          <h1 style={{ margin: 0, fontSize: theme.fontSize.xl, fontWeight: theme.fontWeight.semibold, color: theme.colors.text.primary }}>
+          <div mix={brandMarkCss}>
+            <div mix={brandDotCss} />
+            <span mix={brandLabelCss}>newapp</span>
+          </div>
+
+          <h1 mix={headingCss}>
             Login
           </h1>
 
           {error ? (
-            <div mix={[panelCss, errorPanelCss]}>
-              <p mix={bodyTextCss} style={{ color: theme.colors.action.danger.background, margin: 0 }}>
+            <div mix={errorBannerCss}>
+              <p mix={bodyTextCss} style={{ margin: 0 }}>
                 {error}
               </p>
             </div>
@@ -111,10 +118,10 @@ function LoginPage(handle: Handle<LoginPageProps>) {
           </form>
 
           <p mix={bodyTextCss}>
-            Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: theme.colors.action.primary.background }}>Register here</a>
+            Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: brand.light.accent }}>Register here</a>
           </p>
 
-          <div mix={[panelCss, panelInsetCss]}>
+          <div mix={[panelCss, panelInsetCss, demoBoxCss]}>
             <p mix={captionTextCss}><strong>Demo Accounts:</strong></p>
             <p mix={captionTextCss}>Admin: admin@newapp.com / admin123</p>
             <p mix={captionTextCss}>Customer: user@newapp.com / password123</p>
@@ -125,6 +132,8 @@ function LoginPage(handle: Handle<LoginPageProps>) {
   )
   }
 }
+
+// ── Styles ──
 
 const errorPanelCss = css({
   borderColor: theme.colors.action.danger.background,
@@ -151,4 +160,53 @@ const submitBtnCss = css({
   fontSize: theme.fontSize.lg,
   minHeight: theme.control.height.lg,
   marginTop: theme.space.sm,
+})
+
+const brandMarkCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  marginBottom: theme.space.md,
+})
+
+const brandDotCss = css({
+  width: '8px',
+  height: '8px',
+  borderRadius: '50%',
+  backgroundColor: brand.light.accent,
+  flexShrink: 0,
+  '[data-theme="dark"] &': {
+    backgroundColor: brand.dark.accent,
+  },
+})
+
+const brandLabelCss = css({
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  letterSpacing: theme.letterSpacing.wide,
+  textTransform: 'uppercase',
+  color: theme.colors.text.muted,
+})
+
+const headingCss = css({
+  margin: 0,
+  fontSize: theme.fontSize.xl,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+  marginBottom: theme.space.lg,
+})
+
+const errorBannerCss = css({
+  borderLeft: `3px solid ${theme.colors.action.danger.background}`,
+  backgroundColor: theme.surface.lvl2,
+  padding: `${theme.space.sm} ${theme.space.md}`,
+  borderRadius: theme.radius.sm,
+  marginBottom: theme.space.md,
+})
+
+const demoBoxCss = css({
+  borderLeft: `3px solid ${brand.light.accent}`,
+  '[data-theme="dark"] &': {
+    borderLeftColor: brand.dark.accent,
+  },
 })
