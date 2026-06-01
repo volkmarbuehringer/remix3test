@@ -47,9 +47,7 @@ export function Layout(handle: Handle<LayoutProps>) {
             </div>
           </main>
           <footer mix={footerStyle}>
-            <div mix={containerStyle}>
-              <p mix={footerTextCss}>&copy; {new Date().getFullYear()} newapp. Built with Remix.</p>
-            </div>
+            <p mix={footerTextCss}>&copy; {new Date().getFullYear()} newapp. Built with Remix.</p>
           </footer>
         </div>
       </Document>
@@ -314,6 +312,7 @@ const footerStyle = css({
   borderTop: `1px solid ${theme.colors.border.default}`,
   padding: `2px 0`,
   flexShrink: 0,
+  textAlign: 'center',
 })
 
 const footerTextCss = css({

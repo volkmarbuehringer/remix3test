@@ -1,5 +1,12 @@
 import { createTheme } from 'remix/ui/theme'
 
+// ── Brand palette (standalone so theme values can reference it) ──
+
+const BRAND_LIGHT_ACCENT = '#c73d2a'
+const BRAND_LIGHT_ACCENT_HOVER = '#a83222'
+const BRAND_DARK_ACCENT = '#d64d3a'
+const BRAND_DARK_ACCENT_HOVER = '#c73d2a'
+
 // ── Light mode ──
 
 const lightSurface = {
@@ -31,16 +38,16 @@ const lightColors = {
   focus: { ring: '#2dacf9' },
   overlay: { scrim: 'rgba(0, 0, 0, 0.28)' },
   brand: {
-    accent: '#c73d2a',
-    accentHover: '#a83222',
+    accent: BRAND_LIGHT_ACCENT,
+    accentHover: BRAND_LIGHT_ACCENT_HOVER,
   },
   action: {
     primary: {
-      background: '#2dacf9',
-      backgroundHover: '#2596e0',
-      backgroundActive: '#1e80c7',
+      background: BRAND_LIGHT_ACCENT,
+      backgroundHover: BRAND_LIGHT_ACCENT_HOVER,
+      backgroundActive: '#8c2618',
       foreground: 'rgb(255 255 255 / 0.92)',
-      border: '#2dacf9',
+      border: BRAND_LIGHT_ACCENT,
     },
     secondary: {
       background: '#ffffff',
@@ -166,16 +173,16 @@ const darkColors = {
   focus: { ring: '#5bc0ff' },
   overlay: { scrim: 'rgba(0, 0, 0, 0.7)' },
   brand: {
-    accent: '#d64d3a',
-    accentHover: '#c73d2a',
+    accent: BRAND_DARK_ACCENT,
+    accentHover: BRAND_DARK_ACCENT_HOVER,
   },
   action: {
     primary: {
-      background: '#2dacf9',
-      backgroundHover: '#5bc0ff',
-      backgroundActive: '#7acfff',
+      background: BRAND_DARK_ACCENT,
+      backgroundHover: BRAND_DARK_ACCENT_HOVER,
+      backgroundActive: '#b03624',
       foreground: '#1e2226',
-      border: '#2dacf9',
+      border: BRAND_DARK_ACCENT,
     },
     secondary: {
       background: '#2d3135',
@@ -211,11 +218,11 @@ export const DarkTheme = createTheme(
 
 export const brand = {
   light: {
-    accent: lightColors.brand.accent,
-    accentHover: lightColors.brand.accentHover,
+    accent: BRAND_LIGHT_ACCENT,
+    accentHover: BRAND_LIGHT_ACCENT_HOVER,
   },
   dark: {
-    accent: darkColors.brand.accent,
-    accentHover: darkColors.brand.accentHover,
+    accent: BRAND_DARK_ACCENT,
+    accentHover: BRAND_DARK_ACCENT_HOVER,
   },
 }

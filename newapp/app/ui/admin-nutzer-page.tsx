@@ -3,6 +3,8 @@ import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 
+import { brand } from '../theme.tsx'
+
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
@@ -55,14 +57,15 @@ function boolLabel(val: boolean): string { return val ? 'Ja' : 'Nein' }
 
 // ── Styles ──
 
-const toolbarStyle = css({
-  display: 'flex', justifyContent: 'flex-end', gap: theme.space.sm, marginBottom: theme.space.sm,
-})
 const boolBadgeYes = css({
   display: 'inline-block', padding: `2px ${theme.space.sm}`,
   borderRadius: theme.radius.full, fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold, background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
+  fontWeight: theme.fontWeight.semibold, background: brand.light.accent,
+  color: '#fff',
+  '[data-theme="dark"] &': {
+    background: brand.dark.accent,
+    color: '#fff',
+  },
 })
 const boolBadgeNo = css({
   display: 'inline-block', padding: `2px ${theme.space.sm}`,
@@ -85,18 +88,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
 
     let gridSection = (
       <div style="min-width:0">
-        {/* Toolbar: Add New button */}
-        <div mix={toolbarStyle}>
-          <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
-          >
-            <Button tone="primary">+ Add New</Button>
-          </a>
-        </div>
-
-        {/* Filter bar */}
+        {/* Filter bar + Add New */}
         <form method="GET" action="/admin/nutzer" rmx-target={frames.adminContent} mix={table.filterBar}>
           <input
             type="text" name="filter" placeholder="Suche nach Name, Email oder Login..."
@@ -108,6 +100,14 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               Zurücksetzen
             </a>
           )}
+          <span style="flex:1" />
+          <a
+            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+            rmx-target={frames.adminContent}
+            style={{ textDecoration: 'none' }}
+          >
+            <Button tone="primary">+ Add New</Button>
+          </a>
         </form>
 
         {/* Table */}
