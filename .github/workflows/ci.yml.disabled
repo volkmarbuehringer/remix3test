@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # weekly Monday 6am
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: newapp
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: newapp/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
