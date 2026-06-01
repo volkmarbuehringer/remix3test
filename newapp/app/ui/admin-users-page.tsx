@@ -10,7 +10,9 @@ import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import { AdminUsersContextMenu } from '../assets/admin-users-context-menu.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
 const ADMIN_BASE = '/admin/users'
 
@@ -94,7 +96,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={table.wrap}>
+        <div mix={table.wrap} data-users-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -109,7 +111,6 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <col />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '160px' }} />
-                <col style={{ width: '100px' }} />
               </colgroup>
               <thead>
                 <tr>
@@ -158,7 +159,6 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th} />
                 </tr>
               </thead>
               <tbody>
@@ -169,39 +169,33 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     <td mix={table.td} title={row.email}>{row.email}</td>
                     <td mix={table.td}>{row.role}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
-                    <td mix={table.actionCell}>
-                      <div mix={table.btnGroup}>
-                        <a
-                          href={buildEditUrl(ADMIN_BASE, row.id!, offset, sortColumn, sortDirection, filter)}
-                          rmx-target={frames.adminContent}
-                          mix={table.editBtn}
-                        >
-                          <Glyph name="edit" width={14} height={14} />
-                        </a>
-                        <RestfulForm
-                          method="DELETE"
-                          action={`/admin/users/${row.id}`}
-                          style="display:inline"
-                        >
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortColumn,
-                              order: sortDirection,
-                              filter: filter ?? '',
-                            }}
-                          />
-                          <button type="submit" mix={table.delBtn}>
-                            <Glyph name="trash" width={14} height={14} />
-                          </button>
-                        </RestfulForm>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          {/* Hidden DELETE forms for context menu */}
+          {rows.length > 0 ? (
+            <div style="display:none" aria-hidden="true">
+              {rows.map((row) => (
+                <RestfulForm
+                  key={row.id}
+                  method="DELETE"
+                  action={`/admin/users/${row.id}`}
+                  data-delete-form={row.id}
+                >
+                  <GridStateHiddenInputs
+                    state={{
+                      offset: String(offset),
+                      sort: sortColumn,
+                      order: sortDirection,
+                      filter: filter ?? '',
+                    }}
+                  />
+                </RestfulForm>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {/* Pagination */}
@@ -232,6 +226,17 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             </div>
           </div>
         )}
+
+        {/* Context menu data and clientEntry */}
+        <script id="users-grid-state" type="application/json" nonce={getCspNonce()}>
+          {JSON.stringify({
+            offset: String(offset),
+            sort: sortColumn,
+            order: sortDirection,
+            filter: filter ?? '',
+          })}
+        </script>
+        <AdminUsersContextMenu />
       </div>
     )
 
