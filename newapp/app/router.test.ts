@@ -84,10 +84,10 @@ describe('Admin page — frame streaming', () => {
 
     // Read until we see admin sidebar content — this renders synchronously
     // inside the adminContent frame (blocking frame)
-    let initial = await readUntil(chunks, (html) => html.includes('Chat Logs'))
-    assert.ok(initial.includes('Chat Logs'), 'Admin dashboard cards should appear')
-    assert.ok(initial.includes('Lists'), 'Lists card should appear')
-    assert.ok(initial.includes('Client Lab'), 'Client Lab card should appear')
+    let initial = await readUntil(chunks, (html) => html.includes('Chat-Protokolle'))
+    assert.ok(initial.includes('Chat-Protokolle'), 'Admin dashboard cards should appear')
+    assert.ok(initial.includes('Listen'), 'Listen card should appear')
+    assert.ok(initial.includes('Client-Test'), 'Client-Test card should appear')
 
     // At this point, no <template> tags should appear yet (nested frames
     // like stats and recent-activity haven't resolved)
@@ -113,7 +113,7 @@ describe('Admin page — frame streaming', () => {
     // The first <template> chunk contains the stats frame with Uptime.
     // Stats content is already in `resolved` — no need for a separate read.
     assert.ok(resolved.includes('Server'), 'Stats frame should contain server info')
-    assert.ok(resolved.includes('Uptime'), 'Stats frame should contain uptime')
+    assert.ok(resolved.includes('Betriebszeit'), 'Stats frame should contain Betriebszeit')
   })
 
   it('eventually renders all framed content', async () => {
@@ -131,10 +131,10 @@ describe('Admin page — frame streaming', () => {
     }
 
     // Verify framed content all resolved
-    assert.ok(html.includes('Chat Logs'), 'Admin dashboard cards should render')
+    assert.ok(html.includes('Chat-Protokolle'), 'Admin dashboard cards should render')
     assert.ok(html.includes('Server'), 'Stats fragment should resolve')
-    assert.ok(html.includes('Uptime'), 'Stats fragment should include uptime')
-    assert.ok(html.includes('Recent Activity'), 'Activity fragment should resolve')
+    assert.ok(html.includes('Betriebszeit'), 'Stats fragment should include Betriebszeit')
+    assert.ok(html.includes('Letzte Aktivitäten'), 'Activity fragment should resolve')
     assert.ok(
       countTemplates(html) >= 2,
       'Should have at least 2 template tags for stats + activity frames',
@@ -181,8 +181,8 @@ describe('AI page — frame streaming', () => {
     }
 
     assert.ok(html.includes('AI Dashboard'), 'AI Dashboard should render')
-    assert.ok(html.includes('Open Chat'), 'Open Chat button should appear')
-    assert.ok(html.includes('Open Agent'), 'Open Agent button should appear')
+    assert.ok(html.includes('Chat öffnen'), 'Chat öffnen button should appear')
+    assert.ok(html.includes('Agent öffnen'), 'Agent öffnen button should appear')
   })
 })
 
@@ -214,7 +214,7 @@ describe('Fragment endpoints — standalone rendering', () => {
     assert.ok(!html.includes('<html'), 'Stats fragment should not contain <html>')
     // Fragment should contain stats content
     assert.ok(html.includes('Server'), 'Stats fragment should contain server info')
-    assert.ok(html.includes('Uptime'), 'Stats fragment should contain uptime')
+    assert.ok(html.includes('Betriebszeit'), 'Stats fragment should contain Betriebszeit')
   })
 
   it('/admin/fragments/recent-activity renders without Layout wrapper', async () => {
@@ -226,7 +226,7 @@ describe('Fragment endpoints — standalone rendering', () => {
     let html = await response.text()
 
     assert.ok(!html.includes('<html'), 'Activity fragment should not contain <html>')
-    assert.ok(html.includes('Recent Activity'), 'Activity fragment should have heading')
+    assert.ok(html.includes('Letzte Aktivitäten'), 'Activity fragment should have heading')
     assert.ok(html.includes('Created'), 'Activity fragment should show activity items')
   })
 

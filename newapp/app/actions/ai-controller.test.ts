@@ -93,7 +93,7 @@ describe('AI Dashboard controller', () => {
     })
     let html = await response.text()
 
-    assert.ok(html.includes('Open Chat'), 'should have an Open Chat button')
-    assert.ok(html.includes('Open Agent'), 'should have an Open Agent button')
+    assert.ok(html.includes('Chat öffnen'), 'should have a Chat öffnen button')
+    assert.ok(html.includes('Agent öffnen'), 'should have an Agent öffnen button')
   })
 })

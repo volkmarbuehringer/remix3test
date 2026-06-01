@@ -89,8 +89,8 @@ describe('Workflow Controller', () => {
     let response = await authenticatedGet()
     let html = await response.text()
 
-    assert.ok(html.includes('Run Workflow'), 'should contain "Run Workflow" section heading')
-    assert.ok(html.includes('Recent Runs'), 'should contain "Recent Runs" section heading')
+    assert.ok(html.includes('Workflow ausführen'), 'should contain "Workflow ausführen" section heading')
+    assert.ok(html.includes('Letzte Ausführungen'), 'should contain "Letzte Ausführungen" section heading')
   })
 
   it('GET /ai/workflow with auth contains workflow form elements', async () => {
@@ -98,7 +98,7 @@ describe('Workflow Controller', () => {
     let html = await response.text()
 
     assert.ok(html.includes('workflowId'), 'form should have a workflowId field')
-    assert.ok(html.includes('Choose a workflow...'), 'dropdown should have placeholder option')
+    assert.ok(html.includes('Workflow wählen'), 'dropdown should have placeholder option')
   })
 
   // -----------------------------------------------------------------------
@@ -137,7 +137,7 @@ describe('Workflow Controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('Workflow Run'), 'page should show "Workflow Run" heading')
+    assert.ok(html.includes('Workflow-Ausführung'), 'page should show "Workflow-Ausführung" heading')
     assert.ok(html.includes('trending-report'), 'page should show the workflow ID')
   })
 

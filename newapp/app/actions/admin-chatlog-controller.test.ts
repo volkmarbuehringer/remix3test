@@ -111,8 +111,8 @@ describe('Admin Chatlog controller', () => {
     let html = await response.text()
 
     // Type indicator label should show "Chat conversations"
-    assert.ok(html.includes('Showing:'), 'should display type filter label')
-    assert.ok(html.includes('Chat conversations'), 'should indicate chat filter')
+    assert.ok(html.includes('Angezeigt:'), 'should display type filter label')
+    assert.ok(html.includes('Chat-Konversationen'), 'should indicate chat filter')
 
     // Should include the chat conversation
     assert.ok(html.includes('admin-chatlog-test-chat-'), 'should include chat conversation')
@@ -135,8 +135,8 @@ describe('Admin Chatlog controller', () => {
     let html = await response.text()
 
     // Type indicator label should show "Agent conversations"
-    assert.ok(html.includes('Showing:'), 'should display type filter label')
-    assert.ok(html.includes('Agent conversations'), 'should indicate agent filter')
+    assert.ok(html.includes('Angezeigt:'), 'should display type filter label')
+    assert.ok(html.includes('Agent-Konversationen'), 'should indicate agent filter')
 
     // Should include the agent conversation
     assert.ok(html.includes('admin-chatlog-test-agent-'), 'should include agent conversation')

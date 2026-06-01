@@ -44,7 +44,7 @@ describe('Admin Fragments Controller', () => {
 
     // Stats fragment should contain server-time information
     assert.ok(html.includes('Server'), 'should reference Server')
-    assert.ok(html.includes('Uptime'), 'should include uptime info')
+    assert.ok(html.includes('Betriebszeit'), 'should include Betriebszeit info')
   })
 
   it('GET /admin/fragments/stats renders content without admin nav', async () => {
@@ -75,7 +75,7 @@ describe('Admin Fragments Controller', () => {
     let html = await response.text()
 
     // Activity fragment should list recent actions
-    assert.ok(html.includes('Recent Activity'), 'should have activity heading')
+    assert.ok(html.includes('Letzte Aktivitäten'), 'should have activity heading')
     assert.ok(html.includes('Created'), 'should show an activity item')
   })
 

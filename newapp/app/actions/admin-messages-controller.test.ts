@@ -84,7 +84,7 @@ describe('Admin Messages controller', () => {
       headers: { Cookie: adminCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('No messages yet'), 'response should show empty state')
+    assert.ok(text.includes('Noch keine Nachrichten'), 'response should show empty state')
   })
 
   it('POST /admin/messages rejects empty content', async () => {

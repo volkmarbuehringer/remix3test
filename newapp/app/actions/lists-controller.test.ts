@@ -446,7 +446,7 @@ describe('Lists controller', () => {
       headers: { Cookie: adminCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('Description'), 'table should include Description column header')
+    assert.ok(text.includes('Beschreibung'), 'table should include Beschreibung column header')
   })
 
   // -----------------------------------------------------------------------
@@ -487,7 +487,7 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
     let text = await response.text()
     // Should show multiple lists from seed + test data
-    assert.ok(text.includes('Saved Lists'), 'should render the page')
+    assert.ok(text.includes('Gespeicherte Listen'), 'should render the page')
   })
 
   it('GET /admin/lists?filter= shows empty state when no match', async () => {
@@ -497,7 +497,7 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
     let text = await response.text()
     assert.ok(
-      text.includes('No lists found for this search'),
+      text.includes('Keine Listen für diese Suche gefunden.'),
       'should show search-specific empty state',
     )
   })
@@ -520,7 +520,7 @@ describe('Lists controller', () => {
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    assert.ok(text.includes('Clear'), 'should show Clear link when filter is active')
+    assert.ok(text.includes('Zurücksetzen'), 'should show Zurücksetzen link when filter is active')
   })
 
   it('GET /admin/lists without filter does not show Clear link', async () => {
@@ -529,8 +529,8 @@ describe('Lists controller', () => {
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    assert.ok(text.includes('Search'), 'should show search button')
-    assert.ok(!text.includes('Clear'), 'should NOT show Clear link when no filter is active')
+    assert.ok(text.includes('Suchen'), 'should show search button')
+    assert.ok(!text.includes('Zurücksetzen'), 'should NOT show Zurücksetzen link when no filter is active')
   })
 
   it('GET /admin/lists preserves filter across pagination', async () => {
