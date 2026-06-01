@@ -90,6 +90,12 @@ const errorBannerStyle = css({
   fontSize: theme.fontSize.sm,
 })
 
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
+
 // ── Component ──
 
 export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>) {
@@ -280,8 +286,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                  {rows.map((row) => (
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={row.id}>
                       {row.id}
                     </td>

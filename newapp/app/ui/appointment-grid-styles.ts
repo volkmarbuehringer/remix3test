@@ -55,6 +55,18 @@ export const dayDateStyle = css({
   fontSize: theme.fontSize.xxs,
 })
 
+export const todayDayNameStyle = css({
+  color: theme.colors.action.primary.background,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.bold,
+})
+
+export const todayDayDateStyle = css({
+  color: theme.colors.action.primary.background,
+  fontSize: theme.fontSize.xxs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
 export const gridBodyStyle = css({
   display: 'grid',
   gridTemplateColumns: `${LABEL_WIDTH}px repeat(7, 1fr)`,
@@ -135,6 +147,7 @@ export const blockBoxStyle = css({
   textAlign: 'center',
   touchAction: 'none',
   zIndex: 1,
+  transition: 'box-shadow 0.15s ease',
 })
 
 export const foreignBlockStyle = css({
@@ -142,6 +155,10 @@ export const foreignBlockStyle = css({
   borderColor: 'rgb(192 132 252)',
   color: 'rgb(107 33 168)',
   cursor: 'default',
+})
+
+export const currentUserBlockStyle = css({
+  borderLeft: `3px solid ${theme.colors.action.primary.background}`,
 })
 
 export const draggingBlockStyle = css({

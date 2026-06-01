@@ -214,10 +214,11 @@ const sidebarHeaderStyle = css({
   alignItems: 'center',
   display: 'flex',
   padding: `${theme.space.sm} ${theme.space.md}`,
+  borderBottom: `1px solid ${theme.colors.border.subtle}`,
 })
 
 const appTitleStyle = css({
-  color: theme.colors.text.primary,
+  color: theme.colors.action.primary.background,
   fontSize: theme.fontSize.xl,
   fontWeight: theme.fontWeight.bold,
   letterSpacing: theme.letterSpacing.tight,
@@ -277,7 +278,8 @@ const navArrowStyle = css({
 
 const dateRangeStyle = css({
   color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xs,
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
   textAlign: 'center',
   userSelect: 'none',
 })
@@ -286,6 +288,7 @@ const navStyle = css({
   display: 'grid',
   gap: theme.space.xs,
   padding: `${theme.space.lg} ${theme.space.md}`,
+  borderTop: `1px solid ${theme.colors.border.subtle}`,
 })
 
 const navLinkStyle = css({

@@ -41,6 +41,8 @@ import {
   dayHeaderStyle,
   dayNameStyle,
   dayDateStyle,
+  todayDayNameStyle,
+  todayDayDateStyle,
   gridBodyStyle,
   timeColumnStyle,
   timeSlotRowStyle,
@@ -51,6 +53,7 @@ import {
   subHourLineStyle,
   blockBoxStyle,
   foreignBlockStyle,
+  currentUserBlockStyle,
   draggingBlockStyle,
   blockTitleStyle,
   adminBlockInnerStyle,
@@ -147,6 +150,11 @@ export const AppointmentGrid = clientEntry(
       let offerings = data.offerings ?? []
       let csrfToken = data.csrfToken
 
+      let todayMs = (() => {
+        let t = new Date()
+        return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())
+      })()
+
       // Compute visible days from offerings
       let visibleDays = computeVisibleDays(days, offerings)
 
@@ -233,12 +241,15 @@ export const AppointmentGrid = clientEntry(
                 </svg>
               </div>
             </div>
-            {visibleDays.map((day, i) => (
-              <div key={i} mix={dayHeaderStyle}>
-                <span mix={dayNameStyle}>{day.dayName}</span>
-                <span mix={dayDateStyle}>{day.dateStr}</span>
-              </div>
-            ))}
+            {visibleDays.map((day, i) => {
+              let isToday = day.date === todayMs
+              return (
+                <div key={i} mix={dayHeaderStyle}>
+                  <span mix={isToday ? todayDayNameStyle : dayNameStyle}>{day.dayName}</span>
+                  <span mix={isToday ? todayDayDateStyle : dayDateStyle}>{day.dateStr}</span>
+                </div>
+              )
+            })}
           </div>
 
           <div
@@ -293,6 +304,7 @@ export const AppointmentGrid = clientEntry(
                   {groups[dayIdx].map((appt) => {
                     let isEditing = editingId === appt.id
                     let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
+                    let isCurrentUser = data.currentUserId > 0 && appt.user_id === data.currentUserId
                     let isRestrictedBlock = isForeign && !data.isAdmin
                     // Position relative to offering start — grid rows begin at currentOfferingStartMin
                     let topPx = ((appt.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT
@@ -312,6 +324,7 @@ export const AppointmentGrid = clientEntry(
                         mix={[
                           blockBoxStyle,
                           isRestrictedBlock ? foreignBlockStyle : undefined,
+                          isCurrentUser ? currentUserBlockStyle : undefined,
                           isBlockDragging ? draggingBlockStyle : undefined,
                           isHovered ? hoveredBlockStyle : undefined,
                           isEditing ? editingBlockStyle : undefined,
