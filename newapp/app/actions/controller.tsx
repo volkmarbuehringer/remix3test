@@ -2,6 +2,7 @@ import { createController } from 'remix/router'
 
 import { assetServer } from '../assets.ts'
 import { routes } from '../routes.ts'
+import { Document } from '../ui/document.tsx'
 import { Layout } from '../ui/layout.tsx'
 import { HomePage } from '../ui/scaffold-home-page.tsx'
 import { ShowcaseIndexPage } from '../ui/showcase-pages.tsx'
@@ -17,9 +18,9 @@ export default createController<typeof routes, AppContext>(routes, {
     },
     home(context) {
       return context.render(
-        <Layout>
+        <Document>
           <HomePage />
-        </Layout>,
+        </Document>,
       )
     },
     ui(context) {
