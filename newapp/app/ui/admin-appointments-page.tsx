@@ -81,20 +81,7 @@ const headerBarStyle = css({
   marginBottom: theme.space.lg,
 })
 
-const errorBannerStyle = css({
-  padding: theme.space.sm,
-  marginBottom: theme.space.md,
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-})
-
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
+// errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)
 
 // ── Component ──
 
@@ -121,8 +108,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
-        {error ? <div mix={errorBannerStyle}>{error}</div> : null}
+      <div mix={table.minWidth0}>
+        {error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
@@ -145,11 +132,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu</Button>
           </a>
@@ -287,7 +274,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               </thead>
               <tbody>
                   {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={row.id}>
                       {row.id}
                     </td>
@@ -319,7 +306,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           )}
           {/* Hidden DELETE forms for context menu — kept in DOM for .requestSubmit() */}
           {rows.length > 0 ? (
-            <div mix={css({ display: 'none' })} aria-hidden="true">
+            <div mix={table.displayNone} aria-hidden="true">
               {rows.map((row) => (
                 <RestfulForm
                   key={row.id}
@@ -349,7 +336,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 Zeige {pageStart}–{pageEnd}
               </span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -421,7 +408,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           </div>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <AdminAppointmentsEditPage
                   row={editRow}

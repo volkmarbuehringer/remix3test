@@ -187,4 +187,34 @@ export const table = {
     paddingTop: theme.space.md,
     borderTop: `1px solid ${theme.colors.border.default}`,
   }),
+
+  // ── Repeated inline pattern mixins ──
+
+  /** Pushes elements apart in a flex row */
+  spacer: css({ flex: 1 }),
+  /** Stacks pagination nav buttons */
+  flexGapSm: css({ display: 'flex', gap: '0.5rem' }),
+  /** Underlines are harmful inside table links wrapping buttons */
+  linkPlain: css({ textDecoration: 'none' }),
+  /** Hides content while keeping it in the DOM for JS access */
+  displayNone: css({ display: 'none' }),
+  /** Wraps the edit/create panel so it scrolls with the user */
+  stickyPanel: css({ position: 'sticky', top: '1.5rem' }),
+  /** Prevents grid section from blowing out the two-column layout */
+  minWidth0: css({ minWidth: 0 }),
+  /** Highlights the currently-edited row in the table */
+  editingRow: css({
+    outline: `2px solid ${theme.colors.action.primary.background}`,
+    outlineOffset: '-2px',
+    backgroundColor: theme.surface.lvl0,
+  }),
+  /** Error banner shown above the table */
+  errorBanner: css({
+    padding: theme.space.sm,
+    marginBottom: theme.space.md,
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+    borderRadius: theme.radius.md,
+    fontSize: theme.fontSize.sm,
+  }),
 }

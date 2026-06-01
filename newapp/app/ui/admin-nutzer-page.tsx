@@ -74,11 +74,7 @@ const boolBadgeNo = css({
   color: theme.colors.text.muted,
 })
 
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
+// editingRowStyle moved to table.editingRow
 
 // ── Component ──
 
@@ -93,7 +89,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
+      <div mix={table.minWidth0}>
         {/* Filter bar + Add New */}
         <form method="GET" action="/admin/nutzer" rmx-target={frames.adminContent} mix={table.filterBar}>
           <input
@@ -106,11 +102,11 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -155,7 +151,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.n_id} mix={[table.row, editRow?.n_id === row.n_id ? editingRowStyle : undefined]} data-row-id={row.n_id}>
+                  <tr key={row.n_id} mix={[table.row, editRow?.n_id === row.n_id ? table.editingRow : undefined]} data-row-id={row.n_id}>
                     <td mix={table.td} title={row.n_vorname ?? ''}>{row.n_vorname ?? '\u2014'}</td>
                     <td mix={table.td} title={row.n_name ?? ''}>{row.n_name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.n_email ?? ''}>{row.n_email ?? '\u2014'}</td>
@@ -189,7 +185,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -243,7 +239,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
           <h2 mix={table.title}>Nutzer</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <AdminNutzerEditPage
                   row={editRow}

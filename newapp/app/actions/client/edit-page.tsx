@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
+import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
@@ -21,24 +22,8 @@ interface ClientEditPageProps {
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Styles (unique to this panel)
 // ---------------------------------------------------------------------------
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
 
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
@@ -50,30 +35,6 @@ const rowIdBadgeStyle = css({
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.secondary,
   fontFamily: theme.fontFamily.mono,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
 })
 
 const requiredStarStyle = css({
@@ -90,14 +51,6 @@ const fieldHintStyle = css({
 
 const selectStyle = css({
   cursor: 'pointer',
-})
-
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
 })
 
 // ---------------------------------------------------------------------------
@@ -120,15 +73,15 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
       <RestfulForm method="PUT" action={`/client/${row.id}`}>
         <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-        <div mix={panelStyle}>
-          <div mix={panelHeaderStyle}>
+        <div mix={table.panel}>
+          <div mix={table.panelHeader}>
             <span mix={rowIdBadgeStyle}>#{row.id}</span>
-            <span mix={panelTitleStyle}>Edit Record</span>
+            <span mix={table.panelTitle}>Edit Record</span>
           </div>
 
-          <div mix={panelBodyStyle}>
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="ef-name">
+          <div mix={table.panelBody}>
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="ef-name">
                 Name <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -143,8 +96,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               />
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="ef-email">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="ef-email">
                 Email <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -159,8 +112,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               />
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="ef-role">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="ef-role">
                 Role
               </label>
               <select id="ef-role" name="role" mix={[input.base, input.focus, selectStyle]}>
@@ -171,8 +124,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               <div mix={fieldHintStyle}>User permission level</div>
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="ef-status">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="ef-status">
                 Status
               </label>
               <select id="ef-status" name="status" mix={[input.base, input.focus, selectStyle]}>
@@ -182,8 +135,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               <div mix={fieldHintStyle}>Account activation state</div>
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="ef-registered">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="ef-registered">
                 Registered <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -196,11 +149,11 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               />
             </div>
 
-            <div mix={actionsStyle}>
-              <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+            <div mix={table.actions}>
+              <Button type="submit" tone="primary" mix={table.spacer}>
                 Save Changes
               </Button>
-              <a href={buildCancelUrl('/client', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+              <a href={buildCancelUrl('/client', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                 <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                   Cancel
                 </Button>

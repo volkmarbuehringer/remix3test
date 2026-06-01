@@ -4,53 +4,14 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
+import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { gridStateToParams } from '../../utils/grid-state.ts'
 
 // ---------------------------------------------------------------------------
-// Styles
+// Styles (unique to this panel)
 // ---------------------------------------------------------------------------
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
 
 const requiredStarStyle = css({
   color: theme.colors.action.danger.background,
@@ -66,14 +27,6 @@ const fieldHintStyle = css({
 
 const selectStyle = css({
   cursor: 'pointer',
-})
-
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
 })
 
 // ---------------------------------------------------------------------------
@@ -103,14 +56,14 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
       <RestfulForm method="POST" action="/client">
         <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-        <div mix={panelStyle}>
-          <div mix={panelHeaderStyle}>
-            <span mix={panelTitleStyle}>New Record</span>
+        <div mix={table.panel}>
+          <div mix={table.panelHeader}>
+            <span mix={table.panelTitle}>New Record</span>
           </div>
 
-          <div mix={panelBodyStyle}>
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="cf-name">
+          <div mix={table.panelBody}>
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="cf-name">
                 Name <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -124,8 +77,8 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               />
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="cf-email">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="cf-email">
                 Email <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -139,8 +92,8 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               />
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="cf-role">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="cf-role">
                 Role
               </label>
               <select id="cf-role" name="role" mix={[input.base, input.focus, selectStyle]}>
@@ -151,8 +104,8 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               <div mix={fieldHintStyle}>User permission level</div>
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="cf-status">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="cf-status">
                 Status
               </label>
               <select id="cf-status" name="status" mix={[input.base, input.focus, selectStyle]}>
@@ -162,8 +115,8 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               <div mix={fieldHintStyle}>Account activation state</div>
             </div>
 
-            <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="cf-registered">
+            <div mix={table.fieldGroup}>
+              <label mix={table.label} htmlFor="cf-registered">
                 Registered <span mix={requiredStarStyle}>*</span>
               </label>
               <input
@@ -176,15 +129,15 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               />
             </div>
 
-            <div mix={actionsStyle}>
-              <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+            <div mix={table.actions}>
+              <Button type="submit" tone="primary" mix={table.spacer}>
                 Create Record
               </Button>
               {(() => {
                 let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
                 let cancelHref = '/client' + (cancelQ ? '?' + cancelQ : '')
                 return (
-                  <a href={cancelHref} mix={css({ flex: 1, textDecoration: 'none' })}>
+                  <a href={cancelHref} mix={[table.spacer, table.linkPlain]}>
                     <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                       Cancel
                     </Button>

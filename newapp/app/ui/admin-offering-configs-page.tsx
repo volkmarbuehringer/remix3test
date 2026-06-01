@@ -70,15 +70,6 @@ const dayRowStyle = css({
   gap: theme.space.sm,
   padding: `${theme.space.xs} 0`,
 })
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
 const selectStyle = css({
   padding: `${theme.space.xs} ${theme.space.sm}`,
   fontSize: theme.fontSize.sm,
@@ -111,19 +102,7 @@ const dayCheckboxStyle = css({
   height: '18px',
   cursor: 'pointer',
 })
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
-})
-
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
+// actionsStyle and editingRowStyle moved to mixin (table.actions, table.editingRow)
 
 export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPageProps>) {
   return () => {
@@ -136,7 +115,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
+      <div mix={table.minWidth0}>
         <form
           method="GET"
           action="/admin/offering-configs"
@@ -160,11 +139,11 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -231,7 +210,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description}</td>
                     <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
@@ -277,7 +256,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}{'\u2013'}{pageEnd}</span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -308,7 +287,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <h2 mix={table.title}>Angebotskonfigurationen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <EditPanel
                   row={editRow}
@@ -367,7 +346,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={labelStyle} for="oc-resource">Ressource</label>
+                <label mix={table.label} for="oc-resource">Ressource</label>
                 <select id="oc-resource" name="resource_id" mix={[input.base, input.focus, selectStyle]}>
                   {resources.map(r => (
                     <option key={r.id} value={r.id} selected={Number(r.id) === Number(row.resource_id)}>
@@ -414,11 +393,11 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 )
               })}
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -455,7 +434,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={labelStyle} for="oc-resource-c">Ressource</label>
+                <label mix={table.label} for="oc-resource-c">Ressource</label>
                 <select id="oc-resource-c" name="resource_id" required mix={[input.base, input.focus, selectStyle]}>
                   <option value="" disabled selected>Ressource ausw\u00e4hlen</option>
                   {resources.map(r => (
@@ -490,11 +469,11 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 </div>
               ))}
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

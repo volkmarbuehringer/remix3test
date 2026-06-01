@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
+import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
@@ -17,23 +18,7 @@ interface AdminNutzerEditPageProps {
   filter?: string
 }
 
-// ── Styles ──
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
+// ── Styles (unique to this panel) ──
 
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
@@ -45,30 +30,6 @@ const rowIdBadgeStyle = css({
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.secondary,
   fontFamily: theme.fontFamily.mono,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
 })
 
 const checkboxRowStyle = css({
@@ -91,14 +52,6 @@ const checkboxLabelStyle = css({
   cursor: 'pointer',
 })
 
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
-})
-
 // ── Helpers ──
 
 // ── Component ──
@@ -112,15 +65,15 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
           <input type="hidden" name="_l_id" value={row.l_id} />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
               <span mix={rowIdBadgeStyle}>#{row.n_id}</span>
-              <span mix={panelTitleStyle}>Nutzer bearbeiten</span>
+              <span mix={table.panelTitle}>Nutzer bearbeiten</span>
             </div>
 
-            <div mix={panelBodyStyle}>
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="ne-vorname">Vorname</label>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ne-vorname">Vorname</label>
                 <input
                   id="ne-vorname"
                   name="vorname"
@@ -132,8 +85,8 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="ne-name">Name</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ne-name">Name</label>
                 <input
                   id="ne-name"
                   name="name"
@@ -145,8 +98,8 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="ne-email">Email</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ne-email">Email</label>
                 <input
                   id="ne-email"
                   name="email"
@@ -171,8 +124,8 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 </label>
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="ne-login">Login</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ne-login">Login</label>
                 <input
                   id="ne-login"
                   name="login"
@@ -206,11 +159,11 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 <label mix={checkboxLabelStyle} htmlFor="ne-gesperrt">Gesperrt</label>
               </div>
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

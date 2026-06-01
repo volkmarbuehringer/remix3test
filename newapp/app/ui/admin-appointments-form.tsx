@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
+import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
@@ -16,23 +17,7 @@ import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admi
 const START_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => i * 15)
 const END_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15)
 
-// ── Shared styles ────────────────────────────────────────────────
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
+// ── Local styles (unique to this form) ────────────────────────────
 
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
@@ -44,53 +29,6 @@ const rowIdBadgeStyle = css({
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.secondary,
   fontFamily: theme.fontFamily.mono,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
-
-const selectStyle = css({
-  width: '100%',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
-})
-
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
 })
 
 // ── Types ────────────────────────────────────────────────────────
@@ -135,21 +73,21 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
         <RestfulForm method={method} action={action}>
           <GridStateHiddenInputs state={gridState} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
               {isEdit && row ? <span mix={rowIdBadgeStyle}>#{row.id}</span> : null}
-              <span mix={panelTitleStyle}>{panelTitle}</span>
+              <span mix={table.panelTitle}>{panelTitle}</span>
             </div>
 
-            <div mix={panelBodyStyle}>
+            <div mix={table.panelBody}>
               {/* Resource dropdown */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-resource' : 'ac-resource'}>Ressource</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-resource' : 'ac-resource'}>Ressource</label>
                 <select
                   id={isEdit ? 'ae-resource' : 'ac-resource'}
                   name="resource_id"
                   required
-                  mix={[input.base, input.focus, selectStyle]}
+                   mix={[input.base, input.focus, table.select]}
                 >
                   {resourcePlaceholder ? (
                     <option value="" disabled selected>{resourcePlaceholder}</option>
@@ -167,13 +105,13 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               {/* User dropdown */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-user' : 'ac-user'}>Benutzer</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-user' : 'ac-user'}>Benutzer</label>
                 <select
                   id={isEdit ? 'ae-user' : 'ac-user'}
                   name="user_id"
                   required
-                  mix={[input.base, input.focus, selectStyle]}
+                  mix={[input.base, input.focus, table.select]}
                 >
                   {userPlaceholder ? (
                     <option value="" disabled selected>{userPlaceholder}</option>
@@ -191,8 +129,8 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               {/* Title input */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-title' : 'ac-title'}>Titel</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-title' : 'ac-title'}>Titel</label>
                 <input
                   id={isEdit ? 'ae-title' : 'ac-title'}
                   name="title"
@@ -205,8 +143,8 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               {/* Date input */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-date' : 'ac-date'}>Datum</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-date' : 'ac-date'}>Datum</label>
                 <input
                   id={isEdit ? 'ae-date' : 'ac-date'}
                   name="date"
@@ -218,13 +156,13 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               {/* Start time dropdown */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-start' : 'ac-start'}>Startzeit</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-start' : 'ac-start'}>Startzeit</label>
                 <select
                   id={isEdit ? 'ae-start' : 'ac-start'}
                   name="start_min"
                   required
-                  mix={[input.base, input.focus, selectStyle]}
+                  mix={[input.base, input.focus, table.select]}
                 >
                   {START_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === startMin}>
@@ -235,13 +173,13 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               {/* End time dropdown */}
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor={isEdit ? 'ae-end' : 'ac-end'}>Endzeit</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-end' : 'ac-end'}>Endzeit</label>
                 <select
                   id={isEdit ? 'ae-end' : 'ac-end'}
                   name="end_min"
                   required
-                  mix={[input.base, input.focus, selectStyle]}
+                  mix={[input.base, input.focus, table.select]}
                 >
                   {END_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === endMin}>
@@ -251,11 +189,11 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 </select>
               </div>
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

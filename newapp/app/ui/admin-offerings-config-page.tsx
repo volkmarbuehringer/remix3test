@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
+import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import type { ResourceOption } from '../actions/admin-offerings-controller.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
@@ -33,67 +34,13 @@ function fmt(minutes: number): string {
   return `${h}:${m}`
 }
 
-// ── Styles ──
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
+// ── Styles (unique to this config panel) ──
 
 const dayRowStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
   padding: `${theme.space.xs} 0`,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
-
-const selectStyle = css({
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
 })
 
 const timeSelectStyle = css({
@@ -117,14 +64,6 @@ const dayCheckboxStyle = css({
   cursor: 'pointer',
 })
 
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
-})
-
 export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPageProps>) {
   return () => {
     let { resources, config, resourceId } = handle.props
@@ -135,15 +74,15 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
         <RestfulForm method="POST" action="/admin/offerings/config">
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
-              <span mix={panelTitleStyle}>Konfiguration</span>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <span mix={table.panelTitle}>Konfiguration</span>
             </div>
 
-            <div mix={panelBodyStyle}>
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle}>Ressource</label>
-                <select name="_resource_display" disabled mix={[input.base, input.focus, selectStyle]}>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label}>Ressource</label>
+                <select name="_resource_display" disabled mix={[input.base, input.focus, table.select]}>
                   {resources.filter(r => Number(r.id) === resourceId).map(r => (
                     <option key={r.id} value={r.id} selected>{r.description}</option>
                   ))}
@@ -187,11 +126,11 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 )
               })}
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href="/admin/offerings" mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href="/admin/offerings" mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

@@ -95,22 +95,7 @@ function formatDuring(during: string): string {
   return `${startH}:${startM}\u2013${endH}:${endM}`
 }
 
-// ── Styles ──
-
-const errorBannerStyle = css({
-  padding: theme.space.sm,
-  marginBottom: theme.space.md,
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-})
-
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
+// errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)
 
 // ── Component ──
 
@@ -126,8 +111,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
-        {error ? <div mix={errorBannerStyle}>{error}</div> : null}
+      <div mix={table.minWidth0}>
+        {error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
@@ -152,18 +137,18 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Woche hinzufügen</Button>
           </a>
@@ -251,7 +236,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={row.id}>{row.id}</td>
                     <td mix={table.td}>{formatWeekNumber(row.day)}</td>
                     <td mix={table.td}>{formatWeekday(row.day)}</td>
@@ -269,7 +254,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           )}
           {/* Hidden DELETE forms for context menu — kept in DOM for .requestSubmit() */}
           {rows.length > 0 ? (
-            <div mix={css({ display: 'none' })} aria-hidden="true">
+            <div mix={table.displayNone} aria-hidden="true">
               {rows.map((row) => (
                 <RestfulForm
                   key={row.id}
@@ -297,7 +282,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -340,7 +325,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           <h2 mix={table.title}>Angebote</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <AdminOfferingsEditPage
                   row={editRow}

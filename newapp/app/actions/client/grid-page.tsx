@@ -2,7 +2,6 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
-import { animateEntrance } from 'remix/ui/animation'
 
 import type { Client } from '../../data/schema.ts'
 import { DelButton } from '../../assets/client-del-button.tsx'

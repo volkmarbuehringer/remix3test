@@ -4,6 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
+import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
@@ -15,47 +16,7 @@ interface AdminNutzerCreatePageProps {
   filter?: string
 }
 
-// ── Styles ──
-
-const panelStyle = css({
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-})
-
-const panelHeaderStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  padding: `${theme.space.md} ${theme.space.lg}`,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl2,
-})
-
-const panelTitleStyle = css({
-  fontSize: theme.fontSize.md,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-})
-
-const panelBodyStyle = css({
-  padding: theme.space.lg,
-})
-
-const fieldGroupStyle = css({
-  marginBottom: theme.space.md,
-})
-
-const labelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '3px',
-  marginBottom: theme.space.xs,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-})
+// ── Styles (unique to this panel) ──
 
 const checkboxRowStyle = css({
   display: 'flex',
@@ -77,14 +38,6 @@ const checkboxLabelStyle = css({
   cursor: 'pointer',
 })
 
-const actionsStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-  marginTop: theme.space.lg,
-  paddingTop: theme.space.md,
-  borderTop: `1px solid ${theme.colors.border.default}`,
-})
-
 // ── Helpers ──
 
 // ── Component ──
@@ -97,14 +50,14 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
         <RestfulForm method="POST" action="/admin/nutzer">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
-          <div mix={panelStyle}>
-            <div mix={panelHeaderStyle}>
-              <span mix={panelTitleStyle}>Neuer Nutzer</span>
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <span mix={table.panelTitle}>Neuer Nutzer</span>
             </div>
 
-            <div mix={panelBodyStyle}>
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="nc-vorname">Vorname</label>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="nc-vorname">Vorname</label>
                 <input
                   id="nc-vorname"
                   name="vorname"
@@ -115,8 +68,8 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="nc-name">Name</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="nc-name">Name</label>
                 <input
                   id="nc-name"
                   name="name"
@@ -127,8 +80,8 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 />
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="nc-email">Email</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="nc-email">Email</label>
                 <input
                   id="nc-email"
                   name="email"
@@ -151,8 +104,8 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 </label>
               </div>
 
-              <div mix={fieldGroupStyle}>
-                <label mix={labelStyle} htmlFor="nc-login">Login</label>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="nc-login">Login</label>
                 <input
                   id="nc-login"
                   name="login"
@@ -184,11 +137,11 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 <label mix={checkboxLabelStyle} htmlFor="nc-gesperrt">Gesperrt</label>
               </div>
 
-              <div mix={actionsStyle}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+              <div mix={table.actions}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

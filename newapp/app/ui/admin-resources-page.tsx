@@ -30,12 +30,6 @@ const ADMIN_BASE = '/admin/resources'
 
 // ── Styles ──
 
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
-
 // ── Component ──
 
 export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
@@ -49,7 +43,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
+      <div mix={table.minWidth0}>
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -74,11 +68,11 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -144,7 +138,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.description}>{row.description}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>
@@ -190,7 +184,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -222,7 +216,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <h2 mix={table.title}>Ressourcen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <AdminResourcesEditPanel
                   row={editRow}
@@ -290,10 +284,10 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -342,10 +336,10 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

@@ -39,14 +39,6 @@ interface AdminUsersPageProps {
   creating?: boolean
 }
 
-// ── Styles ──
-
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
-
 // ── Component ──
 
 export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
@@ -60,7 +52,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })}>
+      <div mix={table.minWidth0}>
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -85,11 +77,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span mix={css({ flex: 1 })} />
+          <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            mix={css({ textDecoration: 'none' })}
+            mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -163,7 +155,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.name}>{row.name}</td>
                     <td mix={table.td} title={row.email}>{row.email}</td>
@@ -176,7 +168,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           )}
           {/* Hidden DELETE forms for context menu */}
           {rows.length > 0 ? (
-            <div mix={css({ display: 'none' })} aria-hidden="true">
+            <div mix={table.displayNone} aria-hidden="true">
               {rows.map((row) => (
                 <RestfulForm
                   key={row.id}
@@ -204,7 +196,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
+            <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -249,7 +241,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <h2 mix={table.title}>Benutzer</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
+            <div mix={table.stickyPanel}>
               {editRow ? (
                 <AdminUsersEditPanel
                   row={editRow}
@@ -340,10 +332,10 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -427,10 +419,10 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
+                <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
