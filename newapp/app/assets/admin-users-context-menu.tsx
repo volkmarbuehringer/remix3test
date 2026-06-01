@@ -9,16 +9,19 @@ interface GridState {
   filter: string
 }
 
+/**
+ * ClientEntry that adds a right-click context menu to admin users table rows.
+ *
+ * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
+ * mouse coordinates of the right-click. Event delegation on the table container
+ * captures `contextmenu` events from server-rendered rows and dispatches a
+ * synthetic event to the hidden trigger.
+ */
 export const AdminUsersContextMenu = clientEntry(
   import.meta.url + '#AdminUsersContextMenu',
   function AdminUsersContextMenu(handle: Handle) {
-    let triggerRef: HTMLDivElement | null = null
     let rightClickedRowId: string | null = null
     let mounted = false
-
-    handle.signal.addEventListener('abort', () => {
-      triggerRef = null
-    })
 
     return () => (
       <menu.Context label="Benutzeraktionen">
@@ -26,7 +29,6 @@ export const AdminUsersContextMenu = clientEntry(
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              triggerRef = el
               if (mounted) return
               mounted = true
 

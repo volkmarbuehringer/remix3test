@@ -60,7 +60,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div style="min-width:0">
+      <div mix={css({ minWidth: 0 })}>
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -85,11 +85,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span style="flex:1" />
+          <span mix={css({ flex: 1 })} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -106,11 +106,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col style={{ width: '60px' }} />
+                <col mix={css({ width: '60px' })} />
                 <col />
                 <col />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '160px' }} />
+                <col mix={css({ width: '100px' })} />
+                <col mix={css({ width: '160px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -176,7 +176,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           )}
           {/* Hidden DELETE forms for context menu */}
           {rows.length > 0 ? (
-            <div style="display:none" aria-hidden="true">
+            <div mix={css({ display: 'none' })} aria-hidden="true">
               {rows.map((row) => (
                 <RestfulForm
                   key={row.id}
@@ -204,7 +204,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -229,6 +229,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
         {/* Context menu data and clientEntry */}
         <script id="users-grid-state" type="application/json" nonce={getCspNonce()}>
+          {/* WARNING: Only serialize server-controlled data here.
+              User-provided values MUST be escaped to prevent </script> breakout. */}
           {JSON.stringify({
             offset: String(offset),
             sort: sortColumn,
@@ -247,7 +249,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <h2 mix={table.title}>Benutzer</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div style="position:sticky;top:1.5rem">
+            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
               {editRow ? (
                 <AdminUsersEditPanel
                   row={editRow}
@@ -341,7 +343,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -353,15 +355,6 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
       </div>
     )
   }
-}
-
-// ── Inline Create Panel ──
-
-interface CreatePanelProps {
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
 }
 
 function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
@@ -428,7 +421,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
