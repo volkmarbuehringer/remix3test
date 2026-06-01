@@ -13,9 +13,10 @@
   },
   "permission": {
     "external_directory": {
+      "*": "ask",
       "/home/lucky/remix/**": "allow",
-      "/home/lucky/.local/share/ecc-homunculus/**": "allow",
-      "*": "ask"
+      "/home/lucky/.local/share/ecc-homunculus/**": "allow"
     }
   }
+  
 }
