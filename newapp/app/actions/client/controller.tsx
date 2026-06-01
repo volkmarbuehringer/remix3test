@@ -78,10 +78,13 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       // Build the initial Frame src (uses raw URL offset, not displayOffset,
       // so the edit URL preserves the user's current page through save/redirect)
       let gridState = gridStateFromURL(context.url)
-      let frameSrc = '/client/grid?' + gridStateToParams(gridState).toString()
+      let frameParams = gridStateToParams(gridState)
+      // Forward editing param so the grid can highlight the row being edited
+      let editingParam = context.url.searchParams.get('editing')
+      if (editingParam) frameParams.set('editing', editingParam)
+      let frameSrc = '/client/grid?' + frameParams.toString()
 
       // Check if an inline edit was requested
-      let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam ? Number(editingParam) : null
       let editRow: Row | null = null
       if (editingRowId && Number.isFinite(editingRowId)) {
@@ -135,6 +138,9 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       let total = offset + page.length
       let hasPrev = offset > 0
 
+      let editingParam = context.url.searchParams.get('editing')
+      let editingId = editingParam ? Number(editingParam) : null
+
       let gridContent = (
         <ClientGridPage
           rows={page}
@@ -146,6 +152,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
           totalRows={total}
           filter={filter}
           fieldOptions={FIELD_OPTIONS}
+          editingId={editingId}
         />
       )
 

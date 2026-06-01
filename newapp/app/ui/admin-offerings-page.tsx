@@ -105,6 +105,13 @@ const errorBannerStyle = css({
   borderRadius: theme.radius.md,
   fontSize: theme.fontSize.sm,
 })
+
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
+
 // ── Component ──
 
 export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
@@ -244,7 +251,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={row.id}>{row.id}</td>
                     <td mix={table.td}>{formatWeekNumber(row.day)}</td>
                     <td mix={table.td}>{formatWeekday(row.day)}</td>

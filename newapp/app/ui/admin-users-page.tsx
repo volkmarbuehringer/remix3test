@@ -37,6 +37,14 @@ interface AdminUsersPageProps {
   creating?: boolean
 }
 
+// ── Styles ──
+
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
+
 // ── Component ──
 
 export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
@@ -155,7 +163,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.name}>{row.name}</td>
                     <td mix={table.td} title={row.email}>{row.email}</td>

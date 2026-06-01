@@ -119,6 +119,12 @@ const actionsStyle = css({
   borderTop: `1px solid ${theme.colors.border.default}`,
 })
 
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
+
 export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPageProps>) {
   return () => {
     let {
@@ -225,7 +231,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description}</td>
                     <td mix={table.td} title={rulesSummary(row.rules)} style={{ fontSize: '11px' }}>{rulesSummary(row.rules)}</td>

@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
+import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { Glyph } from 'remix/ui/glyph'
 import { animateEntrance } from 'remix/ui/animation'
@@ -26,6 +27,14 @@ interface AdminResourcesPageProps {
 }
 
 const ADMIN_BASE = '/admin/resources'
+
+// ── Styles ──
+
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
 
 // ── Component ──
 
@@ -135,7 +144,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.description}>{row.description}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>

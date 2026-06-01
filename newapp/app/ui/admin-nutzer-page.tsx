@@ -74,6 +74,12 @@ const boolBadgeNo = css({
   color: theme.colors.text.muted,
 })
 
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
+})
+
 // ── Component ──
 
 export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
@@ -149,7 +155,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.n_id} mix={table.row} data-row-id={row.n_id}>
+                  <tr key={row.n_id} mix={[table.row, editRow?.n_id === row.n_id ? editingRowStyle : undefined]} data-row-id={row.n_id}>
                     <td mix={table.td} title={row.n_vorname ?? ''}>{row.n_vorname ?? '\u2014'}</td>
                     <td mix={table.td} title={row.n_name ?? ''}>{row.n_name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.n_email ?? ''}>{row.n_email ?? '\u2014'}</td>

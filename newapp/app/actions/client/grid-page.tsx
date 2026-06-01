@@ -21,6 +21,7 @@ interface ClientGridPageProps {
   totalRows?: number
   fieldOptions?: Record<string, string[]>
   filter?: string
+  editingId?: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +121,12 @@ const rowStyle = css({
   transition: 'background-color 120ms ease',
   '&:nth-child(even)': { background: theme.surface.lvl1 },
   '&:hover': { background: theme.surface.lvl3 },
+})
+
+const editingRowStyle = css({
+  outline: `2px solid ${theme.colors.action.primary.background}`,
+  outlineOffset: '-2px',
+  backgroundColor: theme.surface.lvl0,
 })
 
 // ---------------------------------------------------------------------------
@@ -272,6 +279,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sortOrder = 'asc',
       totalRows = rows.length + offset,
       filter,
+      editingId,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -391,7 +399,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={rowStyle}>
+                  <tr key={row.id} mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}>
                     <td mix={tdIdStyle}>{row.id}</td>
                     <td mix={tdStyle} title={row.name}>{row.name}</td>
                     <td mix={tdStyle} title={row.email}>{row.email}</td>
