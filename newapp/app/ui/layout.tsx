@@ -1,16 +1,10 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
-import { Glyph } from 'remix/ui/glyph'
 import { theme } from 'remix/ui/theme'
 import { getContext } from 'remix/middleware/async-context'
-import { getCsrfToken } from 'remix/middleware/csrf'
 
-import { routes, authRoutes } from '../routes.ts'
-import { getCurrentUserSafely } from '../utils/context.ts'
 import { Document } from './document.tsx'
-import { ThemeToggle } from '../assets/theme-toggle.tsx'
-import { ShowcaseDropdown } from '../assets/showcase-dropdown.tsx'
-import { NAV_SECTIONS } from './nav.ts'
+import { MainNav } from './main-nav.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 
 export interface LayoutProps {
@@ -21,8 +15,6 @@ export interface LayoutProps {
 export function Layout(handle: Handle<LayoutProps>) {
   return () => {
     let { title, children } = handle.props
-    let user = getCurrentUserSafely()
-
     let flashError: string | undefined
     let flashSuccess: string | undefined
     try {
@@ -40,118 +32,10 @@ export function Layout(handle: Handle<LayoutProps>) {
       currentPath = new URL(getContext().request.url).pathname
     } catch { /* SSR-only — ignored in non-request contexts */ }
 
-    let csrfToken: string | undefined
-    try {
-      csrfToken = getCsrfToken(getContext())
-    } catch { /* CSRF middleware may not be active */ }
-
-    let isActive = (path: string) => {
-      if (!currentPath) return false
-      return currentPath === path || currentPath.startsWith(path + '/')
-    }
-
     return (
       <Document title={title}>
         <div mix={shellCss}>
-          <header mix={headerStyle}>
-            <div mix={containerStyle}>
-              <div mix={brandGroupCss}>
-                <a href={routes.home.href()} mix={logoStyle}>
-                  newapp
-                </a>
-                {user ? (
-                  <span mix={userEmailCss}>{user.email}</span>
-                ) : null}
-              </div>
-              <nav mix={navStyle}>
-                {NAV_SECTIONS.map((section) => {
-                  if (section.id === 'showcase') {
-                    let items = section.items.filter(item => !item.adminOnly || user?.role === 'admin')
-                    let isShowcaseActive = items.some(item => isActive(item.href))
-                    return (
-                      <div key={section.id} mix={showcaseGroupStyle}>
-                        <button
-                          id="showcase-dropdown-btn"
-                          mix={[showcaseButtonStyle, isShowcaseActive ? navActiveStyle : null].filter(Boolean)}
-                          aria-haspopup="true"
-                          aria-expanded="false"
-                          type="button"
-                        >
-                          Showcase
-                          <span mix={chevronStyle}>▼</span>
-                        </button>
-                        <div
-                          id="showcase-dropdown-menu"
-                          mix={showcaseMenuStyle}
-                        >
-                          {items.map(item => (
-                            <a
-                              key={item.href}
-                              href={item.href}
-                              mix={[dropdownLinkStyle, isActive(item.href) ? dropdownActiveStyle : null].filter(Boolean)}
-                            >
-                              {item.label}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div key={section.id} mix={navSectionGroupCss}>
-                      {section.label ? (
-                        <span mix={navSectionLabelCss}>{section.label}</span>
-                      ) : null}
-                      {section.items
-                        .filter(item => !item.adminOnly || user?.role === 'admin')
-                        .map((item) => (
-                        <a
-                          key={item.href}
-                          href={item.href}
-                          mix={[navLinkStyle, isActive(item.href) ? navActiveStyle : null].filter(Boolean)}
-                        >
-                          {item.label}
-                        </a>
-                      ))}
-                    </div>
-                  )
-                })}
-                {user ? (
-                  <form method="POST" action={authRoutes.authLogout.href()} mix={logoutFormStyle}>
-                    {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
-                    <button type="submit" mix={[logoutIconStyle, tooltipAnchorStyle]} aria-label="Logout" data-tooltip="Logout">
-                      <Glyph name="close" width={18} height={18} />
-                    </button>
-                  </form>
-                ) : (
-                  <>
-                    <a
-                      href={authRoutes.authLogin.index.href()}
-                      mix={[navLinkStyle, isActive(authRoutes.authLogin.index.href()) && navActiveStyle].filter(Boolean)}
-                    >
-                      Login
-                    </a>
-                    <a
-                      href={authRoutes.authRegister.index.href()}
-                      mix={[navLinkStyle, isActive(authRoutes.authRegister.index.href()) && navActiveStyle].filter(Boolean)}
-                    >
-                      Register
-                    </a>
-                  </>
-                )}
-                <button
-                  id="theme-toggle"
-                  mix={[themeToggleStyle, tooltipAnchorStyle]}
-                  aria-label="Toggle dark mode"
-                  type="button"
-                  data-tooltip="Toggle dark mode"
-                >
-                  🌓
-                </button>
-                <ShowcaseDropdown />
-              </nav>
-            </div>
-          </header>
+          <MainNav />
           {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
           {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
           <main mix={mainStyle}>
@@ -168,7 +52,6 @@ export function Layout(handle: Handle<LayoutProps>) {
             </div>
           </footer>
         </div>
-        <ThemeToggle />
       </Document>
     )
   }

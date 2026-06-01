@@ -11,6 +11,7 @@ import { RMX_01_GLYPHS } from 'remix/ui/theme'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
+import { ThemeToggle } from '../assets/theme-toggle.tsx'
 
 export interface DocumentProps {
   children?: RemixNode
@@ -82,6 +83,7 @@ export function Document(handle: Handle<DocumentProps>) {
         >
           <RMX_01_GLYPHS />
           {children}
+          <ThemeToggle />
           {(() => {
             let entry = getAssetEntry()
             let src = entry?.scriptSrc ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
