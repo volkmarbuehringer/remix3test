@@ -1,4 +1,4 @@
-import { clientEntry, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
 import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
 
@@ -64,8 +64,8 @@ export const AdminUsersContextMenu = clientEntry(
                 table.removeEventListener('contextmenu', onContextMenu)
               })
             }),
+            css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
           ]}
-          style="position:fixed;width:0;height:0;opacity:0;pointer-events:none"
         />
 
         <MenuList

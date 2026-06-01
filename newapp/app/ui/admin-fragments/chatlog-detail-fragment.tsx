@@ -109,7 +109,7 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
       <div mix={detailStyle}>
         <div mix={headerStyle}>
           <h3 mix={titleStyle}>{displayTitle}</h3>
-          <span style={{ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted }}>
+          <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>
             {messages.length} message{messages.length !== 1 ? 's' : ''}
           </span>
         </div>

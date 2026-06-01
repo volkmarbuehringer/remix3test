@@ -184,7 +184,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                 let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
                 let cancelHref = '/client' + (cancelQ ? '?' + cancelQ : '')
                 return (
-                  <a href={cancelHref} style={{ flex: 1, textDecoration: 'none' }}>
+                  <a href={cancelHref} mix={css({ flex: 1, textDecoration: 'none' })}>
                     <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                       Cancel
                     </Button>

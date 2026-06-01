@@ -81,7 +81,7 @@ function LoginPage(handle: Handle<LoginPageProps>) {
     let { error, returnTo } = handle.props
     return (
     <Layout title="Login">
-      <div mix={pageStackCss} style={{ maxWidth: '480px', margin: '4rem auto' }}>
+      <div mix={[pageStackCss, css({ maxWidth: '480px', margin: '4rem auto' })]}>
         <div mix={panelCss}>
           <div mix={brandMarkCss}>
             <div mix={brandDotCss} />
@@ -94,7 +94,7 @@ function LoginPage(handle: Handle<LoginPageProps>) {
 
           {error ? (
             <div mix={errorBannerCss}>
-              <p mix={bodyTextCss} style={{ margin: 0 }}>
+              <p mix={[bodyTextCss, css({ margin: 0 })]}>
                 {error}
               </p>
             </div>

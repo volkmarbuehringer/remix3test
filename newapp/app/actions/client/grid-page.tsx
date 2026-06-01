@@ -288,19 +288,19 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
     return (
       <div id="client-grid-content">
         {/* Toolbar: Add New + Refresh button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: theme.space.sm, marginBottom: theme.space.sm }}>
+        <div mix={css({ display: 'flex', justifyContent: 'flex-end', gap: theme.space.sm, marginBottom: theme.space.sm })}>
           <FrameRefreshButton />
           <a
             href={buildCreateUrl(sortField, sortOrder, offset, filter)}
             rmx-document
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary" mix={smallBtnStyle}>+ Add New</Button>
           </a>
         </div>
         {/* Filter bar */}
         <div mix={filterBarStyle}>
-          <form method="GET" action="/client" style={{ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 }}>
+          <form method="GET" action="/client" mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}>
             <input
               type="text"
               name="filter"
@@ -323,13 +323,13 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           <>
             <table mix={tableStyle}>
               <colgroup>
-                <col style={{ width: '5%' }} />
-                <col style={{ width: '18%' }} />
-                <col style={{ width: '25%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '15%' }} />
-                <col style={{ width: '17%' }} />
+                <col mix={css({ width: '5%' })} />
+                <col mix={css({ width: '18%' })} />
+                <col mix={css({ width: '25%' })} />
+                <col mix={css({ width: '10%' })} />
+                <col mix={css({ width: '10%' })} />
+                <col mix={css({ width: '15%' })} />
+                <col mix={css({ width: '17%' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -407,7 +407,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     <td mix={tdStyle}>{row.status}</td>
                     <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
                     <td mix={tdActionsStyle}>
-                      <div style={{ display: 'flex', gap: theme.space.xs, justifyContent: 'center' }}>
+                      <div mix={css({ display: 'flex', gap: theme.space.xs, justifyContent: 'center' })}>
                         <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
                           <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
                         </a>
@@ -428,7 +428,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <a
                     href={buildPaginationUrl(offset - 20, sortField, sortOrder, filter)}
                     rmx-target="client-grid"
-                    style={{ textDecoration: 'none' }}
+                    mix={css({ textDecoration: 'none' })}
                   >
                     <Button tone="secondary" disabled={!hasPrev} mix={smallBtnStyle}>
                       ← Prev
@@ -437,7 +437,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <a
                     href={buildPaginationUrl(offset + 20, sortField, sortOrder, filter)}
                     rmx-target="client-grid"
-                    style={{ textDecoration: 'none' }}
+                    mix={css({ textDecoration: 'none' })}
                   >
                     <Button tone="secondary" disabled={!hasNext} mix={smallBtnStyle}>
                       Next →

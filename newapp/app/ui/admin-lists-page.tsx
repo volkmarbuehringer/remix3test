@@ -322,7 +322,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             <div mix={detailsStyle}>
                               {items.map((item, idx) => (
                                 <div key={item.id}>
-                                  <span style={{ color: theme.colors.text.muted, marginRight: '4px' }}>{idx + 1}.</span>
+                                  <span mix={css({ color: theme.colors.text.muted, marginRight: '4px' })}>{idx + 1}.</span>
                                   {item.label}
                                 </div>
                               ))}
@@ -339,11 +339,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       <td mix={[tdStyle, colCreatedWidth]}>{formatTimestamp(row.created_at)}</td>
                       <td mix={[tdStyle, colUpdatedWidth]}>{formatTimestamp(row.updated_at)}</td>
                       <td mix={[tdStyle, colActionsWidth]}>
-                        <div style={{ display: 'flex', gap: theme.space.xs, alignItems: 'center' }}>
+                        <div mix={css({ display: 'flex', gap: theme.space.xs, alignItems: 'center' })}>
                           <form
                             method="POST"
                             action={routes.admin.lists.destroy.href({ id: row.id })}
-                            style={{ margin: 0, padding: 0 }}
+                            mix={css({ margin: 0, padding: 0 })}
                           >
                             <CsrfTokenInput />
                             <AdminActionButton
@@ -373,7 +373,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                 Zeige {pageStart}–{pageEnd}
               </span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 && (
                 <a
                   href={buildPaginationUrl(prevOffset, filter)}

@@ -235,7 +235,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                 Zeige {pageStart}–{pageEnd}
               </span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 && (
                 <a
                   href={`/admin/messages?offset=${prevOffset}`}

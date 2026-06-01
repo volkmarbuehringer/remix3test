@@ -67,8 +67,7 @@ export const AdminActionButton = clientEntry(
           disabled={pending}
           aria-label={compact ? (pending ? pendingLabel : label) : undefined}
           title={compact ? (pending ? pendingLabel : label) : undefined}
-          style={{ opacity: pending ? 0.6 : undefined }}
-          mix={compact ? [compactBtnStyle, clickHandler] : clickHandler}
+          mix={compact ? [compactBtnStyle, clickHandler, css({ opacity: pending ? 0.6 : undefined })] : [clickHandler, css({ opacity: pending ? 0.6 : undefined })]}
         >
           {compact ? (
             <Glyph name={pending ? 'spinner' : 'trash'} width={16} height={16} />

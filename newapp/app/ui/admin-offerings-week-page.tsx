@@ -153,7 +153,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Erstellen
                 </Button>
-                <a href="/admin/offerings" style={{ flex: 1, textDecoration: 'none' }}>
+                <a href="/admin/offerings" mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

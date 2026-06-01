@@ -93,7 +93,7 @@ function RegisterPage(handle: Handle<{ error?: string }>) {
     let { error } = handle.props
     return (
     <Layout title="Register">
-      <div mix={pageStackCss} style={{ maxWidth: '500px', margin: '2rem auto' }}>
+      <div mix={[pageStackCss, css({ maxWidth: '500px', margin: '2rem auto' })]}>
         <div mix={panelCss}>
           <h1 style={{ margin: 0, fontSize: theme.fontSize.xl, fontWeight: theme.fontWeight.semibold, color: theme.colors.text.primary }}>
             Register

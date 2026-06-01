@@ -255,7 +255,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

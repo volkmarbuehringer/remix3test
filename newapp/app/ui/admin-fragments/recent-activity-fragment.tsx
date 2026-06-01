@@ -100,7 +100,7 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
     <div mix={cardStyle}>
       <h2 mix={titleStyle}>Letzte Aktivitäten</h2>
       {activities.length === 0 ? (
-        <p style={{ color: theme.colors.text.muted, fontSize: theme.fontSize.sm, margin: 0 }}>
+        <p mix={css({ color: theme.colors.text.muted, fontSize: theme.fontSize.sm, margin: 0 })}>
           Keine aktuellen Aktivitäten.
         </p>
       ) : (
@@ -127,7 +127,7 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                     name={`user-detail-${activity.userId}`}
                     src={routes.admin.fragments.userDetail.href({ userId: String(activity.userId) })}
                     fallback={
-                      <div style={{ fontSize: theme.fontSize.xs, color: theme.colors.text.muted }}>
+                      <div mix={css({ fontSize: theme.fontSize.xs, color: theme.colors.text.muted })}>
                         Benutzerdetails werden geladen…
                       </div>
                     }

@@ -126,7 +126,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div style="min-width:0">
+      <div mix={css({ minWidth: 0 })}>
         {error ? <div mix={errorBannerStyle}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
         <form
@@ -152,18 +152,18 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span style="flex:1" />
+          <span mix={css({ flex: 1 })} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Woche hinzufügen</Button>
           </a>
@@ -180,9 +180,9 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col style={{ width: '40px' }} />
-                <col style={{ width: '35px' }} />
-                <col style={{ width: '30px' }} />
+                <col mix={css({ width: '40px' })} />
+                <col mix={css({ width: '35px' })} />
+                <col mix={css({ width: '30px' })} />
                 <col />
                 <col />
                 <col />
@@ -269,7 +269,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           )}
           {/* Hidden DELETE forms for context menu — kept in DOM for .requestSubmit() */}
           {rows.length > 0 ? (
-            <div style="display:none" aria-hidden="true">
+            <div mix={css({ display: 'none' })} aria-hidden="true">
               {rows.map((row) => (
                 <RestfulForm
                   key={row.id}
@@ -297,7 +297,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -340,7 +340,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           <h2 mix={table.title}>Angebote</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div style="position:sticky;top:1.5rem">
+            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
               {editRow ? (
                 <AdminOfferingsEditPage
                   row={editRow}

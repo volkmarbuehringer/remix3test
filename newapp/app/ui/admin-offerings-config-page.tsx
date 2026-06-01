@@ -191,7 +191,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href="/admin/offerings" style={{ flex: 1, textDecoration: 'none' }}>
+                <a href="/admin/offerings" mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

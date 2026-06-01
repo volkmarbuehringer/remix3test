@@ -97,11 +97,10 @@ export const ConnectionIndicator = clientEntry(
         <div mix={indicatorContainerStyle} aria-live="polite" aria-label={`SSE connection: ${stateText}`}>
           <style>{`@keyframes sse-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
           <span
-            mix={dotStyle}
-            style={{
+            mix={[dotStyle, css({
               background: dotColor,
               animation: pulse ? `sse-pulse 1.5s ease-in-out infinite` : 'none',
-            }}
+            })]}
           />
           <span mix={stateTextStyle}>{stateText}</span>
         </div>

@@ -70,15 +70,13 @@ export function ShowcaseFormPage() {
           <ExamplePreview code={'<input class={[input.base, input.focus]} />'}>
             <input
               placeholder="Default input"
-              mix={[input.base, input.focus]}
-              style={{ maxWidth: '20rem' }}
+              mix={[input.base, input.focus, css({ maxWidth: '20rem' })]}
             />
           </ExamplePreview>
           <ExamplePreview code={'<input class={[input.base, input.error]} />'}>
             <input
               placeholder="Error state"
-              mix={[input.base, input.error]}
-              style={{ maxWidth: '20rem' }}
+              mix={[input.base, input.error, css({ maxWidth: '20rem' })]}
               defaultValue="invalid@"
             />
           </ExamplePreview>

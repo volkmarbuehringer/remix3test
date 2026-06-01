@@ -29,12 +29,12 @@ export const PromptButton = clientEntry(
         <button
           type="button"
           className={state}
-          style={{
-            background: active ? 'var(--surface-4)' : undefined,
-            color: active ? 'var(--brand-blue)' : undefined,
-          }}
           mix={[
             buttonStyle,
+            css({
+              background: active ? 'var(--surface-4)' : undefined,
+              color: active ? 'var(--brand-blue)' : undefined,
+            }),
             on('click', async (_event, signal) => {
               try {
                 await navigator.clipboard.writeText(handle.props.text)
@@ -81,24 +81,24 @@ export const PromptButton = clientEntry(
               minWidth: 0,
               position: 'relative',
               transition: 'opacity 180ms ease',
+              opacity: state === 'resetting' ? 0 : undefined,
             })}
-            style={{ opacity: state === 'resetting' ? 0 : undefined }}
           >
             <span
               aria-hidden={state === 'idle' ? true : undefined}
-              style={{
+              mix={css({
                 alignItems: 'center',
                 display: 'flex',
                 inset: 0,
                 position: 'absolute',
                 visibility: state === 'idle' ? 'hidden' : 'visible',
-              }}
+              })}
             >
               {label}
             </span>
             <span
               aria-hidden={state === 'idle' ? undefined : true}
-              style={{ visibility: state === 'idle' ? 'visible' : 'hidden' }}
+              mix={css({ visibility: state === 'idle' ? 'visible' : 'hidden' })}
             >
               {promptLabel}
             </span>

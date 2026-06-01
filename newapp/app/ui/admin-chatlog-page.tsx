@@ -128,7 +128,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           {conversations.length === 0 ? (
             <p mix={emptyStateStyle}>Noch keine Konversationen.</p>
           ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul mix={css({ listStyle: 'none', padding: 0, margin: 0 })}>
               {conversations.map(conv => {
                 let hasToolCalls = conv.conversation.some(msg => msg.toolCalls && msg.toolCalls.length > 0)
                 let link = hasToolCalls ? `/ai/agent?agentId=${conv.id}` : `/ai/chat?chatId=${conv.id}`
@@ -141,7 +141,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                     <p mix={conversationMetaStyle}>
                       Erstellt: {new Date(conv.created_at).toLocaleString('de-DE')} &bull; Aktualisiert: {new Date(conv.updated_at).toLocaleString('de-DE')} &bull; {conv.conversation.length} Nachricht(en)
                     </p>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div mix={css({ display: 'flex', gap: '0.5rem', alignItems: 'center' })}>
                       <form
                         method="POST"
                         action={routes.admin.chatlog.destroy.href({ id: conv.id })}
@@ -159,7 +159,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                     </div>
                     <details>
                       <summary mix={detailsSummaryStyle}>{conv.conversation.length} Nachricht(en) anzeigen</summary>
-                      <ul style={{ marginTop: theme.space.sm, paddingLeft: theme.space.lg, listStyle: 'none' }}>
+                      <ul mix={css({ marginTop: theme.space.sm, paddingLeft: theme.space.lg, listStyle: 'none' })}>
                         {conv.conversation.map((msg, idx) => (
                           <li key={idx} mix={messageItemStyle}>
                             <p mix={messageLabelStyle}>

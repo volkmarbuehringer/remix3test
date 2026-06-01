@@ -93,7 +93,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div style="min-width:0">
+      <div mix={css({ minWidth: 0 })}>
         {/* Filter bar + Add New */}
         <form method="GET" action="/admin/nutzer" rmx-target={frames.adminContent} mix={table.filterBar}>
           <input
@@ -106,11 +106,11 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span style="flex:1" />
+          <span mix={css({ flex: 1 })} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -127,14 +127,14 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
           ) : (
             <table id="nutzer-table" mix={table.table}>
               <colgroup>
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '24%' }} />
-                <col style={{ width: '11%' }} />
-                <col style={{ width: '8%' }} />
-                <col style={{ width: '6%' }} />
-                <col style={{ width: '6%' }} />
-                <col style={{ width: '13%' }} />
+                <col mix={css({ width: '12%' })} />
+                <col mix={css({ width: '20%' })} />
+                <col mix={css({ width: '24%' })} />
+                <col mix={css({ width: '11%' })} />
+                <col mix={css({ width: '8%' })} />
+                <col mix={css({ width: '6%' })} />
+                <col mix={css({ width: '6%' })} />
+                <col mix={css({ width: '13%' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -189,7 +189,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -243,7 +243,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
           <h2 mix={table.title}>Nutzer</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div style="position:sticky;top:1.5rem">
+            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
               {editRow ? (
                 <AdminNutzerEditPage
                   row={editRow}

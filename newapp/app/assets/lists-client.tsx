@@ -245,14 +245,14 @@ export const ListsClient = clientEntry(
       if (loadingList) {
         return (
           <div
-            style={{
+            mix={css({
               fontFamily: theme.fontFamily.sans,
               maxWidth: '600px',
               padding: theme.space.xxl,
               textAlign: 'center',
               color: theme.colors.text.secondary,
               fontSize: theme.fontSize.lg,
-            }}
+            })}
           >
             Liste wird geladen…
           </div>
@@ -263,14 +263,14 @@ export const ListsClient = clientEntry(
       if (loadError) {
         return (
           <div
-            style={{
+            mix={css({
               fontFamily: theme.fontFamily.sans,
               maxWidth: '600px',
               padding: theme.space.xxl,
               textAlign: 'center',
               color: theme.colors.action.danger.background,
               fontSize: theme.fontSize.lg,
-            }}
+            })}
           >
             {loadError}
           </div>
@@ -278,16 +278,16 @@ export const ListsClient = clientEntry(
       }
 
       return (
-        <div style={{ fontFamily: theme.fontFamily.sans, maxWidth: '600px' }}>
+        <div mix={css({ fontFamily: theme.fontFamily.sans, maxWidth: '600px' })}>
           {/* Control bar */}
           <div
-            style={{
+            mix={css({
               display: 'flex',
               gap: theme.space.md,
               marginBottom: theme.space.lg,
               flexWrap: 'wrap',
               alignItems: 'center',
-            }}
+            })}
           >
             <Button tone="secondary" mix={on('click', reverse)}>
               ↺ Umkehren
@@ -303,24 +303,22 @@ export const ListsClient = clientEntry(
               ✕ Alle löschen
             </Button>
             <div
-              style={{
+              mix={css({
                 display: 'inline-flex',
                 marginLeft: 'auto',
-              }}
+              })}
             >
               <Button
                 tone="primary"
-                mix={on('click', updateList)}
+                mix={[css({ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }), on('click', updateList)]}
                 disabled={loadedListId === null || !description.trim() || items.length === 0 || updating}
-                style={{ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
               >
                 {updating ? '⏳ Wird aktualisiert…' : '🔄 Aktualisieren'}
               </Button>
               <Button
                 tone="primary"
-                mix={on('click', saveToStorage)}
+                mix={[css({ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }), on('click', saveToStorage)]}
                 disabled={!description.trim() || items.length === 0 || saving}
-                style={{ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }}
               >
                 {saving ? '⏳ Speichern…' : '💾 Hinzufügen'}
               </Button>
@@ -329,9 +327,9 @@ export const ListsClient = clientEntry(
 
           {/* Description input */}
           <div
-            style={{
+            mix={css({
               marginBottom: theme.space.lg,
-            }}
+            })}
           >
             <input
               mix={[
@@ -369,7 +367,7 @@ export const ListsClient = clientEntry(
           {/* Toast notification */}
           {showSavedToast && (
             <div
-              style={{
+              mix={css({
                 position: 'fixed',
                 top: theme.space.lg,
                 left: '50%',
@@ -382,7 +380,7 @@ export const ListsClient = clientEntry(
                 fontWeight: theme.fontWeight.medium,
                 boxShadow: theme.shadow.md,
                 zIndex: 1000,
-              }}
+              })}
             >
               ✓ {items.length} Eintr{items.length !== 1 ? 'äge' : 'ag'} gespeichert!
             </div>
@@ -390,12 +388,12 @@ export const ListsClient = clientEntry(
 
           {/* Add item */}
           <div
-            style={{
+            mix={css({
               display: 'flex',
               gap: theme.space.md,
               marginBottom: theme.space.lg,
               alignItems: 'flex-start',
-            }}
+            })}
           >
             <textarea
               mix={[
@@ -441,39 +439,39 @@ export const ListsClient = clientEntry(
 
           {/* Items list */}
           <div
-            style={{
+            mix={css({
               border: `1px solid ${theme.colors.border.default}`,
               borderRadius: theme.radius.xl,
               overflow: 'hidden',
-            }}
+            })}
           >
             <div
-              style={{
+              mix={css({
                 backgroundColor: theme.surface.lvl2,
                 padding: `${theme.space.sm} ${theme.space.md}`,
                 borderBottom: `1px solid ${theme.colors.border.default}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-              }}
+              })}
             >
               <span
-                style={{
+                mix={css({
                   fontSize: theme.fontSize.xs,
                   fontWeight: theme.fontWeight.semibold,
                   color: theme.colors.text.muted,
-                }}
+                })}
               >
                 ELEMENTE
               </span>
               <span
-                style={{
+                mix={css({
                   fontSize: theme.fontSize.sm,
                   color: theme.colors.text.secondary,
                   backgroundColor: theme.colors.border.default,
                   padding: `${theme.space.xs} ${theme.space.md}`,
                   borderRadius: theme.radius.full,
-                }}
+                })}
               >
                 {items.length} Einträge
               </span>
@@ -481,11 +479,11 @@ export const ListsClient = clientEntry(
 
             {items.length === 0 ? (
               <div
-                style={{
+                mix={css({
                   padding: `${theme.space.xxl} ${theme.space.lg}`,
                   textAlign: 'center',
                   color: theme.colors.text.muted,
-                }}
+                })}
               >
                 Noch keine Elemente. Füge oben eines hinzu.
               </div>
@@ -511,7 +509,7 @@ export const ListsClient = clientEntry(
                 {items.map((item, index) => (
                   <div
                     key={item.id}
-                    style={{
+                    mix={css({
                       display: 'flex',
                       gap: theme.space.md,
                       alignItems: 'center',
@@ -522,10 +520,10 @@ export const ListsClient = clientEntry(
                           : 'none',
                       backgroundColor:
                         index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
-                    }}
+                    })}
                   >
                     <span
-                      style={{
+                      mix={css({
                         width: '28px',
                         height: '28px',
                         display: 'flex',
@@ -536,7 +534,7 @@ export const ListsClient = clientEntry(
                         borderRadius: theme.radius.md,
                         fontSize: theme.fontSize.xs,
                         fontWeight: theme.fontWeight.semibold,
-                      }}
+                      })}
                     >
                       {index + 1}
                     </span>
@@ -575,7 +573,7 @@ export const ListsClient = clientEntry(
                       <span mix={multilineDisplayStyle}>{item.label}</span>
                     )}
 
-                    <div style={{ display: 'flex', gap: theme.space.xs }}>
+                    <div mix={css({ display: 'flex', gap: theme.space.xs })}>
                       {editingIndex === index ? (
                         <>
                           <Button tone="primary" mix={on('click', saveEdit)} title="Speichern"><Glyph name="check" width={16} height={16} /></Button>

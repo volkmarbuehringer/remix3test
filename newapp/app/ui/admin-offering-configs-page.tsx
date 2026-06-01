@@ -136,7 +136,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div style="min-width:0">
+      <div mix={css({ minWidth: 0 })}>
         <form
           method="GET"
           action="/admin/offering-configs"
@@ -160,11 +160,11 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               Zurücksetzen
             </a>
           )}
-          <span style="flex:1" />
+          <span mix={css({ flex: 1 })} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -180,12 +180,12 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col style={{ width: '60px' }} />
+                <col mix={css({ width: '60px' })} />
                 <col />
                 <col />
-                <col style={{ width: '160px' }} />
-                <col style={{ width: '160px' }} />
-                <col style={{ width: '100px' }} />
+                <col mix={css({ width: '160px' })} />
+                <col mix={css({ width: '160px' })} />
+                <col mix={css({ width: '100px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -234,7 +234,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   <tr key={row.id} mix={[table.row, editRow?.id === row.id ? editingRowStyle : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
                     <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description}</td>
-                    <td mix={table.td} title={rulesSummary(row.rules)} style={{ fontSize: '11px' }}>{rulesSummary(row.rules)}</td>
+                    <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>{formatTimestamp(row.updated_at)}</td>
                     <td mix={table.actionCell}>
@@ -249,7 +249,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         <RestfulForm
                           method="DELETE"
                           action={`/admin/offering-configs/${row.id}`}
-                          style="display:inline"
+                          mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -277,7 +277,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}{'\u2013'}{pageEnd}</span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -308,7 +308,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <h2 mix={table.title}>Angebotskonfigurationen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div style="position:sticky;top:1.5rem">
+            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
               {editRow ? (
                 <EditPanel
                   row={editRow}
@@ -418,7 +418,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -494,7 +494,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

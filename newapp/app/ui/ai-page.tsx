@@ -43,7 +43,7 @@ const btnStyle = css({
 export function AiDashboardContent() {
   return () => (
     <div>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem' }}>
+      <h1 mix={css({ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem' })}>
         KI-Dashboard
       </h1>
       <div

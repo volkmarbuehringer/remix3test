@@ -49,7 +49,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     let pageEnd = offset + rows.length
 
     let gridSection = (
-      <div style="min-width:0">
+      <div mix={css({ minWidth: 0 })}>
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -74,11 +74,11 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               Zurücksetzen
             </a>
           )}
-          <span style="flex:1" />
+          <span mix={css({ flex: 1 })} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
-            style={{ textDecoration: 'none' }}
+            mix={css({ textDecoration: 'none' })}
           >
             <Button tone="primary">+ Neu anlegen</Button>
           </a>
@@ -95,11 +95,11 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col style={{ width: '60px' }} />
+                <col mix={css({ width: '60px' })} />
                 <col />
-                <col style={{ width: '160px' }} />
-                <col style={{ width: '160px' }} />
-                <col style={{ width: '100px' }} />
+                <col mix={css({ width: '160px' })} />
+                <col mix={css({ width: '160px' })} />
+                <col mix={css({ width: '100px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -161,7 +161,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         <RestfulForm
                           method="DELETE"
                           action={`/admin/resources/${row.id}`}
-                          style="display:inline"
+                          mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -190,7 +190,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             {rows.length > 0 && (
               <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
             )}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
@@ -222,7 +222,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <h2 mix={table.title}>Ressourcen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div style="position:sticky;top:1.5rem">
+            <div mix={css({ position: 'sticky', top: '1.5rem' })}>
               {editRow ? (
                 <AdminResourcesEditPanel
                   row={editRow}
@@ -293,7 +293,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -345,7 +345,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={css({ flex: 1 })}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} style={{ flex: 1, textDecoration: 'none' }}>
+                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={css({ flex: 1, textDecoration: 'none' })}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
