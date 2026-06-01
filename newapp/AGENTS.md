@@ -20,7 +20,7 @@ When you need API docs or usage examples for a `remix/*` subpath:
 
 ## Building Features
 
-Refer to ./.agents/skills/remix/SKILL.md
+Refer to `.opencode/skills/remix/SKILL.md` (plus 11 specialized skills: remix3-multiple-route-trees, remix-cli-devops, remix-cookies, remix-demos, remix-fetch-proxy, remix-file-uploads, remix-headers, remix-html-template, remix-render-middleware, remix-response-helpers, remix-security-middleware)
 
 ## Starter Layout
 
