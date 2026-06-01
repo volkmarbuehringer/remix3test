@@ -51,7 +51,7 @@ export const AppointTypePanel = clientEntry(
       return (
         <div data-types-panel="true" mix={[panelStyle, isDropActive ? panelDropActiveStyle : undefined]}>
           <div mix={headerStyle}>
-            <span mix={headerTitleStyle}>Appointment Types</span>
+            <span mix={headerTitleStyle}>Termintypen</span>
           </div>
 
           <menu.Context label="Type Actions">
@@ -72,7 +72,7 @@ export const AppointTypePanel = clientEntry(
                 >
                   {editingId === t.id ? (
                     <input
-                      aria-label="Edit type name"
+                      aria-label="Typnamen bearbeiten"
                       type="text"
                       defaultValue={t.title}
                       mix={[
@@ -102,9 +102,9 @@ export const AppointTypePanel = clientEntry(
               {adding ? (
                 <div mix={addRowStyle}>
                   <input
-                    aria-label="New type name"
+                    aria-label="Neuer Typname"
                     type="text"
-                    placeholder="Type name..."
+                    placeholder="Typname..."
                     mix={[
                       inputStyle,
                       ref((el) => {
@@ -129,7 +129,7 @@ export const AppointTypePanel = clientEntry(
                   on('click', () => { adding = true; handle.update() }),
                 ]}
               >
-                + Add Type
+                + Typ hinzufügen
               </button>
             ) : null}
 

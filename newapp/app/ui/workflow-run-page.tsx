@@ -89,14 +89,14 @@ export function WorkflowRunPage(handle: Handle<WorkflowRunPageProps>) {
     <div>
       {error ? (
         <div mix={errorCardStyle}>
-          <h1 mix={errorTitleStyle}>Error</h1>
+          <h1 mix={errorTitleStyle}>Fehler</h1>
           <p mix={errorMessageStyle}>{error}</p>
-          <a href={routes.ai.workflow.index.href()} mix={backLinkStyle}>&larr; Back to Workflows</a>
+            <a href={routes.ai.workflow.index.href()} mix={backLinkStyle}>&larr; Zurück zu Workflows</a>
         </div>
       ) : run ? (
         <div>
           <div mix={runHeaderStyle}>
-            <h1 mix={pageTitleStyle}>Workflow Run</h1>
+            <h1 mix={pageTitleStyle}>Workflow-Ausführung</h1>
             <span mix={[statusBadgeBaseStyle,
               run.status === 'pending' ? statusPendingStyle
               : run.status === 'running' ? statusRunningStyle
@@ -107,22 +107,22 @@ export function WorkflowRunPage(handle: Handle<WorkflowRunPageProps>) {
 
           <div mix={infoGridStyle}>
             <div mix={infoItemStyle}><span mix={infoLabelStyle}>Workflow</span><span mix={infoValueStyle}>{run.workflow_id}</span></div>
-            <div mix={infoItemStyle}><span mix={infoLabelStyle}>Started</span><span mix={infoValueStyle}>{new Date(Number(run.created_at)).toLocaleString('de-DE')}</span></div>
+            <div mix={infoItemStyle}><span mix={infoLabelStyle}>Gestartet</span><span mix={infoValueStyle}>{new Date(Number(run.created_at)).toLocaleString('de-DE')}</span></div>
             {run.completed_at ? (
-              <div mix={infoItemStyle}><span mix={infoLabelStyle}>Completed</span><span mix={infoValueStyle}>{new Date(Number(run.completed_at)).toLocaleString('de-DE')}</span></div>
+              <div mix={infoItemStyle}><span mix={infoLabelStyle}>Abgeschlossen</span><span mix={infoValueStyle}>{new Date(Number(run.completed_at)).toLocaleString('de-DE')}</span></div>
             ) : null}
           </div>
 
           {run.params != null && run.params !== '{}' && (
             <div mix={sectionStyle}>
-              <h2 mix={sectionTitleStyle}>Parameters</h2>
+              <h2 mix={sectionTitleStyle}>Parameter</h2>
               <pre mix={codeBlockStyle}>{(() => { try { return JSON.stringify(typeof run.params === 'string' ? JSON.parse(run.params) : run.params, null, 2) } catch { return run.params } })()}</pre>
             </div>
           )}
 
           {run.steps != null && run.steps !== '[]' && (
             <div mix={sectionStyle}>
-              <h2 mix={sectionTitleStyle}>Steps</h2>
+              <h2 mix={sectionTitleStyle}>Schritte</h2>
               <div mix={stepsListStyle}>
                 {(() => {
                   let steps = []
@@ -154,14 +154,14 @@ export function WorkflowRunPage(handle: Handle<WorkflowRunPageProps>) {
 
           {run.result != null && run.result !== 'null' && (
             <div mix={sectionStyle}>
-              <h2 mix={sectionTitleStyle}>Result</h2>
+              <h2 mix={sectionTitleStyle}>Ergebnis</h2>
               <pre mix={codeBlockStyle}>{(() => { try { return JSON.stringify(typeof run.result === 'string' ? JSON.parse(run.result) : run.result, null, 2) } catch { return run.result } })()}</pre>
             </div>
           )}
 
           {run.error && (
             <div mix={sectionStyle}>
-              <h2 mix={sectionTitleStyle}>Error</h2>
+              <h2 mix={sectionTitleStyle}>Fehler</h2>
               <div mix={errorMessageStyle}>{run.error}</div>
             </div>
           )}
@@ -169,7 +169,7 @@ export function WorkflowRunPage(handle: Handle<WorkflowRunPageProps>) {
           {run.status === 'running' && <meta httpEquiv="refresh" content="3" />}
 
           <div mix={actionsStyle}>
-            <a href={routes.ai.workflow.index.href()} mix={backLinkStyle}>&larr; Back to Workflows</a>
+            <a href={routes.ai.workflow.index.href()} mix={backLinkStyle}>&larr; Zurück zu Workflows</a>
           </div>
         </div>
       ) : null}

@@ -44,7 +44,7 @@ export function AiDashboardContent() {
   return () => (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1.5rem' }}>
-        AI Dashboard
+        KI-Dashboard
       </h1>
       <div
         mix={css({
@@ -56,19 +56,19 @@ export function AiDashboardContent() {
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Chat</h2>
           <p mix={cardDescStyle}>
-            A conversational AI assistant that answers questions and helps with tasks.
+            Ein Konversations-KI-Assistent, der Fragen beantwortet und bei Aufgaben hilft.
           </p>
           <a href={routes.ai.chat.index.href()} mix={btnStyle}>
-            Open Chat
+            Chat öffnen
           </a>
         </div>
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Agent</h2>
           <p mix={cardDescStyle}>
-            An AI agent with tools — search Wikipedia, check weather, and more.
+            Ein KI-Agent mit Werkzeugen – Wikipedia durchsuchen, Wetter prüfen und mehr.
           </p>
           <a href={routes.ai.agent.index.href()} mix={btnStyle}>
-            Open Agent
+            Agent öffnen
           </a>
         </div>
       </div>

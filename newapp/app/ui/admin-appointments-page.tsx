@@ -404,7 +404,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       return (
         <div mix={table.page}>
           <div mix={headerBarStyle}>
-            <h2 mix={table.title}>Appointments</h2>
+            <h2 mix={table.title}>Termine</h2>
             <ConnectionIndicator
               {...({
                 url: '/admin/appointments/events',
@@ -447,7 +447,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     return (
       <div mix={table.page}>
         <div mix={headerBarStyle}>
-          <h2 mix={table.title}>Appointments</h2>
+          <h2 mix={table.title}>Termine</h2>
           <ConnectionIndicator
             {...({
               url: '/admin/appointments/events',

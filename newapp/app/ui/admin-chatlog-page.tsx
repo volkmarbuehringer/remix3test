@@ -109,24 +109,24 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
     return (
       <div>
         <div mix={pageStyle}>
-          <h1 mix={pageTitleStyle}>Chat Conversations</h1>
-
+          <h1 mix={pageTitleStyle}>Chat-Konversationen</h1>
+ 
           <form method="get" mix={filterFormStyle}>
-            <input type="text" name="filter" placeholder="Search conversations..." defaultValue={filter ?? ''} mix={filterInputStyle} />
-            <Button type="submit" tone="primary">Search</Button>
-            {filter && <a href="/admin/chatlog" mix={clearLinkStyle}>Clear filter</a>}
+            <input type="text" name="filter" placeholder="Konversationen durchsuchen..." defaultValue={filter ?? ''} mix={filterInputStyle} />
+            <Button type="submit" tone="primary">Suchen</Button>
+            {filter && <a href="/admin/chatlog" mix={clearLinkStyle}>Filter zurücksetzen</a>}
           </form>
-
+ 
           {type && (
             <p mix={typeFilterLabelStyle}>
-              Showing: {type === 'chat' ? 'Chat' : 'Agent'} conversations
-              <a href="/admin/chatlog" mix={clearLinkStyle}>Clear filter</a>
+              Angezeigt: {type === 'chat' ? 'Chat' : 'Agent'}-Konversationen
+              <a href="/admin/chatlog" mix={clearLinkStyle}>Filter zurücksetzen</a>
             </p>
           )}
-          <p mix={resultCountStyle}>Page {page}</p>
-
+          <p mix={resultCountStyle}>Seite {page}</p>
+ 
           {conversations.length === 0 ? (
-            <p mix={emptyStateStyle}>No conversations yet.</p>
+            <p mix={emptyStateStyle}>Noch keine Konversationen.</p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {conversations.map(conv => {
@@ -135,11 +135,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
-                      <a href={link} mix={conversationLinkStyle}>Conversation #{conv.id}</a>
+                      <a href={link} mix={conversationLinkStyle}>Konversation #{conv.id}</a>
                       <span mix={hasToolCalls ? [badgeStyle, agentBadgeStyle] : badgeStyle}>{hasToolCalls ? 'Agent' : 'Chat'}</span>
                     </div>
                     <p mix={conversationMetaStyle}>
-                      Created: {new Date(conv.created_at).toLocaleString('de-DE')} &bull; Updated: {new Date(conv.updated_at).toLocaleString('de-DE')} &bull; {conv.conversation.length} message(s)
+                      Erstellt: {new Date(conv.created_at).toLocaleString('de-DE')} &bull; Aktualisiert: {new Date(conv.updated_at).toLocaleString('de-DE')} &bull; {conv.conversation.length} Nachricht(en)
                     </p>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <form
@@ -150,23 +150,23 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                         <AdminActionButton
                           action={routes.admin.chatlog.destroy.href({ id: conv.id })}
                           method="POST"
-                          label="Delete"
-                          pendingLabel="Deleting..."
-                          confirmMsg={`Delete conversation #${conv.id}?`}
+                          label="Löschen"
+                          pendingLabel="Wird gelöscht…"
+                          confirmMsg={`Konversation #${conv.id} löschen?`}
                         />
                       </form>
                       <ChatlogRowDetail conversationId={conv.id} />
                     </div>
                     <details>
-                      <summary mix={detailsSummaryStyle}>View {conv.conversation.length} message(s)</summary>
+                      <summary mix={detailsSummaryStyle}>{conv.conversation.length} Nachricht(en) anzeigen</summary>
                       <ul style={{ marginTop: theme.space.sm, paddingLeft: theme.space.lg, listStyle: 'none' }}>
                         {conv.conversation.map((msg, idx) => (
                           <li key={idx} mix={messageItemStyle}>
                             <p mix={messageLabelStyle}>
-                              {msg.role === 'user' ? 'User' : 'Assistant'}
+                              {msg.role === 'user' ? 'Benutzer' : 'Assistent'}
                               {msg.timestamp && <span mix={messageTimestampStyle}>{new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>}
                               {msg.elapsed && <span mix={elapsedTimeStyle}>({msg.elapsed < 1000 ? `${msg.elapsed}ms` : `${(msg.elapsed / 1000).toFixed(1)}s`})</span>}
-                              {msg.tokens && <span mix={tokenBadgeStyle} title={`Input: ${msg.tokens.input}, Output: ${msg.tokens.output}`}>{msg.tokens.total} tokens</span>}
+                              {msg.tokens && <span mix={tokenBadgeStyle} title={`Eingabe: ${msg.tokens.input}, Ausgabe: ${msg.tokens.output}`}>{msg.tokens.total} Tokens</span>}
                               {msg.toolCalls && msg.toolCalls.length > 0 && <span mix={toolCallBadgeStyle}>{msg.toolCalls.map(tc => tc.name).join(', ')}</span>}
                             </p>
                             <p mix={messageContentStyle}>{decode(msg.content)}</p>
@@ -176,7 +176,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                                   <div key={tidx} mix={toolDetailItemStyle}>
                                     <span mix={toolNameStyle}>{tc.name}</span>
                                     <pre mix={toolInputStyle}>{JSON.stringify(tc.input, null, 2)}</pre>
-                                    {tc.result !== undefined && <div mix={toolResultStyle}><span mix={toolResultLabelStyle}>Result:</span><pre mix={toolResultContentStyle}>{JSON.stringify(tc.result, null, 2)}</pre></div>}
+                                    {tc.result !== undefined && <div mix={toolResultStyle}><span mix={toolResultLabelStyle}>Ergebnis:</span><pre mix={toolResultContentStyle}>{JSON.stringify(tc.result, null, 2)}</pre></div>}
                                   </div>
                                 ))}
                               </div>
@@ -194,20 +194,20 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           {(hasMore || page > 1) && (
             <div mix={paginationStyle}>
               {page > 1 ? (
-                <a href={pageHref(page - 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
-                  ← Previous
-                </a>
-              ) : (
-                <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>← Previous</span>
-              )}
-              <span mix={pageLabelStyle}>Page {page}</span>
-              {hasMore ? (
-                <a href={pageHref(page + 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
-                  Next →
-                </a>
-              ) : (
-                <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>Next →</span>
-              )}
+                  <a href={pageHref(page - 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                    ← Zurück
+                  </a>
+                ) : (
+                  <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>← Zurück</span>
+                )}
+                <span mix={pageLabelStyle}>Seite {page}</span>
+                {hasMore ? (
+                  <a href={pageHref(page + 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                    Weiter →
+                  </a>
+                ) : (
+                  <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>Weiter →</span>
+                )}
             </div>
           )}
         </div>

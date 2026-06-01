@@ -13,7 +13,7 @@ const NAV_GROUPS: NavGroup<AiNavItem>[] = [
     items: [{ id: 'dashboard', label: 'Dashboard', route: routes.ai.index }],
   },
   {
-    label: 'AI Tools',
+    label: 'KI-Tools',
     items: [
       { id: 'chat', label: 'Chat', route: routes.ai.chat.index },
       { id: 'agent', label: 'Agent', route: routes.ai.agent.index },
@@ -62,5 +62,5 @@ export const { renderPage: renderAiPage, Layout: AiLayout } =
     navGroups: NAV_GROUPS,
     navIcon,
     headerIcon: sidebarHeaderIcon(),
-    headerLabel: 'AI',
+    headerLabel: 'KI',
   })

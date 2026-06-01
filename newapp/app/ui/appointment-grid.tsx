@@ -196,7 +196,7 @@ export const AppointmentGrid = clientEntry(
 
       return (
         <div
-          aria-label="Weekly appointment grid"
+          aria-label="Wöchentliche Terminübersicht"
           data-dragging={isDragging ? 'true' : undefined}
           data-resizing={isResizing ? 'true' : undefined}
           mix={gridWrapperStyle}
@@ -205,7 +205,7 @@ export const AppointmentGrid = clientEntry(
             <div mix={cornerCellStyle}>
               {/* Trashcan — visible during drag */}
               <div
-                aria-label="Delete appointment"
+                aria-label="Termin löschen"
                 mix={[
                   trashcanZoneStyle,
                   isDragging ? trashcanVisibleStyle : undefined,
@@ -350,7 +350,7 @@ export const AppointmentGrid = clientEntry(
                           )
                         ) : null}
                         <textarea
-                          aria-label="Appointment title"
+                          aria-label="Termintitel"
                           rows={2}
                           defaultValue={appt.title}
                           mix={[
@@ -392,11 +392,11 @@ export const AppointmentGrid = clientEntry(
                                 }),
                               ]}
                             >
-                              Save
+                              Speichern
                             </button>
                             <button
                               type="button"
-                              aria-label="Cancel appointment"
+                              aria-label="Termin abbrechen"
                               mix={[
                                 draftCancelButtonStyle,
                                 on('pointerdown', (e: any) => {
@@ -405,7 +405,7 @@ export const AppointmentGrid = clientEntry(
                                 }),
                               ]}
                             >
-                              Cancel
+                              Abbrechen
                             </button>
                           </div>
                         ) : null}
@@ -413,7 +413,7 @@ export const AppointmentGrid = clientEntry(
                         {!isRestrictedBlock && !isDragging && !isEditing ? (
                           <>
                             <div
-                              aria-label="Resize start"
+                              aria-label="Start verschieben"
                               mix={[
                                 resizeHandleStyle,
                                 startResizeHandleStyle,
@@ -428,7 +428,7 @@ export const AppointmentGrid = clientEntry(
                               ]}
                             />
                             <div
-                              aria-label="Resize end"
+                              aria-label="Ende verschieben"
                               mix={[
                                 resizeHandleStyle,
                                 endResizeHandleStyle,
@@ -486,9 +486,9 @@ export const AppointmentGrid = clientEntry(
                       style={`top: ${((draftState.start - currentOfferingStartMin) / 60) * SLOT_HEIGHT}px; height: ${Math.max(84, ((draftState.end - draftState.start) / 60) * SLOT_HEIGHT)}px;`}
                     >
                       <textarea
-                        aria-label="New appointment title"
+                        aria-label="Neuer Termintitel"
                         rows={2}
-                        placeholder="Title"
+                        placeholder="Titel"
                         mix={[
                           inputStyle,
                           ref((el) => {
@@ -510,7 +510,7 @@ export const AppointmentGrid = clientEntry(
                       <div mix={draftButtonsStyle}>
                         <button
                           type="button"
-                          aria-label="Save appointment"
+                          aria-label="Termin speichern"
                           mix={[
                             draftSaveButtonStyle,
                             on('pointerdown', (e: any) => {
@@ -519,11 +519,11 @@ export const AppointmentGrid = clientEntry(
                             }),
                           ]}
                         >
-                          Save
+                          Speichern
                         </button>
                         <button
                           type="button"
-                          aria-label="Cancel appointment"
+                          aria-label="Termin abbrechen"
                           mix={[
                             draftCancelButtonStyle,
                             on('pointerdown', (e: any) => {

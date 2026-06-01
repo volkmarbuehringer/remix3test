@@ -151,14 +151,14 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add New</Button>
+            <Button tone="primary">+ Neu anlegen</Button>
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter)}
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add Week</Button>
+            <Button tone="primary">+ Woche hinzufügen</Button>
           </a>
         </form>
 
@@ -330,7 +330,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     if (editRow || creating || configResourceId || addWeek) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Offerings</h2>
+          <h2 mix={table.title}>Angebote</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
@@ -370,7 +370,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
 
     return (
       <div mix={table.page}>
-        <h2 mix={table.title}>Offerings</h2>
+        <h2 mix={table.title}>Angebote</h2>
         {gridSection}
       </div>
     )

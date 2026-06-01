@@ -13,7 +13,7 @@ import { getCspNonce } from '../middleware/security-headers.ts'
 function formatDateRange(mondayMs: number): string {
   let monday = new Date(mondayMs)
   let sunday = new Date(mondayMs + 6 * 86_400_000)
-  let months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  let months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
   let monStr = `${months[monday.getUTCMonth()]} ${monday.getUTCDate()}`
   let sunStr = `${months[sunday.getUTCMonth()]} ${sunday.getUTCDate()}, ${sunday.getUTCFullYear()}`
   return `${monStr} – ${sunStr}`
@@ -79,7 +79,7 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
     })
 
     return (
-      <Layout title="Appointment">
+      <Layout title="Termine">
         <script id="appointment-data" type="application/json" nonce={getCspNonce()}>
           {data}
         </script>

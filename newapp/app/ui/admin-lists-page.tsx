@@ -28,10 +28,10 @@ function formatTimestamp(ms: number): string {
 }
 
 function formatPreview(items: Array<{ label: string }>): string {
-  if (!Array.isArray(items) || items.length === 0) return '(empty)'
+  if (!Array.isArray(items) || items.length === 0) return '(leer)'
   let labels = items.map((i) => i.label)
   if (labels.length <= 5) return labels.join(', ')
-  return labels.slice(0, 5).join(', ') + ` (+${labels.length - 5} more)`
+  return labels.slice(0, 5).join(', ') + ` (+${labels.length - 5} weitere)`
 }
 
 // ── Styles ──
@@ -259,9 +259,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
 
     return (
       <div mix={pageStyle}>
-        <h2 mix={titleStyle}>Saved Lists</h2>
+        <h2 mix={titleStyle}>Gespeicherte Listen</h2>
         <p mix={descriptionStyle}>
-          All list snapshots saved by users. Each row represents a save event.
+          Alle von Benutzern gespeicherten Listen. Jede Zeile repräsentiert einen Speichervorgang.
         </p>
 
         {/* Filter bar */}
@@ -269,16 +269,16 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           <input
             type="text"
             name="filter"
-            placeholder="Search by item label or description..."
+            placeholder="Nach Element oder Beschreibung suchen…"
             defaultValue={filter ?? ''}
             mix={filterInputStyle}
           />
           <button type="submit" mix={searchBtnStyle}>
-            Search
+            Suchen
           </button>
           {filter && (
             <a href="/admin/lists" rmx-target={frames.adminContent} mix={clearLinkStyle}>
-              Clear
+              Zurücksetzen
             </a>
           )}
         </form>
@@ -287,20 +287,20 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           {lists.length === 0 ? (
             <div mix={emptyStateStyle}>
               {filter
-                ? 'No lists found for this search.'
-                : 'No lists saved yet.'}
+                ? 'Keine Listen für diese Suche gefunden.'
+                : 'Noch keine Listen gespeichert.'}
             </div>
           ) : (
             <table mix={tableStyle}>
               <thead>
                 <tr>
                   <th mix={[thStyle, colIdWidth]}>ID</th>
-                  <th mix={[thStyle, colItemsWidth]}>Items</th>
-                  <th mix={thStyle}>Preview</th>
-                  <th mix={[thStyle, colDescWidth]}>Description</th>
-                  <th mix={[thStyle, colCreatedWidth]}>Created</th>
-                  <th mix={[thStyle, colUpdatedWidth]}>Updated</th>
-                  <th mix={[thStyle, colActionsWidth]}>Actions</th>
+                  <th mix={[thStyle, colItemsWidth]}>Elemente</th>
+                  <th mix={thStyle}>Vorschau</th>
+                  <th mix={[thStyle, colDescWidth]}>Beschreibung</th>
+                  <th mix={[thStyle, colCreatedWidth]}>Erstellt</th>
+                  <th mix={[thStyle, colUpdatedWidth]}>Aktualisiert</th>
+                  <th mix={[thStyle, colActionsWidth]}>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -318,7 +318,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         <div mix={previewTextStyle}>{formatPreview(items)}</div>
                         {items.length > 0 && (
                           <details>
-                            <summary mix={summaryStyle}>Show all {items.length} items</summary>
+                            <summary mix={summaryStyle}>Alle {items.length} Elemente anzeigen</summary>
                             <div mix={detailsStyle}>
                               {items.map((item, idx) => (
                                 <div key={item.id}>
@@ -333,7 +333,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       <td mix={[tdStyle, colDescWidth]}>
                         {row.description
                           ? <a href={`/lists?load=${row.id}`} target="_top" mix={descLinkStyle} title={row.description}>{row.description}</a>
-                          : <span mix={descEmptyStyle}>(no description)</span>
+                          : <span mix={descEmptyStyle}>(keine Beschreibung)</span>
                         }
                       </td>
                       <td mix={[tdStyle, colCreatedWidth]}>{formatTimestamp(row.created_at)}</td>
@@ -349,9 +349,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             <AdminActionButton
                               action={routes.admin.lists.destroy.href({ id: row.id })}
                               method="POST"
-                              label="Delete"
-                              pendingLabel="Deleting..."
-                              confirmMsg={`Delete list #${row.id} (${items.length} items)?`}
+                              label="Löschen"
+                              pendingLabel="Wird gelöscht…"
+                              confirmMsg={`Liste #${row.id} (${items.length} Elemente) löschen?`}
                               compact
                             />
                           </form>
@@ -370,7 +370,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           <div mix={paginationStyle}>
             {lists.length > 0 && (
               <span mix={paginationInfoStyle}>
-                Showing {pageStart}–{pageEnd}
+                Zeige {pageStart}–{pageEnd}
               </span>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -380,7 +380,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
-                  ← Newer
+                  ← Neuere
                 </a>
               )}
               {hasMore && (
@@ -389,7 +389,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
-                  Older →
+                  Ältere →
                 </a>
               )}
             </div>

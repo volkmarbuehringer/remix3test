@@ -106,7 +106,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add New</Button>
+            <Button tone="primary">+ Neu anlegen</Button>
           </a>
         </form>
 

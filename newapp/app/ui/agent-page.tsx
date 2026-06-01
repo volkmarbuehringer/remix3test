@@ -128,8 +128,8 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
                   <circle cx="12" cy="14" r="1" fill="currentColor" />
                 </svg>
               </div>
-              <h2>Start a conversation</h2>
-              <p>Send a message below to begin chatting with the AI agent.</p>
+              <h2>Unterhaltung beginnen</h2>
+              <p>Sende eine Nachricht, um mit dem KI-Agenten zu chatten.</p>
             </div>
           ) : (
             <div mix={messagesListStyle}>
@@ -145,7 +145,7 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
                   <div mix={[messageBubbleStyle, msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle]}>
                     <div mix={messageMetaStyle}>
                       <span mix={messageLabelStyle}>
-                        {msg.role === 'user' ? 'You' : 'Assistant'}
+                        {msg.role === 'user' ? 'Du' : 'Assistent'}
                         {msg.elapsed && <span mix={elapsedBadgeStyle}>{msg.elapsed < 1000 ? `${msg.elapsed}ms` : `${(msg.elapsed / 1000).toFixed(1)}s`}</span>}
                         {msg.tokens && <span mix={tokenBadgeStyle}>{msg.tokens.total} tokens</span>}
                         {msg.toolCalls && msg.toolCalls.length > 0 && <span mix={toolBadgeStyle}>{msg.toolCalls.map(tc => tc.name).join(', ')}</span>}
@@ -154,12 +154,12 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
                     <div mix={messageContentStyle}>{decode(msg.content)}</div>
                     {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
                       <div mix={toolCallsStyle}>
-                        <div mix={toolHeaderStyle}>Tools used</div>
+                          <div mix={toolHeaderStyle}>Verwendete Werkzeuge</div>
                         {msg.toolCalls.map((tc, idx) => (
                           <div key={idx} mix={toolItemStyle}>
                             <div mix={toolNameStyle}>{tc.name}</div>
                             {tc.input && Object.keys(tc.input).length > 0 && <pre mix={toolInputStyle}>{JSON.stringify(tc.input, null, 2)}</pre>}
-                            {tc.result !== undefined && <div mix={toolResultStyle}><span mix={toolResultLabelStyle}>Result:</span><pre mix={toolResultContentStyle}>{JSON.stringify(tc.result, null, 2)}</pre></div>}
+                            {tc.result !== undefined && <div mix={toolResultStyle}><span mix={toolResultLabelStyle}>Ergebnis:</span><pre mix={toolResultContentStyle}>{JSON.stringify(tc.result, null, 2)}</pre></div>}
                           </div>
                         ))}
                       </div>
@@ -175,8 +175,8 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
           <CsrfTokenInput />
           {agentId && <input type="hidden" name="conversationId" value={agentId} />}
           <div mix={inputContainerStyle}>
-            <textarea id="message" name="message" rows={1} required maxLength={5000} placeholder="Type your message..." mix={messageInputStyle} />
-            <Button type="submit" tone="primary" aria-label="Send message" mix={sendButtonStyle}>
+            <textarea id="message" name="message" rows={1} required maxLength={5000} placeholder="Nachricht eingeben…" mix={messageInputStyle} />
+            <Button type="submit" tone="primary" aria-label="Nachricht senden" mix={sendButtonStyle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
             </Button>
           </div>

@@ -51,15 +51,15 @@ export const AppointmentSidebar = clientEntry(
       let resourceOptions = resources as ResourceOption[]
 
       return (
-        <aside aria-label="Appointment navigation" data-appointment-sidebar="true" mix={sidebarStyle}>
+        <aside aria-label="Terminnavigation" data-appointment-sidebar="true" mix={sidebarStyle}>
           <div mix={sidebarHeaderStyle}>
-            <span mix={appTitleStyle}>Appointment</span>
+            <span mix={appTitleStyle}>Termine</span>
           </div>
 
           <div mix={pickerGroupStyle}>
             <div mix={pickerRowStyle}>
               <select
-                aria-label="Select resource"
+                aria-label="Ressource auswählen"
                 value={selectedResourceId}
                 id="appt-resource"
                 mix={[
@@ -84,7 +84,7 @@ export const AppointmentSidebar = clientEntry(
 
             <div mix={pickerRowStyle}>
               <select
-                aria-label="Select year"
+                aria-label="Jahr auswählen"
                 value={year}
                 id="appt-year"
                 mix={[
@@ -107,7 +107,7 @@ export const AppointmentSidebar = clientEntry(
               </select>
 
               <select
-                aria-label="Select week"
+                aria-label="Woche auswählen"
                 value={week}
                 id="appt-week"
                 mix={[
@@ -124,7 +124,7 @@ export const AppointmentSidebar = clientEntry(
               >
                 {WEEKS.map((w) => (
                   <option key={w} value={w} selected={w === week}>
-                    Week {w}
+                    KW {w}
                   </option>
                 ))}
               </select>
@@ -132,7 +132,7 @@ export const AppointmentSidebar = clientEntry(
 
             <div mix={dateRangeRowStyle}>
               <button
-                aria-label="Previous week"
+                aria-label="Vorherige Woche"
                 mix={[
                   navArrowStyle,
                   on('click', () => {
@@ -145,7 +145,7 @@ export const AppointmentSidebar = clientEntry(
               </button>
               <span mix={dateRangeStyle}>{weekDateRange}</span>
               <button
-                aria-label="Next week"
+                aria-label="Nächste Woche"
                 mix={[
                   navArrowStyle,
                   on('click', () => {
@@ -159,19 +159,37 @@ export const AppointmentSidebar = clientEntry(
             </div>
           </div>
 
-          <nav aria-label="App navigation" mix={navStyle}>
+          <nav aria-label="Navigation" mix={navStyle}>
             <a href="/" mix={navLinkStyle}>
-              Home
+              Startseite
             </a>
             <a href="/lists" mix={navLinkStyle}>
-              Lists
+              Listen
             </a>
             <a href="/ai" mix={navLinkStyle}>
-              AI
+              KI
             </a>
-            <form action="/logout" method="post" mix={logoutFormStyle}>
-              <button type="submit" mix={logoutButtonStyle}>
-                Logout
+            <form action="/logout" method="post" mix={logoutFormStyle} id="appt-logout-form">
+              <button
+                type="submit"
+                mix={[
+                  logoutButtonStyle,
+                  on('click', () => {
+                    let form = document.getElementById('appt-logout-form') as HTMLFormElement | null
+                    if (form && !form.querySelector('input[name="_csrf"]')) {
+                      let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                      if (token) {
+                        let input = document.createElement('input')
+                        input.type = 'hidden'
+                        input.name = '_csrf'
+                        input.value = token
+                        form.appendChild(input)
+                      }
+                    }
+                  }),
+                ]}
+              >
+                Abmelden
               </button>
             </form>
           </nav>

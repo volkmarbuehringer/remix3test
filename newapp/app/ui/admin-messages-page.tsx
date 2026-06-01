@@ -186,18 +186,18 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
     return (
       <div mix={pageStyle}>
         <div mix={headerStyle}>
-          <h2 mix={titleStyle}>Messages</h2>
+          <h2 mix={titleStyle}>Nachrichten</h2>
           <ConnectionIndicator {...({ url: routes.admin.messages.subscribe.href() } as any)} />
         </div>
         <p mix={descriptionStyle}>
-          Manage public messages. Only admins can send and delete messages.
+          Öffentliche Nachrichten verwalten. Nur Admins können Nachrichten senden und löschen.
         </p>
 
         {/* Messages list */}
         <div id="messages-container" role="log" aria-live="polite" mix={messagesListStyle}>
           {messages.length === 0 ? (
             <div mix={emptyStateStyle}>
-              No messages yet. Be the first to send one!
+              Noch keine Nachrichten. Sende die erste!
             </div>
           ) : (
             messages.map((msg) => (
@@ -216,9 +216,9 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                     <AdminActionButton
                       action={routes.admin.messages.destroy.href({ id: msg.id })}
                       method="POST"
-                      label="Delete"
-                      pendingLabel="Deleting..."
-                      confirmMsg={`Delete message from ${msg.sender_name}?`}
+                      label="Löschen"
+                      pendingLabel="Wird gelöscht…"
+                      confirmMsg={`Nachricht von ${msg.sender_name} löschen?`}
                     />
                   </form>
                 </div>
@@ -232,7 +232,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
           <div mix={paginationStyle}>
             {messages.length > 0 && (
               <span mix={paginationInfoStyle}>
-                Showing {pageStart}–{pageEnd}
+                Zeige {pageStart}–{pageEnd}
               </span>
             )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -242,7 +242,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
-                  ← Newer
+                  ← Neuere
                 </a>
               )}
               {hasMore && (
@@ -251,7 +251,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
-                  Older →
+                  Ältere →
                 </a>
               )}
             </div>
@@ -265,7 +265,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
             name="content"
             required
             maxLength={1000}
-            placeholder="Write a message..."
+            placeholder="Nachricht schreiben…"
             mix={textareaStyle}
           />
           <button
@@ -283,7 +283,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               '&:hover': { background: theme.colors.action.primary.backgroundHover },
             })}
           >
-            Send Message
+            Nachricht senden
           </button>
         </form>
       </div>

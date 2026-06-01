@@ -81,7 +81,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add New</Button>
+            <Button tone="primary">+ Neu anlegen</Button>
           </a>
         </form>
 
@@ -231,7 +231,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
     if (editRow || creating) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Users</h2>
+          <h2 mix={table.title}>Benutzer</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
@@ -259,7 +259,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
     return (
       <div mix={table.page}>
-        <h2 mix={table.title}>Users</h2>
+        <h2 mix={table.title}>Benutzer</h2>
         {gridSection}
       </div>
     )
@@ -319,7 +319,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                   name="role"
                   mix={[input.base, input.focus, table.select]}
                 >
-                  <option value="customer" selected={row.role === 'customer'}>Customer</option>
+                  <option value="customer" selected={row.role === 'customer'}>Kunde</option>
                   <option value="admin" selected={row.role === 'admin'}>Admin</option>
                 </select>
               </div>
@@ -394,7 +394,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="role"
                   mix={[input.base, input.focus, table.select]}
                 >
-                  <option value="customer" selected>Customer</option>
+                  <option value="customer" selected>Kunde</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>

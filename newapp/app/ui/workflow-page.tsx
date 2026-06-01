@@ -181,7 +181,7 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                   <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
                 </svg>
               </div>
-              <h2>Run Workflow</h2>
+              <h2>Workflow ausführen</h2>
             </div>
 
             {workflows.length === 0 ? (
@@ -194,17 +194,17 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                     <line x1="9" y1="15" x2="15" y2="15" />
                   </svg>
                 </div>
-                <p>No workflows are registered yet.</p>
-                <span>Check back later or contact an administrator.</span>
+                <p>Noch keine Workflows registriert.</p>
+                <span>Später nochmal prüfen oder einen Administrator kontaktieren.</span>
               </div>
             ) : (
               <form method="POST" action={aiRoutes.ai.workflow.action.href()} id="workflow-form" mix={formStyles}>
                 <CsrfTokenInput />
                 <div mix={formGroupStyles}>
-                  <label for="workflow-select" mix={formLabelStyles}>Select Workflow</label>
+                  <label for="workflow-select" mix={formLabelStyles}>Workflow auswählen</label>
                   <div mix={selectWrapperStyles}>
                     <select id="workflow-select" name="workflowId" required mix={selectStyles}>
-                      <option value="">Choose a workflow...</option>
+                      <option value="">Workflow wählen…</option>
                       {workflows.map(w => (
                         <option value={w.id} key={w.id} data-description={w.description || ''} data-parameters={JSON.stringify(w.parameters || [])}>
                           {w.name}
@@ -218,17 +218,17 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                 <div id="parameters-container" mix={parametersContainerStyles}>
                   <div mix={parametersHeaderStyles}>
                     <Glyph name="menu" width={16} height={16} />
-                    <span>Parameters</span>
+                    <span>Parameter</span>
                   </div>
                   <div id="parameters-list" mix={parametersListStyles} />
                 </div>
 
-                <Button type="submit" id="run-button" tone="primary" data-loading-text="Running..." startIcon={
+                <Button type="submit" id="run-button" tone="primary" data-loading-text="Wird ausgeführt…" startIcon={
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
                 }>
-                  Run Workflow
+                  Workflow ausführen
                 </Button>
               </form>
             )}
@@ -243,7 +243,7 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                 </svg>
               </div>
-              <h2>Recent Runs</h2>
+              <h2>Letzte Ausführungen</h2>
             </div>
 
             {recentRuns.length === 0 ? (
@@ -253,8 +253,8 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                     <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                   </svg>
                 </div>
-                <p>No workflow runs yet.</p>
-                <span>Select a workflow above to get started.</span>
+                <p>Noch keine Ausführungen.</p>
+                <span>Wähle oben einen Workflow, um zu beginnen.</span>
               </div>
             ) : (
               <div mix={runsListStyles}>

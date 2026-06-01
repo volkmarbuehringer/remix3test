@@ -3,11 +3,11 @@ import { PageSection, pageStackCss, panelCss, bodyTextCss } from '../ui/page-pri
 export function ListsShowPage() {
   return () => (
     <div mix={pageStackCss}>
-      <PageSection title="Saved List" description="Items saved to your local list.">
+      <PageSection title="Gespeicherte Liste" description="In deiner lokalen Liste gespeicherte Elemente.">
         <div mix={panelCss}>
           <p mix={bodyTextCss}>
-            Open the main <a href="/lists">lists page</a> to add, edit, and manage your list items.
-            Items are saved to your browser and persist across visits.
+            Öffne die <a href="/lists">Listen-Seite</a>, um Elemente hinzuzufügen, zu bearbeiten und zu verwalten.
+            Elemente werden im Browser gespeichert und bleiben über Besuche hinweg erhalten.
           </p>
         </div>
       </PageSection>

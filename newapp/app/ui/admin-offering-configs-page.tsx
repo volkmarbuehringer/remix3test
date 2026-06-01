@@ -41,8 +41,8 @@ const DAYS = [
 ] as const
 
 const DAY_LABELS_SHORT: Record<string, string> = {
-  monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed',
-  thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
+  monday: 'Mo', tuesday: 'Di', wednesday: 'Mi',
+  thursday: 'Do', friday: 'Fr', saturday: 'Sa', sunday: 'So',
 }
 
 const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
@@ -160,7 +160,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add New</Button>
+            <Button tone="primary">+ Neu anlegen</Button>
           </a>
         </form>
 
@@ -299,7 +299,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     if (editRow || creating) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Offering Configs</h2>
+          <h2 mix={table.title}>Angebotskonfigurationen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
@@ -329,7 +329,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
     return (
       <div mix={table.page}>
-        <h2 mix={table.title}>Offering Configs</h2>
+        <h2 mix={table.title}>Angebotskonfigurationen</h2>
         {gridSection}
       </div>
     )

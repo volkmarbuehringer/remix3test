@@ -71,7 +71,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             rmx-target={frames.adminContent}
             style={{ textDecoration: 'none' }}
           >
-            <Button tone="primary">+ Add New</Button>
+            <Button tone="primary">+ Neu anlegen</Button>
           </a>
         </form>
 
@@ -210,7 +210,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     if (editRow || creating) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Resources</h2>
+          <h2 mix={table.title}>Ressourcen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div style="position:sticky;top:1.5rem">
@@ -238,7 +238,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
 
     return (
       <div mix={table.page}>
-        <h2 mix={table.title}>Resources</h2>
+        <h2 mix={table.title}>Ressourcen</h2>
         {gridSection}
       </div>
     )

@@ -152,7 +152,7 @@ export const ListsClient = clientEntry(
     }
 
     let clearAll = () => {
-      if (!confirm('Clear all items? This cannot be undone.')) return
+      if (!confirm('Alle Elemente löschen? Dies kann nicht rückgängig gemacht werden.')) return
       items = []
       nextId = 0
       handle.update()
@@ -218,7 +218,7 @@ export const ListsClient = clientEntry(
             return Number.isFinite(n) && n > max ? n : max
           }, 0) + 1
       } catch {
-        loadError = 'Failed to load list'
+        loadError = 'Liste konnte nicht geladen werden'
       }
       loadingList = false
       handle.update()
@@ -254,7 +254,7 @@ export const ListsClient = clientEntry(
               fontSize: theme.fontSize.lg,
             }}
           >
-            Loading list...
+            Liste wird geladen…
           </div>
         )
       }
@@ -290,17 +290,17 @@ export const ListsClient = clientEntry(
             }}
           >
             <Button tone="secondary" mix={on('click', reverse)}>
-              ↺ Reverse
+              ↺ Umkehren
             </Button>
             <Button tone="primary" mix={on('click', shuffle)}>
-              ⇄ Shuffle
+              ⇄ Mischen
             </Button>
             <Button
               tone="secondary"
               mix={on('click', clearAll)}
               disabled={items.length === 0}
             >
-              ✕ Clear All
+              ✕ Alle löschen
             </Button>
             <div
               style={{
@@ -314,7 +314,7 @@ export const ListsClient = clientEntry(
                 disabled={loadedListId === null || !description.trim() || items.length === 0 || updating}
                 style={{ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
               >
-                {updating ? '⏳ Updating...' : '🔄 Update'}
+                {updating ? '⏳ Wird aktualisiert…' : '🔄 Aktualisieren'}
               </Button>
               <Button
                 tone="primary"
@@ -322,7 +322,7 @@ export const ListsClient = clientEntry(
                 disabled={!description.trim() || items.length === 0 || saving}
                 style={{ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }}
               >
-                {saving ? '⏳ Saving...' : '💾 Add'}
+                {saving ? '⏳ Speichern…' : '💾 Hinzufügen'}
               </Button>
             </div>
           </div>
@@ -360,7 +360,7 @@ export const ListsClient = clientEntry(
                 }),
               ]}
               type="text"
-              placeholder="Enter a description for this list..."
+              placeholder="Beschreibung für diese Liste eingeben…"
               maxLength={500}
               defaultValue={description}
             />
@@ -384,7 +384,7 @@ export const ListsClient = clientEntry(
                 zIndex: 1000,
               }}
             >
-              ✓ Saved {items.length} item{items.length !== 1 ? 's' : ''}!
+              ✓ {items.length} Eintr{items.length !== 1 ? 'äge' : 'ag'} gespeichert!
             </div>
           )}
 
@@ -429,13 +429,13 @@ export const ListsClient = clientEntry(
                 }),
                 ref((el) => { newItemRef = el }),
               ]}
-              placeholder="Enter new item label..."
+              placeholder="Neues Element eingeben…"
               rows={3}
               wrap="soft"
               defaultValue={newItemLabel}
             />
             <Button tone="primary" mix={on('click', addItem)}>
-              + Add Item
+              + Element hinzufügen
             </Button>
           </div>
 
@@ -464,7 +464,7 @@ export const ListsClient = clientEntry(
                   color: theme.colors.text.muted,
                 }}
               >
-                LIST ITEMS
+                ELEMENTE
               </span>
               <span
                 style={{
@@ -475,7 +475,7 @@ export const ListsClient = clientEntry(
                   borderRadius: theme.radius.full,
                 }}
               >
-                {items.length} items
+                {items.length} Einträge
               </span>
             </div>
 
@@ -487,7 +487,7 @@ export const ListsClient = clientEntry(
                   color: theme.colors.text.muted,
                 }}
               >
-                No items yet. Add one above.
+                Noch keine Elemente. Füge oben eines hinzu.
               </div>
             ) : (
               <div
@@ -578,15 +578,15 @@ export const ListsClient = clientEntry(
                     <div style={{ display: 'flex', gap: theme.space.xs }}>
                       {editingIndex === index ? (
                         <>
-                          <Button tone="primary" mix={on('click', saveEdit)} title="Save"><Glyph name="check" width={16} height={16} /></Button>
-                          <Button tone="secondary" mix={on('click', cancelEdit)} title="Cancel"><Glyph name="close" width={16} height={16} /></Button>
+                          <Button tone="primary" mix={on('click', saveEdit)} title="Speichern"><Glyph name="check" width={16} height={16} /></Button>
+                          <Button tone="secondary" mix={on('click', cancelEdit)} title="Abbrechen"><Glyph name="close" width={16} height={16} /></Button>
                         </>
                       ) : (
                         <>
-                          <Button tone="secondary" mix={on('click', () => startEditing(index))} title="Edit"><Glyph name="edit" width={16} height={16} /></Button>
-                          <Button tone="danger" mix={on('click', () => deleteItem(index))} title="Delete"><Glyph name="close" width={16} height={16} /></Button>
-                          <Button tone="secondary" mix={on('click', () => moveUp(index))} disabled={index === 0} title="Move up">↑</Button>
-                          <Button tone="secondary" mix={on('click', () => moveDown(index))} disabled={index === items.length - 1} title="Move down">↓</Button>
+                          <Button tone="secondary" mix={on('click', () => startEditing(index))} title="Bearbeiten"><Glyph name="edit" width={16} height={16} /></Button>
+                          <Button tone="danger" mix={on('click', () => deleteItem(index))} title="Löschen"><Glyph name="close" width={16} height={16} /></Button>
+                          <Button tone="secondary" mix={on('click', () => moveUp(index))} disabled={index === 0} title="Nach oben">↑</Button>
+                          <Button tone="secondary" mix={on('click', () => moveDown(index))} disabled={index === items.length - 1} title="Nach unten">↓</Button>
                         </>
                       )}
                     </div>

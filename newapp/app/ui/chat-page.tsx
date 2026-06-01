@@ -270,8 +270,8 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
                   <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                 </svg>
               </div>
-              <h2>Start a conversation</h2>
-              <p>Send a message below to begin chatting with the AI assistant.</p>
+              <h2>Unterhaltung beginnen</h2>
+              <p>Sende eine Nachricht, um mit dem KI-Assistenten zu chatten.</p>
             </div>
           ) : (
             <div mix={messagesListStyle}>
@@ -295,7 +295,7 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
                     <div mix={messageContentStyle}>{msg.content}</div>
                     <div mix={messageMetaStyle}>
                       <span mix={messageLabelStyle}>
-                        {msg.role === 'user' ? 'You' : 'Assistant'}
+                        {msg.role === 'user' ? 'Du' : 'Assistent'}
                         {msg.elapsed && (
                           <span mix={elapsedBadgeStyle}>
                             {msg.elapsed < 1000 ? `${msg.elapsed}ms` : `${(msg.elapsed / 1000).toFixed(1)}s`}
@@ -325,10 +325,10 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
               rows={1}
               required
               maxLength={5000}
-              placeholder="Type your message..."
+              placeholder="Nachricht eingeben…"
               mix={messageInputStyle}
             />
-            <Button type="submit" tone="primary" aria-label="Send message" mix={sendButtonStyle}>
+            <Button type="submit" tone="primary" aria-label="Nachricht senden" mix={sendButtonStyle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />

@@ -39,7 +39,7 @@ export function UserDetailFragment(handle: Handle<UserDetailFragmentProps>) {
     return (
     <div mix={detailStyle}>
       <div mix={rowStyle}>
-        <span mix={labelStyle}>User ID</span>
+        <span mix={labelStyle}>Benutzer-ID</span>
         <span mix={valueStyle}>{userId}</span>
       </div>
       <div mix={rowStyle}>
@@ -47,7 +47,7 @@ export function UserDetailFragment(handle: Handle<UserDetailFragmentProps>) {
         <span mix={valueStyle}>{name}</span>
       </div>
       <div mix={rowStyle}>
-        <span mix={labelStyle}>Role</span>
+        <span mix={labelStyle}>Rolle</span>
         <span mix={valueStyle}>{role}</span>
       </div>
     </div>
