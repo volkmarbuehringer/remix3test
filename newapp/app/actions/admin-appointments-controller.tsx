@@ -16,6 +16,7 @@ import { gridStateToParams, gridStateFromForm, gridStateFromFormData } from '../
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { appointmentChannel } from '../lib/appointments-sse.ts'
 import { logAdminAction } from '../data/audit-log.ts'
+import { encodeFormValues, decodeFormValues, encodeFieldErrors, decodeFieldErrors } from '../utils/form-params.ts'
 
 const PAGE_SIZE = 15
 
@@ -160,7 +161,7 @@ function buildErrorRedirectUrl(
   if (extra?.creating) params.set('creating', 'true')
   if (extra?.editing) params.set('editing', extra.editing)
   if (extra?.formError) params.set('error', extra.formError)
-  let fv = encodeFormValues(parsed)
+  let fv = encodeFormValues(APPOINTMENT_FORM_KEYS, parsed)
   for (let [k, v] of Object.entries(fv)) {
     params.set(k, v)
   }
@@ -327,9 +328,9 @@ async function loadAppointmentPageData(
   }
 
   let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
-  let formValues = overrides?.formValues ?? decodeFormValues(context.url)
-  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(context.url)
-  let formError = overrides?.formError
+  let formValues = overrides?.formValues ?? decodeFormValues(APPOINTMENT_FORM_KEYS, context.url)
+  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(APPOINTMENT_FORM_KEYS, context.url)
+  let formError = overrides?.formError ?? error
 
   return {
     rows,
@@ -400,49 +401,7 @@ function renderAppointmentsPage(
 
 // Form values serialized as URL params (fv_ prefix) to survive frame redirects.
 // Only 6 fields — compact enough for URL encoding.
-const FORM_VALUE_KEYS = ['resource_id', 'user_id', 'title', 'date', 'start_min', 'end_min'] as const
-
-function encodeFormValues(parsed: Record<string, string>): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let key of FORM_VALUE_KEYS) {
-    if (parsed[key]) params[`fv_${key}`] = parsed[key]
-  }
-  return params
-}
-
-function decodeFormValues(url: URL): Record<string, string> | undefined {
-  let values: Record<string, string> = {}
-  let hasAny = false
-  for (let key of FORM_VALUE_KEYS) {
-    let val = url.searchParams.get(`fv_${key}`)
-    if (val !== null) {
-      values[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? values : undefined
-}
-
-function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let [k, v] of Object.entries(errors)) {
-    params[`fe_${k}`] = v
-  }
-  return params
-}
-
-function decodeFieldErrors(url: URL): Record<string, string> | undefined {
-  let errors: Record<string, string> = {}
-  let hasAny = false
-  for (let key of FORM_VALUE_KEYS) {
-    let val = url.searchParams.get(`fe_${key}`)
-    if (val !== null) {
-      errors[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? errors : undefined
-}
+const APPOINTMENT_FORM_KEYS = ['resource_id', 'user_id', 'title', 'date', 'start_min', 'end_min'] as const
 
 // ── Controller ───────────────────────────────────────────────────
 
@@ -453,8 +412,8 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
     actions: {
       async index(context) {
-        let data = await loadAppointmentPageData(context as AppContext)
-        return renderAppointmentsPage(context as AppContext, data)
+        let data = await loadAppointmentPageData(context)
+        return renderAppointmentsPage(context, data)
       },
 
       async create(context) {

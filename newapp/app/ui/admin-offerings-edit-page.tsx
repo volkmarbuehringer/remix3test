@@ -95,7 +95,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/offerings/${row.id}`}>
+        <RestfulForm method="PUT" action={`/admin/offerings/${row.id}`} novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

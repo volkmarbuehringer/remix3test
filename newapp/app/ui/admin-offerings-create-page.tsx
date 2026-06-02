@@ -55,7 +55,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/offerings">
+        <RestfulForm method="POST" action="/admin/offerings" novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

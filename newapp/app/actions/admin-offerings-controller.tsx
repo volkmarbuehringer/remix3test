@@ -17,6 +17,7 @@ import type { OfferingConfig } from '../data/offering-configs.ts'
 import { type ValidationResult } from '../utils/form-errors.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
+import { encodeFormValues, decodeFormValues, encodeFieldErrors, decodeFieldErrors } from '../utils/form-params.ts'
 
 const hd = new Holidays('DE', 'rp')
 
@@ -140,49 +141,7 @@ function isExclusionConstraintError(error: unknown): boolean {
 
 // ── Shared helpers ───────────────────────────────────────────────
 
-const OFFERING_FORM_VALUE_KEYS = ['resource_id', 'day', 'start_min', 'end_min'] as const
-
-function encodeFormValues(parsed: Record<string, string>): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let key of OFFERING_FORM_VALUE_KEYS) {
-    if (parsed[key]) params[`fv_${key}`] = parsed[key]
-  }
-  return params
-}
-
-function decodeFormValues(url: URL): Record<string, string> | undefined {
-  let values: Record<string, string> = {}
-  let hasAny = false
-  for (let key of OFFERING_FORM_VALUE_KEYS) {
-    let val = url.searchParams.get(`fv_${key}`)
-    if (val !== null) {
-      values[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? values : undefined
-}
-
-function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let [key, msg] of Object.entries(errors)) {
-    params[`fe_${key}`] = msg
-  }
-  return params
-}
-
-function decodeFieldErrors(url: URL): Record<string, string> | undefined {
-  let errors: Record<string, string> = {}
-  let hasAny = false
-  for (let key of OFFERING_FORM_VALUE_KEYS) {
-    let val = url.searchParams.get(`fe_${key}`)
-    if (val !== null) {
-      errors[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? errors : undefined
-}
+const OFFERING_FORM_KEYS = ['resource_id', 'day', 'start_min', 'end_min'] as const
 
 function buildErrorRedirect(
   parsed: Record<string, string>,
@@ -199,7 +158,7 @@ function buildErrorRedirect(
   if (opts.editing) params.set('editing', String(opts.editing))
   if (opts.error) params.set('error', opts.error)
   // Preserve submitted form values in URL params so they survive the frame redirect
-  let fv = encodeFormValues(parsed)
+  let fv = encodeFormValues(OFFERING_FORM_KEYS, parsed)
   for (let [k, v] of Object.entries(fv)) {
     params.set(k, v)
   }
@@ -296,9 +255,9 @@ async function loadOfferingPageData(
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
   let error = (overrides?.error ?? context.url.searchParams.get('error')) || undefined
-  let formValues = overrides?.formValues ?? decodeFormValues(context.url)
-  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(context.url)
-  let formError = overrides?.formError
+  let formValues = overrides?.formValues ?? decodeFormValues(OFFERING_FORM_KEYS, context.url)
+  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(OFFERING_FORM_KEYS, context.url)
+  let formError = overrides?.formError ?? error
 
   let configResourceId = context.url.searchParams.get('config')
   let addWeek = context.url.searchParams.get('addweek') === 'true'

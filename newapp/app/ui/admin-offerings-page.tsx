@@ -114,9 +114,10 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
+    let hasFormPanel = !!(editRow || creating)
     let gridSection = (
       <div mix={table.minWidth0}>
-        {error ? <div mix={table.errorBanner}>{error}</div> : null}
+        {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
         <form
           method="GET"

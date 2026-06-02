@@ -6,7 +6,3 @@ export interface ValidationFail {
 }
 
 export type ValidationResult = ValidationOk | ValidationFail
-
-export function fieldErrorsFromResult(result: ValidationResult): Record<string, string> | undefined {
-  return result.ok ? undefined : result.fieldErrors
-}

@@ -86,7 +86,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method={method} action={action}>
+        <RestfulForm method={method} action={action} novalidate>
           <GridStateHiddenInputs state={gridState} />
 
           <div mix={table.panel}>
