@@ -19,6 +19,8 @@ interface ClientEditPageProps {
   sort: string
   order: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +55,19 @@ const selectStyle = css({
   cursor: 'pointer',
 })
 
+const inputErrorStyle = css({
+  borderColor: theme.colors.action.danger.background,
+  '&:focus': {
+    borderColor: theme.colors.action.danger.background,
+  },
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.action.danger.background,
+})
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -67,7 +82,7 @@ function formatDate(ts: number): string {
 
 function ClientEditPage(handle: Handle<ClientEditPageProps>) {
   return () => {
-    let { row, offset, sort, order, filter = '' } = handle.props
+    let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
     <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
       <RestfulForm method="PUT" action={`/client/${row.id}`}>
@@ -88,12 +103,13 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                 id="ef-name"
                 name="name"
                 type="text"
-                mix={[input.base, input.focus]}
-                value={row.name}
+                mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.name ?? row.name}
                 placeholder="Enter full name"
                 required
                 maxLength={100}
               />
+              {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
             </div>
 
             <div mix={table.fieldGroup}>
@@ -103,13 +119,14 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               <input
                 id="ef-email"
                 name="email"
-                type="email"
-                mix={[input.base, input.focus]}
-                value={row.email}
+                type="text"
+                mix={[input.base, input.focus, fieldErrors?.email ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.email ?? row.email}
                 placeholder="user@example.com"
                 required
                 maxLength={100}
               />
+              {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
             </div>
 
             <div mix={table.fieldGroup}>
@@ -117,9 +134,9 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                 Role
               </label>
               <select id="ef-role" name="role" mix={[input.base, input.focus, selectStyle]}>
-                <option value="Admin" selected={row.role === 'Admin'}>Admin</option>
-                <option value="Editor" selected={row.role === 'Editor'}>Editor</option>
-                <option value="Viewer" selected={row.role === 'Viewer'}>Viewer</option>
+                <option value="Admin" selected={formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'}>Admin</option>
+                <option value="Editor" selected={formValues?.role !== undefined ? formValues.role === 'Editor' : row.role === 'Editor'}>Editor</option>
+                <option value="Viewer" selected={formValues?.role !== undefined ? formValues.role === 'Viewer' : row.role === 'Viewer'}>Viewer</option>
               </select>
               <div mix={fieldHintStyle}>User permission level</div>
             </div>
@@ -129,8 +146,8 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                 Status
               </label>
               <select id="ef-status" name="status" mix={[input.base, input.focus, selectStyle]}>
-                <option value="Active" selected={row.status === 'Active'}>Active</option>
-                <option value="Inactive" selected={row.status === 'Inactive'}>Inactive</option>
+                <option value="Active" selected={formValues?.status !== undefined ? formValues.status === 'Active' : row.status === 'Active'}>Active</option>
+                <option value="Inactive" selected={formValues?.status !== undefined ? formValues.status === 'Inactive' : row.status === 'Inactive'}>Inactive</option>
               </select>
               <div mix={fieldHintStyle}>Account activation state</div>
             </div>
@@ -143,10 +160,11 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                 id="ef-registered"
                 name="registered"
                 type="date"
-                mix={[input.base, input.focus]}
-                value={formatDate(row.registered as number)}
+                mix={[input.base, input.focus, fieldErrors?.registered ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.registered ?? formatDate(row.registered as number)}
                 required
               />
+              {fieldErrors?.registered ? <div mix={fieldErrorStyle}>{fieldErrors.registered}</div> : null}
             </div>
 
             <div mix={table.actions}>

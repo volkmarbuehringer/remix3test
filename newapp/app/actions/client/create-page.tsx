@@ -29,6 +29,19 @@ const selectStyle = css({
   cursor: 'pointer',
 })
 
+const inputErrorStyle = css({
+  borderColor: theme.colors.action.danger.background,
+  '&:focus': {
+    borderColor: theme.colors.action.danger.background,
+  },
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.action.danger.background,
+})
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -46,11 +59,13 @@ interface ClientCreatePageProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
     <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
       <RestfulForm method="POST" action="/client">
@@ -70,11 +85,13 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                 id="cf-name"
                 name="name"
                 type="text"
-                mix={[input.base, input.focus]}
+                mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.name ?? ''}
                 placeholder="Enter full name"
                 required
                 maxLength={100}
               />
+              {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
             </div>
 
             <div mix={table.fieldGroup}>
@@ -84,12 +101,14 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               <input
                 id="cf-email"
                 name="email"
-                type="email"
-                mix={[input.base, input.focus]}
+                type="text"
+                mix={[input.base, input.focus, fieldErrors?.email ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.email ?? ''}
                 placeholder="user@example.com"
                 required
                 maxLength={100}
               />
+              {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
             </div>
 
             <div mix={table.fieldGroup}>
@@ -97,9 +116,9 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                 Role
               </label>
               <select id="cf-role" name="role" mix={[input.base, input.focus, selectStyle]}>
-                <option value="Viewer" selected>Viewer</option>
-                <option value="Editor">Editor</option>
-                <option value="Admin">Admin</option>
+                <option value="Viewer" selected={!formValues || formValues.role === 'Viewer'}>Viewer</option>
+                <option value="Editor" selected={formValues?.role === 'Editor'}>Editor</option>
+                <option value="Admin" selected={formValues?.role === 'Admin'}>Admin</option>
               </select>
               <div mix={fieldHintStyle}>User permission level</div>
             </div>
@@ -109,8 +128,8 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                 Status
               </label>
               <select id="cf-status" name="status" mix={[input.base, input.focus, selectStyle]}>
-                <option value="Active" selected>Active</option>
-                <option value="Inactive">Inactive</option>
+                <option value="Active" selected={!formValues || formValues.status === 'Active'}>Active</option>
+                <option value="Inactive" selected={formValues?.status === 'Inactive'}>Inactive</option>
               </select>
               <div mix={fieldHintStyle}>Account activation state</div>
             </div>
@@ -123,10 +142,11 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                 id="cf-registered"
                 name="registered"
                 type="date"
-                mix={[input.base, input.focus]}
-                defaultValue={todayString()}
+                mix={[input.base, input.focus, fieldErrors?.registered ? inputErrorStyle : null].filter(Boolean)}
+                value={formValues?.registered ?? todayString()}
                 required
               />
+              {fieldErrors?.registered ? <div mix={fieldErrorStyle}>{fieldErrors.registered}</div> : null}
             </div>
 
             <div mix={table.actions}>

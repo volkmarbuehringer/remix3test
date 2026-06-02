@@ -17,6 +17,8 @@ interface ClientPageProps {
   editingSort?: string
   editingOrder?: string
   editingFilter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function ClientPage(handle: Handle<ClientPageProps>) {
@@ -29,6 +31,8 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       editingSort = '',
       editingOrder = '',
       editingFilter = '',
+      formValues,
+      fieldErrors,
     } = handle.props
     let hasSidebar = editRow || creating
 
@@ -50,6 +54,8 @@ function ClientPage(handle: Handle<ClientPageProps>) {
                 sort={editingSort}
                 order={editingOrder}
                 filter={editingFilter}
+                formValues={formValues}
+                fieldErrors={fieldErrors}
               />
             ) : (
               <ClientCreatePage
@@ -57,6 +63,8 @@ function ClientPage(handle: Handle<ClientPageProps>) {
                 sort={editingSort}
                 order={editingOrder}
                 filter={editingFilter}
+                formValues={formValues}
+                fieldErrors={fieldErrors}
               />
             )}
           </div>

@@ -112,6 +112,30 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 400)
   })
 
+  it('PUT /client/5 with short name returns 400 with validation error', async () => {
+    let body = new URLSearchParams({
+      _method: 'PUT',
+      name: 'Ed',
+      email: 'ed@example.com',
+      role: 'Editor',
+      status: 'Active',
+      registered: '2026-05-01',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch('https://remix.run/client/5', {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('Edit Record'), 'should show edit form')
+    assert.ok(html.includes('Ed'), 'should preserve submitted name value')
+    assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
+  })
+
   // -----------------------------------------------------------------------
   // DELETE /client/:id — delete a row (via methodOverride with _method=DELETE)
   // -----------------------------------------------------------------------
@@ -153,7 +177,7 @@ describe('Client lab controller', () => {
     assert.ok(/\bediting=\d+/.test(location), 'editing param should be a number')
   })
 
-  it('POST /client with empty data creates a row with defaults and redirects', async () => {
+  it('POST /client with empty data returns 400 with validation error', async () => {
     let response = await router.fetch('https://remix.run/client', {
       method: 'POST',
       body: new URLSearchParams({ _csrf: csrfToken! }),
@@ -161,9 +185,52 @@ describe('Client lab controller', () => {
       headers: authHeaders(),
     })
 
-    assert.equal(response.status, 302)
-    let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client?editing='), 'should redirect with editing param')
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('New Record'), 'should re-render create form')
+    assert.ok(html.includes('Create Record'), 'should show Create Record button')
+  })
+
+  it('POST /client with year 2025 returns 400 with validation error', async () => {
+    let body = new URLSearchParams({
+      name: 'ValidNameHere',
+      email: 'valid@test.com',
+      registered: '2025-06-01',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch('https://remix.run/client', {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('New Record'), 'should show create form')
+    assert.ok(html.includes('Year must be 2026'), 'should show year validation error')
+    assert.ok(html.includes('value="2025-06-01"'), 'should preserve submitted date value')
+  })
+
+  it('POST /client with short name returns 400 with field error', async () => {
+    let body = new URLSearchParams({
+      name: 'Bob',
+      email: 'bob@test.com',
+      role: 'Viewer',
+      _csrf: csrfToken!,
+    })
+    let response = await router.fetch('https://remix.run/client', {
+      method: 'POST',
+      body,
+      redirect: 'manual',
+      headers: authHeaders(),
+    })
+
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('New Record'), 'should show create form')
+    assert.ok(html.includes('value="Bob"'), 'should preserve submitted name value')
+    assert.ok(html.includes('value="bob@test.com"'), 'should preserve submitted email value')
   })
 
   it('POST /client creates a new row and redirects', async () => {

@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
 import { ilike, or } from 'remix/data-table'
 import * as s from 'remix/data-schema'
+import { minLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 
 import { requireAuth } from '../../middleware/auth.ts'
@@ -32,11 +33,20 @@ const FIELD_OPTIONS: Record<string, string[]> = {
 }
 
 const clientSaveSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '')),
-  email: f.field(s.defaulted(s.string(), '')),
+  name: f.field(s.defaulted(s.string(), '').pipe(minLength(8))),
+  email: f.field(s.defaulted(s.string(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   status: f.field(s.defaulted(s.string(), '')),
-  registered: f.field(s.defaulted(s.string(), '0')),
+  registered: f.field(
+    s.defaulted(s.string(), '0').refine(
+      (value) => {
+        if (!value || value === '0') return true
+        let year = Number(value.split('-')[0])
+        return !isNaN(year) && year === 2026
+      },
+      'Year must be 2026',
+    ),
+  ),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
@@ -46,6 +56,26 @@ const clientSaveSchema = f.object({
 function parseDate(value: string): number {
   let ts = new Date(value).getTime()
   return Number.isFinite(ts) ? ts : Date.now()
+}
+
+function issuesToFieldErrors(issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>): Record<string, string> {
+  let errors: Record<string, string> = {}
+  for (let issue of issues) {
+    let field = issue.path?.[0]
+    if (typeof field === 'string' && !errors[field]) {
+      errors[field] = issue.message
+    }
+  }
+  return errors
+}
+
+function extractFormValues(formData: FormData): Record<string, string> {
+  let values: Record<string, string> = {}
+  for (let key of ['name', 'email', 'role', 'status', 'registered', '_offset', '_sort', '_order', '_filter'] as const) {
+    let v = formData.get(key)
+    values[key] = typeof v === 'string' ? v : ''
+  }
+  return values
 }
 
 export default createController<typeof routes.client, AppContext>(routes.client, {
@@ -183,19 +213,43 @@ export default createController<typeof routes.client, AppContext>(routes.client,
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(clientSaveSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let rawValues = extractFormValues(formData)
+      let parsed = s.parseSafe(clientSaveSchema, formData)
+
+      if (!parsed.success) {
+        let fieldErrors = issuesToFieldErrors(parsed.issues)
+        let editRow: Row = {
+          id,
+          name: rawValues.name,
+          email: rawValues.email,
+          role: (rawValues.role || 'Viewer') as Row['role'],
+          status: (rawValues.status || 'Active') as Row['status'],
+          registered: rawValues.registered ? parseDate(rawValues.registered) : Date.now(),
+        }
+        let frameParams = gridStateToParams({ offset: rawValues._offset, sort: rawValues._sort, order: rawValues._order, filter: rawValues._filter })
+        frameParams.set('editing', String(id))
+        let frameSrc = '/client/grid?' + frameParams.toString()
+        return context.render(
+          <Layout title="Client Lab">
+            <ClientPage
+              frameSrc={frameSrc}
+              editRow={editRow}
+              formValues={rawValues}
+              fieldErrors={fieldErrors}
+              editingOffset={rawValues._offset}
+              editingSort={rawValues._sort}
+              editingOrder={rawValues._order}
+              editingFilter={rawValues._filter}
+            />
+          </Layout>,
+          { status: 400 },
+        )
       }
 
-      // Row existence is not checked here (updateMany handles 0-matches gracefully).
-      // This is a lab/demo — a 302 redirect is fine for a no-op update.
       let bulkFields = ['name', 'email', 'role', 'status', 'registered'] as const
       let changes: Record<string, string | number> = {}
       for (let field of bulkFields) {
-        let v = parsed[field]
+        let v = parsed.value[field]
         if (v) {
           if (field === 'registered') {
             changes[field] = parseDate(v)
@@ -208,7 +262,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       await db.updateMany(clients, changes, { where: { id } })
 
       // Redirect back to main page with preserved state
-      return editingRedirect(routes.client.index.href(), id, gridStateFromForm(parsed))
+      return editingRedirect(routes.client.index.href(), id, gridStateFromForm(rawValues))
     },
 
     // ── DELETE /client/:id — Delete a client row, redirect to grid ──
@@ -224,13 +278,8 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       await db.delete(clients, { id })
 
       // Redirect back to grid with preserved state
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(clientSaveSchema, formData) as Record<string, string>
-      } catch {
-        parsed = { name: '', email: '', role: '', status: '', registered: '0', _offset: '', _sort: '', _order: '', _filter: '' }
-      }
-      return editingRedirect('/client', null, gridStateFromForm(parsed))
+      let redirectState = gridStateFromForm(extractFormValues(formData))
+      return editingRedirect('/client', null, redirectState)
     },
 
     // ── POST /client — Create a new client row ──
@@ -238,27 +287,45 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       let db = context.db
       let formData = context.formData
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(clientSaveSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let rawValues = extractFormValues(formData)
+      let parsed = s.parseSafe(clientSaveSchema, formData)
+
+      if (!parsed.success) {
+        let fieldErrors = issuesToFieldErrors(parsed.issues)
+        let frameParams = gridStateToParams({ offset: rawValues._offset, sort: rawValues._sort, order: rawValues._order, filter: rawValues._filter })
+        frameParams.set('creating', 'true')
+        let frameSrc = '/client/grid?' + frameParams.toString()
+        return context.render(
+          <Layout title="Client Lab">
+            <ClientPage
+              frameSrc={frameSrc}
+              creating={true}
+              formValues={rawValues}
+              fieldErrors={fieldErrors}
+              editingOffset={rawValues._offset}
+              editingSort={rawValues._sort}
+              editingOrder={rawValues._order}
+              editingFilter={rawValues._filter}
+            />
+          </Layout>,
+          { status: 400 },
+        )
       }
 
       let row = await db.create(
         clients,
         {
-          name: parsed.name || 'New Client',
-          email: parsed.email || `${Date.now()}@example.com`,
-          role: parsed.role || 'Viewer',
-          status: parsed.status || 'Active',
-          registered: parsed.registered ? parseDate(parsed.registered) : Date.now(),
+          name: parsed.value.name || 'New Client',
+          email: parsed.value.email || `${Date.now()}@example.com`,
+          role: parsed.value.role || 'Viewer',
+          status: parsed.value.status || 'Active',
+          registered: parsed.value.registered ? parseDate(parsed.value.registered) : Date.now(),
         },
         { returnRow: true },
       )
 
       // Preserve grid state in redirect
-      let redirectState = gridStateFromForm(parsed)
+      let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let qs = params.toString()
