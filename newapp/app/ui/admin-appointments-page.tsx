@@ -40,6 +40,9 @@ interface AdminAppointmentsPageProps {
   error?: string
   defaultStartMin?: number
   defaultEndMin?: number
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 function formatDate(day: string): string {
@@ -103,6 +106,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       error,
       defaultStartMin,
       defaultEndMin,
+      formValues,
+      fieldErrors,
+      formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -418,6 +424,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                  formError={formError}
                 />
               ) : creating ? (
                 <AdminAppointmentsCreatePage
@@ -429,6 +438,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   filter={filter}
                   defaultStartMin={defaultStartMin}
                   defaultEndMin={defaultEndMin}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                  formError={formError}
                 />
               ) : null}
             </div>

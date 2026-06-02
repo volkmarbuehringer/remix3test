@@ -85,76 +85,71 @@ const appointmentSaveSchema = f.object({
 
 // ── Validation helpers ───────────────────────────────────────────
 
-function validateAppointmentForm(parsed: Record<string, string>): string | null {
+interface ValidationResultOk {
+  ok: true
+}
+
+interface ValidationResultFail {
+  ok: false
+  fieldErrors: Record<string, string>
+}
+
+type ValidationResult = ValidationResultOk | ValidationResultFail
+
+function validateAppointmentForm(parsed: Record<string, string>): ValidationResult {
   let resourceId = parseInt(parsed.resource_id, 10)
   if (!resourceId || isNaN(resourceId)) {
-    return 'Ressource ist erforderlich.'
+    return { ok: false, fieldErrors: { resource_id: 'ist erforderlich.' } }
   }
 
   let userId = parseInt(parsed.user_id, 10)
   if (!userId || isNaN(userId)) {
-    return 'Benutzer ist erforderlich.'
+    return { ok: false, fieldErrors: { user_id: 'ist erforderlich.' } }
   }
 
   if (!parsed.title || parsed.title.trim().length === 0) {
-    return 'Titel ist erforderlich.'
+    return { ok: false, fieldErrors: { title: 'ist erforderlich.' } }
   }
 
   if (!parsed.date || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
-    return 'Gültiges Datum erforderlich (YYYY-MM-DD).'
+    return { ok: false, fieldErrors: { date: 'Gültiges Datum erforderlich (YYYY-MM-DD).' } }
   }
 
   let startMin = parseInt(parsed.start_min, 10)
   if (isNaN(startMin) || startMin < 0 || startMin > 1380 || startMin % 15 !== 0) {
-    return 'Startzeit ist ungültig.'
+    return { ok: false, fieldErrors: { start_min: 'ist ungültig.' } }
   }
 
   let endMin = parseInt(parsed.end_min, 10)
   if (isNaN(endMin) || endMin < 60 || endMin > 1440 || endMin % 15 !== 0) {
-    return 'Endzeit ist ungültig.'
+    return { ok: false, fieldErrors: { end_min: 'ist ungültig.' } }
   }
 
   if (endMin <= startMin) {
-    return 'Endzeit muss nach der Startzeit liegen.'
+    return { ok: false, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }
   }
 
-  return null
+  return { ok: true }
 }
 
 function isExclusionConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object') {
     let err = error as { code?: string; message?: string; constraint?: string }
-    console.error('=== isExclusionConstraintError CHECK ===')
-    console.error('  typeof error:', typeof error)
-    console.error('  constructor:', (error as any)?.constructor?.name)
-    console.error('  is Error:', error instanceof Error)
-    console.error('  keys:', Object.keys(error))
-    console.error('  constraint:', err.constraint, '=== no_overlapping_seats?', err.constraint === 'no_overlapping_seats')
-    console.error('  code:', err.code, '=== 23P01?', err.code === '23P01')
-    console.error('  message:', (err.message ?? '').substring(0, 200), 'includes conflicts?', (err.message ?? '').includes('conflicts with key'))
-    let result =
+    return (
       err.constraint === 'no_overlapping_seats' ||
       err.code === '23P01' ||
       (err.message ?? '').includes('conflicts with key')
-    console.error('  RESULT:', result)
-    return result
+    )
   }
-  console.error('=== isExclusionConstraintError: not an object or falsy ===')
   return false
 }
 
 // ── Shared error helpers ─────────────────────────────────────────
 
-/**
- * Build a redirect response that preserves grid state and shows an error message.
- * Used by create and update actions to return validation/error feedback
- * that the admin page can display as a form error.
- */
-function errorRedirect(
+function buildErrorRedirectUrl(
   parsed: Record<string, string>,
-  error: string,
-  extra?: { creating?: boolean; editing?: string },
-): Response {
+  extra?: { creating?: boolean; editing?: string; formError?: string; fieldErrors?: Record<string, string> },
+): string {
   let state = {
     offset: parsed._offset,
     sort: parsed._sort,
@@ -164,12 +159,19 @@ function errorRedirect(
   let params = gridStateToParams(state)
   if (extra?.creating) params.set('creating', 'true')
   if (extra?.editing) params.set('editing', extra.editing)
-  params.set('error', error)
+  if (extra?.formError) params.set('error', extra.formError)
+  let fv = encodeFormValues(parsed)
+  for (let [k, v] of Object.entries(fv)) {
+    params.set(k, v)
+  }
+  if (extra?.fieldErrors) {
+    let fe = encodeFieldErrors(extra.fieldErrors)
+    for (let [k, v] of Object.entries(fe)) {
+      params.set(k, v)
+    }
+  }
   let qs = params.toString()
-  return new Response(null, {
-    status: 302,
-    headers: { Location: '/admin/appointments' + (qs ? '?' + qs : '') },
-  })
+  return '/admin/appointments' + (qs ? '?' + qs : '')
 }
 
 /**
@@ -188,6 +190,260 @@ function errorRedirectDestroy(
   })
 }
 
+// ── Shared page data ─────────────────────────────────────────────
+
+interface AppointmentPageData {
+  rows: AppointmentRow[]
+  offset: number
+  hasMore: boolean
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+  resources: ResourceOption[]
+  users: UserOption[]
+  editRow: AppointmentRow | null
+  creating: boolean
+  error: string | undefined
+  defaultStartMin: number
+  defaultEndMin: number
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+}
+
+async function loadAppointmentPageData(
+  context: AppContext,
+  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+): Promise<AppointmentPageData> {
+  let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
+  let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
+
+  let { column, direction } = overrides?.sortColumn ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const } : parseSort(context.url, {
+    allowedColumns: Object.keys(ORDER_BY_COLUMNS),
+    defaultColumn: 'a.date',
+    defaultDirection: 'asc',
+  })
+
+  let query = `
+    SELECT a.id, a.title, a.user_id, u.email AS user_email,
+           a.resource_id, r.description AS resource_description,
+           a.date, during::text AS during, a.start_min, a.end_min,
+           a.created_at, a.updated_at
+    FROM appointments a
+    INNER JOIN users u ON u.id = a.user_id
+    LEFT JOIN resources r ON r.id = a.resource_id
+  `
+
+  let params: unknown[] = []
+  let paramIndex = 0
+
+  if (filter && filter.length <= 200) {
+    paramIndex++
+    let searchPattern = `%${filter}%`
+    let conditions = SEARCH_COLUMNS.map(
+      (col) => `${col} ILIKE $${paramIndex}`,
+    )
+    query += ` WHERE (${conditions.join(' OR ')})`
+    params.push(searchPattern)
+  }
+
+  paramIndex++
+  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` LIMIT $${paramIndex}`
+  params.push(PAGE_SIZE + 1)
+
+  paramIndex++
+  query += ` OFFSET $${paramIndex}`
+  params.push(offset)
+
+  // Run independent queries in parallel for ~2x faster page loads
+  let resultPromise = pool.query(query, params)
+
+  // Cache resources query (slowly-changing reference data)
+  let resourcesPromise: Promise<{ rows: ResourceOption[] }>
+  if (resourcesCache && Date.now() < resourcesCache.expiresAt) {
+    resourcesPromise = Promise.resolve({ rows: resourcesCache.data })
+  } else {
+    resourcesPromise = pool.query(
+      'SELECT id, description FROM resources ORDER BY description ASC',
+    ).then((r) => {
+      resourcesCache = { data: r.rows as ResourceOption[], expiresAt: Date.now() + CACHE_TTL_MS }
+      return r
+    })
+  }
+
+  // Cache users query (slowly-changing reference data)
+  let usersPromise: Promise<{ rows: UserOption[] }>
+  if (usersCache && Date.now() < usersCache.expiresAt) {
+    usersPromise = Promise.resolve({ rows: usersCache.data })
+  } else {
+    usersPromise = pool.query(
+      'SELECT id, name FROM users ORDER BY name ASC',
+    ).then((r) => {
+      usersCache = { data: r.rows as UserOption[], expiresAt: Date.now() + CACHE_TTL_MS }
+      return r
+    })
+  }
+
+  let [result, resourcesResult, usersResult] = await Promise.all([
+    resultPromise, resourcesPromise, usersPromise,
+  ])
+  let rows = result.rows as AppointmentRow[]
+  let hasMore = rows.length > PAGE_SIZE
+  if (hasMore) rows.pop()
+
+  let resources = resourcesResult.rows as ResourceOption[]
+  let users = usersResult.rows as UserOption[]
+
+  // Check for inline editing state
+  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingRowId = editingParam || null
+  let editRow = overrides?.editRow ?? null
+  if (!editRow && editingRowId) {
+    editRow = await fetchEditRow(editingRowId) ?? null
+  }
+
+  let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
+
+  // Dynamic default time selection: detect offering hours for the first resource
+  let defaultStartMin = 480 // 08:00 fallback
+  let defaultEndMin = 1020 // 17:00 fallback
+  if (creating && resources.length > 0) {
+    let firstResourceId = parseInt(resources[0].id, 10)
+    // Scan up to 14 days ahead for the first available offering (single query)
+    let today = new Date()
+    let searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000 // tomorrow
+    let searchEnd = searchStart + 14 * 86_400_000
+    let offerings = await listOfferingsByDayRange(context.db, searchStart, searchEnd, firstResourceId)
+    if (offerings.length > 0) {
+      let parsed = parseDuring(offerings[0].during)
+      if (parsed) {
+        defaultStartMin = parsed.startMin
+        defaultEndMin = parsed.endMin
+      }
+    }
+  }
+
+  let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
+  let formValues = overrides?.formValues ?? decodeFormValues(context.url)
+  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(context.url)
+  let formError = overrides?.formError
+
+  return {
+    rows,
+    offset,
+    hasMore,
+    prevOffset: Math.max(0, offset - PAGE_SIZE),
+    nextOffset: offset + PAGE_SIZE,
+    sortColumn: column,
+    sortDirection: direction,
+    filter,
+    resources,
+    users,
+    editRow,
+    creating,
+    error,
+    defaultStartMin,
+    defaultEndMin,
+    formValues,
+    fieldErrors,
+    formError,
+  }
+}
+
+async function fetchEditRow(id: string): Promise<AppointmentRow | undefined> {
+  let editResult = await pool.query(
+    `SELECT a.id, a.title, a.user_id, u.email AS user_email,
+            a.resource_id, r.description AS resource_description,
+            a.date, during::text AS during, a.start_min, a.end_min,
+            a.created_at, a.updated_at
+     FROM appointments a
+     INNER JOIN users u ON u.id = a.user_id
+     LEFT JOIN resources r ON r.id = a.resource_id
+     WHERE a.id = $1`,
+    [id],
+  )
+  return editResult.rows.length > 0 ? (editResult.rows[0] as AppointmentRow) : undefined
+}
+
+function renderAppointmentsPage(
+  context: AppContext,
+  data: AppointmentPageData,
+): Response {
+  return renderAdminPage(
+    context.render,
+    'appointments',
+    <AdminAppointmentsPage
+      rows={data.rows}
+      offset={data.offset}
+      hasMore={data.hasMore}
+      prevOffset={data.prevOffset}
+      nextOffset={data.nextOffset}
+      sortColumn={data.sortColumn}
+      sortDirection={data.sortDirection}
+      filter={data.filter}
+      editRow={data.editRow}
+      creating={data.creating}
+      resources={data.resources}
+      users={data.users}
+      error={data.error}
+      defaultStartMin={data.defaultStartMin}
+      defaultEndMin={data.defaultEndMin}
+      formValues={data.formValues}
+      fieldErrors={data.fieldErrors}
+      formError={data.formError}
+    />,
+  )
+}
+
+// Form values serialized as URL params (fv_ prefix) to survive frame redirects.
+// Only 6 fields — compact enough for URL encoding.
+const FORM_VALUE_KEYS = ['resource_id', 'user_id', 'title', 'date', 'start_min', 'end_min'] as const
+
+function encodeFormValues(parsed: Record<string, string>): Record<string, string> {
+  let params: Record<string, string> = {}
+  for (let key of FORM_VALUE_KEYS) {
+    if (parsed[key]) params[`fv_${key}`] = parsed[key]
+  }
+  return params
+}
+
+function decodeFormValues(url: URL): Record<string, string> | undefined {
+  let values: Record<string, string> = {}
+  let hasAny = false
+  for (let key of FORM_VALUE_KEYS) {
+    let val = url.searchParams.get(`fv_${key}`)
+    if (val !== null) {
+      values[key] = val
+      hasAny = true
+    }
+  }
+  return hasAny ? values : undefined
+}
+
+function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
+  let params: Record<string, string> = {}
+  for (let [k, v] of Object.entries(errors)) {
+    params[`fe_${k}`] = v
+  }
+  return params
+}
+
+function decodeFieldErrors(url: URL): Record<string, string> | undefined {
+  let errors: Record<string, string> = {}
+  let hasAny = false
+  for (let key of FORM_VALUE_KEYS) {
+    let val = url.searchParams.get(`fe_${key}`)
+    if (val !== null) {
+      errors[key] = val
+      hasAny = true
+    }
+  }
+  return hasAny ? errors : undefined
+}
+
 // ── Controller ───────────────────────────────────────────────────
 
 export default createController<typeof routes.admin.appointments, AppContext>(
@@ -197,155 +453,8 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
     actions: {
       async index(context) {
-        let offset = Math.max(
-          0,
-          Number(context.url.searchParams.get('offset')) || 0,
-        )
-        let filter = context.url.searchParams.get('filter') || undefined
-
-        let { column, direction } = parseSort(context.url, {
-          allowedColumns: Object.keys(ORDER_BY_COLUMNS),
-          defaultColumn: 'a.date',
-          defaultDirection: 'asc',
-        })
-
-        let query = `
-          SELECT a.id, a.title, a.user_id, u.email AS user_email,
-                 a.resource_id, r.description AS resource_description,
-                 a.date, during::text AS during, a.start_min, a.end_min,
-                 a.created_at, a.updated_at
-          FROM appointments a
-          INNER JOIN users u ON u.id = a.user_id
-          LEFT JOIN resources r ON r.id = a.resource_id
-        `
-
-        let params: unknown[] = []
-        let paramIndex = 0
-
-        if (filter && filter.length <= 200) {
-          paramIndex++
-          let searchPattern = `%${filter}%`
-          let conditions = SEARCH_COLUMNS.map(
-            (col) => `${col} ILIKE $${paramIndex}`,
-          )
-          query += ` WHERE (${conditions.join(' OR ')})`
-          params.push(searchPattern)
-        }
-
-        paramIndex++
-        query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-        query += ` LIMIT $${paramIndex}`
-        params.push(PAGE_SIZE + 1)
-
-        paramIndex++
-        query += ` OFFSET $${paramIndex}`
-        params.push(offset)
-
-        // Run independent queries in parallel for ~2x faster page loads
-        let resultPromise = pool.query(query, params)
-
-        // Cache resources query (slowly-changing reference data)
-        let resourcesPromise: Promise<{ rows: ResourceOption[] }>
-        if (resourcesCache && Date.now() < resourcesCache.expiresAt) {
-          resourcesPromise = Promise.resolve({ rows: resourcesCache.data })
-        } else {
-          resourcesPromise = pool.query(
-            'SELECT id, description FROM resources ORDER BY description ASC',
-          ).then((r) => {
-            resourcesCache = { data: r.rows as ResourceOption[], expiresAt: Date.now() + CACHE_TTL_MS }
-            return r
-          })
-        }
-
-        // Cache users query (slowly-changing reference data)
-        let usersPromise: Promise<{ rows: UserOption[] }>
-        if (usersCache && Date.now() < usersCache.expiresAt) {
-          usersPromise = Promise.resolve({ rows: usersCache.data })
-        } else {
-          usersPromise = pool.query(
-            'SELECT id, name FROM users ORDER BY name ASC',
-          ).then((r) => {
-            usersCache = { data: r.rows as UserOption[], expiresAt: Date.now() + CACHE_TTL_MS }
-            return r
-          })
-        }
-
-        let [result, resourcesResult, usersResult] = await Promise.all([
-          resultPromise, resourcesPromise, usersPromise,
-        ])
-        let rows = result.rows as AppointmentRow[]
-        let hasMore = rows.length > PAGE_SIZE
-        if (hasMore) rows.pop()
-
-        let resources = resourcesResult.rows as ResourceOption[]
-        let users = usersResult.rows as UserOption[]
-
-        // Check for inline editing state
-        let editingParam = context.url.searchParams.get('editing')
-        let editingRowId = editingParam || null
-        let editRow: AppointmentRow | null = null
-        if (editingRowId) {
-          let editResult = await pool.query(
-            `SELECT a.id, a.title, a.user_id, u.email AS user_email,
-                    a.resource_id, r.description AS resource_description,
-                    a.date, during::text AS during, a.start_min, a.end_min,
-                    a.created_at, a.updated_at
-             FROM appointments a
-             INNER JOIN users u ON u.id = a.user_id
-             LEFT JOIN resources r ON r.id = a.resource_id
-             WHERE a.id = $1`,
-            [editingRowId],
-          )
-          if (editResult.rows.length > 0) {
-            editRow = editResult.rows[0] as AppointmentRow
-          }
-        }
-
-        let creating =
-          context.url.searchParams.get('creating') === 'true'
-
-        // Dynamic default time selection: detect offering hours for the first resource
-        let defaultStartMin = 480 // 08:00 fallback
-        let defaultEndMin = 1020 // 17:00 fallback
-        if (creating && resources.length > 0) {
-          let firstResourceId = parseInt(resources[0].id, 10)
-          // Scan up to 14 days ahead for the first available offering (single query)
-          let today = new Date()
-          let searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000 // tomorrow
-          let searchEnd = searchStart + 14 * 86_400_000
-          let offerings = await listOfferingsByDayRange(context.db, searchStart, searchEnd, firstResourceId)
-          if (offerings.length > 0) {
-            let parsed = parseDuring(offerings[0].during)
-            if (parsed) {
-              defaultStartMin = parsed.startMin
-              defaultEndMin = parsed.endMin
-            }
-          }
-        }
-
-        let error = context.url.searchParams.get('error') || undefined
-
-        return renderAdminPage(
-          context.render,
-          'appointments',
-          <AdminAppointmentsPage
-            rows={rows}
-            offset={offset}
-            hasMore={hasMore}
-            prevOffset={Math.max(0, offset - PAGE_SIZE)}
-            nextOffset={offset + PAGE_SIZE}
-            sortColumn={column}
-            sortDirection={direction}
-            filter={filter}
-            editRow={editRow}
-            creating={creating}
-            resources={resources}
-            users={users}
-            error={error}
-            defaultStartMin={defaultStartMin}
-            defaultEndMin={defaultEndMin}
-          />,
-        )
+        let data = await loadAppointmentPageData(context as AppContext)
+        return renderAppointmentsPage(context as AppContext, data)
       },
 
       async create(context) {
@@ -356,7 +465,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
           if (!adminCreateLimiter.attempt(authUserId)) {
-            return errorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.', { creating: true })
+            return new Response(null, {
+              status: 302,
+              headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.' }) },
+            })
           }
         }
 
@@ -364,12 +476,19 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         try {
           parsed = s.parse(appointmentSaveSchema, formData) as Record<string, string>
         } catch {
-          return errorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, 'Ungültige Formulardaten.', { creating: true })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, formError: 'Ungültige Formulardaten.' }) },
+          })
         }
 
-        let validationError = validateAppointmentForm(parsed)
-        if (validationError) {
-          return errorRedirect(parsed, validationError, { creating: true })
+        let validationResult = validateAppointmentForm(parsed)
+        if (!validationResult.ok) {
+          let formError = Object.values(validationResult.fieldErrors)[0]
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError, fieldErrors: validationResult.fieldErrors }) },
+          })
         }
 
         let resourceId = parseInt(parsed.resource_id, 10)
@@ -381,13 +500,19 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
         // Reject past-date creation
         if (isDateInPast(dayMs)) {
-          return errorRedirect(parsed, 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.', { creating: true })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
+          })
         }
 
         // Validate that the requested slot is within an offering
         let bookable = await isSlotBookable(context.db, dayMs, resourceId, startMin, endMin)
         if (!bookable) {
-          return errorRedirect(parsed, 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.', { creating: true })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
+          })
         }
 
         let during = `[${startMin},${endMin})`
@@ -417,7 +542,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return errorRedirect(parsed, 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.', { creating: true })
+            return new Response(null, {
+              status: 302,
+              headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
+            })
           }
           throw error
         }
@@ -444,7 +572,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
           if (!adminUpdateLimiter.attempt(authUserId)) {
-            return errorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.', { editing: updateId ?? undefined })
+            return new Response(null, {
+              status: 302,
+              headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: updateId ?? undefined, formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.' }) },
+            })
           }
         }
 
@@ -452,18 +583,28 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         try {
           parsed = s.parse(appointmentSaveSchema, formData) as Record<string, string>
         } catch {
-          return errorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, 'Ungültige Formulardaten.', { editing: updateId ?? undefined })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: updateId ?? undefined, formError: 'Ungültige Formulardaten.' }) },
+          })
         }
 
         let id = context.params.id
 
         if (!id) {
-          return errorRedirect(parsed, 'Ungültige ID.')
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { formError: 'Ungültige ID.' }) },
+          })
         }
 
-        let validationError = validateAppointmentForm(parsed)
-        if (validationError) {
-          return errorRedirect(parsed, validationError, { editing: id })
+        let validationResult = validateAppointmentForm(parsed)
+        if (!validationResult.ok) {
+          let formError = Object.values(validationResult.fieldErrors)[0]
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError, fieldErrors: validationResult.fieldErrors }) },
+          })
         }
 
         let resourceId = parseInt(parsed.resource_id, 10)
@@ -475,13 +616,19 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
         // Reject past-date update
         if (isDateInPast(dayMs)) {
-          return errorRedirect(parsed, 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.', { editing: id })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
+          })
         }
 
         // Validate that the requested slot is within an offering
         let bookable = await isSlotBookable(context.db, dayMs, resourceId, startMin, endMin)
         if (!bookable) {
-          return errorRedirect(parsed, 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.', { editing: id })
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
+          })
         }
 
         let during = `[${startMin},${endMin})`
@@ -496,7 +643,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           )
 
           if (result.rowCount === 0) {
-            return errorRedirect(parsed, 'Eintrag nicht gefunden.', { editing: id })
+            return new Response(null, {
+              status: 302,
+              headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Eintrag nicht gefunden.' }) },
+            })
           }
 
           let auth = context.auth
@@ -513,7 +663,10 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return errorRedirect(parsed, 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.', { editing: id })
+            return new Response(null, {
+              status: 302,
+              headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
+            })
           }
           throw error
         }
