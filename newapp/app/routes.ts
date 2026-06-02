@@ -24,6 +24,17 @@ export const routes = route({
     update: put('/:id'),
     destroy: del('/:id'),
   }),
+
+  // Nutzer (user management) — top-level route, admin-only middleware in controller
+  nutzer: route('nutzer', {
+    index: get('/'),
+    create: post('/'),
+    update: put('/:id'),
+    destroy: del('/:id'),
+    resetPassword: post('/:id/reset-password'),
+    toggleLock: post('/:id/toggle-lock'),
+    toggleActive: post('/:id/toggle-active'),
+  }),
 })
 
 // Lists routes (separate controller with requireAuth middleware)
@@ -79,16 +90,6 @@ export const adminRoutes = route({
     lists: route('lists', {
       index: get('/'),
       destroy: post('/:id/delete'),
-    }),
-
-    nutzer: route('nutzer', {
-      index: get('/'),
-      create: post('/'),
-      update: put('/:id'),
-      destroy: del('/:id'),
-      resetPassword: post('/:id/reset-password'),
-      toggleLock: post('/:id/toggle-lock'),
-      toggleActive: post('/:id/toggle-active'),
     }),
 
     offerings: route('offerings', {

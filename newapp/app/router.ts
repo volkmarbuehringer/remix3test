@@ -124,8 +124,8 @@ export function createNewappRouter(options?: NewappRouterOptions): Router {
   // Admin lists route
   router.map(adminRoutes.admin.lists, adminListsController)
 
-  // Admin nutzer route
-  router.map(adminRoutes.admin.nutzer, adminNutzerController)
+  // Nutzer route (top-level, admin-only middleware in controller)
+  router.map(routes.nutzer, adminNutzerController)
 
   // Admin offerings route
   router.map(adminRoutes.admin.offerings, adminOfferingsController)

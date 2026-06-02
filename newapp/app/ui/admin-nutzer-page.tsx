@@ -8,7 +8,6 @@ import { brand } from '../theme.tsx'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
-import { frames } from '../routes.ts'
 import { AdminNutzerEditPage } from './admin-nutzer-edit-page.tsx'
 import { AdminNutzerCreatePage } from './admin-nutzer-create-page.tsx'
 import { NutzerTableInteractive } from '../assets/nutzer-table-interactive.tsx'
@@ -38,6 +37,8 @@ interface AdminNutzerPageProps {
   filter: string | undefined
   editRow?: NutzerRow | null
   creating?: boolean
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
   error?: string
 }
 
@@ -52,7 +53,7 @@ const SORTABLE_COLUMNS: Array<{ key: string; label: string }> = [
   { key: 'l_letzte_login', label: 'Letzter Login' },
 ]
 
-const ADMIN_BASE = '/admin/nutzer'
+const ADMIN_BASE = '/nutzer'
 
 function boolLabel(val: boolean): string { return val ? 'Ja' : 'Nein' }
 
@@ -84,7 +85,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let {
       rows, offset, hasMore, prevOffset, nextOffset,
       sortColumn, sortDirection, filter,
-      editRow = null, creating = false, error,
+      editRow = null, creating = false, formValues, fieldErrors, error,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -92,21 +93,20 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let gridSection = (
       <div mix={table.minWidth0}>
         {/* Filter bar + Add New */}
-        <form method="GET" action="/admin/nutzer" rmx-target={frames.adminContent} mix={table.filterBar}>
+        <form method="GET" action={ADMIN_BASE} mix={table.filterBar}>
           <input
             type="text" name="filter" placeholder="Suche nach Name, Email oder Login..."
             defaultValue={filter ?? ''} mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>Suchen</button>
           {filter && (
-            <a href="/admin/nutzer" rmx-target={frames.adminContent} mix={table.clearLink}>
+            <a href={ADMIN_BASE} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <Button tone="primary">+ Neu anlegen</Button>
@@ -139,7 +139,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                     <th key={col.key} mix={table.thSortable} title={col.label}>
                       <a
                         href={buildSortUrl(ADMIN_BASE, col.key, sortColumn, sortDirection, offset, filter)}
-                        rmx-target={frames.adminContent} mix={table.sortLink}
+                         mix={table.sortLink}
                       >
                         {col.label}
                         <span mix={col.key === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -190,7 +190,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
-                  rmx-target={frames.adminContent} mix={table.pageLink}
+                   mix={table.pageLink}
                 >← Zurück</a>
               ) : (
                 <span mix={table.pageLinkDisabled}>← Zurück</span>
@@ -198,7 +198,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               {hasMore ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
-                  rmx-target={frames.adminContent} mix={table.pageLink}
+                   mix={table.pageLink}
                 >Weiter →</a>
               ) : (
                 <span mix={table.pageLinkDisabled}>Weiter →</span>
@@ -238,6 +238,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
       return (
         <div mix={table.page}>
           <h2 mix={table.title}>Nutzer</h2>
+          {error ? <div mix={table.errorBanner}>{error}</div> : null}
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -245,12 +246,12 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                 <AdminNutzerEditPage
                   row={editRow}
                   offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter} error={error}
+                  order={sortDirection} filter={filter} formValues={formValues} fieldErrors={fieldErrors}
                 />
               ) : (
                 <AdminNutzerCreatePage
                   offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter} error={error}
+                  order={sortDirection} filter={filter} formValues={formValues} fieldErrors={fieldErrors}
                 />
               )}
             </div>

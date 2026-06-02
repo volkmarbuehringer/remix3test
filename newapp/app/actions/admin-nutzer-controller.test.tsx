@@ -4,12 +4,12 @@ import * as assert from 'remix/assert'
 import { router } from '../router.ts'
 import { initializeAppDatabase, pool } from '../data/setup.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
-import { adminRoutes as routes } from '../routes.ts'
+import { routes } from '../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Nutzer Controller integration tests
 //
-// Tests the admin nutzer grid at /admin/nutzer:
+// Tests the admin nutzer grid at /nutzer:
 //   - Auth gating (requireAuth + requireAdmin middleware)
 //   - Content rendering (empty state, data rows)
 //   - Sorting (default sort, sort params, invalid columns)
@@ -27,7 +27,7 @@ import { adminRoutes as routes } from '../routes.ts'
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const NUTZER_URL = `${BASE}/admin/nutzer`
+const NUTZER_URL = `${BASE}/nutzer`
 const PAGE_SIZE = 15
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ describe('Admin Nutzer controller & page', () => {
   // Auth gating
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer redirects to login when not authenticated', async () => {
+  it('GET /nutzer redirects to login when not authenticated', async () => {
     let response = await router.fetch(NUTZER_URL)
 
     assert.equal(response.status, 302)
@@ -235,7 +235,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer returns 200 for admin', async () => {
+  it('GET /nutzer returns 200 for admin', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
@@ -243,7 +243,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(response.status, 200)
   })
 
-  it('GET /admin/nutzer returns 403 for non-admin user', async () => {
+  it('GET /nutzer returns 403 for non-admin user', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: userCookie },
     })
@@ -255,7 +255,7 @@ describe('Admin Nutzer controller & page', () => {
   // Content rendering
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer renders page title and description', async () => {
+  it('GET /nutzer renders page title and description', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
@@ -268,7 +268,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer renders data rows from the database', async () => {
+  it('GET /nutzer renders data rows from the database', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
@@ -302,7 +302,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer shows empty state when query matches nothing', async () => {
+  it('GET /nutzer shows empty state when query matches nothing', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?filter=ZZZZNOTFOUND`,
       { headers: { Cookie: adminCookie } },
@@ -319,7 +319,7 @@ describe('Admin Nutzer controller & page', () => {
   // Sorting
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer with sort param changes ORDER BY column', async () => {
+  it('GET /nutzer with sort param changes ORDER BY column', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?sort=n_vorname&order=desc`,
       { headers: { Cookie: adminCookie } },
@@ -330,7 +330,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('Nutzer'), 'should render page with sort params')
   })
 
-  it('GET /admin/nutzer with sort direction asc works', async () => {
+  it('GET /nutzer with sort direction asc works', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?sort=n_email&order=asc`,
       { headers: { Cookie: adminCookie } },
@@ -341,7 +341,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('Nutzer'), 'should render page with asc sort')
   })
 
-  it('GET /admin/nutzer with invalid sort column falls back to default and does not error', async () => {
+  it('GET /nutzer with invalid sort column falls back to default and does not error', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?sort=nonexistent_column&order=asc`,
       { headers: { Cookie: adminCookie } },
@@ -361,7 +361,7 @@ describe('Admin Nutzer controller & page', () => {
   // Filtering (ILIKE search)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer with filter finds matching results by name', async () => {
+  it('GET /nutzer with filter finds matching results by name', async () => {
     let response = await router.fetch(`${NUTZER_URL}?filter=John`, {
       headers: { Cookie: adminCookie },
     })
@@ -375,7 +375,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer with filter finds matching results by email', async () => {
+  it('GET /nutzer with filter finds matching results by email', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?filter=test-nutzer-bob`,
       { headers: { Cookie: adminCookie } },
@@ -389,7 +389,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer with non-matching filter shows search-specific empty state', async () => {
+  it('GET /nutzer with non-matching filter shows search-specific empty state', async () => {
     let response = await router.fetch(
       `${NUTZER_URL}?filter=ZZZZNOTFOUND`,
       { headers: { Cookie: adminCookie } },
@@ -403,7 +403,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer with empty filter treated as no filter', async () => {
+  it('GET /nutzer with empty filter treated as no filter', async () => {
     let response = await router.fetch(`${NUTZER_URL}?filter=`, {
       headers: { Cookie: adminCookie },
     })
@@ -419,7 +419,7 @@ describe('Admin Nutzer controller & page', () => {
   // Pagination behavior
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer with offset 0 shows the first page', async () => {
+  it('GET /nutzer with offset 0 shows the first page', async () => {
     let response = await router.fetch(`${NUTZER_URL}?offset=0`, {
       headers: { Cookie: adminCookie },
     })
@@ -429,7 +429,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('Nutzer'), 'should render first page')
   })
 
-  it('GET /admin/nutzer with negative offset clamps to 0', async () => {
+  it('GET /nutzer with negative offset clamps to 0', async () => {
     let response = await router.fetch(`${NUTZER_URL}?offset=-5`, {
       headers: { Cookie: adminCookie },
     })
@@ -440,7 +440,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('Nutzer'), 'should render page (clamped offset)')
   })
 
-  it('GET /admin/nutzer with non-numeric offset defaults to 0', async () => {
+  it('GET /nutzer with non-numeric offset defaults to 0', async () => {
     let response = await router.fetch(`${NUTZER_URL}?offset=abc`, {
       headers: { Cookie: adminCookie },
     })
@@ -562,15 +562,15 @@ describe('Admin Nutzer controller & page', () => {
   // Page component — filter form
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('has a filter form with action="/admin/nutzer"', async () => {
+  it('has a filter form with action="/nutzer"', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
     let html = await response.text()
 
     assert.ok(
-      html.includes('action="/admin/nutzer"'),
-      'filter form should POST to /admin/nutzer',
+      html.includes('action="/nutzer"'),
+      'filter form should POST to /nutzer',
     )
     assert.ok(
       html.includes('name="filter"'),
@@ -578,15 +578,15 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('has filter form with rmx-target attribute', async () => {
+  it('has filter form without rmx-target attribute (no longer frame-based)', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
     let html = await response.text()
 
     assert.ok(
-      html.includes('rmx-target'),
-      'filter form should have rmx-target for frame navigation',
+      !html.includes('rmx-target'),
+      'filter form should NOT have rmx-target (page is no longer in a frame)',
     )
   })
 
@@ -639,24 +639,21 @@ describe('Admin Nutzer controller & page', () => {
     }
   })
 
-  it('renders sortable links with rmx-target for frame navigation', async () => {
+  it('renders sortable links without rmx-target (no longer frame-based)', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
     let html = await response.text()
 
-    // Sort links should point to /admin/nutzer with query params
-    let sortLinks = html.match(/href="\/admin\/nutzer\?[^"]*"/g)
+    let sortLinks = html.match(/href="\/nutzer\?[^"]*"/g)
     assert.ok(
       sortLinks && sortLinks.length > 0,
-      'should render sort links',
+      'should render sort links to /nutzer',
     )
 
-    // rmx-target should appear on form and sort links
-    let rmxTargets = html.match(/rmx-target/g)
     assert.ok(
-      rmxTargets && rmxTargets.length >= 2,
-      'should have rmx-target attributes on form and sort links',
+      !html.includes('rmx-target'),
+      'should NOT have rmx-target attributes (page is no longer in a frame)',
     )
   })
 
@@ -742,11 +739,11 @@ describe('Admin Nutzer controller & page', () => {
   // Route wiring
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('adminRoutes.admin.nutzer.index.href() returns /admin/nutzer', () => {
+  it('routes.nutzer.index.href() returns /nutzer', () => {
     assert.equal(
-      routes.admin.nutzer.index.href(),
-      '/admin/nutzer',
-      'route href should be /admin/nutzer',
+      routes.nutzer.index.href(),
+      '/nutzer',
+      'route href should be /nutzer',
     )
   })
 
@@ -762,10 +759,10 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Update (PUT /admin/nutzer/:id)
+  // Update (PUT /nutzer/:id)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('PUT /admin/nutzer/:id updates both tables and redirects', async () => {
+  it('PUT /nutzer/:id updates both tables and redirects', async () => {
     // Use the first seeded row ("Alpha Admin")
     let nId = allNutzerIds[0]
     let lId = allLoginIds[0]
@@ -791,7 +788,7 @@ describe('Admin Nutzer controller & page', () => {
       _method: 'PUT',
     })
 
-    let response = await router.fetch(`${BASE}/admin/nutzer/${nId}`, {
+    let response = await router.fetch(`${BASE}/nutzer/${nId}`, {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -800,7 +797,7 @@ describe('Admin Nutzer controller & page', () => {
     // Should redirect back to the grid
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location === '/admin/nutzer', 'should redirect to /admin/nutzer')
+    assert.ok(location === '/nutzer', 'should redirect to /nutzer')
 
     // Verify nutzer row was updated
     let nutzerResult = await pool.query(
@@ -824,17 +821,17 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(loginResult.rows[0].l_gesperrt, true)
   })
 
-  it('PUT /admin/nutzer/:id with non-existent UUID updates zero rows (no error)', async () => {
+  it('PUT /nutzer/:id with non-existent UUID updates zero rows (no error)', async () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let body = new URLSearchParams({
-      vorname: '', name: '', email: '', verpflichtung: '',
+      vorname: '', name: 'ValidName', email: 'valid@test.com', verpflichtung: '',
       login: 'valid@test.com', aktiv: '', gesperrt: '', _l_id: '00000000-0000-0000-0000-000000000000',
       _offset: '', _sort: '', _order: '', _filter: '',
       _csrf: adminCsrf,
       _method: 'PUT',
     })
 
-    let response = await router.fetch(`${BASE}/admin/nutzer/${nonExistentId}`, {
+    let response = await router.fetch(`${BASE}/nutzer/${nonExistentId}`, {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -845,10 +842,10 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Create (POST /admin/nutzer)
+  // Create (POST /nutzer)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('POST /admin/nutzer creates both tables and redirects to editing', async () => {
+  it('POST /nutzer creates both tables and redirects to editing', async () => {
     let createLogin = uniqueLogin(`create-test-${NOW}`)
     let createEmail = `create-test-${NOW}@test.com`
 
@@ -868,7 +865,7 @@ describe('Admin Nutzer controller & page', () => {
       _csrf: adminCsrf,
     })
 
-    let response = await router.fetch(`${BASE}/admin/nutzer`, {
+    let response = await router.fetch(`${BASE}/nutzer`, {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -877,10 +874,10 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
 
-    // Should redirect to /admin/nutzer?editing=N
+    // Should redirect to /nutzer?editing=N
     assert.ok(
-      location.startsWith('/admin/nutzer?editing='),
-      'should redirect to /admin/nutzer?editing=N',
+      location.startsWith('/nutzer?editing='),
+      'should redirect to /nutzer?editing=N',
     )
 
     // Extract the new n_id from the redirect URL (handle UUID format)
@@ -915,10 +912,10 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // Destroy (DELETE /admin/nutzer/:id)
+  // Destroy (DELETE /nutzer/:id)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('DELETE /admin/nutzer/:id removes both tables and redirects', async () => {
+  it('DELETE /nutzer/:id removes both tables and redirects', async () => {
     // Create a dedicated row to delete (use unique data to avoid conflicts)
     let delLogin = uniqueLogin(`del-test-${NOW}`)
 
@@ -948,7 +945,7 @@ describe('Admin Nutzer controller & page', () => {
       _method: 'DELETE',
     })
 
-    let response = await router.fetch(`${BASE}/admin/nutzer/${delNId}`, {
+    let response = await router.fetch(`${BASE}/nutzer/${delNId}`, {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -957,8 +954,8 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
     assert.ok(
-      location === '/admin/nutzer',
-      'should redirect to /admin/nutzer on delete',
+      location === '/nutzer',
+      'should redirect to /nutzer on delete',
     )
 
     // Verify nutzer row is gone
@@ -976,7 +973,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(loginCheck.rows.length, 0, 'login row should be deleted')
   })
 
-  it('DELETE /admin/nutzer/:id with non-existent UUID returns 404', async () => {
+  it('DELETE /nutzer/:id with non-existent UUID returns 404', async () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let body = new URLSearchParams({
       _offset: '', _sort: '', _order: '', _filter: '',
@@ -984,7 +981,7 @@ describe('Admin Nutzer controller & page', () => {
       _method: 'DELETE',
     })
 
-    let response = await router.fetch(`${BASE}/admin/nutzer/${nonExistentId}`, {
+    let response = await router.fetch(`${BASE}/nutzer/${nonExistentId}`, {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -997,7 +994,7 @@ describe('Admin Nutzer controller & page', () => {
   // Edit panel (?editing=N)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer?editing=N renders edit form with row data', async () => {
+  it('GET /nutzer?editing=N renders edit form with row data', async () => {
     let nId = allNutzerIds[0]
     let response = await router.fetch(`${NUTZER_URL}?editing=${nId}`, {
       headers: { Cookie: adminCookie },
@@ -1026,7 +1023,7 @@ describe('Admin Nutzer controller & page', () => {
     )
   })
 
-  it('GET /admin/nutzer?editing=N with non-existent UUID does not show edit panel', async () => {
+  it('GET /nutzer?editing=N with non-existent UUID does not show edit panel', async () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let response = await router.fetch(`${NUTZER_URL}?editing=${nonExistentId}`, {
       headers: { Cookie: adminCookie },
@@ -1044,7 +1041,7 @@ describe('Admin Nutzer controller & page', () => {
   // Create panel (?creating=true)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  it('GET /admin/nutzer?creating=true renders create form', async () => {
+  it('GET /nutzer?creating=true renders create form', async () => {
     let response = await router.fetch(`${NUTZER_URL}?creating=true`, {
       headers: { Cookie: adminCookie },
     })

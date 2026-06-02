@@ -14,7 +14,6 @@ export type AdminNavItem =
   | 'messages'
   | 'lists'
   | 'client'
-  | 'nutzer'
   | 'offerings'
   | 'appointments'
   | 'users'
@@ -36,7 +35,6 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
       { id: 'client', label: 'Client-Test', href: '/client', iframeNav: false },
-      { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'resources', label: 'Ressourcen', route: routes.admin.resources.index },
       { id: 'offeringConfigs', label: 'Angebotskonfigurationen', route: routes.admin.offeringConfigs.index },
@@ -63,8 +61,6 @@ function navIcon(id: AdminNavItem): RemixNode {
     case 'lists':
       return <Glyph name="menu" width={16} height={16} />
     case 'client':
-      return usersSvg()
-    case 'nutzer':
       return usersSvg()
     case 'offerings':
       return listSvg()

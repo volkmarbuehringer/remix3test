@@ -51,8 +51,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/appointment/events': 'Termine',
   '/appointment/types': 'Termintypen',
 
-  // Admin — nutzer
-  '/admin/nutzer': 'Nutzer',
+  // Nutzer
+  '/nutzer': 'Nutzer',
 
   // Admin — offerings
   // Note: config and week are POST-only action endpoints (not navigable pages),

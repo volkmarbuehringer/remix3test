@@ -14,10 +14,11 @@ interface AdminNutzerCreatePageProps {
   sort?: string
   order?: string
   filter?: string
-  error?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
-// ── Styles (unique to this panel) ──
+// ── Styles ──
 
 const checkboxRowStyle = css({
   display: 'flex',
@@ -39,16 +40,27 @@ const checkboxLabelStyle = css({
   cursor: 'pointer',
 })
 
-// ── Helpers ──
+const inputErrorStyle = css({
+  borderColor: theme.colors.action.danger.background,
+  '&:focus': {
+    borderColor: theme.colors.action.danger.background,
+  },
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.action.danger.background,
+})
 
 // ── Component ──
 
 export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '', error } = handle.props
+    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/nutzer" novalidate>
+        <RestfulForm method="POST" action="/nutzer" novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -57,17 +69,18 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
             </div>
 
             <div mix={table.panelBody}>
-              {error ? <div mix={table.errorBanner}>{error}</div> : null}
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="nc-vorname">Vorname</label>
                 <input
                   id="nc-vorname"
                   name="vorname"
                   type="text"
-                  mix={[input.base, input.focus]}
+                  mix={[input.base, input.focus, fieldErrors?.vorname ? inputErrorStyle : null].filter(Boolean)}
+                  value={formValues?.vorname ?? ''}
                   placeholder="Vorname"
                   maxLength={100}
                 />
+                {fieldErrors?.vorname ? <div mix={fieldErrorStyle}>{fieldErrors.vorname}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -76,10 +89,12 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   id="nc-name"
                   name="name"
                   type="text"
-                  mix={[input.base, input.focus]}
+                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(Boolean)}
+                  value={formValues?.name ?? ''}
                   placeholder="Name"
                   maxLength={100}
                 />
+                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -88,10 +103,12 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   id="nc-email"
                   name="email"
                   type="email"
-                  mix={[input.base, input.focus]}
+                  mix={[input.base, input.focus, fieldErrors?.email ? inputErrorStyle : null].filter(Boolean)}
+                  value={formValues?.email ?? ''}
                   placeholder="email@example.com"
                   maxLength={200}
                 />
+                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
               </div>
 
               <div mix={checkboxRowStyle}>
@@ -100,6 +117,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   name="verpflichtung"
                   type="checkbox"
                   mix={checkboxStyle}
+                  checked={formValues?.verpflichtung === 'on'}
                 />
                 <label mix={checkboxLabelStyle} htmlFor="nc-verpflichtung">
                   Verpflichtung
@@ -112,10 +130,12 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   id="nc-login"
                   name="login"
                   type="text"
-                  mix={[input.base, input.focus]}
+                  mix={[input.base, input.focus, fieldErrors?.login ? inputErrorStyle : null].filter(Boolean)}
+                  value={formValues?.login ?? ''}
                   placeholder="Loginname"
                   maxLength={100}
                 />
+                {fieldErrors?.login ? <div mix={fieldErrorStyle}>{fieldErrors.login}</div> : null}
               </div>
 
               <div mix={checkboxRowStyle}>
@@ -124,7 +144,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   name="aktiv"
                   type="checkbox"
                   mix={checkboxStyle}
-                  checked
+                  checked={formValues?.aktiv !== undefined ? formValues.aktiv === 'on' : true}
                 />
                 <label mix={checkboxLabelStyle} htmlFor="nc-aktiv">Aktiv</label>
               </div>
@@ -135,6 +155,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   name="gesperrt"
                   type="checkbox"
                   mix={checkboxStyle}
+                  checked={formValues?.gesperrt === 'on'}
                 />
                 <label mix={checkboxLabelStyle} htmlFor="nc-gesperrt">Gesperrt</label>
               </div>
@@ -143,7 +164,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

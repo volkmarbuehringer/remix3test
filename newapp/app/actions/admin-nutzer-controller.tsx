@@ -1,18 +1,20 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
+import { minLength, email } from 'remix/data-schema/checks'
 
-import { adminRoutes as routes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import { pool } from '../data/setup.ts'
 import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
-import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { Layout } from '../ui/layout.tsx'
 import { AdminNutzerPage, type NutzerRow } from '../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams } from '../utils/grid-state.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 import { logAdminAction } from '../data/audit-log.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
 const PAGE_SIZE = 15
 
@@ -29,14 +31,14 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
 
 const SEARCH_COLUMNS = ['n_vorname', 'n_name', 'n_email', 'l_login']
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const NUTZER_FORM_KEYS = ['vorname', 'name', 'email', 'verpflichtung', 'login', 'aktiv', 'gesperrt', '_l_id', '_offset', '_sort', '_order', '_filter'] as const
 
 const nutzerSaveSchema = f.object({
   vorname: f.field(s.defaulted(s.string(), '')),
-  name: f.field(s.defaulted(s.string(), '')),
-  email: f.field(s.defaulted(s.string(), '')),
+  name: f.field(s.defaulted(s.string(), '').pipe(minLength(8))),
+  email: f.field(s.defaulted(s.string(), '').pipe(email())),
   verpflichtung: f.field(s.defaulted(s.string(), '')),
-  login: f.field(s.defaulted(s.string(), '')),
+  login: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
   aktiv: f.field(s.defaulted(s.string(), '')),
   gesperrt: f.field(s.defaulted(s.string(), '')),
   _l_id: f.field(s.defaulted(s.string(), '')),
@@ -50,30 +52,73 @@ function boolFromString(val: string): boolean {
   return val === 'on' || val === 'true' || val === '1'
 }
 
-function buildNutzerErrorRedirect(
-  formData: FormData,
-  opts: { creating?: boolean; editing?: string; error: string },
-): Response {
-  let params = new URLSearchParams()
-  let offset = (formData.get('_offset') as string) ?? ''
-  let sort = (formData.get('_sort') as string) ?? ''
-  let order = (formData.get('_order') as string) ?? ''
-  let filter = (formData.get('_filter') as string) ?? ''
-  if (offset) params.set('offset', offset)
-  if (sort) params.set('sort', sort)
-  if (order) params.set('order', order)
-  if (filter) params.set('filter', filter)
-  if (opts.creating) params.set('creating', 'true')
-  if (opts.editing) params.set('editing', opts.editing)
-  params.set('error', opts.error)
-  let qs = params.toString()
-  return new Response(null, {
-    status: 302,
-    headers: { Location: '/admin/nutzer' + (qs ? '?' + qs : '') },
-  })
+function dbErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) {
+    let pg = error as { code: string; constraint?: string }
+    if (pg.code === '23505') return 'Login existiert bereits.'
+    if (pg.code === '23514') return 'Ungültige Eingabe.'
+  }
+  return 'Ein Datenbankfehler ist aufgetreten.'
 }
 
-export default createController<typeof routes.admin.nutzer, AppContext>(routes.admin.nutzer, {
+async function fetchNutzerGrid(opts: {
+  offset: number
+  column: string
+  direction: 'asc' | 'desc'
+  filter?: string
+}) {
+  let { offset, column, direction, filter } = opts
+
+  let query = `
+    SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
+           l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
+    FROM nutzer
+    INNER JOIN login ON l_id = n_lid
+  `
+
+  let params: unknown[] = []
+  let paramIndex = 0
+
+  if (filter && filter.length <= 200) {
+    paramIndex++
+    let searchPattern = `%${filter}%`
+    let conditions = SEARCH_COLUMNS.map((col) => `${col} ILIKE $${paramIndex}`)
+    query += ` WHERE (${conditions.join(' OR ')})`
+    params.push(searchPattern)
+  }
+
+  paramIndex++
+  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` LIMIT $${paramIndex}`
+  params.push(PAGE_SIZE + 1)
+
+  paramIndex++
+  query += ` OFFSET $${paramIndex}`
+  params.push(offset)
+
+  let result = await pool.query(query, params)
+  let rows = result.rows as NutzerRow[]
+  let hasMore = rows.length > PAGE_SIZE
+  if (hasMore) rows.pop()
+
+  return { rows, hasMore }
+}
+
+async function fetchNutzerEditRow(editingRowId: string): Promise<NutzerRow | null> {
+  let editResult = await pool.query(
+    `SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
+            l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
+     FROM nutzer INNER JOIN login ON l_id = n_lid
+     WHERE n_id = $1`,
+    [editingRowId],
+  )
+  if (editResult.rows.length > 0) {
+    return editResult.rows[0] as NutzerRow
+  }
+  return null
+}
+
+export default createController<typeof routes.nutzer, AppContext>(routes.nutzer, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
@@ -87,74 +132,32 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         defaultDirection: 'asc',
       })
 
-      let query = `
-        SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
-               l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
-        FROM nutzer
-        INNER JOIN login ON l_id = n_lid
-      `
+      let { rows, hasMore } = await fetchNutzerGrid({ offset, column, direction, filter })
 
-      let params: unknown[] = []
-      let paramIndex = 0
-
-      if (filter && filter.length <= 200) {
-        paramIndex++
-        let searchPattern = `%${filter}%`
-        let conditions = SEARCH_COLUMNS.map((col) => `${col} ILIKE $${paramIndex}`)
-        query += ` WHERE (${conditions.join(' OR ')})`
-        params.push(searchPattern)
-      }
-
-      paramIndex++
-      query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-      query += ` LIMIT $${paramIndex}`
-      params.push(PAGE_SIZE + 1)
-
-      paramIndex++
-      query += ` OFFSET $${paramIndex}`
-      params.push(offset)
-
-      let result = await pool.query(query, params)
-      let rows = result.rows as NutzerRow[]
-      let hasMore = rows.length > PAGE_SIZE
-      if (hasMore) rows.pop()
-
-      // Check for inline editing state
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam || null
       let editRow: NutzerRow | null = null
       if (editingRowId) {
-        let editResult = await pool.query(
-          `SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
-                  l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
-           FROM nutzer INNER JOIN login ON l_id = n_lid
-           WHERE n_id = $1`,
-          [editingRowId],
-        )
-        if (editResult.rows.length > 0) {
-          editRow = editResult.rows[0] as NutzerRow
-        }
+        editRow = await fetchNutzerEditRow(editingRowId)
       }
 
       let creating = context.url.searchParams.get('creating') === 'true'
-      let error = context.url.searchParams.get('error') || undefined
 
-      return renderAdminPage(
-        context.render,
-        'nutzer',
-        <AdminNutzerPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - PAGE_SIZE)}
-          nextOffset={offset + PAGE_SIZE}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-          error={error}
-        />,
+      return context.render(
+        <Layout title="Nutzer">
+          <AdminNutzerPage
+            rows={rows}
+            offset={offset}
+            hasMore={hasMore}
+            prevOffset={Math.max(0, offset - PAGE_SIZE)}
+            nextOffset={offset + PAGE_SIZE}
+            sortColumn={column}
+            sortDirection={direction}
+            filter={filter}
+            editRow={editRow}
+            creating={creating}
+          />
+        </Layout>,
       )
     },
 
@@ -162,29 +165,63 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       let formData = context.formData
       let id = context.params.id
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
-      } catch {
-        return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', editing: id ?? undefined })
-      }
-
       if (!id) {
-        return buildNutzerErrorRedirect(formData, { error: 'Invalid id' })
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let lId = parsed._l_id
+      let rawValues = readFormFieldValues(NUTZER_FORM_KEYS, formData)
+      let parsed = s.parseSafe(nutzerSaveSchema, formData)
+
+      if (!parsed.success) {
+        let fieldErrors = issuesToFieldErrors(parsed.issues)
+        let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
+        let sortCol = rawValues._sort || 'n_name'
+        let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
+        let gridFilter = rawValues._filter || undefined
+
+        let { rows, hasMore } = await fetchNutzerGrid({
+          offset: gridOffset,
+          column: sortCol,
+          direction: sortDir,
+          filter: gridFilter,
+        })
+
+        let editRow: NutzerRow = {
+          n_id: id,
+          n_vorname: rawValues.vorname || null,
+          n_name: rawValues.name || null,
+          n_email: rawValues.email || null,
+          n_verpflichtung: boolFromString(rawValues.verpflichtung),
+          l_id: rawValues._l_id || '',
+          l_login: rawValues.login || '',
+          l_aktiv: boolFromString(rawValues.aktiv),
+          l_gesperrt: boolFromString(rawValues.gesperrt),
+          l_letzte_login: null,
+        }
+
+        return context.render(
+          <Layout title="Nutzer">
+            <AdminNutzerPage
+              rows={rows}
+              offset={gridOffset}
+              hasMore={hasMore}
+              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
+              nextOffset={gridOffset + PAGE_SIZE}
+              sortColumn={sortCol}
+              sortDirection={sortDir}
+              filter={gridFilter}
+              editRow={editRow}
+              formValues={rawValues}
+              fieldErrors={fieldErrors}
+            />
+          </Layout>,
+          { status: 400 },
+        )
+      }
+
+      let lId = parsed.value._l_id
       if (!lId) {
-        return buildNutzerErrorRedirect(formData, { error: 'Missing login reference', editing: id })
-      }
-      if (!parsed.login || !parsed.login.trim()) {
-        return buildNutzerErrorRedirect(formData, { error: 'Login (email) is required', editing: id })
-      }
-      if (parsed.name && parsed.name.length < 8) {
-        return buildNutzerErrorRedirect(formData, { error: 'Name must have at least 8 characters', editing: id })
-      }
-      if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return buildNutzerErrorRedirect(formData, { error: 'Invalid email format', editing: id })
+        return context.json({ ok: false, error: 'Missing login reference' }, { status: 400 })
       }
 
       let client = await pool.connect()
@@ -193,12 +230,12 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         await client.query(
           `UPDATE nutzer SET n_vorname=$1, n_name=$2, n_email=$3, n_verpflichtung=$4
            WHERE n_id=$5`,
-          [parsed.vorname, parsed.name, parsed.email, boolFromString(parsed.verpflichtung), id],
+          [parsed.value.vorname, parsed.value.name, parsed.value.email, boolFromString(parsed.value.verpflichtung), id],
         )
         await client.query(
           `UPDATE login SET l_login=$1, l_aktiv=$2, l_gesperrt=$3
            WHERE l_id=$4`,
-          [parsed.login, boolFromString(parsed.aktiv), boolFromString(parsed.gesperrt), lId],
+          [parsed.value.login, boolFromString(parsed.value.aktiv), boolFromString(parsed.value.gesperrt), lId],
         )
         await client.query('COMMIT')
 
@@ -211,49 +248,114 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
             action_type: 'update',
             target_type: 'nutzer',
             target_id: id,
-            details: { changes: { vorname: parsed.vorname, name: parsed.name } },
+            details: { changes: { vorname: parsed.value.vorname, name: parsed.value.name } },
           })
         }
       } catch (error) {
         await client.query('ROLLBACK')
-        throw error
-      } finally {
         client.release()
+
+        if (process.env.NODE_ENV !== 'test') console.error('DB error in nutzer update:', error)
+
+        let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
+        let sortCol = rawValues._sort || 'n_name'
+        let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
+        let gridFilter = rawValues._filter || undefined
+
+        let { rows, hasMore } = await fetchNutzerGrid({
+          offset: gridOffset,
+          column: sortCol,
+          direction: sortDir,
+          filter: gridFilter,
+        })
+
+        let editRow: NutzerRow = {
+          n_id: id,
+          n_vorname: rawValues.vorname || null,
+          n_name: rawValues.name || null,
+          n_email: rawValues.email || null,
+          n_verpflichtung: boolFromString(rawValues.verpflichtung),
+          l_id: rawValues._l_id || '',
+          l_login: rawValues.login || '',
+          l_aktiv: boolFromString(rawValues.aktiv),
+          l_gesperrt: boolFromString(rawValues.gesperrt),
+          l_letzte_login: null,
+        }
+
+        return context.render(
+          <Layout title="Nutzer">
+            <AdminNutzerPage
+              rows={rows}
+              offset={gridOffset}
+              hasMore={hasMore}
+              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
+              nextOffset={gridOffset + PAGE_SIZE}
+              sortColumn={sortCol}
+              sortDirection={sortDir}
+              filter={gridFilter}
+              editRow={editRow}
+              error={dbErrorMessage(error)}
+              formValues={rawValues}
+            />
+          </Layout>,
+          { status: 400 },
+        )
       }
 
+      client.release()
+
       let redirectState = {
-        offset: parsed._offset,
-        sort: parsed._sort,
-        order: parsed._order,
-        filter: parsed._filter,
+        offset: parsed.value._offset,
+        sort: parsed.value._sort,
+        order: parsed.value._order,
+        filter: parsed.value._filter,
       }
-      let params = gridStateToParams(redirectState)
-      let qs = params.toString()
+      let qp = gridStateToParams(redirectState)
+      let qs = qp.toString()
       return new Response(null, {
         status: 302,
-        headers: { Location: '/admin/nutzer' + (qs ? '?' + qs : '') },
+        headers: { Location: '/nutzer' + (qs ? '?' + qs : '') },
       })
     },
 
     async create(context) {
       let formData = context.formData
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
-      } catch {
-        return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', creating: true })
-      }
+      let rawValues = readFormFieldValues(NUTZER_FORM_KEYS, formData)
+      let parsed = s.parseSafe(nutzerSaveSchema, formData)
 
-      // Validate required fields
-      if (!parsed.login || !parsed.login.trim()) {
-        return buildNutzerErrorRedirect(formData, { error: 'Login is required', creating: true })
-      }
-      if (parsed.name && parsed.name.length < 8) {
-        return buildNutzerErrorRedirect(formData, { error: 'Name must have at least 8 characters', creating: true })
-      }
-      if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return buildNutzerErrorRedirect(formData, { error: 'Invalid email format', creating: true })
+      if (!parsed.success) {
+        let fieldErrors = issuesToFieldErrors(parsed.issues)
+        let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
+        let sortCol = rawValues._sort || 'n_name'
+        let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
+        let gridFilter = rawValues._filter || undefined
+
+        let { rows, hasMore } = await fetchNutzerGrid({
+          offset: gridOffset,
+          column: sortCol,
+          direction: sortDir,
+          filter: gridFilter,
+        })
+
+        return context.render(
+          <Layout title="Nutzer">
+            <AdminNutzerPage
+              rows={rows}
+              offset={gridOffset}
+              hasMore={hasMore}
+              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
+              nextOffset={gridOffset + PAGE_SIZE}
+              sortColumn={sortCol}
+              sortDirection={sortDir}
+              filter={gridFilter}
+              creating={true}
+              formValues={rawValues}
+              fieldErrors={fieldErrors}
+            />
+          </Layout>,
+          { status: 400 },
+        )
       }
 
       let client = await pool.connect()
@@ -264,7 +366,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           `INSERT INTO login (l_login, l_aktiv, l_gesperrt)
            VALUES ($1, $2, $3)
            RETURNING l_id`,
-          [parsed.login, boolFromString(parsed.aktiv), boolFromString(parsed.gesperrt)],
+          [parsed.value.login, boolFromString(parsed.value.aktiv), boolFromString(parsed.value.gesperrt)],
         )
         let newLId = loginResult.rows[0].l_id
 
@@ -272,7 +374,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           `INSERT INTO nutzer (n_vorname, n_name, n_email, n_verpflichtung, n_lid)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING n_id`,
-          [parsed.vorname, parsed.name, parsed.email, boolFromString(parsed.verpflichtung), newLId],
+          [parsed.value.vorname, parsed.value.name, parsed.value.email, boolFromString(parsed.value.verpflichtung), newLId],
         )
         let newNId = nutzerResult.rows[0].n_id
 
@@ -290,24 +392,56 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           })
         }
 
-        // Redirect back with editing=NEW_NID to show and allow further edits
+        client.release()
+
         let redirectState = {
-          offset: parsed._offset,
-          sort: parsed._sort,
-          order: parsed._order,
-          filter: parsed._filter,
+          offset: parsed.value._offset,
+          sort: parsed.value._sort,
+          order: parsed.value._order,
+          filter: parsed.value._filter,
         }
-        let params = gridStateToParams(redirectState)
-        params.set('editing', newNId)
+        let qp = gridStateToParams(redirectState)
+        qp.set('editing', newNId)
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/nutzer?' + params.toString() },
+          headers: { Location: '/nutzer?' + qp.toString() },
         })
       } catch (error) {
         await client.query('ROLLBACK')
-        throw error
-      } finally {
         client.release()
+
+        if (process.env.NODE_ENV !== 'test') console.error('DB error in nutzer create:', error)
+
+        let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
+        let sortCol = rawValues._sort || 'n_name'
+        let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
+        let gridFilter = rawValues._filter || undefined
+
+        let { rows, hasMore } = await fetchNutzerGrid({
+          offset: gridOffset,
+          column: sortCol,
+          direction: sortDir,
+          filter: gridFilter,
+        })
+
+        return context.render(
+          <Layout title="Nutzer">
+            <AdminNutzerPage
+              rows={rows}
+              offset={gridOffset}
+              hasMore={hasMore}
+              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
+              nextOffset={gridOffset + PAGE_SIZE}
+              sortColumn={sortCol}
+              sortDirection={sortDir}
+              filter={gridFilter}
+              creating={true}
+              error={dbErrorMessage(error)}
+              formValues={rawValues}
+            />
+          </Layout>,
+          { status: 400 },
+        )
       }
     },
 
@@ -354,18 +488,17 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         client.release()
       }
 
-      // Redirect back with preserved grid state
       let redirectState = {
         offset: (formData.get('_offset') as string) ?? '',
         sort: (formData.get('_sort') as string) ?? '',
         order: (formData.get('_order') as string) ?? '',
         filter: (formData.get('_filter') as string) ?? '',
       }
-      let params = gridStateToParams(redirectState)
-      let qs = params.toString()
+      let qp = gridStateToParams(redirectState)
+      let qs = qp.toString()
       return new Response(null, {
         status: 302,
-        headers: { Location: '/admin/nutzer' + (qs ? '?' + qs : '') },
+        headers: { Location: '/nutzer' + (qs ? '?' + qs : '') },
       })
     },
 
@@ -375,7 +508,6 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      // Verify user exists and get their l_id
       let result = await pool.query(
         `SELECT n.n_id, n.n_name, n.n_vorname, l.l_id
          FROM nutzer n JOIN login l ON n.n_lid = l.l_id
@@ -386,7 +518,6 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
-      // Generate 12-char password (mixed case + digits, no ambiguous chars like 0/O/1/l/I)
       let chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
       let randomBytes = crypto.getRandomValues(new Uint8Array(12))
       let password = ''
