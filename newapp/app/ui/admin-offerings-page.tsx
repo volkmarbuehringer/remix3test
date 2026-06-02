@@ -34,6 +34,9 @@ interface AdminOfferingsPageProps {
   configResourceId?: number
   offeringConfig?: OfferingConfig
   addWeek?: boolean
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 // ── Helpers ──
@@ -106,6 +109,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
       sortColumn, sortDirection, filter,
       editRow = null, creating = false, resources, error,
       configResourceId, offeringConfig, addWeek = false,
+      formValues, fieldErrors, formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -334,6 +338,9 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                  formError={formError}
                 />
               ) : creating ? (
                 <AdminOfferingsCreatePage
@@ -342,6 +349,9 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                  formError={formError}
                 />
               ) : configResourceId ? (
                 <AdminOfferingsConfigPage

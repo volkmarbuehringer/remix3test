@@ -14,6 +14,7 @@ import { gridStateToParams } from '../utils/grid-state.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
+import { type ValidationResult } from '../utils/form-errors.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
 
@@ -48,6 +49,27 @@ export interface ResourceOption {
   description: string
 }
 
+export interface OfferingPageData {
+  rows: OfferingRow[]
+  offset: number
+  hasMore: boolean
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+  editRow: OfferingRow | null
+  creating: boolean
+  resources: ResourceOption[]
+  error: string | undefined
+  configResourceId: number | undefined
+  offeringConfig: OfferingConfig | undefined
+  addWeek: boolean
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+}
+
 // ── Form schema ──────────────────────────────────────────────────
 
 const offeringSaveSchema = f.object({
@@ -63,31 +85,31 @@ const offeringSaveSchema = f.object({
 
 // ── Validation helpers ───────────────────────────────────────────
 
-function validateOfferingForm(parsed: Record<string, string>): string | null {
+function validateOfferingForm(parsed: Record<string, string>): ValidationResult {
   let resourceId = parseInt(parsed.resource_id, 10)
   if (!resourceId || isNaN(resourceId)) {
-    return 'Ressource ist erforderlich.'
+    return { ok: false, fieldErrors: { resource_id: 'ist erforderlich.' } }
   }
 
   if (!parsed.day || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.day)) {
-    return 'Gültiges Datum erforderlich (YYYY-MM-DD).'
+    return { ok: false, fieldErrors: { day: 'Gültiges Datum erforderlich (YYYY-MM-DD).' } }
   }
 
   let startMin = parseInt(parsed.start_min, 10)
   if (isNaN(startMin) || startMin < 0 || startMin > 1380 || startMin % 60 !== 0) {
-    return 'Startzeit ist ungültig.'
+    return { ok: false, fieldErrors: { start_min: 'ist ungültig.' } }
   }
 
   let endMin = parseInt(parsed.end_min, 10)
   if (isNaN(endMin) || endMin < 60 || endMin > 1440 || endMin % 60 !== 0) {
-    return 'Endzeit ist ungültig.'
+    return { ok: false, fieldErrors: { end_min: 'ist ungültig.' } }
   }
 
   if (endMin <= startMin) {
-    return 'Endzeit muss nach der Startzeit liegen.'
+    return { ok: false, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }
   }
 
-  return null
+  return { ok: true }
 }
 
 function parseDuring(during: string): { startMin: number; endMin: number } {
@@ -108,15 +130,236 @@ function isExclusionConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object') {
     let err = error as { code?: string; message?: string; constraint?: string }
     return (
-      // Locale-independent: check by constraint name
       err.constraint === 'no_overlapping_seats' ||
-      // PostgreSQL exclusion violation error code
       err.code === '23P01' ||
-      // Fallback: English error message (only works in English locales)
       (err.message ?? '').includes('conflicts with key')
     )
   }
   return false
+}
+
+// ── Shared helpers ───────────────────────────────────────────────
+
+const OFFERING_FORM_VALUE_KEYS = ['resource_id', 'day', 'start_min', 'end_min'] as const
+
+function encodeFormValues(parsed: Record<string, string>): Record<string, string> {
+  let params: Record<string, string> = {}
+  for (let key of OFFERING_FORM_VALUE_KEYS) {
+    if (parsed[key]) params[`fv_${key}`] = parsed[key]
+  }
+  return params
+}
+
+function decodeFormValues(url: URL): Record<string, string> | undefined {
+  let values: Record<string, string> = {}
+  let hasAny = false
+  for (let key of OFFERING_FORM_VALUE_KEYS) {
+    let val = url.searchParams.get(`fv_${key}`)
+    if (val !== null) {
+      values[key] = val
+      hasAny = true
+    }
+  }
+  return hasAny ? values : undefined
+}
+
+function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
+  let params: Record<string, string> = {}
+  for (let [key, msg] of Object.entries(errors)) {
+    params[`fe_${key}`] = msg
+  }
+  return params
+}
+
+function decodeFieldErrors(url: URL): Record<string, string> | undefined {
+  let errors: Record<string, string> = {}
+  let hasAny = false
+  for (let key of OFFERING_FORM_VALUE_KEYS) {
+    let val = url.searchParams.get(`fe_${key}`)
+    if (val !== null) {
+      errors[key] = val
+      hasAny = true
+    }
+  }
+  return hasAny ? errors : undefined
+}
+
+function buildErrorRedirect(
+  parsed: Record<string, string>,
+  opts: { creating?: boolean; editing?: number | string; error?: string; fieldErrors?: Record<string, string> },
+): Response {
+  let state = {
+    offset: parsed._offset,
+    sort: parsed._sort,
+    order: parsed._order,
+    filter: parsed._filter,
+  }
+  let params = gridStateToParams(state)
+  if (opts.creating) params.set('creating', 'true')
+  if (opts.editing) params.set('editing', String(opts.editing))
+  if (opts.error) params.set('error', opts.error)
+  // Preserve submitted form values in URL params so they survive the frame redirect
+  let fv = encodeFormValues(parsed)
+  for (let [k, v] of Object.entries(fv)) {
+    params.set(k, v)
+  }
+  // Encode per-field errors so the form shows inline messages
+  if (opts.fieldErrors) {
+    let fe = encodeFieldErrors(opts.fieldErrors)
+    for (let [k, v] of Object.entries(fe)) {
+      params.set(k, v)
+    }
+  }
+  let qs = params.toString()
+  return new Response(null, {
+    status: 302,
+    headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+  })
+}
+
+async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
+  let result = await pool.query(
+    `SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
+            ao.during, ao.created_at, ao.updated_at
+     FROM appointoffering ao
+     LEFT JOIN resources r ON r.id = ao.resource_id
+     WHERE ao.id = $1`,
+    [id],
+  )
+  return result.rows.length > 0 ? (result.rows[0] as OfferingRow) : null
+}
+
+// ── Page data loader ─────────────────────────────────────────────
+
+async function loadOfferingPageData(
+  context: AppContext,
+  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+): Promise<OfferingPageData> {
+  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+
+  let { column, direction } = overrides?.sortColumn
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
+    : parseSort(context.url, {
+        allowedColumns: Object.keys(ORDER_BY_COLUMNS),
+        defaultColumn: 'ao.day',
+        defaultDirection: 'asc',
+      })
+
+  let query = `
+    SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
+           ao.during, ao.created_at, ao.updated_at
+    FROM appointoffering ao
+    LEFT JOIN resources r ON r.id = ao.resource_id
+  `
+
+  let queryParams: unknown[] = []
+  let paramIndex = 0
+
+  if (filter && filter.length <= 200) {
+    paramIndex++
+    let searchPattern = `%${filter}%`
+    let conditions = SEARCH_COLUMNS.map(
+      (col) => `${col} ILIKE $${paramIndex}`,
+    )
+    query += ` WHERE (${conditions.join(' OR ')})`
+    queryParams.push(searchPattern)
+  }
+
+  paramIndex++
+  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` LIMIT $${paramIndex}`
+  queryParams.push(PAGE_SIZE + 1)
+
+  paramIndex++
+  query += ` OFFSET $${paramIndex}`
+  queryParams.push(offset)
+
+  let result = await pool.query(query, queryParams)
+  let rows = result.rows as OfferingRow[]
+  let hasMore = rows.length > PAGE_SIZE
+  if (hasMore) rows.pop()
+
+  let resourcesResult = await pool.query(
+    'SELECT id, description FROM resources ORDER BY description ASC',
+  )
+  let resources = resourcesResult.rows as ResourceOption[]
+
+  // Edit row
+  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingRowId = editingParam || null
+  let editRow = overrides?.editRow ?? null
+  if (!editRow && editingRowId) {
+    editRow = await fetchOfferingEditRow(editingRowId)
+  }
+
+  let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
+
+  let error = (overrides?.error ?? context.url.searchParams.get('error')) || undefined
+  let formValues = overrides?.formValues ?? decodeFormValues(context.url)
+  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(context.url)
+  let formError = overrides?.formError
+
+  let configResourceId = context.url.searchParams.get('config')
+  let addWeek = context.url.searchParams.get('addweek') === 'true'
+
+  let offeringConfig: OfferingConfig | null = null
+  if (configResourceId) {
+    let rid = parseInt(configResourceId, 10)
+    if (!isNaN(rid)) {
+      offeringConfig = await getConfig(context.db, rid)
+    }
+  }
+
+  return {
+    rows,
+    offset,
+    hasMore,
+    prevOffset: Math.max(0, offset - PAGE_SIZE),
+    nextOffset: offset + PAGE_SIZE,
+    sortColumn: column,
+    sortDirection: direction,
+    filter,
+    editRow,
+    creating,
+    resources,
+    error,
+    configResourceId: configResourceId ? parseInt(configResourceId, 10) : undefined,
+    offeringConfig: offeringConfig ?? undefined,
+    addWeek,
+    formValues,
+    fieldErrors,
+    formError,
+  }
+}
+
+// ── Render helper ────────────────────────────────────────────────
+
+function renderOfferingsPage(context: AppContext, data: OfferingPageData): Response {
+  return renderAdminPage(
+    context.render,
+    'offerings',
+    <AdminOfferingsPage
+      rows={data.rows}
+      offset={data.offset}
+      hasMore={data.hasMore}
+      prevOffset={data.prevOffset}
+      nextOffset={data.nextOffset}
+      sortColumn={data.sortColumn}
+      sortDirection={data.sortDirection}
+      filter={data.filter}
+      editRow={data.editRow}
+      creating={data.creating}
+      resources={data.resources}
+      error={data.error}
+      configResourceId={data.configResourceId}
+      offeringConfig={data.offeringConfig}
+      addWeek={data.addWeek}
+      formValues={data.formValues}
+      fieldErrors={data.fieldErrors}
+      formError={data.formError}
+    />,
+  )
 }
 
 // ── Controller ───────────────────────────────────────────────────
@@ -128,112 +371,8 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
     actions: {
       async index(context) {
-        let offset = Math.max(
-          0,
-          Number(context.url.searchParams.get('offset')) || 0,
-        )
-        let filter = context.url.searchParams.get('filter') || undefined
-
-        let { column, direction } = parseSort(context.url, {
-          allowedColumns: Object.keys(ORDER_BY_COLUMNS),
-          defaultColumn: 'ao.day',
-          defaultDirection: 'asc',
-        })
-
-        let query = `
-          SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
-                 ao.during, ao.created_at, ao.updated_at
-          FROM appointoffering ao
-          LEFT JOIN resources r ON r.id = ao.resource_id
-        `
-
-        let params: unknown[] = []
-        let paramIndex = 0
-
-        if (filter && filter.length <= 200) {
-          paramIndex++
-          let searchPattern = `%${filter}%`
-          let conditions = SEARCH_COLUMNS.map(
-            (col) => `${col} ILIKE $${paramIndex}`,
-          )
-          query += ` WHERE (${conditions.join(' OR ')})`
-          params.push(searchPattern)
-        }
-
-        paramIndex++
-        query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-        query += ` LIMIT $${paramIndex}`
-        params.push(PAGE_SIZE + 1)
-
-        paramIndex++
-        query += ` OFFSET $${paramIndex}`
-        params.push(offset)
-
-        let result = await pool.query(query, params)
-        let rows = result.rows as OfferingRow[]
-        let hasMore = rows.length > PAGE_SIZE
-        if (hasMore) rows.pop()
-
-        // Load resources for dropdown
-        let resourcesResult = await pool.query(
-          'SELECT id, description FROM resources ORDER BY description ASC',
-        )
-        let resources = resourcesResult.rows as ResourceOption[]
-
-        // Check for inline editing state
-        let editingParam = context.url.searchParams.get('editing')
-        let editingRowId = editingParam || null
-        let editRow: OfferingRow | null = null
-        if (editingRowId) {
-          let editResult = await pool.query(
-            `SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
-                    ao.during, ao.created_at, ao.updated_at
-             FROM appointoffering ao
-             LEFT JOIN resources r ON r.id = ao.resource_id
-             WHERE ao.id = $1`,
-            [editingRowId],
-          )
-          if (editResult.rows.length > 0) {
-            editRow = editResult.rows[0] as OfferingRow
-          }
-        }
-
-        let creating =
-          context.url.searchParams.get('creating') === 'true'
-        let error = context.url.searchParams.get('error') || undefined
-        let configResourceId = context.url.searchParams.get('config')
-        let addWeek = context.url.searchParams.get('addweek') === 'true'
-
-        // Load offering config for config editing
-        let offeringConfig: OfferingConfig | null = null
-        if (configResourceId) {
-          let rid = parseInt(configResourceId, 10)
-          if (!isNaN(rid)) {
-            offeringConfig = await getConfig(context.db, rid)
-          }
-        }
-
-        return renderAdminPage(
-          context.render,
-          'offerings',
-          <AdminOfferingsPage
-            rows={rows}
-            offset={offset}
-            hasMore={hasMore}
-            prevOffset={Math.max(0, offset - PAGE_SIZE)}
-            nextOffset={offset + PAGE_SIZE}
-            sortColumn={column}
-            sortDirection={direction}
-            filter={filter}
-            editRow={editRow}
-            creating={creating}
-            resources={resources}
-            error={error}
-            configResourceId={configResourceId ? parseInt(configResourceId, 10) : undefined}
-            offeringConfig={offeringConfig ?? undefined}
-            addWeek={addWeek}
-          />,
-        )
+        let data = await loadOfferingPageData(context)
+        return renderOfferingsPage(context, data)
       },
 
       async create(context) {
@@ -243,33 +382,18 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         try {
           parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
         } catch {
-          return context.json(
-            { ok: false, error: 'Ungültige Formulardaten.' },
-            { status: 400 },
-          )
+          return buildErrorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, error: 'Ungültige Formulardaten.' })
         }
 
-        let validationError = validateOfferingForm(parsed)
-        if (validationError) {
-          return context.json({ ok: false, error: validationError }, { status: 400 })
+        let validationResult = validateOfferingForm(parsed)
+        if (!validationResult.ok) {
+          let formError = Object.values(validationResult.fieldErrors)[0]
+          return buildErrorRedirect(parsed, { creating: true, error: formError, fieldErrors: validationResult.fieldErrors })
         }
 
         // Reject offerings on public holidays
         if (hd.isHoliday(new Date(parsed.day + 'T00:00:00Z'))) {
-          let backState = {
-            offset: parsed._offset,
-            sort: parsed._sort,
-            order: parsed._order,
-            filter: parsed._filter,
-          }
-          let backParams = gridStateToParams(backState)
-          backParams.set('creating', 'true')
-          backParams.set('error', 'Dieses Datum ist ein Feiertag.')
-          let backQs = backParams.toString()
-          return new Response(null, {
-            status: 302,
-            headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-          })
+          return buildErrorRedirect(parsed, { creating: true, error: 'Dieses Datum ist ein Feiertag.' })
         }
 
         let resourceId = parseInt(parsed.resource_id, 10)
@@ -279,20 +403,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         // Reject past-date creation
         if (isDateInPast(dayMs)) {
-          let backState = {
-            offset: parsed._offset,
-            sort: parsed._sort,
-            order: parsed._order,
-            filter: parsed._filter,
-          }
-          let backParams = gridStateToParams(backState)
-          backParams.set('creating', 'true')
-          backParams.set('error', 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.')
-          let backQs = backParams.toString()
-          return new Response(null, {
-            status: 302,
-            headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-          })
+          return buildErrorRedirect(parsed, { creating: true, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
         }
 
         let during = `[${startMin},${endMin})`
@@ -322,20 +433,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            let backState = {
-              offset: parsed._offset,
-              sort: parsed._sort,
-              order: parsed._order,
-              filter: parsed._filter,
-            }
-            let backParams = gridStateToParams(backState)
-            backParams.set('creating', 'true')
-            backParams.set('error', 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.')
-            let backQs = backParams.toString()
-            return new Response(null, {
-              status: 302,
-              headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-            })
+            return buildErrorRedirect(parsed, { creating: true, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
           }
           throw error
         }
@@ -358,47 +456,30 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
       async update(context) {
         let formData = context.formData
-
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
-        } catch {
-          return context.json(
-            { ok: false, error: 'Ungültige Formulardaten.' },
-            { status: 400 },
-          )
-        }
-
-        let validationError = validateOfferingForm(parsed)
-        if (validationError) {
-          return context.json({ ok: false, error: validationError }, { status: 400 })
-        }
-
-        // Reject offerings on public holidays
-        if (hd.isHoliday(new Date(parsed.day + 'T00:00:00Z'))) {
-          let backState = {
-            offset: parsed._offset,
-            sort: parsed._sort,
-            order: parsed._order,
-            filter: parsed._filter,
-          }
-          let backParams = gridStateToParams(backState)
-          let id = context.params.id
-          if (id) backParams.set('editing', id)
-          backParams.set('error', 'Dieses Datum ist ein Feiertag.')
-          let backQs = backParams.toString()
-          return new Response(null, {
-            status: 302,
-            headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-          })
-        }
-
         let id = context.params.id
         if (!id) {
           return context.json(
             { ok: false, error: 'Ungültige ID.' },
             { status: 400 },
           )
+        }
+
+        let parsed: Record<string, string>
+        try {
+          parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
+        } catch {
+          return buildErrorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: id, error: 'Ungültige Formulardaten.' })
+        }
+
+        let validationResult = validateOfferingForm(parsed)
+        if (!validationResult.ok) {
+          let formError = Object.values(validationResult.fieldErrors)[0]
+          return buildErrorRedirect(parsed, { editing: id, error: formError, fieldErrors: validationResult.fieldErrors })
+        }
+
+        // Reject offerings on public holidays
+        if (hd.isHoliday(new Date(parsed.day + 'T00:00:00Z'))) {
+          return buildErrorRedirect(parsed, { editing: id, error: 'Dieses Datum ist ein Feiertag.' })
         }
 
         let resourceId = parseInt(parsed.resource_id, 10)
@@ -408,21 +489,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         // Reject past-date update
         if (isDateInPast(dayMs)) {
-          let backState = {
-            offset: parsed._offset,
-            sort: parsed._sort,
-            order: parsed._order,
-            filter: parsed._filter,
-          }
-          let backParams = gridStateToParams(backState)
-          let editingId = context.params.id
-          if (editingId) backParams.set('editing', editingId)
-          backParams.set('error', 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.')
-          let backQs = backParams.toString()
-          return new Response(null, {
-            status: 302,
-            headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-          })
+          return buildErrorRedirect(parsed, { editing: id, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
         }
 
         let during = `[${startMin},${endMin})`
@@ -457,21 +524,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            let backState = {
-              offset: parsed._offset,
-              sort: parsed._sort,
-              order: parsed._order,
-              filter: parsed._filter,
-            }
-            let backParams = gridStateToParams(backState)
-            let editingId = context.params.id
-            if (editingId) backParams.set('editing', editingId)
-            backParams.set('error', 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.')
-            let backQs = backParams.toString()
-            return new Response(null, {
-              status: 302,
-              headers: { Location: '/admin/offerings' + (backQs ? '?' + backQs : '') },
-            })
+            return buildErrorRedirect(parsed, { editing: id, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
           }
           throw error
         }

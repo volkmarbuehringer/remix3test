@@ -18,6 +18,9 @@ interface AdminOfferingsEditPageProps {
   sort: string
   order: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 // ── Helpers ──
@@ -47,7 +50,7 @@ function parseDuring(during: unknown): { startMin: number; endMin: number } {
   return { startMin: 0, endMin: 60 }
 }
 
-// ── Styles (unique to this panel) ──
+// ── Styles ──
 
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
@@ -61,13 +64,34 @@ const rowIdBadgeStyle = css({
   fontFamily: theme.fontFamily.mono,
 })
 
+const inlineErrorStyle = css({
+  color: theme.colors.action.danger.background,
+  fontSize: theme.fontSize.xs,
+  marginTop: theme.space.xs,
+})
+
+const formErrorBanner = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  marginBottom: theme.space.sm,
+  background: `${theme.colors.action.danger.background}15`,
+  border: `1px solid ${theme.colors.action.danger.background}`,
+  borderRadius: theme.radius.md,
+  color: theme.colors.action.danger.background,
+  fontSize: theme.fontSize.sm,
+})
+
 // ── Component ──
 
 export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProps>) {
   return () => {
-    let { row, resources, offset, sort, order, filter = '' } = handle.props
-    let { startMin, endMin } = parseDuring(row.during)
+    let { row, resources, offset, sort, order, filter = '', formValues, fieldErrors, formError } = handle.props
+    let { startMin: rowStartMin, endMin: rowEndMin } = parseDuring(row.during)
     let dateValue = dayToInputDate(row.day)
+
+    let resolvedResourceId = formValues?.resource_id ?? row.resource_id
+    let resolvedDay = formValues?.day ?? dateValue
+    let resolvedStartMin = formValues?.start_min ? Number(formValues.start_min) : rowStartMin
+    let resolvedEndMin = formValues?.end_min ? Number(formValues.end_min) : rowEndMin
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
@@ -81,6 +105,8 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
             </div>
 
             <div mix={table.panelBody}>
+              {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
+
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="oe-resource">Ressource</label>
@@ -88,18 +114,19 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-resource"
                   name="resource_id"
                   required
-                  mix={[input.base, input.focus, table.select]}
+                  mix={fieldErrors?.resource_id ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
                 >
                   {resources.map((res) => (
                     <option
                       key={res.id}
                       value={res.id}
-                      selected={res.id === row.resource_id}
+                      selected={String(resolvedResourceId) === String(res.id)}
                     >
                       {res.description}
                     </option>
                   ))}
                 </select>
+                {fieldErrors?.resource_id ? <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span> : null}
               </div>
 
               {/* Date input */}
@@ -110,9 +137,10 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   name="day"
                   type="date"
                   required
-                  mix={[input.base, input.focus]}
-                  value={dateValue}
+                  mix={fieldErrors?.day ? [input.base, input.error, input.focus] : [input.base, input.focus]}
+                  value={resolvedDay}
                 />
+                {fieldErrors?.day ? <span mix={inlineErrorStyle}>{fieldErrors.day}</span> : null}
               </div>
 
               {/* Start time dropdown */}
@@ -122,14 +150,15 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-start"
                   name="start_min"
                   required
-                  mix={[input.base, input.focus, table.select]}
+                  mix={fieldErrors?.start_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
                 >
                   {START_MIN_OPTIONS.map((min) => (
-                    <option key={min} value={min} selected={min === startMin}>
+                    <option key={min} value={min} selected={min === resolvedStartMin}>
                       {formatMinOption(min)}
                     </option>
                   ))}
                 </select>
+                {fieldErrors?.start_min ? <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span> : null}
               </div>
 
               {/* End time dropdown */}
@@ -139,14 +168,15 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                   id="oe-end"
                   name="end_min"
                   required
-                  mix={[input.base, input.focus, table.select]}
+                  mix={fieldErrors?.end_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
                 >
                   {END_MIN_OPTIONS.map((min) => (
-                    <option key={min} value={min} selected={min === endMin}>
+                    <option key={min} value={min} selected={min === resolvedEndMin}>
                       {formatMinOption(min)}
                     </option>
                   ))}
                 </select>
+                {fieldErrors?.end_min ? <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span> : null}
               </div>
 
               <div mix={table.actions}>
