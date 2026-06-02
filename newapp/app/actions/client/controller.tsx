@@ -21,10 +21,12 @@ import {
   editingRedirect,
 } from '../../utils/grid-state.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
+import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 
 type Row = Client
 
 const PAGE_SIZE = 20
+const CLIENT_FORM_KEYS = ['name', 'email', 'role', 'status', 'registered', '_offset', '_sort', '_order', '_filter'] as const
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
 const VALID_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
 const FIELD_OPTIONS: Record<string, string[]> = {
@@ -56,26 +58,6 @@ const clientSaveSchema = f.object({
 function parseDate(value: string): number {
   let ts = new Date(value).getTime()
   return Number.isFinite(ts) ? ts : Date.now()
-}
-
-function issuesToFieldErrors(issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>): Record<string, string> {
-  let errors: Record<string, string> = {}
-  for (let issue of issues) {
-    let field = issue.path?.[0]
-    if (typeof field === 'string' && !errors[field]) {
-      errors[field] = issue.message
-    }
-  }
-  return errors
-}
-
-function extractFormValues(formData: FormData): Record<string, string> {
-  let values: Record<string, string> = {}
-  for (let key of ['name', 'email', 'role', 'status', 'registered', '_offset', '_sort', '_order', '_filter'] as const) {
-    let v = formData.get(key)
-    values[key] = typeof v === 'string' ? v : ''
-  }
-  return values
 }
 
 export default createController<typeof routes.client, AppContext>(routes.client, {
@@ -213,7 +195,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let rawValues = extractFormValues(formData)
+      let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)
 
       if (!parsed.success) {
@@ -278,7 +260,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       await db.delete(clients, { id })
 
       // Redirect back to grid with preserved state
-      let redirectState = gridStateFromForm(extractFormValues(formData))
+      let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
       return editingRedirect('/client', null, redirectState)
     },
 
@@ -287,7 +269,7 @@ export default createController<typeof routes.client, AppContext>(routes.client,
       let db = context.db
       let formData = context.formData
 
-      let rawValues = extractFormValues(formData)
+      let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)
 
       if (!parsed.success) {

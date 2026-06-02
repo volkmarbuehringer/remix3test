@@ -50,6 +50,29 @@ function boolFromString(val: string): boolean {
   return val === 'on' || val === 'true' || val === '1'
 }
 
+function buildNutzerErrorRedirect(
+  formData: FormData,
+  opts: { creating?: boolean; editing?: string; error: string },
+): Response {
+  let params = new URLSearchParams()
+  let offset = (formData.get('_offset') as string) ?? ''
+  let sort = (formData.get('_sort') as string) ?? ''
+  let order = (formData.get('_order') as string) ?? ''
+  let filter = (formData.get('_filter') as string) ?? ''
+  if (offset) params.set('offset', offset)
+  if (sort) params.set('sort', sort)
+  if (order) params.set('order', order)
+  if (filter) params.set('filter', filter)
+  if (opts.creating) params.set('creating', 'true')
+  if (opts.editing) params.set('editing', opts.editing)
+  params.set('error', opts.error)
+  let qs = params.toString()
+  return new Response(null, {
+    status: 302,
+    headers: { Location: '/admin/nutzer' + (qs ? '?' + qs : '') },
+  })
+}
+
 export default createController<typeof routes.admin.nutzer, AppContext>(routes.admin.nutzer, {
   middleware: [requireAuth(), requireAdmin()],
 
@@ -114,6 +137,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       }
 
       let creating = context.url.searchParams.get('creating') === 'true'
+      let error = context.url.searchParams.get('error') || undefined
 
       return renderAdminPage(
         context.render,
@@ -129,31 +153,38 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           filter={filter}
           editRow={editRow}
           creating={creating}
+          error={error}
         />,
       )
     },
 
     async update(context) {
-      let formData = context.formData
+        let formData = context.formData
+        let id = context.params.id
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
-      }
+        let parsed: Record<string, string>
+        try {
+          parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
+        } catch {
+          return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', editing: id ?? undefined })
+        }
 
-      let id = context.params.id
-      if (!id) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        if (!id) {
+        return buildNutzerErrorRedirect(formData, { error: 'Invalid id' })
       }
 
       let lId = parsed._l_id
       if (!lId) {
-        return context.json({ ok: false, error: 'Missing login reference' }, { status: 400 })
+        return buildNutzerErrorRedirect(formData, { error: 'Missing login reference', editing: id })
+      }
+      if (!parsed.login || !parsed.login.trim()) {
+        return buildNutzerErrorRedirect(formData, { error: 'Login (email) is required', editing: id })
+      }
+      if (parsed.name && parsed.name.length < 8) {
+        return buildNutzerErrorRedirect(formData, { error: 'Name must have at least 8 characters', editing: id })
       }
       if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
+        return buildNutzerErrorRedirect(formData, { error: 'Invalid email format', editing: id })
       }
 
       let client = await pool.connect()
@@ -212,15 +243,18 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       try {
         parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
       } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', creating: true })
       }
 
       // Validate required fields
       if (!parsed.login || !parsed.login.trim()) {
-        return context.json({ ok: false, error: 'Login is required' }, { status: 400 })
+        return buildNutzerErrorRedirect(formData, { error: 'Login is required', creating: true })
+      }
+      if (parsed.name && parsed.name.length < 8) {
+        return buildNutzerErrorRedirect(formData, { error: 'Name must have at least 8 characters', creating: true })
       }
       if (parsed.email && !EMAIL_RE.test(parsed.email)) {
-        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
+        return buildNutzerErrorRedirect(formData, { error: 'Invalid email format', creating: true })
       }
 
       let client = await pool.connect()

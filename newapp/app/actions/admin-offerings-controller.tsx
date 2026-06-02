@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
 
 import { adminRoutes as routes } from '../routes.ts'
 import { pool } from '../data/setup.ts'
@@ -10,14 +9,15 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderAdminPage } from '../ui/admin-layout.tsx'
 import { AdminOfferingsPage } from '../ui/admin-offerings-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import { gridStateToParams } from '../utils/grid-state.ts'
+import { gridStateToParams, type GridState } from '../utils/grid-state.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
-import { type ValidationResult } from '../utils/form-errors.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
 import { encodeFormValues, decodeFormValues, encodeFieldErrors, decodeFieldErrors } from '../utils/form-params.ts'
+import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../utils/offering-schema.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
 const hd = new Holidays('DE', 'rp')
 
@@ -72,46 +72,7 @@ export interface OfferingPageData {
 }
 
 // ── Form schema ──────────────────────────────────────────────────
-
-const offeringSaveSchema = f.object({
-  resource_id: f.field(s.string()),
-  day: f.field(s.string()),
-  start_min: f.field(s.string()),
-  end_min: f.field(s.string()),
-  _offset: f.field(s.defaulted(s.string(), '')),
-  _sort: f.field(s.defaulted(s.string(), '')),
-  _order: f.field(s.defaulted(s.string(), '')),
-  _filter: f.field(s.defaulted(s.string(), '')),
-})
-
-// ── Validation helpers ───────────────────────────────────────────
-
-function validateOfferingForm(parsed: Record<string, string>): ValidationResult {
-  let resourceId = parseInt(parsed.resource_id, 10)
-  if (!resourceId || isNaN(resourceId)) {
-    return { ok: false, fieldErrors: { resource_id: 'ist erforderlich.' } }
-  }
-
-  if (!parsed.day || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.day)) {
-    return { ok: false, fieldErrors: { day: 'Gültiges Datum erforderlich (YYYY-MM-DD).' } }
-  }
-
-  let startMin = parseInt(parsed.start_min, 10)
-  if (isNaN(startMin) || startMin < 0 || startMin > 1380 || startMin % 60 !== 0) {
-    return { ok: false, fieldErrors: { start_min: 'ist ungültig.' } }
-  }
-
-  let endMin = parseInt(parsed.end_min, 10)
-  if (isNaN(endMin) || endMin < 60 || endMin > 1440 || endMin % 60 !== 0) {
-    return { ok: false, fieldErrors: { end_min: 'ist ungültig.' } }
-  }
-
-  if (endMin <= startMin) {
-    return { ok: false, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }
-  }
-
-  return { ok: true }
-}
+// (offeringSaveSchema imported from ../utils/offering-schema.ts)
 
 function parseDuring(during: string): { startMin: number; endMin: number } {
   let match = during.match(/^\[(\d+),(\d+)\)$/)
@@ -141,24 +102,17 @@ function isExclusionConstraintError(error: unknown): boolean {
 
 // ── Shared helpers ───────────────────────────────────────────────
 
-const OFFERING_FORM_KEYS = ['resource_id', 'day', 'start_min', 'end_min'] as const
-
 function buildErrorRedirect(
-  parsed: Record<string, string>,
+  formValues: Record<string, string>,
+  gridValues: GridState,
   opts: { creating?: boolean; editing?: number | string; error?: string; fieldErrors?: Record<string, string> },
 ): Response {
-  let state = {
-    offset: parsed._offset,
-    sort: parsed._sort,
-    order: parsed._order,
-    filter: parsed._filter,
-  }
-  let params = gridStateToParams(state)
+  let params = gridStateToParams(gridValues)
   if (opts.creating) params.set('creating', 'true')
   if (opts.editing) params.set('editing', String(opts.editing))
   if (opts.error) params.set('error', opts.error)
   // Preserve submitted form values in URL params so they survive the frame redirect
-  let fv = encodeFormValues(OFFERING_FORM_KEYS, parsed)
+  let fv = encodeFormValues(OFFERING_FORM_KEYS, formValues)
   for (let [k, v] of Object.entries(fv)) {
     params.set(k, v)
   }
@@ -336,36 +290,41 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
       async create(context) {
         let formData = context.formData
-
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
-        } catch {
-          return buildErrorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, error: 'Ungültige Formulardaten.' })
+        let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
+        let gridValues: GridState = {
+          offset: (formData.get('_offset') as string) ?? '',
+          sort: (formData.get('_sort') as string) ?? '',
+          order: (formData.get('_order') as string) ?? '',
+          filter: (formData.get('_filter') as string) ?? '',
         }
 
-        let validationResult = validateOfferingForm(parsed)
-        if (!validationResult.ok) {
-          let formError = Object.values(validationResult.fieldErrors)[0]
-          return buildErrorRedirect(parsed, { creating: true, error: formError, fieldErrors: validationResult.fieldErrors })
+        let result = s.parseSafe(offeringSaveSchema, formData)
+
+        if (!result.success) {
+          let fieldErrors = issuesToFieldErrors(result.issues)
+          return buildErrorRedirect(formValues, gridValues, { creating: true, fieldErrors })
+        }
+
+        let { resource_id, day, start_min, end_min } = result.value
+
+        // Cross-field validation
+        if (end_min <= start_min) {
+          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } })
         }
 
         // Reject offerings on public holidays
-        if (hd.isHoliday(new Date(parsed.day + 'T00:00:00Z'))) {
-          return buildErrorRedirect(parsed, { creating: true, error: 'Dieses Datum ist ein Feiertag.' })
+        if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
+          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Dieses Datum ist ein Feiertag.' })
         }
 
-        let resourceId = parseInt(parsed.resource_id, 10)
-        let dayMs = new Date(parsed.day + 'T00:00:00Z').getTime()
-        let startMin = parseInt(parsed.start_min, 10)
-        let endMin = parseInt(parsed.end_min, 10)
+        let dayMs = new Date(day + 'T00:00:00Z').getTime()
 
         // Reject past-date creation
         if (isDateInPast(dayMs)) {
-          return buildErrorRedirect(parsed, { creating: true, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
+          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
         }
 
-        let during = `[${startMin},${endMin})`
+        let during = `[${start_min},${end_min})`
         let now = Date.now()
         let newId: number
 
@@ -374,7 +333,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
             `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5)
              RETURNING id`,
-            [dayMs, resourceId, during, now, now],
+            [dayMs, resource_id, during, now, now],
           )
           newId = insertResult.rows[0].id
 
@@ -387,24 +346,18 @@ export default createController<typeof routes.admin.offerings, AppContext>(
               action_type: 'create',
               target_type: 'appointoffering',
               target_id: newId,
-              details: { resource_id: resourceId, day: parsed.day, during },
+              details: { resource_id, day, during },
             })
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return buildErrorRedirect(parsed, { creating: true, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
+            return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
           }
           throw error
         }
 
         // Redirect back with preserved grid state, showing the new record in edit mode
-        let redirectState = {
-          offset: parsed._offset,
-          sort: parsed._sort,
-          order: parsed._order,
-          filter: parsed._filter,
-        }
-        let params = gridStateToParams(redirectState)
+        let params = gridStateToParams(gridValues)
         params.set('editing', String(newId))
         let qs = params.toString()
         return new Response(null, {
@@ -423,46 +376,52 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           )
         }
 
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(offeringSaveSchema, formData) as Record<string, string>
-        } catch {
-          return buildErrorRedirect({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: id, error: 'Ungültige Formulardaten.' })
+        let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
+        let gridValues: GridState = {
+          offset: (formData.get('_offset') as string) ?? '',
+          sort: (formData.get('_sort') as string) ?? '',
+          order: (formData.get('_order') as string) ?? '',
+          filter: (formData.get('_filter') as string) ?? '',
         }
 
-        let validationResult = validateOfferingForm(parsed)
-        if (!validationResult.ok) {
-          let formError = Object.values(validationResult.fieldErrors)[0]
-          return buildErrorRedirect(parsed, { editing: id, error: formError, fieldErrors: validationResult.fieldErrors })
+        let result = s.parseSafe(offeringSaveSchema, formData)
+
+        if (!result.success) {
+          let fieldErrors = issuesToFieldErrors(result.issues)
+          return buildErrorRedirect(formValues, gridValues, { editing: id, fieldErrors })
+        }
+
+        let { resource_id, day, start_min, end_min } = result.value
+
+        // Cross-field validation
+        if (end_min <= start_min) {
+          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } })
         }
 
         // Reject offerings on public holidays
-        if (hd.isHoliday(new Date(parsed.day + 'T00:00:00Z'))) {
-          return buildErrorRedirect(parsed, { editing: id, error: 'Dieses Datum ist ein Feiertag.' })
+        if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
+          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Dieses Datum ist ein Feiertag.' })
         }
 
-        let resourceId = parseInt(parsed.resource_id, 10)
-        let dayMs = new Date(parsed.day + 'T00:00:00Z').getTime()
-        let startMin = parseInt(parsed.start_min, 10)
-        let endMin = parseInt(parsed.end_min, 10)
+        let dayMs = new Date(day + 'T00:00:00Z').getTime()
 
         // Reject past-date update
         if (isDateInPast(dayMs)) {
-          return buildErrorRedirect(parsed, { editing: id, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
+          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
         }
 
-        let during = `[${startMin},${endMin})`
+        let during = `[${start_min},${end_min})`
         let now = Date.now()
 
         try {
-          let result = await pool.query(
+          let updateResult = await pool.query(
             `UPDATE appointoffering
              SET day = $1, resource_id = $2, during = $3, updated_at = $4
              WHERE id = $5`,
-            [dayMs, resourceId, during, now, id],
+            [dayMs, resource_id, during, now, id],
           )
 
-          if (result.rowCount === 0) {
+          if (updateResult.rowCount === 0) {
             return context.json(
               { ok: false, error: 'Eintrag nicht gefunden.' },
               { status: 404 },
@@ -478,24 +437,18 @@ export default createController<typeof routes.admin.offerings, AppContext>(
               action_type: 'update',
               target_type: 'appointoffering',
               target_id: id,
-              details: { resource_id: resourceId, day: parsed.day, during },
+              details: { resource_id, day, during },
             })
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return buildErrorRedirect(parsed, { editing: id, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
+            return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
           }
           throw error
         }
 
         // Redirect back with preserved grid state
-        let redirectState = {
-          offset: parsed._offset,
-          sort: parsed._sort,
-          order: parsed._order,
-          filter: parsed._filter,
-        }
-        let params = gridStateToParams(redirectState)
+        let params = gridStateToParams(gridValues)
         let qs = params.toString()
         return new Response(null, {
           status: 302,

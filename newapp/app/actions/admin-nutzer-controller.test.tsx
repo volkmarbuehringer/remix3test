@@ -828,7 +828,7 @@ describe('Admin Nutzer controller & page', () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let body = new URLSearchParams({
       vorname: '', name: '', email: '', verpflichtung: '',
-      login: '', aktiv: '', gesperrt: '', _l_id: '00000000-0000-0000-0000-000000000000',
+      login: 'valid@test.com', aktiv: '', gesperrt: '', _l_id: '00000000-0000-0000-0000-000000000000',
       _offset: '', _sort: '', _order: '', _filter: '',
       _csrf: adminCsrf,
       _method: 'PUT',
@@ -854,7 +854,7 @@ describe('Admin Nutzer controller & page', () => {
 
     let body = new URLSearchParams({
       vorname: 'CreateTest',
-      name: 'Created',
+      name: 'CreatedOK',
       email: createEmail,
       verpflichtung: 'true',
       login: createLogin,
@@ -896,7 +896,7 @@ describe('Admin Nutzer controller & page', () => {
       )
       assert.equal(nutzerResult.rows.length, 1, 'nutzer row should exist')
       assert.equal(nutzerResult.rows[0].n_vorname, 'CreateTest')
-      assert.equal(nutzerResult.rows[0].n_name, 'Created')
+      assert.equal(nutzerResult.rows[0].n_name, 'CreatedOK')
       assert.equal(nutzerResult.rows[0].n_verpflichtung, true)
 
       // Verify login row exists

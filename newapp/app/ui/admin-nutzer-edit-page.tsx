@@ -16,9 +16,8 @@ interface AdminNutzerEditPageProps {
   sort: string
   order: string
   filter?: string
+  error?: string
 }
-
-// ── Styles (unique to this panel) ──
 
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
@@ -58,10 +57,10 @@ const checkboxLabelStyle = css({
 
 export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
   return () => {
-    let { row, offset, sort, order, filter = '' } = handle.props
+    let { row, offset, sort, order, filter = '', error } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/nutzer/${row.n_id}`}>
+        <RestfulForm method="PUT" action={`/admin/nutzer/${row.n_id}`} novalidate>
           <input type="hidden" name="_l_id" value={row.l_id} />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -72,6 +71,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
             </div>
 
             <div mix={table.panelBody}>
+              {error ? <div mix={table.errorBanner}>{error}</div> : null}
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ne-vorname">Vorname</label>
                 <input

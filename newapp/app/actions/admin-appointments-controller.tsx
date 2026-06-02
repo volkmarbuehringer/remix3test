@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
 
 import { adminRoutes as routes } from '../routes.ts'
 import { pool } from '../data/setup.ts'
@@ -12,11 +11,13 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderAdminPage } from '../ui/admin-layout.tsx'
 import { AdminAppointmentsPage } from '../ui/admin-appointments-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import { gridStateToParams, gridStateFromForm, gridStateFromFormData } from '../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromForm, gridStateFromFormData, type GridState } from '../utils/grid-state.ts'
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { appointmentChannel } from '../lib/appointments-sse.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { encodeFormValues, decodeFormValues, encodeFieldErrors, decodeFieldErrors } from '../utils/form-params.ts'
+import { appointmentSaveSchema, APPOINTMENT_FORM_KEYS } from '../utils/appointment-schema.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
 const PAGE_SIZE = 15
 
@@ -70,68 +71,9 @@ export interface UserOption {
 }
 
 // ── Form schema ──────────────────────────────────────────────────
-
-const appointmentSaveSchema = f.object({
-  resource_id: f.field(s.string()),
-  user_id: f.field(s.string()),
-  title: f.field(s.string()),
-  date: f.field(s.string()),
-  start_min: f.field(s.string()),
-  end_min: f.field(s.string()),
-  _offset: f.field(s.defaulted(s.string(), '')),
-  _sort: f.field(s.defaulted(s.string(), '')),
-  _order: f.field(s.defaulted(s.string(), '')),
-  _filter: f.field(s.defaulted(s.string(), '')),
-})
+// (appointmentSaveSchema imported from ../utils/appointment-schema.ts)
 
 // ── Validation helpers ───────────────────────────────────────────
-
-interface ValidationResultOk {
-  ok: true
-}
-
-interface ValidationResultFail {
-  ok: false
-  fieldErrors: Record<string, string>
-}
-
-type ValidationResult = ValidationResultOk | ValidationResultFail
-
-function validateAppointmentForm(parsed: Record<string, string>): ValidationResult {
-  let resourceId = parseInt(parsed.resource_id, 10)
-  if (!resourceId || isNaN(resourceId)) {
-    return { ok: false, fieldErrors: { resource_id: 'ist erforderlich.' } }
-  }
-
-  let userId = parseInt(parsed.user_id, 10)
-  if (!userId || isNaN(userId)) {
-    return { ok: false, fieldErrors: { user_id: 'ist erforderlich.' } }
-  }
-
-  if (!parsed.title || parsed.title.trim().length === 0) {
-    return { ok: false, fieldErrors: { title: 'ist erforderlich.' } }
-  }
-
-  if (!parsed.date || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
-    return { ok: false, fieldErrors: { date: 'Gültiges Datum erforderlich (YYYY-MM-DD).' } }
-  }
-
-  let startMin = parseInt(parsed.start_min, 10)
-  if (isNaN(startMin) || startMin < 0 || startMin > 1380 || startMin % 15 !== 0) {
-    return { ok: false, fieldErrors: { start_min: 'ist ungültig.' } }
-  }
-
-  let endMin = parseInt(parsed.end_min, 10)
-  if (isNaN(endMin) || endMin < 60 || endMin > 1440 || endMin % 15 !== 0) {
-    return { ok: false, fieldErrors: { end_min: 'ist ungültig.' } }
-  }
-
-  if (endMin <= startMin) {
-    return { ok: false, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }
-  }
-
-  return { ok: true }
-}
 
 function isExclusionConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object') {
@@ -148,20 +90,15 @@ function isExclusionConstraintError(error: unknown): boolean {
 // ── Shared error helpers ─────────────────────────────────────────
 
 function buildErrorRedirectUrl(
-  parsed: Record<string, string>,
+  formValues: Record<string, string>,
+  gridValues: GridState,
   extra?: { creating?: boolean; editing?: string; formError?: string; fieldErrors?: Record<string, string> },
 ): string {
-  let state = {
-    offset: parsed._offset,
-    sort: parsed._sort,
-    order: parsed._order,
-    filter: parsed._filter,
-  }
-  let params = gridStateToParams(state)
+  let params = gridStateToParams(gridValues)
   if (extra?.creating) params.set('creating', 'true')
   if (extra?.editing) params.set('editing', extra.editing)
   if (extra?.formError) params.set('error', extra.formError)
-  let fv = encodeFormValues(APPOINTMENT_FORM_KEYS, parsed)
+  let fv = encodeFormValues(APPOINTMENT_FORM_KEYS, formValues)
   for (let [k, v] of Object.entries(fv)) {
     params.set(k, v)
   }
@@ -399,10 +336,6 @@ function renderAppointmentsPage(
   )
 }
 
-// Form values serialized as URL params (fv_ prefix) to survive frame redirects.
-// Only 6 fields — compact enough for URL encoding.
-const APPOINTMENT_FORM_KEYS = ['resource_id', 'user_id', 'title', 'date', 'start_min', 'end_min'] as const
-
 // ── Controller ───────────────────────────────────────────────────
 
 export default createController<typeof routes.admin.appointments, AppContext>(
@@ -418,6 +351,13 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
       async create(context) {
         let formData = context.formData
+        let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
+        let gridValues: GridState = {
+          offset: (formData.get('_offset') as string) ?? '',
+          sort: (formData.get('_sort') as string) ?? '',
+          order: (formData.get('_order') as string) ?? '',
+          filter: (formData.get('_filter') as string) ?? '',
+        }
 
         // Rate limiting
         let auth = context.auth
@@ -426,55 +366,52 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           if (!adminCreateLimiter.attempt(authUserId)) {
             return new Response(null, {
               status: 302,
-              headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.' }) },
+              headers: { Location: buildErrorRedirectUrl({}, gridValues, { creating: true, formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.' }) },
             })
           }
         }
 
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(appointmentSaveSchema, formData) as Record<string, string>
-        } catch {
+        let result = s.parseSafe(appointmentSaveSchema, formData)
+
+        if (!result.success) {
+          let fieldErrors = issuesToFieldErrors(result.issues)
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { creating: true, formError: 'Ungültige Formulardaten.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, fieldErrors }) },
           })
         }
 
-        let validationResult = validateAppointmentForm(parsed)
-        if (!validationResult.ok) {
-          let formError = Object.values(validationResult.fieldErrors)[0]
+        let { resource_id, user_id, title, date, start_min, end_min } = result.value
+
+        // Cross-field validation
+        if (end_min <= start_min) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError, fieldErrors: validationResult.fieldErrors }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, formError: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }) },
           })
         }
 
-        let resourceId = parseInt(parsed.resource_id, 10)
-        let userId = parseInt(parsed.user_id, 10)
-        let title = parsed.title.trim()
-        let dayMs = new Date(parsed.date + 'T00:00:00Z').getTime()
-        let startMin = parseInt(parsed.start_min, 10)
-        let endMin = parseInt(parsed.end_min, 10)
+        let trimmedTitle = title.trim()
+        let dayMs = new Date(date + 'T00:00:00Z').getTime()
 
         // Reject past-date creation
         if (isDateInPast(dayMs)) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
           })
         }
 
         // Validate that the requested slot is within an offering
-        let bookable = await isSlotBookable(context.db, dayMs, resourceId, startMin, endMin)
+        let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
         if (!bookable) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
           })
         }
 
-        let during = `[${startMin},${endMin})`
+        let during = `[${start_min},${end_min})`
         let now = Date.now()
         let newId: number
 
@@ -483,7 +420,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
             `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING id`,
-            [userId, resourceId, title, dayMs, during, now, now],
+            [user_id, resource_id, trimmedTitle, dayMs, during, now, now],
           )
           newId = insertResult.rows[0].id
 
@@ -496,14 +433,14 @@ export default createController<typeof routes.admin.appointments, AppContext>(
               action_type: 'create',
               target_type: 'appointment',
               target_id: newId,
-              details: { resource_id: resourceId, user_id: userId, title, date: parsed.date, during },
+              details: { resource_id, user_id, title: date, during },
             })
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             return new Response(null, {
               status: 302,
-              headers: { Location: buildErrorRedirectUrl(parsed, { creating: true, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
+              headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
             })
           }
           throw error
@@ -513,7 +450,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         appointmentChannel.broadcast('invalidate')
 
         // Redirect back with preserved grid state, showing the new record in edit mode
-        let params = gridStateToParams(gridStateFromForm(parsed))
+        let params = gridStateToParams(gridValues)
         params.set('editing', String(newId))
         let qs = params.toString()
         return new Response(null, {
@@ -524,6 +461,13 @@ export default createController<typeof routes.admin.appointments, AppContext>(
 
       async update(context) {
         let formData = context.formData
+        let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
+        let gridValues: GridState = {
+          offset: (formData.get('_offset') as string) ?? '',
+          sort: (formData.get('_sort') as string) ?? '',
+          order: (formData.get('_order') as string) ?? '',
+          filter: (formData.get('_filter') as string) ?? '',
+        }
 
         // Rate limiting
         let auth = context.auth
@@ -533,19 +477,9 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           if (!adminUpdateLimiter.attempt(authUserId)) {
             return new Response(null, {
               status: 302,
-              headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: updateId ?? undefined, formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.' }) },
+              headers: { Location: buildErrorRedirectUrl({}, gridValues, { editing: updateId ?? undefined, formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.' }) },
             })
           }
-        }
-
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(appointmentSaveSchema, formData) as Record<string, string>
-        } catch {
-          return new Response(null, {
-            status: 302,
-            headers: { Location: buildErrorRedirectUrl({ _offset: '', _sort: '', _order: '', _filter: '' }, { editing: updateId ?? undefined, formError: 'Ungültige Formulardaten.' }) },
-          })
         }
 
         let id = context.params.id
@@ -553,58 +487,65 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         if (!id) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { formError: 'Ungültige ID.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { formError: 'Ungültige ID.' }) },
           })
         }
 
-        let validationResult = validateAppointmentForm(parsed)
-        if (!validationResult.ok) {
-          let formError = Object.values(validationResult.fieldErrors)[0]
+        let result = s.parseSafe(appointmentSaveSchema, formData)
+
+        if (!result.success) {
+          let fieldErrors = issuesToFieldErrors(result.issues)
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError, fieldErrors: validationResult.fieldErrors }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, fieldErrors }) },
           })
         }
 
-        let resourceId = parseInt(parsed.resource_id, 10)
-        let userId = parseInt(parsed.user_id, 10)
-        let title = parsed.title.trim()
-        let dayMs = new Date(parsed.date + 'T00:00:00Z').getTime()
-        let startMin = parseInt(parsed.start_min, 10)
-        let endMin = parseInt(parsed.end_min, 10)
+        let { resource_id, user_id, title, date, start_min, end_min } = result.value
+
+        // Cross-field validation
+        if (end_min <= start_min) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, formError: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } }) },
+          })
+        }
+
+        let trimmedTitle = title.trim()
+        let dayMs = new Date(date + 'T00:00:00Z').getTime()
 
         // Reject past-date update
         if (isDateInPast(dayMs)) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }) },
           })
         }
 
         // Validate that the requested slot is within an offering
-        let bookable = await isSlotBookable(context.db, dayMs, resourceId, startMin, endMin)
+        let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
         if (!bookable) {
           return new Response(null, {
             status: 302,
-            headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.' }) },
           })
         }
 
-        let during = `[${startMin},${endMin})`
+        let during = `[${start_min},${end_min})`
         let now = Date.now()
 
         try {
-          let result = await pool.query(
+          let updateResult = await pool.query(
             `UPDATE appointments
              SET user_id = $1, resource_id = $2, title = $3, date = $4, during = $5, updated_at = $6
              WHERE id = $7`,
-            [userId, resourceId, title, dayMs, during, now, id],
+            [user_id, resource_id, trimmedTitle, dayMs, during, now, id],
           )
 
-          if (result.rowCount === 0) {
+          if (updateResult.rowCount === 0) {
             return new Response(null, {
               status: 302,
-              headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Eintrag nicht gefunden.' }) },
+              headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, formError: 'Eintrag nicht gefunden.' }) },
             })
           }
 
@@ -617,14 +558,14 @@ export default createController<typeof routes.admin.appointments, AppContext>(
               action_type: 'update',
               target_type: 'appointment',
               target_id: id,
-              details: { resource_id: resourceId, user_id: userId, title, date: parsed.date, during },
+              details: { resource_id, user_id, title: date, during },
             })
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
             return new Response(null, {
               status: 302,
-              headers: { Location: buildErrorRedirectUrl(parsed, { editing: id, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
+              headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.' }) },
             })
           }
           throw error
@@ -634,7 +575,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         appointmentChannel.broadcast('invalidate')
 
         // Redirect back with preserved grid state
-        let params = gridStateToParams(gridStateFromForm(parsed))
+        let params = gridStateToParams(gridValues)
         let qs = params.toString()
         return new Response(null, {
           status: 302,

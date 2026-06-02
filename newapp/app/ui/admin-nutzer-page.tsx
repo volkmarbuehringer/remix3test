@@ -38,6 +38,7 @@ interface AdminNutzerPageProps {
   filter: string | undefined
   editRow?: NutzerRow | null
   creating?: boolean
+  error?: string
 }
 
 const SORTABLE_COLUMNS: Array<{ key: string; label: string }> = [
@@ -83,7 +84,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let {
       rows, offset, hasMore, prevOffset, nextOffset,
       sortColumn, sortDirection, filter,
-      editRow = null, creating = false,
+      editRow = null, creating = false, error,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -244,12 +245,12 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                 <AdminNutzerEditPage
                   row={editRow}
                   offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter}
+                  order={sortDirection} filter={filter} error={error}
                 />
               ) : (
                 <AdminNutzerCreatePage
                   offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter}
+                  order={sortDirection} filter={filter} error={error}
                 />
               )}
             </div>
