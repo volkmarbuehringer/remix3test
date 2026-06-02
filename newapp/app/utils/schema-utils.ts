@@ -2,13 +2,8 @@ export function issuesToFieldErrors(issues: ReadonlyArray<{ message: string; pat
   let errors: Record<string, string> = {}
   for (let issue of issues) {
     let field = issue.path?.[0]
-    if (typeof field === 'string' && !errors[field]) {
-      errors[field] = issue.message
-    }
-    if (typeof field !== 'string' || field === '') {
-      if (!errors._form) {
-        errors._form = issue.message
-      }
+    if (typeof field === 'string' && field !== '') {
+      if (!errors[field]) errors[field] = issue.message
     }
   }
   return errors

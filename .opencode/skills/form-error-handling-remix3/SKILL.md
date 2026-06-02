@@ -235,7 +235,7 @@ function EditPage(handle: Handle<EditPageProps>) {
 
 ## Schema Validation: Choose the Right Approach
 
-### `s.parse` — Throw on Failure (Legacy / Avoid)
+### `s.parse` — Throw on Failure (Avoid)
 
 ```typescript
 // ❌ Don't use for form validation — throws, losing error details
@@ -246,36 +246,88 @@ try {
 }
 ```
 
-### `s.parseSafe` — Return Value on Failure (Preferred)
+### `s.parseSafe` + Declarative Schemas (Recommended)
+
+Replace both `s.parse()` and custom validation functions with `s.parseSafe(schema, formData)` where the schema carries all rules via `.refine()` + `coerce.number()`:
 
 ```typescript
 // ✅ Returns { success: true, value } or { success: false, issues }
-let parsed = s.parseSafe(schema, formData)
+// Schemas defined once in app/utils/*-schema.ts — reusable across controllers
 
-if (!parsed.success) {
-  // parsed.issues contains per-field error details with paths
-  let fieldErrors = issuesToFieldErrors(parsed.issues)
-  return render(<Form fieldErrors={fieldErrors} />, { status: 400 })
+let result = s.parseSafe(offeringSaveSchema, formData)
+
+if (!result.success) {
+  let fieldErrors = issuesToFieldErrors(result.issues)
+  // Pattern 1: render(<Page fieldErrors={...} />, { status: 400 })
+  // Pattern 2: redirect with fv_*/fe_* URL params
 }
 
-// Use parsed.value for the happy path
-db.create(table, parsed.value)
+// result.value has coerced types — NO parseInt() needed!
+let { resource_id, day, start_min, end_min } = result.value
 ```
 
-### Schema Constraints
+### Schema with coerce.number() + .refine()
 
 ```typescript
-// Built-in checks from remix/data-schema/checks
-import { minLength, maxLength, email } from 'remix/data-schema/checks'
+// app/utils/offering-schema.ts — declarative, no hand-written validation
+import * as s from 'remix/data-schema'
+import * as coerce from 'remix/data-schema/coerce'
 
-// Custom validation with .refine()
-s.defaulted(s.string(), '0').refine(
-  (value) => {
-    let year = Number(value.split('-')[0])
-    return !isNaN(year) && year === 2026
-  },
-  'Year must be 2026',  // error message
-)
+export const offeringSaveSchema = f.object({
+  resource_id: f.field(
+    coerce.number().refine((n) => n > 0, 'ist erforderlich.'),
+  ),
+  start_min: f.field(
+    coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 60 === 0, 'ist ungültig.'),
+  ),
+  day: f.field(
+    s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich.'),
+  ),
+})
+```
+
+### `coerce.number()` Empty-Select Pitfall
+
+When a `<select>` has a disabled placeholder option (`<option value="">`), the browser sends `""`. `coerce.number()` fails immediately with **English** `"Expected number"` before `.refine()` can produce a **German** message. See `.agents/knowledge/remix3-coerce-number-empty-select-messages.md`.
+
+**Fix:** Pre-check empty selects in the controller before `parseSafe`:
+
+```typescript
+let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+if (!resourceIdRaw.trim()) {
+  return buildErrorRedirect(formValues, gridValues, {
+    creating: true, fieldErrors: { resource_id: 'ist erforderlich.' }
+  })
+}
+```
+
+### Shared Utilities: `app/utils/schema-utils.ts`
+
+Instead of local `issuesToFieldErrors` and `extractFormValues` functions, import from the shared module:
+
+```typescript
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
+
+let formValues = readFormFieldValues(KEYS, formData)
+let result = s.parseSafe(schema, formData)
+if (!result.success) {
+  let fieldErrors = issuesToFieldErrors(result.issues)
+  // ...
+}
+```
+
+The shared `readFormFieldValues` is equivalent to the old `extractFormValues` — reads raw string values from FormData before coercion, preserving exactly what the user typed.
+
+### Cross-Field Validation
+
+Cross-field rules (e.g., `endMin > startMin`) remain as manual post-parse checks in the controller, matching the timeboxer demo pattern for domain validations that involve multiple fields:
+
+```typescript
+if (result.value.end_min <= result.value.start_min) {
+  return buildErrorRedirect(formValues, gridValues, {
+    editing: id, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' }
+  })
+}
 ```
 
 ---
@@ -364,16 +416,32 @@ it('POST /client creates a row and redirects', async () => {
 4. **Select fields not showing preserved values** — In select dropdowns, `formValues` (from failed submit) must take priority over row data (from DB) for `selected` attributes.
 5. **Mixing patterns incorrectly** — Don't return a 400 HTML re-render inside a Frame context; Frame navigation expects a redirect. Use Pattern 2 (URL params) for Frame-based forms.
 6. **Using `type="email"` with custom validation** — HTML5 email validation may conflict with schema validation. Use `type="text"` and rely on schema-based `email()` check.
+7. **Returning `context.json()` for admin form errors** — In Frame-based admin layouts, `context.json({ error }, 400)` renders raw JSON in the browser, not the form page. Always redirect with `?error=` param. See `admin-nutzer-controller.tsx` fix.
+8. **`coerce.number()` on empty select values** — `<option value="">` sends `""` which `coerce.number()` rejects with English `"Expected number"` before `.refine()` can run. Pre-check empty selects in the controller. See `.agents/knowledge/remix3-coerce-number-empty-select-messages.md`.
+9. **Dropping the `if (!result.success)` guard** — When restructuring controller actions, ensure the parseSafe success check remains before accessing `result.value`.
 
 ---
 
 ## Reference Files in This Codebase
 
-- `newapp/app/actions/client/controller.tsx` — Pattern 1: Direct re-render with `parseSafe`, `extractFormValues`, `issuesToFieldErrors`
+- `newapp/app/actions/client/controller.tsx` — Pattern 1: Direct re-render with `parseSafe`
 - `newapp/app/actions/client/controller.test.ts` — Tests for validation failure and value preservation
 - `newapp/app/actions/client/create-page.tsx` — Component: error styling, field errors display, value preservation
 - `newapp/app/actions/client/edit-page.tsx` — Component: error styling with row fallback
+- `newapp/app/utils/schema-utils.ts` — Shared `issuesToFieldErrors()` and `readFormFieldValues()` utilities
+- `newapp/app/utils/offering-schema.ts` — Declarative schema: `f.object()` + `coerce.number()` + `.refine()`
+- `newapp/app/utils/appointment-schema.ts` — Declarative schema for appointments form validation
+- `newapp/app/actions/admin-offerings-controller.tsx` — Pattern 2: parseSafe + redirect with fv_*/fe_* params
+- `newapp/app/actions/admin-appointments-controller.tsx` — Pattern 2: parseSafe + redirect
 - `newapp/app/utils/form-params.ts` — Pattern 2: encode/decode form values (`fv_` prefix) and field errors (`fe_` prefix)
-- `newapp/app/utils/form-errors.ts` — `ValidationResult` types and helpers
-- `newapp/app/actions/admin-appointments-controller.tsx` — Pattern 2 with redirect-based error handling
-- `newapp/app/ui/admin-appointments-form.tsx` — Component using `formValues`/`fieldErrors` props
+- `newapp/app/ui/admin-offerings-create-page.tsx` — Component using `formValues`/`fieldErrors`/`formError` props
+- `newapp/app/ui/admin-offerings-edit-page.tsx` — Component with error banner via `table.errorBanner`
+
+## Related Knowledge Files
+
+- `.agents/knowledge/remix3-parseSafe-declarative-schemas.md` — Full pattern: replacing hand-written validation with parseSafe + .refine()
+- `.agents/knowledge/remix3-coerce-number-empty-select-messages.md` — Fix for English error messages from empty selects
+- `.agents/knowledge/remix3-render-from-post-validation.md` — Why re-render-from-POST is the recommended Remix 3 pattern
+- `.agents/knowledge/remix3-frame-layout-blocks-render-from-post.md` — Why Frame-based admin layouts can't re-render-from-POST
+- `.agents/knowledge/form-values-preserve-frame-redirect-remix3.md` — Full guide on fv_/fe_ encoding for Frame-safe redirects
+- `.agents/knowledge/per-field-errors-url-roundtrip-remix3.md` — fe_ prefix encoding pattern details

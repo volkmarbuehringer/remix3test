@@ -371,6 +371,21 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           }
         }
 
+        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+        if (!resourceIdRaw.trim()) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, fieldErrors: { resource_id: 'ist erforderlich.' } }) },
+          })
+        }
+        let userIdRaw = (formData.get('user_id') as string) ?? ''
+        if (!userIdRaw.trim()) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { creating: true, fieldErrors: { user_id: 'ist erforderlich.' } }) },
+          })
+        }
+
         let result = s.parseSafe(appointmentSaveSchema, formData)
 
         if (!result.success) {
@@ -488,6 +503,21 @@ export default createController<typeof routes.admin.appointments, AppContext>(
           return new Response(null, {
             status: 302,
             headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { formError: 'Ungültige ID.' }) },
+          })
+        }
+
+        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+        if (!resourceIdRaw.trim()) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, fieldErrors: { resource_id: 'ist erforderlich.' } }) },
+          })
+        }
+        let userIdRaw = (formData.get('user_id') as string) ?? ''
+        if (!userIdRaw.trim()) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: buildErrorRedirectUrl(formValues, gridValues, { editing: id, fieldErrors: { user_id: 'ist erforderlich.' } }) },
           })
         }
 

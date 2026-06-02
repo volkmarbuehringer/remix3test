@@ -298,6 +298,11 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           filter: (formData.get('_filter') as string) ?? '',
         }
 
+        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+        if (!resourceIdRaw.trim()) {
+          return buildErrorRedirect(formValues, gridValues, { creating: true, fieldErrors: { resource_id: 'ist erforderlich.' } })
+        }
+
         let result = s.parseSafe(offeringSaveSchema, formData)
 
         if (!result.success) {
@@ -382,6 +387,11 @@ export default createController<typeof routes.admin.offerings, AppContext>(
           sort: (formData.get('_sort') as string) ?? '',
           order: (formData.get('_order') as string) ?? '',
           filter: (formData.get('_filter') as string) ?? '',
+        }
+
+        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+        if (!resourceIdRaw.trim()) {
+          return buildErrorRedirect(formValues, gridValues, { editing: id, fieldErrors: { resource_id: 'ist erforderlich.' } })
         }
 
         let result = s.parseSafe(offeringSaveSchema, formData)

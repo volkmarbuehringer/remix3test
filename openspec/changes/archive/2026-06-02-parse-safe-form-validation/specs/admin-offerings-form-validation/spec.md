@@ -1,4 +1,4 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Admin offering form SHALL render per-field validation errors inline
 
@@ -37,35 +37,6 @@ When validation fails and the controller redirects, the form SHALL retain all su
 - **WHEN** admin selects resource_id=3 and submits with an invalid day format
 - **THEN** the redirect URL contains `fv_resource_id=3`
 - **AND** the resource dropdown shows resource_id=3 selected in the re-rendered form
-
-### Requirement: Admin offering form SHALL show form-level errors as banner
-
-Business-rule failures that are not field-specific (holiday, past-date, exclusion constraint) SHALL display as a banner at the top of the form. These SHALL use a 302 redirect with `?error=` param, consistent with the existing PRG pattern.
-
-#### Scenario: Public holiday
-- **WHEN** admin submits with a date that falls on a German public holiday
-- **THEN** a banner shows "Dieses Datum ist ein Feiertag."
-- **AND** submitted values are preserved
-
-#### Scenario: Past date
-- **WHEN** admin submits with a date in the past
-- **THEN** a banner shows "Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden."
-
-#### Scenario: Exclusion constraint (time overlap)
-- **WHEN** admin submits with a time range that overlaps an existing offering
-- **THEN** a banner shows "Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot."
-
-### Requirement: Validation type SHALL be reusable across controllers
-
-The `ValidationResult` type (`{ ok: true } | { ok: false, fieldErrors: Record<string, string> }`) SHALL be defined in `app/utils/form-errors.ts` as a shared utility, not duplicated in each controller.
-
-#### Scenario: Multiple controllers use the same type
-- **WHEN** any admin controller defines a `validateXForm()` function
-- **THEN** it SHALL import `ValidationResult` from `app/utils/form-errors.ts` and return that type
-
-#### Scenario: Helper unwraps fieldErrors
-- **WHEN** a controller calls `fieldErrorsFromResult(result)`
-- **THEN** it SHALL return `Record<string, string>` on failure or `undefined` on success
 
 ### Requirement: Form inputs SHALL apply error styling on validation failure
 

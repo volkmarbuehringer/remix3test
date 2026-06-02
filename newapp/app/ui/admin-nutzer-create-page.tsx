@@ -48,7 +48,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
     let { offset = '', sort = '', order = '', filter = '', error } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/nutzer">
+        <RestfulForm method="POST" action="/admin/nutzer" novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

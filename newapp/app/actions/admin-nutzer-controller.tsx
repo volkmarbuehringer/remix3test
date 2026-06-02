@@ -159,17 +159,17 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
     },
 
     async update(context) {
-        let formData = context.formData
-        let id = context.params.id
+      let formData = context.formData
+      let id = context.params.id
 
-        let parsed: Record<string, string>
-        try {
-          parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
-        } catch {
-          return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', editing: id ?? undefined })
-        }
+      let parsed: Record<string, string>
+      try {
+        parsed = s.parse(nutzerSaveSchema, formData) as Record<string, string>
+      } catch {
+        return buildNutzerErrorRedirect(formData, { error: 'Invalid form data', editing: id ?? undefined })
+      }
 
-        if (!id) {
+      if (!id) {
         return buildNutzerErrorRedirect(formData, { error: 'Invalid id' })
       }
 
@@ -221,7 +221,6 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         client.release()
       }
 
-      // Redirect back with preserved grid state
       let redirectState = {
         offset: parsed._offset,
         sort: parsed._sort,
