@@ -1,6 +1,6 @@
 ## Purpose
 
-How the Nutzer (German user management) admin table provides row-level actions through a right-click context menu, replacing the existing Actions column.
+How the Nutzer (German user management) admin table provides row-level actions through a right-click context menu, replacing the existing Actions column. The nutzer page is now at `/nutzer` (top-level route).
 
 ## Requirements
 
@@ -50,19 +50,19 @@ The context menu SHALL present actions in three groups separated by `<hr />`:
 - **THEN** the system SHALL generate a new random 12-character password
 - **AND** hash it with scrypt and store it in the database
 - **AND** display the new temporary password to the user
-- **AND** the admin frame SHALL reload
+- **AND** the page SHALL reload to reflect changes
 
 #### Scenario: Lock/Unlock toggle (conditional)
 
 - **GIVEN** a context menu is open on a row where `l_gesperrt` is `true`
 - **WHEN** the user selects "Entsperren"
-- **THEN** the system SHALL set `l_gesperrt = false` via PUT to `/admin/nutzer/:id`
-- **AND** the admin frame SHALL reload
+- **THEN** the system SHALL set `l_gesperrt = false` via POST to `/nutzer/:id/toggle-lock`
+- **AND** the page SHALL reload
 
 - **GIVEN** a context menu is open on a row where `l_gesperrt` is `false`
 - **WHEN** the user selects "Sperren"
-- **THEN** the system SHALL set `l_gesperrt = true` via PUT to `/admin/nutzer/:id`
-- **AND** the admin frame SHALL reload
+- **THEN** the system SHALL set `l_gesperrt = true` via POST to `/nutzer/:id/toggle-lock`
+- **AND** the page SHALL reload
 
 #### Scenario: Copy Email action
 
@@ -81,8 +81,8 @@ The context menu SHALL present actions in three groups separated by `<hr />`:
 - **GIVEN** a context menu is open on a row
 - **WHEN** the user selects "Löschen"
 - **THEN** a confirmation dialog SHALL appear asking to confirm deletion
-- **AND** if confirmed, a DELETE request SHALL be sent to `/admin/nutzer/:id`
-- **AND** the admin frame SHALL reload
+- **AND** if confirmed, a DELETE request SHALL be sent to `/nutzer/:id`
+- **AND** the page SHALL reload
 - **AND** if cancelled, no request SHALL be made
 
 ### Requirement: Per-row context scoping
@@ -109,94 +109,38 @@ The removal of the Actions column SHALL redistribute its width proportionally ac
 
 ### Requirement: Backend — Reset Password endpoint
 
-A new endpoint SHALL support password reset as a server action.
+A dedicated endpoint SHALL support password reset as a server action.
 
 #### Scenario: Reset Password API
 
-- **GIVEN** a POST request to `/admin/nutzer/:id/reset-password` with a valid CSRF token
+- **GIVEN** a POST request to `/nutzer/:id/reset-password` with a valid CSRF token
 - **WHEN** the user exists
 - **THEN** a new password SHALL be generated (12 chars, mixed case + digits)
 - **AND** hashed with scrypt and stored
 - **AND** a JSON response SHALL be returned: `{ "password": "newPlaintext" }`
 
-- **GIVEN** a POST request to `/admin/nutzer/:id/reset-password`
+- **GIVEN** a POST request to `/nutzer/:id/reset-password`
 - **WHEN** the user does not exist
 - **THEN** a 404 JSON response SHALL be returned
 
-### Requirement: Backend — Lock/Unlock via existing endpoint
+### Requirement: Backend — Lock/Unlock via toggle endpoint
 
-The existing `PUT /admin/nutzer/:id` endpoint SHALL support updating `l_gesperrt`.
+A dedicated endpoint SHALL support toggling lock state as a server action.
 
 #### Scenario: Lock/Unlock API
 
-- **GIVEN** a PUT request to `/admin/nutzer/:id` with `{ "l_gesperrt": true }`
+- **GIVEN** a POST request to `/nutzer/:id/toggle-lock` with `{ "locked": true }`
 - **WHEN** the user exists
-- **THEN** the `l_gesperrt` column SHALL be updated
-- **AND** a JSON response SHALL be returned with the updated row
+- **THEN** the `l_gesperrt` column SHALL be updated to `true`
+- **AND** a JSON response SHALL be returned with `{ "ok": true }`
 
-## Implementation Notes
+### Requirement: Backend — Active toggle via toggle endpoint
 
-### Menu import
+A dedicated endpoint SHALL support toggling active state as a server action.
 
-```tsx
-import * as menu from 'remix/ui/menu'
-import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
-```
+#### Scenario: Active toggle API
 
-### contextTrigger mixin placement
-
-The `menu.contextTrigger()` mixin SHALL be applied to each `<tr>` element via the `mix` prop, alongside the existing `rowStyle` mixin.
-
-### Dispatch function pattern
-
-A single `handleRowAction` function SHALL handle all menu selections via a switch on `event.item.name`:
-
-```ts
-function handleRowAction(row, event, offset, sort, order, filter) {
-  switch (event.item.name) {
-    case 'edit': // navigate to edit
-    case 'reset-password': // fetch POST + alert
-    case 'lock':
-    case 'unlock': // fetch PUT
-    case 'copy-email': // navigator.clipboard
-    case 'delete': // confirm + fetch DELETE
-  }
-}
-```
-
-### CSRF token
-
-All mutating requests (POST reset-password, PUT lock/unlock, DELETE) SHALL include the CSRF token via `X-Csrf-Token` header, read from the `<meta name="csrf-token">` element.
-
-### Clipboard API
-
-The copy-email action SHALL use `navigator.clipboard.writeText(row.n_email)` wrapped in a try/catch for browsers that reject the call outside user gesture context.
-
-### Lock/Unlock via existing endpoint
-
-The lock/unlock toggle SHALL send a JSON `PUT` request to `/admin/nutzer/:id` with `{ "l_gesperrt": true }` (or `false`). The existing `update` controller action only handles form submissions — the context menu handler SHALL need an alternative path. Options:
-
-1. Add a dedicated endpoint: `POST /admin/nutzer/:id/toggle-lock`
-2. Extend the update action to accept JSON content type
-3. Have the menu handler submit a hidden form with only the gesperrt field
-
-The implementation plan SHALL decide which approach.
-
-### Reset Password endpoint
-
-A new `POST /admin/nutzer/:id/reset-password` action SHALL be added to the controller. It SHALL:
-
-1. Validate the user exists (404 if not)
-2. Generate a 12-character password (mixed case, digits, no ambiguous chars)
-3. Hash with scrypt and update the `login` table's password hash
-4. Return `{ "password": "plaintext" }` JSON
-5. Require CSRF token via `X-Csrf-Token` header
-
-### Delete from context menu
-
-The existing `destroy` action expects form data and returns a 302 redirect. The context menu handler SHALL either:
-
-1. Submit a hidden `<form>` element (already present per-row for the current delete button), or
-2. Send a JSON `DELETE` request and reload the frame on success
-
-The existing per-row delete form already carries grid state as hidden fields (`_offset`, `_sort`, etc.). Approach #1 reuses this mechanism. A `confirm()` dialog SHALL precede the request regardless of approach.
+- **GIVEN** a POST request to `/nutzer/:id/toggle-active` with `{ "active": false }`
+- **WHEN** the user exists
+- **THEN** the `l_aktiv` column SHALL be updated to `false`
+- **AND** a JSON response SHALL be returned with `{ "ok": true }`
