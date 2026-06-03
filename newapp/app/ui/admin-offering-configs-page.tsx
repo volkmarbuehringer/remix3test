@@ -57,6 +57,52 @@ function fmt(minutes: number): string {
   return `${h}:${m}`
 }
 
+interface DayRuleRowProps {
+  dayKey: string
+  dayLabel: string
+  idPrefix: string
+  checked: boolean
+  startMin: number
+  endMin: number
+}
+
+/** Shared day rule editor: checkbox + start/end time selects for one weekday. */
+function DayRuleRow(handle: Handle<DayRuleRowProps>) {
+  return () => {
+    let { dayKey, dayLabel, idPrefix, checked, startMin, endMin } = handle.props
+    return (
+      <div key={dayKey} mix={dayRowStyle}>
+        <input
+          type="checkbox"
+          id={`${idPrefix}-${dayKey}`}
+          name={`${dayKey}_enabled`}
+          value="1"
+          checked={checked}
+          mix={dayCheckboxStyle}
+        />
+        <label for={`${idPrefix}-${dayKey}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
+          {dayLabel}
+        </label>
+        <select name={`${dayKey}_start`} mix={timeSelectStyle}>
+          {TIME_OPTIONS.map((min) => (
+            <option key={min} value={min} selected={min === startMin}>
+              {fmt(min)}
+            </option>
+          ))}
+        </select>
+        <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
+        <select name={`${dayKey}_end`} mix={timeSelectStyle}>
+          {TIME_END_OPTIONS.map((min) => (
+            <option key={min} value={min} selected={min === endMin}>
+              {fmt(min)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+}
+
 function rulesSummary(rules: Record<string, [number, number]> | null | undefined): string {
   if (!rules || Object.keys(rules).length === 0) return '\u2014'
   return Object.entries(rules)
@@ -372,39 +418,10 @@ function EditPanel(handle: Handle<EditPanelProps>) {
 
               {DAYS.map((day) => {
                 let rule = rules[day.key]
-                let hasRule = formValues ? formValues[`${day.key}_enabled`] === '1' : !!rule
+                let checked = formValues ? formValues[`${day.key}_enabled`] === '1' : !!rule
                 let startMin = formValues?.[`${day.key}_start`] ? Number(formValues[`${day.key}_start`]) : (rule ? rule[0] : 480)
                 let endMin = formValues?.[`${day.key}_end`] ? Number(formValues[`${day.key}_end`]) : (rule ? rule[1] : 1020)
-                return (
-                  <div key={day.key} mix={dayRowStyle}>
-                    <input
-                      type="checkbox"
-                      id={`oc-${day.key}`}
-                      name={`${day.key}_enabled`}
-                      value="1"
-                      checked={hasRule}
-                      mix={dayCheckboxStyle}
-                    />
-                    <label for={`oc-${day.key}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
-                      {day.label}
-                    </label>
-                    <select name={`${day.key}_start`} mix={timeSelectStyle}>
-                      {TIME_OPTIONS.map((min) => (
-                        <option key={min} value={min} selected={min === startMin}>
-                          {fmt(min)}
-                        </option>
-                      ))}
-                    </select>
-                    <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
-                    <select name={`${day.key}_end`} mix={timeSelectStyle}>
-                      {TIME_END_OPTIONS.map((min) => (
-                        <option key={min} value={min} selected={min === endMin}>
-                          {fmt(min)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )
+                return <DayRuleRow dayKey={day.key} dayLabel={day.label} idPrefix="oc" checked={checked} startMin={startMin} endMin={endMin} />
               })}
 
               <div mix={table.actions}>
@@ -463,35 +480,10 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               {DAYS.map((day) => {
-                let enabled = formValues?.[`${day.key}_enabled`] === '1'
-                let startVal = formValues?.[`${day.key}_start`]
-                let endVal = formValues?.[`${day.key}_end`]
-                return (
-                  <div key={day.key} mix={dayRowStyle}>
-                    <input
-                      type="checkbox"
-                      id={`oc-c-${day.key}`}
-                      name={`${day.key}_enabled`}
-                      value="1"
-                      checked={enabled}
-                      mix={dayCheckboxStyle}
-                    />
-                    <label for={`oc-c-${day.key}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
-                      {day.label}
-                    </label>
-                    <select name={`${day.key}_start`} mix={timeSelectStyle}>
-                      {TIME_OPTIONS.map((min) => (
-                        <option key={min} value={min} selected={startVal ? Number(startVal) === min : false}>{fmt(min)}</option>
-                      ))}
-                    </select>
-                    <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
-                    <select name={`${day.key}_end`} mix={timeSelectStyle}>
-                      {TIME_END_OPTIONS.map((min) => (
-                        <option key={min} value={min} selected={endVal ? Number(endVal) === min : false}>{fmt(min)}</option>
-                      ))}
-                    </select>
-                  </div>
-                )
+                let checked = formValues?.[`${day.key}_enabled`] === '1'
+                let startMin = Number(formValues?.[`${day.key}_start`] ?? 480)
+                let endMin = Number(formValues?.[`${day.key}_end`] ?? 1020)
+                return <DayRuleRow dayKey={day.key} dayLabel={day.label} idPrefix="oc-c" checked={checked} startMin={startMin} endMin={endMin} />
               })}
 
               <div mix={table.actions}>

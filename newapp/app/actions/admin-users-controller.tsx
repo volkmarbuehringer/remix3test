@@ -20,6 +20,7 @@ import {
 import { hashPassword } from '../utils/password-hash.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { pool } from '../data/setup.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 /** User view returned to the client — password_hash is never serialized. */
 type SafeUser = Omit<User, 'password_hash'>
@@ -158,8 +159,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
         { returnRow: true },
       )
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -221,8 +221,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       await db.updateMany(users, changes, { where: { id } })
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -261,8 +260,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       await db.deleteMany(users, { where: { id } })
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

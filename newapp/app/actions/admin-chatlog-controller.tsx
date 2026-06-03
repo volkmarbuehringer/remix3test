@@ -9,6 +9,7 @@ import { renderAdminPage } from '../ui/admin-layout.tsx'
 import { logAdminAction } from '../data/audit-log.ts'
 import { pool } from '../data/setup.ts'
 import { ChatLogPage } from '../ui/admin-chatlog-page.tsx'
+import { getAdminIdentity } from '../utils/context.ts'
 
 const MAX_FILTER_LENGTH = 200
 const PAGE_SIZE = 5
@@ -40,7 +41,7 @@ export default createController<typeof routes.admin.chatlog, AppContext>(routes.
 
         return renderAdminPage(context.render, 'chatlog', <ChatLogPage conversations={conversations} filter={filter} type={type} page={page} hasMore={hasMore} />)
       } catch (error) {
-        console.error('[Admin Chatlog] Error loading conversations:', error)
+        if (process.env.NODE_ENV !== 'test') console.error('[Admin Chatlog] Error loading conversations:', error)
         return renderAdminPage(context.render, 'chatlog', <ChatLogPage conversations={[]} filter={undefined} type={undefined} page={1} hasMore={false} />)
       }
     },
@@ -49,8 +50,7 @@ export default createController<typeof routes.admin.chatlog, AppContext>(routes.
       let { params } = context
       await deleteConversation(params.id)
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

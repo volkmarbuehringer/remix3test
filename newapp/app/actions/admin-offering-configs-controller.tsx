@@ -24,6 +24,7 @@ import { pool } from '../data/setup.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 import { isConstraintViolation } from '../utils/db-errors.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -349,7 +350,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
           let data = await loadOfferingConfigPageData(context, {
             creating: true,
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
@@ -364,8 +365,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         throw error
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -489,7 +489,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          console.error('Constraint violation during offering config update', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config update', { code: (error as { code?: string }).code })
           let data = await loadOfferingConfigPageData(context, {
             editRow: toRow(target as Record<string, unknown>),
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
@@ -504,8 +504,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         throw error
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -545,7 +544,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         await db.deleteMany(offeringConfigs, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          console.error('Constraint violation during offering config deletion', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config deletion', { code: (error as { code?: string }).code })
           let gridValues = gridStateFromFormData(formData)
           let data = await loadOfferingConfigPageData(context, {
             formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
@@ -559,8 +558,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         throw error
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

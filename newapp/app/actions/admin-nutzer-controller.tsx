@@ -15,6 +15,7 @@ import { gridStateToParams } from '../utils/grid-state.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 const PAGE_SIZE = 15
 
@@ -239,8 +240,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         )
         await client.query('COMMIT')
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(pool, {
             admin_user_id: authIdentity.id,
@@ -380,8 +380,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
 
         await client.query('COMMIT')
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(pool, {
             admin_user_id: authIdentity.id,
@@ -470,8 +469,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         await client.query(`DELETE FROM login WHERE l_id=$1`, [nLid])
         await client.query('COMMIT')
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(pool, {
             admin_user_id: authIdentity.id,
@@ -531,8 +529,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         result.rows[0].l_id,
       ])
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -573,8 +570,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -616,8 +612,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

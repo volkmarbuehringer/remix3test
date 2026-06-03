@@ -27,6 +27,7 @@ import { logAdminAction } from '../data/audit-log.ts'
 import { pool } from '../data/setup.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 import { isConstraintViolation } from '../utils/db-errors.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 type Row = Resource
 
@@ -177,8 +178,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         { returnRow: true },
       )
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -231,8 +231,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       await db.updateMany(resources, { description: parsed.description.trim() }, { where: { id } })
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,
@@ -271,7 +270,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         await db.deleteMany(resources, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          console.error('Constraint violation during resource deletion', { code: (error as { code?: string }).code, resourceId: id })
+          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during resource deletion', { code: (error as { code?: string }).code, resourceId: id })
           let gridValues = gridStateFromFormData(formData)
           let data = await loadResourcePageData(context, {
             formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
@@ -285,8 +284,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         throw error
       }
 
-      let auth = context.auth
-      let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

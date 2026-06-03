@@ -407,11 +407,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           <div mix={headerBarStyle}>
             <h2 mix={table.title}>Termine</h2>
             <ConnectionIndicator
-              {...({
-                url: '/verwaltung/appointments/events',
-                reloadMode: 'frame',
-                skipReloadParams: ['editing', 'creating'],
-              } as any)}
+              url="/verwaltung/appointments/events"
+              reloadMode="frame"
+              skipReloadParams={['editing', 'creating']}
             />
           </div>
           <div mix={table.twoColumn}>
@@ -456,11 +454,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         <div mix={headerBarStyle}>
           <h2 mix={table.title}>Termine</h2>
           <ConnectionIndicator
-            {...({
-              url: '/verwaltung/appointments/events',
-              reloadMode: 'frame',
-              skipReloadParams: ['editing', 'creating'],
-            } as any)}
+            url="/verwaltung/appointments/events"
+            reloadMode="frame"
+            skipReloadParams={['editing', 'creating']}
           />
         </div>
         {gridSection}

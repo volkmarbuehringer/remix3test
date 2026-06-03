@@ -2,7 +2,7 @@ import { clientEntry, css, type Handle, type SerializableProps } from 'remix/ui'
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting'
 
-interface ConnectionIndicatorProps extends SerializableProps {
+export interface ConnectionIndicatorProps extends SerializableProps {
   url: string
   /** How to reload when an 'invalidate' event is received.
    *  'frame' (default) calls handle.frame.reload() — for pages inside a Frame.
@@ -30,10 +30,10 @@ interface ConnectionIndicatorProps extends SerializableProps {
  */
 export const ConnectionIndicator = clientEntry(
   import.meta.url,
-  function ConnectionIndicator(handle: Handle) {
+  function ConnectionIndicator(handle: Handle<ConnectionIndicatorProps>) {
     let state: ConnectionState = 'connecting'
     let eventSource: EventSource | null = null
-    let props = handle.props as unknown as ConnectionIndicatorProps
+    let props = handle.props
     let subscriptionUrl = props.url
     let reloadMode = props.reloadMode ?? 'frame'
     let skipReloadParams = props.skipReloadParams ?? []

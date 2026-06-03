@@ -16,6 +16,7 @@ import type { OfferingConfig } from '../data/offering-configs.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
 import { isConstraintViolation } from '../utils/db-errors.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../utils/offering-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
@@ -342,8 +343,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           )
           newId = insertResult.rows[0].id
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,
@@ -478,8 +478,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             )
           }
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,
@@ -540,8 +539,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             )
           }
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,
@@ -608,8 +606,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         await upsertConfig(pool, resourceId, rules)
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(pool, {
             admin_user_id: authIdentity.id,
@@ -670,8 +667,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           params.set('error', `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`)
         }
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+        let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(pool, {
             admin_user_id: authIdentity.id,

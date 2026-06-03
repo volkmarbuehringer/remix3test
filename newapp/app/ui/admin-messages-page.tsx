@@ -187,7 +187,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       <div mix={pageStyle}>
         <div mix={headerStyle}>
           <h2 mix={titleStyle}>Nachrichten</h2>
-          <ConnectionIndicator {...({ url: routes.admin.messages.subscribe.href() } as any)} />
+          <ConnectionIndicator url={routes.admin.messages.subscribe.href()} />
         </div>
         <p mix={descriptionStyle}>
           Öffentliche Nachrichten verwalten. Nur Admins können Nachrichten senden und löschen.

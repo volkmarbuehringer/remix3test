@@ -17,6 +17,7 @@ import { appointmentChannel } from '../lib/appointments-sse.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { appointmentSaveSchema, APPOINTMENT_FORM_KEYS } from '../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
+import { getAdminIdentity } from '../utils/context.ts'
 
 const PAGE_SIZE = 15
 
@@ -454,8 +455,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
           )
           newId = insertResult.rows[0].id
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,
@@ -656,8 +656,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             return renderAppointmentsPage(context, data, { status: 400 })
           }
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,
@@ -724,8 +723,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
           }
 
-          let auth = context.auth
-          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
             logAdminAction(pool, {
               admin_user_id: authIdentity.id,

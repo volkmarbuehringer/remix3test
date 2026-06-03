@@ -90,9 +90,7 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
           </div>
           <div mix={gridColumnStyle}>
             <div mix={indicatorBarStyle}>
-              <ConnectionIndicator
-                {...({ url: '/appointment/events', reloadMode: 'window' } as any)}
-              />
+              <ConnectionIndicator url="/appointment/events" reloadMode="window" />
             </div>
             <AppointmentGrid />
           </div>
