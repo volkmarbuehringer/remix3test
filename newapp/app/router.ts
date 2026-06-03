@@ -18,7 +18,7 @@ import adminChatlogFragmentsController from './actions/admin-chatlog-fragments-c
 import adminMessagesController from './actions/admin-messages-controller.tsx'
 import adminFragmentsController from './actions/admin-fragments-controller.tsx'
 import adminListsController from './actions/admin-lists-controller.tsx'
-import adminNutzerController from './actions/admin-nutzer-controller.tsx'
+import adminNutzerController from './actions/nutzer/controller.tsx'
 import adminOfferingsController from './actions/admin-offerings-controller.tsx'
 import adminAppointmentsController from './actions/admin-appointments-controller.tsx'
 import adminUsersController from './actions/admin-users-controller.tsx'

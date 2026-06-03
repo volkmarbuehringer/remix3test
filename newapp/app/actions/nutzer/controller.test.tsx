@@ -1,10 +1,10 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../router.ts'
-import { initializeAppDatabase, pool } from '../data/setup.ts'
-import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
-import { routes } from '../routes.ts'
+import { router } from '../../router.ts'
+import { initializeAppDatabase, pool } from '../../data/setup.ts'
+import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Nutzer Controller integration tests
