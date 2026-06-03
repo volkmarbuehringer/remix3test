@@ -24,6 +24,9 @@ interface AdminResourcesPageProps {
   filter: string | undefined
   editRow?: Resource | null
   creating?: boolean
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 const ADMIN_BASE = '/verwaltung/resources'
@@ -38,12 +41,14 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
       rows, offset, hasMore, prevOffset, nextOffset,
       sortColumn, sortDirection, filter,
       editRow = null, creating = false,
+      formValues, fieldErrors, formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
     let gridSection = (
       <div mix={table.minWidth0}>
+        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -224,6 +229,8 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               ) : (
                 <AdminResourcesCreatePanel
@@ -231,6 +238,8 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               )}
             </div>
@@ -256,11 +265,15 @@ interface EditPanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { row, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let descValue = formValues?.description ?? row.description ?? ''
+    let hasError = !!fieldErrors?.description
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="PUT" action={`/verwaltung/resources/${row.id}`}>
@@ -278,9 +291,10 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   id="ar-desc"
                   name="description"
                   type="text"
-                  value={row.description ?? ''}
-                  mix={[input.base, input.focus]}
+                  value={descValue}
+                  mix={[input.base, input.focus, ...(hasError ? [input.error] : [])]}
                 />
+                {hasError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
               </div>
 
               <div mix={table.actions}>
@@ -308,11 +322,14 @@ interface CreatePanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let hasError = !!fieldErrors?.description
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="POST" action="/verwaltung/resources">
@@ -331,8 +348,10 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="description"
                   type="text"
                   required
-                  mix={[input.base, input.focus]}
+                  defaultValue={formValues?.description ?? ''}
+                  mix={[input.base, input.focus, ...(hasError ? [input.error] : [])]}
                 />
+                {hasError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
               </div>
 
               <div mix={table.actions}>

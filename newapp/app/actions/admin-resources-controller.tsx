@@ -15,106 +15,186 @@ import { parseSort } from '../utils/sort-params.ts'
 import { paginate } from '../utils/pagination.ts'
 import {
   gridStateFromForm,
+  gridStateFromFormData,
   gridStateToParams,
+  type GridState,
 } from '../utils/grid-state.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { pool } from '../data/setup.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
 type Row = Resource
 
 const PAGE_SIZE = 15
 
+const RESOURCE_FORM_KEYS = ['description'] as const
+
 const SORTABLE_FIELDS = ['id', 'description', 'created_at', 'updated_at'] as const
 
-/** PostgreSQL error code for foreign key violation (RESTRICT). */
-const PG_FOREIGN_KEY_VIOLATION = '23503'
+/** PostgreSQL error codes for constraint violations that prevent deletion. */
+const PG_RESTRICT_VIOLATION = '23001' as const
+const PG_FOREIGN_KEY_VIOLATION = '23503' as const
 
-function isForeignKeyViolation(error: unknown): boolean {
+function isConstraintViolation(error: unknown): boolean {
   if (error && typeof error === 'object') {
-    let err = error as { code?: string }
-    return err.code === PG_FOREIGN_KEY_VIOLATION
+    let err = error as { code?: string; cause?: { code?: string } }
+    if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
+    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION) return true
   }
   return false
 }
 
+function gridStateOffset(state: GridState): number | undefined {
+  let n = Number(state.offset)
+  return n > 0 ? n : undefined
+}
+
+function gridStateSort(state: GridState): string | undefined {
+  return state.sort || undefined
+}
+
+function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
+  return (state.order as 'asc' | 'desc') || undefined
+}
+
+function gridStateFilter(state: GridState): string | undefined {
+  return state.filter || undefined
+}
+
+interface ResourcePageData {
+  rows: Row[]
+  offset: number
+  hasMore: boolean
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+  editRow?: Row | null
+  creating?: boolean
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+}
+
+async function loadResourcePageData(
+  context: AppContext,
+  overrides?: Partial<Pick<ResourcePageData, 'creating' | 'editRow' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+): Promise<ResourcePageData> {
+  let db = context.db
+  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let pageNum = Math.floor(offset / PAGE_SIZE) + 1
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+
+  let { column, direction } = overrides?.sortColumn
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
+    : parseSort(context.url, {
+        allowedColumns: SORTABLE_FIELDS,
+        defaultColumn: 'description',
+        defaultDirection: 'asc',
+      })
+
+  let filterPredicate = filter
+    ? ilike('description', `%${filter}%`)
+    : undefined
+
+  let { items: page, hasMore } = await paginate(db, resources, {
+    pageSize: PAGE_SIZE,
+    page: pageNum,
+    orderBy: [[column, direction]],
+    where: filterPredicate as Record<string, unknown>,
+  })
+
+  let rows = page as Row[]
+
+  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingRowId = editingParam ? Number(editingParam) : null
+  let editRow = overrides?.editRow ?? null
+  if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
+    editRow = (await db.findOne(resources, { where: { id: editingRowId } })) as Row | null
+  }
+
+  let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
+
+  return {
+    rows,
+    offset,
+    hasMore,
+    prevOffset: Math.max(0, offset - PAGE_SIZE),
+    nextOffset: offset + PAGE_SIZE,
+    sortColumn: column,
+    sortDirection: direction,
+    filter,
+    editRow,
+    creating,
+    formValues: overrides?.formValues,
+    fieldErrors: overrides?.fieldErrors,
+    formError: overrides?.formError,
+  }
+}
+
 const resourceSaveSchema = f.object({
-  description: f.field(s.defaulted(s.string(), '')),
+  description: f.field(s.string().refine((v) => v.length >= 8, 'Beschreibung muss mindestens 8 Zeichen lang sein')),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
+function renderResourcePage(context: AppContext, data: ResourcePageData, init?: ResponseInit): Response {
+  return renderVerwaltungPage(
+    context.render,
+    <AdminResourcesPage
+      rows={data.rows}
+      offset={data.offset}
+      hasMore={data.hasMore}
+      prevOffset={data.prevOffset}
+      nextOffset={data.nextOffset}
+      sortColumn={data.sortColumn}
+      sortDirection={data.sortDirection}
+      filter={data.filter}
+      editRow={data.editRow}
+      creating={data.creating}
+      formValues={data.formValues}
+      fieldErrors={data.fieldErrors}
+      formError={data.formError}
+    />,
+    init,
+  )
+}
+
 export default createController<typeof routes.verwaltung.resources, AppContext>(routes.verwaltung.resources, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
-      let db = context.db
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let pageNum = Math.floor(offset / PAGE_SIZE) + 1
-      let filter = context.url.searchParams.get('filter') || undefined
-
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'description',
-        defaultDirection: 'asc',
-      })
-
-      let filterPredicate = filter
-        ? ilike('description', `%${filter}%`)
-        : undefined
-
-      let { items: page, hasMore } = await paginate(db, resources, {
-        pageSize: PAGE_SIZE,
-        page: pageNum,
-        orderBy: [[column, direction]],
-        where: filterPredicate as Record<string, unknown>,
-      })
-
-      let rows = page as Row[]
-
-      // Check for inline editing state
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: Row | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        editRow = (await db.findOne(resources, { where: { id: editingRowId } })) as Row | null
-      }
-
-      let creating = context.url.searchParams.get('creating') === 'true'
-
-      return renderVerwaltungPage(
-        context.render,
-        <AdminResourcesPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - PAGE_SIZE)}
-          nextOffset={offset + PAGE_SIZE}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-        />,
-      )
+      let data = await loadResourcePageData(context)
+      return renderResourcePage(context, data)
     },
 
     async create(context) {
       let db = context.db
       let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(resourceSaveSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let result = s.parseSafe(resourceSaveSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadResourcePageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderResourcePage(context, data, { status: 400 })
       }
 
-      if (!parsed.description || !parsed.description.trim()) {
-        return context.json({ ok: false, error: 'Description is required' }, { status: 400 })
-      }
+      let parsed = result.value as Record<string, string>
 
       let row = await db.create(
         resources,
@@ -135,8 +215,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         })
       }
 
-      let redirectState = gridStateFromForm(parsed)
-      let params = gridStateToParams(redirectState)
+      let params = gridStateToParams(gridStateFromForm(parsed))
       params.set('editing', String(row.id))
       let baseUrl = routes.verwaltung.resources.index.href()
       return new Response(null, {
@@ -148,22 +227,32 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
     async update(context) {
       let db = context.db
       let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
 
       let id = Number(context.params.id)
       if (!Number.isFinite(id) || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(resourceSaveSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let result = s.parseSafe(resourceSaveSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let editRow = (await db.findOne(resources, { where: { id } })) as Row | null
+        let data = await loadResourcePageData(context, {
+          editRow,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderResourcePage(context, data, { status: 400 })
       }
 
-      if (!parsed.description || !parsed.description.trim()) {
-        return context.json({ ok: false, error: 'Description is required' }, { status: 400 })
-      }
+      let parsed = result.value as Record<string, string>
 
       await db.updateMany(resources, { description: parsed.description.trim() }, { where: { id } })
 
@@ -180,8 +269,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         })
       }
 
-      let redirectState = gridStateFromForm(parsed)
-      let params = gridStateToParams(redirectState)
+      let params = gridStateToParams(gridStateFromForm(parsed))
       let qs = params.toString()
       let baseUrl = routes.verwaltung.resources.index.href()
       return new Response(null, {
@@ -207,8 +295,17 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
       try {
         await db.deleteMany(resources, { where: { id } })
       } catch (error: unknown) {
-        if (isForeignKeyViolation(error)) {
-          return context.json({ ok: false, error: 'Resource is in use and cannot be deleted' }, { status: 400 })
+        if (isConstraintViolation(error)) {
+          console.error(error)
+          let gridValues = gridStateFromFormData(formData)
+          let data = await loadResourcePageData(context, {
+            formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderResourcePage(context, data, { status: 400 })
         }
         throw error
       }

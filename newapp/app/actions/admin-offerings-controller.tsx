@@ -9,13 +9,13 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingsPage } from '../ui/admin-offerings-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import { gridStateToParams, type GridState } from '../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromFormData, type GridState } from '../utils/grid-state.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
-import { encodeFormValues, decodeFormValues, encodeFieldErrors, decodeFieldErrors } from '../utils/form-params.ts'
+
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../utils/offering-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
@@ -88,6 +88,23 @@ function formatTime(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+function gridStateOffset(state: GridState): number | undefined {
+  let n = Number(state.offset)
+  return n > 0 ? n : undefined
+}
+
+function gridStateSort(state: GridState): string | undefined {
+  return state.sort || undefined
+}
+
+function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
+  return (state.order as 'asc' | 'desc') || undefined
+}
+
+function gridStateFilter(state: GridState): string | undefined {
+  return state.filter || undefined
+}
+
 function isExclusionConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object') {
     let err = error as { code?: string; message?: string; constraint?: string }
@@ -101,34 +118,6 @@ function isExclusionConstraintError(error: unknown): boolean {
 }
 
 // ── Shared helpers ───────────────────────────────────────────────
-
-function buildErrorRedirect(
-  formValues: Record<string, string>,
-  gridValues: GridState,
-  opts: { creating?: boolean; editing?: number | string; error?: string; fieldErrors?: Record<string, string> },
-): Response {
-  let params = gridStateToParams(gridValues)
-  if (opts.creating) params.set('creating', 'true')
-  if (opts.editing) params.set('editing', String(opts.editing))
-  if (opts.error) params.set('error', opts.error)
-  // Preserve submitted form values in URL params so they survive the frame redirect
-  let fv = encodeFormValues(OFFERING_FORM_KEYS, formValues)
-  for (let [k, v] of Object.entries(fv)) {
-    params.set(k, v)
-  }
-  // Encode per-field errors so the form shows inline messages
-  if (opts.fieldErrors) {
-    let fe = encodeFieldErrors(opts.fieldErrors)
-    for (let [k, v] of Object.entries(fe)) {
-      params.set(k, v)
-    }
-  }
-  let qs = params.toString()
-  return new Response(null, {
-    status: 302,
-    headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
-  })
-}
 
 async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
   let result = await pool.query(
@@ -209,8 +198,8 @@ async function loadOfferingPageData(
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
   let error = (overrides?.error ?? context.url.searchParams.get('error')) || undefined
-  let formValues = overrides?.formValues ?? decodeFormValues(OFFERING_FORM_KEYS, context.url)
-  let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(OFFERING_FORM_KEYS, context.url)
+  let formValues = overrides?.formValues ?? undefined
+  let fieldErrors = overrides?.fieldErrors ?? undefined
   let formError = overrides?.formError ?? error
 
   let configResourceId = context.url.searchParams.get('config')
@@ -248,7 +237,7 @@ async function loadOfferingPageData(
 
 // ── Render helper ────────────────────────────────────────────────
 
-function renderOfferingsPage(context: AppContext, data: OfferingPageData): Response {
+function renderOfferingsPage(context: AppContext, data: OfferingPageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminOfferingsPage
@@ -271,6 +260,7 @@ function renderOfferingsPage(context: AppContext, data: OfferingPageData): Respo
       fieldErrors={data.fieldErrors}
       formError={data.formError}
     />,
+    init,
   )
 }
 
@@ -290,42 +280,83 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
       async create(context) {
         let formData = context.formData
         let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
-        let gridValues: GridState = {
-          offset: (formData.get('_offset') as string) ?? '',
-          sort: (formData.get('_sort') as string) ?? '',
-          order: (formData.get('_order') as string) ?? '',
-          filter: (formData.get('_filter') as string) ?? '',
-        }
+        let gridValues = gridStateFromFormData(formData)
 
         let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
         if (!resourceIdRaw.trim()) {
-          return buildErrorRedirect(formValues, gridValues, { creating: true, fieldErrors: { resource_id: 'ist erforderlich.' } })
+          let data = await loadOfferingPageData(context, {
+            creating: true,
+            formValues,
+            fieldErrors: { resource_id: 'ist erforderlich.' },
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let result = s.parseSafe(offeringSaveSchema, formData)
 
         if (!result.success) {
           let fieldErrors = issuesToFieldErrors(result.issues)
-          return buildErrorRedirect(formValues, gridValues, { creating: true, fieldErrors })
+          let data = await loadOfferingPageData(context, {
+            creating: true,
+            formValues,
+            fieldErrors,
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let { resource_id, day, start_min, end_min } = result.value
 
         // Cross-field validation
         if (end_min <= start_min) {
-          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } })
+          let data = await loadOfferingPageData(context, {
+            creating: true,
+            formValues,
+            fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+            formError: 'muss nach der Startzeit liegen.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         // Reject offerings on public holidays
         if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
-          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Dieses Datum ist ein Feiertag.' })
+          let data = await loadOfferingPageData(context, {
+            creating: true,
+            formValues,
+            formError: 'Dieses Datum ist ein Feiertag.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let dayMs = new Date(day + 'T00:00:00Z').getTime()
 
         // Reject past-date creation
         if (isDateInPast(dayMs)) {
-          return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
+          let data = await loadOfferingPageData(context, {
+            creating: true,
+            formValues,
+            formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let during = `[${start_min},${end_min})`
@@ -355,7 +386,16 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return buildErrorRedirect(formValues, gridValues, { creating: true, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
+            let data = await loadOfferingPageData(context, {
+              creating: true,
+              formValues,
+              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
+              offset: gridStateOffset(gridValues),
+              sortColumn: gridStateSort(gridValues),
+              sortDirection: gridStateDirection(gridValues),
+              filter: gridStateFilter(gridValues),
+            })
+            return renderOfferingsPage(context, data, { status: 400 })
           }
           throw error
         }
@@ -366,7 +406,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
@@ -381,42 +421,88 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         }
 
         let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
-        let gridValues: GridState = {
-          offset: (formData.get('_offset') as string) ?? '',
-          sort: (formData.get('_sort') as string) ?? '',
-          order: (formData.get('_order') as string) ?? '',
-          filter: (formData.get('_filter') as string) ?? '',
-        }
+        let gridValues = gridStateFromFormData(formData)
 
         let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
         if (!resourceIdRaw.trim()) {
-          return buildErrorRedirect(formValues, gridValues, { editing: id, fieldErrors: { resource_id: 'ist erforderlich.' } })
+          let editRow = await fetchOfferingEditRow(id)
+          let data = await loadOfferingPageData(context, {
+            editRow,
+            formValues,
+            fieldErrors: { resource_id: 'ist erforderlich.' },
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let result = s.parseSafe(offeringSaveSchema, formData)
 
         if (!result.success) {
           let fieldErrors = issuesToFieldErrors(result.issues)
-          return buildErrorRedirect(formValues, gridValues, { editing: id, fieldErrors })
+          let editRow = await fetchOfferingEditRow(id)
+          let data = await loadOfferingPageData(context, {
+            editRow,
+            formValues,
+            fieldErrors,
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let { resource_id, day, start_min, end_min } = result.value
 
         // Cross-field validation
         if (end_min <= start_min) {
-          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'muss nach der Startzeit liegen.', fieldErrors: { end_min: 'muss nach der Startzeit liegen.' } })
+          let editRow = await fetchOfferingEditRow(id)
+          let data = await loadOfferingPageData(context, {
+            editRow,
+            formValues,
+            fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+            formError: 'muss nach der Startzeit liegen.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         // Reject offerings on public holidays
         if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
-          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Dieses Datum ist ein Feiertag.' })
+          let editRow = await fetchOfferingEditRow(id)
+          let data = await loadOfferingPageData(context, {
+            editRow,
+            formValues,
+            formError: 'Dieses Datum ist ein Feiertag.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let dayMs = new Date(day + 'T00:00:00Z').getTime()
 
         // Reject past-date update
         if (isDateInPast(dayMs)) {
-          return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.' })
+          let editRow = await fetchOfferingEditRow(id)
+          let data = await loadOfferingPageData(context, {
+            editRow,
+            formValues,
+            formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingsPage(context, data, { status: 400 })
         }
 
         let during = `[${start_min},${end_min})`
@@ -451,7 +537,17 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            return buildErrorRedirect(formValues, gridValues, { editing: id, error: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.' })
+            let editRow = await fetchOfferingEditRow(id)
+            let data = await loadOfferingPageData(context, {
+              editRow,
+              formValues,
+              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
+              offset: gridStateOffset(gridValues),
+              sortColumn: gridStateSort(gridValues),
+              sortDirection: gridStateDirection(gridValues),
+              filter: gridStateFilter(gridValues),
+            })
+            return renderOfferingsPage(context, data, { status: 400 })
           }
           throw error
         }
@@ -461,7 +557,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
@@ -511,7 +607,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
@@ -567,7 +663,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/offerings' },
+          headers: { Location: routes.verwaltung.offerings.index.href() },
         })
       },
 
@@ -629,7 +725,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
         })
       },
     },

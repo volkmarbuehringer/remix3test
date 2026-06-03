@@ -125,6 +125,10 @@ describe('Admin Resources Controller', () => {
       let body = new URLSearchParams({
         description: '',
         _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
       })
       let response = await router.fetch(RESOURCES_URL, {
         method: 'POST',
@@ -135,8 +139,8 @@ describe('Admin Resources Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.ok(json.error.includes('Description'))
+      let text = await response.text()
+      assert.ok(text.includes('mindestens 8 Zeichen'))
     })
 
     it('denies create for non-admin users', async () => {

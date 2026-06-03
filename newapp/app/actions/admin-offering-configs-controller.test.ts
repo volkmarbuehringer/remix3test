@@ -159,8 +159,8 @@ describe('Admin Offering Configs Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.ok(json.error.includes('already'))
+      let text = await response.text()
+      assert.ok(text.includes('Konfiguration'))
     })
 
     it('rejects non-existent resource_id', async () => {
@@ -184,8 +184,8 @@ describe('Admin Offering Configs Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 404)
-      let json = await response.json()
-      assert.ok(json.error.includes('not found'))
+      let text = await response.text()
+      assert.ok(text.includes('nicht gefunden'))
     })
 
     it('rejects start >= end time range', async () => {

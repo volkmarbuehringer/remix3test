@@ -10,13 +10,10 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingConfigsPage } from '../ui/admin-offering-configs-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import {
-  gridStateFromForm,
-  gridStateFromFormData,
-  gridStateToParams,
-} from '../utils/grid-state.ts'
+import { gridStateFromForm, gridStateFromFormData, gridStateToParams, type GridState } from '../utils/grid-state.ts'
 import { pool } from '../data/setup.ts'
 import { logAdminAction } from '../data/audit-log.ts'
+import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -36,6 +33,8 @@ const PAGE_SIZE = 15
 
 const SORTABLE_FIELDS = ['id', 'resource_description', 'created_at', 'updated_at'] as const
 
+const OFFERING_CONFIG_FORM_KEYS = ['resource_id', 'monday_enabled', 'monday_start', 'monday_end', 'tuesday_enabled', 'tuesday_start', 'tuesday_end', 'wednesday_enabled', 'wednesday_start', 'wednesday_end', 'thursday_enabled', 'thursday_start', 'thursday_end', 'friday_enabled', 'friday_start', 'friday_end', 'saturday_enabled', 'saturday_start', 'saturday_end', 'sunday_enabled', 'sunday_start', 'sunday_end'] as const
+
 const ORDER_BY_COLUMNS: Record<string, string> = {
   id: 'oc.id',
   resource_description: 'r.description',
@@ -43,14 +42,165 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
   updated_at: 'oc.updated_at',
 }
 
-const PG_FOREIGN_KEY_VIOLATION = '23503'
+/** PostgreSQL error codes for constraint violations that prevent deletion. */
+const PG_RESTRICT_VIOLATION = '23001' as const
+const PG_FOREIGN_KEY_VIOLATION = '23503' as const
 
-function isForeignKeyViolation(error: unknown): boolean {
+function isConstraintViolation(error: unknown): boolean {
   if (error && typeof error === 'object') {
-    let err = error as { code?: string }
-    return err.code === PG_FOREIGN_KEY_VIOLATION
+    let err = error as { code?: string; cause?: { code?: string } }
+    if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
+    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION) return true
   }
   return false
+}
+
+function gridStateOffset(state: GridState): number | undefined {
+  let n = Number(state.offset)
+  return n > 0 ? n : undefined
+}
+
+function gridStateSort(state: GridState): string | undefined {
+  return state.sort || undefined
+}
+
+function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
+  return (state.order as 'asc' | 'desc') || undefined
+}
+
+function gridStateFilter(state: GridState): string | undefined {
+  return state.filter || undefined
+}
+
+interface OfferingConfigPageData {
+  rows: OfferingConfigRow[]
+  offset: number
+  hasMore: boolean
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+  editRow: OfferingConfigRow | null
+  creating: boolean
+  resources: ResourceOption[]
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+}
+
+async function loadOfferingConfigPageData(
+  context: AppContext,
+  overrides?: Partial<Pick<OfferingConfigPageData, 'creating' | 'editRow' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+): Promise<OfferingConfigPageData> {
+  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+
+  let { column, direction } = overrides?.sortColumn
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
+    : parseSort(context.url, {
+        allowedColumns: SORTABLE_FIELDS,
+        defaultColumn: 'id',
+        defaultDirection: 'asc',
+      })
+
+  let whereClause = ''
+  let sqlParams: unknown[] = []
+  if (filter) {
+    whereClause = 'WHERE r.description ILIKE $1'
+    sqlParams.push(`%${filter}%`)
+  }
+
+  let orderCol = ORDER_BY_COLUMNS[column] || 'oc.id'
+  let orderDir = direction === 'desc' ? 'DESC' : 'ASC'
+
+  let countResult = await pool.query(
+    `SELECT COUNT(*) FROM offering_configs oc
+     JOIN resources r ON r.id = oc.resource_id
+     ${whereClause}`,
+    sqlParams,
+  )
+  let totalRows = Number(countResult.rows[0]?.count ?? 0)
+  let hasMore = offset + PAGE_SIZE < totalRows
+
+  let dataParams = [...sqlParams, PAGE_SIZE + 1, offset]
+  let dataResult = await pool.query(
+    `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
+     FROM offering_configs oc
+     JOIN resources r ON r.id = oc.resource_id
+     ${whereClause}
+     ORDER BY ${orderCol} ${orderDir}
+     LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`,
+    dataParams,
+  )
+
+  let rows: OfferingConfigRow[] = dataResult.rows.map(toRow)
+
+  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingRowId = editingParam ? Number(editingParam) : null
+  let editRow = overrides?.editRow ?? null
+  if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
+    let editResult = await pool.query(
+      `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
+       FROM offering_configs oc
+       JOIN resources r ON r.id = oc.resource_id
+       WHERE oc.id = $1`,
+      [editingRowId],
+    )
+    if (editResult.rows.length > 0) {
+      editRow = toRow(editResult.rows[0] as Record<string, unknown>)
+    }
+  }
+
+  let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
+
+  let resourcesResult = await pool.query(
+    'SELECT id, description FROM resources ORDER BY description ASC',
+  )
+  let resourceOptions: ResourceOption[] = resourcesResult.rows.map((r: Record<string, unknown>) => ({
+    id: Number(r.id),
+    description: r.description as string,
+  }))
+
+  return {
+    rows,
+    offset,
+    hasMore,
+    prevOffset: Math.max(0, offset - PAGE_SIZE),
+    nextOffset: offset + PAGE_SIZE,
+    sortColumn: column,
+    sortDirection: direction,
+    filter,
+    editRow,
+    creating,
+    resources: resourceOptions,
+    formValues: overrides?.formValues,
+    fieldErrors: overrides?.fieldErrors,
+    formError: overrides?.formError,
+  }
+}
+
+function renderOfferingConfigPage(context: AppContext, data: OfferingConfigPageData, init?: ResponseInit): Response {
+  return renderVerwaltungPage(
+    context.render,
+    <AdminOfferingConfigsPage
+      rows={data.rows}
+      offset={data.offset}
+      hasMore={data.hasMore}
+      prevOffset={data.prevOffset}
+      nextOffset={data.nextOffset}
+      sortColumn={data.sortColumn}
+      sortDirection={data.sortDirection}
+      filter={data.filter}
+      editRow={data.editRow}
+      creating={data.creating}
+      resources={data.resources}
+      formValues={data.formValues}
+      fieldErrors={data.fieldErrors}
+      formError={data.formError}
+    />,
+    init,
+  )
 }
 
 const offeringConfigSchema = f.object({
@@ -118,120 +268,92 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
 
   actions: {
     async index(context) {
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let filter = context.url.searchParams.get('filter') || undefined
-
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'id',
-        defaultDirection: 'asc',
-      })
-
-      let whereClause = ''
-      let params: unknown[] = []
-      if (filter) {
-        whereClause = 'WHERE r.description ILIKE $1'
-        params.push(`%${filter}%`)
-      }
-
-      let orderCol = ORDER_BY_COLUMNS[column] || 'oc.id'
-      let orderDir = direction === 'desc' ? 'DESC' : 'ASC'
-
-      let countResult = await pool.query(
-        `SELECT COUNT(*) FROM offering_configs oc
-         JOIN resources r ON r.id = oc.resource_id
-         ${whereClause}`,
-        params,
-      )
-      let totalRows = Number(countResult.rows[0]?.count ?? 0)
-      let hasMore = offset + PAGE_SIZE < totalRows
-
-      let dataParams = [...params, PAGE_SIZE + 1, offset]
-      let dataResult = await pool.query(
-        `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
-         FROM offering_configs oc
-         JOIN resources r ON r.id = oc.resource_id
-         ${whereClause}
-         ORDER BY ${orderCol} ${orderDir}
-         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-        dataParams,
-      )
-
-      let rows: OfferingConfigRow[] = dataResult.rows.map(toRow)
-
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: OfferingConfigRow | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        let editResult = await pool.query(
-          `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
-           FROM offering_configs oc
-           JOIN resources r ON r.id = oc.resource_id
-           WHERE oc.id = $1`,
-          [editingRowId],
-        )
-        if (editResult.rows.length > 0) {
-          editRow = toRow(editResult.rows[0] as Record<string, unknown>)
-        }
-      }
-
-      let creating = context.url.searchParams.get('creating') === 'true'
-
-      let resourcesResult = await pool.query(
-        'SELECT id, description FROM resources ORDER BY description ASC',
-      )
-      let resourceOptions: ResourceOption[] = resourcesResult.rows.map((r: Record<string, unknown>) => ({
-        id: Number(r.id),
-        description: r.description as string,
-      }))
-
-      return renderVerwaltungPage(
-        context.render,
-        <AdminOfferingConfigsPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - PAGE_SIZE)}
-          nextOffset={offset + PAGE_SIZE}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-          resources={resourceOptions}
-        />,
-      )
+      let data = await loadOfferingConfigPageData(context)
+      return renderOfferingConfigPage(context, data)
     },
 
     async create(context) {
       let db = context.db
       let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(offeringConfigSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let result = s.parseSafe(offeringConfigSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
+
+      let parsed = result.value as Record<string, string>
 
       let resourceId = Number(parsed.resource_id)
       if (!resourceId || !Number.isFinite(resourceId)) {
-        return context.json({ ok: false, error: 'Resource is required' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors: { resource_id: 'Ressource ist erforderlich' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let resource = await db.findOne(resources, { where: { id: resourceId } })
       if (!resource) {
-        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'Ressource nicht gefunden',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 404 })
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
       if (existing) {
-        return context.json({ ok: false, error: 'Resource already has a config' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'Diese Ressource hat bereits eine Konfiguration',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let rules = rulesFromParsed(parsed)
       if (Object.keys(rules).length === 0) {
-        return context.json({ ok: false, error: 'At least one day must have a time range' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'Mindestens ein Tag muss einen Zeitraum haben',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let row: Record<string, unknown>
@@ -245,8 +367,18 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
           { returnRow: true },
         )
       } catch (error) {
-        if (isForeignKeyViolation(error)) {
-          return context.json({ ok: false, error: 'Resource was deleted' }, { status: 409 })
+        if (isConstraintViolation(error)) {
+          console.error(error)
+          let data = await loadOfferingConfigPageData(context, {
+            creating: true,
+            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
+            formError: 'Ressource wurde gelöscht',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingConfigPage(context, data, { status: 409 })
         }
         throw error
       }
@@ -277,6 +409,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
     async update(context) {
       let db = context.db
       let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
 
       let id = Number(context.params.id)
       if (!Number.isFinite(id) || id < 1) {
@@ -288,31 +421,83 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
       }
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(offeringConfigSchema, formData) as Record<string, string>
-      } catch {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+      let result = s.parseSafe(offeringConfigSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toRow(target as Record<string, unknown>),
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
+
+      let parsed = result.value as Record<string, string>
 
       let resourceId = Number(parsed.resource_id)
       if (!resourceId || !Number.isFinite(resourceId)) {
-        return context.json({ ok: false, error: 'Resource is required' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toRow(target as Record<string, unknown>),
+          formValues,
+          fieldErrors: { resource_id: 'Ressource ist erforderlich' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let resource = await db.findOne(resources, { where: { id: resourceId } })
       if (!resource) {
-        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Ressource nicht gefunden',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 404 })
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
       if (existing && Number(existing.id) !== id) {
-        return context.json({ ok: false, error: 'Resource already has a config' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Diese Ressource hat bereits eine Konfiguration',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       let rules = rulesFromParsed(parsed)
       if (Object.keys(rules).length === 0) {
-        return context.json({ ok: false, error: 'At least one day must have a time range' }, { status: 400 })
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Mindestens ein Tag muss einen Zeitraum haben',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
       }
 
       try {
@@ -322,8 +507,18 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
           { where: { id } },
         )
       } catch (error) {
-        if (isForeignKeyViolation(error)) {
-          return context.json({ ok: false, error: 'Resource was deleted' }, { status: 409 })
+        if (isConstraintViolation(error)) {
+          console.error(error)
+          let data = await loadOfferingConfigPageData(context, {
+            editRow: toRow(target as Record<string, unknown>),
+            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
+            formError: 'Ressource wurde gelöscht',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingConfigPage(context, data, { status: 409 })
         }
         throw error
       }
@@ -365,7 +560,23 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
       }
 
-      await db.deleteMany(offeringConfigs, { where: { id } })
+      try {
+        await db.deleteMany(offeringConfigs, { where: { id } })
+      } catch (error: unknown) {
+        if (isConstraintViolation(error)) {
+          console.error(error)
+          let gridValues = gridStateFromFormData(formData)
+          let data = await loadOfferingConfigPageData(context, {
+            formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingConfigPage(context, data, { status: 400 })
+        }
+        throw error
+      }
 
       let auth = context.auth
       let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined

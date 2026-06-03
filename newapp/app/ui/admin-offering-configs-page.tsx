@@ -28,6 +28,9 @@ interface AdminOfferingConfigsPageProps {
   editRow?: OfferingConfigRow | null
   creating?: boolean
   resources: ResourceOption[]
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 const DAYS = [
@@ -110,12 +113,14 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
       rows, offset, hasMore, prevOffset, nextOffset,
       sortColumn, sortDirection, filter,
       editRow = null, creating = false, resources,
+      formValues, fieldErrors, formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
     let gridSection = (
       <div mix={table.minWidth0}>
+        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         <form
           method="GET"
           action="/verwaltung/offering-configs"
@@ -296,6 +301,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               ) : (
                 <CreatePanel
@@ -304,6 +311,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               )}
             </div>
@@ -328,12 +337,16 @@ interface EditPanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function EditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, resources, offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { row, resources, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     let rules: Record<string, [number, number]> = row.rules ?? {}
+    let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : Number(row.resource_id)
+    let hasResourceError = !!fieldErrors?.resource_id
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="PUT" action={`/verwaltung/offering-configs/${row.id}`}>
@@ -347,20 +360,21 @@ function EditPanel(handle: Handle<EditPanelProps>) {
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
                 <label mix={table.label} for="oc-resource">Ressource</label>
-                <select id="oc-resource" name="resource_id" mix={[input.base, input.focus, selectStyle]}>
+                <select id="oc-resource" name="resource_id" mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
                   {resources.map(r => (
-                    <option key={r.id} value={r.id} selected={Number(r.id) === Number(row.resource_id)}>
+                    <option key={r.id} value={r.id} selected={Number(r.id) === selectedResourceId}>
                       {r.description}
                     </option>
                   ))}
                 </select>
+                {hasResourceError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.resource_id}</div> : null}
               </div>
 
               {DAYS.map((day) => {
                 let rule = rules[day.key]
-                let hasRule = !!rule
-                let startMin = rule ? rule[0] : 480
-                let endMin = rule ? rule[1] : 1020
+                let hasRule = formValues ? formValues[`${day.key}_enabled`] === '1' : !!rule
+                let startMin = formValues?.[`${day.key}_start`] ? Number(formValues[`${day.key}_start`]) : (rule ? rule[0] : 480)
+                let endMin = formValues?.[`${day.key}_end`] ? Number(formValues[`${day.key}_end`]) : (rule ? rule[1] : 1020)
                 return (
                   <div key={day.key} mix={dayRowStyle}>
                     <input
@@ -417,11 +431,15 @@ interface CreatePanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function CreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { resources, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : undefined
+    let hasResourceError = !!fieldErrors?.resource_id
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="POST" action="/verwaltung/offering-configs">
@@ -435,39 +453,46 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
                 <label mix={table.label} for="oc-resource-c">Ressource</label>
-                <select id="oc-resource-c" name="resource_id" required mix={[input.base, input.focus, selectStyle]}>
-                  <option value="" disabled selected>Ressource ausw\u00e4hlen</option>
+                <select id="oc-resource-c" name="resource_id" required mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
+                  <option value="" disabled selected={!selectedResourceId}>Ressource auswählen</option>
                   {resources.map(r => (
-                    <option key={r.id} value={r.id}>{r.description}</option>
+                    <option key={r.id} value={r.id} selected={selectedResourceId === Number(r.id)}>{r.description}</option>
                   ))}
                 </select>
+                {hasResourceError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.resource_id}</div> : null}
               </div>
 
-              {DAYS.map((day) => (
-                <div key={day.key} mix={dayRowStyle}>
-                  <input
-                    type="checkbox"
-                    id={`oc-c-${day.key}`}
-                    name={`${day.key}_enabled`}
-                    value="1"
-                    mix={dayCheckboxStyle}
-                  />
-                  <label for={`oc-c-${day.key}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
-                    {day.label}
-                  </label>
-                  <select name={`${day.key}_start`} mix={timeSelectStyle}>
-                    {TIME_OPTIONS.map((min) => (
-                      <option key={min} value={min}>{fmt(min)}</option>
-                    ))}
-                  </select>
-                  <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
-                  <select name={`${day.key}_end`} mix={timeSelectStyle}>
-                    {TIME_END_OPTIONS.map((min) => (
-                      <option key={min} value={min}>{fmt(min)}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+              {DAYS.map((day) => {
+                let enabled = formValues?.[`${day.key}_enabled`] === '1'
+                let startVal = formValues?.[`${day.key}_start`]
+                let endVal = formValues?.[`${day.key}_end`]
+                return (
+                  <div key={day.key} mix={dayRowStyle}>
+                    <input
+                      type="checkbox"
+                      id={`oc-c-${day.key}`}
+                      name={`${day.key}_enabled`}
+                      value="1"
+                      checked={enabled}
+                      mix={dayCheckboxStyle}
+                    />
+                    <label for={`oc-c-${day.key}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
+                      {day.label}
+                    </label>
+                    <select name={`${day.key}_start`} mix={timeSelectStyle}>
+                      {TIME_OPTIONS.map((min) => (
+                        <option key={min} value={min} selected={startVal ? Number(startVal) === min : false}>{fmt(min)}</option>
+                      ))}
+                    </select>
+                    <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
+                    <select name={`${day.key}_end`} mix={timeSelectStyle}>
+                      {TIME_END_OPTIONS.map((min) => (
+                        <option key={min} value={min} selected={endVal ? Number(endVal) === min : false}>{fmt(min)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              })}
 
               <div mix={table.actions}>
                 <Button type="submit" tone="primary" mix={table.spacer}>

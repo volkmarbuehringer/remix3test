@@ -109,7 +109,7 @@ function buildErrorRedirectUrl(
     }
   }
   let qs = params.toString()
-  return '/verwaltung/appointments' + (qs ? '?' + qs : '')
+  return routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '')
 }
 
 /**
@@ -124,7 +124,7 @@ function errorRedirectDestroy(
   params.set('error', error)
   return new Response(null, {
     status: 302,
-    headers: { Location: '/verwaltung/appointments?' + params.toString() },
+    headers: { Location: routes.verwaltung.appointments.index.href() + '?' + params.toString() },
   })
 }
 
@@ -469,7 +469,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
@@ -608,7 +608,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
@@ -669,7 +669,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
         })
       },
 
