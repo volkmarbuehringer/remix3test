@@ -9,7 +9,7 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingsPage } from '../ui/admin-offerings-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import { gridStateToParams, gridStateFromFormData, type GridState } from '../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, type GridState } from '../utils/grid-state.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
@@ -86,23 +86,6 @@ function formatTime(minutes: number): string {
   let h = Math.floor(minutes / 60)
   let m = minutes % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function gridStateOffset(state: GridState): number | undefined {
-  let n = Number(state.offset)
-  return n > 0 ? n : undefined
-}
-
-function gridStateSort(state: GridState): string | undefined {
-  return state.sort || undefined
-}
-
-function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
-  return (state.order as 'asc' | 'desc') || undefined
-}
-
-function gridStateFilter(state: GridState): string | undefined {
-  return state.filter || undefined
 }
 
 function isExclusionConstraintError(error: unknown): boolean {
@@ -200,7 +183,7 @@ async function loadOfferingPageData(
   let error = (overrides?.error ?? context.url.searchParams.get('error')) || undefined
   let formValues = overrides?.formValues ?? undefined
   let fieldErrors = overrides?.fieldErrors ?? undefined
-  let formError = overrides?.formError ?? error
+  let formError = overrides?.formError ?? undefined
 
   let configResourceId = context.url.searchParams.get('config')
   let addWeek = context.url.searchParams.get('addweek') === 'true'
@@ -281,20 +264,6 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let formData = context.formData
         let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
         let gridValues = gridStateFromFormData(formData)
-
-        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-        if (!resourceIdRaw.trim()) {
-          let data = await loadOfferingPageData(context, {
-            creating: true,
-            formValues,
-            fieldErrors: { resource_id: 'ist erforderlich.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingsPage(context, data, { status: 400 })
-        }
 
         let result = s.parseSafe(offeringSaveSchema, formData)
 
@@ -422,21 +391,6 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
         let gridValues = gridStateFromFormData(formData)
-
-        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-        if (!resourceIdRaw.trim()) {
-          let editRow = await fetchOfferingEditRow(id)
-          let data = await loadOfferingPageData(context, {
-            editRow,
-            formValues,
-            fieldErrors: { resource_id: 'ist erforderlich.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingsPage(context, data, { status: 400 })
-        }
 
         let result = s.parseSafe(offeringSaveSchema, formData)
 

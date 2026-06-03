@@ -10,10 +10,20 @@ import { requireAdmin } from '../middleware/admin.ts'
 import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingConfigsPage } from '../ui/admin-offering-configs-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
-import { gridStateFromForm, gridStateFromFormData, gridStateToParams, type GridState } from '../utils/grid-state.ts'
+import {
+  gridStateFromForm,
+  gridStateFromFormData,
+  gridStateToParams,
+  gridStateOffset,
+  gridStateSort,
+  gridStateDirection,
+  gridStateFilter,
+  type GridState,
+} from '../utils/grid-state.ts'
 import { pool } from '../data/setup.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
+import { isConstraintViolation } from '../utils/db-errors.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -42,35 +52,6 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
   updated_at: 'oc.updated_at',
 }
 
-/** PostgreSQL error codes for constraint violations that prevent deletion. */
-const PG_RESTRICT_VIOLATION = '23001' as const
-const PG_FOREIGN_KEY_VIOLATION = '23503' as const
-
-function isConstraintViolation(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; cause?: { code?: string } }
-    if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
-    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION) return true
-  }
-  return false
-}
-
-function gridStateOffset(state: GridState): number | undefined {
-  let n = Number(state.offset)
-  return n > 0 ? n : undefined
-}
-
-function gridStateSort(state: GridState): string | undefined {
-  return state.sort || undefined
-}
-
-function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
-  return (state.order as 'asc' | 'desc') || undefined
-}
-
-function gridStateFilter(state: GridState): string | undefined {
-  return state.filter || undefined
-}
 
 interface OfferingConfigPageData {
   rows: OfferingConfigRow[]
@@ -368,7 +349,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          console.error(error)
+          console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
           let data = await loadOfferingConfigPageData(context, {
             creating: true,
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
@@ -508,7 +489,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          console.error(error)
+          console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
           let data = await loadOfferingConfigPageData(context, {
             editRow: toRow(target as Record<string, unknown>),
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),
@@ -564,7 +545,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         await db.deleteMany(offeringConfigs, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          console.error(error)
+          console.error('Constraint violation during offering config deletion', { code: (error as { code?: string }).code })
           let gridValues = gridStateFromFormData(formData)
           let data = await loadOfferingConfigPageData(context, {
             formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',

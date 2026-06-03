@@ -219,6 +219,8 @@ describe('Admin Resources Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 400)
+      let text = await response.text()
+      assert.ok(text.includes('mindestens 8 Zeichen'))
     })
   })
 

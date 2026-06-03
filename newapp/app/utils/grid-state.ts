@@ -54,3 +54,20 @@ export function editingRedirect(
   let url = base + (qs ? '?' + qs : '')
   return new Response(null, { status: 302, headers: { Location: url } })
 }
+
+export function gridStateOffset(state: GridState): number | undefined {
+  let n = Number(state.offset)
+  return n > 0 ? n : undefined
+}
+
+export function gridStateSort(state: GridState): string | undefined {
+  return state.sort || undefined
+}
+
+export function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
+  return (state.order as 'asc' | 'desc') || undefined
+}
+
+export function gridStateFilter(state: GridState): string | undefined {
+  return state.filter || undefined
+}

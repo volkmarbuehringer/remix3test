@@ -17,11 +17,16 @@ import {
   gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
+  gridStateOffset,
+  gridStateSort,
+  gridStateDirection,
+  gridStateFilter,
   type GridState,
 } from '../utils/grid-state.ts'
 import { logAdminAction } from '../data/audit-log.ts'
 import { pool } from '../data/setup.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
+import { isConstraintViolation } from '../utils/db-errors.ts'
 
 type Row = Resource
 
@@ -30,36 +35,6 @@ const PAGE_SIZE = 15
 const RESOURCE_FORM_KEYS = ['description'] as const
 
 const SORTABLE_FIELDS = ['id', 'description', 'created_at', 'updated_at'] as const
-
-/** PostgreSQL error codes for constraint violations that prevent deletion. */
-const PG_RESTRICT_VIOLATION = '23001' as const
-const PG_FOREIGN_KEY_VIOLATION = '23503' as const
-
-function isConstraintViolation(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; cause?: { code?: string } }
-    if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
-    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION) return true
-  }
-  return false
-}
-
-function gridStateOffset(state: GridState): number | undefined {
-  let n = Number(state.offset)
-  return n > 0 ? n : undefined
-}
-
-function gridStateSort(state: GridState): string | undefined {
-  return state.sort || undefined
-}
-
-function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
-  return (state.order as 'asc' | 'desc') || undefined
-}
-
-function gridStateFilter(state: GridState): string | undefined {
-  return state.filter || undefined
-}
 
 interface ResourcePageData {
   rows: Row[]
@@ -296,7 +271,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         await db.deleteMany(resources, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          console.error(error)
+          console.error('Constraint violation during resource deletion', { code: (error as { code?: string }).code, resourceId: id })
           let gridValues = gridStateFromFormData(formData)
           let data = await loadResourcePageData(context, {
             formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
@@ -322,12 +297,8 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         })
       }
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(resourceSaveSchema, formData) as Record<string, string>
-      } catch {
-        parsed = { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
-      }
+      let result = s.parseSafe(resourceSaveSchema, formData)
+      let parsed = (result.success ? result.value : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }) as Record<string, string>
       let params = gridStateToParams(gridStateFromForm(parsed))
       let qs = params.toString()
       let baseUrl = routes.verwaltung.resources.index.href()
