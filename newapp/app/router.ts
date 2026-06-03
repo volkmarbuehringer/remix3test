@@ -1,5 +1,4 @@
 import type { Cookie } from 'remix/cookie'
-import type { Router } from 'remix/router'
 import { createRouter } from 'remix/router'
 import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
@@ -59,7 +58,7 @@ export interface NewappRouterOptions {
   sessionStorage?: SessionStorage
 }
 
-export function createNewappRouter(options?: NewappRouterOptions): Router {
+export function createNewappRouter(options?: NewappRouterOptions) {
   let cookie = options?.sessionCookie ?? sessionCookie
   let storage = options?.sessionStorage ?? sessionStorage
 

@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
-    "ai": "^6.0.193",
+    "ai": "^6.0.195",
     "date-holidays": "^3.30.2",
     "pg": "^8.21.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
