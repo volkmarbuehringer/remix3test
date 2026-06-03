@@ -38,7 +38,7 @@ describe('Admin Appointments Controller', () => {
   })
 
   // =========================================================================
-  // 6. Delete (DELETE /admin/appointments/:id)
+  // 6. Delete (DELETE /verwaltung/appointments/:id)
   // =========================================================================
 
   describe('Delete', () => {
@@ -69,7 +69,7 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful delete should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/admin/appointments'), 'should redirect to /admin/appointments')
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
 
       // Verify deletion from database
       let checkResult = await pool.query('SELECT id FROM appointments WHERE id = $1', [deleteId])
@@ -129,7 +129,7 @@ describe('Admin Appointments Controller', () => {
       // Assert: redirect should include grid state params
       assert.equal(response.status, 302, 'delete should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/admin/appointments'), 'should redirect to appointments')
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to appointments')
       assert.ok(location.includes('sort=a.id'), 'should include sort param')
       assert.ok(location.includes('order=asc'), 'should include order param')
     })

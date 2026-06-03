@@ -95,7 +95,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/offerings/${row.id}`} novalidate>
+        <RestfulForm method="PUT" action={`/verwaltung/offerings/${row.id}`} novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -183,7 +183,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/offerings', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

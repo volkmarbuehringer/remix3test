@@ -31,6 +31,7 @@ import adminAppointmentsController from './actions/admin-appointments-controller
 import adminUsersController from './actions/admin-users-controller.tsx'
 import adminResourcesController from './actions/admin-resources-controller.tsx'
 import adminOfferingConfigsController from './actions/admin-offering-configs-controller.tsx'
+import verwaltungController from './actions/verwaltung-controller.tsx'
 import appointmentController from './actions/appointment-controller.tsx'
 import appointTypeController from './actions/appointtype-controller.tsx'
 import { authLogout } from './actions/auth-logout.tsx'
@@ -41,7 +42,7 @@ import { render } from './middleware/render.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { loadDatabase } from './middleware/database.ts'
 import { loadAuth } from './middleware/auth.ts'
-import { routes, listsRoutes, authRoutes, aiRoutes, adminRoutes, appointmentRoutes } from './routes.ts'
+import { routes, listsRoutes, authRoutes, aiRoutes, adminRoutes, appointmentRoutes, verwaltungRoutes } from './routes.ts'
 import type { AppContext } from './types/context.ts'
 
 // Side-effect: registers all workflow definitions
@@ -126,20 +127,15 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Nutzer route (top-level, admin-only middleware in controller)
   router.map(routes.nutzer, adminNutzerController)
 
-  // Admin offerings route
-  router.map(adminRoutes.admin.offerings, adminOfferingsController)
-
-  // Admin appointments route
-  router.map(adminRoutes.admin.appointments, adminAppointmentsController)
-
   // Admin users route
   router.map(adminRoutes.admin.users, adminUsersController)
 
-  // Admin resources route
-  router.map(adminRoutes.admin.resources, adminResourcesController)
-
-  // Admin offering configs route
-  router.map(adminRoutes.admin.offeringConfigs, adminOfferingConfigsController)
+  // Verwaltung routes (operational data management, no sidebar)
+  router.map(verwaltungRoutes.verwaltung, verwaltungController)
+  router.map(verwaltungRoutes.verwaltung.offerings, adminOfferingsController)
+  router.map(verwaltungRoutes.verwaltung.appointments, adminAppointmentsController)
+  router.map(verwaltungRoutes.verwaltung.resources, adminResourcesController)
+  router.map(verwaltungRoutes.verwaltung.offeringConfigs, adminOfferingConfigsController)
 
   return router
 }

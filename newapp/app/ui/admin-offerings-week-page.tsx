@@ -47,7 +47,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/offerings/week">
+        <RestfulForm method="POST" action="/verwaltung/offerings/week">
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Woche hinzufügen</span>
@@ -91,7 +91,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Erstellen
                 </Button>
-                <a href="/admin/offerings" mix={[table.spacer, table.linkPlain]}>
+                <a href="/verwaltung/offerings" mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

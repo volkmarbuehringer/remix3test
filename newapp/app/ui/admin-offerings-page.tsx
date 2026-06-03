@@ -41,7 +41,7 @@ interface AdminOfferingsPageProps {
 
 // ── Helpers ──
 
-const ADMIN_BASE = '/admin/offerings'
+const ADMIN_BASE = '/verwaltung/offerings'
 
 function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: string): string {
   let params = new URLSearchParams()
@@ -50,7 +50,7 @@ function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: s
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
-  return '/admin/offerings?' + params.toString()
+  return '/verwaltung/offerings?' + params.toString()
 }
 
 function buildConfigUrl(resourceId: number, offset: number, sort: string, order: string, filter?: string): string {
@@ -60,7 +60,7 @@ function buildConfigUrl(resourceId: number, offset: number, sort: string, order:
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
-  return '/admin/offerings?' + params.toString()
+  return '/verwaltung/offerings?' + params.toString()
 }
 const WEEKDAY_LABELS: Record<number, string> = {
   1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 7: 'So',
@@ -121,7 +121,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
-          action="/admin/offerings"
+          action="/verwaltung/offerings"
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -135,7 +135,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           <button type="submit" mix={table.searchBtn}>Suchen</button>
           {filter && (
             <a
-              href="/admin/offerings"
+              href="/verwaltung/offerings"
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -264,7 +264,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 <RestfulForm
                   key={row.id}
                   method="DELETE"
-                  action={`/admin/offerings/${row.id}`}
+                  action={`/verwaltung/offerings/${row.id}`}
                   data-delete-form={row.id}
                 >
                   <GridStateHiddenInputs

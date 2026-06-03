@@ -55,7 +55,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/offerings" novalidate>
+        <RestfulForm method="POST" action="/verwaltung/offerings" novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -139,7 +139,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/offerings', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

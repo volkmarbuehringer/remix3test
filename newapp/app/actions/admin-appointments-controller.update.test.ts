@@ -59,7 +59,7 @@ describe('Admin Appointments Controller', () => {
   // =========================================================================
 
   describe('Authentication & Authorization', () => {
-    it('PUT /admin/appointments/:id without CSRF token returns 403', async () => {
+    it('PUT /verwaltung/appointments/:id without CSRF token returns 403', async () => {
       // Arrange
       let body = new URLSearchParams({
         resource_id: String(resourceId),
@@ -266,7 +266,7 @@ describe('Admin Appointments Controller', () => {
   })
 
   // =========================================================================
-  // 5. Update (PUT /admin/appointments/:id)
+  // 5. Update (PUT /verwaltung/appointments/:id)
   // =========================================================================
 
   describe('Update', () => {
@@ -312,7 +312,7 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful update should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/admin/appointments'), 'should redirect to /admin/appointments')
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
 
       // Verify the appointment was actually updated in the database
       let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [appointmentId])

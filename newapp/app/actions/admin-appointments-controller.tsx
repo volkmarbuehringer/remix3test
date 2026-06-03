@@ -1,14 +1,14 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 
-import { adminRoutes as routes } from '../routes.ts'
+import { verwaltungRoutes as routes } from '../routes.ts'
 import { pool } from '../data/setup.ts'
 import type { AppContext } from '../types/context.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange, parseDuring } from '../data/appointofferings.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
-import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminAppointmentsPage } from '../ui/admin-appointments-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams, gridStateFromForm, gridStateFromFormData, type GridState } from '../utils/grid-state.ts'
@@ -109,7 +109,7 @@ function buildErrorRedirectUrl(
     }
   }
   let qs = params.toString()
-  return '/admin/appointments' + (qs ? '?' + qs : '')
+  return '/verwaltung/appointments' + (qs ? '?' + qs : '')
 }
 
 /**
@@ -124,7 +124,7 @@ function errorRedirectDestroy(
   params.set('error', error)
   return new Response(null, {
     status: 302,
-    headers: { Location: '/admin/appointments?' + params.toString() },
+    headers: { Location: '/verwaltung/appointments?' + params.toString() },
   })
 }
 
@@ -310,9 +310,8 @@ function renderAppointmentsPage(
   context: AppContext,
   data: AppointmentPageData,
 ): Response {
-  return renderAdminPage(
+  return renderVerwaltungPage(
     context.render,
-    'appointments',
     <AdminAppointmentsPage
       rows={data.rows}
       offset={data.offset}
@@ -338,8 +337,8 @@ function renderAppointmentsPage(
 
 // ── Controller ───────────────────────────────────────────────────
 
-export default createController<typeof routes.admin.appointments, AppContext>(
-  routes.admin.appointments,
+export default createController<typeof routes.verwaltung.appointments, AppContext>(
+  routes.verwaltung.appointments,
   {
     middleware: [requireAuth(), requireAdmin()],
 
@@ -470,7 +469,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
         })
       },
 
@@ -609,7 +608,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
         })
       },
 
@@ -670,7 +669,7 @@ export default createController<typeof routes.admin.appointments, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/appointments' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/appointments' + (qs ? '?' + qs : '') },
         })
       },
 

@@ -59,7 +59,7 @@ describe('Admin Appointments Controller', () => {
   // =========================================================================
 
   describe('Authentication & Authorization', () => {
-    it('POST /admin/appointments without CSRF token returns 403', async () => {
+    it('POST /verwaltung/appointments without CSRF token returns 403', async () => {
       // Arrange: send POST without any CSRF token
       let body = new URLSearchParams({
         resource_id: String(resourceId),
@@ -212,7 +212,7 @@ describe('Admin Appointments Controller', () => {
   })
 
   // =========================================================================
-  // 4. Create (POST /admin/appointments)
+  // 4. Create (POST /verwaltung/appointments)
   // =========================================================================
 
   describe('Create', () => {
@@ -243,7 +243,7 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful create should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/admin/appointments'), 'should redirect to /admin/appointments')
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
       assert.ok(location.includes('editing='), 'should redirect with editing param pointing to new appointment')
 
       // Verify appointment exists in database

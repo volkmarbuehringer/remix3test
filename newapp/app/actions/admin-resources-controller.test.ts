@@ -6,7 +6,7 @@ import { initializeAppDatabase, pool } from '../data/setup.ts'
 import { createAuthCookieWithCsrfForUser, extractCookie } from '../test-utils.ts'
 
 const BASE = 'https://remix.run'
-const RESOURCES_URL = `${BASE}/admin/resources`
+const RESOURCES_URL = `${BASE}/verwaltung/resources`
 
 const createdResourceIds: number[] = []
 
@@ -48,7 +48,7 @@ describe('Admin Resources Controller', () => {
     createdResourceIds.length = 0
   })
 
-  describe('index (GET /admin/resources)', () => {
+  describe('index (GET /verwaltung/resources)', () => {
     it('returns 200 for admin users', async () => {
       let response = await router.fetch(RESOURCES_URL, {
         headers: { Cookie: adminCookie },
@@ -92,7 +92,7 @@ describe('Admin Resources Controller', () => {
     })
   })
 
-  describe('create (POST /admin/resources)', () => {
+  describe('create (POST /verwaltung/resources)', () => {
     it('creates a new resource with valid data', async () => {
       let desc = `Test Resource ${Date.now()}`
       let body = new URLSearchParams({
@@ -113,7 +113,7 @@ describe('Admin Resources Controller', () => {
       })
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
-      assert.ok(location.startsWith('/admin/resources?editing='))
+      assert.ok(location.startsWith('/verwaltung/resources?editing='))
 
       let match = location.match(/editing=(\d+)/)
       if (match) {
@@ -156,7 +156,7 @@ describe('Admin Resources Controller', () => {
     })
   })
 
-  describe('update (PUT /admin/resources/:id)', () => {
+  describe('update (PUT /verwaltung/resources/:id)', () => {
     let testResourceId: number
 
     before(async () => {
@@ -178,7 +178,7 @@ describe('Admin Resources Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/resources/${testResourceId}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/${testResourceId}`, {
         method: 'PUT',
         headers: {
           Cookie: adminCookie,
@@ -189,7 +189,7 @@ describe('Admin Resources Controller', () => {
       })
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
-      assert.ok(location.startsWith('/admin/resources'))
+      assert.ok(location.startsWith('/verwaltung/resources'))
 
       // Verify the description was updated
       let result = await pool.query('SELECT description FROM resources WHERE id = $1', [testResourceId])
@@ -205,7 +205,7 @@ describe('Admin Resources Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/resources/${testResourceId}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/${testResourceId}`, {
         method: 'PUT',
         headers: {
           Cookie: adminCookie,
@@ -218,7 +218,7 @@ describe('Admin Resources Controller', () => {
     })
   })
 
-  describe('destroy (DELETE /admin/resources/:id)', () => {
+  describe('destroy (DELETE /verwaltung/resources/:id)', () => {
     it('deletes a resource with no appointments', async () => {
       let now = Date.now()
       let result = await pool.query(
@@ -234,7 +234,7 @@ describe('Admin Resources Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/resources/${id}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/${id}`, {
         method: 'DELETE',
         headers: {
           Cookie: adminCookie,
@@ -254,7 +254,7 @@ describe('Admin Resources Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/resources/9999999`, {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/9999999`, {
         method: 'DELETE',
         headers: {
           Cookie: adminCookie,
@@ -270,7 +270,7 @@ describe('Admin Resources Controller', () => {
       let body = new URLSearchParams({
         _csrf: userCsrfToken,
       })
-      let response = await router.fetch(`${BASE}/admin/resources/1`, {
+      let response = await router.fetch(`${BASE}/verwaltung/resources/1`, {
         method: 'DELETE',
         headers: {
           Cookie: userCookie,

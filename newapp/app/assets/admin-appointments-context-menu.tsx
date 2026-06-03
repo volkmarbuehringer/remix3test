@@ -125,10 +125,10 @@ export const AdminAppointmentsContextMenu = clientEntry(
         params.set('sort', state.sort || 'a.date')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = '/admin/appointments?' + params.toString()
+        window.location.href = '/verwaltung/appointments?' + params.toString()
       } catch {
         // Fallback: navigate without grid state
-        window.location.href = '/admin/appointments?editing=' + rowId
+        window.location.href = '/verwaltung/appointments?editing=' + rowId
       }
     }
 

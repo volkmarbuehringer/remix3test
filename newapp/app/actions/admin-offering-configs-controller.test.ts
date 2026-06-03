@@ -6,7 +6,7 @@ import { initializeAppDatabase, pool } from '../data/setup.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
 
 const BASE = 'https://remix.run'
-const CONFIGS_URL = `${BASE}/admin/offering-configs`
+const CONFIGS_URL = `${BASE}/verwaltung/offering-configs`
 
 const createdConfigIds: number[] = []
 const createdResourceIds: number[] = []
@@ -60,14 +60,14 @@ describe('Admin Offering Configs Controller', () => {
     }
   })
 
-  describe('index (GET /admin/offering-configs)', () => {
+  describe('index (GET /verwaltung/offering-configs)', () => {
     it('returns 200 for admin users', async () => {
       let response = await router.fetch(CONFIGS_URL, {
         headers: { Cookie: adminCookie },
       })
       assert.equal(response.status, 200)
       let text = await response.text()
-      assert.ok(text.includes('Offering Configs'))
+      assert.ok(text.includes('Angebotskonfigurationen'))
     })
 
     it('returns 403 for non-admin users', async () => {
@@ -104,7 +104,7 @@ describe('Admin Offering Configs Controller', () => {
     })
   })
 
-  describe('create (POST /admin/offering-configs)', () => {
+  describe('create (POST /verwaltung/offering-configs)', () => {
     it('creates a new offering config with valid data', async () => {
       let body = new URLSearchParams({
         resource_id: String(seedResourceId),
@@ -130,7 +130,7 @@ describe('Admin Offering Configs Controller', () => {
       })
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
-      assert.ok(location.startsWith('/admin/offering-configs?editing='))
+      assert.ok(location.startsWith('/verwaltung/offering-configs?editing='))
 
       let match = location.match(/editing=(\d+)/)
       if (match) {
@@ -291,7 +291,7 @@ describe('Admin Offering Configs Controller', () => {
     })
   })
 
-  describe('update (PUT /admin/offering-configs/:id)', () => {
+  describe('update (PUT /verwaltung/offering-configs/:id)', () => {
     let testConfigId: number
 
     before(async () => {
@@ -323,7 +323,7 @@ describe('Admin Offering Configs Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/${testConfigId}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/${testConfigId}`, {
         method: 'PUT',
         headers: {
           Cookie: adminCookie,
@@ -334,7 +334,7 @@ describe('Admin Offering Configs Controller', () => {
       })
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
-      assert.ok(location.startsWith('/admin/offering-configs'))
+      assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
 
     it('returns 404 when updating non-existent config', async () => {
@@ -349,7 +349,7 @@ describe('Admin Offering Configs Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/9999999`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/9999999`, {
         method: 'PUT',
         headers: {
           Cookie: adminCookie,
@@ -375,7 +375,7 @@ describe('Admin Offering Configs Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/${testConfigId}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/${testConfigId}`, {
         method: 'PUT',
         headers: {
           Cookie: userCookie,
@@ -388,7 +388,7 @@ describe('Admin Offering Configs Controller', () => {
     })
   })
 
-  describe('destroy (DELETE /admin/offering-configs/:id)', () => {
+  describe('destroy (DELETE /verwaltung/offering-configs/:id)', () => {
     it('deletes an offering config', async () => {
       let now = Date.now()
       let resResult = await pool.query(
@@ -411,7 +411,7 @@ describe('Admin Offering Configs Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/${id}`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/${id}`, {
         method: 'DELETE',
         headers: {
           Cookie: adminCookie,
@@ -431,7 +431,7 @@ describe('Admin Offering Configs Controller', () => {
         _order: '',
         _filter: '',
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/9999999`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/9999999`, {
         method: 'DELETE',
         headers: {
           Cookie: adminCookie,
@@ -447,7 +447,7 @@ describe('Admin Offering Configs Controller', () => {
       let body = new URLSearchParams({
         _csrf: userCsrfToken,
       })
-      let response = await router.fetch(`${BASE}/admin/offering-configs/1`, {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/1`, {
         method: 'DELETE',
         headers: {
           Cookie: userCookie,

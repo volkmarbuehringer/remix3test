@@ -33,6 +33,17 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/admin/fragments/stats': 'Stats',
   '/admin/fragments/recent-activity': 'Recent Activity',
   '/admin/fragments/user-detail': 'User Detail',
+  '/admin/users': 'Users',
+
+  // Verwaltung section (operational data management)
+  '/verwaltung': 'Verwaltung',
+  '/verwaltung/offerings': 'Angebote',
+  '/verwaltung/offerings/config': 'Konfiguration',
+  '/verwaltung/offerings/week': 'Wochenansicht',
+  '/verwaltung/appointments': 'Termine',
+  '/verwaltung/appointments/events': 'Termine',
+  '/verwaltung/resources': 'Ressourcen',
+  '/verwaltung/offering-configs': 'Angebotskonfigurationen',
 
   // UI showcase
   '/ui': 'UI Showcase',
@@ -53,26 +64,6 @@ export const ROUTE_LABELS: Record<string, string> = {
 
   // Nutzer
   '/nutzer': 'Nutzer',
-
-  // Admin — offerings
-  // Note: config and week are POST-only action endpoints (not navigable pages),
-  // included here for completeness if they appear as frame navigation targets.
-  '/admin/offerings': 'Leistungen',
-  '/admin/offerings/config': 'Konfiguration',
-  '/admin/offerings/week': 'Wochenansicht',
-
-  // Admin — appointments
-  '/admin/appointments': 'Termine',
-  '/admin/appointments/events': 'Termine',
-
-  // Admin — users
-  '/admin/users': 'Users',
-
-  // Admin — resources
-  '/admin/resources': 'Resources',
-
-  // Admin — offering configs
-  '/admin/offering-configs': 'Offering Configs',
 
   // Client Lab
   '/client': 'Client Lab',

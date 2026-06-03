@@ -92,6 +92,23 @@ export const adminRoutes = route({
       destroy: post('/:id/delete'),
     }),
 
+    // Admin users CRUD
+    users: resources('users', { exclude: ['new', 'show', 'edit'] }),
+
+    // Fragment routes for nested frame content
+    fragments: route('fragments', {
+      stats: get('/stats'),
+      recentActivity: get('/recent-activity'),
+      userDetail: get('/user-detail/:userId'),
+    }),
+  }),
+})
+
+// Verwaltung routes — operational data management (no sidebar layout)
+export const verwaltungRoutes = route({
+  verwaltung: route('verwaltung', {
+    index: get('/'),
+
     offerings: route('offerings', {
       index: get('/'),
       create: post('/'),
@@ -109,21 +126,9 @@ export const adminRoutes = route({
       events: get('/events'),
     }),
 
-    // Admin users CRUD
-    users: resources('users', { exclude: ['new', 'show', 'edit'] }),
-
-    // Admin resources CRUD
     resources: resources('resources', { exclude: ['new', 'show', 'edit'] }),
 
-    // Admin offering configs CRUD
     offeringConfigs: resources('offering-configs', { exclude: ['new', 'show', 'edit'] }),
-
-    // Fragment routes for nested frame content
-    fragments: route('fragments', {
-      stats: get('/stats'),
-      recentActivity: get('/recent-activity'),
-      userDetail: get('/user-detail/:userId'),
-    }),
   }),
 })
 

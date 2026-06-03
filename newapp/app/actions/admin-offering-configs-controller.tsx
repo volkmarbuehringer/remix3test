@@ -2,12 +2,12 @@ import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
-import { adminRoutes as routes } from '../routes.ts'
+import { verwaltungRoutes as routes } from '../routes.ts'
 import { offeringConfigs, resources } from '../data/schema.ts'
 import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
-import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingConfigsPage } from '../ui/admin-offering-configs-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import {
@@ -113,7 +113,7 @@ function toRow(row: Record<string, unknown>): OfferingConfigRow {
   }
 }
 
-export default createController<typeof routes.admin.offeringConfigs, AppContext>(routes.admin.offeringConfigs, {
+export default createController<typeof routes.verwaltung.offeringConfigs, AppContext>(routes.verwaltung.offeringConfigs, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
@@ -185,9 +185,8 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
         description: r.description as string,
       }))
 
-      return renderAdminPage(
+      return renderVerwaltungPage(
         context.render,
-        'offeringConfigs',
         <AdminOfferingConfigsPage
           rows={rows}
           offset={offset}
@@ -268,7 +267,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
-      let baseUrl = routes.admin.offeringConfigs.index.href()
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + '?' + params.toString() },
@@ -345,7 +344,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
-      let baseUrl = routes.admin.offeringConfigs.index.href()
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + (qs ? '?' + qs : '') },
@@ -383,7 +382,7 @@ export default createController<typeof routes.admin.offeringConfigs, AppContext>
       let redirectState = gridStateFromFormData(formData)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
-      let baseUrl = routes.admin.offeringConfigs.index.href()
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + (qs ? '?' + qs : '') },

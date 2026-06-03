@@ -26,7 +26,7 @@ interface AdminResourcesPageProps {
   creating?: boolean
 }
 
-const ADMIN_BASE = '/admin/resources'
+const ADMIN_BASE = '/verwaltung/resources'
 
 // ── Styles ──
 
@@ -47,7 +47,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         {/* Toolbar + Filter */}
         <form
           method="GET"
-          action="/admin/resources"
+          action="/verwaltung/resources"
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -61,7 +61,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <button type="submit" mix={table.searchBtn}>Suchen</button>
           {filter && (
             <a
-              href="/admin/resources"
+              href="/verwaltung/resources"
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -154,7 +154,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         </a>
                         <RestfulForm
                           method="DELETE"
-                          action={`/admin/resources/${row.id}`}
+                          action={`/verwaltung/resources/${row.id}`}
                           mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
@@ -263,7 +263,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
     let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/resources/${row.id}`}>
+        <RestfulForm method="PUT" action={`/verwaltung/resources/${row.id}`}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -287,7 +287,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -315,7 +315,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
     let { offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/resources">
+        <RestfulForm method="POST" action="/verwaltung/resources">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -339,7 +339,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

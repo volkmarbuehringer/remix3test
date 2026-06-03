@@ -77,7 +77,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
     let resolvedEndMin = formValues?.end_min !== undefined ? Number(formValues.end_min) : (isEdit && row ? Number(row.end_min) : defaultEndMin)
 
     let method = isEdit ? 'PUT' as const : 'POST' as const
-    let action = isEdit && row ? `/admin/appointments/${row.id}` : '/admin/appointments'
+    let action = isEdit && row ? `/verwaltung/appointments/${row.id}` : '/verwaltung/appointments'
     let panelTitle = isEdit ? 'Termin bearbeiten' : 'Neuer Termin'
     let submitLabel = isEdit ? 'Speichern' : 'Anlegen'
     let resourcePlaceholder = isEdit ? undefined : 'Ressource auswählen...'
@@ -217,7 +217,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl('/admin/appointments', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/appointments', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

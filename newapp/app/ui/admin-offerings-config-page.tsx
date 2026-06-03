@@ -71,7 +71,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/offerings/config">
+        <RestfulForm method="POST" action="/verwaltung/offerings/config">
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 
           <div mix={table.panel}>
@@ -130,7 +130,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href="/admin/offerings" mix={[table.spacer, table.linkPlain]}>
+                <a href="/verwaltung/offerings" mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

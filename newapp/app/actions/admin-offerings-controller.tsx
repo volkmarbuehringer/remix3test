@@ -1,12 +1,12 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 
-import { adminRoutes as routes } from '../routes.ts'
+import { verwaltungRoutes as routes } from '../routes.ts'
 import { pool } from '../data/setup.ts'
 import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
-import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminOfferingsPage } from '../ui/admin-offerings-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { gridStateToParams, type GridState } from '../utils/grid-state.ts'
@@ -126,7 +126,7 @@ function buildErrorRedirect(
   let qs = params.toString()
   return new Response(null, {
     status: 302,
-    headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+    headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
   })
 }
 
@@ -249,9 +249,8 @@ async function loadOfferingPageData(
 // ── Render helper ────────────────────────────────────────────────
 
 function renderOfferingsPage(context: AppContext, data: OfferingPageData): Response {
-  return renderAdminPage(
+  return renderVerwaltungPage(
     context.render,
-    'offerings',
     <AdminOfferingsPage
       rows={data.rows}
       offset={data.offset}
@@ -277,8 +276,8 @@ function renderOfferingsPage(context: AppContext, data: OfferingPageData): Respo
 
 // ── Controller ───────────────────────────────────────────────────
 
-export default createController<typeof routes.admin.offerings, AppContext>(
-  routes.admin.offerings,
+export default createController<typeof routes.verwaltung.offerings, AppContext>(
+  routes.verwaltung.offerings,
   {
     middleware: [requireAuth(), requireAdmin()],
 
@@ -367,7 +366,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
         })
       },
 
@@ -462,7 +461,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
         })
       },
 
@@ -512,7 +511,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
         })
       },
 
@@ -568,7 +567,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
 
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/offerings' },
+          headers: { Location: '/verwaltung/offerings' },
         })
       },
 
@@ -630,7 +629,7 @@ export default createController<typeof routes.admin.offerings, AppContext>(
         let qs = params.toString()
         return new Response(null, {
           status: 302,
-          headers: { Location: '/admin/offerings' + (qs ? '?' + qs : '') },
+          headers: { Location: '/verwaltung/offerings' + (qs ? '?' + qs : '') },
         })
       },
     },

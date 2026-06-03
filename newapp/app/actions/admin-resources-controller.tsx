@@ -3,13 +3,13 @@ import { ilike } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
-import { adminRoutes as routes } from '../routes.ts'
+import { verwaltungRoutes as routes } from '../routes.ts'
 import { resources } from '../data/schema.ts'
 import type { Resource } from '../data/schema.ts'
 import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { requireAdmin } from '../middleware/admin.ts'
-import { renderAdminPage } from '../ui/admin-layout.tsx'
+import { renderVerwaltungPage } from '../ui/verwaltung-layout.tsx'
 import { AdminResourcesPage } from '../ui/admin-resources-page.tsx'
 import { parseSort } from '../utils/sort-params.ts'
 import { paginate } from '../utils/pagination.ts'
@@ -45,7 +45,7 @@ const resourceSaveSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-export default createController<typeof routes.admin.resources, AppContext>(routes.admin.resources, {
+export default createController<typeof routes.verwaltung.resources, AppContext>(routes.verwaltung.resources, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
@@ -84,9 +84,8 @@ export default createController<typeof routes.admin.resources, AppContext>(route
 
       let creating = context.url.searchParams.get('creating') === 'true'
 
-      return renderAdminPage(
+      return renderVerwaltungPage(
         context.render,
-        'resources',
         <AdminResourcesPage
           rows={rows}
           offset={offset}
@@ -139,7 +138,7 @@ export default createController<typeof routes.admin.resources, AppContext>(route
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
-      let baseUrl = routes.admin.resources.index.href()
+      let baseUrl = routes.verwaltung.resources.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + '?' + params.toString() },
@@ -184,7 +183,7 @@ export default createController<typeof routes.admin.resources, AppContext>(route
       let redirectState = gridStateFromForm(parsed)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
-      let baseUrl = routes.admin.resources.index.href()
+      let baseUrl = routes.verwaltung.resources.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + (qs ? '?' + qs : '') },
@@ -234,7 +233,7 @@ export default createController<typeof routes.admin.resources, AppContext>(route
       }
       let params = gridStateToParams(gridStateFromForm(parsed))
       let qs = params.toString()
-      let baseUrl = routes.admin.resources.index.href()
+      let baseUrl = routes.verwaltung.resources.index.href()
       return new Response(null, {
         status: 302,
         headers: { Location: baseUrl + (qs ? '?' + qs : '') },

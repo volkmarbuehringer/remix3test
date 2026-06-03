@@ -2,7 +2,7 @@ import { initializeAppDatabase, pool } from '../data/setup.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
 
 export const BASE = 'https://remix.run'
-export const ADMIN_APPT_URL = `${BASE}/admin/appointments`
+export const ADMIN_APPT_URL = `${BASE}/verwaltung/appointments`
 
 export async function setupTestEnvironment() {
   await initializeAppDatabase()

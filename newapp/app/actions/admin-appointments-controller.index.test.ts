@@ -59,7 +59,7 @@ describe('Admin Appointments Controller', () => {
   // =========================================================================
 
   describe('Authentication & Authorization', () => {
-    it('GET /admin/appointments redirects to login when not authenticated', async () => {
+    it('GET /verwaltung/appointments redirects to login when not authenticated', async () => {
       // Arrange
       // Act
       let response = await router.fetch(ADMIN_APPT_URL, { redirect: 'manual' })
@@ -93,7 +93,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 200, 'admin GET /admin/appointments should return 200')
+      assert.equal(response.status, 200, 'admin GET /verwaltung/appointments should return 200')
     })
 
     it('renders the Appointments heading', async () => {

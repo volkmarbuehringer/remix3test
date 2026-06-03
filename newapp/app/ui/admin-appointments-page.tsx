@@ -22,7 +22,7 @@ import type {
 } from '../actions/admin-appointments-controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
-const ADMIN_BASE = '/admin/appointments'
+const ADMIN_BASE = '/verwaltung/appointments'
 
 interface AdminAppointmentsPageProps {
   rows: AppointmentRow[]
@@ -120,7 +120,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
-          action="/admin/appointments"
+          action="/verwaltung/appointments"
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -135,7 +135,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             Suchen
           </button>
           {filter && (
-            <a href="/admin/appointments" rmx-target={frames.adminContent} mix={table.clearLink}>
+            <a href="/verwaltung/appointments" rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
@@ -318,7 +318,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <RestfulForm
                   key={row.id}
                   method="DELETE"
-                  action={`/admin/appointments/${row.id}`}
+                  action={`/verwaltung/appointments/${row.id}`}
                   data-delete-form={row.id}
                 >
                   <GridStateHiddenInputs
@@ -407,7 +407,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             <h2 mix={table.title}>Termine</h2>
             <ConnectionIndicator
               {...({
-                url: '/admin/appointments/events',
+                url: '/verwaltung/appointments/events',
                 reloadMode: 'frame',
                 skipReloadParams: ['editing', 'creating'],
               } as any)}
@@ -456,7 +456,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           <h2 mix={table.title}>Termine</h2>
           <ConnectionIndicator
             {...({
-              url: '/admin/appointments/events',
+              url: '/verwaltung/appointments/events',
               reloadMode: 'frame',
               skipReloadParams: ['editing', 'creating'],
             } as any)}

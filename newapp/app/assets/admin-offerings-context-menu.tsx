@@ -112,9 +112,9 @@ export const AdminOfferingsContextMenu = clientEntry(
         params.set('sort', state.sort || 'ao.id')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = '/admin/offerings?' + params.toString()
+        window.location.href = '/verwaltung/offerings?' + params.toString()
       } catch {
-        window.location.href = '/admin/offerings?editing=' + rowId
+        window.location.href = '/verwaltung/offerings?editing=' + rowId
       }
     }
 

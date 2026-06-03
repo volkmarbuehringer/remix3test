@@ -61,7 +61,7 @@ function rulesSummary(rules: Record<string, [number, number]> | null | undefined
     .join(', ')
 }
 
-const ADMIN_BASE = '/admin/offering-configs'
+const ADMIN_BASE = '/verwaltung/offering-configs'
 
 // ── Page-specific styles ──
 const dayRowStyle = css({
@@ -118,7 +118,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
       <div mix={table.minWidth0}>
         <form
           method="GET"
-          action="/admin/offering-configs"
+          action="/verwaltung/offering-configs"
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -132,7 +132,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <button type="submit" mix={table.searchBtn}>Suchen</button>
           {filter && (
             <a
-              href="/admin/offering-configs"
+              href="/verwaltung/offering-configs"
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -227,7 +227,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         </a>
                         <RestfulForm
                           method="DELETE"
-                          action={`/admin/offering-configs/${row.id}`}
+                          action={`/verwaltung/offering-configs/${row.id}`}
                           mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
@@ -336,7 +336,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
     let rules: Record<string, [number, number]> = row.rules ?? {}
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/offering-configs/${row.id}`}>
+        <RestfulForm method="PUT" action={`/verwaltung/offering-configs/${row.id}`}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -397,7 +397,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -424,7 +424,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
     let { resources, offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/offering-configs">
+        <RestfulForm method="POST" action="/verwaltung/offering-configs">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -473,7 +473,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
