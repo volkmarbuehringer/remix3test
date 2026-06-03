@@ -1,6 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
 import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
+import { theme } from 'remix/ui/theme'
 
 // ── Types ──
 
@@ -104,9 +105,9 @@ export const AdminAppointmentsContextMenu = clientEntry(
             }
           })}
         >
-          <MenuItem name="edit">Bearbeiten</MenuItem>
+          <MenuItem name="edit">✏️ Bearbeiten</MenuItem>
           <div role="separator" />
-          <MenuItem name="delete">Löschen</MenuItem>
+          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>🗑️ Löschen</MenuItem>
         </MenuList>
       </menu.Context>
     )

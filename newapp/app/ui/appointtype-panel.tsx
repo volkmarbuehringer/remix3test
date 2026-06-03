@@ -142,7 +142,7 @@ export const AppointTypePanel = clientEntry(
             >
               <MenuItem name="edit">✏️ Bearbeiten</MenuItem>
               <div role="separator" />
-              <MenuItem name="delete">🗑️ Löschen</MenuItem>
+              <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>🗑️ Löschen</MenuItem>
             </MenuList>
           </menu.Context>
         </div>

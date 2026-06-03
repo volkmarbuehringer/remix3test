@@ -3,8 +3,6 @@ import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 
-import { brand } from '../theme.tsx'
-
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
@@ -62,12 +60,8 @@ function boolLabel(val: boolean): string { return val ? 'Ja' : 'Nein' }
 const boolBadgeYes = css({
   display: 'inline-block', padding: `2px ${theme.space.sm}`,
   borderRadius: theme.radius.full, fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold, background: brand.light.accent,
-  color: '#fff',
-  '[data-theme="dark"] &': {
-    background: brand.dark.accent,
-    color: '#fff',
-  },
+  fontWeight: theme.fontWeight.semibold, background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
 })
 const boolBadgeNo = css({
   display: 'inline-block', padding: `2px ${theme.space.sm}`,

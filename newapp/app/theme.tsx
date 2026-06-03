@@ -43,11 +43,11 @@ const lightColors = {
   },
   action: {
     primary: {
-      background: BRAND_LIGHT_ACCENT,
-      backgroundHover: BRAND_LIGHT_ACCENT_HOVER,
-      backgroundActive: '#8c2618',
+      background: '#475569',
+      backgroundHover: '#334155',
+      backgroundActive: '#1e293b',
       foreground: 'rgb(255 255 255 / 0.92)',
-      border: BRAND_LIGHT_ACCENT,
+      border: '#475569',
     },
     secondary: {
       background: '#ffffff',
@@ -178,11 +178,11 @@ const darkColors = {
   },
   action: {
     primary: {
-      background: BRAND_DARK_ACCENT,
-      backgroundHover: BRAND_DARK_ACCENT_HOVER,
-      backgroundActive: '#b03624',
-      foreground: '#1e2226',
-      border: BRAND_DARK_ACCENT,
+      background: '#64748b',
+      backgroundHover: '#475569',
+      backgroundActive: '#334155',
+      foreground: '#ffffff',
+      border: '#64748b',
     },
     secondary: {
       background: '#2d3135',

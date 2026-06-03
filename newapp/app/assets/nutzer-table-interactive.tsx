@@ -62,7 +62,7 @@ export const NutzerTableInteractive = clientEntry(
               : <MenuItem name="activate">▶️ Aktivieren</MenuItem>}
             <MenuItem name="copy-email" disabled={!currentRow?.n_email}>📋 E-Mail kopieren</MenuItem>
             <div role="separator" />
-            <MenuItem name="delete">🗑️ Löschen</MenuItem>
+            <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>🗑️ Löschen</MenuItem>
           </MenuList>
         </menu.Context>
       )

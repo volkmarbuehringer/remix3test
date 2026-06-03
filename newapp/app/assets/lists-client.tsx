@@ -296,7 +296,7 @@ export const ListsClient = clientEntry(
               ⇄ Mischen
             </Button>
             <Button
-              tone="secondary"
+              tone="danger"
               mix={on('click', clearAll)}
               disabled={items.length === 0}
             >

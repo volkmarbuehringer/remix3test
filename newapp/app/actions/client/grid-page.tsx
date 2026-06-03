@@ -204,6 +204,20 @@ const smallBtnStyle = css({
   fontSize: '0.75rem',
 })
 
+const actionBtnGroup = css({
+  display: 'inline-flex',
+  alignItems: 'stretch',
+  '& > a > button': {
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    borderRight: 'none',
+  },
+  '& > form > button': {
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
+  },
+})
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -406,7 +420,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     <td mix={tdStyle}>{row.status}</td>
                     <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
                     <td mix={tdActionsStyle}>
-                      <div mix={css({ display: 'flex', gap: theme.space.xs, justifyContent: 'center' })}>
+                      <div mix={actionBtnGroup}>
                         <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
                           <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
                         </a>

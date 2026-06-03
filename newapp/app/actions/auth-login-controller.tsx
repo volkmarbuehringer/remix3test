@@ -7,6 +7,7 @@ import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
+import { Button } from 'remix/ui/button'
 
 import { authRoutes } from '../routes.ts'
 import type { AppContext } from '../types/context.ts'
@@ -17,9 +18,7 @@ import { getSafeReturnTo } from '../utils/redirect.ts'
 import { Layout } from '../ui/layout.tsx'
 import { CsrfTokenInput } from '../ui/csrf-token-input.tsx'
 import { panelCss, panelInsetCss, pageStackCss, bodyTextCss, captionTextCss } from '../ui/page-primitives.tsx'
-import { Button } from 'remix/ui/button'
 import { input } from '../ui/mixins/input.ts'
-import { brand } from '../theme.tsx'
 
 const loginSchema = f.object({
   email: f.field(s.defaulted(s.string(), '').pipe(email())),
@@ -118,7 +117,7 @@ function LoginPage(handle: Handle<LoginPageProps>) {
           </form>
 
           <p mix={bodyTextCss}>
-            Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: brand.light.accent }}>Register here</a>
+            Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: theme.colors.action.primary.background }}>Register here</a>
           </p>
 
           {process.env.NODE_ENV !== 'production' && (
@@ -175,11 +174,8 @@ const brandDotCss = css({
   width: '8px',
   height: '8px',
   borderRadius: '50%',
-  backgroundColor: brand.light.accent,
+  backgroundColor: theme.colors.action.primary.background,
   flexShrink: 0,
-  '[data-theme="dark"] &': {
-    backgroundColor: brand.dark.accent,
-  },
 })
 
 const brandLabelCss = css({
@@ -207,8 +203,5 @@ const errorBannerCss = css({
 })
 
 const demoBoxCss = css({
-  borderLeft: `3px solid ${brand.light.accent}`,
-  '[data-theme="dark"] &': {
-    borderLeftColor: brand.dark.accent,
-  },
+  borderLeft: `3px solid ${theme.colors.action.primary.background}`,
 })

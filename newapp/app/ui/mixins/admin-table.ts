@@ -27,7 +27,9 @@ export const table = {
     '&::placeholder': { color: theme.colors.text.muted },
   }),
   searchBtn: css({
-    padding: `${theme.space.xs} ${theme.space.md}`,
+    display: 'inline-flex', alignItems: 'center',
+    minHeight: theme.control.height.sm,
+    padding: `0 ${theme.space.md}`,
     background: theme.colors.action.primary.background,
     color: theme.colors.action.primary.foreground,
     border: 'none', borderRadius: theme.radius.md, fontSize: theme.fontSize.sm, cursor: 'pointer',

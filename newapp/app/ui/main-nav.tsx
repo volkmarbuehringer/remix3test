@@ -74,7 +74,7 @@ export function MainNav() {
             {user ? (
               <form method="POST" action={authRoutes.authLogout.href()} mix={logoutFormCss}>
                 {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
-                <button type="submit" mix={logoutBtnCss} aria-label="Logout">
+                <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
                   <Glyph name="close" width={18} height={18} />
                 </button>
               </form>
@@ -89,6 +89,7 @@ export function MainNav() {
             <button
               id="theme-toggle"
               aria-label="Design umschalten"
+              title="Design umschalten"
               mix={themeBtnCss}
               type="button"
             >
