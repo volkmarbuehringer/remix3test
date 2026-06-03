@@ -1,5 +1,6 @@
 import { column as c, table } from 'remix/data-table'
 import type { TableRow } from 'remix/data-table'
+import { parseIntFields } from '../utils/schema-utils.ts'
 
 export const users = table({
   name: 'users',
@@ -79,15 +80,7 @@ export const users = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    // BIGINT columns are returned as strings by PostgreSQL driver,
-    // so when the column maps to c.integer() we parse the string
-    // back to a number here. The DB schema (migrate.ts) uses BIGINT.
-    if (typeof value.created_at === 'string') {
-      value.created_at = parseInt(value.created_at, 10)
-    }
-    if (typeof value.updated_at === 'string') {
-      value.updated_at = parseInt(value.updated_at, 10)
-    }
+    parseIntFields(value, 'created_at', 'updated_at')
     return { value }
   },
 })
@@ -108,12 +101,7 @@ export const chatlog = table({
     return { value }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') {
-      value.created_at = parseInt(value.created_at, 10)
-    }
-    if (typeof value.updated_at === 'string') {
-      value.updated_at = parseInt(value.updated_at, 10)
-    }
+    parseIntFields(value, 'created_at', 'updated_at')
     if (typeof value.conversation === 'string') {
       try {
         value.conversation = JSON.parse(value.conversation)
@@ -152,8 +140,7 @@ export const workflowRuns = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.completed_at === 'string') value.completed_at = parseInt(value.completed_at, 10)
+    parseIntFields(value, 'created_at', 'completed_at')
     return { value }
   },
 })
@@ -175,12 +162,7 @@ export const messages = table({
     return { value }
   },
   afterRead({ value }) {
-    // BIGINT columns are returned as strings by PostgreSQL driver,
-    // so when the column maps to c.integer() we parse the string
-    // back to a number here. The DB schema (migrate.ts) uses BIGINT.
-    if (typeof value.created_at === 'string') {
-      value.created_at = parseInt(value.created_at, 10)
-    }
+    parseIntFields(value, 'created_at')
     return { value }
   },
 })
@@ -241,9 +223,7 @@ export const clients = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    if (typeof value.registered === 'string') {
-      value.registered = parseInt(value.registered, 10)
-    }
+    parseIntFields(value, 'registered')
     return { value }
   },
 })
@@ -282,12 +262,7 @@ export const lists = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') {
-      value.created_at = parseInt(value.created_at, 10)
-    }
-    if (typeof value.updated_at === 'string') {
-      value.updated_at = parseInt(value.updated_at, 10)
-    }
+    parseIntFields(value, 'created_at', 'updated_at')
     if (typeof value.list === 'string') {
       try {
         value.list = JSON.parse(value.list)
@@ -386,12 +361,7 @@ export const appointments = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.updated_at === 'string') value.updated_at = parseInt(value.updated_at, 10)
-    if (typeof value.date === 'string') value.date = parseInt(value.date, 10)
-    if (typeof value.resource_id === 'string') value.resource_id = parseInt(value.resource_id, 10)
-    // start_min and end_min are computed columns from int4range — they return as integers directly
-    // during is int4range — normalize to string if driver returns it as an object
+    parseIntFields(value, 'created_at', 'updated_at', 'date', 'resource_id')
     if (typeof value.during === 'object' && value.during !== null) {
       let r = value.during as { lower: unknown; upper: unknown }
       value.during = `[${r.lower},${r.upper})`
@@ -426,8 +396,7 @@ export const appointtypes = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.updated_at === 'string') value.updated_at = parseInt(value.updated_at, 10)
+    parseIntFields(value, 'created_at', 'updated_at')
     return { value }
   },
 })
@@ -461,8 +430,7 @@ export const resources = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.updated_at === 'string') value.updated_at = parseInt(value.updated_at, 10)
+    parseIntFields(value, 'created_at', 'updated_at')
     return { value }
   },
 })
@@ -511,11 +479,7 @@ export const appointofferings = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.updated_at === 'string') value.updated_at = parseInt(value.updated_at, 10)
-    if (typeof value.day === 'string') value.day = parseInt(value.day, 10)
-    if (typeof value.resource_id === 'string') value.resource_id = parseInt(value.resource_id, 10)
-    // during is int4range — normalize to string if driver returns it as an object
+    parseIntFields(value, 'created_at', 'updated_at', 'day', 'resource_id')
     if (typeof value.during === 'object' && value.during !== null) {
       let r = value.during as { lower: unknown; upper: unknown }
       value.during = `[${r.lower},${r.upper})`
@@ -550,9 +514,7 @@ export const offeringConfigs = table({
     return { value: next }
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
-    if (typeof value.updated_at === 'string') value.updated_at = parseInt(value.updated_at, 10)
-    if (typeof value.resource_id === 'string') value.resource_id = parseInt(value.resource_id, 10)
+    parseIntFields(value, 'created_at', 'updated_at', 'resource_id')
     if (typeof value.rules === 'string') {
       try { value.rules = JSON.parse(value.rules) } catch { value.rules = {} }
     }
@@ -562,6 +524,7 @@ export const offeringConfigs = table({
 
 export const auditLogs = table({
   name: 'audit_logs',
+  primaryKey: ['id'],
   columns: {
     id: c.integer(),
     admin_user_id: c.integer(),
@@ -573,7 +536,7 @@ export const auditLogs = table({
     created_at: c.integer(),
   },
   afterRead({ value }) {
-    if (typeof value.created_at === 'string') value.created_at = parseInt(value.created_at, 10)
+    parseIntFields(value, 'admin_user_id', 'created_at')
     if (typeof value.details === 'string') {
       try { value.details = JSON.parse(value.details) } catch { value.details = null }
     }

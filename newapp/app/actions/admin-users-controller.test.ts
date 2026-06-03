@@ -320,6 +320,61 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 400)
     })
+
+    it('redacts password_hash from audit log details', async () => {
+      let id = await createTestUser(`test-audit-${Date.now()}@example.com`)
+      if (!id) throw new Error('Failed to create test user for audit test')
+      createdUserIds.push(id)
+
+      let body = new URLSearchParams({
+        name: 'Audit User',
+        email: `test-audit-${Date.now()}@example.com`,
+        role: 'customer',
+        password: 'auditpass123',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${id}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 302, 'update should redirect on success')
+
+      let result = await pool.query(
+        `SELECT details, action_type, target_id, target_type FROM audit_logs
+         WHERE target_type = 'users'
+           AND target_id = $1
+           AND action_type = 'update'
+         ORDER BY created_at DESC LIMIT 1`,
+        [String(id)],
+      )
+
+      assert.ok(result.rows.length > 0, `audit log entry must exist for user ${id}`)
+      let row = result.rows[0]
+      assert.equal(row.action_type, 'update')
+      assert.equal(row.target_type, 'users')
+
+      let details = row.details
+      if (typeof details === 'string') {
+        details = JSON.parse(details)
+      }
+      assert.ok(details != null, 'details should not be null')
+      let changes = (details as any).changes as Record<string, unknown> | undefined
+      assert.ok(changes != null, 'changes should be present')
+      assert.equal(
+        changes?.password_hash,
+        '***REDACTED***',
+        'password_hash must be redacted in audit log',
+      )
+    })
   })
 
   describe('destroy (DELETE /admin/users/:id)', () => {

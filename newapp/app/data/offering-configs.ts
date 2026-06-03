@@ -70,7 +70,7 @@ export async function upsertConfig(
 }
 
 /**
- * Check if an offering already exists for the given resource, day, and time range.
+ * Record existing offerings for the week in one batch query.
  */
 async function offeringExists(
   pool: Pool,
@@ -86,6 +86,29 @@ async function offeringExists(
     [resourceId, day, startMin, endMin],
   )
   return result.rows.length > 0
+}
+
+/**
+ * Record existing offerings for the week in one batch query to avoid
+ * the N+1 pattern of calling offeringExists for each day.
+ */
+async function listExistingOfferingKeys(
+  pool: Pool,
+  resourceId: number,
+  mondayMs: number,
+): Promise<Set<string>> {
+  let sundayMs = mondayMs + 7 * 86_400_000
+  let result = await pool.query(
+    `SELECT day, lower(during) AS start_min, upper(during) AS end_min
+     FROM appointoffering
+     WHERE resource_id = $1 AND day >= $2 AND day < $3`,
+    [resourceId, mondayMs, sundayMs],
+  )
+  let keys = new Set<string>()
+  for (let row of result.rows) {
+    keys.add(`${row.day}:${row.start_min}:${row.end_min}`)
+  }
+  return keys
 }
 
 /**
@@ -124,6 +147,8 @@ export async function generateWeek(
   let skipped = 0
   let errors: string[] = []
 
+  let existingKeys = await listExistingOfferingKeys(pool, resourceId, mondayMs)
+
   for (let i = 0; i < 7; i++) {
     let dayMs = mondayMs + i * 86_400_000
     let dayDate = new Date(dayMs)
@@ -141,7 +166,7 @@ export async function generateWeek(
     }
 
     // Skip if already exists
-    if (await offeringExists(pool, resourceId, dayMs, startMin, endMin)) {
+    if (existingKeys.has(`${dayMs}:${startMin}:${endMin}`)) {
       skipped++
       continue
     }

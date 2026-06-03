@@ -39,12 +39,20 @@ export default createController<typeof routes.admin.lists, AppContext>(routes.ad
            LIMIT $2 OFFSET $3`,
           [searchPattern, PAGE_LIMIT + 1, offset],
         )
-        // Parse BIGINT strings to numbers (pg returns BIGINT as string)
-        rows = result.rows.map((row: Record<string, unknown>) => ({
-          ...row,
-          created_at: typeof row.created_at === 'string' ? Number(row.created_at) : row.created_at,
-          updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : row.updated_at,
-        }))
+        // Parse BIGINT strings to numbers and JSONB back to objects
+        // (matches the ORM's afterRead hook in data/schema.ts)
+        rows = result.rows.map((row: Record<string, unknown>) => {
+          let list = row.list
+          if (typeof list === 'string') {
+            try { list = JSON.parse(list) } catch { list = [] }
+          }
+          return {
+            ...row,
+            list,
+            created_at: typeof row.created_at === 'string' ? Number(row.created_at) : row.created_at,
+            updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : row.updated_at,
+          }
+        })
         hasMore = rows.length > PAGE_LIMIT
         if (hasMore) rows.pop()
       } else {

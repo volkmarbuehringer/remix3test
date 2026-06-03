@@ -161,7 +161,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        await logAdminAction(pool, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'create',
@@ -223,13 +223,17 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        let safeChanges = { ...changes }
+        if ('password_hash' in safeChanges) {
+          safeChanges.password_hash = '***REDACTED***'
+        }
+        await logAdminAction(pool, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'update',
           target_type: 'users',
           target_id: id,
-          details: { changes },
+          details: { changes: safeChanges },
         })
       }
 

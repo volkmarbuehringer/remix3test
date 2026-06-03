@@ -97,37 +97,46 @@ export async function appendMessage(
   id: string,
   message: ChatMessage,
 ): Promise<ChatLogRow | null> {
-  let existing = await getConversation(id)
-  if (!existing) {
-    console.warn('[ChatLog] Conversation not found:', { id })
-    return null
-  }
   if (!message.content || message.content.trim().length === 0) {
     throw new Error('Cannot append empty message')
   }
   let messageToSave = { ...message, timestamp: message.timestamp || Date.now() }
-  let updatedConversation = [...existing.conversation, messageToSave]
-  let now = Date.now()
 
-  let result = await db.exec(sql`
-    UPDATE chatlog
-    SET conversation = ${JSON.stringify(updatedConversation)}::jsonb,
-        updated_at = ${now}
-    WHERE id = ${id}
-    AND jsonb_array_length(conversation) = ${existing.conversation.length}
-  `)
+  let maxRetries = 3
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    let existing = await getConversation(id)
+    if (!existing) {
+      console.warn('[ChatLog] Conversation not found:', { id })
+      return null
+    }
 
-  if (result.affectedRows === 0) {
-    console.warn('[ChatLog] Concurrent modification detected for:', { id })
-    return getConversation(id)
+    let updatedConversation = [...existing.conversation, messageToSave]
+    let now = Date.now()
+
+    let result = await db.exec(sql`
+      UPDATE chatlog
+      SET conversation = ${JSON.stringify(updatedConversation)}::jsonb,
+          updated_at = ${now}
+      WHERE id = ${id}
+      AND jsonb_array_length(conversation) = ${existing.conversation.length}
+    `)
+
+    if (result.affectedRows !== 0) {
+      return {
+        id: existing.id,
+        conversation: updatedConversation,
+        created_at: existing.created_at,
+        updated_at: now,
+      }
+    }
+
+    console.warn(
+      `[ChatLog] Concurrent modification, retry ${attempt + 1}/${maxRetries}:`,
+      { id },
+    )
   }
 
-  return {
-    id: existing.id,
-    conversation: updatedConversation,
-    created_at: existing.created_at,
-    updated_at: now,
-  }
+  throw new Error('Failed to append message: too many concurrent modifications')
 }
 
 export async function getAllConversations(

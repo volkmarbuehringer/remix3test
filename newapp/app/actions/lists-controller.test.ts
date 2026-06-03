@@ -545,4 +545,39 @@ describe('Lists controller', () => {
       'pagination links should preserve filter',
     )
   })
+
+  it('GET /admin/lists?filter= renders item labels from parsed JSONB', async () => {
+    // Save a list with unique items that can be found by filter
+    let uniqueLabel = `RenderedItem-${Date.now()}`
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'JSONB Parse Test List',
+        items: [
+          { id: 'a', label: uniqueLabel },
+          { id: 'b', label: 'Second Item' },
+        ],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+    testListIds.push(id)
+
+    // Filter by the unique label — should find the list
+    let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=${encodeURIComponent(uniqueLabel)}`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+
+    // The item label should be rendered in the HTML (proves list JSONB was parsed to array)
+    assert.ok(text.includes(uniqueLabel), 'filtered list should render item labels from parsed JSONB')
+    // The description should also appear
+    assert.ok(text.includes('JSONB Parse Test List'), 'filtered list should show its description')
+  })
 })

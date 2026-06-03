@@ -1,4 +1,4 @@
-import { eq, gte, lt, type Database } from 'remix/data-table'
+import { eq, gte, lt, sql, type Database } from 'remix/data-table'
 
 import { appointofferings, type AppointOffering } from './schema.ts'
 
@@ -40,18 +40,6 @@ export async function listOfferingsByDayRange(
     .all()
 }
 
-async function listOfferingsByDayAndResource(
-  db: Database,
-  date: number,
-  resourceId: number,
-): Promise<AppointOffering[]> {
-  return await db
-    .query(appointofferings)
-    .where({ day: date, resource_id: resourceId })
-    .orderBy('during', 'asc')
-    .all()
-}
-
 /**
  * Parse an offering's `during` range string into [startMin, endMin).
  * Handles various formats the PostgreSQL driver might return.
@@ -75,7 +63,8 @@ export function parseDuring(during: string): { startMin: number; endMin: number 
 
 /**
  * Check whether a given time range falls within at least one offering
- * for a given resource on a given day.
+ * for a given resource on a given day. Uses a single DB query instead
+ * of fetching all offerings and iterating client-side.
  */
 export async function isSlotBookable(
   db: Database,
@@ -84,21 +73,11 @@ export async function isSlotBookable(
   startMin: number,
   endMin: number,
 ): Promise<boolean> {
-  let offerings = await listOfferingsByDayAndResource(db, date, resourceId)
-  if (offerings.length === 0) return false
-
-  // Parse each offering's during range and check for overlap
-  for (let offering of offerings) {
-    let parsed = parseDuring(offering.during)
-    if (!parsed) {
-      console.warn(`[appointofferings] Skipping offering ${offering.id}: unparseable during="${offering.during}"`)
-      continue
-    }
-    // Check if [startMin, endMin) is fully contained within [offeringStart, offeringEnd)
-    if (startMin >= parsed.startMin && endMin <= parsed.endMin) {
-      return true
-    }
-  }
-
-  return false
+  let result = await db.exec(sql`
+    SELECT 1 FROM appointoffering
+    WHERE day = ${date} AND resource_id = ${resourceId}
+    AND lower(during) <= ${startMin} AND upper(during) >= ${endMin}
+    LIMIT 1
+  `)
+  return (result.rows?.length ?? 0) > 0
 }
