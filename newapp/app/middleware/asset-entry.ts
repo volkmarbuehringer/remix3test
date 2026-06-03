@@ -17,15 +17,17 @@ export function loadAssetEntry(
   scriptEntry: string = defaultScriptEntry,
 ): Middleware<{ key: typeof assetsEntryKey; value: AssetEntry }> {
   return async (context, next) => {
-    let [scriptSrc, scriptPreloads] = await Promise.all([
-      assetServer.getHref(scriptEntry),
-      assetServer.getPreloads(scriptEntry).catch(() => [] as string[]),
-    ])
+    if (!context.request.headers.get('X-Remix-Frame')) {
+      let [scriptSrc, scriptPreloads] = await Promise.all([
+        assetServer.getHref(scriptEntry),
+        assetServer.getPreloads(scriptEntry).catch(() => [] as string[]),
+      ])
 
-    context.set(assetsEntryKey, {
-      scriptSrc,
-      scriptPreloads,
-    })
+      context.set(assetsEntryKey, {
+        scriptSrc,
+        scriptPreloads,
+      })
+    }
 
     return next()
   }
