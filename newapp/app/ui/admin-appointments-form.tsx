@@ -25,6 +25,16 @@ const inlineErrorStyle = css({
   marginTop: theme.space.xs,
 })
 
+const formErrorBanner = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  marginBottom: theme.space.sm,
+  background: `${theme.colors.action.danger.background}15`,
+  border: `1px solid ${theme.colors.action.danger.background}`,
+  borderRadius: theme.radius.md,
+  color: theme.colors.action.danger.background,
+  fontSize: theme.fontSize.sm,
+})
+
 const rowIdBadgeStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
@@ -96,7 +106,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
             </div>
 
             <div mix={table.panelBody}>
-              {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+              {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>

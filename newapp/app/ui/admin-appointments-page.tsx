@@ -116,6 +116,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
       <div mix={table.minWidth0}>
+        {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
         <form

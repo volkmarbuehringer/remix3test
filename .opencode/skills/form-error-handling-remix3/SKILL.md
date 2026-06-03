@@ -2,21 +2,23 @@
 
 ## Overview
 
-Handle form validation errors in Remix 3 controllers and components. This skill covers two patterns: **direct re-render** (latest, preferred for non-Frame pages) and **URL param roundtrip** (for Frame-safe validation redirects). Both use `parseSafe` from `remix/data-schema` to make validation failures a return value instead of an exception.
+Handle form validation errors in Remix 3 controllers and components. This skill covers the **direct re-render** pattern (preferred) using `parseSafe` from `remix/data-schema` to make validation failures a return value instead of an exception.
+
+The URL param roundtrip pattern (`fv_`/`fe_` encoding) is deprecated — `form-params.ts` has been removed from the codebase and all verwaltung forms now use direct re-render. See the "Migration from URL Params" section if you encounter legacy code.
 
 ## When To Use This Skill
 
 - Adding validation to a POST/PUT/DELETE form action
 - Rendering per-field error messages next to form inputs
 - Preserving submitted form values after a validation failure
-- Wiring validation failures through `<Frame>` navigation
+- Migrating legacy code from URL-param roundtrip to direct re-render
 - Testing form validation controller behavior
 
 ---
 
-## Pattern 1: Direct Re-Render (Preferred for Non-Frame Pages)
+## Pattern 1: Direct Re-Render (Primary Pattern)
 
-Use this pattern when the form is rendered as part of a full page (not inside a `<Frame>`). On validation failure, re-render the page with `status: 400`, passing `formValues` and `fieldErrors` as props.
+Use this pattern for all forms. On validation failure, re-render the page with `status: 400`, passing `formValues` and `fieldErrors` as props.
 
 ### Controller Setup
 
@@ -129,7 +131,7 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 
 ---
 
-## Pattern 2: URL Param Roundtrip (For Frame-Safe Redirects)
+## Pattern 2: URL Param Roundtrip (DEPRECATED)
 
 Use this pattern when the form lives inside a `<Frame>` and a validation failure must survive a redirect. Field values and errors are encoded as URL search parameters (`fv_` prefix for form values, `fe_` prefix for field errors).
 
@@ -233,6 +235,74 @@ function EditPage(handle: Handle<EditPageProps>) {
 
 ---
 
+## Migration from URL Params to Direct Re-Render
+
+When migrating a controller from Pattern 2 to Pattern 1:
+
+**1. Replace redirect with re-render in controller actions**
+
+Replace every `buildErrorRedirectUrl()` call + 302 redirect with:
+
+```typescript
+let data = await loadPageData(context, {
+  creating: true,
+  formValues,
+  fieldErrors,
+  formError: 'Error message',
+  offset: gridStateOffset(gridValues),
+  sortColumn: gridStateSort(gridValues),
+  sortDirection: gridStateDirection(gridValues),
+  filter: gridStateFilter(gridValues),
+})
+return renderPage(context, data, { status: 400 })
+```
+
+**2. Add `ResponseInit` to the render helper**
+
+```typescript
+function renderPage(context: AppContext, data: PageData, init?: ResponseInit): Response {
+  return renderLayout(context.render, <PageComponent ... />, init)
+}
+```
+
+**3. Remove URL-param decoding from data loader**
+
+```typescript
+// BEFORE (Pattern 2)
+let formValues = overrides?.formValues ?? decodeFormValues(KEYS, context.url)
+let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(KEYS, context.url)
+let formError = overrides?.formError ?? error
+// AFTER (Pattern 1)
+let formValues = overrides?.formValues ?? undefined
+let fieldErrors = overrides?.fieldErrors ?? undefined
+let formError = overrides?.formError ?? undefined
+```
+
+**4. Delete `form-params.ts` after verifying no remaining consumers**
+
+```bash
+grep -r "form-params" newapp/  # Should return nothing
+rm newapp/app/utils/form-params.ts
+```
+
+**5. Update tests: 302 → 400, remove Location header checks**
+
+```typescript
+// BEFORE: assert.equal(response.status, 302)
+// AFTER: assert.equal(response.status, 400)
+// Remove: response.headers.get('Location') checks for error content
+```
+
+**6. Use `gridStateFromFormData` with extractors**
+
+```typescript
+import { gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter } from '../utils/grid-state.ts'
+let gridValues = gridStateFromFormData(formData)
+// Pass extractors to loadPageData overrides
+```
+
+---
+
 ## Schema Validation: Choose the Right Approach
 
 ### `s.parse` — Throw on Failure (Avoid)
@@ -324,9 +394,17 @@ Cross-field rules (e.g., `endMin > startMin`) remain as manual post-parse checks
 
 ```typescript
 if (result.value.end_min <= result.value.start_min) {
-  return buildErrorRedirect(formValues, gridValues, {
-    editing: id, fieldErrors: { end_min: 'muss nach der Startzeit liegen.' }
+  let data = await loadPageData(context, {
+    creating: true,
+    formValues,
+    formError: 'muss nach der Startzeit liegen.',
+    fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+    offset: gridStateOffset(gridValues),
+    sortColumn: gridStateSort(gridValues),
+    sortDirection: gridStateDirection(gridValues),
+    filter: gridStateFilter(gridValues),
   })
+  return renderPage(context, data, { status: 400 })
 }
 ```
 
@@ -397,14 +475,15 @@ it('POST /client creates a row and redirects', async () => {
 
 ## Choosing Between Patterns
 
-| Criteria | Pattern 1: Direct Re-Render | Pattern 2: URL Params |
-|----------|---------------------------|----------------------|
-| Form inside `<Frame>` | No | **Yes** |
-| Form on full page | **Yes** (simpler) | Works but unnecessary |
-| Grid/table inline edit | **Yes** | Works |
-| Form values survive refresh | Yes (in server render) | **Yes** (in URL) |
-| Browser back-button safe | No | **Yes** |
+**Use Pattern 1 (Direct Re-Render) for all new code.** Pattern 2 is deprecated and should only be used as reference when reading legacy code.
+
+| Criteria | Pattern 1: Direct Re-Render | Pattern 2: URL Params (DEPRECATED) |
+|----------|---------------------------|------------------------------------|
+| Form values preserved | Yes (in server render) | Yes (in URL) |
 | Implementation complexity | Lower | Higher (need encode/decode) |
+| Browser URL clean on error | Yes | No (bloated with fv_/fe_ params) |
+| Grid state preserved | Yes (via overrides) | Yes (in URL) |
+| HTTP semantics | Correct (400) | Incorrect (302) |
 
 ---
 
@@ -428,20 +507,18 @@ it('POST /client creates a row and redirects', async () => {
 - `newapp/app/actions/client/controller.test.ts` — Tests for validation failure and value preservation
 - `newapp/app/actions/client/create-page.tsx` — Component: error styling, field errors display, value preservation
 - `newapp/app/actions/client/edit-page.tsx` — Component: error styling with row fallback
+- `newapp/app/actions/admin-offerings-controller.tsx` — Pattern 1: re-render on error with grid state preservation
+- `newapp/app/actions/admin-appointments-controller.tsx` — Pattern 1: migrated from URL params to direct re-render
+- `newapp/app/actions/admin-resources-controller.tsx` — Pattern 1: re-render with inline errors
+- `newapp/app/ui/admin-offerings-create-page.tsx` — Component with `formErrorBanner` (transparent bg + border)
+- `newapp/app/ui/admin-appointments-form.tsx` — Component with `formErrorBanner` and inline field errors
 - `newapp/app/utils/schema-utils.ts` — Shared `issuesToFieldErrors()` and `readFormFieldValues()` utilities
 - `newapp/app/utils/offering-schema.ts` — Declarative schema: `f.object()` + `coerce.number()` + `.refine()`
 - `newapp/app/utils/appointment-schema.ts` — Declarative schema for appointments form validation
-- `newapp/app/actions/admin-offerings-controller.tsx` — Pattern 2: parseSafe + redirect with fv_*/fe_* params
-- `newapp/app/actions/admin-appointments-controller.tsx` — Pattern 2: parseSafe + redirect
-- `newapp/app/utils/form-params.ts` — Pattern 2: encode/decode form values (`fv_` prefix) and field errors (`fe_` prefix)
-- `newapp/app/ui/admin-offerings-create-page.tsx` — Component using `formValues`/`fieldErrors`/`formError` props
-- `newapp/app/ui/admin-offerings-edit-page.tsx` — Component with error banner via `table.errorBanner`
+- `newapp/app/utils/grid-state.ts` — Grid state helpers: `gridStateFromFormData`, extractors, `gridStateToParams`
 
 ## Related Knowledge Files
 
 - `.agents/knowledge/remix3-parseSafe-declarative-schemas.md` — Full pattern: replacing hand-written validation with parseSafe + .refine()
 - `.agents/knowledge/remix3-coerce-number-empty-select-messages.md` — Fix for English error messages from empty selects
 - `.agents/knowledge/remix3-render-from-post-validation.md` — Why re-render-from-POST is the recommended Remix 3 pattern
-- `.agents/knowledge/remix3-frame-layout-blocks-render-from-post.md` — Why Frame-based admin layouts can't re-render-from-POST
-- `.agents/knowledge/form-values-preserve-frame-redirect-remix3.md` — Full guide on fv_/fe_ encoding for Frame-safe redirects
-- `.agents/knowledge/per-field-errors-url-roundtrip-remix3.md` — fe_ prefix encoding pattern details

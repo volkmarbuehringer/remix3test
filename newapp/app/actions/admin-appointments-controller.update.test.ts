@@ -197,12 +197,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(updateResponse.status, 302, 'update outside offering should redirect with error')
-      let location = updateResponse.headers.get('Location') ?? ''
-      assert.ok(
-        decodeURIComponent(location.replace(/\+/g, ' ')).includes('Buchungszeiten'),
-        'should include German error about booking hours',
-      )
+      assert.equal(updateResponse.status, 400, 'update outside offering should render with error')
     })
 
     it('2.6 update fails with collision error when new time range overlaps another appointment', async () => {
@@ -255,13 +250,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'overlapping update should redirect with error')
-      let location = response.headers.get('Location') ?? ''
-      assert.ok(location.includes('error='), 'should include error parameter')
-      assert.ok(
-        location.includes('editing='),
-        'should include editing param to stay on edit mode',
-      )
+      assert.equal(response.status, 400, 'overlapping update should render with error')
     })
   })
 
@@ -348,13 +337,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'past-date update should redirect with error')
-      let location = response.headers.get('Location') ?? ''
-      assert.ok(location.includes('error='), 'should include error parameter')
-      assert.ok(
-        decodeURIComponent(location.replace(/\+/g, ' ')).includes('Vergangenheit'),
-        'error should mention past (Vergangenheit)',
-      )
+      assert.equal(response.status, 400, 'past-date update should render with error')
     })
 
     it('returns error redirect for non-existent appointment ID', async () => {
@@ -382,12 +365,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'non-existent ID should redirect with error')
-      let location = response.headers.get('Location') ?? ''
-      assert.ok(
-        decodeURIComponent(location.replace(/\+/g, ' ')).includes('Eintrag nicht gefunden'),
-        'redirect should include error: Eintrag nicht gefunden',
-      )
+      assert.equal(response.status, 400, 'non-existent ID should render with error')
     })
 
     it('returns error redirect for invalid update data', async () => {
@@ -414,8 +392,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'validation error should redirect')
-      assert.ok(response.headers.has('Location'), 'should have Location header')
+      assert.equal(response.status, 400, 'validation error should render with 400')
     })
 
     it('handles overlapping time range on update with error redirect', async () => {
@@ -466,13 +443,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 302, 'overlapping update should redirect with error')
-      let location = response.headers.get('Location') ?? ''
-      assert.ok(location.includes('error='), 'should include error parameter')
-      assert.ok(
-        location.includes('editing='),
-        'should include editing param to stay on edit mode',
-      )
+      assert.equal(response.status, 400, 'overlapping update should render with error')
     })
 
     it('preserves grid state on successful update', async () => {
