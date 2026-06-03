@@ -2,6 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
+import { Glyph } from 'remix/ui/glyph'
 
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
@@ -92,7 +93,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             type="text" name="filter" placeholder="Suche nach Name, Email oder Login..."
             defaultValue={filter ?? ''} mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}>Suchen</button>
+          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a href={ADMIN_BASE} mix={table.clearLink}>
               Zurücksetzen
@@ -103,7 +104,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
             mix={table.linkPlain}
           >
-            <Button tone="primary">+ Neu anlegen</Button>
+            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
           </a>
         </form>
 
@@ -185,17 +186,17 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
                    mix={table.pageLink}
-                >← Zurück</a>
+                ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
               ) : (
-                <span mix={table.pageLinkDisabled}>← Zurück</span>
+                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
               )}
               {hasMore ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
                    mix={table.pageLink}
-                >Weiter →</a>
+                >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
               ) : (
-                <span mix={table.pageLinkDisabled}>Weiter →</span>
+                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
               )}
             </div>
           </div>

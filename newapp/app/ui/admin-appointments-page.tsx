@@ -133,7 +133,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
-            Suchen
+            <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
             <a href="/verwaltung/appointments" rmx-target={frames.adminContent} mix={table.clearLink}>
@@ -146,7 +146,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary">+ Neu</Button>
+            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu</Button>
           </a>
         </form>
 

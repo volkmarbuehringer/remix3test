@@ -102,8 +102,9 @@ const messageInputStyle = css({
   '&::placeholder': { color: theme.colors.text.muted },
 })
 const sendButtonStyle = css({
-  display: 'flex', alignItems: 'center', justifyContent: 'center', width: theme.space.xl, height: theme.space.xl,
-  borderRadius: theme.radius.lg, transition: 'all 0.15s ease', flexShrink: 0,
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  width: '36px', height: '36px', minHeight: '36px', paddingInline: 0,
+  borderRadius: theme.radius.full, transition: 'all 0.15s ease', flexShrink: 0,
   '&:hover': { transform: 'scale(1.05)' },
   '&:active': { transform: 'scale(0.95)' },
   '&:disabled': { opacity: 0.6, cursor: 'not-allowed', transform: 'none' },

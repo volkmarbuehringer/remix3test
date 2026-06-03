@@ -180,7 +180,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}>Suchen</button>
+          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a
               href="/verwaltung/offering-configs"
@@ -196,7 +196,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary">+ Neu anlegen</Button>
+            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
           </a>
         </form>
 

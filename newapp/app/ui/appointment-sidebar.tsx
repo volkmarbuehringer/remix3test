@@ -1,5 +1,6 @@
 import { clientEntry, css, navigate, on, type Handle } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
+import { Glyph } from 'remix/ui/glyph'
 
 import { formatDateRange, readAppointmentData } from '../utils/appointment.ts'
 
@@ -141,7 +142,7 @@ export const AppointmentSidebar = clientEntry(
                   }),
                 ]}
               >
-                ‹
+                <Glyph name="chevronRight" width={16} height={16} style={{ transform: 'rotate(180deg)' }} />
               </button>
               <span mix={dateRangeStyle}>{weekDateRange}</span>
               <button
@@ -154,7 +155,7 @@ export const AppointmentSidebar = clientEntry(
                   }),
                 ]}
               >
-                ›
+                <Glyph name="chevronRight" width={16} height={16} />
               </button>
             </div>
           </div>
