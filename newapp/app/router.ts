@@ -1,12 +1,5 @@
 import type { Cookie } from 'remix/cookie'
 import { createRouter } from 'remix/router'
-import { asyncContext } from 'remix/middleware/async-context'
-import { compression } from 'remix/middleware/compression'
-import { csrf } from 'remix/middleware/csrf'
-import { formData } from 'remix/middleware/form-data'
-import { logger } from 'remix/middleware/logger'
-import { methodOverride } from 'remix/middleware/method-override'
-import { session } from 'remix/middleware/session'
 import type { SessionStorage } from 'remix/session'
 
 import controller from './actions/controller.tsx'
@@ -35,14 +28,9 @@ import verwaltungController from './actions/verwaltung-controller.tsx'
 import appointmentController from './actions/appointment-controller.tsx'
 import appointTypeController from './actions/appointtype-controller.tsx'
 import { authLogout } from './actions/auth-logout.tsx'
-import { loadAssetEntry } from './middleware/asset-entry.ts'
-import { securityHeaders } from './middleware/security-headers.ts'
-import { json } from './middleware/json-render.ts'
-import { render } from './middleware/render.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { loadDatabase } from './middleware/database.ts'
-import { loadAuth } from './middleware/auth.ts'
 import { routes, listsRoutes, authRoutes, aiRoutes, adminRoutes, appointmentRoutes, verwaltungRoutes } from './routes.ts'
+import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
 // Side-effect: registers all workflow definitions
@@ -63,23 +51,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   let cookie = options?.sessionCookie ?? sessionCookie
   let storage = options?.sessionStorage ?? sessionStorage
 
-  let router = createRouter<AppContext>({
-    middleware: [
-      logger({ format: '[%date] %method %path → %status (%duration)' }),
-      securityHeaders(),
-      compression(),
-      formData(),
-      methodOverride(),
-      session(cookie, storage),
-      csrf(),
-      asyncContext(),
-      loadDatabase(),
-      loadAuth(),
-      loadAssetEntry(),
-      render(),
-      json(),
-    ],
-  })
+  let router = createRouter({ middleware: createNewappMiddleware(cookie, storage) })
 
   // Main app routes
   router.map(routes, controller)
