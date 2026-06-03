@@ -69,7 +69,7 @@ async function loadResourcePageData(
         defaultDirection: 'asc',
       })
 
-  let filterPredicate = filter
+  let filterPredicate = filter && filter.length <= 200
     ? ilike('description', `%${filter}%`)
     : undefined
 

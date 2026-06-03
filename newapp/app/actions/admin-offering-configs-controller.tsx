@@ -87,7 +87,7 @@ async function loadOfferingConfigPageData(
 
   let whereClause = ''
   let sqlParams: unknown[] = []
-  if (filter) {
+  if (filter && filter.length <= 200) {
     whereClause = 'WHERE r.description ILIKE $1'
     sqlParams.push(`%${filter}%`)
   }
@@ -489,7 +489,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
+          console.error('Constraint violation during offering config update', { code: (error as { code?: string }).code })
           let data = await loadOfferingConfigPageData(context, {
             editRow: toRow(target as Record<string, unknown>),
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS, formData),

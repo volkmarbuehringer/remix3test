@@ -121,11 +121,13 @@ function LoginPage(handle: Handle<LoginPageProps>) {
             Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: brand.light.accent }}>Register here</a>
           </p>
 
+          {process.env.NODE_ENV !== 'production' && (
           <div mix={[panelCss, panelInsetCss, demoBoxCss]}>
             <p mix={captionTextCss}><strong>Demo Accounts:</strong></p>
             <p mix={captionTextCss}>Admin: admin@newapp.com / admin123</p>
             <p mix={captionTextCss}>Customer: user@newapp.com / password123</p>
           </div>
+          )}
         </div>
       </div>
     </Layout>

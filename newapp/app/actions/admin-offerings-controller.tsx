@@ -15,6 +15,7 @@ import { getConfig, upsertConfig, generateWeek } from '../data/offering-configs.
 import type { OfferingConfig } from '../data/offering-configs.ts'
 import Holidays from 'date-holidays'
 import { logAdminAction } from '../data/audit-log.ts'
+import { isConstraintViolation } from '../utils/db-errors.ts'
 
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../utils/offering-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../utils/schema-utils.ts'
@@ -526,38 +527,43 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let formData = context.formData
 
-        let result = await pool.query(
-          'DELETE FROM appointoffering WHERE id = $1',
-          [id],
-        )
-
-        if (result.rowCount === 0) {
-          return context.json(
-            { ok: false, error: 'Eintrag nicht gefunden.' },
-            { status: 404 },
+        try {
+          let result = await pool.query(
+            'DELETE FROM appointoffering WHERE id = $1',
+            [id],
           )
+
+          if (result.rowCount === 0) {
+            return context.json(
+              { ok: false, error: 'Eintrag nicht gefunden.' },
+              { status: 404 },
+            )
+          }
+
+          let auth = context.auth
+          let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
+          if (authIdentity) {
+            logAdminAction(pool, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'destroy',
+              target_type: 'appointoffering',
+              target_id: id,
+            })
+          }
+        } catch (error: unknown) {
+          if (isConstraintViolation(error)) {
+            let params = gridStateToParams(gridStateFromFormData(formData))
+            let qs = params.toString()
+            return new Response(null, {
+              status: 302,
+              headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
+            })
+          }
+          throw error
         }
 
-        let auth = context.auth
-        let authIdentity: { id: number; email: string } | undefined = auth?.ok ? (auth.identity as { id: number; email: string }) : undefined
-        if (authIdentity) {
-          logAdminAction(pool, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'appointoffering',
-            target_id: id,
-          })
-        }
-
-        // Redirect back with preserved grid state
-        let redirectState = {
-          offset: (formData.get('_offset') as string) ?? '',
-          sort: (formData.get('_sort') as string) ?? '',
-          order: (formData.get('_order') as string) ?? '',
-          filter: (formData.get('_filter') as string) ?? '',
-        }
-        let params = gridStateToParams(redirectState)
+        let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
         return new Response(null, {
           status: 302,
