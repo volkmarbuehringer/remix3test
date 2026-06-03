@@ -131,12 +131,58 @@ const workflowTools = {
       body: z.string().describe('Notification body'),
     }),
     execute: async ({ url, subject, body }) => {
-      let response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, body }),
-      })
-      return { success: response.ok, status: response.status }
+      let logger = userLogger('Workflow-tools')
+      let parsed = new URL(url)
+      let hostname = parsed.hostname
+
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0' ||
+        hostname === '::1' ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.16.') ||
+        hostname.startsWith('172.17.') ||
+        hostname.startsWith('172.18.') ||
+        hostname.startsWith('172.19.') ||
+        hostname.startsWith('172.20.') ||
+        hostname.startsWith('172.21.') ||
+        hostname.startsWith('172.22.') ||
+        hostname.startsWith('172.23.') ||
+        hostname.startsWith('172.24.') ||
+        hostname.startsWith('172.25.') ||
+        hostname.startsWith('172.26.') ||
+        hostname.startsWith('172.27.') ||
+        hostname.startsWith('172.28.') ||
+        hostname.startsWith('172.29.') ||
+        hostname.startsWith('172.30.') ||
+        hostname.startsWith('172.31.') ||
+        hostname.startsWith('192.168.') ||
+        hostname === '169.254.169.254' ||
+        hostname.endsWith('.internal') ||
+        hostname.endsWith('.local')
+      ) {
+        throw new Error('Internal and private network URLs are not allowed')
+      }
+
+      if (parsed.protocol !== 'https:') {
+        throw new Error('Only HTTPS URLs are allowed')
+      }
+
+      let externalController = new AbortController()
+      let timeout = setTimeout(() => externalController.abort(), 10000)
+
+      try {
+        let response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, body }),
+          signal: externalController.signal,
+        })
+        return { success: response.ok, status: response.status }
+      } finally {
+        clearTimeout(timeout)
+      }
     },
   }),
 }

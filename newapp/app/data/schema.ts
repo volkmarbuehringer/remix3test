@@ -90,6 +90,7 @@ export const chatlog = table({
   primaryKey: ['id'],
   columns: {
     id: c.text(),
+    user_id: c.integer(),
     conversation: c.json(),
     created_at: c.integer(),
     updated_at: c.integer(),

@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth.ts'
 import { ToolLoopAgent, stepCountIs } from 'ai'
 import { getConversation } from '../lib/chatlog.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
+import { getCurrentUser } from '../utils/context.ts'
 import { AgentPage } from '../ui/agent-page.tsx'
 import { renderAiPage } from '../ui/ai-layout.tsx'
 import { userLogger } from '../utils/logger.ts'
@@ -33,6 +34,7 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
       let logger = userLogger('Agent')
       logger.log('GET index - SSR with conversation history')
 
+      let user = getCurrentUser()
       let agentId = context.url.searchParams.get('agentId')
       let messages: ChatMessage[] = []
 
@@ -43,7 +45,7 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
 
       if (agentId) {
         try {
-          let chat = await getConversation(agentId)
+          let chat = await getConversation(agentId, user.id)
           if (chat) {
             messages = chat.conversation
             logger.log('loaded', messages.length, 'messages from conversation:', agentId)
@@ -61,6 +63,7 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
       let logger = userLogger('Agent')
       logger.log('POST action - processing message')
 
+      let user = getCurrentUser()
       let formData = context.formData
       let rawConversationId = context.url.searchParams.get('agentId') ?? formData.get('conversationId')?.toString() ?? null
       let conversationId: string | null = null
@@ -85,7 +88,7 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
 
       let chatId: string
       if (!conversationId) {
-        chatId = await createConversation()
+        chatId = await createConversation(user.id)
         logger.log('created new conversation:', chatId)
       } else {
         chatId = conversationId
@@ -93,7 +96,7 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
       }
 
       try {
-        let existingChat = await getConversation(chatId)
+        let existingChat = await getConversation(chatId, user.id)
         let messages: Array<{ role: 'user' | 'assistant'; content: Array<{ type: 'text'; text: string }> }> = []
 
         if (existingChat) {
@@ -154,8 +157,8 @@ Use tools to provide accurate, real-time information.`,
 
         logger.log('Tool calls captured:', capturedToolCalls.length)
 
-        await appendMessage(chatId, { role: 'user', content: message, timestamp: Date.now() })
-        await appendMessage(chatId, {
+        await appendMessage(chatId, user.id, { role: 'user', content: message, timestamp: Date.now() })
+        await appendMessage(chatId, user.id, {
           role: 'assistant',
           content: responseText,
           timestamp: Date.now(),

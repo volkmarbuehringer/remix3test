@@ -8,6 +8,7 @@ import type { AppContext } from '../types/context.ts'
 import { requireAuth } from '../middleware/auth.ts'
 import { getConversation } from '../lib/chatlog.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
+import { getCurrentUser } from '../utils/context.ts'
 import { ChatPage } from '../ui/chat-page.tsx'
 import { renderAiPage } from '../ui/ai-layout.tsx'
 import { createConversation, appendMessage } from '../lib/chatlog.ts'
@@ -33,6 +34,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
       let logger = userLogger('Chat')
       logger.log('GET index - SSR with conversation history')
 
+      let user = getCurrentUser()
       let chatId = context.url.searchParams.get('chatId')
       let error = context.url.searchParams.get('error')
       let messages: ChatMessage[] = []
@@ -44,7 +46,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
 
       if (chatId) {
         try {
-          let chat = await getConversation(chatId)
+          let chat = await getConversation(chatId, user.id)
           if (chat) {
             messages = chat.conversation
             logger.log('loaded', messages.length, 'messages from conversation:', chatId)
@@ -68,6 +70,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
         return context.json({ error: 'Please wait before sending another message' }, { status: 429 })
       }
 
+      let user = getCurrentUser()
       let formData = context.formData
       let rawConversationId = context.url.searchParams.get('chatId') ?? formData.get('conversationId')?.toString() ?? null
       let conversationId: string | null = null
@@ -93,7 +96,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
 
       let chatId: string
       if (!conversationId) {
-        chatId = await createConversation()
+        chatId = await createConversation(user.id)
         logger.log('created new conversation:', chatId)
       } else {
         chatId = conversationId
@@ -103,7 +106,7 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
       try {
         logger.log('calling LLM with generateText')
 
-        let existingChat = await getConversation(chatId)
+        let existingChat = await getConversation(chatId, user.id)
         let llmMessages: Array<{ role: 'user' | 'assistant'; content: Array<{ type: 'text'; text: string }> }> = []
 
         if (existingChat) {
@@ -145,13 +148,13 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
           return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
         }
 
-        await appendMessage(chatId, {
+        await appendMessage(chatId, user.id, {
           role: 'user',
           content: message,
           timestamp: Date.now(),
         })
 
-        await appendMessage(chatId, {
+        await appendMessage(chatId, user.id, {
           role: 'assistant',
           content: responseText,
           timestamp: Date.now(),

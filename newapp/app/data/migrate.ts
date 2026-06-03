@@ -26,6 +26,10 @@ export async function migrate(): Promise<void> {
     )
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS chatlog_created_at_idx ON chatlog (created_at)`)
+  await pool.query(`
+    ALTER TABLE chatlog ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS chatlog_user_id_idx ON chatlog (user_id)`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS workflow_runs (

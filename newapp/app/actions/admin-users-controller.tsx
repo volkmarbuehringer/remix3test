@@ -262,9 +262,21 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
         return context.json({ ok: false, error: 'User not found' }, { status: 404 })
       }
 
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity && id === authIdentity.id) {
+        return context.json({ ok: false, error: 'Cannot delete your own account' }, { status: 403 })
+      }
+
+      let user = existing as User
+      if (user.role === 'admin') {
+        let adminCount = await db.count(users, { where: { role: 'admin' } })
+        if (adminCount <= 1) {
+          return context.json({ ok: false, error: 'Cannot delete the last admin account' }, { status: 403 })
+        }
+      }
+
       await db.deleteMany(users, { where: { id } })
 
-      let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
         logAdminAction(pool, {
           admin_user_id: authIdentity.id,

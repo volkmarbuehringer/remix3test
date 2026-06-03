@@ -25,8 +25,37 @@ const loginSchema = f.object({
   password: f.field(s.defaulted(s.string(), '')),
 })
 
-// Per-email rate limiter: blocks after 5 failed attempts in 15 seconds
-const loginLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
+const shortLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
+const mediumLimiter = createRateLimiter({ windowMs: 5 * 60_000, perKey: true, maxAttempts: 15 })
+const longLimiter = createRateLimiter({ windowMs: 60 * 60_000, perKey: true, maxAttempts: 30 })
+
+function checkRateLimit(email: string): { allowed: boolean; error: string; retryMs: number } | null {
+  let long = longLimiter.check(email)
+  if (!long.allowed) {
+    return { allowed: false, error: 'Account is locked due to too many failed attempts. Please try again later.', retryMs: (long.retryAfter ?? 3600) * 1000 }
+  }
+  let medium = mediumLimiter.check(email)
+  if (!medium.allowed) {
+    return { allowed: false, error: 'Account is temporarily locked. Please try again in a few minutes.', retryMs: (medium.retryAfter ?? 300) * 1000 }
+  }
+  let short = shortLimiter.check(email)
+  if (!short.allowed) {
+    return { allowed: false, error: 'Too many attempts. Please try again later.', retryMs: (short.retryAfter ?? 15) * 1000 }
+  }
+  return null
+}
+
+function incrementFailedAttempts(email: string): void {
+  shortLimiter.set(email)
+  mediumLimiter.set(email)
+  longLimiter.set(email)
+}
+
+function resetFailedAttempts(email: string): void {
+  shortLimiter.reset(email)
+  mediumLimiter.reset(email)
+  longLimiter.reset(email)
+}
 
 export default createController<typeof authRoutes.authLogin, AppContext>(authRoutes.authLogin, {
   middleware: [],
@@ -46,17 +75,19 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
         return context.render(<LoginPage error="Invalid email or password format." returnTo={returnTo} />, { status: 400 })
       }
 
-      if (!loginLimiter.attempt(parsed.email)) {
-        return context.render(<LoginPage error="Too many attempts. Please try again later." returnTo={returnTo} />, { status: 429 })
+      let rateLimit = checkRateLimit(parsed.email)
+      if (rateLimit) {
+        return context.render(<LoginPage error={rateLimit.error} returnTo={returnTo} />, { status: 429 })
       }
 
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
+        incrementFailedAttempts(parsed.email)
         return context.render(<LoginPage error="Invalid email or password." returnTo={returnTo} />, { status: 401 })
       }
 
-      loginLimiter.reset(parsed.email)
+      resetFailedAttempts(parsed.email)
 
       let session = completeAuth(context)
       session.regenerateId()
