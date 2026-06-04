@@ -7,7 +7,6 @@ import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
-import { Button } from 'remix/ui/button'
 
 import { authRoutes } from '../routes.ts'
 import type { AppContext } from '../types/context.ts'
@@ -16,8 +15,8 @@ import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { passwordProvider } from '../middleware/auth.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
 import { Layout } from '../ui/layout.tsx'
-import { CsrfTokenInput } from '../ui/csrf-token-input.tsx'
-import { panelCss, panelInsetCss, pageStackCss, bodyTextCss, captionTextCss } from '../ui/page-primitives.tsx'
+import { AuthShell, AuthForm, fieldLabelCss } from '../ui/auth-card.tsx'
+import { panelCss, panelInsetCss, bodyTextCss, captionTextCss } from '../ui/page-primitives.tsx'
 import { input } from '../ui/mixins/input.ts'
 
 const loginSchema = f.object({
@@ -109,29 +108,33 @@ type LoginPageProps = {
 function LoginPage(handle: Handle<LoginPageProps>) {
   return () => {
     let { error, returnTo } = handle.props
-    return (
-    <Layout title="Login">
-      <div mix={[pageStackCss, css({ maxWidth: '480px', margin: '4rem auto' })]}>
-        <div mix={panelCss}>
-          <div mix={brandMarkCss}>
-            <div mix={brandDotCss} />
-            <span mix={brandLabelCss}>newapp</span>
+
+    let formAction = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'
+
+    let footer = (
+      <>
+        <p mix={[bodyTextCss, css({ margin: 0 })]}>
+          Don't have an account? <a href={authRoutes.authRegister.index.href()} mix={footerLinkCss}>Register here</a>
+        </p>
+        {process.env.NODE_ENV !== 'production' && (
+          <div mix={[panelCss, panelInsetCss, demoBoxCss]}>
+            <p mix={captionTextCss}><strong>Demo Accounts:</strong></p>
+            <p mix={captionTextCss}>Admin: admin@newapp.com / admin123</p>
+            <p mix={captionTextCss}>Customer: user@newapp.com / password123</p>
           </div>
+        )}
+      </>
+    )
 
-          <h1 mix={headingCss}>
-            Login
-          </h1>
-
-          {error ? (
-            <div mix={errorBannerCss}>
-              <p mix={[bodyTextCss, css({ margin: 0 })]}>
-                {error}
-              </p>
-            </div>
-          ) : null}
-
-          <form method="POST" action={`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`} mix={formStackCss}>
-            <CsrfTokenInput />
+    return (
+      <Layout title="Sign in">
+        <AuthShell
+          eyebrow="Welcome back"
+          title="Sign in to newapp"
+          description="Use your email and password to continue."
+          header={<BrandMark />}
+        >
+          <AuthForm action={formAction} error={error} submitLabel="Sign in" footer={footer}>
             <label mix={fieldLabelCss}>
               <span>Email</span>
               <input type="email" name="email" required autoComplete="email" mix={[input.base, input.focus]} />
@@ -141,64 +144,29 @@ function LoginPage(handle: Handle<LoginPageProps>) {
               <span>Password</span>
               <input type="password" name="password" required autoComplete="current-password" mix={[input.base, input.focus]} />
             </label>
-
-            <Button type="submit" tone="primary" mix={submitBtnCss}>
-              Login
-            </Button>
-          </form>
-
-          <p mix={bodyTextCss}>
-            Don't have an account? <a href={authRoutes.authRegister.index.href()} style={{ color: theme.colors.action.primary.background }}>Register here</a>
-          </p>
-
-          {process.env.NODE_ENV !== 'production' && (
-          <div mix={[panelCss, panelInsetCss, demoBoxCss]}>
-            <p mix={captionTextCss}><strong>Demo Accounts:</strong></p>
-            <p mix={captionTextCss}>Admin: admin@newapp.com / admin123</p>
-            <p mix={captionTextCss}>Customer: user@newapp.com / password123</p>
-          </div>
-          )}
-        </div>
-      </div>
-    </Layout>
-  )
+          </AuthForm>
+        </AuthShell>
+      </Layout>
+    )
   }
 }
 
+function BrandMark() {
+  return () => (
+    <div mix={brandMarkCss}>
+      <div mix={brandDotCss} />
+      <span mix={brandLabelCss}>newapp</span>
+    </div>
+  )
+}
+
 // ── Styles ──
-
-const errorPanelCss = css({
-  borderColor: theme.colors.action.danger.background,
-  backgroundColor: theme.surface.lvl2,
-})
-
-const formStackCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.md,
-})
-
-const fieldLabelCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.xs,
-  color: theme.colors.text.secondary,
-  fontWeight: theme.fontWeight.medium,
-  fontSize: theme.fontSize.sm,
-})
-
-const submitBtnCss = css({
-  width: '100%',
-  fontSize: theme.fontSize.lg,
-  minHeight: theme.control.height.lg,
-  marginTop: theme.space.sm,
-})
 
 const brandMarkCss = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
-  marginBottom: theme.space.md,
+  marginBottom: theme.space.sm,
 })
 
 const brandDotCss = css({
@@ -217,22 +185,10 @@ const brandLabelCss = css({
   color: theme.colors.text.muted,
 })
 
-const headingCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.xl,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
-  marginBottom: theme.space.lg,
-})
-
-const errorBannerCss = css({
-  borderLeft: `3px solid ${theme.colors.action.danger.background}`,
-  backgroundColor: theme.surface.lvl2,
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderRadius: theme.radius.sm,
-  marginBottom: theme.space.md,
-})
-
 const demoBoxCss = css({
   borderLeft: `3px solid ${theme.colors.action.primary.background}`,
+})
+
+const footerLinkCss = css({
+  color: theme.colors.action.primary.background,
 })

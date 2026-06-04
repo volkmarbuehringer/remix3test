@@ -1,0 +1,141 @@
+import type { Handle, RemixNode } from 'remix/ui'
+import { css } from 'remix/ui'
+import { Button } from 'remix/ui/button'
+import { theme } from 'remix/ui/theme'
+
+import { CsrfTokenInput } from './csrf-token-input.tsx'
+
+// ── AuthShell ──
+
+type AuthShellProps = {
+  children?: RemixNode
+  description: string
+  eyebrow: string
+  header?: RemixNode
+  title: string
+}
+
+export function AuthShell(handle: Handle<AuthShellProps>) {
+  return () => {
+    let { children, description, eyebrow, header, title } = handle.props
+
+    return (
+      <section mix={pageContainer}>
+        <div mix={cardContainer}>
+          {header}
+          <p mix={eyebrowText}>{eyebrow}</p>
+          <h1 mix={titleText}>{title}</h1>
+          <p mix={bodyText}>{description}</p>
+          {children}
+        </div>
+      </section>
+    )
+  }
+}
+
+// ── AuthForm ──
+
+type AuthFormProps = {
+  action: string
+  children: RemixNode
+  error?: string
+  footer?: RemixNode
+  submitLabel: string
+}
+
+export function AuthForm(handle: Handle<AuthFormProps>) {
+  return () => {
+    let { action, children, error, footer, submitLabel } = handle.props
+
+    return (
+      <form action={action} method="post" mix={formContainer}>
+        <CsrfTokenInput />
+        {error ? (
+          <p role="alert" mix={errorBanner}>
+            {error}
+          </p>
+        ) : null}
+        {children}
+        <Button type="submit" tone="primary" mix={submitButton}>
+          {submitLabel}
+        </Button>
+        {footer ? <div mix={footerContainer}>{footer}</div> : null}
+      </form>
+    )
+  }
+}
+
+// ── Styles ──
+
+const pageContainer = css({
+  display: 'grid',
+  minHeight: 'calc(100vh - 80px)',
+  placeItems: 'center',
+  padding: theme.space.xl,
+})
+
+const cardContainer = css({
+  width: 'min(100%, 420px)',
+  border: `1px solid ${theme.colors.border.subtle}`,
+  borderRadius: theme.radius.xl,
+  backgroundColor: theme.surface.lvl0,
+  boxShadow: theme.shadow.lg,
+  padding: theme.space.xl,
+})
+
+const eyebrowText = css({
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  letterSpacing: theme.letterSpacing.wide,
+  margin: '0 0 0.5rem',
+  textTransform: 'uppercase',
+})
+
+const titleText = css({
+  color: theme.colors.text.primary,
+  fontSize: theme.fontSize.xxl,
+  letterSpacing: theme.letterSpacing.tight,
+  lineHeight: theme.lineHeight.tight,
+  margin: 0,
+})
+
+const bodyText = css({
+  color: theme.colors.text.secondary,
+  lineHeight: theme.lineHeight.relaxed,
+  margin: `${theme.space.sm} 0 ${theme.space.lg}`,
+})
+
+const formContainer = css({
+  display: 'grid',
+  gap: theme.space.md,
+})
+
+const errorBanner = css({
+  backgroundColor: theme.colors.action.danger.background,
+  border: `1px solid ${theme.colors.action.danger.border}`,
+  borderRadius: theme.radius.md,
+  color: theme.colors.action.danger.foreground,
+  margin: 0,
+  padding: theme.space.md,
+})
+
+const submitButton = css({
+  width: '100%',
+  minHeight: theme.control.height.lg,
+})
+
+const footerContainer = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.md,
+})
+
+export const fieldLabelCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.medium,
+})
