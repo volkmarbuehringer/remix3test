@@ -9,7 +9,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
-import type { ResourceOption } from '../actions/admin-offerings-controller.tsx'
+import type { ResourceOption } from '../actions/admin-offerings/controller.tsx'
 
 interface AdminOfferingsCreatePageProps {
   resources: ResourceOption[]

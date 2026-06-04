@@ -19,7 +19,7 @@ import type {
   AppointmentRow,
   ResourceOption,
   UserOption,
-} from '../actions/admin-appointments-controller.tsx'
+} from '../actions/admin-appointments/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = '/verwaltung/appointments'

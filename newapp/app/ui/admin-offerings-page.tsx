@@ -16,7 +16,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminOfferingsContextMenu } from '../assets/admin-offerings-context-menu.tsx'
-import type { OfferingRow, ResourceOption } from '../actions/admin-offerings-controller.tsx'
+import type { OfferingRow, ResourceOption } from '../actions/admin-offerings/controller.tsx'
 
 interface AdminOfferingsPageProps {
   rows: OfferingRow[]

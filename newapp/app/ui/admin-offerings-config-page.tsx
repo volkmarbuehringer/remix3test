@@ -6,7 +6,7 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
-import type { ResourceOption } from '../actions/admin-offerings-controller.tsx'
+import type { ResourceOption } from '../actions/admin-offerings/controller.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
 interface AdminOfferingsConfigPageProps {

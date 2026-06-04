@@ -14,7 +14,7 @@ import {
 import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import type { OfferingConfigRow, ResourceOption } from '../actions/admin-offering-configs-controller.tsx'
+import type { OfferingConfigRow, ResourceOption } from '../actions/admin-offering-configs/controller.tsx'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]
