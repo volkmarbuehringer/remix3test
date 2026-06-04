@@ -41,18 +41,13 @@ export default createController<typeof routes, AppContext>(routes, {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
-      let parsed: { description: string; items: Array<{ id: string; label: string }> }
-      try {
-        parsed = s.parse(listsSaveSchema, body)
-      } catch (err) {
-        let message = 'Description and items are required'
-        if (err instanceof s.ValidationError && err.issues.length > 0) {
-          message = err.issues[0].message
-        }
+      let parseResult = s.parseSafe(listsSaveSchema, body)
+      if (!parseResult.success) {
+        let message = parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Description and items are required'
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = parsed
+      let { description, items } = parseResult.value
 
       if (!description.trim()) {
         return context.json({ error: 'Description is required' }, { status: 400 })
@@ -97,18 +92,13 @@ export default createController<typeof routes, AppContext>(routes, {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
-      let parsed: { description: string; items: Array<{ id: string; label: string }> }
-      try {
-        parsed = s.parse(listsSaveSchema, body)
-      } catch (err) {
-        let message = 'Description and items are required'
-        if (err instanceof s.ValidationError && err.issues.length > 0) {
-          message = err.issues[0].message
-        }
+      let updateResult = s.parseSafe(listsSaveSchema, body)
+      if (!updateResult.success) {
+        let message = updateResult.issues.length > 0 ? updateResult.issues[0].message : 'Description and items are required'
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = parsed
+      let { description, items } = updateResult.value
 
       if (!description.trim()) {
         return context.json({ error: 'Description is required' }, { status: 400 })

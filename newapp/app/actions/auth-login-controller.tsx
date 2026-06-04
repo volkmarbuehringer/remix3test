@@ -15,7 +15,9 @@ import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { passwordProvider } from '../middleware/auth.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
 import { Layout } from '../ui/layout.tsx'
-import { AuthShell, AuthForm, fieldLabelCss } from '../ui/auth-card.tsx'
+import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss } from '../ui/auth-card.tsx'
+import type { AuthFormErrors } from '../ui/auth-card.tsx'
+import { issuesToFieldErrors } from '../utils/schema-utils.ts'
 import { panelCss, panelInsetCss, bodyTextCss, captionTextCss } from '../ui/page-primitives.tsx'
 import { input } from '../ui/mixins/input.ts'
 
@@ -67,14 +69,12 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
     async action(context) {
       let returnTo = context.url.searchParams.get('returnTo') ?? undefined
 
-      let parsed: { email: string }
-      try {
-        parsed = s.parse(loginSchema, context.formData) as { email: string }
-      } catch {
-        return context.render(<LoginPage error="Invalid email or password format." returnTo={returnTo} />, { status: 400 })
+      let parsed = s.parseSafe(loginSchema, context.formData)
+      if (!parsed.success) {
+        return context.render(<LoginPage error="Invalid email or password format." errors={issuesToFieldErrors(parsed.issues)} returnTo={returnTo} />, { status: 400 })
       }
 
-      let rateLimit = checkRateLimit(parsed.email)
+      let rateLimit = checkRateLimit(parsed.value.email)
       if (rateLimit) {
         return context.render(<LoginPage error={rateLimit.error} returnTo={returnTo} />, { status: 429 })
       }
@@ -82,11 +82,11 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
-        incrementFailedAttempts(parsed.email)
+        incrementFailedAttempts(parsed.value.email)
         return context.render(<LoginPage error="Invalid email or password." returnTo={returnTo} />, { status: 401 })
       }
 
-      resetFailedAttempts(parsed.email)
+      resetFailedAttempts(parsed.value.email)
 
       let session = completeAuth(context)
       session.regenerateId()
@@ -102,12 +102,13 @@ export default createController<typeof authRoutes.authLogin, AppContext>(authRou
 
 type LoginPageProps = {
   error?: string
+  errors?: AuthFormErrors
   returnTo?: string
 }
 
 function LoginPage(handle: Handle<LoginPageProps>) {
   return () => {
-    let { error, returnTo } = handle.props
+    let { error, errors, returnTo } = handle.props
 
     let formAction = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'
 
@@ -137,12 +138,30 @@ function LoginPage(handle: Handle<LoginPageProps>) {
           <AuthForm action={formAction} error={error} submitLabel="Sign in" footer={footer}>
             <label mix={fieldLabelCss}>
               <span>Email</span>
-              <input type="email" name="email" required autoComplete="email" mix={[input.base, input.focus]} />
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                aria-invalid={errors?.email ? true : undefined}
+                aria-describedby={errors?.email ? 'email-error' : undefined}
+                mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
+              />
+              {errors?.email ? <span id="email-error" role="alert" mix={fieldErrorCss}>{errors.email}</span> : null}
             </label>
 
             <label mix={fieldLabelCss}>
               <span>Password</span>
-              <input type="password" name="password" required autoComplete="current-password" mix={[input.base, input.focus]} />
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                aria-invalid={errors?.password ? true : undefined}
+                aria-describedby={errors?.password ? 'password-error' : undefined}
+                mix={[input.base, input.focus, errors?.password ? input.error : undefined]}
+              />
+              {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
             </label>
           </AuthForm>
         </AuthShell>

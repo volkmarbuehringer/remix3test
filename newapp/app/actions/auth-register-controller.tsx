@@ -14,7 +14,9 @@ import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { users } from '../data/schema.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 import { Layout } from '../ui/layout.tsx'
-import { AuthShell, AuthForm, fieldLabelCss } from '../ui/auth-card.tsx'
+import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss } from '../ui/auth-card.tsx'
+import type { AuthFormErrors } from '../ui/auth-card.tsx'
+import { issuesToFieldErrors } from '../utils/schema-utils.ts'
 import { bodyTextCss } from '../ui/page-primitives.tsx'
 import { input } from '../ui/mixins/input.ts'
 
@@ -36,12 +38,11 @@ export default createController<typeof authRoutes.authRegister, AppContext>(auth
     async action(context) {
       let formData = context.formData
 
-      let name: string, email: string, password: string
-      try {
-        ({ name, email, password } = s.parse(registerSchema, formData))
-      } catch {
-        return context.render(<RegisterPage error="Invalid input. Name is required, email must be valid, and password must be at least 8 characters." />, { status: 400 })
+      let parsed = s.parseSafe(registerSchema, formData)
+      if (!parsed.success) {
+        return context.render(<RegisterPage error="Invalid input. Name is required, email must be valid, and password must be at least 8 characters." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
       }
+      let { name, email, password } = parsed.value
       let normalizedEmail = email.trim().toLowerCase()
 
       if (!registerLimiter.attempt(normalizedEmail)) {
@@ -84,9 +85,9 @@ export default createController<typeof authRoutes.authRegister, AppContext>(auth
   },
 })
 
-function RegisterPage(handle: Handle<{ error?: string }>) {
+function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors }>) {
   return () => {
-    let { error } = handle.props
+    let { error, errors } = handle.props
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
@@ -104,17 +105,44 @@ function RegisterPage(handle: Handle<{ error?: string }>) {
           <AuthForm action={authRoutes.authRegister.action.href()} error={error} submitLabel="Create account" footer={footer}>
             <label mix={fieldLabelCss}>
               <span>Name</span>
-              <input type="text" name="name" required autoComplete="name" mix={[input.base, input.focus]} />
+              <input
+                type="text"
+                name="name"
+                required
+                autoComplete="name"
+                aria-invalid={errors?.name ? true : undefined}
+                aria-describedby={errors?.name ? 'name-error' : undefined}
+                mix={[input.base, input.focus, errors?.name ? input.error : undefined]}
+              />
+              {errors?.name ? <span id="name-error" role="alert" mix={fieldErrorCss}>{errors.name}</span> : null}
             </label>
 
             <label mix={fieldLabelCss}>
               <span>Email</span>
-              <input type="email" name="email" required autoComplete="email" mix={[input.base, input.focus]} />
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                aria-invalid={errors?.email ? true : undefined}
+                aria-describedby={errors?.email ? 'email-error' : undefined}
+                mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
+              />
+              {errors?.email ? <span id="email-error" role="alert" mix={fieldErrorCss}>{errors.email}</span> : null}
             </label>
 
             <label mix={fieldLabelCss}>
               <span>Password</span>
-              <input type="password" name="password" required autoComplete="new-password" mix={[input.base, input.focus]} />
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="new-password"
+                aria-invalid={errors?.password ? true : undefined}
+                aria-describedby={errors?.password ? 'password-error' : undefined}
+                mix={[input.base, input.focus, errors?.password ? input.error : undefined]}
+              />
+              {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
             </label>
           </AuthForm>
         </AuthShell>

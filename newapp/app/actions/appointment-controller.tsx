@@ -25,6 +25,7 @@ import type { User } from '../data/schema.ts'
 import { AppointmentPage } from '../ui/appointment-page.tsx'
 import { appointmentChannel } from '../lib/appointments-sse.ts'
 import { createRateLimiter } from '../utils/rate-limiter.ts'
+import { issuesToFieldErrors } from '../utils/schema-utils.ts'
 
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
@@ -241,7 +242,7 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
       // Fall back to manual creation with title
       let parsed = s.parseSafe(createSchema, body)
       if (!parsed.success) {
-        return context.json({ error: 'Validation failed.' }, { status: 400 })
+        return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
       }
 
       if (parsed.value.end_min - parsed.value.start_min < MINIMUM_DURATION) {
@@ -296,7 +297,7 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
 
       let parsed = s.parseSafe(updateSchema, body)
       if (!parsed.success) {
-        return context.json({ error: 'Validation failed.' }, { status: 400 })
+        return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
       }
 
       let { start_min, end_min } = parsed.value

@@ -81,8 +81,13 @@ export default createController<typeof routes.ai.chat, AppContext>(routes.ai.cha
         logger.warn('invalid conversationId format:', rawConversationId)
       }
 
-      let parseResult = s.parse(messageSchema, formData) as { message?: string }
-      let message = parseResult.message
+      let parsed = s.parseSafe(messageSchema, formData)
+      if (!parsed.success) {
+        logger.log('message validation failed')
+        return context.json({ error: 'Please enter a message' }, { status: 400 })
+      }
+
+      let message = parsed.value.message
 
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
         logger.log('empty message rejected')

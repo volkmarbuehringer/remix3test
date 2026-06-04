@@ -73,11 +73,14 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
     async action(context) {
       let db = context.db
       let formData = context.formData
-      let { content: rawContent } = s.parse(messageSchema, formData)
-      let content = sanitizeContent(rawContent)
+      let parsed = s.parseSafe(messageSchema, formData)
+      if (!parsed.success) {
+        return new Response('Message content is required', { status: 400 })
+      }
+      let content = sanitizeContent(parsed.value.content)
 
       if (!content) {
-        return new Response('Message content is required', { status: 400 })
+        return new Response('Message content cannot be empty', { status: 400 })
       }
 
       let user = getCurrentUser()

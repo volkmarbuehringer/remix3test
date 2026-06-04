@@ -251,7 +251,7 @@ describe('auth e2e', () => {
     let html = await response.text()
 
     // Page heading
-    assert.ok(html.includes('Login'), 'page should contain "Login" heading')
+    assert.ok(html.includes('Sign in to newapp'), 'page should contain "Sign in to newapp" heading')
 
     // Form structure
     assert.ok(html.includes('<form'), 'page should contain a form element')
@@ -286,7 +286,7 @@ describe('auth e2e', () => {
     let html = await response.text()
 
     // Page heading
-    assert.ok(html.includes('Register'), 'page should contain "Register" heading')
+    assert.ok(html.includes('Create your account'), 'page should contain "Create your account" heading')
 
     // Form structure
     assert.ok(html.includes('<form'), 'page should contain a form element')

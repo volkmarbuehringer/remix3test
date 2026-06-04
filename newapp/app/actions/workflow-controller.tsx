@@ -57,12 +57,11 @@ export default createController<typeof routes.ai.workflow, AppContext>(routes.ai
         formEntries: Array.from(formData.entries()).length
       })
 
-      let workflowId: string
-      try {
-        ({ workflowId } = s.parse(workflowSchema, formData))
-      } catch {
+      let parsed = s.parseSafe(workflowSchema, formData)
+      if (!parsed.success) {
         return context.json({ error: 'Workflow ID is required' }, { status: 400 })
       }
+      let workflowId = parsed.value.workflowId
 
       let workflow = getWorkflow(workflowId)
       if (!workflow) {

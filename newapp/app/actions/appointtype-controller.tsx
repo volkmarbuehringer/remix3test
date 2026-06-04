@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth.ts'
 import type { AppContext } from '../types/context.ts'
 import { appointmentRoutes as routes } from '../routes.ts'
 import { fragmentResponseInit } from '../middleware/render.tsx'
+import { issuesToFieldErrors } from '../utils/schema-utils.ts'
 import {
   listAppointTypes,
   createAppointType,
@@ -69,7 +70,7 @@ export default createController<typeof routes.appointment.types, AppContext>(
 
         let parsed = s.parseSafe(createSchema, body)
         if (!parsed.success) {
-          return context.json({ error: 'Validation failed.' }, { status: 400 })
+          return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
         }
 
         let type = await createAppointType(context.db, userId, parsed.value)
@@ -93,7 +94,7 @@ export default createController<typeof routes.appointment.types, AppContext>(
 
         let parsed = s.parseSafe(updateSchema, body)
         if (!parsed.success) {
-          return context.json({ error: 'Validation failed.' }, { status: 400 })
+          return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
         }
 
         try {

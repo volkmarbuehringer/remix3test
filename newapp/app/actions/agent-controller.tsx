@@ -74,8 +74,12 @@ export default createController<typeof routes.ai.agent, AppContext>(routes.ai.ag
         logger.warn('invalid conversationId format:', rawConversationId)
       }
 
-      let parseResult = s.parse(messageSchema, formData) as { message?: string }
-      let message = parseResult.message
+      let parsed = s.parseSafe(messageSchema, formData)
+      if (!parsed.success) {
+        return context.json({ error: 'Please enter a message' }, { status: 400 })
+      }
+
+      let message = parsed.value.message
 
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
         return context.json({ error: 'Please enter a message' }, { status: 400 })

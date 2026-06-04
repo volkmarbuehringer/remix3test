@@ -121,38 +121,37 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       let db = context.db
       let formData = context.formData
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(userCreateSchema, formData) as Record<string, string>
-      } catch {
+      let parseResult = s.parseSafe(userCreateSchema, formData)
+      if (!parseResult.success) {
         return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
+      let fields = parseResult.value
 
       // Validate fields
-      if (!parsed.name || !parsed.name.trim()) {
+      if (!fields.name || !fields.name.trim()) {
         return context.json({ ok: false, error: 'Name is required' }, { status: 400 })
       }
-      if (!parsed.email || !EMAIL_RE.test(parsed.email)) {
+      if (!fields.email || !EMAIL_RE.test(fields.email)) {
         return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
       }
-      if (!parsed.password || parsed.password.length < 6) {
+      if (!fields.password || fields.password.length < 6) {
         return context.json({ ok: false, error: 'Password must be at least 6 characters' }, { status: 400 })
       }
 
       // Check for duplicate email
-      let existing = await db.findOne(users, { where: { email: parsed.email.trim().toLowerCase() } })
+      let existing = await db.findOne(users, { where: { email: fields.email.trim().toLowerCase() } })
       if (existing) {
         return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
       }
 
-      let passwordHash = await hashPassword(parsed.password)
-      let role = parsed.role === 'admin' ? 'admin' : 'customer'
+      let passwordHash = await hashPassword(fields.password)
+      let role = fields.role === 'admin' ? 'admin' : 'customer'
 
       let row = await db.create(
         users,
         {
-          name: parsed.name.trim(),
-          email: parsed.email.trim().toLowerCase(),
+          name: fields.name.trim(),
+          email: fields.email.trim().toLowerCase(),
           password_hash: passwordHash,
           role,
         },
@@ -167,12 +166,12 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
           action_type: 'create',
           target_type: 'users',
           target_id: row.id as number,
-          details: { name: parsed.name.trim(), email: parsed.email.trim().toLowerCase(), role },
+          details: { name: fields.name.trim(), email: fields.email.trim().toLowerCase(), role },
         })
       }
 
       // Redirect back with editing=NEW_ID
-      let redirectState = gridStateFromForm(parsed)
+      let redirectState = gridStateFromForm(fields)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let baseUrl = routes.admin.users.index.href()
@@ -191,32 +190,31 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(userUpdateSchema, formData) as Record<string, string>
-      } catch {
+      let parseResult = s.parseSafe(userUpdateSchema, formData)
+      if (!parseResult.success) {
         return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
+      let fields = parseResult.value
 
       // Validate email if provided
-      if (parsed.email && !EMAIL_RE.test(parsed.email)) {
+      if (fields.email && !EMAIL_RE.test(fields.email)) {
         return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
       }
 
       // Check for duplicate email (excluding current user)
-      if (parsed.email) {
-        let existing = await db.findOne(users, { where: { email: parsed.email.trim().toLowerCase() } })
+      if (fields.email) {
+        let existing = await db.findOne(users, { where: { email: fields.email.trim().toLowerCase() } })
         if (existing && existing.id !== id) {
           return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
         }
       }
 
       let changes: Record<string, unknown> = {}
-      if (parsed.name?.trim()) changes.name = parsed.name.trim()
-      if (parsed.email?.trim()) changes.email = parsed.email.trim().toLowerCase()
-      if (parsed.role === 'admin' || parsed.role === 'customer') changes.role = parsed.role
-      if (parsed.password && parsed.password.length >= 6) {
-        changes.password_hash = await hashPassword(parsed.password)
+      if (fields.name?.trim()) changes.name = fields.name.trim()
+      if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
+      if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role
+      if (fields.password && fields.password.length >= 6) {
+        changes.password_hash = await hashPassword(fields.password)
       }
 
       await db.updateMany(users, changes, { where: { id } })
@@ -238,7 +236,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       }
 
       // Redirect back with preserved grid state
-      let redirectState = gridStateFromForm(parsed)
+      let redirectState = gridStateFromForm(fields)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
@@ -288,13 +286,11 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       }
 
       // Redirect back with preserved grid state
-      let parsed: Record<string, string>
-      try {
-        parsed = s.parse(userUpdateSchema, formData) as Record<string, string>
-      } catch {
-        parsed = { name: '', email: '', role: '', password: '', _offset: '', _sort: '', _order: '', _filter: '' }
-      }
-      let params = gridStateToParams(gridStateFromForm(parsed))
+      // With s.defaulted() on all fields, parseSafe always succeeds for this schema,
+      // but the miss branch preserves grid state defensively.
+      let parseResult = s.parseSafe(userUpdateSchema, formData)
+      let fields = parseResult.success ? parseResult.value : { name: '', email: '', role: '', password: '', _offset: '', _sort: '', _order: '', _filter: '' }
+      let params = gridStateToParams(gridStateFromForm(fields))
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
       return new Response(null, {

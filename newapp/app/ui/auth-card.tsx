@@ -5,6 +5,11 @@ import { theme } from 'remix/ui/theme'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 
+export type AuthFormErrors = {
+  form?: string
+  [field: string]: string | undefined
+}
+
 // ── AuthShell ──
 
 type AuthShellProps = {
@@ -48,7 +53,7 @@ export function AuthForm(handle: Handle<AuthFormProps>) {
     let { action, children, error, footer, submitLabel } = handle.props
 
     return (
-      <form action={action} method="post" mix={formContainer}>
+      <form action={action} method="POST" mix={formContainer}>
         <CsrfTokenInput />
         {error ? (
           <p role="alert" mix={errorBanner}>
@@ -138,4 +143,9 @@ export const fieldLabelCss = css({
   color: theme.colors.text.secondary,
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.medium,
+})
+
+export const fieldErrorCss = css({
+  color: theme.colors.action.danger.foreground,
+  fontSize: theme.fontSize.xs,
 })
