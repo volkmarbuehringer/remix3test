@@ -24,4 +24,38 @@ export function formatMinOption(minutes: number): string {
   return `${h}:${m}`
 }
 
+export function getPeriodRange(period: string): { startMs: number; endMs: number } | null {
+  let now = new Date()
+
+  if (period === 'this-week') {
+    let day = now.getUTCDay() || 7
+    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)))
+    let nextMonday = new Date(monday)
+    nextMonday.setUTCDate(monday.getUTCDate() + 7)
+    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
+  }
+
+  if (period === 'next-week') {
+    let day = now.getUTCDay() || 7
+    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1) + 7))
+    let nextMonday = new Date(monday)
+    nextMonday.setUTCDate(monday.getUTCDate() + 7)
+    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
+  }
+
+  if (period === 'this-month') {
+    let firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    return { startMs: firstOfMonth.getTime(), endMs: firstOfNext.getTime() }
+  }
+
+  if (period === 'next-month') {
+    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    let firstOfAfter = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 1))
+    return { startMs: firstOfNext.getTime(), endMs: firstOfAfter.getTime() }
+  }
+
+  return null
+}
+
 

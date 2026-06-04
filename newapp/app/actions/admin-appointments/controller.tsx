@@ -4,14 +4,14 @@ import * as s from 'remix/data-schema'
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
-import { isDateInPast } from '../../utils/date-utils.ts'
+import { isDateInPast, getPeriodRange } from '../../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange, parseDuring } from '../../data/appointofferings.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../ui/verwaltung-layout.tsx'
 import { AdminAppointmentsPage } from '../../ui/admin-appointments-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
-import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter } from '../../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod } from '../../utils/grid-state.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { appointmentChannel } from '../../lib/appointments-sse.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
@@ -116,6 +116,7 @@ interface AppointmentPageData {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  period: string | undefined
   resources: ResourceOption[]
   users: UserOption[]
   editRow: AppointmentRow | null
@@ -130,10 +131,11 @@ interface AppointmentPageData {
 
 async function loadAppointmentPageData(
   context: AppContext,
-  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period'>>,
 ): Promise<AppointmentPageData> {
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
+  let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
 
   let { column, direction } = overrides?.sortColumn ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const } : parseSort(context.url, {
     allowedColumns: Object.keys(ORDER_BY_COLUMNS),
@@ -162,6 +164,21 @@ async function loadAppointmentPageData(
     )
     query += ` WHERE (${conditions.join(' OR ')})`
     params.push(searchPattern)
+  }
+
+  let periodRange = period ? getPeriodRange(period) : null
+  if (periodRange) {
+    paramIndex++
+    if (filter && filter.length <= 200) {
+      query += ` AND a.date >= $${paramIndex}`
+    } else {
+      query += ` WHERE a.date >= $${paramIndex}`
+    }
+    params.push(periodRange.startMs)
+
+    paramIndex++
+    query += ` AND a.date < $${paramIndex}`
+    params.push(periodRange.endMs)
   }
 
   paramIndex++
@@ -255,6 +272,7 @@ async function loadAppointmentPageData(
     sortColumn: column,
     sortDirection: direction,
     filter,
+    period,
     resources,
     users,
     editRow,
@@ -298,8 +316,9 @@ function renderAppointmentsPage(
       nextOffset={data.nextOffset}
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
-      filter={data.filter}
-      editRow={data.editRow}
+          filter={data.filter}
+          period={data.period}
+          editRow={data.editRow}
       creating={data.creating}
       resources={data.resources}
       users={data.users}
@@ -345,6 +364,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+
+              period: gridStatePeriod(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -360,6 +381,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -373,6 +396,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -389,6 +414,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -406,6 +433,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -423,6 +452,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -438,6 +469,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -476,6 +509,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+
+              period: gridStatePeriod(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -514,6 +549,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+
+              period: gridStatePeriod(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -529,6 +566,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -544,6 +583,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -558,6 +599,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -575,6 +618,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -593,6 +638,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -611,6 +658,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -627,6 +676,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+
+            period: gridStatePeriod(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -652,6 +703,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+
+              period: gridStatePeriod(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -678,6 +731,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+
+              period: gridStatePeriod(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }

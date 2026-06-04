@@ -10,6 +10,7 @@ export interface AdminAppointmentsEditPageProps {
   sort: string
   order: string
   filter?: string
+  period?: string
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -17,14 +18,14 @@ export interface AdminAppointmentsEditPageProps {
 
 export function AdminAppointmentsEditPage(handle: Handle<AdminAppointmentsEditPageProps>) {
   return () => {
-    let { row, resources, users, offset, sort, order, filter = '', formValues, fieldErrors, formError } = handle.props
+    let { row, resources, users, offset, sort, order, filter = '', period = '', formValues, fieldErrors, formError } = handle.props
     return (
       <AdminAppointmentsForm
         mode="edit"
         row={row}
         resources={resources}
         users={users}
-        gridState={{ offset, sort, order, filter: filter ?? '' }}
+        gridState={{ offset, sort, order, filter: filter ?? '', period }}
         formValues={formValues}
         fieldErrors={fieldErrors}
         formError={formError}

@@ -10,7 +10,7 @@ import { renderVerwaltungPage } from '../../ui/verwaltung-layout.tsx'
 import { AdminOfferingsPage } from '../../ui/admin-offerings-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, type GridState } from '../../utils/grid-state.ts'
-import { isDateInPast } from '../../utils/date-utils.ts'
+import { isDateInPast, getPeriodRange } from '../../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../../data/offering-configs.ts'
 import type { OfferingConfig } from '../../data/offering-configs.ts'
 import Holidays from 'date-holidays'
@@ -89,40 +89,6 @@ function formatTime(minutes: number): string {
   let h = Math.floor(minutes / 60)
   let m = minutes % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function getPeriodRange(period: string): { startMs: number; endMs: number } | null {
-  let now = new Date()
-
-  if (period === 'this-week') {
-    let day = now.getUTCDay() || 7
-    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)))
-    let nextMonday = new Date(monday)
-    nextMonday.setUTCDate(monday.getUTCDate() + 7)
-    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
-  }
-
-  if (period === 'next-week') {
-    let day = now.getUTCDay() || 7
-    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1) + 7))
-    let nextMonday = new Date(monday)
-    nextMonday.setUTCDate(monday.getUTCDate() + 7)
-    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
-  }
-
-  if (period === 'this-month') {
-    let firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-    return { startMs: firstOfMonth.getTime(), endMs: firstOfNext.getTime() }
-  }
-
-  if (period === 'next-month') {
-    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-    let firstOfAfter = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 1))
-    return { startMs: firstOfNext.getTime(), endMs: firstOfAfter.getTime() }
-  }
-
-  return null
 }
 
 function isExclusionConstraintError(error: unknown): boolean {

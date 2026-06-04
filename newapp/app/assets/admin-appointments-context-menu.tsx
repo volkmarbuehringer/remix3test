@@ -11,6 +11,7 @@ interface GridState {
   sort: string
   order: string
   filter: string
+  period: string
 }
 
 /**
@@ -127,6 +128,7 @@ export const AdminAppointmentsContextMenu = clientEntry(
         params.set('sort', state.sort || 'a.date')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
+        if (state.period) params.set('period', state.period)
         window.location.href = '/verwaltung/appointments?' + params.toString()
       } catch {
         // Fallback: navigate without grid state

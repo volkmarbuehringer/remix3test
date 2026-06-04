@@ -9,6 +9,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
+import type { GridState } from '../utils/grid-state.ts'
 import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admin-appointments/controller.tsx'
 
 // ── Shared constants ─────────────────────────────────────────────
@@ -55,7 +56,7 @@ export interface AdminAppointmentsFormProps {
   resources: ResourceOption[]
   users: UserOption[]
   /** Grid state for hidden inputs and cancel URL. */
-  gridState: { offset: string; sort: string; order: string; filter: string }
+  gridState: GridState
   /** Row data (required in edit mode). */
   row?: AppointmentRow
   /** Default start minute for create mode (default: 480 = 08:00). */
@@ -76,7 +77,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
   return () => {
     let { mode, resources, users, gridState, row, defaultStartMin = 480, defaultEndMin = 1020, fieldErrors, formError, formValues } = handle.props
     let isEdit = mode === 'edit'
-    let { offset, sort, order, filter = '' } = gridState
+    let { offset, sort, order, filter = '', period = '' } = gridState
 
     // Value priority: formValues (submitted on error) > row (from DB) > defaults
     let resolvedResourceId = formValues?.resource_id ?? (isEdit && row ? row.resource_id : undefined)
@@ -227,7 +228,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/appointments', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/appointments', offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
