@@ -9,7 +9,7 @@ import { requireAdmin } from '../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../ui/verwaltung-layout.tsx'
 import { AdminOfferingsPage } from '../../ui/admin-offerings-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
-import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, type GridState } from '../../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, type GridState } from '../../utils/grid-state.ts'
 import { isDateInPast } from '../../utils/date-utils.ts'
 import { getConfig, upsertConfig, generateWeek } from '../../data/offering-configs.ts'
 import type { OfferingConfig } from '../../data/offering-configs.ts'
@@ -61,6 +61,7 @@ export interface OfferingPageData {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  period: string | undefined
   editRow: OfferingRow | null
   creating: boolean
   resources: ResourceOption[]
@@ -88,6 +89,40 @@ function formatTime(minutes: number): string {
   let h = Math.floor(minutes / 60)
   let m = minutes % 60
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+function getPeriodRange(period: string): { startMs: number; endMs: number } | null {
+  let now = new Date()
+
+  if (period === 'this-week') {
+    let day = now.getUTCDay() || 7
+    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)))
+    let nextMonday = new Date(monday)
+    nextMonday.setUTCDate(monday.getUTCDate() + 7)
+    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
+  }
+
+  if (period === 'next-week') {
+    let day = now.getUTCDay() || 7
+    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1) + 7))
+    let nextMonday = new Date(monday)
+    nextMonday.setUTCDate(monday.getUTCDate() + 7)
+    return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
+  }
+
+  if (period === 'this-month') {
+    let firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    return { startMs: firstOfMonth.getTime(), endMs: firstOfNext.getTime() }
+  }
+
+  if (period === 'next-month') {
+    let firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    let firstOfAfter = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 1))
+    return { startMs: firstOfNext.getTime(), endMs: firstOfAfter.getTime() }
+  }
+
+  return null
 }
 
 function isExclusionConstraintError(error: unknown): boolean {
@@ -120,10 +155,11 @@ async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
 
 async function loadOfferingPageData(
   context: AppContext,
-  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period'>>,
 ): Promise<OfferingPageData> {
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+  let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
 
   let { column, direction } = overrides?.sortColumn
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
@@ -151,6 +187,21 @@ async function loadOfferingPageData(
     )
     query += ` WHERE (${conditions.join(' OR ')})`
     queryParams.push(searchPattern)
+  }
+
+  let periodRange = period ? getPeriodRange(period) : null
+  if (periodRange) {
+    paramIndex++
+    if (filter && filter.length <= 200) {
+      query += ` AND ao.day >= $${paramIndex}`
+    } else {
+      query += ` WHERE ao.day >= $${paramIndex}`
+    }
+    queryParams.push(periodRange.startMs)
+
+    paramIndex++
+    query += ` AND ao.day < $${paramIndex}`
+    queryParams.push(periodRange.endMs)
   }
 
   paramIndex++
@@ -207,6 +258,7 @@ async function loadOfferingPageData(
     sortColumn: column,
     sortDirection: direction,
     filter,
+    period,
     editRow,
     creating,
     resources,
@@ -234,6 +286,7 @@ function renderOfferingsPage(context: AppContext, data: OfferingPageData, init?:
       sortColumn={data.sortColumn}
       sortDirection={data.sortDirection}
       filter={data.filter}
+      period={data.period}
       editRow={data.editRow}
       creating={data.creating}
       resources={data.resources}
@@ -279,6 +332,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -296,6 +350,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -310,6 +365,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -326,6 +382,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -364,6 +421,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
             })
             return renderOfferingsPage(context, data, { status: 400 })
           }
@@ -406,6 +464,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -424,6 +483,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -439,6 +499,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -456,6 +517,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -500,6 +562,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
+              period: gridStatePeriod(gridValues),
             })
             return renderOfferingsPage(context, data, { status: 400 })
           }
@@ -678,6 +741,37 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           })
         }
 
+        let qs = params.toString()
+        return new Response(null, {
+          status: 302,
+          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
+        })
+      },
+
+      async deletePast(context) {
+        let formData = context.formData
+        let gridValues = gridStateFromFormData(formData)
+
+        let todayMidnight = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z').getTime()
+
+        let result = await pool.query(
+          'DELETE FROM appointoffering WHERE day < $1',
+          [todayMidnight],
+        )
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          logAdminAction(pool, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'delete_past',
+            target_type: 'appointoffering',
+            details: { deletedCount: result.rowCount ?? 0 },
+          })
+        }
+
+        let params = gridStateToParams(gridValues)
+        params.set('error', `${result.rowCount ?? 0} vergangene Angebote gelöscht.`)
         let qs = params.toString()
         return new Response(null, {
           status: 302,

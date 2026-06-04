@@ -3,6 +3,8 @@ import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
 import { Glyph } from 'remix/ui/glyph'
+import { getContext } from 'remix/middleware/async-context'
+import { getCsrfToken } from 'remix/middleware/csrf'
 
 import { frames } from '../routes.ts'
 import { table } from './mixins/admin-table.ts'
@@ -16,6 +18,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminOfferingsContextMenu } from '../assets/admin-offerings-context-menu.tsx'
+import { DeletePastButton } from '../assets/admin-delete-past-button.tsx'
 import type { OfferingRow, ResourceOption } from '../actions/admin-offerings/controller.tsx'
 
 interface AdminOfferingsPageProps {
@@ -27,6 +30,7 @@ interface AdminOfferingsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  period?: string
   editRow?: OfferingRow | null
   creating?: boolean
   resources: ResourceOption[]
@@ -43,23 +47,35 @@ interface AdminOfferingsPageProps {
 
 const ADMIN_BASE = '/verwaltung/offerings'
 
-function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: string): string {
+function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: string, period?: string): string {
   let params = new URLSearchParams()
   params.set('addweek', 'true')
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   return '/verwaltung/offerings?' + params.toString()
 }
 
-function buildConfigUrl(resourceId: number, offset: number, sort: string, order: string, filter?: string): string {
+function buildConfigUrl(resourceId: number, offset: number, sort: string, order: string, filter?: string, period?: string): string {
   let params = new URLSearchParams()
   params.set('config', String(resourceId))
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
+  return '/verwaltung/offerings?' + params.toString()
+}
+
+function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string): string {
+  let params = new URLSearchParams()
+  if (offset > 0) params.set('offset', String(offset))
+  params.set('sort', sort)
+  params.set('order', order)
+  if (filter) params.set('filter', filter)
+  if (newPeriod) params.set('period', newPeriod)
   return '/verwaltung/offerings?' + params.toString()
 }
 const WEEKDAY_LABELS: Record<number, string> = {
@@ -106,13 +122,20 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
   return () => {
     let {
       rows, offset, hasMore, prevOffset, nextOffset,
-      sortColumn, sortDirection, filter,
+      sortColumn, sortDirection, filter, period,
       editRow = null, creating = false, resources, error,
       configResourceId, offeringConfig, addWeek = false,
       formValues, fieldErrors, formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
+
+    let csrfToken = ''
+    try {
+      csrfToken = getCsrfToken(getContext())
+    } catch (e) {
+      console.error('Failed to get CSRF token:', e)
+    }
 
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
@@ -144,21 +167,66 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             </a>
           )}
           <span mix={table.spacer} />
+          <span mix={css({
+            display: 'inline-flex',
+            alignItems: 'center',
+          })}>
+            {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map((value, i, arr) => {
+              let isFirst = i === 0
+              let isLast = i === arr.length - 1
+              let label = value === '' ? 'Alle' : { 'this-week': 'Diese Woche', 'next-week': 'Nächste Woche', 'this-month': 'Diesen Monat', 'next-month': 'Nächsten Monat' }[value]
+              let active = value === '' ? !period : period === value
+              let href = active
+                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter)
+                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter)
+              return (
+                <a
+                  href={href}
+                  rmx-target={frames.adminContent}
+                  mix={css({
+                    '& button': {
+                      paddingLeft: theme.space.sm,
+                      paddingRight: theme.space.sm,
+                      borderTopLeftRadius: isFirst ? undefined : '0',
+                      borderBottomLeftRadius: isFirst ? undefined : '0',
+                      borderTopRightRadius: isLast ? undefined : '0',
+                      borderBottomRightRadius: isLast ? undefined : '0',
+                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                    },
+                  })}
+                >
+                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                </a>
+              )
+            })}
+          </span>
+        </form>
+
+        <div mix={table.filterBar}>
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter, period)}
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
           </a>
           <a
-            href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter)}
+            href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter, period)}
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <Button tone="primary"><Glyph name="add" width={14} height={14} /> Woche hinzufügen</Button>
           </a>
-        </form>
+          <span mix={table.spacer} />
+          <DeletePastButton
+            csrfToken={csrfToken}
+            offset={String(offset)}
+            sort={sortColumn}
+            order={sortDirection}
+            filter={filter ?? ''}
+            period={period ?? ''}
+          />
+        </div>
 
         {/* Table */}
         <div mix={table.wrap} data-offerings-table="true">
@@ -183,8 +251,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               <thead>
                 <tr>
                   <th mix={table.thSortable} title="ID">
-                    <a href={buildSortUrl(ADMIN_BASE, 'ao.id', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                      <a href={buildSortUrl(ADMIN_BASE, 'ao.id', sortColumn, sortDirection, offset, filter, period)}
+                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       ID
                       <span mix={'ao.id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('ao.id', sortColumn, sortDirection)}
@@ -194,7 +262,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   <th mix={table.th}>KW</th>
                   <th mix={table.th}>WD</th>
                   <th mix={table.thSortable} title="Tag">
-                    <a href={buildSortUrl(ADMIN_BASE, 'ao.day', sortColumn, sortDirection, offset, filter)}
+                    <a href={buildSortUrl(ADMIN_BASE, 'ao.day', sortColumn, sortDirection, offset, filter, period)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       Tag
                       <span mix={'ao.day' === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -203,7 +271,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Ressource">
-                    <a href={buildSortUrl(ADMIN_BASE, 'r.description', sortColumn, sortDirection, offset, filter)}
+                    <a href={buildSortUrl(ADMIN_BASE, 'r.description', sortColumn, sortDirection, offset, filter, period)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       Ressource
                       <span mix={'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -212,7 +280,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Zeitraum">
-                    <a href={buildSortUrl(ADMIN_BASE, 'ao.during', sortColumn, sortDirection, offset, filter)}
+                    <a href={buildSortUrl(ADMIN_BASE, 'ao.during', sortColumn, sortDirection, offset, filter, period)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       Zeitraum
                       <span mix={'ao.during' === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -221,7 +289,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Erstellt">
-                    <a href={buildSortUrl(ADMIN_BASE, 'ao.created_at', sortColumn, sortDirection, offset, filter)}
+                    <a href={buildSortUrl(ADMIN_BASE, 'ao.created_at', sortColumn, sortDirection, offset, filter, period)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       Erstellt
                       <span mix={'ao.created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -230,7 +298,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Aktualisiert">
-                    <a href={buildSortUrl(ADMIN_BASE, 'ao.updated_at', sortColumn, sortDirection, offset, filter)}
+                    <a href={buildSortUrl(ADMIN_BASE, 'ao.updated_at', sortColumn, sortDirection, offset, filter, period)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
                       Aktualisiert
                       <span mix={'ao.updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -274,6 +342,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       sort: sortColumn,
                       order: sortDirection,
                       filter: filter ?? '',
+                      period: period ?? '',
                     }}
                   />
                 </RestfulForm>
@@ -291,7 +360,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter, period)}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
@@ -300,7 +369,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter, period)}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
@@ -318,6 +387,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             sort: sortColumn,
             order: sortDirection,
             filter: filter ?? '',
+            period: period ?? '',
           })}
         </script>
         <AdminOfferingsContextMenu />
@@ -340,6 +410,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  period={period}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
@@ -351,6 +422,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  period={period}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}

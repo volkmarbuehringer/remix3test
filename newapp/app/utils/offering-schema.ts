@@ -21,4 +21,5 @@ export const offeringSaveSchema = f.object({
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
   _filter: f.field(s.defaulted(s.string(), '')),
+  _period: f.field(s.defaulted(s.string(), '')),
 })

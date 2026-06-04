@@ -10,6 +10,7 @@ export function buildSortUrl(
   currentOrder: 'asc' | 'desc',
   offset: number,
   filter?: string,
+  period?: string,
 ): string {
   let newOrder = field === currentSort ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'
   let params = new URLSearchParams()
@@ -17,6 +18,7 @@ export function buildSortUrl(
   params.set('sort', field)
   params.set('order', newOrder)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   return `${base}?${params.toString()}`
 }
 
@@ -26,12 +28,14 @@ export function buildPaginationUrl(
   sort: string,
   order: 'asc' | 'desc',
   filter?: string,
+  period?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('offset', String(newOffset))
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   return `${base}?${params.toString()}`
 }
 
@@ -41,6 +45,7 @@ export function buildCreateUrl(
   sort: string,
   order: string,
   filter?: string,
+  period?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('creating', 'true')
@@ -48,6 +53,7 @@ export function buildCreateUrl(
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   return `${base}?${params.toString()}`
 }
 
@@ -58,6 +64,7 @@ export function buildEditUrl(
   sort: string,
   order: string,
   filter?: string,
+  period?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('editing', String(id))
@@ -65,15 +72,17 @@ export function buildEditUrl(
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   return `${base}?${params.toString()}`
 }
 
-export function buildCancelUrl(base: string, offset: string, sort: string, order: string, filter?: string): string {
+export function buildCancelUrl(base: string, offset: string, sort: string, order: string, filter?: string, period?: string): string {
   let params = new URLSearchParams()
   if (offset) params.set('offset', offset)
   if (sort) params.set('sort', sort)
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
   let qs = params.toString()
   return base + (qs ? '?' + qs : '')
 }

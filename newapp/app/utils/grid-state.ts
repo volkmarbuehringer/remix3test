@@ -3,6 +3,7 @@ export interface GridState {
   sort: string
   order: string
   filter: string
+  period?: string
 }
 
 export function gridStateFromURL(url: URL): GridState {
@@ -11,6 +12,7 @@ export function gridStateFromURL(url: URL): GridState {
     sort: url.searchParams.get('sort') || '',
     order: url.searchParams.get('order') || '',
     filter: url.searchParams.get('filter') || '',
+    period: url.searchParams.get('period') || '',
   }
 }
 
@@ -20,6 +22,7 @@ export function gridStateFromForm(parsed: Record<string, string>): GridState {
     sort: parsed._sort || '',
     order: parsed._order || '',
     filter: parsed._filter || '',
+    period: parsed._period || '',
   }
 }
 
@@ -29,6 +32,7 @@ export function gridStateFromFormData(formData: FormData): GridState {
     sort: (formData.get('_sort') as string) ?? '',
     order: (formData.get('_order') as string) ?? '',
     filter: (formData.get('_filter') as string) ?? '',
+    period: (formData.get('_period') as string) ?? '',
   }
 }
 
@@ -38,6 +42,7 @@ export function gridStateToParams(state: GridState): URLSearchParams {
   if (state.sort) params.set('sort', state.sort)
   if (state.order) params.set('order', state.order)
   if (state.filter) params.set('filter', state.filter)
+  if (state.period) params.set('period', state.period)
   return params
 }
 
@@ -70,4 +75,8 @@ export function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined
 
 export function gridStateFilter(state: GridState): string | undefined {
   return state.filter || undefined
+}
+
+export function gridStatePeriod(state: GridState): string | undefined {
+  return state.period || undefined
 }

@@ -14,6 +14,7 @@ export function GridStateHiddenInputs(handle: Handle<GridStateHiddenInputsProps>
         <input type="hidden" name="_sort" value={state.sort} />
         <input type="hidden" name="_order" value={state.order} />
         <input type="hidden" name="_filter" value={state.filter} />
+        <input type="hidden" name="_period" value={state.period ?? ''} />
       </>
     )
   }

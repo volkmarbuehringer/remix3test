@@ -100,6 +100,7 @@ export const routes = route({
       destroy: del('/:id'),
       configSave: post('/config'),
       weekGenerate: post('/week'),
+      deletePast: post('/delete-past'),
     }),
 
     appointments: route('appointments', {

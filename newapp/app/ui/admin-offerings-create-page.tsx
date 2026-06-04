@@ -17,6 +17,7 @@ interface AdminOfferingsCreatePageProps {
   sort?: string
   order?: string
   filter?: string
+  period?: string
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -46,7 +47,7 @@ const formErrorBanner = css({
 
 export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePageProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors, formError } = handle.props
+    let { resources, offset = '', sort = '', order = '', filter = '', period = '', formValues, fieldErrors, formError } = handle.props
 
     let resolvedResourceId = formValues?.resource_id ?? ''
     let resolvedDay = formValues?.day ?? ''
@@ -56,7 +57,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="POST" action="/verwaltung/offerings" novalidate>
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, period }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -139,7 +140,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
