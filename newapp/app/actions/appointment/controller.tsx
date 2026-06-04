@@ -5,7 +5,7 @@ import { getCsrfToken } from 'remix/middleware/csrf'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import type { AppContext } from '../../types/context.ts'
-import { appointmentRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import {
   listAppointmentsByWeek,
   createAppointment,
@@ -114,7 +114,7 @@ export default createController<typeof routes.appointment, AppContext>(routes.ap
     async index(context) {
       let auth = context.auth
       if (!auth?.ok) {
-        return Response.redirect(new URL('/login', context.request.url), 302)
+        return Response.redirect(new URL(routes.auth.login.index.href(), context.request.url), 302)
       }
       let currentUser = auth.identity as User
       let currentUserId = currentUser.id

@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
-import { aiRoutes as routes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import type { WorkflowRun } from '../workflows/engine.ts'
 
 export interface WorkflowRunPageProps {

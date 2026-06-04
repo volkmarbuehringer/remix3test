@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../router.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
 import { createCsrfSession } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Auth End-to-End tests
@@ -45,8 +46,8 @@ describe('auth e2e', () => {
     let password = 'journeyPass123'
 
     // --- Step 1: Register a new user ---
-    let { cookie: registerCsrfCookie, csrfToken: registerCsrf } = await createCsrfSession(`${BASE}/register`)
-    let registerResponse = await router.fetch(`${BASE}/register`, {
+    let { cookie: registerCsrfCookie, csrfToken: registerCsrf } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let registerResponse = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
         name: 'Journey Test User',
@@ -72,9 +73,9 @@ describe('auth e2e', () => {
     // --- Step 2: Logout ---
     // Need a CSRF token for logout too. The registerResponse set a new session cookie.
     // We need a CSRF token for this session. Let's get one from the login page.
-    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}/login`)
+    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
     // Use the cookie from the login csrf session (which might be different from the register cookie)
-    let logoutResponse = await router.fetch(`${BASE}/logout`, {
+    let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ _csrf: logoutCsrf }),
       headers: { Cookie: logoutCsrfCookie },
@@ -93,8 +94,8 @@ describe('auth e2e', () => {
     assert.ok(logoutCookie, 'logout should set a regenerated session cookie')
 
     // --- Step 3: Login with the registered credentials ---
-    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}/login`)
-    let loginResponse = await router.fetch(`${BASE}/login`, {
+    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ email, password, _csrf: loginCsrf }),
       headers: { Cookie: loginCsrfCookie },
@@ -119,8 +120,8 @@ describe('auth e2e', () => {
 
   it('logs in with seed admin account then logs out', async () => {
     // --- Step 1: Login as admin ---
-    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}/login`)
-    let loginResponse = await router.fetch(`${BASE}/login`, {
+    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
         email: 'admin@newapp.com',
@@ -143,8 +144,8 @@ describe('auth e2e', () => {
     assert.ok(adminCookie, 'admin login should set a session cookie')
 
     // --- Step 2: Logout ---
-    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}/login`)
-    let logoutResponse = await router.fetch(`${BASE}/logout`, {
+    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ _csrf: logoutCsrf }),
       headers: { Cookie: logoutCsrfCookie },
@@ -168,8 +169,8 @@ describe('auth e2e', () => {
   // -----------------------------------------------------------------------
 
   it('logs in with seed user account', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/login`)
-    let response = await router.fetch(`${BASE}/login`, {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
         email: 'user@newapp.com',
@@ -197,8 +198,8 @@ describe('auth e2e', () => {
   // -----------------------------------------------------------------------
 
   it('rejects login with wrong password for seed admin', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/login`)
-    let response = await router.fetch(`${BASE}/login`, {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
         email: 'admin@newapp.com',
@@ -219,8 +220,8 @@ describe('auth e2e', () => {
   })
 
   it('rejects login with non-existent email', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/login`)
-    let response = await router.fetch(`${BASE}/login`, {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
         email: 'nonexistent@test.com',
@@ -245,7 +246,7 @@ describe('auth e2e', () => {
   // -----------------------------------------------------------------------
 
   it('GET /login renders the login form', async () => {
-    let response = await router.fetch(`${BASE}/login`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
 
     assert.equal(response.status, 200)
     let html = await response.text()
@@ -280,7 +281,7 @@ describe('auth e2e', () => {
   // -----------------------------------------------------------------------
 
   it('GET /register renders the registration form', async () => {
-    let response = await router.fetch(`${BASE}/register`)
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`)
 
     assert.equal(response.status, 200)
     let html = await response.text()

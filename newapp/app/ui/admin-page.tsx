@@ -1,7 +1,7 @@
 import { css, Frame } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 
-import { adminRoutes as routes, frames } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 
 const cardStyle = css({
   background: theme.surface.lvl0,
@@ -82,7 +82,7 @@ export function AdminDashboardContent() {
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Client-Test</h2>
           <p mix={cardDescStyle}>CRUD-Tabelle mit Paginierung, Sortierung und Filterung.</p>
-          <a href="/client" mix={btnStyle}>
+          <a href={routes.client.index.href()} mix={btnStyle}>
             Client-Test öffnen
           </a>
         </div>

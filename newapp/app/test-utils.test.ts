@@ -6,6 +6,7 @@ import {
   extractCookie,
   createCsrfSession,
 } from './test-utils.ts'
+import { routes } from './routes.ts'
 
 const BASE = 'https://remix.run'
 
@@ -122,7 +123,7 @@ describe('extractCookie', () => {
 describe('createCsrfSession', () => {
   it('makes a GET request and returns a cookie + CSRF token', async () => {
     // Arrange & Act: createCsrfSession fetches /login and extracts cookie + token
-    let result = await createCsrfSession(`${BASE}/login`)
+    let result = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
 
     // Assert
     assert.ok(result, 'should return a result object')
@@ -142,7 +143,7 @@ describe('createCsrfSession', () => {
     // Arrange & Act & Assert: a URL without a form should cause createCsrfSession to throw
     try {
       // Use an API endpoint that doesn't have a CSRF form
-      await createCsrfSession(`${BASE}/logout`)
+      await createCsrfSession(`${BASE}${routes.auth.logout.href()}`)
       assert.fail('Expected an error for page without CSRF token input')
     } catch (error) {
       assert.ok(error instanceof Error, 'should throw an Error')

@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 
-import { adminRoutes as routes, frames } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { AdminActionButton } from '../assets/admin-action-button.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 

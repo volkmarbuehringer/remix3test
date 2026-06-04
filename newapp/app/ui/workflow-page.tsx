@@ -4,7 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { Glyph } from 'remix/ui/glyph'
 import { Button } from 'remix/ui/button'
 
-import { aiRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import { FormLoadingState } from './form-loading-state.tsx'
 import { WorkflowParameters } from './workflow-parameters.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -198,7 +198,7 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                 <span>Später nochmal prüfen oder einen Administrator kontaktieren.</span>
               </div>
             ) : (
-              <form method="POST" action={aiRoutes.ai.workflow.action.href()} id="workflow-form" mix={formStyles}>
+              <form method="POST" action={routes.ai.workflow.action.href()} id="workflow-form" mix={formStyles}>
                 <CsrfTokenInput />
                 <div mix={formGroupStyles}>
                   <label for="workflow-select" mix={formLabelStyles}>Workflow auswählen</label>

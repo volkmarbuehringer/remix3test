@@ -14,8 +14,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   '/': 'Home',
 
   // Auth
-  '/login': 'Login',
-  '/register': 'Register',
+  '/auth/login': 'Login',
+  '/auth/register': 'Register',
 
   // AI section
   '/ai': 'AI Dashboard',

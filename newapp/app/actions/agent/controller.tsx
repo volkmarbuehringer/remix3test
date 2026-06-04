@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 import * as f from 'remix/data-schema/form-data'
 import * as s from 'remix/data-schema'
 
-import { aiRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { ToolLoopAgent, stepCountIs } from 'ai'
@@ -173,12 +173,12 @@ Use tools to provide accurate, real-time information.`,
 
         logger.log('conversation saved, chatId:', chatId)
 
-        let redirectUrl = new URL('/ai/agent', context.url.origin)
+        let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
         redirectUrl.searchParams.set('agentId', chatId)
         return new Response(null, { status: 302, headers: { Location: redirectUrl.toString() } })
       } catch (e) {
         logger.error('error calling agent:', e)
-        let redirectUrl = new URL('/ai/agent', context.url.origin)
+        let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
         if (chatId) redirectUrl.searchParams.set('agentId', chatId)
         return toastRedirect(redirectUrl.toString(), 'An error occurred while processing your message. Please try again.', true)
       }

@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 
 import { lists } from '../../data/schema.ts'
 import { pool } from '../../data/setup.ts'
-import { adminRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'

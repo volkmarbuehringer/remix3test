@@ -29,7 +29,7 @@ import appointmentController from './actions/appointment/controller.tsx'
 import appointTypeController from './actions/appointtype/controller.tsx'
 import { authLogout } from './actions/auth-logout/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes, listsRoutes, authRoutes, aiRoutes, adminRoutes, appointmentRoutes, verwaltungRoutes } from './routes.ts'
+import { routes } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -56,58 +56,46 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Main app routes
   router.map(routes, controller)
 
-  // Appointment routes (separate controller with requireAuth middleware)
-  router.map(appointmentRoutes.appointment, appointmentController)
-
-  // Appoint types routes (frame-based content, requireAuth from controller)
-  router.map(appointmentRoutes.appointment.types, appointTypeController)
-
-  // Lists routes (separate controller with requireAuth middleware)
-  router.map(listsRoutes, listsController)
-
-  // Auth routes (mapped individually to keep their own controller)
-  router.map(authRoutes.authLogin, loginController)
-  router.map(authRoutes.authRegister, registerController)
-  router.post('/logout', authLogout)
-
-  // AI routes (dashboard, chat, agent, workflow with their own controllers)
-  router.map(aiRoutes.ai, aiController)
-  router.map(aiRoutes.ai.chat, chatController)
-  router.map(aiRoutes.ai.agent, agentController)
-  router.map(aiRoutes.ai.workflow, workflowController)
-
-  // AI fragment routes (frame-based content)
-  router.map(aiRoutes.ai.fragments, aiFragmentsController)
-
   // Client Lab route
   router.map(routes.client, clientController)
-
-  // Admin routes (with admin middleware baked into controllers)
-  router.map(adminRoutes.admin, adminController)
-  router.map(adminRoutes.admin.chatlog, adminChatlogController)
-  router.map(adminRoutes.admin.messages, adminMessagesController)
-
-  // Admin fragment routes (nested frame content, same auth middleware)
-  router.map(adminRoutes.admin.fragments, adminFragmentsController)
-
-  // Admin chatlog fragment routes (frame-based detail view)
-  router.map(adminRoutes.admin.chatlog.fragments, adminChatlogFragmentsController)
-
-  // Admin lists route
-  router.map(adminRoutes.admin.lists, adminListsController)
 
   // Nutzer route (top-level, admin-only middleware in controller)
   router.map(routes.nutzer, adminNutzerController)
 
-  // Admin users route
-  router.map(adminRoutes.admin.users, adminUsersController)
+  // Lists routes (separate controller with requireAuth middleware)
+  router.map(routes.lists, listsController)
 
-  // Verwaltung routes (operational data management, no sidebar)
-  router.map(verwaltungRoutes.verwaltung, verwaltungController)
-  router.map(verwaltungRoutes.verwaltung.offerings, adminOfferingsController)
-  router.map(verwaltungRoutes.verwaltung.appointments, adminAppointmentsController)
-  router.map(verwaltungRoutes.verwaltung.resources, adminResourcesController)
-  router.map(verwaltungRoutes.verwaltung.offeringConfigs, adminOfferingConfigsController)
+  // Auth routes
+  router.map(routes.auth.login, loginController)
+  router.map(routes.auth.register, registerController)
+  router.post(routes.auth.logout.href(), authLogout)
+
+  // Appointment routes (separate controller with requireAuth middleware)
+  router.map(routes.appointment, appointmentController)
+  router.map(routes.appointment.types, appointTypeController)
+
+  // AI routes
+  router.map(routes.ai, aiController)
+  router.map(routes.ai.chat, chatController)
+  router.map(routes.ai.agent, agentController)
+  router.map(routes.ai.workflow, workflowController)
+  router.map(routes.ai.fragments, aiFragmentsController)
+
+  // Admin routes
+  router.map(routes.admin, adminController)
+  router.map(routes.admin.chatlog, adminChatlogController)
+  router.map(routes.admin.messages, adminMessagesController)
+  router.map(routes.admin.fragments, adminFragmentsController)
+  router.map(routes.admin.chatlog.fragments, adminChatlogFragmentsController)
+  router.map(routes.admin.lists, adminListsController)
+  router.map(routes.admin.users, adminUsersController)
+
+  // Verwaltung routes
+  router.map(routes.verwaltung, verwaltungController)
+  router.map(routes.verwaltung.offerings, adminOfferingsController)
+  router.map(routes.verwaltung.appointments, adminAppointmentsController)
+  router.map(routes.verwaltung.resources, adminResourcesController)
+  router.map(routes.verwaltung.offeringConfigs, adminOfferingConfigsController)
 
   return router
 }

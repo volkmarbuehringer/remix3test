@@ -5,6 +5,7 @@ import { db, initializeAppDatabase, pool } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../../router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Messages Controller integration tests
@@ -12,7 +13,7 @@ import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../..
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const LOGIN_URL = `${BASE}/login`
+const LOGIN_URL = `${BASE}${routes.auth.login.index.href()}`
 const ADMIN_MESSAGES_URL = `${BASE}/admin/messages`
 
 describe('Admin Messages controller', () => {
@@ -52,7 +53,7 @@ describe('Admin Messages controller', () => {
     let response = await router.fetch(ADMIN_MESSAGES_URL)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login with returnTo')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 
@@ -228,7 +229,7 @@ describe('Admin Messages controller', () => {
     let response = await router.fetch(`${ADMIN_MESSAGES_URL}/subscribe`)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login with returnTo')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 

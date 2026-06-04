@@ -3,6 +3,7 @@ import { theme } from 'remix/ui/theme'
 import { Glyph } from 'remix/ui/glyph'
 
 import { formatDateRange, readAppointmentData } from '../utils/appointment.ts'
+import { routes } from '../routes.ts'
 
 const YEARS = [2026, 2027, 2028, 2029, 2030] as const
 const WEEKS = Array.from({ length: 52 }, (_, i) => i + 1)
@@ -35,7 +36,7 @@ function readData(): {
 }
 
 function navigateWithParams(baseYear: string | number, baseWeek: string | number, resourceId: number): string {
-  return `/appointment?year=${baseYear}&week=${baseWeek}&resource_id=${resourceId}`
+  return `${routes.appointment.index.href()}?year=${baseYear}&week=${baseWeek}&resource_id=${resourceId}`
 }
 
 interface ResourceOption {
@@ -161,16 +162,16 @@ export const AppointmentSidebar = clientEntry(
           </div>
 
           <nav aria-label="Navigation" mix={navStyle}>
-            <a href="/" mix={navLinkStyle}>
+            <a href={routes.home.href()} mix={navLinkStyle}>
               Startseite
             </a>
-            <a href="/lists" mix={navLinkStyle}>
+            <a href={routes.lists.index.href()} mix={navLinkStyle}>
               Listen
             </a>
-            <a href="/ai" mix={navLinkStyle}>
+            <a href={routes.ai.index.href()} mix={navLinkStyle}>
               KI
             </a>
-            <form action="/logout" method="post" mix={logoutFormStyle} id="appt-logout-form">
+            <form action={routes.auth.logout.href()} method="post" mix={logoutFormStyle} id="appt-logout-form">
               <button
                 type="submit"
                 mix={[

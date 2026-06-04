@@ -3,6 +3,9 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
 import { createCsrfSession } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
+
+const BASE = 'https://remix.run'
 
 // ---------------------------------------------------------------------------
 // Auth Logout action integration tests
@@ -15,8 +18,8 @@ describe('auth-logout action', () => {
   // POST /logout
   // -----------------------------------------------------------------------
   it('POST /logout unsets session and redirects to /', async () => {
-    let { cookie, csrfToken } = await createCsrfSession('https://remix.run/login')
-    let response = await router.fetch('https://remix.run/logout', {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({ _csrf: csrfToken }),
@@ -28,8 +31,8 @@ describe('auth-logout action', () => {
   })
 
   it('POST /logout sets a new session cookie (regenerateId)', async () => {
-    let { cookie, csrfToken } = await createCsrfSession('https://remix.run/login')
-    let response = await router.fetch('https://remix.run/logout', {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({ _csrf: csrfToken }),

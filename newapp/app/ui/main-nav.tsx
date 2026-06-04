@@ -4,7 +4,7 @@ import { theme } from 'remix/ui/theme'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCurrentUserSafely } from '../utils/context.ts'
-import { routes, authRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import { NAV_SECTIONS } from './nav.ts'
 
 const indigo = {
@@ -72,7 +72,7 @@ export function MainNav() {
               )
             })}
             {user ? (
-              <form method="POST" action={authRoutes.authLogout.href()} mix={logoutFormCss}>
+              <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
                 {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
                 <button type="submit" mix={logoutBtnCss} aria-label="Logout" title="Abmelden">
                   <Glyph name="close" width={18} height={18} />
@@ -80,7 +80,7 @@ export function MainNav() {
               </form>
             ) : (
               <>
-                <a href={authRoutes.authLogin.index.href()} mix={navBtnCss}>
+                <a href={routes.auth.login.index.href()} mix={navBtnCss}>
                   <Glyph name="open" width={14} height={14} />
                   Anmelden
                 </a>

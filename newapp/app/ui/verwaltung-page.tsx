@@ -1,7 +1,7 @@
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 
-import { verwaltungRoutes as routes } from '../routes.ts'
+import { routes } from '../routes.ts'
 
 const cardStyle = css({
   background: theme.surface.lvl0,

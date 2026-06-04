@@ -3,7 +3,7 @@ import { ilike, or } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
-import { adminRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import { users } from '../../data/schema.ts'
 import type { User } from '../../data/schema.ts'
 import type { AppContext } from '../../types/context.ts'

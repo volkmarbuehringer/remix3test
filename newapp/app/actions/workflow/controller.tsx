@@ -3,7 +3,7 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { sql } from 'remix/data-table'
 
-import { aiRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import type { User } from '../../data/schema.ts'

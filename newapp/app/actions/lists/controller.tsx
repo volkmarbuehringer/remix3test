@@ -7,8 +7,7 @@ import { lists } from '../../data/schema.ts'
 import { ListsClient } from '../../assets/lists-client.tsx'
 import { ListsShowPage } from './show-page.tsx'
 import { Layout } from '../../ui/layout.tsx'
-import type { AppContext } from '../../types/context.ts'
-import { listsRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -20,18 +19,18 @@ const listsSaveSchema = s.object({
   items: s.array(listItemSchema),
 })
 
-export default createController<typeof routes, AppContext>(routes, {
+export default createController(routes.lists, {
   middleware: [requireAuth()],
 
   actions: {
-    lists(context) {
+    index(context) {
       return context.render(
         <Layout>
           <ListsClient />
         </Layout>,
       )
     },
-    async listsSave(context) {
+    async save(context) {
       let db = context.db
 
       let body: unknown
@@ -66,7 +65,7 @@ export default createController<typeof routes, AppContext>(routes, {
 
       return context.json({ id: row.id, description })
     },
-    async listsUpdate(context) {
+    async update(context) {
       let db = context.db
 
       let listId: number
@@ -116,7 +115,7 @@ export default createController<typeof routes, AppContext>(routes, {
 
       return context.json({ id: listId, description })
     },
-    async listsData(context) {
+    async data(context) {
       let db = context.db
 
       let listId: number
@@ -144,7 +143,7 @@ export default createController<typeof routes, AppContext>(routes, {
         updated_at: row.updated_at,
       })
     },
-    listsShow(context) {
+    show(context) {
       return context.render(
         <Layout>
           <ListsShowPage />

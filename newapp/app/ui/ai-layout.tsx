@@ -1,7 +1,7 @@
 import type { RemixNode } from 'remix/ui'
 import { Glyph } from 'remix/ui/glyph'
 
-import { aiRoutes as routes, frames } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 
 export type AiNavItem = 'dashboard' | 'chat' | 'agent' | 'workflow'

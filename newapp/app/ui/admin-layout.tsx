@@ -1,7 +1,7 @@
 import type { RemixNode } from 'remix/ui'
 import { Glyph } from 'remix/ui/glyph'
 
-import { adminRoutes as routes, frames } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 import { AdminViewToggle } from '../assets/admin-view-toggle.tsx'
 import { PersistentAdminCounter } from '../assets/persistent-admin-counter.tsx'
@@ -26,11 +26,11 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
     label: 'Daten',
     items: [
       { id: 'chatlog', label: 'Chat-Protokolle', route: routes.admin.chatlog.index },
-      { id: 'chatonly', label: 'Nur Chat', href: '/admin/chatlog?type=chat' },
-      { id: 'agentonly', label: 'Nur Agent', href: '/admin/chatlog?type=agent' },
+      { id: 'chatonly', label: 'Nur Chat', href: routes.admin.chatlog.index.href() + '?type=chat' },
+      { id: 'agentonly', label: 'Nur Agent', href: routes.admin.chatlog.index.href() + '?type=agent' },
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
-      { id: 'client', label: 'Client-Test', href: '/client', iframeNav: false },
+      { id: 'client', label: 'Client-Test', href: routes.client.index.href(), iframeNav: false },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
     ],
   },

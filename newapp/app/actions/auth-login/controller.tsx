@@ -8,7 +8,7 @@ import { theme } from 'remix/ui/theme'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
-import { authRoutes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
@@ -58,7 +58,7 @@ function resetFailedAttempts(email: string): void {
   longLimiter.reset(email)
 }
 
-export default createController<typeof authRoutes.authLogin, AppContext>(authRoutes.authLogin, {
+export default createController(routes.auth.login, {
   middleware: [],
   actions: {
     index(context) {
@@ -110,12 +110,13 @@ function LoginPage(handle: Handle<LoginPageProps>) {
   return () => {
     let { error, errors, returnTo } = handle.props
 
-    let formAction = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'
+    let formAction = routes.auth.login.action.href()
+    if (returnTo) formAction += `?returnTo=${encodeURIComponent(returnTo)}`
 
     let footer = (
       <>
         <p mix={[bodyTextCss, css({ margin: 0 })]}>
-          Don't have an account? <a href={authRoutes.authRegister.index.href()} mix={footerLinkCss}>Register here</a>
+          Don't have an account? <a href={routes.auth.register.index.href()} mix={footerLinkCss}>Register here</a>
         </p>
         {process.env.NODE_ENV !== 'production' && (
           <div mix={[panelCss, panelInsetCss, demoBoxCss]}>

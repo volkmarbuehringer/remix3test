@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
-import { aiRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import { ScrollToTop } from './scroll-to-top.tsx'
 import { FormLoadingState } from './form-loading-state.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -317,7 +317,7 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
           )}
         </div>
 
-        <form method="POST" action={aiRoutes.ai.chat.action.href()} id="chat-form" autocomplete="off" mix={chatFormStyle}>
+        <form method="POST" action={routes.ai.chat.action.href()} id="chat-form" autocomplete="off" mix={chatFormStyle}>
           <CsrfTokenInput />
           {chatId && <input type="hidden" name="conversationId" value={chatId} />}
           <div mix={inputContainerStyle}>

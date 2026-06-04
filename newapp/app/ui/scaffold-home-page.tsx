@@ -2,6 +2,7 @@ import { css } from 'remix/ui'
 import type { Handle } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { getCurrentUserSafely } from '../utils/context.ts'
+import { routes } from '../routes.ts'
 import { MainNav } from './main-nav.tsx'
 
 const indigo = {
@@ -87,11 +88,11 @@ function HeroSection() {
           KI-Assistenz in einer Plattform, die dein Team lieben wird.
         </p>
         <div mix={heroBtnGroupCss}>
-          <a href="/register" mix={heroBtnCss}>
+          <a href={routes.auth.register.index.href()} mix={heroBtnCss}>
             <span>30 Tage testen</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
-          <a href="/ui" mix={heroGhostBtnCss}>
+          <a href={routes.ui.href()} mix={heroGhostBtnCss}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
             Demo ansehen
           </a>
@@ -196,7 +197,7 @@ function ApproachSection() {
 function CapabilitiesSection() {
   return () => {
     let user = getCurrentUserSafely()
-    let authHref = (path: string) => user ? path : '/login'
+    let authHref = (path: string) => user ? path : routes.auth.login.index.href()
     return (
       <section mix={capSectionCss}>
         <div mix={capGridCss}>
@@ -206,7 +207,7 @@ function CapabilitiesSection() {
             desc="Intelligente Kalender mit Konflikterkennung, Wiederholungen und freien Slots."
             tags={['Kalender', 'Auto-Verteilung', 'Erinnerungen']}
             accent={indigo[500]}
-            href={authHref('/appointment')}
+            href={authHref(routes.appointment.index.href())}
           />
           <CapCard
             number="02"
@@ -214,7 +215,7 @@ function CapabilitiesSection() {
             desc="Chat- und Agenten-Modus für schnelle Antworten und Aufgabenautomatisierung."
             tags={['Chat', 'Agent', 'Workflows']}
             accent={amber}
-            href={authHref('/ai')}
+            href={authHref(routes.ai.index.href())}
           />
           <CapCard
             number="03"
@@ -229,7 +230,7 @@ function CapabilitiesSection() {
             desc="Nutzer, Rollen, Ressourcen und Systemstatus in Echtzeit."
             tags={['Rollen', 'Audit', 'Reports']}
             accent={rose}
-            href={authHref('/admin')}
+            href={authHref(routes.admin.index.href())}
           />
         </div>
       </section>
@@ -272,11 +273,11 @@ function CtaSection() {
         <h2 mix={ctaTitleCss}>Bereit für den Wechsel?</h2>
         <p mix={ctaDescCss}>Starte in 2 Minuten. Keine Kreditkarte nötig.</p>
         <div mix={ctaBtnGroupCss}>
-          <a href="/register" mix={ctaBtnCss}>
+          <a href={routes.auth.register.index.href()} mix={ctaBtnCss}>
             Kostenlos starten
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
-          <a href="/login" mix={ctaGhostCss}>Ich habe bereits ein Konto</a>
+          <a href={routes.auth.login.index.href()} mix={ctaGhostCss}>Ich habe bereits ein Konto</a>
         </div>
       </div>
     </section>

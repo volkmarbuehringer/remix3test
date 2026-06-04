@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../router.ts'
 import { CsrfTokenInput, tryGetCsrfToken } from './csrf-token-input.tsx'
+import { routes } from '../routes.ts'
 
 const BASE = 'https://remix.run'
 
@@ -44,7 +45,7 @@ describe('tryGetCsrfToken', () => {
 describe('CsrfTokenInput — integration', () => {
   it('renders a hidden input with name="_csrf" in the login form', async () => {
     // Arrange & Act: fetch the login page which includes CsrfTokenInput
-    let response = await router.fetch(`${BASE}/login`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
 
     // Assert
     assert.equal(response.status, 200)
@@ -57,7 +58,7 @@ describe('CsrfTokenInput — integration', () => {
 
   it('renders a 64-character hex CSRF token value', async () => {
     // Arrange & Act
-    let response = await router.fetch(`${BASE}/login`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let html = await response.text()
 
     // Assert: extract the token value and verify format

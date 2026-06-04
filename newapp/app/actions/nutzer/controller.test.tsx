@@ -226,7 +226,7 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
     assert.ok(
-      location?.startsWith('/login'),
+      location?.startsWith(routes.auth.login.index.href()),
       'should redirect to /login with returnTo',
     )
     assert.ok(

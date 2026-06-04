@@ -6,7 +6,7 @@ import { getCspNonce } from '../../middleware/security-headers.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import type { AppContext } from '../../types/context.ts'
-import { appointmentRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import {

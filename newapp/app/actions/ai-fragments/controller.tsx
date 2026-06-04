@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { aiRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'

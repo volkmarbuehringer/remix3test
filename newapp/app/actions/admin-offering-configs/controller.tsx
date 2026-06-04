@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 
-import { verwaltungRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import { offeringConfigs, resources } from '../../data/schema.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'

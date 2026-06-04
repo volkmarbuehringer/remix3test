@@ -7,6 +7,7 @@ import {
 } from 'remix/middleware/auth'
 import { Database } from 'remix/data-table'
 import { html } from 'remix/html-template'
+import { routes } from '../routes.ts'
 
 import { users } from '../data/schema.ts'
 import type { User } from '../data/schema.ts'
@@ -68,7 +69,7 @@ export const passwordProvider = createCredentialsAuthProvider({
 })
 
 export function requireAuth(options?: { redirectTo?: string }) {
-  let redirectTo = options?.redirectTo ?? '/login'
+  let redirectTo = options?.redirectTo ?? routes.auth.login.index.href()
 
   return requireAuthenticatedUser({
     onFailure(context) {

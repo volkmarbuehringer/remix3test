@@ -5,6 +5,7 @@ import { db, initializeAppDatabase } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../../router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Lists Controller integration tests
@@ -64,7 +65,7 @@ describe('Lists controller', () => {
     let response = await router.fetch(LISTS_URL)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
     assert.ok(location?.includes('returnTo='), 'should include returnTo with original path')
   })
 
@@ -419,7 +420,7 @@ describe('Lists controller', () => {
     let response = await router.fetch(ADMIN_LISTS_URL)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
   })
 
   it('GET /admin/lists returns 403 for non-admin users', async () => {

@@ -6,6 +6,7 @@ import { Button } from 'remix/ui/button'
 import type { Client } from '../../data/schema.ts'
 import { DelButton } from '../../assets/client-del-button.tsx'
 import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'
+import { routes } from '../../routes.ts'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null
@@ -324,7 +325,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <Button type="submit" tone="secondary">Search</Button>
           </form>
           {filter ? (
-            <a href="/client" mix={clearLinkStyle}>Clear</a>
+            <a href={routes.client.index.href()} mix={clearLinkStyle}>Clear</a>
           ) : null}
         </div>
 

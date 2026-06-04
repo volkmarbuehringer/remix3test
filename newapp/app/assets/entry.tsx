@@ -3,7 +3,7 @@ import { createRoot, css, on, run } from 'remix/ui'
 import { animateEntrance, spring } from 'remix/ui/animation'
 import { theme } from 'remix/ui/theme'
 
-import { authRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 
 const app = run({
   async loadModule(moduleUrl, exportName) {
@@ -35,7 +35,7 @@ async function resolveFrameResponse(
   let response = await fetch(url, { headers, signal })
 
   if (response.status === 401) {
-    window.location.assign(authRoutes.authLogin.index.href())
+    window.location.assign(routes.auth.login.index.href())
     return new Promise(() => {})
   }
 

@@ -6,6 +6,7 @@ import { router } from '../router.ts'
 import { listResources } from '../data/resources.ts'
 import { appointments, appointofferings, appointtypes } from '../data/schema.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
+import { routes } from '../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Appointment Grid integration tests
@@ -194,7 +195,7 @@ describe('Appointment Grid', () => {
     // Assert
     assert.equal(response.status, 302, 'unauthenticated GET should redirect')
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
   })
 
   it('POST /appointment returns 403 when not authenticated (CSRF missing)', async () => {

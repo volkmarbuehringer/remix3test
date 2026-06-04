@@ -1,6 +1,6 @@
 import { clientEntry, Frame, css, on, type Handle } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
-import { aiRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 
 /**
  * A toggle client entry that mounts/unmounts a Frame showing AI agent results.
@@ -93,7 +93,7 @@ export const AiAgentResultToggle = clientEntry(
           {showResult ? (
             <Frame
               name="ai-agent-result"
-              src={aiRoutes.ai.fragments.agentResult.href(undefined, {
+              src={routes.ai.fragments.agentResult.href(undefined, {
                 prompt: currentPrompt || 'Direct agent execution',
               })}
               fallback={

@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../router.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Agent Controller integration tests
@@ -12,7 +13,7 @@ import { createAuthCookieWithCsrf } from '../../test-utils.ts'
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const LOGIN_URL = `${BASE}/login`
+const LOGIN_URL = `${BASE}${routes.auth.login.index.href()}`
 const AGENT_URL = `${BASE}/ai/agent`
 
 describe('Agent Controller', () => {
@@ -54,7 +55,7 @@ describe('Agent Controller', () => {
     // Assert
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login with returnTo')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 

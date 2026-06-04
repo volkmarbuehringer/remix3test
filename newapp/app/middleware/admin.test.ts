@@ -8,6 +8,7 @@ import type { RemixNode } from 'remix/ui'
 
 import type { User } from '../data/schema.ts'
 import { requireAdmin } from './admin.ts'
+import { routes } from '../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,7 +103,7 @@ describe('requireAdmin middleware', () => {
     assert.ok(response, 'should return a response')
     assert.equal(response!.status, 302, 'should return 302 redirect')
     let location = response!.headers.get('Location')
-    assert.equal(location, '/login', 'should redirect to /login')
+    assert.equal(location, routes.auth.login.index.href(), 'should redirect to login')
   })
 
   it('preserves returnTo param when present in request URL', async () => {
@@ -120,7 +121,7 @@ describe('requireAdmin middleware', () => {
     assert.equal(response!.status, 302, 'should return 302 redirect')
     let location = response!.headers.get('Location')
     assert.ok(
-      location?.startsWith('/login'),
+      location?.startsWith(routes.auth.login.index.href()),
       'should redirect to /login',
     )
     assert.ok(

@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
-import { adminRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 
 interface Activity {
   id: number

@@ -6,6 +6,7 @@ import { createAuthCookieWithCsrf } from '../../test-utils.ts'
 import { db, initializeAppDatabase } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
 import { getWorkflowRun } from '../../workflows/engine.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Workflow Controller integration tests
@@ -14,7 +15,7 @@ import { getWorkflowRun } from '../../workflows/engine.ts'
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const LOGIN_URL = `${BASE}/login`
+const LOGIN_URL = `${BASE}${routes.auth.login.index.href()}`
 const WORKFLOW_URL = `${BASE}/ai/workflow`
 
 describe('Workflow Controller', () => {
@@ -71,7 +72,7 @@ describe('Workflow Controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login with returnTo')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 

@@ -7,7 +7,7 @@ import { theme } from 'remix/ui/theme'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
-import { authRoutes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
@@ -28,7 +28,7 @@ const registerSchema = f.object({
   password: f.field(s.string().pipe(minLength(8))),
 })
 
-export default createController<typeof authRoutes.authRegister, AppContext>(authRoutes.authRegister, {
+export default createController(routes.auth.register, {
   middleware: [],
   actions: {
     index(context) {
@@ -80,7 +80,7 @@ export default createController<typeof authRoutes.authRegister, AppContext>(auth
       session.regenerateId()
       session.set('auth', { userId: user.id })
 
-      return redirect('/')
+      return redirect(routes.home.href())
     },
   },
 })
@@ -91,7 +91,7 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors }
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
-        Already have an account? <a href={authRoutes.authLogin.index.href()} mix={footerLinkCss}>Login here</a>
+        Already have an account? <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Login here</a>
       </p>
     )
 
@@ -102,7 +102,7 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors }
           title="Create your account"
           description="Fill in your details to create a new account."
         >
-          <AuthForm action={authRoutes.authRegister.action.href()} error={error} submitLabel="Create account" footer={footer}>
+          <AuthForm action={routes.auth.register.action.href()} error={error} submitLabel="Create account" footer={footer}>
             <label mix={fieldLabelCss}>
               <span>Name</span>
               <input

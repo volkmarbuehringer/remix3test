@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../router.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // AI Dashboard Controller integration tests
@@ -12,7 +13,7 @@ import { createAuthCookieWithCsrf } from '../../test-utils.ts'
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
-const LOGIN_URL = `${BASE}/login`
+const LOGIN_URL = `${BASE}${routes.auth.login.index.href()}`
 const AI_URL = `${BASE}/ai`
 
 describe('AI Dashboard controller', () => {
@@ -43,7 +44,7 @@ describe('AI Dashboard controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith('/login'), 'should redirect to /login with returnTo')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
     assert.ok(location?.includes('returnTo=%2Fai'), 'should capture return path')
   })
 

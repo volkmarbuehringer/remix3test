@@ -3,7 +3,7 @@ import * as f from 'remix/data-schema/form-data'
 import * as s from 'remix/data-schema'
 import { generateText } from 'ai'
 
-import { aiRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getConversation } from '../../lib/chatlog.ts'

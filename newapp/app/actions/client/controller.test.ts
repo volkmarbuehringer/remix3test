@@ -4,6 +4,7 @@ import { describe, it, before } from 'remix/test'
 import { router } from '../../router.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 describe('Client lab controller', () => {
   let authCookie: string | null
@@ -268,6 +269,6 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/login'), 'should redirect to /login')
+    assert.ok(location.startsWith(routes.auth.login.index.href()), 'should redirect to login')
   })
 })

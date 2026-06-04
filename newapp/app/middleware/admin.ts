@@ -7,13 +7,14 @@ import type { Handle, RemixNode } from 'remix/ui'
 import type { User } from '../data/schema.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
 import { ForbiddenPage } from '../ui/forbidden-page.tsx'
+import { routes } from '../routes.ts'
 
 export interface RequireAdminOptions {
   redirectTo?: string
   forbiddenPage?: RemixNode | Response
 }
 
-const DEFAULT_REDIRECT = '/login'
+const DEFAULT_REDIRECT = routes.auth.login.index.href()
 
 export function requireAdmin(options?: RequireAdminOptions): Middleware {
   let redirectTo = options?.redirectTo ?? DEFAULT_REDIRECT

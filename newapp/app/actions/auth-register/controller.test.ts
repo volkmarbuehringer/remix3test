@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
 import { createCsrfSession } from '../../test-utils.ts'
+import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
 
@@ -20,7 +21,7 @@ describe('Auth Register controller', () => {
   // GET /register — page rendering
   // -----------------------------------------------------------------------
   it('GET /register returns the register page with form', async () => {
-    let response = await router.fetch(`${BASE}/register`)
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`)
 
     assert.equal(response.status, 200)
     let html = await response.text()
@@ -49,10 +50,10 @@ describe('Auth Register controller', () => {
   // POST /register — successful registration
   // -----------------------------------------------------------------------
   it('POST /register with valid data creates user and redirects to /', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}valid@example.com`
 
-    let response = await router.fetch(`${BASE}/register`, {
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -72,11 +73,11 @@ describe('Auth Register controller', () => {
   // POST /register — duplicate email
   // -----------------------------------------------------------------------
   it('POST /register with duplicate email returns 400 with error', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}duplicate@example.com`
 
     // Create the user first
-    let createResponse = await router.fetch(`${BASE}/register`, {
+    let createResponse = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -90,7 +91,7 @@ describe('Auth Register controller', () => {
     assert.equal(createResponse.status, 302, 'first creation should succeed')
 
     // Try to register again with the same email (reuse same cookie + token)
-    let response = await router.fetch(`${BASE}/register`, {
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -114,10 +115,10 @@ describe('Auth Register controller', () => {
   // hitting the database. Invalid fields return 400 with an error message.
   // -----------------------------------------------------------------------
   it('POST /register with empty name returns 400 with error message', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}emptyname@example.com`
 
-    let response = await router.fetch(`${BASE}/register`, {
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -135,9 +136,9 @@ describe('Auth Register controller', () => {
   })
 
   it('POST /register with empty email returns 400 with error message', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
 
-    let response = await router.fetch(`${BASE}/register`, {
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -158,7 +159,7 @@ describe('Auth Register controller', () => {
   // POST /register — rate limiting
   // -----------------------------------------------------------------------
   it('POST /register with repeated attempts for same email returns 429 after limit', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/register`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}ratelimit@example.com`
 
     // Fire 6 rapid attempts (plus one final) — the first succeeds (new user),
@@ -167,8 +168,8 @@ describe('Auth Register controller', () => {
     // The final 7th attempt is blocked with 429.
     // We use a fresh CSRF session for each attempt since tokens are single-use.
     for (let i = 0; i < 6; i++) {
-      let session = await createCsrfSession(`${BASE}/register`)
-      await router.fetch(`${BASE}/register`, {
+      let session = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+      await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
         method: 'POST',
         headers: { Cookie: session.cookie },
         body: new URLSearchParams({
@@ -182,8 +183,8 @@ describe('Auth Register controller', () => {
     }
 
     // 6th attempt should be blocked by rate limiter
-    let finalSession = await createCsrfSession(`${BASE}/register`)
-    let response = await router.fetch(`${BASE}/register`, {
+    let finalSession = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       headers: { Cookie: finalSession.cookie },
       body: new URLSearchParams({

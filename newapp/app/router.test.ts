@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from './router.ts'
 import { initializeAppDatabase } from './data/setup.ts'
 import { createAuthCookieWithCsrfForUser, createCsrfSession } from './test-utils.ts'
+import { routes } from './routes.ts'
 
 // ---------------------------------------------------------------------------
 // Frame streaming integration tests
@@ -272,7 +273,7 @@ describe('CSRF protection', () => {
 
   it('POST /login without CSRF token returns 403', async () => {
     // Arrange: make a POST to login without _csrf in the body
-    let response = await router.fetch(`${BASE}/login`, {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ email: 'admin@newapp.com', password: 'admin123' }),
       redirect: 'manual',
@@ -288,10 +289,10 @@ describe('CSRF protection', () => {
 
   it('POST /login with valid CSRF token passes through', async () => {
     // Arrange: get a CSRF token + session cookie from the login page
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/login`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
 
     // Act: use the token in a POST request
-    let response = await router.fetch(`${BASE}/login`, {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({
@@ -317,7 +318,7 @@ describe('CSRF protection', () => {
 
   it('GET /login passes through without CSRF validation', async () => {
     // Arrange & Act: GET requests should not require CSRF token
-    let response = await router.fetch(`${BASE}/login`)
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
 
     // Assert: CSRF middleware does not block GET requests
     assert.equal(
@@ -333,10 +334,10 @@ describe('CSRF protection', () => {
 
   it('CSRF token rendered in login form HTML matches the session token', async () => {
     // Arrange: fetch the login page and extract both cookie + token from the same session
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}/login`)
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
 
     // Act: use the extracted token + cookie pair in a login POST
-    let loginResponse = await router.fetch(`${BASE}/login`, {
+    let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
       body: new URLSearchParams({

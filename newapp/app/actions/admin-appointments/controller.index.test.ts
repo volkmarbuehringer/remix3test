@@ -4,6 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../router.ts'
 import { pool } from '../../data/setup.ts'
 import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
+import { routes } from '../../routes.ts'
 
 // Track IDs created during tests for cleanup
 const createdAppointmentIds: number[] = []
@@ -67,7 +68,7 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'unauthenticated GET should redirect')
       let location = response.headers.get('Location')
-      assert.ok(location?.startsWith('/login'), 'should redirect to /login')
+      assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
     })
 
     it('returns 403 for non-admin users', async () => {

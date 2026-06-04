@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { adminRoutes as routes } from '../../routes.ts'
+import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { redirect } from 'remix/response/redirect'
 import { requireAuth } from '../../middleware/auth.ts'

@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Button } from 'remix/ui/button'
-import { aiRoutes } from '../routes.ts'
+import { routes } from '../routes.ts'
 import { ScrollToTop } from './scroll-to-top.tsx'
 import { FormLoadingState } from './form-loading-state.tsx'
 import { AiAgentResultToggle } from '../assets/ai-agent-result-toggle.tsx'
@@ -172,7 +172,7 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
           )}
         </div>
 
-        <form method="POST" action={aiRoutes.ai.agent.action.href()} id="agent-form" autocomplete="off" mix={chatFormStyle}>
+        <form method="POST" action={routes.ai.agent.action.href()} id="agent-form" autocomplete="off" mix={chatFormStyle}>
           <CsrfTokenInput />
           {agentId && <input type="hidden" name="conversationId" value={agentId} />}
           <div mix={inputContainerStyle}>
