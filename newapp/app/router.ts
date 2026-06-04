@@ -7,6 +7,7 @@ import listsController from './actions/lists/controller.tsx'
 import loginController from './actions/auth-login/controller.tsx'
 import registerController, { registerSent } from './actions/auth-register/controller.tsx'
 import { verify } from './actions/auth-verify/controller.tsx'
+import forgottenController, { forgottenReset } from './actions/auth-forgotten/controller.tsx'
 import chatController from './actions/chat/controller.tsx'
 import agentController from './actions/agent/controller.tsx'
 import aiController from './actions/ai/controller.tsx'
@@ -72,6 +73,8 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.get(routes.auth.registerSent.href(), registerSent)
   router.get(routes.auth.verify.href({ token: ':token' }), verify)
   router.post(routes.auth.logout.href(), authLogout)
+  router.map(routes.auth.forgotten, forgottenController)
+  router.map(routes.auth.forgottenReset, forgottenReset)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointmentController)

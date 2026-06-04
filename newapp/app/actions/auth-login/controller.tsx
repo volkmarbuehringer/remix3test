@@ -116,6 +116,9 @@ function LoginPage(handle: Handle<LoginPageProps>) {
     let footer = (
       <>
         <p mix={[bodyTextCss, css({ margin: 0 })]}>
+          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>Forgot password?</a>
+        </p>
+        <p mix={[bodyTextCss, css({ margin: 0 })]}>
           Don't have an account? <a href={routes.auth.register.index.href()} mix={footerLinkCss}>Register here</a>
         </p>
         {process.env.NODE_ENV !== 'production' && (

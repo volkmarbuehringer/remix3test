@@ -13,6 +13,8 @@ export const users = table({
     email_verified: c.integer(),
     verification_token: c.text(),
     verification_expires: c.integer(),
+    password_reset_token: c.text(),
+    password_reset_expires: c.integer(),
     created_at: c.integer(),
     updated_at: c.integer(),
   },
@@ -148,7 +150,7 @@ export const workflowRuns = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'email_verified', 'verification_expires', 'created_at', 'updated_at')
+    parseIntFields(value, 'created_at', 'updated_at')
     return { value }
   },
 })
@@ -170,7 +172,7 @@ export const messages = table({
     return { value }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at')
+    parseIntFields(value, 'created_at', 'updated_at')
     return { value }
   },
 })

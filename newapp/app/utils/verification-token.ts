@@ -9,3 +9,9 @@ export function generateToken(): string {
 export function verificationExpires(): number {
   return Date.now() + VERIFICATION_EXPIRY_MS
 }
+
+const RESET_EXPIRY_MS = 60 * 60 * 1000
+
+export function resetExpires(): number {
+  return Date.now() + RESET_EXPIRY_MS
+}

@@ -63,3 +63,41 @@ export async function sendVerificationEmail(
     html: htmlBody,
   })
 }
+
+export async function sendPasswordResetEmail(
+  sendEmail: SendEmailFn,
+  user: { name: string; email: string },
+  resetUrl: string,
+): Promise<void> {
+  let subject = 'Reset your password'
+
+  let htmlBody = String(html`
+    <h1>Reset your password</h1>
+    <p>Hi ${user.name},</p>
+    <p>We received a request to reset your password. Click the link below to set a new password:</p>
+    <p><a href="${resetUrl}">${resetUrl}</a></p>
+    <p>This link will expire in 1 hour.</p>
+    <p>If you didn't request a password reset, you can safely ignore this email.</p>
+  `)
+
+  let textBody = [
+    'Reset your password',
+    '',
+    `Hi ${user.name},`,
+    '',
+    'We received a request to reset your password. Visit the link below to set a new password:',
+    '',
+    resetUrl,
+    '',
+    'This link will expire in 1 hour.',
+    '',
+    "If you didn't request a password reset, you can safely ignore this email.",
+  ].join('\n')
+
+  await sendEmail({
+    to: user.email,
+    subject,
+    text: textBody,
+    html: htmlBody,
+  })
+}

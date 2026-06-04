@@ -46,7 +46,7 @@ export async function createCsrfSession(url: string): Promise<{ cookie: string; 
  */
 export async function createAuthCookieWithCsrf(): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id FROM users LIMIT 1')
+    let result = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
     if (result.rows.length === 0) return null
 
     let userId = result.rows[0].id as number
