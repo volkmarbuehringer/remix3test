@@ -49,7 +49,7 @@ describe('Auth Register controller', () => {
   // -----------------------------------------------------------------------
   // POST /register — successful registration
   // -----------------------------------------------------------------------
-  it('POST /register with valid data creates user and redirects to /', async () => {
+  it('POST /register with valid data creates user and redirects to register-sent', async () => {
     let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}valid@example.com`
 
@@ -66,7 +66,7 @@ describe('Auth Register controller', () => {
     })
 
     assert.equal(response.status, 302, 'should redirect on success')
-    assert.equal(response.headers.get('Location'), '/', 'should redirect to home')
+    assert.equal(response.headers.get('Location'), routes.auth.registerSent.href(), 'should redirect to register-sent page')
   })
 
   // -----------------------------------------------------------------------

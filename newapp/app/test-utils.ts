@@ -102,7 +102,7 @@ export async function createTestUser(email?: string): Promise<number | null> {
   try {
     let testEmail = email ?? `test-${Date.now()}@example.com`
     let result = await pool.query(
-      'INSERT INTO users (email, password_hash, name, role, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      'INSERT INTO users (email, password_hash, name, role, email_verified, created_at) VALUES ($1, $2, $3, $4, 1, $5) RETURNING id',
       [testEmail, 'hashed-password-for-testing', 'Test User', 'customer', Date.now()],
     )
     return (result.rows[0]?.id as number) ?? null

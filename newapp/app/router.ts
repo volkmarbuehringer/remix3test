@@ -5,7 +5,8 @@ import type { SessionStorage } from 'remix/session'
 import controller from './actions/home/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
 import loginController from './actions/auth-login/controller.tsx'
-import registerController from './actions/auth-register/controller.tsx'
+import registerController, { registerSent } from './actions/auth-register/controller.tsx'
+import { verify } from './actions/auth-verify/controller.tsx'
 import chatController from './actions/chat/controller.tsx'
 import agentController from './actions/agent/controller.tsx'
 import aiController from './actions/ai/controller.tsx'
@@ -68,6 +69,8 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Auth routes
   router.map(routes.auth.login, loginController)
   router.map(routes.auth.register, registerController)
+  router.get(routes.auth.registerSent.href(), registerSent)
+  router.get(routes.auth.verify.href({ token: ':token' }), verify)
   router.post(routes.auth.logout.href(), authLogout)
 
   // Appointment routes (separate controller with requireAuth middleware)

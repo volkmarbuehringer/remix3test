@@ -44,7 +44,9 @@ export const routes = route({
   auth: route('auth', {
     login: form('login'),
     register: form('register'),
+    registerSent: get('/register-sent'),
     logout: post('logout'),
+    verify: get('/verify/:token'),
   }),
 
   appointment: route('appointment', {

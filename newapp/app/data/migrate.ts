@@ -16,6 +16,17 @@ export async function migrate(): Promise<void> {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT 0
   `)
+  let emailVerifiedColumn = await pool.query(`
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'users' AND column_name = 'email_verified'
+  `)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified INTEGER NOT NULL DEFAULT 0`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires BIGINT`)
+
+  if (emailVerifiedColumn.rows.length === 0) {
+    await pool.query(`UPDATE users SET email_verified = 1`)
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS chatlog (

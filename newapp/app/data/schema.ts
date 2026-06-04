@@ -10,6 +10,9 @@ export const users = table({
     password_hash: c.text(),
     name: c.text(),
     role: c.enum(['customer', 'admin']),
+    email_verified: c.integer(),
+    verification_token: c.text(),
+    verification_expires: c.integer(),
     created_at: c.integer(),
     updated_at: c.integer(),
   },
@@ -30,6 +33,10 @@ export const users = table({
 
     if (operation === 'create' && next.role === undefined) {
       next.role = 'customer'
+    }
+
+    if (operation === 'create' && next.email_verified === undefined) {
+      next.email_verified = 0
     }
 
     if (operation === 'create' && next.created_at === undefined) {
@@ -141,7 +148,7 @@ export const workflowRuns = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'completed_at')
+    parseIntFields(value, 'email_verified', 'verification_expires', 'created_at', 'updated_at')
     return { value }
   },
 })

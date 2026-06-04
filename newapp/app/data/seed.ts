@@ -19,6 +19,7 @@ export async function seed(): Promise<void> {
         password_hash: await hashPassword('admin123'),
         name: 'Admin User',
         role: 'admin',
+        email_verified: 1,
         created_at: new Date('2024-01-15').getTime(),
       },
       {
@@ -26,6 +27,7 @@ export async function seed(): Promise<void> {
         password_hash: await hashPassword('password123'),
         name: 'John Doe',
         role: 'customer',
+        email_verified: 1,
         created_at: new Date('2024-03-01').getTime(),
       },
     ])

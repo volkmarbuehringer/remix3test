@@ -15,6 +15,7 @@ import { loadAssetEntry } from './asset-entry.ts'
 import { securityHeaders } from './security-headers.ts'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
+import { mailer } from './mailer.ts'
 
 export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) {
   return createMiddleware(
@@ -28,6 +29,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     asyncContext(),
     loadDatabase(),
     loadAuth(),
+    mailer(),
     loadAssetEntry(),
     render(),
     json(),

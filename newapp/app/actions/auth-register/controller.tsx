@@ -13,6 +13,8 @@ import type { AppContext } from '../../types/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { users } from '../../data/schema.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
+import { generateToken, verificationExpires } from '../../utils/verification-token.ts'
+import { sendVerificationEmail } from '../../utils/send-email.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss } from '../../ui/auth-card.tsx'
 import type { AuthFormErrors } from '../../ui/auth-card.tsx'
@@ -20,7 +22,7 @@ import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 
-const registerLimiter = createRateLimiter({ windowMs: 15_000, perKey: true })
+const registerLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
 
 const registerSchema = f.object({
   name: f.field(s.string().pipe(minLength(1))),
@@ -59,31 +61,64 @@ export default createController(routes.auth.register, {
         )
       }
 
-      let user = await context.db.create(
-        users,
-        {
-          name: name.trim(),
-          email: normalizedEmail,
-          password_hash: await hashPassword(password),
-          role: 'customer',
-          created_at: Date.now(),
-        },
-        { returnRow: true },
-      )
+      let token = generateToken()
+      let expires = verificationExpires()
+
+      let user
+      try {
+        user = await context.db.create(
+          users,
+          {
+            name: name.trim(),
+            email: normalizedEmail,
+            password_hash: await hashPassword(password),
+            role: 'customer',
+            email_verified: process.env.NODE_ENV === 'test' ? 1 : 0,
+            verification_token: token,
+            verification_expires: expires,
+            created_at: Date.now(),
+          },
+          { returnRow: true },
+        )
+      } catch (err) {
+        let code = (err as { code?: string }).code
+        if (code === '23505') {
+          return context.render(
+            <RegisterPage error="An account with this email already exists." />,
+            { status: 400 },
+          )
+        }
+        throw err
+      }
 
       registerLimiter.reset(normalizedEmail)
 
-      let session = context.session
-      if (session == null) {
-        throw new Error('Expected session() middleware before auth register')
+      if (process.env.NODE_ENV !== 'test') {
+        let serverUrl = process.env.SERVER_URL || context.url.origin
+        let verificationUrl = `${serverUrl}${routes.auth.verify.href({ token })}`
+        try {
+          await sendVerificationEmail(
+            context.mailer,
+            { name: user.name, email: user.email },
+            verificationUrl,
+          )
+        } catch (err) {
+          console.error('Failed to send verification email:', err)
+          return context.render(
+            <RegisterPage error="Unable to send verification email. Please try again later." />,
+            { status: 500 },
+          )
+        }
       }
-      session.regenerateId()
-      session.set('auth', { userId: user.id })
 
-      return redirect(routes.home.href())
+      return redirect(routes.auth.registerSent.href())
     },
   },
 })
+
+export async function registerSent(context: AppContext) {
+  return context.render(<RegisterSentPage />)
+}
 
 function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors }>) {
   return () => {
@@ -149,6 +184,23 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors }
       </Layout>
     )
   }
+}
+
+function RegisterSentPage(handle: Handle<{}>) {
+  return () => (
+    <Layout title="Check your email">
+      <AuthShell
+        eyebrow="Almost there"
+        title="Check your email"
+        description="We've sent a verification link to your email address. Please check your inbox and click the link to complete your registration."
+      >
+        <p mix={bodyTextCss}>The verification link will expire in 24 hours.</p>
+        <p mix={bodyTextCss}>
+          <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Back to login</a>
+        </p>
+      </AuthShell>
+    </Layout>
+  )
 }
 
 const footerLinkCss = css({

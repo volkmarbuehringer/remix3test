@@ -31,7 +31,14 @@ export function loadAuth() {
           if (db == null) {
             throw new Error('Expected database middleware before session auth scheme')
           }
-          return (await db.find(users, value.userId)) ?? null
+          let user = await db.find(users, value.userId)
+          if (!user) return null
+
+          if (user.role !== 'admin' && user.email_verified !== 1) {
+            return null
+          }
+
+          return user
         },
         invalidate(session) {
           session.unset('auth')

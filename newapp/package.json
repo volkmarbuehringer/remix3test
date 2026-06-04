@@ -26,6 +26,7 @@
     "@ai-sdk/openai-compatible": "^2.0.48",
     "ai": "^6.0.195",
     "date-holidays": "^3.30.2",
+    "nodemailer": "^8.0.10",
     "pg": "^8.21.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.4.3"
@@ -35,6 +36,7 @@
     "@oxlint/plugins": "^1.68.0",
     "@playwright/test": "^1.60.0",
     "@types/node": "latest",
+    "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@typescript/native-preview": "7.0.0-dev.20260527.2",
     "oxlint": "^1.68.0",

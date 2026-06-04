@@ -59,41 +59,15 @@ describe('auth e2e', () => {
       redirect: 'manual',
     })
 
-    // Assert: Register creates a session and redirects to home
+    // Assert: Register redirects to register-sent page (no auto-login with email verification)
     assert.equal(registerResponse.status, 302, 'register should redirect')
     assert.equal(
       registerResponse.headers.get('Location'),
-      '/',
-      'register should redirect to home',
+      routes.auth.registerSent.href(),
+      'register should redirect to register-sent page',
     )
 
-    let cookie = extractSessionCookie(registerResponse)
-    assert.ok(cookie, 'register should set a session cookie')
-
-    // --- Step 2: Logout ---
-    // Need a CSRF token for logout too. The registerResponse set a new session cookie.
-    // We need a CSRF token for this session. Let's get one from the login page.
-    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
-    // Use the cookie from the login csrf session (which might be different from the register cookie)
-    let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
-      method: 'POST',
-      body: new URLSearchParams({ _csrf: logoutCsrf }),
-      headers: { Cookie: logoutCsrfCookie },
-      redirect: 'manual',
-    })
-
-    // Assert: Logout unsets auth and redirects to home
-    assert.equal(logoutResponse.status, 302, 'logout should redirect')
-    assert.equal(
-      logoutResponse.headers.get('Location'),
-      '/',
-      'logout should redirect to home',
-    )
-
-    let logoutCookie = extractSessionCookie(logoutResponse)
-    assert.ok(logoutCookie, 'logout should set a regenerated session cookie')
-
-    // --- Step 3: Login with the registered credentials ---
+    // --- Step 2: Login with the registered credentials ---
     let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
     let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
@@ -110,8 +84,25 @@ describe('auth e2e', () => {
       'login should redirect to home',
     )
 
-    let loginCookie = extractSessionCookie(loginResponse)
-    assert.ok(loginCookie, 'login should set an authenticated session cookie')
+    let cookie = extractSessionCookie(loginResponse)
+    assert.ok(cookie, 'login should set an authenticated session cookie')
+
+    // --- Step 3: Logout ---
+    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
+      method: 'POST',
+      body: new URLSearchParams({ _csrf: logoutCsrf }),
+      headers: { Cookie: logoutCsrfCookie },
+      redirect: 'manual',
+    })
+
+    // Assert: Logout unsets auth and redirects to home
+    assert.equal(logoutResponse.status, 302, 'logout should redirect')
+    assert.equal(
+      logoutResponse.headers.get('Location'),
+      '/',
+      'logout should redirect to home',
+    )
   })
 
   // -----------------------------------------------------------------------

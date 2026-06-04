@@ -23,7 +23,7 @@ import { pool } from '../../data/setup.ts'
 import { getAdminIdentity } from '../../utils/context.ts'
 
 /** User view returned to the client — password_hash is never serialized. */
-type SafeUser = Omit<User, 'password_hash'>
+type SafeUser = Pick<User, 'id' | 'email' | 'name' | 'role' | 'email_verified' | 'created_at' | 'updated_at'>
 
 const PAGE_SIZE = 15
 
@@ -82,7 +82,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 
       // Strip password_hash from rows returned to the client
       let rows: SafeUser[] = (page as User[]).map(
-        (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, created_at: u.created_at, updated_at: u.updated_at }),
+        (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified, created_at: u.created_at, updated_at: u.updated_at }),
       )
 
       // Check for inline editing state
@@ -93,7 +93,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
         let found = await db.findOne(users, { where: { id: editingRowId } })
         if (found) {
           let u = found as User
-          editRow = { id: u.id!, email: u.email, name: u.name, role: u.role, created_at: u.created_at!, updated_at: u.updated_at! }
+          editRow = { id: u.id!, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified, created_at: u.created_at!, updated_at: u.updated_at! }
         }
       }
 
