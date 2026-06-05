@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase, pool } from './setup.ts'
-import { parseDuring, isSlotBookable, computeFullHourSlots, listDaysWithOfferings } from './appointofferings.ts'
+import { parseDuring, isSlotBookable, computeFullHourSlots, listDaysWithOfferings, filterAvailableSlots } from './appointofferings.ts'
 
 // ---------------------------------------------------------------------------
 // parseDuring — pure function tests
@@ -293,6 +293,75 @@ describe('computeFullHourSlots', () => {
 
     // Assert: 480+60=540 ≤ 540 ✓
     assert.deepEqual(result, [480])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// filterAvailableSlots — pure function tests (no database required)
+// These tests verify that full-hour slots are correctly filtered against
+// booked appointment ranges using the m < b.endMin && m + 60 > b.startMin
+// overlap check.
+// ---------------------------------------------------------------------------
+
+describe('filterAvailableSlots', () => {
+  it('filters out exactly overlapping slot', () => {
+    let slots = [480, 540, 600, 660, 720]
+    let booked = [{ startMin: 600, endMin: 660 }]
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [480, 540, 660, 720])
+  })
+
+  it('filters out partially overlapping slot (appointment ends mid-slot, slot 540 blocked)', () => {
+    let slots = [480, 540, 600, 660]
+    let booked = [{ startMin: 540, endMin: 570 }]
+    let result = filterAvailableSlots(slots, booked)
+    // Slot 540 (9:00-10:00) blocked: 540<570 && 600>540
+    // Slot 600 (10:00-11:00): 600<570 is false → not blocked
+    assert.deepEqual(result, [480, 600, 660])
+  })
+
+  it('filters out partially overlapping slot (appointment starts mid-slot, slot 600+660 blocked)', () => {
+    let slots = [480, 540, 600, 660]
+    let booked = [{ startMin: 630, endMin: 690 }]
+    let result = filterAvailableSlots(slots, booked)
+    // Slot 600: 600<690 && 660>630 → blocked
+    // Slot 660: 660<690 && 720>630 → blocked
+    assert.deepEqual(result, [480, 540])
+  })
+
+  it('keeps all slots when no bookings', () => {
+    let slots = [480, 540, 600, 660]
+    let booked: { startMin: number; endMin: number }[] = []
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [480, 540, 600, 660])
+  })
+
+  it('filters out all slots when all booked', () => {
+    let slots = [480, 540, 600]
+    let booked = [{ startMin: 480, endMin: 720 }]
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [])
+  })
+
+  it('keeps adjacent non-overlapping slot (exclusive upper bound)', () => {
+    let slots = [600, 660]
+    let booked = [{ startMin: 540, endMin: 600 }]
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [600, 660])
+  })
+
+  it('handles multiple booked ranges blocking multiple slots', () => {
+    let slots = [480, 540, 600, 660, 720, 780]
+    let booked = [{ startMin: 540, endMin: 600 }, { startMin: 660, endMin: 780 }]
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [480, 600, 780])
+  })
+
+  it('returns empty array for empty slots input', () => {
+    let slots: number[] = []
+    let booked = [{ startMin: 480, endMin: 540 }]
+    let result = filterAvailableSlots(slots, booked)
+    assert.deepEqual(result, [])
   })
 })
 

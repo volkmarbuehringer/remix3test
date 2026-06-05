@@ -164,7 +164,10 @@ export const AppointmentGrid = clientEntry(
 
       // Compute the set of bookable minutes across all visible days.
       // Only rows with at least one bookable slot on any day are rendered.
-      let { allBookableMinutes, bookableByDay } = computeBookableSlots(offerings, visibleDays)
+      // Exclude the currently-dragged/resized block for self-exclusion.
+      let excludeApptId = activeGesture === 'drag' ? dragState?.blockId : activeGesture === 'resize' ? resizeState?.blockId : undefined
+      let bookableAppts = excludeApptId !== undefined ? data.appointments.filter((a) => a.id !== excludeApptId) : data.appointments
+      let { allBookableMinutes, bookableByDay } = computeBookableSlots(offerings, visibleDays, bookableAppts)
       let offeringRange = computeOfferingTimeRange(offerings)
 
       // Store visible days and offering range for event handler access

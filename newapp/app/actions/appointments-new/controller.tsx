@@ -5,7 +5,7 @@ import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { isDateInPast, getPeriodRange } from '../../utils/date-utils.ts'
-import { listOfferingsByDayRange, listOfferingsByDay, parseDuring, listDaysWithOfferings, computeFullHourSlots } from '../../data/appointofferings.ts'
+import { listOfferingsByDayRange, listOfferingsByDay, parseDuring, listDaysWithOfferings, computeFullHourSlots, getBookedRanges, filterAvailableSlots } from '../../data/appointofferings.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -206,6 +206,10 @@ async function loadAppointmentsNewPageData(
       let dayOfferings = await listOfferingsByDay(context.db, parseInt(wizardDayStr, 10), parseInt(wizardResourceId, 10))
       let ranges = dayOfferings.map(o => parseDuring(o.during)).filter((r): r is { startMin: number; endMin: number } => r !== null)
       fullHourSlots = computeFullHourSlots(ranges)
+      let booked = await getBookedRanges(context.db, parseInt(wizardResourceId, 10), parseInt(wizardDayStr, 10))
+      if (booked.length > 0) {
+        fullHourSlots = filterAvailableSlots(fullHourSlots, booked)
+      }
       if (fullHourSlots.length > 0) {
         defaultStartMin = fullHourSlots[0]
       }
@@ -233,10 +237,9 @@ async function loadAppointmentsNewPageData(
     let editOfferings = await listOfferingsByDayRange(context.db, editDate, editDate + 86_400_000, editResourceId)
     let editRanges = editOfferings.map(o => parseDuring(o.during)).filter((r): r is { startMin: number; endMin: number } => r !== null)
     let allSlots = computeFullHourSlots(editRanges)
-    let currentMin = Number(editRowLocal.start_min)
-    if (!allSlots.includes(currentMin)) {
-      allSlots.push(currentMin)
-      allSlots.sort((a, b) => a - b)
+    let booked = await getBookedRanges(context.db, editResourceId, editDate, Number(editRowLocal.id))
+    if (booked.length > 0) {
+      allSlots = filterAvailableSlots(allSlots, booked)
     }
     fullHourSlots = allSlots
   }

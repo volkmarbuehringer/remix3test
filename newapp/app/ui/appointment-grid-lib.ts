@@ -94,6 +94,7 @@ export function computeOfferingTimeRange(offerings: AppData['offerings']): {
 export function computeBookableSlots(
   offerings: AppData['offerings'],
   visibleDays: AppData['days'],
+  appointments?: AppointmentLayoutBlock[],
 ): { allBookableMinutes: number[]; bookableByDay: Map<number, Set<number>> } {
   let visibleDates = new Set(visibleDays.map((d) => d.date))
   let byDay = new Map<number, Set<number>>()
@@ -109,6 +110,22 @@ export function computeBookableSlots(
     for (let m = o.start_min; m < o.end_min; m += 15) {
       daySet.add(m)
       globalSet.add(m)
+    }
+  }
+
+  // Remove 15-min slots that overlap with existing appointments
+  if (appointments && appointments.length > 0) {
+    for (let [day, daySet] of byDay) {
+      let dayAppointments = appointments.filter((a) => a.date === day)
+      if (dayAppointments.length === 0) continue
+      for (let m of [...daySet]) {
+        for (let appt of dayAppointments) {
+          if (m < appt.end_min && m + 15 > appt.start_min) {
+            daySet.delete(m)
+            break
+          }
+        }
+      }
     }
   }
 

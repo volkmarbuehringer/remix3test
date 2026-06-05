@@ -131,6 +131,47 @@ export function computeFullHourSlots(
 }
 
 /**
+ * Query booked time ranges for a resource on a given day.
+ * Optionally excludes a specific appointment ID (for self-exclusion in edit mode).
+ */
+export async function getBookedRanges(
+  db: Database,
+  resourceId: number,
+  date: number,
+  excludeId?: number,
+): Promise<{ startMin: number; endMin: number }[]> {
+  let query = sql`
+    SELECT start_min, end_min
+    FROM appointments
+    WHERE resource_id = ${resourceId} AND date = ${date}
+  `
+  if (excludeId !== undefined) {
+    query = sql`${query} AND id != ${excludeId}`
+  }
+  query = sql`${query} ORDER BY start_min ASC`
+  let result = await db.exec(query)
+  return ((result.rows ?? []) as { start_min: number; end_min: number }[]).map(
+    (r) => ({ startMin: Number(r.start_min), endMin: Number(r.end_min) }),
+  )
+}
+
+/**
+ * Filter full-hour slots to exclude those overlapping with booked ranges.
+ * A slot at minute m is booked if ∃ booked range b where m < b.endMin AND m+60 > b.startMin.
+ */
+export function filterAvailableSlots(
+  fullHourSlots: number[],
+  booked: { startMin: number; endMin: number }[],
+): number[] {
+  return fullHourSlots.filter((m) => {
+    for (let b of booked) {
+      if (m < b.endMin && m + 60 > b.startMin) return false
+    }
+    return true
+  })
+}
+
+/**
  * Check whether a given time range falls within at least one offering
  * for a given resource on a given day. Uses a single DB query instead
  * of fetching all offerings and iterating client-side.
