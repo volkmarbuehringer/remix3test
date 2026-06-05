@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase, pool } from './setup.ts'
-import { parseDuring, isSlotBookable } from './appointofferings.ts'
+import { parseDuring, isSlotBookable, computeFullHourSlots, listDaysWithOfferings } from './appointofferings.ts'
 
 // ---------------------------------------------------------------------------
 // parseDuring — pure function tests
@@ -218,5 +218,169 @@ describe('isSlotBookable', () => {
 
     // Assert
     assert.equal(result, false, '600-660 should not be bookable in the gap between offerings')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeFullHourSlots — pure function tests (no database required)
+// ---------------------------------------------------------------------------
+
+describe('computeFullHourSlots', () => {
+  it('returns full-hour slots for a single offering [480,1080)', () => {
+    // Arrange: offering 8:00-18:00
+    let ranges = [{ startMin: 480, endMin: 1080 }]
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert: expects 8:00(480), 9:00(540), 10:00(600), 11:00(660),
+    // 12:00(720), 13:00(780), 14:00(840), 15:00(900), 16:00(960), 17:00(1020)
+    assert.deepEqual(result, [480, 540, 600, 660, 720, 780, 840, 900, 960, 1020])
+  })
+
+  it('returns correct slots for multiple offerings with gap [480,720)+[780,1080)', () => {
+    // Arrange: two offerings with gap 12:00-13:00
+    let ranges = [{ startMin: 480, endMin: 720 }, { startMin: 780, endMin: 1080 }]
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert: 12:00(720) is NOT included because 720+60=780 > 720 (offering ends at 720)
+    // 13:00(780) IS included because 780+60=840 ≤ 1080
+    assert.deepEqual(result, [480, 540, 600, 660, 780, 840, 900, 960, 1020])
+  })
+
+  it('returns empty array for empty offerings', () => {
+    // Arrange
+    let ranges: { startMin: number; endMin: number }[] = []
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert
+    assert.deepEqual(result, [])
+  })
+
+  it('returns empty array when offering is too short for a full hour [500,530)', () => {
+    // Arrange: only 30 min, not enough for a full hour
+    let ranges = [{ startMin: 500, endMin: 530 }]
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert
+    assert.deepEqual(result, [])
+  })
+
+  it('handles non-aligned start time [500,800)', () => {
+    // Arrange: offering starts at 500 (not a round hour), ends at 800
+    // First full hour that fits: ceil(500/60)*60 = 540 (9:00)
+    let ranges = [{ startMin: 500, endMin: 800 }]
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert: 540, 600, 660, 720 (500-540 is only 40 min, not full hour; 720+60=780 ≤ 800)
+    assert.deepEqual(result, [540, 600, 660, 720])
+  })
+
+  it('handles offering ending exactly on full-hour boundary [480,540)', () => {
+    // Arrange: offering exactly 1 hour
+    let ranges = [{ startMin: 480, endMin: 540 }]
+
+    // Act
+    let result = computeFullHourSlots(ranges)
+
+    // Assert: 480+60=540 ≤ 540 ✓
+    assert.deepEqual(result, [480])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// listDaysWithOfferings — integration tests (requires database)
+// ---------------------------------------------------------------------------
+
+describe('listDaysWithOfferings', () => {
+  let testDate1: number
+  let testDate3: number
+  let testResourceId = 9998
+
+  before(async () => {
+    await initializeAppDatabase()
+    await pool.query(
+      `INSERT INTO resources (id, description, created_at, updated_at)
+       VALUES ($1, $2, $3, $3)
+       ON CONFLICT (id) DO NOTHING`,
+      [testResourceId, 'Testressource für listDaysWithOfferings', Date.now()],
+    )
+    testDate1 = Date.now() + 400 * 86_400_000
+    testDate3 = testDate1 + 2 * 86_400_000
+  })
+
+  afterEach(async () => {
+    try {
+      await pool.query('DELETE FROM appointoffering WHERE resource_id = $1', [testResourceId])
+    } catch {
+      // Ignore cleanup errors
+    }
+  })
+
+  it('returns distinct days with offerings for a resource in a date window', async () => {
+    // Arrange: seed offerings on day1 and day3 (not day2)
+    await pool.query(
+      `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+       VALUES ($1::bigint, $2, int4range(480, 1080, '[)'), $3, $3)`,
+      [testDate1, testResourceId, Date.now()],
+    )
+    await pool.query(
+      `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+       VALUES ($1::bigint, $2, int4range(480, 720, '[)'), $3, $3)`,
+      [testDate3, testResourceId, Date.now()],
+    )
+
+    // Act
+    let result = await listDaysWithOfferings(db, testResourceId, testDate1, testDate3 + 86_400_000)
+
+    // Assert: two days returned (day2 has no offerings)
+    assert.equal(result.length, 2)
+    assert.equal(result[0].day, testDate1)
+    assert.equal(result[1].day, testDate3)
+    assert.equal(result[0].ranges.length, 1)
+    assert.deepEqual(result[0].ranges[0], { startMin: 480, endMin: 1080 })
+  })
+
+  it('returns empty array when resource has no offerings in the period', async () => {
+    // Arrange: no offerings for this resource
+
+    // Act
+    let result = await listDaysWithOfferings(db, testResourceId, testDate1, testDate3 + 86_400_000)
+
+    // Assert
+    assert.deepEqual(result, [])
+  })
+
+  it('returns multiple ranges for a day with multiple offerings', async () => {
+    // Arrange: two offerings on the same day
+    await pool.query(
+      `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+       VALUES ($1::bigint, $2, int4range(480, 720, '[)'), $3, $3)`,
+      [testDate1, testResourceId, Date.now()],
+    )
+    await pool.query(
+      `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+       VALUES ($1::bigint, $2, int4range(780, 1080, '[)'), $3, $3)`,
+      [testDate1, testResourceId, Date.now()],
+    )
+
+    // Act
+    let result = await listDaysWithOfferings(db, testResourceId, testDate1, testDate1 + 86_400_000)
+
+    // Assert: one day with two ranges
+    assert.equal(result.length, 1)
+    assert.equal(result[0].ranges.length, 2)
+    assert.deepEqual(result[0].ranges, [
+      { startMin: 480, endMin: 720 },
+      { startMin: 780, endMin: 1080 },
+    ])
   })
 })

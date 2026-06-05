@@ -54,6 +54,11 @@ interface AppointmentsNewPageProps {
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
+  step?: number
+  wizardResourceId?: string
+  wizardDay?: number
+  daysWithOfferings?: { day: number; ranges: { startMin: number; endMin: number }[] }[]
+  fullHourSlots?: number[]
 }
 
 function formatDate(day: string): string {
@@ -170,6 +175,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       formValues,
       fieldErrors,
       formError,
+      step,
+      wizardResourceId,
+      wizardDay,
+      daysWithOfferings,
+      fullHourSlots,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -397,6 +407,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
+                  fullHourSlots={fullHourSlots}
                 />
               ) : creating ? (
                 <AppointmentsNewCreatePage
@@ -410,6 +421,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
+                  step={step}
+                  wizardResourceId={wizardResourceId}
+                  wizardDay={wizardDay}
+                  daysWithOfferings={daysWithOfferings}
+                  fullHourSlots={fullHourSlots}
                 />
               ) : null}
             </div>

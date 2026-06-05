@@ -12,8 +12,6 @@ import { formatMinOption } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import type { AppointmentsNewRow, ResourceOption } from '../actions/appointments-new/controller.tsx'
 
-const START_MIN_OPTIONS = Array.from({ length: 93 }, (_, i) => i * 15)
-
 const inlineErrorStyle = css({
   color: theme.colors.action.danger.background,
   fontSize: theme.fontSize.xs,
@@ -53,11 +51,12 @@ export interface AppointmentsNewFormProps {
   fieldErrors?: Record<string, string>
   formError?: string
   formValues?: Record<string, string>
+  fullHourSlots?: number[]
 }
 
 export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
   return () => {
-    let { mode, resources, gridState, row, defaultStartMin = 480, fieldErrors, formError, formValues } = handle.props
+    let { mode, resources, gridState, row, defaultStartMin = 480, fieldErrors, formError, formValues, fullHourSlots } = handle.props
     let isEdit = mode === 'edit'
     let { offset, sort, order, filter = '', period = '' } = gridState
 
@@ -65,6 +64,8 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
     let resolvedTitle = formValues?.title ?? (isEdit && row ? row.title : undefined)
     let resolvedDate = formValues?.date ?? (isEdit && row ? new Date(Number(row.date)).toISOString().split('T')[0] : '')
     let resolvedStartMin = formValues?.start_min !== undefined ? Number(formValues.start_min) : (isEdit && row ? Number(row.start_min) : defaultStartMin)
+
+    let timeOptions = fullHourSlots ?? (isEdit && row ? [Number(row.start_min)] : [])
 
     let method = isEdit ? 'PUT' as const : 'POST' as const
     let action = isEdit && row ? `${BASE}/${row.id}` : BASE
@@ -142,7 +143,7 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
                   required
                   mix={[input.base, input.focus, table.select, fieldErrors?.start_min ? input.error : undefined]}
                 >
-                  {START_MIN_OPTIONS.map((min) => (
+                  {timeOptions.map((min) => (
                     <option key={min} value={min} selected={min === resolvedStartMin}>
                       {formatMinOption(min)}
                     </option>

@@ -1,4 +1,4 @@
-import { eq, gte, lt, sql, type Database } from 'remix/data-table'
+import { gte, lt, sql, type Database } from 'remix/data-table'
 
 import { appointofferings, type AppointOffering } from './schema.ts'
 
@@ -41,6 +41,21 @@ export async function listOfferingsByDayRange(
 }
 
 /**
+ * Query offerings for a specific day and resource.
+ */
+export async function listOfferingsByDay(
+  db: Database,
+  day: number,
+  resourceId: number,
+): Promise<AppointOffering[]> {
+  return await db
+    .query(appointofferings)
+    .where({ day, resource_id: resourceId })
+    .orderBy('during', 'asc')
+    .all()
+}
+
+/**
  * Parse an offering's `during` range string into [startMin, endMin).
  * Handles various formats the PostgreSQL driver might return.
  */
@@ -59,6 +74,60 @@ export function parseDuring(during: string): { startMin: number; endMin: number 
     return { startMin: parseInt(fallback[1], 10), endMin: parseInt(fallback[2], 10) }
   }
   return null
+}
+
+/**
+ * Returns distinct days that have at least one offering for a resource in a date window,
+ * along with the offering time ranges for each day.
+ */
+export async function listDaysWithOfferings(
+  db: Database,
+  resourceId: number,
+  startDate: number,
+  endDate: number,
+): Promise<{ day: number; ranges: { startMin: number; endMin: number }[] }[]> {
+  let rows = await db.exec(sql`
+    SELECT day, during::text AS during
+    FROM appointoffering
+    WHERE resource_id = ${resourceId}
+      AND day >= ${startDate}
+      AND day < ${endDate}
+    ORDER BY day ASC, during ASC
+  `)
+
+  let dayMap = new Map<number, { startMin: number; endMin: number }[]>()
+  for (let row of (rows.rows ?? []) as { day: number; during: string }[]) {
+    let day = Number(row.day)
+    if (!dayMap.has(day)) {
+      dayMap.set(day, [])
+    }
+    let parsed = parseDuring(row.during)
+    if (parsed) {
+      dayMap.get(day)!.push(parsed)
+    }
+  }
+
+  return Array.from(dayMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([day, ranges]) => ({ day, ranges }))
+}
+
+/**
+ * Takes offering `during` ranges for a day and returns an array of valid
+ * full-hour `start_min` values (multiples of 60) that fit within at least
+ * one offering.
+ */
+export function computeFullHourSlots(
+  ranges: { startMin: number; endMin: number }[],
+): number[] {
+  let slots = new Set<number>()
+  for (let { startMin, endMin } of ranges) {
+    let firstHour = Math.ceil(startMin / 60) * 60
+    for (let m = firstHour; m + 60 <= endMin; m += 60) {
+      slots.add(m)
+    }
+  }
+  return Array.from(slots).sort((a, b) => a - b)
 }
 
 /**
