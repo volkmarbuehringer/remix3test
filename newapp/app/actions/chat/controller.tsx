@@ -4,7 +4,6 @@ import * as s from 'remix/data-schema'
 import { generateText } from 'ai'
 
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getConversation } from '../../lib/chatlog.ts'
 import type { ChatMessage } from '../../lib/chatlog.ts'
@@ -26,7 +25,7 @@ const chatRateLimiter = createRateLimiter({ windowMs: 2000 })
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant. Answer user questions conversationally and helpfully.`
 
-export default createController<typeof routes.ai.chat, AppContext>(routes.ai.chat, {
+export default createController(routes.ai.chat, {
   middleware: [requireAuth()],
 
   actions: {

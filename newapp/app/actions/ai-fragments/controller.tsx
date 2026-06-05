@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
 import { AgentResultFragment } from '../../ui/ai-fragments/agent-result-fragment.tsx'
@@ -8,7 +7,7 @@ import { AgentResultFragment } from '../../ui/ai-fragments/agent-result-fragment
 /**
  * Controller for AI fragment endpoints used by client-mounted frames.
  */
-export default createController<typeof routes.ai.fragments, AppContext>(
+export default createController(
   routes.ai.fragments,
   {
     middleware: [requireAuth()],

@@ -7,9 +7,8 @@ import { Layout } from '../../ui/layout.tsx'
 import { HomePage } from '../../ui/scaffold-home-page.tsx'
 import { ShowcaseIndexPage } from '../../ui/showcase-pages.tsx'
 import { SHOWCASE_PAGES, type ShowcasePageId } from '../../ui/showcase-registry.ts'
-import type { AppContext } from '../../types/context.ts'
 
-export default createController<typeof routes, AppContext>(routes, {
+export default createController(routes, {
   actions: {
     async assets(context) {
       return (

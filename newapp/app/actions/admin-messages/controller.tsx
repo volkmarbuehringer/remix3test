@@ -6,7 +6,6 @@ import { messages } from '../../data/schema.ts'
 import { pool } from '../../data/setup.ts'
 import { adminChannel, messageRateLimiter, broadcastInvalidate } from '../../lib/messages-sse.ts'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
@@ -28,7 +27,7 @@ function sanitizeContent(content: string): string {
 
 const PAGE_LIMIT = 10
 
-export default createController<typeof routes.admin.messages, AppContext>(routes.admin.messages, {
+export default createController(routes.admin.messages, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

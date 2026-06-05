@@ -5,7 +5,6 @@ import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCspNonce } from '../../middleware/security-headers.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
-import type { AppContext } from '../../types/context.ts'
 import { routes } from '../../routes.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
@@ -27,7 +26,7 @@ const updateSchema = s.object({
   title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
 })
 
-export default createController<typeof routes.appointment.types, AppContext>(
+export default createController(
   routes.appointment.types,
   {
     middleware: [requireAuth()],

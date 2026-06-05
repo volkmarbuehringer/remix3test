@@ -3,7 +3,6 @@ import * as f from 'remix/data-schema/form-data'
 import * as s from 'remix/data-schema'
 
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { ToolLoopAgent, stepCountIs } from 'ai'
 import { getConversation } from '../../lib/chatlog.ts'
@@ -26,7 +25,7 @@ const MAX_MESSAGE_LENGTH = 5000
 
 const tools = { ...baseTools }
 
-export default createController<typeof routes.ai.agent, AppContext>(routes.ai.agent, {
+export default createController(routes.ai.agent, {
   middleware: [requireAuth()],
 
   actions: {

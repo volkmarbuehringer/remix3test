@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { getConversation } from '../../lib/chatlog.ts'
@@ -10,7 +9,7 @@ import { ChatlogDetailFragment } from '../../ui/admin-fragments/chatlog-detail-f
 /**
  * Controller for admin chatlog fragment endpoints used by client-mounted frames.
  */
-export default createController<typeof routes.admin.chatlog.fragments, AppContext>(
+export default createController(
   routes.admin.chatlog.fragments,
   {
     middleware: [requireAuth(), requireAdmin()],

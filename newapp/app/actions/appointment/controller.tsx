@@ -4,7 +4,6 @@ import { max, maxLength, min, minLength } from 'remix/data-schema/checks'
 import { getCsrfToken } from 'remix/middleware/csrf'
 
 import { requireAuth } from '../../middleware/auth.ts'
-import type { AppContext } from '../../types/context.ts'
 import { routes } from '../../routes.ts'
 import {
   listAppointmentsByWeek,
@@ -107,7 +106,7 @@ function weekDates(mondayMs: number): Array<{ dayName: string; date: number; dat
   return days
 }
 
-export default createController<typeof routes.appointment, AppContext>(routes.appointment, {
+export default createController(routes.appointment, {
   middleware: [requireAuth()],
 
   actions: {

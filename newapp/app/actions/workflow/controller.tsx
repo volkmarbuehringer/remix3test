@@ -4,7 +4,6 @@ import * as f from 'remix/data-schema/form-data'
 import { sql } from 'remix/data-table'
 
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import type { User } from '../../data/schema.ts'
 import { listWorkflows, getWorkflow } from '../../workflows/registry.ts'
@@ -18,7 +17,7 @@ const workflowSchema = f.object({
   workflowId: f.field(s.string()),
 })
 
-export default createController<typeof routes.ai.workflow, AppContext>(routes.ai.workflow, {
+export default createController(routes.ai.workflow, {
   middleware: [requireAuth()],
 
   actions: {

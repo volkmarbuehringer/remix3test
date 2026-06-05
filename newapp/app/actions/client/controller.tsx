@@ -8,7 +8,6 @@ import { requireAuth } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import { clients } from '../../data/schema.ts'
 import type { Client } from '../../data/schema.ts'
-import type { AppContext } from '../../types/context.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { ClientPage } from './page.tsx'
 import { ClientGridPage } from './grid-page.tsx'
@@ -60,7 +59,7 @@ function parseDate(value: string): number {
   return Number.isFinite(ts) ? ts : Date.now()
 }
 
-export default createController<typeof routes.client, AppContext>(routes.client, {
+export default createController(routes.client, {
   middleware: [requireAuth()],
   actions: {
     // ── GET /client — Render main page with grid Frame ──

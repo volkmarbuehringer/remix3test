@@ -9,7 +9,6 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { passwordProvider } from '../../middleware/auth.ts'

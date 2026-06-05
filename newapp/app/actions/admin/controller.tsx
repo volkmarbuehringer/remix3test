@@ -2,11 +2,10 @@ import { createController } from 'remix/router'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { AdminDashboardContent } from '../../ui/admin-page.tsx'
 
-export default createController<typeof routes.admin, AppContext>(routes.admin, {
+export default createController(routes.admin, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

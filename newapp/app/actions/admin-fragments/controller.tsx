@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
@@ -12,7 +11,7 @@ import { UserDetailFragment } from '../../ui/admin-fragments/user-detail-fragmen
  * Controller for admin fragment endpoints used by nested frames.
  * Each action renders a fragment without Layout/Document wrapper.
  */
-export default createController<typeof routes.admin.fragments, AppContext>(
+export default createController(
   routes.admin.fragments,
   {
     middleware: [requireAuth(), requireAdmin()],
