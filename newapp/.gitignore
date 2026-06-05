@@ -6,4 +6,4 @@ playwright-results.xml
 test-results/
 tests/
 .coverage
-.env
+.env*

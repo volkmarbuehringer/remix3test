@@ -57,8 +57,15 @@ export const routes = route({
     update: put('/:id'),
     destroy: del('/:id'),
     events: get('/events'),
-
     types: resources('types', { exclude: ['new', 'show', 'edit'] }),
+  }),
+
+  appointmentsNew: route('appointments/new', {
+    index: get('/'),
+    create: post('/'),
+    update: put('/:id'),
+    destroy: del('/:id'),
+    events: get('/events'),
   }),
 
   admin: route('admin', {

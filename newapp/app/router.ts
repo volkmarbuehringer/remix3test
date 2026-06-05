@@ -28,6 +28,7 @@ import adminResourcesController from './actions/admin-resources/controller.tsx'
 import adminOfferingConfigsController from './actions/admin-offering-configs/controller.tsx'
 import verwaltungController from './actions/verwaltung/controller.tsx'
 import appointmentController from './actions/appointment/controller.tsx'
+import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import appointTypeController from './actions/appointtype/controller.tsx'
 import { authLogout } from './actions/auth-logout/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
@@ -79,6 +80,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointmentController)
   router.map(routes.appointment.types, appointTypeController)
+  router.map(routes.appointmentsNew, appointmentsNewController)
 
   // AI routes
   router.map(routes.ai, aiController)
