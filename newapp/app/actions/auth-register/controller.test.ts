@@ -60,6 +60,7 @@ describe('Auth Register controller', () => {
         name: 'Test User',
         email,
         password: 'securePassword123',
+        confirmPassword: 'securePassword123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -84,6 +85,7 @@ describe('Auth Register controller', () => {
         name: 'First User',
         email,
         password: 'password123',
+        confirmPassword: 'password123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -98,6 +100,7 @@ describe('Auth Register controller', () => {
         name: 'Second User',
         email,
         password: 'otherpass456',
+        confirmPassword: 'otherpass456',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -125,6 +128,7 @@ describe('Auth Register controller', () => {
         name: '',
         email,
         password: 'password123',
+        confirmPassword: 'password123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -133,6 +137,7 @@ describe('Auth Register controller', () => {
     assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Invalid input'), 'should show validation error for empty name')
+    assert.ok(html.includes('<span id="name-error"'), 'should show name field error')
   })
 
   it('POST /register with empty email returns 400 with error message', async () => {
@@ -145,6 +150,7 @@ describe('Auth Register controller', () => {
         name: 'Test User',
         email: '',
         password: 'password123',
+        confirmPassword: 'password123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -153,6 +159,7 @@ describe('Auth Register controller', () => {
     assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('Invalid input'), 'should show validation error for empty email')
+    assert.ok(html.includes('<span id="email-error"'), 'should show email field error')
   })
 
   // -----------------------------------------------------------------------
@@ -162,10 +169,9 @@ describe('Auth Register controller', () => {
     let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
     let email = `${TEST_PREFIX}ratelimit@example.com`
 
-    // Fire 6 rapid attempts (plus one final) — the first succeeds (new user),
-    // then the next 5 fail as duplicates. Each duplicate increments the rate
-    // limiter. After 5 duplicates, the rate limit threshold (5) is reached.
-    // The final 7th attempt is blocked with 429.
+    // Fire 6 attempts — the first succeeds (new user, resets counter), then
+    // the next 5 hit the duplicate check, incrementing the rate limiter.
+    // The 6th attempt already gets blocked (429).
     // We use a fresh CSRF session for each attempt since tokens are single-use.
     for (let i = 0; i < 6; i++) {
       let session = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
@@ -175,8 +181,9 @@ describe('Auth Register controller', () => {
         body: new URLSearchParams({
           name: 'Rate Limit User',
           email,
-          password: 'password123',
-          _csrf: session.csrfToken,
+        password: 'password123',
+        confirmPassword: 'password123',
+        _csrf: session.csrfToken,
         }),
         redirect: 'manual',
       })
@@ -191,6 +198,7 @@ describe('Auth Register controller', () => {
         name: 'Rate Limit User',
         email,
         password: 'password123',
+        confirmPassword: 'password123',
         _csrf: finalSession.csrfToken,
       }),
       redirect: 'manual',
@@ -208,4 +216,54 @@ describe('Auth Register controller', () => {
   // password passes schema validation (password_hash is not empty).
   // The empty-password edge case is already tested in password-hash.test.ts.
   // This test is intentionally omitted for the controller layer.
+
+  // -----------------------------------------------------------------------
+  // POST /register — short password shows field error
+  // -----------------------------------------------------------------------
+  it('POST /register with short password returns 400 with field error', async () => {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: new URLSearchParams({
+        name: 'Test User',
+        email: 'valid@example.com',
+        password: 'short',
+        confirmPassword: 'short',
+        _csrf: csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('<span id="password-error"'), 'should show password field error')
+    assert.ok(html.includes('<span id="confirm-password-error"'), 'should show confirm-password field error')
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /register — mismatched passwords shows field error
+  // -----------------------------------------------------------------------
+  it('POST /register with mismatched passwords returns 400 with field error', async () => {
+    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: new URLSearchParams({
+        name: 'Test User',
+        email: 'valid@example.com',
+        password: 'securePassword123',
+        confirmPassword: 'differentPassword456',
+        _csrf: csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('<span id="confirm-password-error"'), 'should show confirm-password field error')
+    assert.ok(html.includes('Passwords do not match'), 'should show mismatch error text')
+  })
 })

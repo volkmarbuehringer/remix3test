@@ -4,6 +4,7 @@ import { Button } from 'remix/ui/button'
 import { theme } from 'remix/ui/theme'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { PasswordToggle } from '../assets/password-toggle.tsx'
 
 export type AuthFormErrors = {
   form?: string
@@ -55,6 +56,7 @@ export function AuthForm(handle: Handle<AuthFormProps>) {
     return (
       <form action={action} method="POST" mix={formContainer}>
         <CsrfTokenInput />
+        <PasswordToggle />
         {error ? (
           <p role="alert" mix={errorBanner}>
             {error}
@@ -148,4 +150,40 @@ export const fieldLabelCss = css({
 export const fieldErrorCss = css({
   color: theme.colors.action.danger.foreground,
   fontSize: theme.fontSize.xs,
+})
+
+export const inputWrapperCss = css({
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+})
+
+export const inputHasToggleCss = css({
+  paddingRight: '2.25rem',
+})
+
+export const toggleButtonCss = css({
+  position: 'absolute',
+  right: '0.25rem',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '2rem',
+  height: '2rem',
+  padding: 0,
+  border: 'none',
+  borderRadius: theme.radius.sm,
+  background: 'transparent',
+  color: theme.colors.text.muted,
+  cursor: 'pointer',
+  '&:hover': {
+    color: theme.colors.text.primary,
+    background: theme.surface.lvl1,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.action.primary.background}`,
+    outlineOffset: -2,
+  },
 })

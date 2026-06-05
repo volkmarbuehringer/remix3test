@@ -18,7 +18,7 @@ import { sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { pool } from '../../data/setup.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { Layout } from '../../ui/layout.tsx'
-import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss } from '../../ui/auth-card.tsx'
+import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss, inputWrapperCss, inputHasToggleCss, toggleButtonCss } from '../../ui/auth-card.tsx'
 import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
@@ -31,7 +31,7 @@ const emailSchema = f.object({
 })
 
 const passwordSchema = f.object({
-  password: f.field(s.string().pipe(minLength(8))),
+  password: f.field(s.string().pipe(minLength(9))),
 })
 
 export default createController(routes.auth.forgotten, {
@@ -227,16 +227,24 @@ function ResetFormPage(handle: Handle<{ token: string; error?: string; errors?: 
           <AuthForm action={routes.auth.forgottenReset.action.href({ token })} error={error} submitLabel="Reset password">
             <label mix={fieldLabelCss}>
               <span>New password</span>
-              <input
-                type="password"
-                name="password"
-                required
-                autoComplete="new-password"
-                minLength={8}
-                aria-invalid={errors?.password ? true : undefined}
-                aria-describedby={errors?.password ? 'password-error' : undefined}
-                mix={[input.base, input.focus, errors?.password ? input.error : undefined]}
-              />
+              <div mix={inputWrapperCss}>
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  autoComplete="new-password"
+                  minLength={9}
+                  aria-invalid={errors?.password ? true : undefined}
+                  aria-describedby={errors?.password ? 'password-error' : undefined}
+                  mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
+                />
+                <button type="button" data-toggle-pw="password" aria-label="Show password" mix={toggleButtonCss}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
             </label>
           </AuthForm>

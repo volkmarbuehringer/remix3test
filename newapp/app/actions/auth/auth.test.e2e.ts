@@ -53,6 +53,7 @@ describe('auth e2e', () => {
         name: 'Journey Test User',
         email,
         password,
+        confirmPassword: password,
         _csrf: registerCsrf,
       }),
       headers: { Cookie: registerCsrfCookie },
