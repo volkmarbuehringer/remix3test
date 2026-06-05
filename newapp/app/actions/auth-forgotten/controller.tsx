@@ -25,6 +25,7 @@ import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 
 const forgotLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
+const resetLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
 
 const emailSchema = f.object({
   email: f.field(s.string().pipe(email())),
@@ -32,6 +33,7 @@ const emailSchema = f.object({
 
 const passwordSchema = f.object({
   password: f.field(s.string().pipe(minLength(9))),
+  confirmPassword: f.field(s.string().pipe(minLength(9))),
 })
 
 export default createController(routes.auth.forgotten, {
@@ -99,9 +101,23 @@ export const forgottenReset = createController(routes.auth.forgottenReset, {
     async action(context) {
       let token = (context.params as Record<string, string>).token
 
+      if (!resetLimiter.attempt(token)) {
+        return context.render(
+          <ResetErrorPage title="Too many attempts" message="Too many reset attempts. Please request a new reset link." />,
+          { status: 429 },
+        )
+      }
+
       let parsed = s.parseSafe(passwordSchema, context.formData)
       if (!parsed.success) {
-        return context.render(<ResetFormPage token={token} error="Password must be at least 8 characters." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
+        return context.render(<ResetFormPage token={token} error="Password and confirmation must be at least 9 characters." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
+      }
+
+      if (parsed.value.password !== parsed.value.confirmPassword) {
+        return context.render(
+          <ResetFormPage token={token} error="Passwords do not match." errors={{ confirmPassword: 'Passwords do not match' }} />,
+          { status: 400 },
+        )
       }
 
       let result = await validateResetToken(context.db, token)
@@ -246,6 +262,29 @@ function ResetFormPage(handle: Handle<{ token: string; error?: string; errors?: 
                 </button>
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+            </label>
+
+            <label mix={fieldLabelCss}>
+              <span>Confirm password</span>
+              <div mix={inputWrapperCss}>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  autoComplete="new-password"
+                  minLength={9}
+                  aria-invalid={errors?.confirmPassword ? true : undefined}
+                  aria-describedby={errors?.confirmPassword ? 'confirm-password-error' : undefined}
+                  mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
+                />
+                <button type="button" data-toggle-pw="confirmPassword" aria-label="Show password" mix={toggleButtonCss}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+              {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
             </label>
           </AuthForm>
         </AuthShell>

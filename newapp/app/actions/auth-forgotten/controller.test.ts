@@ -139,6 +139,7 @@ describe('Auth Forgot Password controller', () => {
 
       assert.ok(html.includes('Set a new password'), 'should contain reset heading')
       assert.ok(html.includes('name="password"'), 'should have password input')
+      assert.ok(html.includes('name="confirmPassword"'), 'should have confirm password input')
       assert.ok(html.includes('Reset password'), 'should have reset button')
       assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
     })
@@ -195,6 +196,7 @@ describe('Auth Forgot Password controller', () => {
           headers: { Cookie: cookie },
           body: new URLSearchParams({
             password: 'newSecurePassword123',
+            confirmPassword: 'newSecurePassword123',
             _csrf: csrfToken,
           }),
           redirect: 'manual',
@@ -235,6 +237,7 @@ describe('Auth Forgot Password controller', () => {
           headers: { Cookie: cookie },
           body: new URLSearchParams({
             password: 'short',
+            confirmPassword: 'short',
             _csrf: csrfToken,
           }),
           redirect: 'manual',
@@ -243,7 +246,42 @@ describe('Auth Forgot Password controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('at least 8'), 'should show password length error')
+      assert.ok(html.includes('at least 9'), 'should show password length error')
+    })
+
+    it('with mismatched passwords shows error', async () => {
+      let email = `${TEST_PREFIX}mismatch@example.com`
+      let token = 'mismatch-token-' + Date.now()
+      let expires = Date.now() + 3600000
+
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at, password_reset_token, password_reset_expires)
+         VALUES ($1, $2, $3, $4, 1, $5, $6, $7)
+         ON CONFLICT (email) DO UPDATE SET password_reset_token = $6, password_reset_expires = $7`,
+        [email, 'old-hash', 'Mismatch Test User', 'customer', Date.now(), token, expires],
+      )
+
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgottenReset.index.href({ token })}`,
+      )
+
+      let response = await router.fetch(
+        `${BASE}${routes.auth.forgottenReset.action.href({ token })}`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookie },
+          body: new URLSearchParams({
+            password: 'correctPassword123',
+            confirmPassword: 'differentPassword456',
+            _csrf: csrfToken,
+          }),
+          redirect: 'manual',
+        },
+      )
+
+      assert.equal(response.status, 400)
+      let html = await response.text()
+      assert.ok(html.includes('Passwords do not match'), 'should show mismatch error')
     })
 
     it('with already-used token shows error', async () => {
@@ -257,6 +295,7 @@ describe('Auth Forgot Password controller', () => {
           headers: { Cookie: cookie },
           body: new URLSearchParams({
             password: 'password12345',
+            confirmPassword: 'password12345',
             _csrf: csrfToken,
           }),
           redirect: 'manual',
