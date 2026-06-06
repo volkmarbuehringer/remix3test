@@ -51,6 +51,8 @@ export const routes = route({
     forgottenReset: form('forgotten/:token'),
   }),
 
+  settings: form('settings'),
+
   appointment: route('appointment', {
     index: get('/'),
     create: post('/'),

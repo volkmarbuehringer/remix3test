@@ -30,6 +30,7 @@ import verwaltungController from './actions/verwaltung/controller.tsx'
 import appointmentController from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import appointTypeController from './actions/appointtype/controller.tsx'
+import settingsController from './actions/settings/controller.tsx'
 import { authLogout } from './actions/auth-logout/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { routes } from './routes.ts'
@@ -76,6 +77,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.post(routes.auth.logout.href(), authLogout)
   router.map(routes.auth.forgotten, forgottenController)
   router.map(routes.auth.forgottenReset, forgottenReset)
+
+  // Settings routes
+  router.map(routes.settings, settingsController)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointmentController)
