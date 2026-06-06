@@ -285,7 +285,7 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       await db.deleteMany(users, { where: { id } })
 
       if (authIdentity) {
-        logAdminAction(pool, {
+        await logAdminAction(pool, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

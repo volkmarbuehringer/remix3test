@@ -12,7 +12,7 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 const verifyLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 10 })
 
 export async function verify(context: AppContext) {
-  let ip = context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ?? context.request.headers.get('Cf-Connecting-Ip') ?? 'unknown'
+  let ip = context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown'
   if (!verifyLimiter.attempt(ip)) {
     return context.render(<VerifyErrorPage title="Too many attempts" message="You have made too many verification attempts. Please try again later." />, { status: 429 })
   }
