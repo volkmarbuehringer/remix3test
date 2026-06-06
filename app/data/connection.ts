@@ -14,6 +14,7 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   maxUses: 7500,
+  statement_timeout: 30000,
 })
 
 const adapter = createPostgresDatabaseAdapter(pool)

@@ -18,6 +18,7 @@ import {
   gridStateToParams,
 } from '../../utils/grid-state.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
+import { validatePasswordComplexity } from '../../utils/password-complexity.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { pool } from '../../data/setup.ts'
 import { getAdminIdentity } from '../../utils/context.ts'
@@ -134,8 +135,12 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       if (!fields.email || !EMAIL_RE.test(fields.email)) {
         return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
       }
-      if (!fields.password || fields.password.length < 6) {
-        return context.json({ ok: false, error: 'Password must be at least 6 characters' }, { status: 400 })
+      if (!fields.password) {
+        return context.json({ ok: false, error: 'Password is required' }, { status: 400 })
+      }
+      let complexityError = validatePasswordComplexity(fields.password)
+      if (complexityError) {
+        return context.json({ ok: false, error: complexityError }, { status: 400 })
       }
 
       // Check for duplicate email
@@ -213,7 +218,11 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
       if (fields.name?.trim()) changes.name = fields.name.trim()
       if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
       if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role
-      if (fields.password && fields.password.length >= 6) {
+      if (fields.password) {
+        let complexityError = validatePasswordComplexity(fields.password)
+        if (complexityError) {
+          return context.json({ ok: false, error: complexityError }, { status: 400 })
+        }
         changes.password_hash = await hashPassword(fields.password)
       }
 

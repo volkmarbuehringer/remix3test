@@ -127,7 +127,7 @@ describe('Admin Users Controller', () => {
         name: 'Test Create User',
         email: testEmail,
         role: 'customer',
-        password: 'testpass123',
+        password: 'testpass123!',
         _csrf: adminCsrfToken,
       })
       let response = await router.fetch(USERS_URL, {
@@ -155,7 +155,7 @@ describe('Admin Users Controller', () => {
         name: '',
         email: `test-noname-${Date.now()}@example.com`,
         role: 'customer',
-        password: 'testpass123',
+        password: 'testpass123!',
         _csrf: adminCsrfToken,
       })
       let response = await router.fetch(USERS_URL, {
@@ -176,7 +176,7 @@ describe('Admin Users Controller', () => {
         name: 'Test User',
         email: 'not-an-email',
         role: 'customer',
-        password: 'testpass123',
+        password: 'testpass123!',
         _csrf: adminCsrfToken,
       })
       let response = await router.fetch(USERS_URL, {
@@ -210,7 +210,7 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 400)
       let json = await response.json()
-      assert.ok(json.error.includes('Password'))
+      assert.ok(json.error.includes('Passwort'))
     })
 
     it('rejects duplicate email', async () => {
@@ -218,7 +218,7 @@ describe('Admin Users Controller', () => {
         name: 'Duplicate Test',
         email: 'admin@newapp.com', // already exists
         role: 'customer',
-        password: 'testpass123',
+        password: 'testpass123!',
         _csrf: adminCsrfToken,
       })
       let response = await router.fetch(USERS_URL, {
@@ -240,7 +240,7 @@ describe('Admin Users Controller', () => {
         name: 'Test Admin',
         email,
         role: 'admin',
-        password: 'testpass123',
+        password: 'testpass123!',
         _csrf: adminCsrfToken,
       })
       let response = await router.fetch(USERS_URL, {
@@ -330,7 +330,7 @@ describe('Admin Users Controller', () => {
         name: 'Audit User',
         email: `test-audit-${Date.now()}@example.com`,
         role: 'customer',
-        password: 'auditpass123',
+        password: 'auditpass123!',
         _csrf: adminCsrfToken,
         _offset: '',
         _sort: '',

@@ -7,8 +7,15 @@ import { users } from '../../data/schema.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { AuthShell } from '../../ui/auth-card.tsx'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
+import { createRateLimiter } from '../../utils/rate-limiter.ts'
+
+const verifyLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 10 })
 
 export async function verify(context: AppContext) {
+  let ip = context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ?? context.request.headers.get('Cf-Connecting-Ip') ?? 'unknown'
+  if (!verifyLimiter.attempt(ip)) {
+    return context.render(<VerifyErrorPage title="Too many attempts" message="You have made too many verification attempts. Please try again later." />, { status: 429 })
+  }
   let token = (context.params as Record<string, string>).token
 
   let user = await context.db.findOne(users, { where: { verification_token: token } })

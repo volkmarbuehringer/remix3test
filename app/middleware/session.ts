@@ -20,7 +20,7 @@ export const sessionCookie = createCookie('session', {
   secrets: [sessionSecret],
   secure: true,
   httpOnly: true,
-  sameSite: 'Lax',
+  sameSite: 'Strict',
   maxAge: 2592000,
   path: '/',
 })

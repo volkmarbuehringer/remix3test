@@ -25,11 +25,13 @@ const server = http.createServer(
 
 server.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`)
-  console.log('')
-  console.log('Demo accounts:')
-  console.log('  Admin:    admin@newapp.com / admin123')
-  console.log('  Customer: user@newapp.com / password123')
-  console.log('')
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('')
+    console.log('Demo accounts:')
+    console.log('  Admin:    admin@newapp.com / admin123')
+    console.log('  Customer: user@newapp.com / password123')
+    console.log('')
+  }
 })
 
 let shuttingDown = false
