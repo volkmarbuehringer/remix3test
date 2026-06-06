@@ -102,6 +102,18 @@ export const forgottenReset = createController(routes.auth.forgottenReset, {
       let token = (context.params as Record<string, string>).token
 
       if (!resetLimiter.attempt(token)) {
+        // Invalidate the token so it can't be retried after rate limit resets
+        try {
+          let userByToken = await context.db.findOne(users, { where: { password_reset_token: token } })
+          if (userByToken) {
+            await context.db.update(users, (userByToken as { id: number }).id, {
+              password_reset_token: null as unknown as string,
+              password_reset_expires: null as unknown as number,
+            })
+          }
+        } catch {
+          // Token invalidation is best-effort; rate limit error takes priority
+        }
         return context.render(
           <ResetErrorPage title="Too many attempts" message="Too many reset attempts. Please request a new reset link." />,
           { status: 429 },

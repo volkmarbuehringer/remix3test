@@ -29,9 +29,10 @@ import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
 
-// Per-user rate limiters for appointment mutations (1 req/s in production, disabled otherwise).
-// Override via APPOINTMENT_RATE_LIMIT_MS environment variable.
-const RATE_LIMIT_MS = Number(process.env.APPOINTMENT_RATE_LIMIT_MS) || (process.env.NODE_ENV === 'production' ? 1000 : 0)
+// Per-user rate limiters for appointment mutations (1 req/s by default, override via env var, set to 0 to disable).
+const RATE_LIMIT_MS = process.env.APPOINTMENT_RATE_LIMIT_MS !== undefined
+  ? Number(process.env.APPOINTMENT_RATE_LIMIT_MS)
+  : 1000
 const createLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 const updateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 const deleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })

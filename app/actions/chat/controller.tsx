@@ -21,7 +21,7 @@ const messageSchema = f.object({
 })
 
 const MAX_MESSAGE_LENGTH = 5000
-const chatRateLimiter = createRateLimiter({ windowMs: 2000 })
+const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant. Answer user questions conversationally and helpfully.`
 
@@ -65,11 +65,11 @@ export default createController(routes.ai.chat, {
       let logger = userLogger('Chat')
       logger.log('POST action - processing message')
 
-      if (!chatRateLimiter.attempt()) {
+      let user = getCurrentUser()
+
+      if (!chatRateLimiter.attempt(user.id)) {
         return context.json({ error: 'Please wait before sending another message' }, { status: 429 })
       }
-
-      let user = getCurrentUser()
       let formData = context.formData
       let rawConversationId = context.url.searchParams.get('chatId') ?? formData.get('conversationId')?.toString() ?? null
       let conversationId: string | null = null

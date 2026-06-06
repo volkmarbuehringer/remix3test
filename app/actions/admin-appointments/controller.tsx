@@ -21,8 +21,10 @@ import { getAdminIdentity } from '../../utils/context.ts'
 
 const PAGE_SIZE = 15
 
-// Rate limiters for mutation endpoints (1 req/s in production, disabled otherwise)
-const ADMIN_RATE_LIMIT_MS = Number(process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS) || (process.env.NODE_ENV === 'production' ? 1000 : 0)
+// Rate limiters for mutation endpoints (1 req/s by default, override via env var, set to 0 to disable)
+const ADMIN_RATE_LIMIT_MS = process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS !== undefined
+  ? Number(process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS)
+  : 1000
 const adminCreateLimiter = createRateLimiter({ windowMs: ADMIN_RATE_LIMIT_MS, perUser: true })
 const adminUpdateLimiter = createRateLimiter({ windowMs: ADMIN_RATE_LIMIT_MS, perUser: true })
 const adminDeleteLimiter = createRateLimiter({ windowMs: ADMIN_RATE_LIMIT_MS, perUser: true })

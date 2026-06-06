@@ -17,7 +17,7 @@ import { Layout } from '../../ui/layout.tsx'
 import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss } from '../../ui/auth-card.tsx'
 import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
-import { panelCss, panelInsetCss, bodyTextCss, captionTextCss } from '../../ui/page-primitives.tsx'
+import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 
 const loginSchema = f.object({
@@ -120,13 +120,7 @@ function LoginPage(handle: Handle<LoginPageProps>) {
         <p mix={[bodyTextCss, css({ margin: 0 })]}>
           Don't have an account? <a href={routes.auth.register.index.href()} mix={footerLinkCss}>Register here</a>
         </p>
-        {process.env.NODE_ENV !== 'production' && (
-          <div mix={[panelCss, panelInsetCss, demoBoxCss]}>
-            <p mix={captionTextCss}><strong>Demo Accounts:</strong></p>
-            <p mix={captionTextCss}>Admin: admin@newapp.com / admin123</p>
-            <p mix={captionTextCss}>Customer: user@newapp.com / password123</p>
-          </div>
-        )}
+        
       </>
     )
 
@@ -205,10 +199,6 @@ const brandLabelCss = css({
   letterSpacing: theme.letterSpacing.wide,
   textTransform: 'uppercase',
   color: theme.colors.text.muted,
-})
-
-const demoBoxCss = css({
-  borderLeft: `3px solid ${theme.colors.action.primary.background}`,
 })
 
 const footerLinkCss = css({

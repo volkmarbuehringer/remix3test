@@ -10,13 +10,23 @@ import {
 import { hashPassword } from '../utils/password-hash.ts'
 
 export async function seed(): Promise<void> {
-  // Seed 2 demo users like my_app
+  // Seed 2 demo users
   let usersCount = Number(await db.count(users))
   if (usersCount === 0) {
+    let adminPassword = process.env.SEED_ADMIN_PASSWORD
+    if (!adminPassword) {
+      adminPassword = 'admin123'
+      console.warn('⚠️  SEED_ADMIN_PASSWORD not set — using weak default. Set in .env for production.')
+    }
+    let userPassword = process.env.SEED_USER_PASSWORD
+    if (!userPassword) {
+      userPassword = 'password123'
+      console.warn('⚠️  SEED_USER_PASSWORD not set — using weak default. Set in .env for production.')
+    }
     await db.createMany(users, [
       {
         email: 'admin@newapp.com',
-        password_hash: await hashPassword('admin123'),
+        password_hash: await hashPassword(adminPassword),
         name: 'Admin User',
         role: 'admin',
         email_verified: 1,
@@ -24,14 +34,14 @@ export async function seed(): Promise<void> {
       },
       {
         email: 'user@newapp.com',
-        password_hash: await hashPassword('password123'),
+        password_hash: await hashPassword(userPassword),
         name: 'John Doe',
         role: 'customer',
         email_verified: 1,
         created_at: new Date('2024-03-01').getTime(),
       },
     ])
-    console.log('✅ Seeded 2 users: admin@newapp.com / user@newapp.com')
+    console.log('✅ Seeded 2 default users')
   } else {
     console.log('ℹ️ Skipping seed, users already present')
   }
