@@ -74,6 +74,7 @@ export async function migrate(): Promise<void> {
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at)`)
+  await pool.query(`ALTER TABLE messages ALTER COLUMN sender_id DROP NOT NULL`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clients (
@@ -181,6 +182,18 @@ export async function migrate(): Promise<void> {
       details JSONB,
       created_at BIGINT NOT NULL
     )
+  `)
+  await pool.query(`ALTER TABLE audit_logs ALTER COLUMN admin_user_id DROP NOT NULL`)
+  await pool.query(`ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_admin_user_id_fkey`)
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'audit_logs_admin_user_id_fkey'
+      ) THEN
+        ALTER TABLE audit_logs ADD CONSTRAINT audit_logs_admin_user_id_fkey
+          FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_admin_idx ON audit_logs (admin_user_id)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action_type)`)

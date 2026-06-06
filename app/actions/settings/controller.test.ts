@@ -37,8 +37,8 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 200)
       let html = await response.text()
-      assert.ok(html.includes('Settings'), 'page should contain Settings heading')
-      assert.ok(html.includes('Password ändern'), 'page should contain password section')
+      assert.ok(html.includes('Einstellungen'), 'page should contain Einstellungen heading')
+      assert.ok(html.includes('Passwort ändern'), 'page should contain password section')
       assert.ok(html.includes('name="currentPassword"'), 'should have current password input')
       assert.ok(html.includes('name="newPassword"'), 'should have new password input')
       assert.ok(html.includes('name="confirmPassword"'), 'should have confirm password input')
@@ -91,7 +91,7 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 200)
       let html = await response.text()
-      assert.ok(html.includes('Password updated successfully'), 'should show success message')
+      assert.ok(html.includes('Passwort erfolgreich aktualisiert'), 'should show success message')
 
       currentPassword = NEW_PASSWORD
     })
@@ -114,7 +114,7 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('Current password is incorrect'), 'should show error')
+      assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show error')
     })
 
     it('rejects password that is too short', async () => {
@@ -135,7 +135,7 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('10 characters'), 'should show length error')
+      assert.ok(html.includes('10 Zeichen'), 'should show length error')
     })
 
     it('rejects password missing a digit', async () => {
@@ -198,7 +198,138 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('Passwords do not match'), 'should show mismatch error')
+      assert.ok(html.includes('Passwörter stimmen nicht überein'), 'should show mismatch error')
     })
+  })
+
+  describe('DELETE ACCOUNT', () => {
+    it('renders delete account section on settings page', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('Konto löschen'), 'page should contain delete account section')
+      assert.ok(html.includes('löscht Ihr Konto'), 'should show warning about permanent deletion')
+      assert.ok(html.includes('Wollen Sie wirklich löschen'), 'should show confirmation checkbox')
+      assert.ok(html.includes('name="_action"'), 'should have action routing hidden field')
+    })
+
+    it('rejects delete account for admin users', async () => {
+      let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'delete-account',
+          currentPassword: INITIAL_PASSWORD,
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 403)
+      let html = await response.text()
+      assert.ok(html.includes('Administratoren'), 'should show admin restriction error')
+    })
+
+    it('rejects delete account with incorrect password', async () => {
+      let deleteUserEmail = `${TEST_PREFIX}delete-wrong-pw@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [deleteUserEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Wrong PW', 'customer', Date.now()],
+      )
+
+      let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'delete-account',
+          currentPassword: 'wrong-password',
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 400)
+      let html = await response.text()
+      assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show password error')
+
+      await pool.query('DELETE FROM users WHERE email = $1', [deleteUserEmail])
+    })
+
+    it('successfully deletes account and redirects to login', async () => {
+      let deleteUserEmail = `${TEST_PREFIX}delete-success@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [deleteUserEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Success', 'customer', Date.now()],
+      )
+
+      let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'delete-account',
+          currentPassword: INITIAL_PASSWORD,
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location')
+      assert.ok(location?.includes(routes.auth.login.index.href()), 'should redirect to login')
+
+      let userResult = await pool.query('SELECT id FROM users WHERE email = $1', [deleteUserEmail])
+      assert.equal(userResult.rows.length, 0, 'user should be deleted from database')
+    })
+
+    it('rate limits excessive delete account attempts', async () => {
+      let rateLimitEmail = `${TEST_PREFIX}delete-ratelimit@example.com`
+      await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
+         VALUES ($1, $2, $3, $4, 1, $5)`,
+        [rateLimitEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Rate Limit', 'customer', Date.now()],
+      )
+
+      let session = await createAuthCookieWithCsrfForUser(rateLimitEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      for (let i = 0; i < 4; i++) {
+        let r = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({
+            _action: 'delete-account',
+            currentPassword: 'wrong-password',
+            _csrf: session.csrfToken,
+          }),
+          redirect: 'manual',
+        })
+        if (i < 3) {
+          assert.equal(r.status, 400, `attempt ${i + 1} should be 400`)
+        } else {
+          assert.equal(r.status, 429, `attempt ${i + 1} should be rate-limited`)
+        }
+      }
+
+      await pool.query('DELETE FROM users WHERE email = $1', [rateLimitEmail])
+    })
+
+    it('cleans up related records on deletion (messages sender_id set to NULL)', { todo: true }, () => {})
   })
 })

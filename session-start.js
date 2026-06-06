@@ -55,19 +55,19 @@ function normalizePath(p) {
 }
 
 function dedupeRecentSessions(searchDirs) {
-  const recentSessionsByName = new Map();
+  let recentSessionsByName = new Map();
 
-  for (const [dirIndex, dir] of searchDirs.entries()) {
-    const matches = findFiles(dir, '*-session.tmp', { maxAge: 7 });
+  for (let [dirIndex, dir] of searchDirs.entries()) {
+    let matches = findFiles(dir, '*-session.tmp', { maxAge: 7 });
 
-    for (const match of matches) {
-      const basename = path.basename(match.path);
-      const current = {
+    for (let match of matches) {
+      let basename = path.basename(match.path);
+      let current = {
         ...match,
         basename,
         dirIndex,
       };
-      const existing = recentSessionsByName.get(basename);
+      let existing = recentSessionsByName.get(basename);
 
       if (
         !existing
@@ -84,27 +84,27 @@ function dedupeRecentSessions(searchDirs) {
 }
 
 function getSessionRetentionDays() {
-  const raw = process.env.ECC_SESSION_RETENTION_DAYS;
+  let raw = process.env.ECC_SESSION_RETENTION_DAYS;
   if (!raw) return DEFAULT_SESSION_RETENTION_DAYS;
-  const parsed = Number.parseInt(raw, 10);
+  let parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_SESSION_RETENTION_DAYS;
 }
 
 function isSessionStartContextDisabled() {
-  const raw = String(process.env.ECC_SESSION_START_CONTEXT || '').trim().toLowerCase();
+  let raw = String(process.env.ECC_SESSION_START_CONTEXT || '').trim().toLowerCase();
   return ['0', 'false', 'off', 'none', 'disabled'].includes(raw);
 }
 
 function getSessionStartMaxContextChars() {
-  const raw = process.env.ECC_SESSION_START_MAX_CHARS;
+  let raw = process.env.ECC_SESSION_START_MAX_CHARS;
   if (!raw) return DEFAULT_SESSION_START_CONTEXT_MAX_CHARS;
 
-  const parsed = Number.parseInt(raw, 10);
+  let parsed = Number.parseInt(raw, 10);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_SESSION_START_CONTEXT_MAX_CHARS;
 }
 
 function getSessionStartMode(rawInput) {
-  const input = String(rawInput || '');
+  let input = String(rawInput || '');
   if (!input.trim()) return null;
 
   let payload;
@@ -115,15 +115,15 @@ function getSessionStartMode(rawInput) {
     return SESSION_START_MODE_INVALID;
   }
 
-  const supportedModes = new Set(['startup', 'resume', 'clear', 'compact']);
-  const hookName = typeof payload.hookName === 'string' ? payload.hookName.trim() : '';
+  let supportedModes = new Set(['startup', 'resume', 'clear', 'compact']);
+  let hookName = typeof payload.hookName === 'string' ? payload.hookName.trim() : '';
   if (hookName.startsWith('SessionStart:')) {
-    const mode = hookName.slice('SessionStart:'.length).trim().toLowerCase();
+    let mode = hookName.slice('SessionStart:'.length).trim().toLowerCase();
     return supportedModes.has(mode) ? mode : SESSION_START_MODE_SKIP;
   }
 
   if (payload.hook_event_name === 'SessionStart') {
-    const mode = typeof payload.source === 'string' ? payload.source.trim().toLowerCase() : '';
+    let mode = typeof payload.source === 'string' ? payload.source.trim().toLowerCase() : '';
     return supportedModes.has(mode) ? mode : SESSION_START_MODE_SKIP;
   }
 
@@ -131,24 +131,24 @@ function getSessionStartMode(rawInput) {
 }
 
 function limitSessionStartContext(additionalContext, maxChars = getSessionStartMaxContextChars()) {
-  const context = String(additionalContext || '');
+  let context = String(additionalContext || '');
 
   if (context.length <= maxChars) {
     return context;
   }
 
-  const marker = '\n\n[SessionStart truncated context. Set ECC_SESSION_START_MAX_CHARS to raise the cap or ECC_SESSION_START_CONTEXT=off to disable injected context.]';
-  const prefixLength = Math.max(0, maxChars - marker.length);
+  let marker = '\n\n[SessionStart truncated context. Set ECC_SESSION_START_MAX_CHARS to raise the cap or ECC_SESSION_START_CONTEXT=off to disable injected context.]';
+  let prefixLength = Math.max(0, maxChars - marker.length);
   log(`[SessionStart] Truncated additional context from ${context.length} to ${maxChars} chars`);
 
   return `${context.slice(0, prefixLength).trimEnd()}${marker}`.slice(0, maxChars);
 }
 
 function pruneExpiredSessions(searchDirs, retentionDays) {
-  const uniqueDirs = Array.from(new Set(searchDirs.filter(dir => typeof dir === 'string' && dir.length > 0)));
+  let uniqueDirs = Array.from(new Set(searchDirs.filter(dir => typeof dir === 'string' && dir.length > 0)));
   let removed = 0;
 
-  for (const dir of uniqueDirs) {
+  for (let dir of uniqueDirs) {
     if (!fs.existsSync(dir)) continue;
 
     let entries;
@@ -158,10 +158,10 @@ function pruneExpiredSessions(searchDirs, retentionDays) {
       continue;
     }
 
-    for (const entry of entries) {
+    for (let entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('-session.tmp')) continue;
 
-      const fullPath = path.join(dir, entry.name);
+      let fullPath = path.join(dir, entry.name);
       let stats;
       try {
         stats = fs.statSync(fullPath);
@@ -169,7 +169,7 @@ function pruneExpiredSessions(searchDirs, retentionDays) {
         continue;
       }
 
-      const ageInDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+      let ageInDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
       if (ageInDays <= retentionDays) continue;
 
       try {
@@ -214,20 +214,20 @@ function selectMatchingSession(sessions, cwd, currentProject) {
   if (sessions.length === 0) return null;
 
   // Normalize cwd once outside the loop to avoid repeated syscalls
-  const normalizedCwd = normalizePath(cwd);
+  let normalizedCwd = normalizePath(cwd);
 
   let projectMatch = null;
   let projectMatchContent = null;
   let readableSessions = 0;
 
-  for (const session of sessions) {
-    const content = readFile(session.path);
+  for (let session of sessions) {
+    let content = readFile(session.path);
     if (!content) continue;
     readableSessions++;
 
     // Extract **Worktree:** field
-    const worktreeMatch = content.match(/\*\*Worktree:\*\*\s*(.+)$/m);
-    const sessionWorktree = worktreeMatch ? worktreeMatch[1].trim() : '';
+    let worktreeMatch = content.match(/\*\*Worktree:\*\*\s*(.+)$/m);
+    let sessionWorktree = worktreeMatch ? worktreeMatch[1].trim() : '';
 
     // Exact worktree match — best possible, return immediately
     // Normalize both paths to handle symlinks and case-insensitive filesystems
@@ -238,8 +238,8 @@ function selectMatchingSession(sessions, cwd, currentProject) {
     // Project name match is only safe for legacy session files written before
     // Worktree metadata existed. A different explicit Worktree is not a match.
     if (!projectMatch && currentProject && !sessionWorktree) {
-      const projectFieldMatch = content.match(/\*\*Project:\*\*\s*(.+)$/m);
-      const sessionProject = projectFieldMatch ? projectFieldMatch[1].trim() : '';
+      let projectFieldMatch = content.match(/\*\*Project:\*\*\s*(.+)$/m);
+      let sessionProject = projectFieldMatch ? projectFieldMatch[1].trim() : '';
       if (sessionProject && sessionProject === currentProject) {
         projectMatch = session;
         projectMatchContent = content;
@@ -258,12 +258,12 @@ function selectMatchingSession(sessions, cwd, currentProject) {
 }
 
 function parseInstinctFile(content) {
-  const instincts = [];
+  let instincts = [];
   let current = null;
   let inFrontmatter = false;
   let contentLines = [];
 
-  for (const line of String(content).split('\n')) {
+  for (let line of String(content).split('\n')) {
     if (line.trim() === '---') {
       if (inFrontmatter) {
         inFrontmatter = false;
@@ -280,15 +280,15 @@ function parseInstinctFile(content) {
     }
 
     if (inFrontmatter) {
-      const separatorIndex = line.indexOf(':');
+      let separatorIndex = line.indexOf(':');
       if (separatorIndex === -1) continue;
-      const key = line.slice(0, separatorIndex).trim();
+      let key = line.slice(0, separatorIndex).trim();
       let value = line.slice(separatorIndex + 1).trim();
       if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
         value = value.slice(1, -1);
       }
       if (key === 'confidence') {
-        const parsed = Number.parseFloat(value);
+        let parsed = Number.parseFloat(value);
         current[key] = Number.isFinite(parsed) ? parsed : 0.5;
       } else {
         current[key] = value;
@@ -309,16 +309,16 @@ function parseInstinctFile(content) {
 function readInstinctsFromDir(directory, scope) {
   if (!directory || !fs.existsSync(directory)) return [];
 
-  const entries = fs.readdirSync(directory, { withFileTypes: true })
+  let entries = fs.readdirSync(directory, { withFileTypes: true })
     .filter(entry => entry.isFile() && /\.(ya?ml|md)$/i.test(entry.name))
     .sort((left, right) => left.name.localeCompare(right.name));
 
-  const instincts = [];
-  for (const entry of entries) {
-    const filePath = path.join(directory, entry.name);
+  let instincts = [];
+  for (let entry of entries) {
+    let filePath = path.join(directory, entry.name);
     try {
-      const parsed = parseInstinctFile(fs.readFileSync(filePath, 'utf8'));
-      for (const instinct of parsed) {
+      let parsed = parseInstinctFile(fs.readFileSync(filePath, 'utf8'));
+      for (let instinct of parsed) {
         instincts.push({
           ...instinct,
           _scopeLabel: scope,
@@ -334,9 +334,9 @@ function readInstinctsFromDir(directory, scope) {
 }
 
 function extractInstinctAction(content) {
-  const actionMatch = String(content || '').match(/## Action\s*\n+([\s\S]+?)(?:\n## |\n---|$)/);
-  const actionBlock = (actionMatch ? actionMatch[1] : String(content || '')).trim();
-  const firstLine = actionBlock
+  let actionMatch = String(content || '').match(/## Action\s*\n+([\s\S]+?)(?:\n## |\n---|$)/);
+  let actionBlock = (actionMatch ? actionMatch[1] : String(content || '')).trim();
+  let firstLine = actionBlock
     .split('\n')
     .map(line => line.trim())
     .find(Boolean);
@@ -345,31 +345,31 @@ function extractInstinctAction(content) {
 }
 
 function summarizeActiveInstincts(observerContext) {
-  const homunculusDir = getHomunculusDir();
-  const globalDirs = [
+  let homunculusDir = getHomunculusDir();
+  let globalDirs = [
     { dir: path.join(homunculusDir, 'instincts', 'personal'), scope: 'global' },
     { dir: path.join(homunculusDir, 'instincts', 'inherited'), scope: 'global' },
   ];
-  const projectDirs = observerContext.isGlobal ? [] : [
+  let projectDirs = observerContext.isGlobal ? [] : [
     { dir: path.join(observerContext.projectDir, 'instincts', 'personal'), scope: 'project' },
     { dir: path.join(observerContext.projectDir, 'instincts', 'inherited'), scope: 'project' },
   ];
 
-  const scopedInstincts = [
+  let scopedInstincts = [
     ...projectDirs.flatMap(({ dir, scope }) => readInstinctsFromDir(dir, scope)),
     ...globalDirs.flatMap(({ dir, scope }) => readInstinctsFromDir(dir, scope)),
   ];
 
-  const deduped = new Map();
-  for (const instinct of scopedInstincts) {
+  let deduped = new Map();
+  for (let instinct of scopedInstincts) {
     if (!instinct.id || instinct.confidence < INSTINCT_CONFIDENCE_THRESHOLD) continue;
-    const existing = deduped.get(instinct.id);
+    let existing = deduped.get(instinct.id);
     if (!existing || (existing._scopeLabel !== 'project' && instinct._scopeLabel === 'project')) {
       deduped.set(instinct.id, instinct);
     }
   }
 
-  const ranked = Array.from(deduped.values())
+  let ranked = Array.from(deduped.values())
     .map(instinct => ({
       ...instinct,
       action: extractInstinctAction(instinct.content),
@@ -388,9 +388,9 @@ function summarizeActiveInstincts(observerContext) {
 
   log(`[SessionStart] Injecting ${ranked.length} instinct(s) into session context`);
 
-  const lines = ranked.map(instinct => {
-    const scope = instinct._scopeLabel === 'project' ? 'project' : 'global';
-    const confidence = `${Math.round(instinct.confidence * 100)}%`;
+  let lines = ranked.map(instinct => {
+    let scope = instinct._scopeLabel === 'project' ? 'project' : 'global';
+    let confidence = `${Math.round(instinct.confidence * 100)}%`;
     return `- [${scope} ${confidence}] ${instinct.action}`;
   });
 
@@ -402,7 +402,7 @@ function summarizeActiveKnowledge(observerContext) {
     return '';
   }
 
-  const configPath = path.join(observerContext.projectRoot, '.agents', 'knowledge-config.json');
+  let configPath = path.join(observerContext.projectRoot, '.agents', 'knowledge-config.json');
   if (!fs.existsSync(configPath)) {
     return '';
   }
@@ -414,18 +414,18 @@ function summarizeActiveKnowledge(observerContext) {
     return '';
   }
 
-  const autoLoadTags = Array.isArray(config.auto_load_tags) ? config.auto_load_tags : [];
+  let autoLoadTags = Array.isArray(config.auto_load_tags) ? config.auto_load_tags : [];
   if (autoLoadTags.length === 0) {
     return '';
   }
 
-  const knowledgeDir = path.join(observerContext.projectRoot, '.agents', 'knowledge');
+  let knowledgeDir = path.join(observerContext.projectRoot, '.agents', 'knowledge');
   if (!fs.existsSync(knowledgeDir)) {
     return '';
   }
 
-  const tagSet = new Set(autoLoadTags.map(t => t.toLowerCase()));
-  const matching = [];
+  let tagSet = new Set(autoLoadTags.map(t => t.toLowerCase()));
+  let matching = [];
 
   let files;
   try {
@@ -434,8 +434,8 @@ function summarizeActiveKnowledge(observerContext) {
     return '';
   }
 
-  for (const file of files) {
-    const filePath = path.join(knowledgeDir, file);
+  for (let file of files) {
+    let filePath = path.join(knowledgeDir, file);
     let content;
     try {
       content = fs.readFileSync(filePath, 'utf8');
@@ -444,23 +444,23 @@ function summarizeActiveKnowledge(observerContext) {
     }
 
     // Parse YAML frontmatter between --- delimiters
-    const frontMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+    let frontMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
     if (!frontMatch) continue;
 
-    const front = frontMatch[1];
-    const statusMatch = front.match(/^status:\s*(\S+)/m);
+    let front = frontMatch[1];
+    let statusMatch = front.match(/^status:\s*(\S+)/m);
     if (!statusMatch || statusMatch[1] !== 'active') continue;
 
-    const titleMatch = front.match(/^title:\s*(.+)$/m);
-    const title = titleMatch ? titleMatch[1].trim() : file.replace(/\.md$/, '');
+    let titleMatch = front.match(/^title:\s*(.+)$/m);
+    let title = titleMatch ? titleMatch[1].trim() : file.replace(/\.md$/, '');
 
-    const tagsMatch = front.match(/^tags:\s*\[([^\]]*)\]/m);
-    const tags = tagsMatch
+    let tagsMatch = front.match(/^tags:\s*\[([^\]]*)\]/m);
+    let tags = tagsMatch
       ? tagsMatch[1].split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
       : [];
 
     // Check if any auto_load_tag matches any knowledge tag
-    const hasOverlap = tags.some(t => tagSet.has(t));
+    let hasOverlap = tags.some(t => tagSet.has(t));
     if (hasOverlap) {
       matching.push({ title, tags, file });
     }
@@ -472,8 +472,8 @@ function summarizeActiveKnowledge(observerContext) {
 
   log(`[SessionStart] Injecting ${matching.length} knowledge file(s) into session context`);
 
-  const lines = matching.map(k => {
-    const tagStr = k.tags.map(t => `#${t}`).join(' ');
+  let lines = matching.map(k => {
+    let tagStr = k.tags.map(t => `#${t}`).join(' ');
     return `- [${tagStr}] ${k.title}`;
   });
 
@@ -494,7 +494,7 @@ function collapseWhitespace(value) {
 }
 
 function truncateSummary(value, maxLength = MAX_LEARNED_SKILL_SUMMARY_CHARS) {
-  const normalized = collapseWhitespace(stripMarkdownInline(value));
+  let normalized = collapseWhitespace(stripMarkdownInline(value));
   if (normalized.length <= maxLength) {
     return normalized;
   }
@@ -502,18 +502,18 @@ function truncateSummary(value, maxLength = MAX_LEARNED_SKILL_SUMMARY_CHARS) {
 }
 
 function extractMarkdownHeading(content) {
-  const match = String(content || '').match(/^#\s+(.+)$/m);
+  let match = String(content || '').match(/^#\s+(.+)$/m);
   return match ? stripMarkdownInline(match[1]) : '';
 }
 
 function extractSection(content, headingPattern) {
-  const source = String(content || '');
-  const match = source.match(new RegExp(`^##\\s+${headingPattern}\\s*\\n+([\\s\\S]+?)(?:\\n##\\s+|$)`, 'im'));
+  let source = String(content || '');
+  let match = source.match(new RegExp(`^##\\s+${headingPattern}\\s*\\n+([\\s\\S]+?)(?:\\n##\\s+|$)`, 'im'));
   return match ? match[1].trim() : '';
 }
 
 function extractFirstParagraph(content) {
-  const withoutHeading = String(content || '').replace(/^#\s+.+$/m, '').trim();
+  let withoutHeading = String(content || '').replace(/^#\s+.+$/m, '').trim();
   return withoutHeading
     .split(/\n\s*\n/)
     .map(paragraph => paragraph.trim())
@@ -521,15 +521,15 @@ function extractFirstParagraph(content) {
 }
 
 function summarizeLearnedSkillFile(filePath, learnedRoot) {
-  const content = readFile(filePath);
+  let content = readFile(filePath);
   if (!content) return null;
 
-  const isDirectorySkill = path.basename(filePath).toLowerCase() === 'skill.md';
-  const slug = isDirectorySkill
+  let isDirectorySkill = path.basename(filePath).toLowerCase() === 'skill.md';
+  let slug = isDirectorySkill
     ? path.basename(path.dirname(filePath))
     : path.basename(filePath, path.extname(filePath));
-  const title = extractMarkdownHeading(content) || slug;
-  const summary = truncateSummary(
+  let title = extractMarkdownHeading(content) || slug;
+  let summary = truncateSummary(
     extractSection(content, 'When to Use')
       || extractSection(content, 'Trigger')
       || extractSection(content, 'Problem')
@@ -546,7 +546,7 @@ function summarizeLearnedSkillFile(filePath, learnedRoot) {
     // Keep unreadable/deleted files out of recency priority without failing the hook.
   }
 
-  const relativePath = path.relative(learnedRoot, filePath);
+  let relativePath = path.relative(learnedRoot, filePath);
   return {
     slug,
     title: truncateSummary(title, 80),
@@ -557,11 +557,11 @@ function summarizeLearnedSkillFile(filePath, learnedRoot) {
 }
 
 function collectLearnedSkillFiles(learnedDir) {
-  const flatMarkdownFiles = findFiles(learnedDir, '*.md');
-  const directorySkillFiles = findFiles(learnedDir, 'SKILL.md', { recursive: true });
-  const byPath = new Map();
+  let flatMarkdownFiles = findFiles(learnedDir, '*.md');
+  let directorySkillFiles = findFiles(learnedDir, 'SKILL.md', { recursive: true });
+  let byPath = new Map();
 
-  for (const match of [...flatMarkdownFiles, ...directorySkillFiles]) {
+  for (let match of [...flatMarkdownFiles, ...directorySkillFiles]) {
     byPath.set(match.path, match);
   }
 
@@ -570,7 +570,7 @@ function collectLearnedSkillFiles(learnedDir) {
 }
 
 function summarizeLearnedSkills(learnedDir, learnedSkillFiles = collectLearnedSkillFiles(learnedDir)) {
-  const summaries = learnedSkillFiles
+  let summaries = learnedSkillFiles
     .map(match => summarizeLearnedSkillFile(match.path, learnedDir))
     .filter(Boolean)
     .slice(0, MAX_INJECTED_LEARNED_SKILLS);
@@ -581,8 +581,8 @@ function summarizeLearnedSkills(learnedDir, learnedSkillFiles = collectLearnedSk
 
   log(`[SessionStart] Injecting ${summaries.length} learned skill(s) into session context`);
 
-  const lines = summaries.map(skill => {
-    const titleSuffix = skill.title && skill.title !== skill.slug ? ` (${skill.title})` : '';
+  let lines = summaries.map(skill => {
+    let titleSuffix = skill.title && skill.title !== skill.slug ? ` (${skill.title})` : '';
     return `- ${skill.slug}${titleSuffix}: ${skill.summary}`;
   });
 
@@ -594,27 +594,27 @@ function summarizeLearnedSkills(learnedDir, learnedSkillFiles = collectLearnedSk
 }
 
 async function main() {
-  const sessionsDir = getSessionsDir();
-  const sessionSearchDirs = getSessionSearchDirs();
-  const learnedDir = getLearnedSkillsDir();
-  const additionalContextParts = [];
-  const observerContext = resolveProjectContext();
-  const maxContextChars = getSessionStartMaxContextChars();
-  const explicitContextDisabled = isSessionStartContextDisabled();
-  const shouldInjectContext = !explicitContextDisabled && maxContextChars !== 0;
-  const sessionStartMode = getSessionStartMode(fs.readFileSync(0, 'utf8'));
+  let sessionsDir = getSessionsDir();
+  let sessionSearchDirs = getSessionSearchDirs();
+  let learnedDir = getLearnedSkillsDir();
+  let additionalContextParts = [];
+  let observerContext = resolveProjectContext();
+  let maxContextChars = getSessionStartMaxContextChars();
+  let explicitContextDisabled = isSessionStartContextDisabled();
+  let shouldInjectContext = !explicitContextDisabled && maxContextChars !== 0;
+  let sessionStartMode = getSessionStartMode(fs.readFileSync(0, 'utf8'));
 
   // Ensure directories exist
   ensureDir(sessionsDir);
   ensureDir(learnedDir);
 
-  const retentionDays = getSessionRetentionDays();
-  const prunedSessions = pruneExpiredSessions(sessionSearchDirs, retentionDays);
+  let retentionDays = getSessionRetentionDays();
+  let prunedSessions = pruneExpiredSessions(sessionSearchDirs, retentionDays);
   if (prunedSessions > 0) {
     log(`[SessionStart] Pruned ${prunedSessions} expired session(s) older than ${retentionDays} day(s)`);
   }
 
-  const observerSessionId = resolveSessionId();
+  let observerSessionId = resolveSessionId();
   if (observerSessionId) {
     writeSessionLease(observerContext, observerSessionId, {
       hook: 'SessionStart',
@@ -632,18 +632,18 @@ async function main() {
   }
 
   if (shouldInjectContext) {
-    const instinctSummary = summarizeActiveInstincts(observerContext);
+    let instinctSummary = summarizeActiveInstincts(observerContext);
     if (instinctSummary) {
       additionalContextParts.push(instinctSummary);
     }
 
-    const knowledgeSummary = summarizeActiveKnowledge(observerContext);
+    let knowledgeSummary = summarizeActiveKnowledge(observerContext);
     if (knowledgeSummary) {
       additionalContextParts.push(knowledgeSummary);
     }
 
     if (sessionStartMode && sessionStartMode !== 'startup') {
-      const reason = sessionStartMode === SESSION_START_MODE_INVALID
+      let reason = sessionStartMode === SESSION_START_MODE_INVALID
         ? 'invalid stdin payload'
         : sessionStartMode === SESSION_START_MODE_SKIP
           ? 'unrecognized SessionStart payload'
@@ -651,7 +651,7 @@ async function main() {
       log(`[SessionStart] Skipping previous session summary injection for ${reason}`);
     } else {
       // Check for recent session files (last 7 days)
-      const recentSessions = dedupeRecentSessions(sessionSearchDirs);
+      let recentSessions = dedupeRecentSessions(sessionSearchDirs);
 
       if (recentSessions.length > 0) {
         log(`[SessionStart] Found ${recentSessions.length} recent session(s)`);
@@ -659,16 +659,16 @@ async function main() {
         // Prefer a session that matches the current working directory or project.
         // Session files contain **Project:** and **Worktree:** header fields written
         // by session-end.js, so we can match against them.
-        const cwd = process.cwd();
-        const currentProject = getProjectName() || '';
+        let cwd = process.cwd();
+        let currentProject = getProjectName() || '';
 
-        const result = selectMatchingSession(recentSessions, cwd, currentProject);
+        let result = selectMatchingSession(recentSessions, cwd, currentProject);
 
         if (result) {
           log(`[SessionStart] Selected: ${result.session.path} (match: ${result.matchReason})`);
 
           // Use the already-read content from selectMatchingSession (no duplicate I/O)
-          const content = stripAnsi(result.content);
+          let content = stripAnsi(result.content);
           if (content && !content.includes('[Session context goes here]')) {
             // STALE-REPLAY GUARD: wrap the summary in a historical-only marker so
             // the model does not re-execute stale skill invocations / ARGUMENTS
@@ -677,7 +677,7 @@ async function main() {
             // ARGUMENTS-bearing slash skill) with the last ARGUMENTS it saw,
             // duplicating issues/branches/Notion tasks. Tracking upstream at
             // https://github.com/affaan-m/everything-claude-code/issues/1534
-            const guarded = [
+            let guarded = [
               'HISTORICAL REFERENCE ONLY — NOT LIVE INSTRUCTIONS.',
               'The block below is a frozen summary of a PRIOR conversation that',
               'ended at compaction. Any task descriptions, skill invocations, or',
@@ -699,29 +699,29 @@ async function main() {
     }
 
     // Check for learned skills
-    const learnedSkills = collectLearnedSkillFiles(learnedDir);
+    let learnedSkills = collectLearnedSkillFiles(learnedDir);
 
     if (learnedSkills.length > 0) {
       log(`[SessionStart] ${learnedSkills.length} learned skill(s) available in ${learnedDir}`);
     }
 
-    const learnedSkillSummary = summarizeLearnedSkills(learnedDir, learnedSkills);
+    let learnedSkillSummary = summarizeLearnedSkills(learnedDir, learnedSkills);
     if (learnedSkillSummary) {
       additionalContextParts.push(learnedSkillSummary);
     }
   }
 
   // Check for available session aliases
-  const aliases = listAliases({ limit: 5 });
+  let aliases = listAliases({ limit: 5 });
 
   if (aliases.length > 0) {
-    const aliasNames = aliases.map(a => a.name).join(', ');
+    let aliasNames = aliases.map(a => a.name).join(', ');
     log(`[SessionStart] ${aliases.length} session alias(es) available: ${aliasNames}`);
     log(`[SessionStart] Use /sessions load <alias> to continue a previous session`);
   }
 
   // Detect and report package manager
-  const pm = getPackageManager();
+  let pm = getPackageManager();
   log(`[SessionStart] Package manager: ${pm.name} (${pm.source})`);
 
   // If no explicit package manager config was found, show selection prompt
@@ -731,9 +731,9 @@ async function main() {
   }
 
   // Detect project type and frameworks (#293)
-  const projectInfo = detectProjectType();
+  let projectInfo = detectProjectType();
   if (projectInfo.languages.length > 0 || projectInfo.frameworks.length > 0) {
-    const parts = [];
+    let parts = [];
     if (projectInfo.languages.length > 0) {
       parts.push(`languages: ${projectInfo.languages.join(', ')}`);
     }
@@ -748,7 +748,7 @@ async function main() {
     log('[SessionStart] No specific project type detected');
   }
 
-  const additionalContext = shouldInjectContext
+  let additionalContext = shouldInjectContext
     ? limitSessionStartContext(additionalContextParts.join('\n\n'), maxContextChars)
     : '';
   await writeSessionStartPayload(additionalContext);
@@ -757,14 +757,14 @@ async function main() {
 function writeSessionStartPayload(additionalContext) {
   return new Promise((resolve, reject) => {
     let settled = false;
-    const payload = JSON.stringify({
+    let payload = JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
         additionalContext
       }
     });
 
-    const handleError = (err) => {
+    let handleError = (err) => {
       if (settled) return;
       settled = true;
       if (err) {
