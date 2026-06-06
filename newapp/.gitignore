@@ -1,9 +1,0 @@
-gan-harness/
-node_modules
-playwright-report/
-playwright-results.json
-playwright-results.xml
-test-results/
-tests/
-.coverage
-.env*
