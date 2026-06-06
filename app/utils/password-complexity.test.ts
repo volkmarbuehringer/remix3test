@@ -17,12 +17,12 @@ describe('validatePasswordComplexity', () => {
 
   it('returns error for password missing a digit', () => {
     let err = validatePasswordComplexity('abcdefghij!')
-    assert.ok(err?.includes('number'))
+    assert.ok(err?.includes('Zahl'))
   })
 
   it('returns error for password missing a special character', () => {
     let err = validatePasswordComplexity('abcdefghij1')
-    assert.ok(err?.includes('special character'))
+    assert.ok(err?.includes('Sonderzeichen'))
   })
 
   it('returns first failing rule only', () => {

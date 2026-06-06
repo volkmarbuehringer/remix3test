@@ -161,7 +161,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 </div>
                 {errors?.newPassword ? <span id="new-password-error" role="alert" mix={fieldErrorCss}>{errors.newPassword}</span> : null}
                 <div data-pw-complexity mix={complexityFeedbackCss}></div>
-                <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='newPassword')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['At least 10 characters',v.length>=10],['At least one number (0-9)',/[0-9]/.test(v)],['At least one special character',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
+                <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='newPassword')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['Mindestens 10 Zeichen',v.length>=10],['Mindestens eine Zahl (0-9)',/[0-9]/.test(v)],['Mindestens ein Sonderzeichen',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
               </label>
 
               <label mix={fieldLabelCss}>

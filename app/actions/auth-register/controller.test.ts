@@ -59,8 +59,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'Test User',
         email,
-        password: 'securePassword123',
-        confirmPassword: 'securePassword123',
+        password: 'securePassword123!',
+        confirmPassword: 'securePassword123!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -84,8 +84,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'First User',
         email,
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'password123!',
+        confirmPassword: 'password123!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -99,8 +99,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'Second User',
         email,
-        password: 'otherpass456',
-        confirmPassword: 'otherpass456',
+        password: 'otherpass456!',
+        confirmPassword: 'otherpass456!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -108,7 +108,7 @@ describe('Auth Register controller', () => {
 
     assert.equal(response.status, 400, 'duplicate should return 400')
     let html = await response.text()
-    assert.ok(html.includes('already exists'), 'should show duplicate email error')
+    assert.ok(html.includes('existiert bereits'), 'should show duplicate email error')
   })
 
   // -----------------------------------------------------------------------
@@ -127,8 +127,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: '',
         email,
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'password123!',
+        confirmPassword: 'password123!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -136,7 +136,7 @@ describe('Auth Register controller', () => {
 
     assert.equal(response.status, 400)
     let html = await response.text()
-    assert.ok(html.includes('Invalid input'), 'should show validation error for empty name')
+    assert.ok(html.includes('Ungültige Eingabe'), 'should show validation error for empty name')
     assert.ok(html.includes('<span id="name-error"'), 'should show name field error')
   })
 
@@ -149,8 +149,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'Test User',
         email: '',
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'password123!',
+        confirmPassword: 'password123!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -158,7 +158,7 @@ describe('Auth Register controller', () => {
 
     assert.equal(response.status, 400)
     let html = await response.text()
-    assert.ok(html.includes('Invalid input'), 'should show validation error for empty email')
+    assert.ok(html.includes('Ungültige Eingabe'), 'should show validation error for empty email')
     assert.ok(html.includes('<span id="email-error"'), 'should show email field error')
   })
 
@@ -181,8 +181,8 @@ describe('Auth Register controller', () => {
         body: new URLSearchParams({
           name: 'Rate Limit User',
           email,
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'password123!',
+        confirmPassword: 'password123!',
         _csrf: session.csrfToken,
         }),
         redirect: 'manual',
@@ -197,8 +197,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'Rate Limit User',
         email,
-        password: 'password123',
-        confirmPassword: 'password123',
+        password: 'password123!',
+        confirmPassword: 'password123!',
         _csrf: finalSession.csrfToken,
       }),
       redirect: 'manual',
@@ -207,7 +207,7 @@ describe('Auth Register controller', () => {
     assert.equal(response.status, 429, 'should return 429 when rate limited')
     let html = await response.text()
     assert.ok(
-      html.toLowerCase().includes('too many'),
+      html.toLowerCase().includes('zu viele'),
       'should show rate limit error message',
     )
   })
@@ -254,8 +254,8 @@ describe('Auth Register controller', () => {
       body: new URLSearchParams({
         name: 'Test User',
         email: 'valid@example.com',
-        password: 'securePassword123',
-        confirmPassword: 'differentPassword456',
+        password: 'securePassword123!',
+        confirmPassword: 'differentPassword456!',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -264,6 +264,6 @@ describe('Auth Register controller', () => {
     assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('<span id="confirm-password-error"'), 'should show confirm-password field error')
-    assert.ok(html.includes('Passwords do not match'), 'should show mismatch error text')
+    assert.ok(html.includes('stimmen nicht überein'), 'should show mismatch error text')
   })
 })

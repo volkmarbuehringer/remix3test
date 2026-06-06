@@ -31,7 +31,7 @@ describe('register form inspection', () => {
     assert.ok(postHtml.includes('<span id="password-error"'), 'should have password field error span')
     assert.ok(postHtml.includes('<span id="confirm-password-error"'), 'should have confirm-password field error span')
     assert.ok(postHtml.includes('Expected valid email'), 'should show email error message')
-    assert.ok(postHtml.includes('Expected at least 9'), 'should show password error message')
+    assert.ok(postHtml.includes('Expected at least 10'), 'should show password error message')
     assert.ok(!postHtml.includes('defaultValue='), 'should not leak formValues as defaultValue')
   })
 })

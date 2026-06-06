@@ -21,6 +21,7 @@ import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
+import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 
 const registerLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
 
@@ -29,8 +30,8 @@ const REGISTER_FORM_KEYS = ['name', 'email'] as const
 const registerSchema = f.object({
   name: f.field(s.string().pipe(minLength(8))),
   email: f.field(s.string().pipe(email())),
-  password: f.field(s.string().pipe(minLength(9))),
-  confirmPassword: f.field(s.string().pipe(minLength(9))),
+  password: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
+  confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
 export default createController(routes.auth.register, {
@@ -46,13 +47,21 @@ export default createController(routes.auth.register, {
 
       let parsed = s.parseSafe(registerSchema, formData)
       if (!parsed.success) {
-        return context.render(<RegisterPage error="Invalid input. Name must be at least 8 characters, email must be valid, password and confirmation must be at least 9 characters." errors={issuesToFieldErrors(parsed.issues)} formValues={formValues} />, { status: 400 })
+        return context.render(<RegisterPage error={`Ungültige Eingabe. Der Name muss mindestens 8 Zeichen lang sein, die E-Mail-Adresse muss gültig sein und das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`} errors={issuesToFieldErrors(parsed.issues)} formValues={formValues} />, { status: 400 })
       }
       let { name, email, password } = parsed.value
 
       if (parsed.value.password !== parsed.value.confirmPassword) {
         return context.render(
-          <RegisterPage error="Passwords do not match." errors={{ confirmPassword: 'Passwords do not match' }} formValues={formValues} />,
+          <RegisterPage error="Die Passwörter stimmen nicht überein." errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }} formValues={formValues} />,
+          { status: 400 },
+        )
+      }
+
+      let complexityError = validatePasswordComplexity(password)
+      if (complexityError) {
+        return context.render(
+          <RegisterPage error={complexityError} errors={{ password: complexityError }} formValues={formValues} />,
           { status: 400 },
         )
       }
@@ -61,14 +70,14 @@ export default createController(routes.auth.register, {
 
       if (!registerLimiter.attempt(normalizedEmail)) {
         return context.render(
-          <RegisterPage error="Too many registration attempts. Please try again later." formValues={formValues} />,
+          <RegisterPage error="Zu viele Registrierungsversuche. Bitte versuchen Sie es später erneut." formValues={formValues} />,
           { status: 429 },
         )
       }
 
       if (await context.db.findOne(users, { where: { email: normalizedEmail } })) {
         return context.render(
-          <RegisterPage error="An account with this email already exists." formValues={formValues} />,
+          <RegisterPage error="Ein Konto mit dieser E-Mail-Adresse existiert bereits." formValues={formValues} />,
           { status: 400 },
         )
       }
@@ -96,7 +105,7 @@ export default createController(routes.auth.register, {
         let code = (err as { code?: string }).code
         if (code === '23505') {
           return context.render(
-            <RegisterPage error="An account with this email already exists." formValues={formValues} />,
+            <RegisterPage error="Ein Konto mit dieser E-Mail-Adresse existiert bereits." formValues={formValues} />,
             { status: 400 },
           )
         }
@@ -117,7 +126,7 @@ export default createController(routes.auth.register, {
         } catch (err) {
           console.error('Failed to send verification email:', err)
           return context.render(
-            <RegisterPage error="Unable to send verification email. Please try again later." formValues={formValues} />,
+            <RegisterPage error="Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut." formValues={formValues} />,
             { status: 500 },
           )
         }
@@ -138,7 +147,7 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors; 
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
-        Already have an account? <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Login here</a>
+        Bereits ein Konto? <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Hier anmelden</a>
       </p>
     )
 
@@ -182,19 +191,20 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors; 
             </label>
 
             <label mix={fieldLabelCss}>
-              <span>Password</span>
+              <span>Passwort</span>
+              <p id="password-hint" mix={hintCss}>Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein Sonderzeichen enthalten.</p>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
                   name="password"
                   required
                   autoComplete="new-password"
-                  minLength={9}
+                  minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.password ? true : undefined}
-                  aria-describedby={errors?.password ? 'password-error' : undefined}
+                  aria-describedby={`password-hint${errors?.password ? ' password-error' : ''}`}
                   mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
                 />
-                <button type="button" data-toggle-pw="password" aria-label="Show password" mix={toggleButtonCss}>
+                <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -202,17 +212,19 @@ function RegisterPage(handle: Handle<{ error?: string; errors?: AuthFormErrors; 
                 </button>
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+              <div data-pw-complexity mix={complexityFeedbackCss}></div>
+              <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='password')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['Mindestens 10 Zeichen',v.length>=10],['Mindestens eine Zahl (0-9)',/[0-9]/.test(v)],['Mindestens ein Sonderzeichen',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
             </label>
 
             <label mix={fieldLabelCss}>
-              <span>Confirm password</span>
+              <span>Passwort bestätigen</span>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
                   name="confirmPassword"
                   required
                   autoComplete="new-password"
-                  minLength={9}
+                  minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.confirmPassword ? true : undefined}
                   aria-describedby={errors?.confirmPassword ? 'confirm-password-error' : undefined}
                   mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
@@ -249,6 +261,19 @@ function RegisterSentPage(handle: Handle<{}>) {
     </Layout>
   )
 }
+
+const hintCss = css({
+  margin: '0 0 0.25rem',
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+})
+
+const complexityFeedbackCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  marginTop: theme.space.xs,
+})
 
 const footerLinkCss = css({
   color: theme.colors.action.primary.background,

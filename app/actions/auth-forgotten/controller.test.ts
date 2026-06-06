@@ -195,8 +195,8 @@ describe('Auth Forgot Password controller', () => {
           method: 'POST',
           headers: { Cookie: cookie },
           body: new URLSearchParams({
-            password: 'newSecurePassword123',
-            confirmPassword: 'newSecurePassword123',
+            password: 'newSecurePassword123!',
+            confirmPassword: 'newSecurePassword123!',
             _csrf: csrfToken,
           }),
           redirect: 'manual',
@@ -246,7 +246,7 @@ describe('Auth Forgot Password controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('at least 9'), 'should show password length error')
+      assert.ok(html.includes('mindestens 10'), 'should show password length error')
     })
 
     it('with mismatched passwords shows error', async () => {
@@ -271,8 +271,8 @@ describe('Auth Forgot Password controller', () => {
           method: 'POST',
           headers: { Cookie: cookie },
           body: new URLSearchParams({
-            password: 'correctPassword123',
-            confirmPassword: 'differentPassword456',
+            password: 'correctPassword123!',
+            confirmPassword: 'differentPassword456!',
             _csrf: csrfToken,
           }),
           redirect: 'manual',
@@ -281,7 +281,7 @@ describe('Auth Forgot Password controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('Passwords do not match'), 'should show mismatch error')
+      assert.ok(html.includes('stimmen nicht überein'), 'should show mismatch error')
     })
 
     it('with already-used token shows error', async () => {
@@ -294,8 +294,8 @@ describe('Auth Forgot Password controller', () => {
           method: 'POST',
           headers: { Cookie: cookie },
           body: new URLSearchParams({
-            password: 'password12345',
-            confirmPassword: 'password12345',
+            password: 'password12345!',
+            confirmPassword: 'password12345!',
             _csrf: csrfToken,
           }),
           redirect: 'manual',

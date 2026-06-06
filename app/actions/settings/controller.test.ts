@@ -156,7 +156,7 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('number'), 'should show digit error')
+      assert.ok(html.includes('Zahl'), 'should show digit error')
     })
 
     it('rejects password missing a special character', async () => {
@@ -177,7 +177,7 @@ describe('Settings controller', () => {
 
       assert.equal(response.status, 400)
       let html = await response.text()
-      assert.ok(html.includes('special character'), 'should show special char error')
+      assert.ok(html.includes('Sonderzeichen'), 'should show special char error')
     })
 
     it('rejects mismatched passwords', async () => {

@@ -43,7 +43,7 @@ describe('auth e2e', () => {
   it('completes the full auth journey: register → logout → login', async () => {
     // Arrange
     let email = `${TEST_PREFIX}journey@example.com`
-    let password = 'journeyPass123'
+    let password = 'journeyPass123!'
 
     // --- Step 1: Register a new user ---
     let { cookie: registerCsrfCookie, csrfToken: registerCsrf } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)

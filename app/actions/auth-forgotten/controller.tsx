@@ -23,6 +23,7 @@ import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
+import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 
 const forgotLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
 const resetLimiter = createRateLimiter({ windowMs: 15 * 60_000, perKey: true, maxAttempts: 5 })
@@ -32,8 +33,8 @@ const emailSchema = f.object({
 })
 
 const passwordSchema = f.object({
-  password: f.field(s.string().pipe(minLength(9))),
-  confirmPassword: f.field(s.string().pipe(minLength(9))),
+  password: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
+  confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
 export default createController(routes.auth.forgotten, {
@@ -46,14 +47,14 @@ export default createController(routes.auth.forgotten, {
     async action(context) {
       let parsed = s.parseSafe(emailSchema, context.formData)
       if (!parsed.success) {
-        return context.render(<ForgotPage error="Please enter a valid email address." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
+        return context.render(<ForgotPage error="Bitte geben Sie eine gültige E-Mail-Adresse ein." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
       }
 
       let normalizedEmail = parsed.value.email.trim().toLowerCase()
 
       if (!forgotLimiter.attempt(normalizedEmail)) {
         return context.render(
-          <ForgotPage error="Too many attempts. Please try again later." />,
+          <ForgotPage error="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
           { status: 429 },
         )
       }
@@ -115,19 +116,27 @@ export const forgottenReset = createController(routes.auth.forgottenReset, {
           // Token invalidation is best-effort; rate limit error takes priority
         }
         return context.render(
-          <ResetErrorPage title="Too many attempts" message="Too many reset attempts. Please request a new reset link." />,
+          <ResetErrorPage title="Zu viele Versuche" message="Zu viele Versuche. Bitte fordern Sie einen neuen Link an." />,
           { status: 429 },
         )
       }
 
       let parsed = s.parseSafe(passwordSchema, context.formData)
       if (!parsed.success) {
-        return context.render(<ResetFormPage token={token} error="Password and confirmation must be at least 9 characters." errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
+        return context.render(<ResetFormPage token={token} error={`Das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`} errors={issuesToFieldErrors(parsed.issues)} />, { status: 400 })
       }
 
       if (parsed.value.password !== parsed.value.confirmPassword) {
         return context.render(
-          <ResetFormPage token={token} error="Passwords do not match." errors={{ confirmPassword: 'Passwords do not match' }} />,
+          <ResetFormPage token={token} error="Die Passwörter stimmen nicht überein." errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }} />,
+          { status: 400 },
+        )
+      }
+
+      let complexityError = validatePasswordComplexity(parsed.value.password)
+      if (complexityError) {
+        return context.render(
+          <ResetFormPage token={token} error={complexityError} errors={{ password: complexityError }} />,
           { status: 400 },
         )
       }
@@ -234,7 +243,7 @@ function ForgotSentPage(handle: Handle<{}>) {
       >
         <p mix={bodyTextCss}>The link will expire in 1 hour.</p>
         <p mix={bodyTextCss}>
-          <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Back to login</a>
+        <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Zurück zum Login</a>
         </p>
       </AuthShell>
     </Layout>
@@ -254,19 +263,20 @@ function ResetFormPage(handle: Handle<{ token: string; error?: string; errors?: 
         >
           <AuthForm action={routes.auth.forgottenReset.action.href({ token })} error={error} submitLabel="Reset password">
             <label mix={fieldLabelCss}>
-              <span>New password</span>
+              <span>Neues Passwort</span>
+              <p id="password-hint" mix={hintCss}>Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein Sonderzeichen enthalten.</p>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
                   name="password"
                   required
                   autoComplete="new-password"
-                  minLength={9}
+                  minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.password ? true : undefined}
-                  aria-describedby={errors?.password ? 'password-error' : undefined}
+                  aria-describedby={`password-hint${errors?.password ? ' password-error' : ''}`}
                   mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
                 />
-                <button type="button" data-toggle-pw="password" aria-label="Show password" mix={toggleButtonCss}>
+                <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
@@ -274,17 +284,19 @@ function ResetFormPage(handle: Handle<{ token: string; error?: string; errors?: 
                 </button>
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+              <div data-pw-complexity mix={complexityFeedbackCss}></div>
+              <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='password')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['Mindestens 10 Zeichen',v.length>=10],['Mindestens eine Zahl (0-9)',/[0-9]/.test(v)],['Mindestens ein Sonderzeichen',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
             </label>
 
             <label mix={fieldLabelCss}>
-              <span>Confirm password</span>
+              <span>Passwort bestätigen</span>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
                   name="confirmPassword"
                   required
                   autoComplete="new-password"
-                  minLength={9}
+                  minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.confirmPassword ? true : undefined}
                   aria-describedby={errors?.confirmPassword ? 'confirm-password-error' : undefined}
                   mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
@@ -314,12 +326,25 @@ function ResetErrorPage(handle: Handle<{ title: string; message: string }>) {
         description={handle.props.message}
       >
         <p mix={bodyTextCss}>
-          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>Request a new reset link</a>
+          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>Neuen Link anfordern</a>
         </p>
       </AuthShell>
     </Layout>
   )
 }
+
+const hintCss = css({
+  margin: '0 0 0.25rem',
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+})
+
+const complexityFeedbackCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  marginTop: theme.space.xs,
+})
 
 const footerLinkCss = css({
   color: theme.colors.action.primary.background,
