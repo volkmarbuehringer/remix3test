@@ -297,7 +297,7 @@ describe('CSRF protection', () => {
       headers: { Cookie: cookie },
       body: new URLSearchParams({
         email: 'admin@newapp.com',
-        password: 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -342,7 +342,7 @@ describe('CSRF protection', () => {
       headers: { Cookie: cookie },
       body: new URLSearchParams({
         email: 'admin@newapp.com',
-        password: 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
         _csrf: csrfToken,
       }),
       redirect: 'manual',
