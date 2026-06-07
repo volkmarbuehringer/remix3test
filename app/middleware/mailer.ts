@@ -6,11 +6,11 @@ import type { SendEmailFn } from '../utils/send-email.ts'
 
 const MailerContext = createContextKey<SendEmailFn>()
 
-let port = Number(process.env.SMTP_PORT) || 1025
-let user = process.env.SMTP_USER
-let pass = process.env.SMTP_PASSWORD
+const port = Number(process.env.SMTP_PORT) || 1025
+const user = process.env.SMTP_USER
+const pass = process.env.SMTP_PASSWORD
 
-let transport =
+const transport =
   user && pass
     ? createTransport({
         host: process.env.SMTP_HOST || 'localhost',

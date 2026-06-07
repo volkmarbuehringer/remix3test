@@ -14,7 +14,7 @@ import {
 import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import type { OfferingConfigRow, ResourceOption } from '../actions/admin-offering-configs/controller.tsx'
+import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/controller.tsx'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]
@@ -27,7 +27,7 @@ interface AdminOfferingConfigsPageProps {
   filter: string | undefined
   editRow?: OfferingConfigRow | null
   creating?: boolean
-  resources: ResourceOption[]
+  resources: OfferingConfigResourceOption[]
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -378,7 +378,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
 interface EditPanelProps {
   row: OfferingConfigRow
-  resources: ResourceOption[]
+  resources: OfferingConfigResourceOption[]
   offset?: string
   sort?: string
   order?: string
@@ -443,7 +443,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
 }
 
 interface CreatePanelProps {
-  resources: ResourceOption[]
+  resources: OfferingConfigResourceOption[]
   offset?: string
   sort?: string
   order?: string

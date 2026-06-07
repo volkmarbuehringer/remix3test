@@ -1,10 +1,10 @@
 import type { Handle } from 'remix/ui'
-import type { ResourceOption, UserOption } from '../actions/admin-appointments/controller.tsx'
+import type { AppointmentResourceOption, AppointmentUserOption } from '../actions/verwaltung/controller.tsx'
 import { AdminAppointmentsForm } from './admin-appointments-form.tsx'
 
 export interface AdminAppointmentsCreatePageProps {
-  resources: ResourceOption[]
-  users: UserOption[]
+  resources: AppointmentResourceOption[]
+  users: AppointmentUserOption[]
   offset?: string
   sort?: string
   order?: string

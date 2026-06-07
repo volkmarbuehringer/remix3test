@@ -2,9 +2,8 @@ import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { max, maxLength, min, minLength } from 'remix/data-schema/checks'
 import { getCsrfToken } from 'remix/middleware/csrf'
+import { getCspNonce } from '../../middleware/security-headers.ts'
 
-import { requireAuth } from '../../middleware/auth.ts'
-import { routes } from '../../routes.ts'
 import {
   listAppointmentsByWeek,
   createAppointment,
@@ -15,6 +14,13 @@ import {
   AppointmentTooCloseError,
   isExclusionViolation,
 } from '../../data/appointments.ts'
+import {
+  listAppointTypes,
+  createAppointType,
+  updateAppointType,
+  deleteAppointType,
+  AppointTypeError,
+} from '../../data/appointtypes.ts'
 import { listOfferingsByWeek, isSlotBookable } from '../../data/appointofferings.ts'
 import { isDateInPast } from '../../utils/date-utils.ts'
 import { listResources } from '../../data/resources.ts'
@@ -22,22 +28,27 @@ import { pool } from '../../data/setup.ts'
 import { appointments } from '../../data/schema.ts'
 import type { User } from '../../data/schema.ts'
 import { AppointmentPage } from '../../ui/appointment-page.tsx'
+import { AppointTypePanel } from '../../ui/appointtype-panel.tsx'
 import { appointmentChannel } from '../../lib/appointments-sse.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
+import { requireAuth } from '../../middleware/auth.ts'
+import { fragmentResponseInit } from '../../middleware/render.tsx'
+import { routes } from '../../routes.ts'
 
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
 
-// Per-user rate limiters for appointment mutations (1 req/s by default, override via env var, set to 0 to disable).
+// ── Appointment ──
+
 const RATE_LIMIT_MS = process.env.APPOINTMENT_RATE_LIMIT_MS !== undefined
   ? Number(process.env.APPOINTMENT_RATE_LIMIT_MS)
   : 1000
-const createLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
-const updateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
-const deleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
+const appointmentCreateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
+const appointmentUpdateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
+const appointmentDeleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 
-const createSchema = s.object({
+const appointmentCreateSchema = s.object({
   title: s.string().pipe(minLength(1), maxLength(80)),
   date: s.number(),
   start_min: s.number().pipe(min(0), max(MINUTES_IN_DAY)),
@@ -45,7 +56,7 @@ const createSchema = s.object({
   resource_id: s.number(),
 })
 
-const updateSchema = s.object({
+const appointmentUpdateSchema = s.object({
   title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
   date: s.optional(s.number()),
   start_min: s.optional(s.number().pipe(min(0), max(MINUTES_IN_DAY))),
@@ -76,10 +87,8 @@ function clampYear(year: number): number {
 }
 
 function isoWeeksInYear(year: number): number {
-  // ISO 8601: a year has 53 weeks if Jan 1 is Thursday,
-  // or if it's a leap year and Jan 1 is Wednesday
   let jan1 = new Date(Date.UTC(year, 0, 1))
-  let day = jan1.getUTCDay() || 7 // 1=Mon ... 7=Sun
+  let day = jan1.getUTCDay() || 7
   let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   return day === 4 || (isLeap && day === 3) ? 53 : 52
 }
@@ -107,7 +116,7 @@ function weekDates(mondayMs: number): Array<{ dayName: string; date: number; dat
   return days
 }
 
-export default createController(routes.appointment, {
+export const appointment = createController(routes.appointment, {
   middleware: [requireAuth()],
 
   actions: {
@@ -139,11 +148,10 @@ export default createController(routes.appointment, {
 
       let allResources = await listResources(context.db)
       let selectedResourceId = Number.isNaN(parsedResourceId) ? (allResources[0]?.id ?? 0) : parsedResourceId
-      let appointments = await listAppointmentsByWeek(context.db, mondayMs, nextMondayMs, selectedResourceId)
+      let appts = await listAppointmentsByWeek(context.db, mondayMs, nextMondayMs, selectedResourceId)
 
-      // Enrich appointments with user email for admin block display
-      if (isAdmin && appointments.length > 0) {
-        let userIds = [...new Set(appointments.map((a) => a.user_id))]
+      if (isAdmin && appts.length > 0) {
+        let userIds = [...new Set(appts.map((a) => a.user_id))]
         let result = await pool.query(
           'SELECT id, email FROM users WHERE id = ANY($1::int[])',
           [userIds],
@@ -151,7 +159,7 @@ export default createController(routes.appointment, {
         let emailMap = new Map(
           (result.rows as Array<{ id: number; email: string }>).map((r) => [r.id, r.email]),
         )
-        for (let appt of appointments as Array<Record<string, unknown>>) {
+        for (let appt of appts as Array<Record<string, unknown>>) {
           appt.user_email = emailMap.get(appt.user_id as number) ?? ''
         }
       }
@@ -163,7 +171,7 @@ export default createController(routes.appointment, {
           year={selectedYear}
           week={selectedWeek}
           days={days}
-          appointments={appointments}
+          appointments={appts}
           offerings={offerings}
           resources={allResources}
           selectedResourceId={selectedResourceId}
@@ -181,7 +189,7 @@ export default createController(routes.appointment, {
       }
       let userId = (auth.identity as User).id
 
-      if (!createLimiter.attempt(userId)) {
+      if (!appointmentCreateLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before creating another appointment.' }, { status: 429 })
       }
 
@@ -192,9 +200,6 @@ export default createController(routes.appointment, {
         return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
-      // If typeId is present, use INSERT...SELECT from appointtypes
-      // WARNING: This raw SQL bypasses appointments.beforeWrite() lifecycle hook.
-      // Keep behavior in sync (timestamps, field defaults) if beforeWrite changes.
       if (typeof body.typeId === 'number') {
         if (typeof body.date !== 'number' || typeof body.start_min !== 'number') {
           return context.json({ error: 'date and start_min are required with typeId.' }, { status: 400 })
@@ -203,12 +208,10 @@ export default createController(routes.appointment, {
           return context.json({ error: 'resource_id is required.' }, { status: 400 })
         }
 
-        // Reject past-date creation
         if (isDateInPast(body.date)) {
           return context.json({ error: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.' }, { status: 422 })
         }
 
-        // Validate that the requested slot is within an offering
         let bookable = await isSlotBookable(context.db, body.date, body.resource_id, body.start_min, body.start_min + 15)
         if (!bookable) {
           return context.json({ error: 'Slot is not bookable.' }, { status: 403 })
@@ -239,8 +242,7 @@ export default createController(routes.appointment, {
         }
       }
 
-      // Fall back to manual creation with title
-      let parsed = s.parseSafe(createSchema, body)
+      let parsed = s.parseSafe(appointmentCreateSchema, body)
       if (!parsed.success) {
         return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
       }
@@ -249,7 +251,6 @@ export default createController(routes.appointment, {
         return context.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
       }
 
-      // Validate that the requested slot is within an offering
       let bookable = await isSlotBookable(
         context.db,
         parsed.value.date,
@@ -262,9 +263,9 @@ export default createController(routes.appointment, {
       }
 
       try {
-        let appointment = await createAppointment(context.db, userId, parsed.value)
+        let appt = await createAppointment(context.db, userId, parsed.value)
         appointmentChannel.broadcast('invalidate')
-        return context.json({ appointment }, { status: 201 })
+        return context.json({ appointment: appt }, { status: 201 })
       } catch (error) {
         if (error instanceof AppointmentCollisionError) {
           return context.json({ error: error.message, code: 'collision' }, { status: error.status })
@@ -282,7 +283,7 @@ export default createController(routes.appointment, {
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
-      if (!updateLimiter.attempt(userId)) {
+      if (!appointmentUpdateLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before updating.' }, { status: 429 })
       }
 
@@ -295,7 +296,7 @@ export default createController(routes.appointment, {
         return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
-      let parsed = s.parseSafe(updateSchema, body)
+      let parsed = s.parseSafe(appointmentUpdateSchema, body)
       if (!parsed.success) {
         return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
       }
@@ -305,14 +306,12 @@ export default createController(routes.appointment, {
         return context.json({ error: `Minimum duration is ${MINIMUM_DURATION} minutes.` }, { status: 400 })
       }
 
-      // Validate against offerings if time/date/resource is changing (e.g., drag/resize)
       let hasSlotChange =
         parsed.value.date !== undefined ||
         parsed.value.start_min !== undefined ||
         parsed.value.end_min !== undefined ||
         parsed.value.resource_id !== undefined
       if (hasSlotChange) {
-        // Fetch existing appointment to resolve partial update (non-sent fields stay as-is)
         let apptQuery: Record<string, unknown> = { id: appointmentId }
         if (!isAdmin) apptQuery.user_id = userId
         let current = await context.db.findOne(appointments, { where: apptQuery })
@@ -330,7 +329,7 @@ export default createController(routes.appointment, {
       }
 
       try {
-        let appointment = await updateAppointment(
+        let appt = await updateAppointment(
           context.db,
           userId,
           appointmentId,
@@ -338,7 +337,7 @@ export default createController(routes.appointment, {
           isAdmin ? { adminBypass: true } : undefined,
         )
         appointmentChannel.broadcast('invalidate')
-        return context.json({ appointment })
+        return context.json({ appointment: appt })
       } catch (error) {
         if (error instanceof AppointmentError) {
           return context.json({ error: error.message }, { status: error.status })
@@ -356,7 +355,7 @@ export default createController(routes.appointment, {
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
-      if (!deleteLimiter.attempt(userId)) {
+      if (!appointmentDeleteLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before deleting.' }, { status: 429 })
       }
 
@@ -384,3 +383,116 @@ export default createController(routes.appointment, {
     },
   },
 })
+
+// ── AppointTypes ──
+
+const appointTypeCreateSchema = s.object({
+  title: s.string().pipe(minLength(1), maxLength(80)),
+})
+
+const appointTypeUpdateSchema = s.object({
+  title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
+})
+
+export const appointmentTypes = createController(
+  routes.appointment.types,
+  {
+    middleware: [requireAuth()],
+
+    actions: {
+      async index(context) {
+        let auth = context.auth
+        if (!auth?.ok) {
+          return new Response(null, { status: 401 })
+        }
+        let userId = (auth.identity as User).id
+
+        let types = await listAppointTypes(context.db, userId)
+        let csrfToken = getCsrfToken(context)
+
+        let data = JSON.stringify({ types, csrfToken })
+
+        return context.render(
+          <>
+            <script id="appointtype-data" type="application/json" nonce={getCspNonce()}>{data}</script>
+            <AppointTypePanel csrfToken={csrfToken} />
+          </>,
+          fragmentResponseInit(),
+        )
+      },
+
+      async create(context) {
+        let auth = context.auth
+        if (!auth?.ok) {
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
+        }
+        let userId = (auth.identity as User).id
+
+        let body: unknown
+        try {
+          body = await context.request.json()
+        } catch {
+          return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+        }
+
+        let parsed = s.parseSafe(appointTypeCreateSchema, body)
+        if (!parsed.success) {
+          return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
+        }
+
+        let type = await createAppointType(context.db, userId, parsed.value)
+        return context.json({ type }, { status: 201 })
+      },
+
+      async update(context) {
+        let auth = context.auth
+        if (!auth?.ok) {
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
+        }
+        let userId = (auth.identity as User).id
+        let typeId = Number(context.params.id)
+
+        let body: unknown
+        try {
+          body = await context.request.json()
+        } catch {
+          return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
+        }
+
+        let parsed = s.parseSafe(appointTypeUpdateSchema, body)
+        if (!parsed.success) {
+          return context.json({ error: 'Validation failed.', errors: issuesToFieldErrors(parsed.issues) }, { status: 400 })
+        }
+
+        try {
+          let type = await updateAppointType(context.db, userId, typeId, parsed.value)
+          return context.json({ type })
+        } catch (error) {
+          if (error instanceof AppointTypeError) {
+            return context.json({ error: error.message }, { status: error.status })
+          }
+          throw error
+        }
+      },
+
+      async destroy(context) {
+        let auth = context.auth
+        if (!auth?.ok) {
+          return context.json({ error: 'Authentication required.' }, { status: 401 })
+        }
+        let userId = (auth.identity as User).id
+        let typeId = Number(context.params.id)
+
+        try {
+          await deleteAppointType(context.db, userId, typeId)
+          return context.json({ deleted: true })
+        } catch (error) {
+          if (error instanceof AppointTypeError) {
+            return context.json({ error: error.message }, { status: error.status })
+          }
+          throw error
+        }
+      },
+    },
+  },
+)

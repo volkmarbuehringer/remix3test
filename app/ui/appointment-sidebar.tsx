@@ -65,7 +65,7 @@ export const AppointmentSidebar = clientEntry(
                 value={selectedResourceId}
                 id="appt-resource"
                 mix={[
-                  selectStyle,
+                  selectResourceStyle,
                   on('change', () => {
                     let y = document.getElementById('appt-year') as HTMLSelectElement | null
                     let w = document.getElementById('appt-week') as HTMLSelectElement | null
@@ -90,7 +90,7 @@ export const AppointmentSidebar = clientEntry(
                 value={year}
                 id="appt-year"
                 mix={[
-                  selectStyle,
+                  selectYearStyle,
                   on('change', () => {
                     let y = document.getElementById('appt-year') as HTMLSelectElement | null
                     let w = document.getElementById('appt-week') as HTMLSelectElement | null
@@ -209,7 +209,7 @@ const sidebarStyle = css({
   gridTemplateRows: '56px auto 1fr',
   minHeight: 0,
   overflow: 'hidden',
-  width: '240px',
+  width: '280px',
 })
 
 const sidebarHeaderStyle = css({
@@ -254,11 +254,45 @@ const selectStyle = css({
   },
 })
 
+const selectResourceStyle = css({
+  backgroundColor: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  color: theme.colors.text.primary,
+  font: 'inherit',
+  fontSize: theme.fontSize.sm,
+  minHeight: theme.control.height.sm,
+  minWidth: 0,
+  padding: `0 ${theme.space.sm}`,
+  width: '100%',
+  '&:focus': {
+    borderColor: theme.colors.focus.ring,
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '2px',
+  },
+})
+
+const selectYearStyle = css({
+  backgroundColor: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  color: theme.colors.text.primary,
+  flex: 0.18,
+  font: 'inherit',
+  fontSize: theme.fontSize.sm,
+  minHeight: theme.control.height.sm,
+  padding: `0 ${theme.space.sm}`,
+  '&:focus': {
+    borderColor: theme.colors.focus.ring,
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '2px',
+  },
+})
+
 const dateRangeRowStyle = css({
   alignItems: 'center',
   display: 'flex',
   gap: theme.space.xs,
-  justifyContent: 'space-between',
 })
 
 const navArrowStyle = css({
@@ -282,7 +316,7 @@ const dateRangeStyle = css({
   color: theme.colors.text.secondary,
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.semibold,
-  textAlign: 'center',
+  textAlign: 'left',
   userSelect: 'none',
 })
 

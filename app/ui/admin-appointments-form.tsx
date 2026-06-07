@@ -10,7 +10,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import type { AppointmentRow, ResourceOption, UserOption } from '../actions/admin-appointments/controller.tsx'
+import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../actions/verwaltung/controller.tsx'
 
 // ── Shared constants ─────────────────────────────────────────────
 
@@ -53,8 +53,8 @@ const rowIdBadgeStyle = css({
 export interface AdminAppointmentsFormProps {
   /** 'create' for new appointment form, 'edit' for editing an existing one. */
   mode: 'create' | 'edit'
-  resources: ResourceOption[]
-  users: UserOption[]
+  resources: AppointmentResourceOption[]
+  users: AppointmentUserOption[]
   /** Grid state for hidden inputs and cancel URL. */
   gridState: GridState
   /** Row data (required in edit mode). */

@@ -4,34 +4,15 @@ import type { SessionStorage } from 'remix/session'
 
 import controller from './actions/home/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
-import loginController from './actions/auth-login/controller.tsx'
-import registerController, { registerSent } from './actions/auth-register/controller.tsx'
-import { verify } from './actions/auth-verify/controller.tsx'
-import forgottenController, { forgottenReset } from './actions/auth-forgotten/controller.tsx'
-import chatController from './actions/chat/controller.tsx'
-import agentController from './actions/agent/controller.tsx'
-import aiController from './actions/ai/controller.tsx'
-import aiFragmentsController from './actions/ai-fragments/controller.tsx'
-import workflowController from './actions/workflow/controller.tsx'
+import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
+import { default as aiController, aiChat, aiAgent, aiWorkflow, aiFragments } from './actions/ai/controller.tsx'
 import clientController from './actions/client/controller.tsx'
-import adminController from './actions/admin/controller.tsx'
-import adminChatlogController from './actions/admin-chatlog/controller.tsx'
-import adminChatlogFragmentsController from './actions/admin-chatlog-fragments/controller.tsx'
-import adminMessagesController from './actions/admin-messages/controller.tsx'
-import adminFragmentsController from './actions/admin-fragments/controller.tsx'
-import adminListsController from './actions/admin-lists/controller.tsx'
+import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
-import adminOfferingsController from './actions/admin-offerings/controller.tsx'
-import adminAppointmentsController from './actions/admin-appointments/controller.tsx'
-import adminUsersController from './actions/admin-users/controller.tsx'
-import adminResourcesController from './actions/admin-resources/controller.tsx'
-import adminOfferingConfigsController from './actions/admin-offering-configs/controller.tsx'
-import verwaltungController from './actions/verwaltung/controller.tsx'
-import appointmentController from './actions/appointment/controller.tsx'
+import { default as verwaltungController, verwaltungOfferings, verwaltungAppointments, verwaltungResources, verwaltungOfferingConfigs } from './actions/verwaltung/controller.tsx'
+import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
-import appointTypeController from './actions/appointtype/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
-import { authLogout } from './actions/auth-logout/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { routes } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
@@ -70,44 +51,44 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.lists, listsController)
 
   // Auth routes
-  router.map(routes.auth.login, loginController)
-  router.map(routes.auth.register, registerController)
+  router.map(routes.auth.login, authLogin)
+  router.map(routes.auth.register, authRegister)
   router.get(routes.auth.registerSent.href(), registerSent)
   router.get(routes.auth.verify.href({ token: ':token' }), verify)
   router.post(routes.auth.logout.href(), authLogout)
-  router.map(routes.auth.forgotten, forgottenController)
-  router.map(routes.auth.forgottenReset, forgottenReset)
+  router.map(routes.auth.forgotten, authForgotten)
+  router.map(routes.auth.forgottenReset, authForgottenReset)
 
   // Settings routes
   router.map(routes.settings, settingsController)
 
   // Appointment routes (separate controller with requireAuth middleware)
-  router.map(routes.appointment, appointmentController)
-  router.map(routes.appointment.types, appointTypeController)
+  router.map(routes.appointment, appointment)
+  router.map(routes.appointment.types, appointmentTypes)
   router.map(routes.appointmentsNew, appointmentsNewController)
 
   // AI routes
   router.map(routes.ai, aiController)
-  router.map(routes.ai.chat, chatController)
-  router.map(routes.ai.agent, agentController)
-  router.map(routes.ai.workflow, workflowController)
-  router.map(routes.ai.fragments, aiFragmentsController)
+  router.map(routes.ai.chat, aiChat)
+  router.map(routes.ai.agent, aiAgent)
+  router.map(routes.ai.workflow, aiWorkflow)
+  router.map(routes.ai.fragments, aiFragments)
 
   // Admin routes
   router.map(routes.admin, adminController)
-  router.map(routes.admin.chatlog, adminChatlogController)
-  router.map(routes.admin.messages, adminMessagesController)
-  router.map(routes.admin.fragments, adminFragmentsController)
-  router.map(routes.admin.chatlog.fragments, adminChatlogFragmentsController)
-  router.map(routes.admin.lists, adminListsController)
-  router.map(routes.admin.users, adminUsersController)
+  router.map(routes.admin.chatlog, adminChatlog)
+  router.map(routes.admin.messages, adminMessages)
+  router.map(routes.admin.fragments, adminFragments)
+  router.map(routes.admin.chatlog.fragments, adminChatlogFragments)
+  router.map(routes.admin.lists, adminLists)
+  router.map(routes.admin.users, adminUsers)
 
   // Verwaltung routes
   router.map(routes.verwaltung, verwaltungController)
-  router.map(routes.verwaltung.offerings, adminOfferingsController)
-  router.map(routes.verwaltung.appointments, adminAppointmentsController)
-  router.map(routes.verwaltung.resources, adminResourcesController)
-  router.map(routes.verwaltung.offeringConfigs, adminOfferingConfigsController)
+  router.map(routes.verwaltung.offerings, verwaltungOfferings)
+  router.map(routes.verwaltung.appointments, verwaltungAppointments)
+  router.map(routes.verwaltung.resources, verwaltungResources)
+  router.map(routes.verwaltung.offeringConfigs, verwaltungOfferingConfigs)
 
   return router
 }

@@ -17,9 +17,9 @@ import { getCspNonce } from '../middleware/security-headers.ts'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import type {
   AppointmentRow,
-  ResourceOption,
-  UserOption,
-} from '../actions/admin-appointments/controller.tsx'
+  AppointmentResourceOption,
+  AppointmentUserOption,
+} from '../actions/verwaltung/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = '/verwaltung/appointments'
@@ -46,8 +46,8 @@ interface AdminAppointmentsPageProps {
   period?: string
   editRow?: AppointmentRow | null
   creating?: boolean
-  resources: ResourceOption[]
-  users: UserOption[]
+  resources: AppointmentResourceOption[]
+  users: AppointmentUserOption[]
   error?: string
   defaultStartMin?: number
   defaultEndMin?: number
