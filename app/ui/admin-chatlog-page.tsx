@@ -103,7 +103,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
       params.set('page', String(p))
       if (filter) params.set('filter', filter)
       if (type) params.set('type', type)
-      return `/admin/chatlog?${params.toString()}`
+      return `${routes.admin.chatlog.index.href()}?${params.toString()}`
     }
 
     return (
@@ -114,13 +114,13 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           <form method="get" mix={filterFormStyle}>
             <input type="text" name="filter" placeholder="Konversationen durchsuchen..." defaultValue={filter ?? ''} mix={filterInputStyle} />
             <Button type="submit" tone="primary">Suchen</Button>
-            {filter && <a href="/admin/chatlog" mix={clearLinkStyle}>Filter zurücksetzen</a>}
+            {filter && <a href={routes.admin.chatlog.index.href()} mix={clearLinkStyle}>Filter zurücksetzen</a>}
           </form>
  
           {type && (
             <p mix={typeFilterLabelStyle}>
               Angezeigt: {type === 'chat' ? 'Chat' : 'Agent'}-Konversationen
-              <a href="/admin/chatlog" mix={clearLinkStyle}>Filter zurücksetzen</a>
+              <a href={routes.admin.chatlog.index.href()} mix={clearLinkStyle}>Filter zurücksetzen</a>
             </p>
           )}
           <p mix={resultCountStyle}>Seite {page}</p>

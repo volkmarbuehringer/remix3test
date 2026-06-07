@@ -53,9 +53,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Auth routes
   router.map(routes.auth.login, authLogin)
   router.map(routes.auth.register, authRegister)
-  router.get(routes.auth.registerSent.href(), registerSent)
-  router.get(routes.auth.verify.href({ token: ':token' }), verify)
-  router.post(routes.auth.logout.href(), authLogout)
+  router.get(routes.auth.registerSent, registerSent)
+  router.get(routes.auth.verify, verify)
+  router.post(routes.auth.logout, authLogout)
   router.map(routes.auth.forgotten, authForgotten)
   router.map(routes.auth.forgottenReset, authForgottenReset)
 

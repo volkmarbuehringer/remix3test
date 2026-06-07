@@ -6,7 +6,7 @@ import { Glyph } from 'remix/ui/glyph'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { table } from './mixins/admin-table.ts'
@@ -14,7 +14,7 @@ import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildCance
 import { AdminUsersContextMenu } from '../assets/admin-users-context-menu.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
-const ADMIN_BASE = '/admin/users'
+const ADMIN_BASE = routes.admin.users.index.href()
 
 /** User display type — password_hash is never sent to the client. */
 type DisplayUser = {
@@ -56,7 +56,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         {/* Toolbar + Filter */}
         <form
           method="GET"
-          action="/admin/users"
+          action={routes.admin.users.index.href()}
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -70,7 +70,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a
-              href="/admin/users"
+              href={routes.admin.users.index.href()}
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -173,7 +173,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <RestfulForm
                   key={row.id}
                   method="DELETE"
-                  action={`/admin/users/${row.id}`}
+                  action={routes.admin.users.destroy.href({ id: row.id! })}
                   data-delete-form={row.id}
                 >
                   <GridStateHiddenInputs
@@ -228,6 +228,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             sort: sortColumn,
             order: sortDirection,
             filter: filter ?? '',
+            baseHref: routes.admin.users.index.href(),
           })}
         </script>
         <AdminUsersContextMenu />
@@ -288,7 +289,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
     let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/admin/users/${row.id}`}>
+        <RestfulForm method="PUT" action={routes.admin.users.update.href({ id: row.id! })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -335,7 +336,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -363,7 +364,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
     let { offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/admin/users">
+        <RestfulForm method="POST" action={routes.admin.users.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -422,7 +423,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/admin/users', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

@@ -8,20 +8,21 @@ interface DeletePastButtonProps extends SerializableProps {
   order: string
   filter: string
   period: string
+  deletePastHref: string
 }
 
 export const DeletePastButton = clientEntry(
   import.meta.url + '#DeletePastButton',
   function DeletePastButton(handle: Handle<DeletePastButtonProps>) {
     return () => {
-      let { csrfToken, offset, sort, order, filter, period } = handle.props
+      let { csrfToken, offset, sort, order, filter, period, deletePastHref } = handle.props
 
       let clickHandler = on<HTMLButtonElement>('click', () => {
         if (!confirm('Wirklich alle vergangenen Angebote löschen?')) return
 
         let form = document.createElement('form')
         form.method = 'POST'
-        form.action = '/verwaltung/offerings/delete-past'
+        form.action = deletePastHref
 
         let addField = (name: string, value: string) => {
           let input = document.createElement('input')

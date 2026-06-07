@@ -29,6 +29,8 @@ export type AppData = {
   currentUserId: number
   selectedResourceId: number
   isAdmin: boolean
+  appointmentHref?: string
+  appointmentTypesHref?: string
 }
 
 export type DragState = {

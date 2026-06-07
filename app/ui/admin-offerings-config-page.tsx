@@ -6,6 +6,7 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
+import { routes } from '../routes.ts'
 import type { OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
@@ -71,7 +72,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/verwaltung/offerings/config">
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()}>
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 
           <div mix={table.panel}>
@@ -130,7 +131,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href="/verwaltung/offerings" mix={[table.spacer, table.linkPlain]}>
+                <a href={routes.verwaltung.offerings.index.href()} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

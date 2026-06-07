@@ -19,16 +19,17 @@ interface AppointTypePanelProps extends SerializableProps {
 interface PanelData {
   types: AppointType[]
   csrfToken: string
+  appointmentTypesHref: string
 }
 
 function readData(): PanelData {
-  if (typeof document === 'undefined') return { types: [], csrfToken: '' }
+  if (typeof document === 'undefined') return { types: [], csrfToken: '', appointmentTypesHref: '' }
   try {
     let el = document.getElementById('appointtype-data')
-    if (!el) return { types: [], csrfToken: '' }
+    if (!el) return { types: [], csrfToken: '', appointmentTypesHref: '' }
     return JSON.parse(el.textContent || '{}')
   } catch {
-    return { types: [], csrfToken: '' }
+    return { types: [], csrfToken: '', appointmentTypesHref: '' }
   }
 }
 
@@ -43,9 +44,11 @@ export const AppointTypePanel = clientEntry(
     let adding = false
     let editingId: number | null = null
     let lastRightClickedType: AppointType | null = null
+    let typesBaseHref = ''
 
     return () => {
-      let { types, csrfToken } = readData()
+      let { types, csrfToken, appointmentTypesHref } = readData()
+      typesBaseHref = appointmentTypesHref
 
       let isDropActive = getPanelDropActive()
 
@@ -166,7 +169,7 @@ export const AppointTypePanel = clientEntry(
       handle.update()
 
       try {
-        let response = await fetch('/appointment/types', {
+        let response = await fetch(typesBaseHref, {
           method: 'POST',
           headers: {
             'Accept': 'application/json',
@@ -218,7 +221,7 @@ export const AppointTypePanel = clientEntry(
       editingId = null
       handle.update()
 
-      fetch(`/appointment/types/${id}`, {
+      fetch(`${typesBaseHref}/${id}`, {
         method: 'PUT',
         headers: {
           'Accept': 'application/json',
@@ -250,7 +253,7 @@ export const AppointTypePanel = clientEntry(
         }
         case 'delete': {
           if (!confirm(`"${type.title}" wirklich löschen?`)) return
-          fetch(`/appointment/types/${type.id}`, {
+          fetch(`${typesBaseHref}/${type.id}`, {
             method: 'DELETE',
             headers: {
               'Accept': 'application/json',

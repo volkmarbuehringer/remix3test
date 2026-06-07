@@ -1,8 +1,4 @@
-# Breadcrumb Auto-Sync
-
-**Purpose**: Ensure all active routes have breadcrumb coverage via a label registry derived from typed route objects.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: All active routes have breadcrumb coverage
 

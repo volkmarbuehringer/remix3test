@@ -9,6 +9,7 @@ interface GridState {
   sort: string
   order: string
   filter: string
+  baseHref?: string
 }
 
 /**
@@ -95,13 +96,14 @@ export const AdminUsersContextMenu = clientEntry(
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
+        let baseHref = state.baseHref || '/admin/users'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
         params.set('sort', state.sort || 'name')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = '/admin/users?' + params.toString()
+        window.location.href = baseHref + '?' + params.toString()
       } catch {
         window.location.href = '/admin/users?editing=' + rowId
       }

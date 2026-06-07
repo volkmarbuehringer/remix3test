@@ -238,7 +238,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
             <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 && (
                 <a
-                  href={`/admin/messages?offset=${prevOffset}`}
+                  href={`${routes.admin.messages.index.href()}?offset=${prevOffset}`}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
@@ -247,7 +247,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               )}
               {hasMore && (
                 <a
-                  href={`/admin/messages?offset=${nextOffset}`}
+                  href={`${routes.admin.messages.index.href()}?offset=${nextOffset}`}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >

@@ -7,6 +7,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
@@ -88,7 +89,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
     let resolvedEndMin = formValues?.end_min !== undefined ? Number(formValues.end_min) : (isEdit && row ? Number(row.end_min) : defaultEndMin)
 
     let method = isEdit ? 'PUT' as const : 'POST' as const
-    let action = isEdit && row ? `/verwaltung/appointments/${row.id}` : '/verwaltung/appointments'
+    let action = isEdit && row ? routes.verwaltung.appointments.update.href({ id: row.id }) : routes.verwaltung.appointments.create.href()
     let panelTitle = isEdit ? 'Termin bearbeiten' : 'Neuer Termin'
     let submitLabel = isEdit ? 'Speichern' : 'Anlegen'
     let resourcePlaceholder = isEdit ? undefined : 'Ressource auswählen...'
@@ -228,7 +229,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/appointments', offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.appointments.index.href(), offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

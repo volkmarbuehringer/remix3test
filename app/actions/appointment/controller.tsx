@@ -410,7 +410,7 @@ export const appointmentTypes = createController(
         let types = await listAppointTypes(context.db, userId)
         let csrfToken = getCsrfToken(context)
 
-        let data = JSON.stringify({ types, csrfToken })
+        let data = JSON.stringify({ types, csrfToken, appointmentTypesHref: routes.appointment.types.index.href() })
 
         return context.render(
           <>

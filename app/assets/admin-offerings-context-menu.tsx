@@ -11,6 +11,7 @@ interface GridState {
   sort: string
   order: string
   filter: string
+  baseHref?: string
 }
 
 /**
@@ -108,13 +109,14 @@ export const AdminOfferingsContextMenu = clientEntry(
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
+        let baseHref = state.baseHref || '/verwaltung/offerings'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
         params.set('sort', state.sort || 'ao.id')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = '/verwaltung/offerings?' + params.toString()
+        window.location.href = baseHref + '?' + params.toString()
       } catch {
         window.location.href = '/verwaltung/offerings?editing=' + rowId
       }

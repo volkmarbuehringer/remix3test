@@ -248,7 +248,7 @@ function buildPaginationUrl(newOffset: number, filter?: string): string {
   let params = new URLSearchParams()
   params.set('offset', String(newOffset))
   if (filter) params.set('filter', filter)
-  return '/admin/lists?' + params.toString()
+  return routes.admin.lists.index.href() + '?' + params.toString()
 }
 
 export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
@@ -265,7 +265,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         </p>
 
         {/* Filter bar */}
-        <form method="GET" action="/admin/lists" rmx-target={frames.adminContent} mix={filterBarStyle}>
+        <form method="GET" action={routes.admin.lists.index.href()} rmx-target={frames.adminContent} mix={filterBarStyle}>
           <input
             type="text"
             name="filter"
@@ -277,7 +277,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             Suchen
           </button>
           {filter && (
-            <a href="/admin/lists" rmx-target={frames.adminContent} mix={clearLinkStyle}>
+            <a href={routes.admin.lists.index.href()} rmx-target={frames.adminContent} mix={clearLinkStyle}>
               Zurücksetzen
             </a>
           )}

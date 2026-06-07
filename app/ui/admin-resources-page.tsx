@@ -8,7 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
@@ -29,7 +29,7 @@ interface AdminResourcesPageProps {
   formError?: string
 }
 
-const ADMIN_BASE = '/verwaltung/resources'
+const ADMIN_BASE = routes.verwaltung.resources.index.href()
 
 // ── Styles ──
 
@@ -52,21 +52,21 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         {/* Toolbar + Filter */}
         <form
           method="GET"
-          action="/verwaltung/resources"
+          action={routes.verwaltung.resources.index.href()}
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
             type="text"
             name="filter"
-            placeholder="Suche nach Beschreibung..."
+            placeholder="Suche"
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a
-              href="/verwaltung/resources"
+              href={routes.verwaltung.resources.index.href()}
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -159,7 +159,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         </a>
                         <RestfulForm
                           method="DELETE"
-                          action={`/verwaltung/resources/${row.id}`}
+                          action={routes.verwaltung.resources.destroy.href({ id: row.id })}
                           mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
@@ -276,7 +276,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
     let hasError = !!fieldErrors?.description
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/verwaltung/resources/${row.id}`}>
+        <RestfulForm method="PUT" action={routes.verwaltung.resources.update.href({ id: row.id })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -301,7 +301,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.resources.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -332,7 +332,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
     let hasError = !!fieldErrors?.description
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/verwaltung/resources">
+        <RestfulForm method="POST" action={routes.verwaltung.resources.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -358,7 +358,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/resources', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.resources.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

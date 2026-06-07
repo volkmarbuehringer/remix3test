@@ -5,7 +5,7 @@ import { Layout } from './layout.tsx'
 import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.tsx'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import type { AppointOffering, Appointment, Resource } from '../data/schema.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
@@ -64,6 +64,8 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
       })
       .filter((o): o is NonNullable<typeof o> => o !== null)
 
+    let appointmentHref = routes.appointment.index.href()
+    let appointmentTypesHref = routes.appointment.types.index.href()
     let data = JSON.stringify({
       year,
       week,
@@ -76,6 +78,8 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
       csrfToken,
       currentUserId,
       isAdmin,
+      appointmentHref,
+      appointmentTypesHref,
     })
 
     return (
@@ -86,11 +90,11 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
         <div mix={shellStyle}>
           <div data-sidebar-col="true" mix={sidebarColumnStyle}>
             <AppointmentSidebar />
-            <Frame name={frames.appointTypes} src="/appointment/types" />
+            <Frame name={frames.appointTypes} src={routes.appointment.types.index.href()} />
           </div>
           <div mix={gridColumnStyle}>
             <div mix={indicatorBarStyle}>
-              <ConnectionIndicator url="/appointment/events" reloadMode="window" />
+              <ConnectionIndicator url={routes.appointment.events.href()} reloadMode="window" />
             </div>
             <AppointmentGrid />
           </div>

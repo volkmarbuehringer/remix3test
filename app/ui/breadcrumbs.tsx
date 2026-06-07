@@ -1,7 +1,7 @@
 import { Breadcrumbs } from 'remix/ui/breadcrumbs'
 import type { BreadcrumbItem } from 'remix/ui/breadcrumbs'
 
-import { ROUTE_LABELS } from './route-labels.ts'
+import { ROUTE_LABELS } from '../route-labels.ts'
 
 export { Breadcrumbs }
 export type { BreadcrumbItem }

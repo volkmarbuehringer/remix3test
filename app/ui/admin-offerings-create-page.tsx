@@ -7,6 +7,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
@@ -56,7 +57,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/verwaltung/offerings" novalidate>
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period }} />
 
           <div mix={table.panel}>
@@ -140,7 +141,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

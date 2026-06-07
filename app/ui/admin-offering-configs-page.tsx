@@ -11,7 +11,7 @@ import {
   buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp,
 } from './mixins/admin-urls.ts'
 
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/controller.tsx'
@@ -110,7 +110,7 @@ function rulesSummary(rules: Record<string, [number, number]> | null | undefined
     .join(', ')
 }
 
-const ADMIN_BASE = '/verwaltung/offering-configs'
+const ADMIN_BASE = routes.verwaltung.offeringConfigs.index.href()
 
 // ── Page-specific styles ──
 const dayRowStyle = css({
@@ -169,7 +169,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
         {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         <form
           method="GET"
-          action="/verwaltung/offering-configs"
+          action={routes.verwaltung.offeringConfigs.index.href()}
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -183,7 +183,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a
-              href="/verwaltung/offering-configs"
+              href={routes.verwaltung.offeringConfigs.index.href()}
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -278,7 +278,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         </a>
                         <RestfulForm
                           method="DELETE"
-                          action={`/verwaltung/offering-configs/${row.id}`}
+                          action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
                           mix={css({ display: 'inline' })}
                         >
                           <GridStateHiddenInputs
@@ -395,7 +395,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
     let hasResourceError = !!fieldErrors?.resource_id
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/verwaltung/offering-configs/${row.id}`}>
+        <RestfulForm method="PUT" action={routes.verwaltung.offeringConfigs.update.href({ id: row.id })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -428,7 +428,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.offeringConfigs.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -459,7 +459,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
     let hasResourceError = !!fieldErrors?.resource_id
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/verwaltung/offering-configs">
+        <RestfulForm method="POST" action={routes.verwaltung.offeringConfigs.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -490,7 +490,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/offering-configs', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.offeringConfigs.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

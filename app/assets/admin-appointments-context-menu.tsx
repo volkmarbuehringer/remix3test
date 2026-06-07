@@ -12,6 +12,7 @@ interface GridState {
   order: string
   filter: string
   period: string
+  baseHref?: string
 }
 
 /**
@@ -122,6 +123,7 @@ export const AdminAppointmentsContextMenu = clientEntry(
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
+        let baseHref = state.baseHref || '/verwaltung/appointments'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
@@ -129,7 +131,7 @@ export const AdminAppointmentsContextMenu = clientEntry(
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
         if (state.period) params.set('period', state.period)
-        window.location.href = '/verwaltung/appointments?' + params.toString()
+        window.location.href = baseHref + '?' + params.toString()
       } catch {
         // Fallback: navigate without grid state
         window.location.href = '/verwaltung/appointments?editing=' + rowId

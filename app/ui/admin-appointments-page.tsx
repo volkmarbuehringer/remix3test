@@ -7,7 +7,7 @@ import { Glyph } from 'remix/ui/glyph'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
 import { RestfulForm } from './restful-form.tsx'
@@ -22,7 +22,7 @@ import type {
 } from '../actions/verwaltung/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
-const ADMIN_BASE = '/verwaltung/appointments'
+const ADMIN_BASE = routes.verwaltung.appointments.index.href()
 
 function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string): string {
   let params = new URLSearchParams()
@@ -133,7 +133,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
-          action="/verwaltung/appointments"
+          action={routes.verwaltung.appointments.index.href()}
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -148,7 +148,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a href="/verwaltung/appointments" rmx-target={frames.adminContent} mix={table.clearLink}>
+            <a href={routes.verwaltung.appointments.index.href()} rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
@@ -366,7 +366,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <RestfulForm
                   key={row.id}
                   method="DELETE"
-                  action={`/verwaltung/appointments/${row.id}`}
+                  action={routes.verwaltung.appointments.destroy.href({ id: row.id })}
                   data-delete-form={row.id}
                 >
                   <GridStateHiddenInputs
@@ -443,6 +443,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             order: sortDirection,
             filter: filter ?? '',
             period: period ?? '',
+            baseHref: routes.verwaltung.appointments.index.href(),
           })}
         </script>
         <AdminAppointmentsContextMenu />
@@ -456,7 +457,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           <div mix={headerBarStyle}>
             <h2 mix={table.title}>Termine</h2>
             <ConnectionIndicator
-              url="/verwaltung/appointments/events"
+              url={routes.verwaltung.appointments.events.href()}
               reloadMode="frame"
               skipReloadParams={['editing', 'creating']}
             />
@@ -505,7 +506,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         <div mix={headerBarStyle}>
           <h2 mix={table.title}>Termine</h2>
           <ConnectionIndicator
-            url="/verwaltung/appointments/events"
+            url={routes.verwaltung.appointments.events.href()}
             reloadMode="frame"
             skipReloadParams={['editing', 'creating']}
           />

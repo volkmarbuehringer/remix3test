@@ -6,7 +6,7 @@ import { Glyph } from 'remix/ui/glyph'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, formatTimestamp } from './mixins/admin-urls.ts'
 import { AdminOfferingsEditPage } from './admin-offerings-edit-page.tsx'
@@ -45,7 +45,7 @@ interface AdminOfferingsPageProps {
 
 // ── Helpers ──
 
-const ADMIN_BASE = '/verwaltung/offerings'
+const ADMIN_BASE = routes.verwaltung.offerings.index.href()
 
 function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: string, period?: string): string {
   let params = new URLSearchParams()
@@ -55,7 +55,7 @@ function buildAddWeekUrl(offset: number, sort: string, order: string, filter?: s
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
-  return '/verwaltung/offerings?' + params.toString()
+  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
 }
 
 function buildConfigUrl(resourceId: number, offset: number, sort: string, order: string, filter?: string, period?: string): string {
@@ -66,7 +66,7 @@ function buildConfigUrl(resourceId: number, offset: number, sort: string, order:
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
-  return '/verwaltung/offerings?' + params.toString()
+  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
 }
 
 function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string): string {
@@ -76,7 +76,7 @@ function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, 
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (newPeriod) params.set('period', newPeriod)
-  return '/verwaltung/offerings?' + params.toString()
+  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
 }
 const WEEKDAY_LABELS: Record<number, string> = {
   1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 7: 'So',
@@ -145,7 +145,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         {/* Toolbar + Filter combined */}
         <form
           method="GET"
-          action="/verwaltung/offerings"
+          action={routes.verwaltung.offerings.index.href()}
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
@@ -159,7 +159,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
             <a
-              href="/verwaltung/offerings"
+              href={routes.verwaltung.offerings.index.href()}
               rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
@@ -225,6 +225,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             order={sortDirection}
             filter={filter ?? ''}
             period={period ?? ''}
+            deletePastHref={routes.verwaltung.offerings.deletePast.href()}
           />
         </div>
 
@@ -333,7 +334,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 <RestfulForm
                   key={row.id}
                   method="DELETE"
-                  action={`/verwaltung/offerings/${row.id}`}
+                  action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
                   data-delete-form={row.id}
                 >
                   <GridStateHiddenInputs
@@ -388,6 +389,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             order: sortDirection,
             filter: filter ?? '',
             period: period ?? '',
+            baseHref: routes.verwaltung.offerings.index.href(),
           })}
         </script>
         <AdminOfferingsContextMenu />

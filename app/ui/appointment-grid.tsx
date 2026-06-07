@@ -121,6 +121,10 @@ export const AppointmentGrid = clientEntry(
     // Type-drag state (from appointtype panel drop)
     let typeDragPreview: { date: number; startMinute: number; dayIdx: number } | null = null
 
+    // Route hrefs (updated from data each render)
+    let apptHref = ''
+    let apptTypesHref = ''
+
     // Current visible days (computed from offerings) — updated each render
     let currentVisibleDays: AppData['days'] = []
     let currentVisibleDayDates: number[] = []
@@ -150,6 +154,8 @@ export const AppointmentGrid = clientEntry(
       let days = data.days
       let offerings = data.offerings ?? []
       let csrfToken = data.csrfToken
+      apptHref = data.appointmentHref ?? ''
+      apptTypesHref = data.appointmentTypesHref ?? ''
 
       let todayMs = (() => {
         let t = new Date()
@@ -584,7 +590,7 @@ export const AppointmentGrid = clientEntry(
       handle.update()
 
       try {
-        let response = await fetch('/appointment', {
+        let response = await fetch(apptHref, {
           method: 'POST',
           headers: {
             Accept: 'application/json',
@@ -652,7 +658,7 @@ export const AppointmentGrid = clientEntry(
       syncInteractionState()
       handle.update()
 
-      fetch(`/appointment/${id}`, {
+      fetch(`${apptHref}/${id}`, {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
@@ -877,7 +883,7 @@ export const AppointmentGrid = clientEntry(
         let csrfToken = readData().csrfToken
         preview = null
         handle.update()
-        fetch(`/appointment/${blockId}`, {
+        fetch(`${apptHref}/${blockId}`, {
           method: 'DELETE',
           headers: {
             Accept: 'application/json',
@@ -896,7 +902,7 @@ export const AppointmentGrid = clientEntry(
         let csrfToken = readData().csrfToken
         preview = null
         handle.update()
-        fetch('/appointment/types', {
+        fetch(apptTypesHref, {
           method: 'POST',
           headers: {
             Accept: 'application/json',
@@ -1114,7 +1120,7 @@ export const AppointmentGrid = clientEntry(
       after: AppointmentLayoutBlock,
       csrfToken: string,
     ): Promise<Response> {
-      return fetch(`/appointment/${id}`, {
+      return fetch(`${apptHref}/${id}`, {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
@@ -1175,7 +1181,7 @@ export const AppointmentGrid = clientEntry(
       if (preview) {
         let data = readData()
         let csrfToken = data.csrfToken
-        fetch('/appointment', {
+        fetch(apptHref, {
           method: 'POST',
           headers: {
             Accept: 'application/json',

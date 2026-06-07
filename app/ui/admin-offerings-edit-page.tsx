@@ -7,6 +7,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
@@ -96,7 +97,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/verwaltung/offerings/${row.id}`} novalidate>
+        <RestfulForm method="PUT" action={routes.verwaltung.offerings.update.href({ id: row.id })} novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period }} />
 
           <div mix={table.panel}>
@@ -184,7 +185,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/verwaltung/offerings', offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
