@@ -123,38 +123,6 @@ export const chatlog = table({
   },
 })
 
-export const workflowRuns = table({
-  name: 'workflow_runs',
-  primaryKey: ['id'],
-  columns: {
-    id: c.text(),
-    workflow_id: c.text(),
-    status: c.text(),
-    params: c.text(),
-    steps: c.text(),
-    result: c.text(),
-    error: c.text(),
-    created_at: c.integer(),
-    completed_at: c.integer(),
-    created_by: c.integer(),
-    parent_run_id: c.text(),
-    chain_depth: c.integer(),
-  },
-  beforeWrite({ value }) {
-    let next = { ...value }
-    if (next.status === undefined) next.status = 'pending'
-    if (next.params === undefined) next.params = '{}'
-    if (next.steps === undefined) next.steps = '[]'
-    if (next.chain_depth === undefined) next.chain_depth = 0
-    if (next.created_at === undefined) next.created_at = Date.now()
-    return { value: next }
-  },
-  afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
-    return { value }
-  },
-})
-
 export const messages = table({
   name: 'messages',
   primaryKey: ['id'],
@@ -527,28 +495,6 @@ export const offeringConfigs = table({
     parseIntFields(value, 'created_at', 'updated_at', 'resource_id')
     if (typeof value.rules === 'string') {
       try { value.rules = JSON.parse(value.rules) } catch { value.rules = {} }
-    }
-    return { value }
-  },
-})
-
-export const auditLogs = table({
-  name: 'audit_logs',
-  primaryKey: ['id'],
-  columns: {
-    id: c.integer(),
-    admin_user_id: c.integer(),
-    admin_email: c.text(),
-    action_type: c.text(),
-    target_type: c.text(),
-    target_id: c.text(),
-    details: c.json(),
-    created_at: c.integer(),
-  },
-  afterRead({ value }) {
-    parseIntFields(value, 'admin_user_id', 'created_at')
-    if (typeof value.details === 'string') {
-      try { value.details = JSON.parse(value.details) } catch { value.details = null }
     }
     return { value }
   },

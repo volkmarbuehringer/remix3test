@@ -1,6 +1,6 @@
 import type { Pool } from 'pg'
 
-export interface AuditLogEntry {
+interface AuditLogEntry {
   admin_user_id: number
   admin_email: string
   action_type: string

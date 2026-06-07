@@ -2,11 +2,11 @@ import { type Database } from 'remix/data-table'
 
 import { appointtypes, type AppointType } from './schema.ts'
 
-export interface AppointTypeInput {
+interface AppointTypeInput {
   title: string
 }
 
-export interface AppointTypeUpdate {
+interface AppointTypeUpdate {
   title?: string
 }
 

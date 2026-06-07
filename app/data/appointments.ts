@@ -3,7 +3,7 @@ import { gte, lt, type Database } from 'remix/data-table'
 import { appointments, type Appointment } from './schema.ts'
 import { isDateInPast, isWithinHours } from '../utils/date-utils.ts'
 
-export interface AppointmentInput {
+interface AppointmentInput {
   title: string
   date: number
   start_min: number
@@ -11,7 +11,7 @@ export interface AppointmentInput {
   resource_id: number
 }
 
-export interface AppointmentUpdate {
+interface AppointmentUpdate {
   title?: string
   date?: number
   start_min?: number
@@ -52,12 +52,12 @@ export class AppointmentTooCloseError extends AppointmentError {
   }
 }
 
-export interface UpdateAppointmentOptions {
+interface UpdateAppointmentOptions {
   /** Skip user_id scope check and 24h cancellation check (admin bypass). */
   adminBypass?: boolean
 }
 
-export interface DeleteAppointmentOptions {
+interface DeleteAppointmentOptions {
   /** Skip user_id scope check and 24h cancellation check (admin bypass). */
   adminBypass?: boolean
 }
