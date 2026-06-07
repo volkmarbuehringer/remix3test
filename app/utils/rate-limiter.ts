@@ -25,6 +25,9 @@ export interface RateLimiter {
 
   /** Atomically checks and sets. Returns false if rate-limited. */
   attempt(key?: number | string): boolean
+
+  /** Return the current state for a key (count, remaining, reset seconds), or null if no entry. */
+  state(key?: number | string): { count: number; remaining: number; reset: number } | null
 }
 
 export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
@@ -115,6 +118,21 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
         entry.attempts++
       }
       return true
+    },
+
+    state(key?: number | string): { count: number; remaining: number; reset: number } | null {
+      let k = getKey(key)
+      let count = entryCount(k)
+      let entry = entries.get(k)
+      if (!entry) {
+        return { count: 0, remaining: maxAttempts, reset: 0 }
+      }
+      let elapsed = Date.now() - entry.firstAt
+      return {
+        count,
+        remaining: Math.max(0, maxAttempts - count),
+        reset: Math.max(0, Math.ceil((windowMs - elapsed) / 1000)),
+      }
     },
 
     reset(key?: number | string): void {

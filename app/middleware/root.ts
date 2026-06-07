@@ -9,6 +9,7 @@ import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
 import type { SessionStorage } from 'remix/session'
 
+import { globalRateLimit } from './global-rate-limit.ts'
 import { json } from './json-render.ts'
 import { render } from './render.tsx'
 import { loadAssetEntry } from './asset-entry.ts'
@@ -22,6 +23,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     logger({ format: '[%date] %method %path → %status (%duration)' }),
     securityHeaders(),
     compression(),
+    globalRateLimit({ maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined }),
     formData(),
     methodOverride(),
     session(cookie, storage),
