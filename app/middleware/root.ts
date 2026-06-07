@@ -1,10 +1,10 @@
 import type { Cookie } from 'remix/cookie'
-import { createMiddleware } from 'remix/router'
+import { createMiddleware, type Middleware } from 'remix/router'
 import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
 import { csrf } from 'remix/middleware/csrf'
 import { formData } from 'remix/middleware/form-data'
-import { logger } from 'remix/middleware/logger'
+import { logger, Logger } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
 import type { SessionStorage } from 'remix/session'
@@ -18,9 +18,27 @@ import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
 
+/**
+ * Logs requests via the built-in logger for non-asset routes, suppresses
+ * successful asset requests (status < 400), and warns on asset errors.
+ */
+export function skipAssetsLogger(): Middleware {
+  return async (context, next) => {
+    if (context.url.pathname.startsWith('/assets/')) {
+      context.set(Logger, console.log, { property: 'logger' })
+      let response = await next()
+      if (response.status >= 400) {
+        console.warn(`${context.request.method} ${context.url.pathname} → ${response.status}`)
+      }
+      return response
+    }
+    return logger({ format: '[%date] %method %path → %status (%duration)' })(context, next)
+  }
+}
+
 export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) {
   return createMiddleware(
-    logger({ format: '[%date] %method %path → %status (%duration)' }),
+    skipAssetsLogger(),
     securityHeaders(),
     compression(),
     globalRateLimit({ maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined }),
