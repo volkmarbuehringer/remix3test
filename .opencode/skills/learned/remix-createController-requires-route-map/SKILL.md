@@ -26,7 +26,7 @@ error TS2345: Argument of type 'Controller<...>' is not assignable to parameter 
 
 ## Solution
 
-Single-method routes need `createAction` (not `createController`) and `router.post()`/`router.get()` (not `router.map()`):
+Single-method routes need `createAction` (not `createController`) and `router.post()`/`router.get()` (not `router.map()`). Pass the Route object directly — `.href()` is unnecessary because verb methods accept Route objects natively:
 
 ```typescript
 // routes.ts
@@ -46,8 +46,8 @@ export const authLogout = createAction(routes.auth.logout, () => {
   return new Response(null, { status: 302, headers: { Location: routes.home.href() } })
 })
 
-// router.ts — CORRECT
-router.post(routes.auth.logout.href(), authLogout)
+// router.ts — CORRECT (pass Route object directly, no `.href()` needed)
+router.post(routes.auth.logout, authLogout)
 
 // ❌ WRONG — createController fails on single routes
 // createController(routes.auth.logout, { actions: { action() {} } })
