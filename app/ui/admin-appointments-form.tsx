@@ -78,7 +78,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
   return () => {
     let { mode, resources, users, gridState, row, defaultStartMin = 480, defaultEndMin = 1020, fieldErrors, formError, formValues } = handle.props
     let isEdit = mode === 'edit'
-    let { offset, sort, order, filter = '', period = '' } = gridState
+    let { offset, sort, order, filter = '', period = '', status = '' } = gridState
 
     // Value priority: formValues (submitted on error) > row (from DB) > defaults
     let resolvedResourceId = formValues?.resource_id ?? (isEdit && row ? row.resource_id : undefined)
@@ -229,7 +229,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl(routes.verwaltung.appointments.index.href(), offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.appointments.index.href(), offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

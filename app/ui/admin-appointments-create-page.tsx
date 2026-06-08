@@ -10,6 +10,7 @@ export interface AdminAppointmentsCreatePageProps {
   order?: string
   filter?: string
   period?: string
+  status?: string
   defaultStartMin?: number
   defaultEndMin?: number
   formValues?: Record<string, string>
@@ -19,13 +20,13 @@ export interface AdminAppointmentsCreatePageProps {
 
 export function AdminAppointmentsCreatePage(handle: Handle<AdminAppointmentsCreatePageProps>) {
   return () => {
-    let { resources, users, offset = '', sort = '', order = '', filter = '', period = '', defaultStartMin, defaultEndMin, formValues, fieldErrors, formError } = handle.props
+    let { resources, users, offset = '', sort = '', order = '', filter = '', period = '', status = '', defaultStartMin, defaultEndMin, formValues, fieldErrors, formError } = handle.props
     return (
       <AdminAppointmentsForm
         mode="create"
         resources={resources}
         users={users}
-        gridState={{ offset, sort, order, filter: filter ?? '', period }}
+        gridState={{ offset, sort, order, filter: filter ?? '', period, status }}
         defaultStartMin={defaultStartMin}
         defaultEndMin={defaultEndMin}
         formValues={formValues}

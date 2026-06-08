@@ -13,7 +13,7 @@ export const table = {
   }),
 
   filterBar: css({
-    display: 'flex', alignItems: 'center', gap: theme.space.sm, marginBottom: theme.space.md,
+    display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm, marginBottom: theme.space.md,
   }),
   filterInput: css({
     flex: '1', maxWidth: '300px', padding: `${theme.space.xs} ${theme.space.sm}`,

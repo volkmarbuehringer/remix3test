@@ -138,9 +138,9 @@ describe('Admin Appointments Controller', () => {
     })
 
     it('respects sorting parameters', async () => {
-      // Arrange: create two appointments with different titles
-      let dayMs1 = new Date('2026-05-01T00:00:00Z').getTime()
-      let dayMs2 = new Date('2026-05-02T00:00:00Z').getTime()
+      // Arrange: create two appointments with future dates and different titles
+      let dayMs1 = Date.now() + 86400000 * 30
+      let dayMs2 = Date.now() + 86400000 * 31
       let now = Date.now()
 
       let r1 = await pool.query(
@@ -155,7 +155,7 @@ describe('Admin Appointments Controller', () => {
       )
       createdAppointmentIds.push(r1.rows[0].id, r2.rows[0].id)
 
-      // Act: sort by title ascending, filter to only our test appointments
+      // Act: sort by title ascending
       let response = await router.fetch(`${ADMIN_APPT_URL}?sort=a.title&order=asc`, {
         headers: { Cookie: adminCookie },
       })
@@ -171,6 +171,75 @@ describe('Admin Appointments Controller', () => {
         html.includes('AAAA Earlier'),
         'at least AAAA Earlier should appear in rendered results',
       )
+    })
+
+    it('default status filter shows only pending (future) appointments', async () => {
+      // Arrange: create a past appointment and a future appointment
+      let pastDayMs = Date.now() - 86400000 * 10
+      let futureDayMs = Date.now() + 86400000 * 10
+      let now = Date.now()
+
+      let r1 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'PAST-APPT-FILTER', pastDayMs, '[480,540)', now],
+      )
+      let r2 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'FUTURE-APPT-FILTER', futureDayMs, '[540,600)', now],
+      )
+      createdAppointmentIds.push(r1.rows[0].id, r2.rows[0].id)
+
+      // Act: fetch without status param (defaults to pending)
+      let response = await router.fetch(ADMIN_APPT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+
+      // Assert: only the future appointment should appear
+      assert.ok(html.includes('FUTURE-APPT-FILTER'), 'default view should show future appointment')
+      assert.ok(!html.includes('PAST-APPT-FILTER'), 'default view should NOT show past appointment')
+    })
+
+    it('status=expired shows only expired appointments', async () => {
+      // Arrange: create a past appointment and a future appointment
+      let pastDayMs = Date.now() - 86400000 * 10
+      let futureDayMs = Date.now() + 86400000 * 10
+      let now = Date.now()
+
+      let r1 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'PAST-APPT-EXPIRED', pastDayMs, '[480,540)', now],
+      )
+      let r2 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'FUTURE-APPT-EXPIRED', futureDayMs, '[540,600)', now],
+      )
+      createdAppointmentIds.push(r1.rows[0].id, r2.rows[0].id)
+
+      // Act: fetch with status=expired
+      let response = await router.fetch(`${ADMIN_APPT_URL}?status=expired`, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+
+      // Assert: only the past appointment should appear
+      assert.ok(html.includes('PAST-APPT-EXPIRED'), 'expired view should show past appointment')
+      assert.ok(!html.includes('FUTURE-APPT-EXPIRED'), 'expired view should NOT show future appointment')
+    })
+
+    it('preserves status parameter in sort URLs', async () => {
+      // Arrange & Act
+      let response = await router.fetch(`${ADMIN_APPT_URL}?status=expired&sort=a.title&order=asc`, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+
+      // Assert: sort links preserve status=expired
+      assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })
 
     it('respects pagination offset', async () => {

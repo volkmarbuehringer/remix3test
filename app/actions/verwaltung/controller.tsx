@@ -34,6 +34,7 @@ import {
   gridStateDirection,
   gridStateFilter,
   gridStatePeriod,
+  gridStateStatus,
   type GridState,
 } from '../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../utils/context.ts'
@@ -100,6 +101,7 @@ interface OfferingPageData {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   period: string | undefined
+  status: string | undefined
   editRow: OfferingRow | null
   creating: boolean
   resources: OfferingsResourceOption[]
@@ -144,11 +146,12 @@ async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
 
 async function loadOfferingPageData(
   context: AppContext,
-  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period'>>,
+  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
 ): Promise<OfferingPageData> {
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
+  let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
 
   let { column, direction } = overrides?.sortColumn
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
@@ -168,6 +171,8 @@ async function loadOfferingPageData(
   let queryParams: unknown[] = []
   let paramIndex = 0
 
+  let hasWhere = false
+
   if (filter && filter.length <= 200) {
     paramIndex++
     let searchPattern = `%${filter}%`
@@ -176,21 +181,43 @@ async function loadOfferingPageData(
     )
     query += ` WHERE (${conditions.join(' OR ')})`
     queryParams.push(searchPattern)
+    hasWhere = true
   }
 
   let periodRange = period ? getPeriodRange(period) : null
   if (periodRange) {
     paramIndex++
-    if (filter && filter.length <= 200) {
+    if (hasWhere) {
       query += ` AND ao.day >= $${paramIndex}`
     } else {
       query += ` WHERE ao.day >= $${paramIndex}`
+      hasWhere = true
     }
     queryParams.push(periodRange.startMs)
 
     paramIndex++
     query += ` AND ao.day < $${paramIndex}`
     queryParams.push(periodRange.endMs)
+  }
+
+  if (status === 'pending' || !status) {
+    paramIndex++
+    let now = Date.now()
+    if (hasWhere) {
+      query += ` AND ao.day >= $${paramIndex}`
+    } else {
+      query += ` WHERE ao.day >= $${paramIndex}`
+    }
+    queryParams.push(now)
+  } else if (status === 'expired') {
+    paramIndex++
+    let now = Date.now()
+    if (hasWhere) {
+      query += ` AND ao.day < $${paramIndex}`
+    } else {
+      query += ` WHERE ao.day < $${paramIndex}`
+    }
+    queryParams.push(now)
   }
 
   paramIndex++
@@ -247,6 +274,7 @@ async function loadOfferingPageData(
     sortDirection: direction,
     filter,
     period,
+    status,
     editRow,
     creating,
     resources: resourceOptions,
@@ -273,6 +301,7 @@ function renderOfferingsPage(context: AppContext, data: OfferingPageData, init?:
       sortDirection={data.sortDirection}
       filter={data.filter}
       period={data.period}
+      status={data.status}
       editRow={data.editRow}
       creating={data.creating}
       resources={data.resources}
@@ -317,6 +346,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -334,6 +364,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -348,6 +379,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -364,6 +396,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -445,6 +478,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -463,6 +497,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -478,6 +513,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -495,6 +531,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderOfferingsPage(context, data, { status: 400 })
         }
@@ -820,6 +857,7 @@ interface AppointmentPageData {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   period: string | undefined
+  status: string | undefined
   resources: AppointmentResourceOption[]
   users: AppointmentUserOption[]
   editRow: AppointmentRow | null
@@ -858,11 +896,12 @@ async function fetchEditRow(id: string): Promise<AppointmentRow | undefined> {
 
 async function loadAppointmentPageData(
   context: AppContext,
-  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period'>>,
+  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
 ): Promise<AppointmentPageData> {
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
+  let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
 
   let { column, direction } = overrides?.sortColumn ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const } : parseSort(context.url, {
     allowedColumns: Object.keys(APPOINTMENTS_ORDER_BY_COLUMNS),
@@ -882,6 +921,16 @@ async function loadAppointmentPageData(
 
   let params: unknown[] = []
   let paramIndex = 0
+  let hasWhere = false
+
+  function addWhere(clause: string) {
+    if (hasWhere) {
+      query += ` AND ${clause}`
+    } else {
+      query += ` WHERE ${clause}`
+      hasWhere = true
+    }
+  }
 
   if (filter && filter.length <= 200) {
     paramIndex++
@@ -889,23 +938,31 @@ async function loadAppointmentPageData(
     let conditions = APPOINTMENTS_SEARCH_COLUMNS.map(
       (col) => `${col} ILIKE $${paramIndex}`,
     )
-    query += ` WHERE (${conditions.join(' OR ')})`
+    addWhere(`(${conditions.join(' OR ')})`)
     params.push(searchPattern)
   }
 
   let periodRange = period ? getPeriodRange(period) : null
   if (periodRange) {
     paramIndex++
-    if (filter && filter.length <= 200) {
-      query += ` AND a.date >= $${paramIndex}`
-    } else {
-      query += ` WHERE a.date >= $${paramIndex}`
-    }
+    addWhere(`a.date >= $${paramIndex}`)
     params.push(periodRange.startMs)
 
     paramIndex++
     query += ` AND a.date < $${paramIndex}`
     params.push(periodRange.endMs)
+  }
+
+  if (status === 'pending' || !status) {
+    paramIndex++
+    let now = Date.now()
+    addWhere(`a.date >= $${paramIndex}`)
+    params.push(now)
+  } else if (status === 'expired') {
+    paramIndex++
+    let now = Date.now()
+    addWhere(`a.date < $${paramIndex}`)
+    params.push(now)
   }
 
   paramIndex++
@@ -994,6 +1051,7 @@ async function loadAppointmentPageData(
     sortDirection: direction,
     filter,
     period,
+    status,
     resources: resourceOptions,
     users: userOptions,
     editRow,
@@ -1024,6 +1082,7 @@ function renderAppointmentsPage(
       sortDirection={data.sortDirection}
       filter={data.filter}
       period={data.period}
+      status={data.status}
       editRow={data.editRow}
       creating={data.creating}
       resources={data.resources}
@@ -1068,6 +1127,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -1084,6 +1144,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1098,6 +1159,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1115,6 +1177,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1132,6 +1195,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1149,6 +1213,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1164,6 +1229,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1203,6 +1269,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -1239,6 +1306,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -1255,6 +1323,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1271,6 +1340,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1286,6 +1356,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1304,6 +1375,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1322,6 +1394,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1340,6 +1413,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1356,6 +1430,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
@@ -1382,6 +1457,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }
@@ -1409,6 +1485,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsPage(context, data, { status: 400 })
           }

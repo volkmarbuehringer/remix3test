@@ -24,13 +24,14 @@ import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()
 
-function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string): string {
+function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string, status?: string): string {
   let params = new URLSearchParams()
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (newPeriod) params.set('period', newPeriod)
+  if (status) params.set('status', status)
   return ADMIN_BASE + '?' + params.toString()
 }
 
@@ -44,6 +45,7 @@ interface AdminAppointmentsPageProps {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   period?: string
+  status?: string
   editRow?: AppointmentRow | null
   creating?: boolean
   resources: AppointmentResourceOption[]
@@ -111,6 +113,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       sortDirection,
       filter,
       period,
+      status,
       editRow = null,
       creating = false,
       resources,
@@ -163,16 +166,16 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               let label = value === '' ? 'Alle' : { 'this-week': 'Diese Woche', 'next-week': 'Nächste Woche', 'this-month': 'Diesen Monat', 'next-month': 'Nächsten Monat' }[value]
               let active = value === '' ? !period : period === value
               let href = active
-                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter)
-                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter)
+                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
+                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
               return (
                 <a
                   href={href}
                   rmx-target={frames.adminContent}
                   mix={css({
                     '& button': {
-                      paddingLeft: theme.space.sm,
-                      paddingRight: theme.space.sm,
+                      paddingLeft: theme.space.xs,
+                      paddingRight: theme.space.xs,
                       borderTopLeftRadius: isFirst ? undefined : '0',
                       borderBottomLeftRadius: isFirst ? undefined : '0',
                       borderTopRightRadius: isLast ? undefined : '0',
@@ -186,9 +189,46 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               )
             })}
           </span>
-          <span mix={table.spacer} />
+          <span mix={css({
+            display: 'inline-flex',
+            alignItems: 'center',
+          })}>
+            {(['pending', 'expired'] as const).map((value, i, arr) => {
+              let isFirst = i === 0
+              let isLast = i === arr.length - 1
+              let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
+              let active = value === 'pending' ? (!status || status === 'pending') : status === 'expired'
+              let params = new URLSearchParams()
+              if (offset > 0) params.set('offset', String(offset))
+              params.set('sort', sortColumn)
+              params.set('order', sortDirection)
+              if (filter) params.set('filter', filter)
+              if (period) params.set('period', period)
+              if (!active) params.set('status', value)
+              let href = ADMIN_BASE + '?' + params.toString()
+              return (
+                <a
+                  href={href}
+                  rmx-target={frames.adminContent}
+                  mix={css({
+                    '& button': {
+                      paddingLeft: theme.space.xs,
+                      paddingRight: theme.space.xs,
+                      borderTopLeftRadius: isFirst ? undefined : '0',
+                      borderBottomLeftRadius: isFirst ? undefined : '0',
+                      borderTopRightRadius: isLast ? undefined : '0',
+                      borderBottomRightRadius: isLast ? undefined : '0',
+                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                    },
+                  })}
+                >
+                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                </a>
+              )
+            })}
+          </span>
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter, period)}
+            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter, period, status)}
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
@@ -218,7 +258,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <tr>
                   <th mix={table.thSortable} title="ID">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.id', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.id', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -230,7 +270,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Titel">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.title', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.title', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -242,7 +282,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="E-Mail">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'u.email', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'u.email', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -254,13 +294,14 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Ressource">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 
+                      href={buildSortUrl(ADMIN_BASE,
                         'r.description',
                         sortColumn,
                         sortDirection,
                         offset,
                         filter,
                         period,
+                        status,
                       )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
@@ -275,7 +316,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Datum">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.date', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.date', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -287,7 +328,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Zeit">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.during', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.during', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -299,7 +340,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Erstellt">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.created_at', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.created_at', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -313,7 +354,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Aktualisiert">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.updated_at', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(ADMIN_BASE, 'a.updated_at', sortColumn, sortDirection, offset, filter, period, status)}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -376,6 +417,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       order: sortDirection,
                       filter: filter ?? '',
                       period: period ?? '',
+                      status: status ?? '',
                     }}
                   />
                 </RestfulForm>
@@ -395,7 +437,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter, period)}
+                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter, period, status)}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
@@ -420,7 +462,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter, period)}
+                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter, period, status)}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
@@ -443,6 +485,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             order: sortDirection,
             filter: filter ?? '',
             period: period ?? '',
+            status: status ?? '',
             baseHref: routes.verwaltung.appointments.index.href(),
           })}
         </script>
@@ -475,6 +518,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   order={sortDirection}
                   filter={filter}
                   period={period}
+                  status={status}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
@@ -488,6 +532,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   order={sortDirection}
                   filter={filter}
                   period={period}
+                  status={status}
                   defaultStartMin={defaultStartMin}
                   defaultEndMin={defaultEndMin}
                   formValues={formValues}

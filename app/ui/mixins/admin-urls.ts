@@ -11,6 +11,7 @@ export function buildSortUrl(
   offset: number,
   filter?: string,
   period?: string,
+  status?: string,
 ): string {
   let newOrder = field === currentSort ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'
   let params = new URLSearchParams()
@@ -19,6 +20,7 @@ export function buildSortUrl(
   params.set('order', newOrder)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   return `${base}?${params.toString()}`
 }
 
@@ -29,6 +31,7 @@ export function buildPaginationUrl(
   order: 'asc' | 'desc',
   filter?: string,
   period?: string,
+  status?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('offset', String(newOffset))
@@ -36,6 +39,7 @@ export function buildPaginationUrl(
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   return `${base}?${params.toString()}`
 }
 
@@ -46,6 +50,7 @@ export function buildCreateUrl(
   order: string,
   filter?: string,
   period?: string,
+  status?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('creating', 'true')
@@ -54,6 +59,7 @@ export function buildCreateUrl(
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   return `${base}?${params.toString()}`
 }
 
@@ -65,6 +71,7 @@ export function buildEditUrl(
   order: string,
   filter?: string,
   period?: string,
+  status?: string,
 ): string {
   let params = new URLSearchParams()
   params.set('editing', String(id))
@@ -73,16 +80,18 @@ export function buildEditUrl(
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   return `${base}?${params.toString()}`
 }
 
-export function buildCancelUrl(base: string, offset: string, sort: string, order: string, filter?: string, period?: string): string {
+export function buildCancelUrl(base: string, offset: string, sort: string, order: string, filter?: string, period?: string, status?: string): string {
   let params = new URLSearchParams()
   if (offset) params.set('offset', offset)
   if (sort) params.set('sort', sort)
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   let qs = params.toString()
   return base + (qs ? '?' + qs : '')
 }

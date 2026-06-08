@@ -19,6 +19,7 @@ interface AdminOfferingsCreatePageProps {
   order?: string
   filter?: string
   period?: string
+  status?: string
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -48,7 +49,7 @@ const formErrorBanner = css({
 
 export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePageProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', period = '', formValues, fieldErrors, formError } = handle.props
+    let { resources, offset = '', sort = '', order = '', filter = '', period = '', status = '', formValues, fieldErrors, formError } = handle.props
 
     let resolvedResourceId = formValues?.resource_id ?? ''
     let resolvedDay = formValues?.day ?? ''
@@ -58,7 +59,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate>
-          <GridStateHiddenInputs state={{ offset, sort, order, filter, period }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -141,7 +142,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
