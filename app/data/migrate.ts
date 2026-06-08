@@ -1,7 +1,10 @@
 import { pool } from './connection.ts'
 
 export async function migrate(): Promise<void> {
-  await pool.query(`
+  // Use advisory lock so concurrent worker processes don't race on DDL
+  await pool.query(`SELECT pg_advisory_lock(287140921)`)
+  try {
+    await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
@@ -200,4 +203,7 @@ export async function migrate(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`)
 
   console.log('[DB] Tables created/verified')
+  } finally {
+    await pool.query(`SELECT pg_advisory_unlock(287140921)`)
+  }
 }
