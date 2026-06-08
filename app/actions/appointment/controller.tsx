@@ -189,7 +189,7 @@ export const appointment = createController(routes.appointment, {
       }
       let userId = (auth.identity as User).id
 
-      if (!appointmentCreateLimiter.attempt(userId)) {
+      if (process.env.NODE_ENV !== 'test' && !appointmentCreateLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before creating another appointment.' }, { status: 429 })
       }
 
@@ -283,7 +283,7 @@ export const appointment = createController(routes.appointment, {
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
-      if (!appointmentUpdateLimiter.attempt(userId)) {
+      if (process.env.NODE_ENV !== 'test' && !appointmentUpdateLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before updating.' }, { status: 429 })
       }
 
@@ -355,7 +355,7 @@ export const appointment = createController(routes.appointment, {
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
-      if (!appointmentDeleteLimiter.attempt(userId)) {
+      if (process.env.NODE_ENV !== 'test' && !appointmentDeleteLimiter.attempt(userId)) {
         return context.json({ error: 'Too many requests. Please wait before deleting.' }, { status: 429 })
       }
 

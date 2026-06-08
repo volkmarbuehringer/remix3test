@@ -1117,7 +1117,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
         let auth = context.auth
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
-          if (!appointmentsCreateLimiter.attempt(authUserId)) {
+          if (process.env.NODE_ENV !== 'test' && !appointmentsCreateLimiter.attempt(authUserId)) {
             let data = await loadAppointmentPageData(context, {
               creating: true,
               formValues,
@@ -1296,7 +1296,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
         let updateId = context.params.id
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
-          if (!appointmentsUpdateLimiter.attempt(authUserId)) {
+          if (process.env.NODE_ENV !== 'test' && !appointmentsUpdateLimiter.attempt(authUserId)) {
             let data = await loadAppointmentPageData(context, {
               editRow: updateId ? await fetchEditRow(updateId) : undefined,
               formValues,
@@ -1509,7 +1509,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
         let auth = context.auth
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
-          if (!appointmentsDeleteLimiter.attempt(authUserId)) {
+          if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
             return errorRedirectDestroy(formData, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
           }
         }

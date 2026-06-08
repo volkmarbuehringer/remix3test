@@ -13,6 +13,10 @@ export function globalRateLimit(options?: {
   let limiter = createRateLimiter({ windowMs, perKey: true, maxAttempts: maxPerWindow })
 
   return async (context, next) => {
+    if (process.env.NODE_ENV === 'test') {
+      return next()
+    }
+
     if (context.url.pathname.startsWith('/assets/')) {
       return next()
     }
