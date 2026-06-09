@@ -18,7 +18,7 @@ if (!sessionSecret) {
 
 export const sessionCookie = createCookie('session', {
   secrets: [sessionSecret],
-  secure: true,
+  secure: process.env.NODE_ENV === 'production',
   httpOnly: true,
   sameSite: 'Strict',
   maxAge: 2592000,

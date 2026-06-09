@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --import remix/node-tsx server.ts",
-    "start": "node --env-file-if-exists=.env --import remix/node-tsx server.ts",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env --import remix/node-tsx server.ts",
     "test": "NODE_ENV=test remix test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
