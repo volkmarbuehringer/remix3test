@@ -3,7 +3,7 @@ import * as f from 'remix/data-schema/form-data'
 import * as coerce from 'remix/data-schema/coerce'
 
 export const APPOINTMENT_FORM_KEYS = ['resource_id', 'user_id', 'title', 'date', 'start_min', 'end_min'] as const
-export const APPOINTMENTS_NEW_FORM_KEYS = ['resource_id', 'title', 'date', 'start_min'] as const
+export const APPOINTMENTS_NEW_FORM_KEYS = ['resource_id', 'title', 'date', 'start_min', 'day_start'] as const
 
 export const appointmentSaveSchema = f.object({
   resource_id: f.field(
@@ -13,7 +13,7 @@ export const appointmentSaveSchema = f.object({
     coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.'),
   ),
   title: f.field(
-    s.string().refine((v) => v.trim().length > 0, 'ist erforderlich.'),
+    s.defaulted(s.string().transform(v => v.trim()), ''),
   ),
   date: f.field(
     s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
@@ -28,6 +28,8 @@ export const appointmentSaveSchema = f.object({
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
   _filter: f.field(s.defaulted(s.string(), '')),
+  _period: f.field(s.defaulted(s.string(), '')),
+  _status: f.field(s.defaulted(s.string(), '')),
 })
 
 export const appointmentsNewSaveSchema = f.object({
@@ -35,7 +37,7 @@ export const appointmentsNewSaveSchema = f.object({
     coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.'),
   ),
   title: f.field(
-    s.string().refine((v) => v.trim().length > 0, 'ist erforderlich.'),
+    s.defaulted(s.string().transform(v => v.trim()), ''),
   ),
   date: f.field(
     s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
@@ -47,4 +49,6 @@ export const appointmentsNewSaveSchema = f.object({
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
   _filter: f.field(s.defaulted(s.string(), '')),
+  _period: f.field(s.defaulted(s.string(), '')),
+  _status: f.field(s.defaulted(s.string(), '')),
 })

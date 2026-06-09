@@ -4,8 +4,8 @@ import * as s from 'remix/data-schema'
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
-import { isDateInPast, getPeriodRange } from '../../utils/date-utils.ts'
-import { listOfferingsByDayRange, listOfferingsByDay, parseDuring, listDaysWithOfferings, computeFullHourSlots, getBookedRanges, filterAvailableSlots } from '../../data/appointofferings.ts'
+import { isDateInPast, getPeriodRange, getCurrentWeekMonday } from '../../utils/date-utils.ts'
+import { listOfferingsByDayRange, parseDuring, computeFullHourSlots, getBookedRanges, getBookedRangesForWeek, filterAvailableSlots } from '../../data/appointofferings.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -62,6 +62,13 @@ export interface ResourceOption {
   description: string
 }
 
+export interface DayWithSlots {
+  day: number
+  dateStr: string
+  slots: number[]
+  ranges: { startMin: number; endMin: number }[]
+}
+
 function isExclusionConstraintError(error: unknown): boolean {
   if (error && typeof error === 'object') {
     let err = error as { code?: string; message?: string; constraint?: string }
@@ -96,6 +103,7 @@ interface AppointmentsNewPageData {
   status: string | undefined
   resources: ResourceOption[]
   editRow: AppointmentsNewRow | null
+  deletingRow: AppointmentsNewRow | null
   creating: boolean
   error: string | undefined
   defaultStartMin: number
@@ -104,15 +112,15 @@ interface AppointmentsNewPageData {
   formError?: string
   step?: number
   wizardResourceId?: string
-  wizardDay?: number
-  daysWithOfferings?: { day: number; ranges: { startMin: number; endMin: number }[] }[]
+  weekStart?: number
+  daysWithSlots?: DayWithSlots[]
   fullHourSlots?: number[]
 }
 
 async function loadAppointmentsNewPageData(
   context: AppContext,
   userId: number,
-  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'wizardDay'>>,
+  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'deletingRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'weekStart'>>,
 ): Promise<AppointmentsNewPageData> {
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
@@ -166,6 +174,7 @@ async function loadAppointmentsNewPageData(
   params.push(offset)
 
   let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let deletingParam = overrides?.deletingRow !== undefined ? null : context.url.searchParams.get('deleting')
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
@@ -193,39 +202,51 @@ async function loadAppointmentsNewPageData(
   let hasMore = rows.length > PAGE_SIZE
   if (hasMore) rows.pop()
   let wizardResourceId = overrides?.wizardResourceId ?? (context.url.searchParams.get('resource_id') || undefined)
-  let wizardDayStr = overrides?.wizardDay !== undefined ? String(overrides.wizardDay) : (context.url.searchParams.get('day') || undefined)
+  let weekStartRaw = overrides?.weekStart !== undefined ? String(overrides.weekStart) : (context.url.searchParams.get('week_start') || undefined)
+  let weekStart = weekStartRaw ? parseInt(weekStartRaw, 10) : (creating && step === 2 ? getCurrentWeekMonday() : undefined)
 
-  let daysWithOfferings: { day: number; ranges: { startMin: number; endMin: number }[] }[] | undefined
+  let daysWithSlots: DayWithSlots[] | undefined
   let fullHourSlots: number[] | undefined
   let defaultStartMin = 480
 
-  if (creating && step) {
-    if (step === 2 && wizardResourceId) {
-      let periodRange = period ? getPeriodRange(period) : null
-      let searchStart: number
-      let searchEnd: number
-      if (periodRange) {
-        searchStart = periodRange.startMs
-        searchEnd = periodRange.endMs
-      } else {
-        let today = new Date()
-        searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
-        searchEnd = searchStart + 90 * 86_400_000
-      }
-      daysWithOfferings = await listDaysWithOfferings(context.db, parseInt(wizardResourceId, 10), searchStart, searchEnd)
+  if (creating && step === 2 && wizardResourceId) {
+    let searchStart = weekStart!
+    let searchEnd = searchStart + 7 * 86_400_000
+    let resourceIdNum = parseInt(wizardResourceId, 10)
+    // Verify resource exists to avoid confusing empty state
+    let resourceCheck = await pool.query('SELECT 1 FROM resources WHERE id = $1', [resourceIdNum])
+    if (resourceCheck.rows.length > 0) {
+
+    let offerings = await listOfferingsByDayRange(context.db, searchStart, searchEnd, resourceIdNum)
+    let bookedByDay = await getBookedRangesForWeek(context.db, resourceIdNum, searchStart, searchEnd)
+
+    let dayMap = new Map<number, { ranges: { startMin: number; endMin: number }[]; slots: number[] }>()
+    for (let offering of offerings) {
+      let d = Number(offering.day)
+      if (!dayMap.has(d)) dayMap.set(d, { ranges: [], slots: [] })
+      let parsed = parseDuring(offering.during)
+      if (parsed) dayMap.get(d)!.ranges.push(parsed)
     }
-    if (step === 3 && wizardResourceId && wizardDayStr) {
-      let dayOfferings = await listOfferingsByDay(context.db, parseInt(wizardDayStr, 10), parseInt(wizardResourceId, 10))
-      let ranges = dayOfferings.map(o => parseDuring(o.during)).filter((r): r is { startMin: number; endMin: number } => r !== null)
-      fullHourSlots = computeFullHourSlots(ranges)
-      let booked = await getBookedRanges(context.db, parseInt(wizardResourceId, 10), parseInt(wizardDayStr, 10))
+    for (let [d, data] of dayMap) {
+      data.slots = computeFullHourSlots(data.ranges)
+      let booked = bookedByDay.get(d) ?? []
       if (booked.length > 0) {
-        fullHourSlots = filterAvailableSlots(fullHourSlots, booked)
-      }
-      if (fullHourSlots.length > 0) {
-        defaultStartMin = fullHourSlots[0]
+        data.slots = filterAvailableSlots(data.slots, booked)
       }
     }
+    daysWithSlots = Array.from(dayMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([day, data]) => ({
+        day,
+        dateStr: new Date(day).toISOString().split('T')[0],
+        slots: data.slots,
+        ranges: data.ranges,
+      }))
+
+    if (daysWithSlots.length > 0 && daysWithSlots[0].slots.length > 0) {
+      defaultStartMin = daysWithSlots[0].slots[0]
+    }
+  }
   }
 
   // Compute full-hour slots for edit mode
@@ -258,20 +279,19 @@ async function loadAppointmentsNewPageData(
 
   let editRow = editRowLocal
 
-  if (!creating || !step || step === 1) {
-    if (creating && resources.length > 0) {
-      let firstResourceId = parseInt(resources[0].id, 10)
-      let today = new Date()
-      let searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
-      let searchEnd = searchStart + 14 * 86_400_000
-      let offerings = await listOfferingsByDayRange(context.db, searchStart, searchEnd, firstResourceId)
-      if (offerings.length > 0) {
-        let parsed = parseDuring(offerings[0].during)
-        if (parsed) {
-          defaultStartMin = parsed.startMin
-        }
-      }
-    }
+  // Load row for delete confirmation
+  let deletingRow: AppointmentsNewRow | null = overrides?.deletingRow !== undefined ? overrides.deletingRow : null
+  if (!deletingRow && deletingParam) {
+    let deleteResult = await pool.query(
+      `SELECT a.id, a.title,
+              a.resource_id, r.description AS resource_description,
+              a.date, during::text AS during, a.start_min, a.end_min
+       FROM appointments a
+       LEFT JOIN resources r ON r.id = a.resource_id
+       WHERE a.id = $1 AND a.user_id = $2`,
+      [deletingParam, userId],
+    )
+    deletingRow = deleteResult.rows.length > 0 ? (deleteResult.rows[0] as AppointmentsNewRow) : null
   }
 
   let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
@@ -292,6 +312,7 @@ async function loadAppointmentsNewPageData(
     status,
     resources,
     editRow,
+    deletingRow,
     creating,
     error,
     defaultStartMin,
@@ -300,8 +321,8 @@ async function loadAppointmentsNewPageData(
     formError,
     step,
     wizardResourceId,
-    wizardDay: wizardDayStr ? parseInt(wizardDayStr, 10) : undefined,
-    daysWithOfferings,
+    weekStart,
+    daysWithSlots,
     fullHourSlots,
   }
 }
@@ -325,6 +346,7 @@ function renderAppointmentsNewPage(
         period={data.period}
         status={data.status}
         editRow={data.editRow}
+        deletingRow={data.deletingRow}
         creating={data.creating}
         resources={data.resources}
         error={data.error}
@@ -334,8 +356,8 @@ function renderAppointmentsNewPage(
         formError={data.formError}
         step={data.step}
         wizardResourceId={data.wizardResourceId}
-        wizardDay={data.wizardDay}
-        daysWithOfferings={data.daysWithOfferings}
+        weekStart={data.weekStart}
+        daysWithSlots={data.daysWithSlots}
         fullHourSlots={data.fullHourSlots}
       />
     </Layout>,
@@ -367,15 +389,20 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         let step = formData.get('step') as string | null
 
-        // Wizard step 1: validate resource selection, advance to step 2
-        if (step === '1') {
+        // Combined step 2: validate and create appointment in one submission
+        if (step === '2') {
           let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-          if (!resourceIdRaw.trim()) {
+          let dayStartRaw = (formData.get('day_start') as string) ?? ''
+          let weekStartRaw = (formData.get('week_start') as string) || undefined
+
+          if (!createLimiter.attempt(userId)) {
             let data = await loadAppointmentsNewPageData(context, userId, {
               creating: true,
-              step: 1,
+              step: 2,
+              wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
               formValues,
-              fieldErrors: { resource_id: 'Bitte wählen Sie eine Ressource aus.' },
+              formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
               offset: gridStateOffset(gridValues),
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
@@ -385,30 +412,71 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
-          let params = new URLSearchParams()
-          params.set('creating', 'true')
-          params.set('step', '2')
-          params.set('resource_id', resourceIdRaw.trim())
-          if (gridValues.period) params.set('period', gridValues.period)
-          if (gridValues.status) params.set('status', gridValues.status)
-          return new Response(null, {
-            status: 302,
-            headers: { Location: routes.appointmentsNew.index.href() + '?' + params.toString() },
-          })
-        }
 
-        // Wizard step 2: validate day selection, advance to step 3
-        if (step === '2') {
-          let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-          let dayRaw = (formData.get('day') as string) ?? ''
-          if (!dayRaw.trim() || !resourceIdRaw.trim()) {
-            let fieldErrors: Record<string, string> = {}
-            if (!resourceIdRaw.trim()) fieldErrors.resource_id = 'Ressource fehlt.'
-            if (!dayRaw.trim()) fieldErrors.day = 'Bitte wählen Sie einen Tag aus.'
+          // Validate day_start is present (combined "epoch_ms:minutes")
+          if (!dayStartRaw.trim()) {
             let data = await loadAppointmentsNewPageData(context, userId, {
               creating: true,
               step: 2,
-              wizardResourceId: resourceIdRaw.trim() || undefined,
+              wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
+              formValues,
+              fieldErrors: { day_start: 'Bitte wählen Sie eine Uhrzeit aus.' },
+              offset: gridStateOffset(gridValues),
+              sortColumn: gridStateSort(gridValues),
+              sortDirection: gridStateDirection(gridValues),
+              filter: gridStateFilter(gridValues),
+              period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
+            })
+            return renderAppointmentsNewPage(context, data, { status: 400 })
+          }
+
+          // Parse combined "epoch_ms:minutes" value
+          let parts = dayStartRaw.split(':')
+          if (parts.length !== 2) {
+            let data = await loadAppointmentsNewPageData(context, userId, {
+              creating: true, step: 2, wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
+              formValues, fieldErrors: { day_start: 'Ungültiges Format.' },
+              offset: gridStateOffset(gridValues), sortColumn: gridStateSort(gridValues),
+              sortDirection: gridStateDirection(gridValues), filter: gridStateFilter(gridValues),
+              period: gridStatePeriod(gridValues), status: gridStateStatus(gridValues),
+            })
+            return renderAppointmentsNewPage(context, data, { status: 400 })
+          }
+          let dayMs = parseInt(parts[0], 10)
+          let startMin = parseInt(parts[1], 10)
+          if (!Number.isFinite(dayMs) || !Number.isFinite(startMin)) {
+            let data = await loadAppointmentsNewPageData(context, userId, {
+              creating: true, step: 2, wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
+              formValues, fieldErrors: { day_start: 'Ungültiges Format.' },
+              offset: gridStateOffset(gridValues), sortColumn: gridStateSort(gridValues),
+              sortDirection: gridStateDirection(gridValues), filter: gridStateFilter(gridValues),
+              period: gridStatePeriod(gridValues), status: gridStateStatus(gridValues),
+            })
+            return renderAppointmentsNewPage(context, data, { status: 400 })
+          }
+          let dateStr = new Date(dayMs).toISOString().split('T')[0]
+
+          // Create a modified formData with date and start_min for schema validation
+          let createFormData = new FormData()
+          for (let [key, val] of formData) {
+            createFormData.append(key, val)
+          }
+          createFormData.set('date', dateStr)
+          createFormData.set('start_min', String(startMin))
+
+          let result = s.parseSafe(appointmentsNewSaveSchema, createFormData)
+
+          if (!result.success) {
+            let fieldErrors = issuesToFieldErrors(result.issues)
+            let data = await loadAppointmentsNewPageData(context, userId, {
+              creating: true,
+              step: 2,
+              wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
               formValues,
               fieldErrors,
               offset: gridStateOffset(gridValues),
@@ -420,108 +488,18 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
-          let params = new URLSearchParams()
-          params.set('creating', 'true')
-          params.set('step', '3')
-          params.set('resource_id', resourceIdRaw.trim())
-          params.set('day', dayRaw.trim())
-          if (gridValues.period) params.set('period', gridValues.period)
-          if (gridValues.status) params.set('status', gridValues.status)
-          return new Response(null, {
-            status: 302,
-            headers: { Location: routes.appointmentsNew.index.href() + '?' + params.toString() },
-          })
-        }
 
-        // Final step (step 3 or no step): create the appointment
-        let createWizardResourceId = (formData.get('resource_id') as string) || undefined
-        let createDateRaw = (formData.get('date') as string) || undefined
-        let createWizardDay = createDateRaw ? new Date(createDateRaw + 'T00:00:00Z').getTime() : undefined
+          let { resource_id, title } = result.value
+          let end_min = startMin + 60
 
-        if (!createLimiter.attempt(userId)) {
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            creating: true,
-            step: 3,
-            wizardResourceId: createWizardResourceId,
-            wizardDay: createWizardDay,
-            formValues,
-            formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let result = s.parseSafe(appointmentsNewSaveSchema, formData)
-
-        if (!result.success) {
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            creating: true,
-            step: 3,
-            wizardResourceId: createWizardResourceId,
-            wizardDay: createWizardDay,
-            formValues,
-            fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let { resource_id, title, date, start_min } = result.value
-        let end_min = start_min + 60
-
-        let trimmedTitle = title.trim()
-        let dayMs = new Date(date + 'T00:00:00Z').getTime()
-
-        if (isDateInPast(dayMs)) {
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            creating: true,
-            step: 3,
-            wizardResourceId: createWizardResourceId,
-            wizardDay: createWizardDay,
-            formValues,
-            formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let during = `[${start_min},${end_min})`
-        let now = Date.now()
-        let newId: number
-
-        try {
-          let insertResult = await pool.query(
-            `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id`,
-            [userId, resource_id, trimmedTitle, dayMs, during, now, now],
-          )
-          newId = insertResult.rows[0].id
-        } catch (error: unknown) {
-          if (isExclusionConstraintError(error)) {
+          if (isDateInPast(dayMs)) {
             let data = await loadAppointmentsNewPageData(context, userId, {
               creating: true,
-              step: 3,
-              wizardResourceId: createWizardResourceId,
-              wizardDay: createWizardDay,
+              step: 2,
+              wizardResourceId: resourceIdRaw || undefined,
+              weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
               formValues,
-              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
+              formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
               offset: gridStateOffset(gridValues),
               sortColumn: gridStateSort(gridValues),
               sortDirection: gridStateDirection(gridValues),
@@ -531,17 +509,54 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
-          throw error
+
+          let during = `[${startMin},${end_min})`
+          let now = Date.now()
+          let newId: number
+
+          try {
+            let insertResult = await pool.query(
+              `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING id`,
+              [userId, resource_id, title, dayMs, during, now, now],
+            )
+            newId = insertResult.rows[0].id
+          } catch (error: unknown) {
+            if (isExclusionConstraintError(error)) {
+              let data = await loadAppointmentsNewPageData(context, userId, {
+                creating: true,
+                step: 2,
+                wizardResourceId: resourceIdRaw || undefined,
+                weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
+                formValues,
+                formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
+                offset: gridStateOffset(gridValues),
+                sortColumn: gridStateSort(gridValues),
+                sortDirection: gridStateDirection(gridValues),
+                filter: gridStateFilter(gridValues),
+                period: gridStatePeriod(gridValues),
+                status: gridStateStatus(gridValues),
+              })
+              return renderAppointmentsNewPage(context, data, { status: 400 })
+            }
+            throw error
+          }
+
+          appointmentChannel.broadcast('invalidate')
+
+          let params = gridStateToParams(gridValues)
+          let qs = params.toString()
+          return new Response(null, {
+            status: 302,
+            headers: { Location: routes.appointmentsNew.index.href() + (qs ? '?' + qs : '') },
+          })
         }
 
-        appointmentChannel.broadcast('invalidate')
-
-        let params = gridStateToParams(gridValues)
-        params.set('editing', String(newId))
-        let qs = params.toString()
+        // No valid step — redirect to step 1 (resource cards)
         return new Response(null, {
           status: 302,
-          headers: { Location: routes.appointmentsNew.index.href() + (qs ? '?' + qs : '') },
+          headers: { Location: routes.appointmentsNew.index.href() + '?creating=true' },
         })
       },
 
@@ -606,7 +621,6 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
         let { resource_id, title, date, start_min } = result.value
         let end_min = start_min + 60
 
-        let trimmedTitle = title.trim()
         let dayMs = new Date(date + 'T00:00:00Z').getTime()
 
         if (isDateInPast(dayMs)) {
@@ -633,7 +647,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             `UPDATE appointments
              SET resource_id = $1, title = $2, date = $3, during = $4, updated_at = $5
              WHERE id = $6 AND user_id = $7`,
-            [resource_id, trimmedTitle, dayMs, during, now, id, userId],
+            [resource_id, title, dayMs, during, now, id, userId],
           )
 
           if (updateResult.rowCount === 0) {

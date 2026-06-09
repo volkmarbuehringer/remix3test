@@ -83,6 +83,20 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
     return entry.attempts
   }
 
+  if (windowMs <= 0) {
+    return {
+      check(): { allowed: boolean; retryAfter?: number } {
+        return { allowed: true }
+      },
+      set(): void {},
+      attempt(): boolean { return true },
+      state(): { count: number; remaining: number; reset: number } | null {
+        return { count: 0, remaining: maxAttempts, reset: 0 }
+      },
+      reset(): void {},
+    }
+  }
+
   return {
     check(key?: number | string): { allowed: boolean; retryAfter?: number } {
       let k = getKey(key)

@@ -18,6 +18,42 @@ export function isWithinHours(epochMs: number, hours: number): boolean {
   return epochMs - Date.now() >= hours * 3600000
 }
 
+/**
+ * Returns epoch ms for Monday 00:00:00 UTC of the current week.
+ */
+export function getCurrentWeekMonday(): number {
+  let now = new Date()
+  let day = now.getUTCDay() || 7
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1))
+}
+
+/**
+ * Formats a week_start epoch ms into "KW 25" label.
+ */
+export function formatWeekLabel(weekStart: number): string {
+  let d = new Date(weekStart)
+  let dayNum = (d.getUTCDay() || 7)
+  let thursday = new Date(d)
+  thursday.setUTCDate(d.getUTCDate() - dayNum + 4)
+  let year = thursday.getUTCFullYear()
+  let firstThursday = new Date(Date.UTC(year, 0, 4))
+  let diff = thursday.getTime() - firstThursday.getTime()
+  let weekNum = Math.ceil((diff / 86_400_000 + firstThursday.getUTCDay() + 1) / 7)
+  return `KW ${weekNum}`
+}
+
+/**
+ * Format an epoch ms value to German date locale, e.g. "Mo, 10.06.2026"
+ */
+export function formatDateDE(epochMs: number): string {
+  return new Date(Number(epochMs)).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
 export function formatMinOption(minutes: number): string {
   let h = String(Math.floor(minutes / 60)).padStart(2, '0')
   let m = String(minutes % 60).padStart(2, '0')

@@ -109,12 +109,11 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'an-title' : 'ac-title'}>Titel</label>
+                <label mix={table.label} htmlFor={isEdit ? 'an-title' : 'ac-title'}>Titel (optional)</label>
                 <input
                   id={isEdit ? 'an-title' : 'ac-title'}
                   name="title"
                   type="text"
-                  required
                   placeholder="Titel eingeben..."
                   mix={[input.base, input.focus, fieldErrors?.title ? input.error : undefined]}
                   value={resolvedTitle}

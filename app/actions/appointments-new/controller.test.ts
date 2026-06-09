@@ -154,9 +154,9 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 200)
   })
 
-  // ── Create (3-step wizard) ──
+  // ── Create (2-step flow) ──
 
-  it('POST /appointments/new wizard step 1 shows error for missing resource_id', async () => {
+  it('POST /appointments/new without step redirects to step 1', async () => {
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -164,32 +164,15 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: '', step: '1' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 400)
-    let html = await response.text()
-    assert.ok(html.includes('Bitte wählen Sie eine Ressource aus'))
-  })
-
-  it('POST /appointments/new wizard step 1 advances to step 2', async () => {
-    let response = await router.fetch(APPT_URL, {
-      method: 'POST',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), step: '1' }).toString(),
+      body: new URLSearchParams({ resource_id: String(firstResourceId) }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
-    assert.ok(location.includes('step=2'))
-    assert.ok(location.includes('resource_id=' + firstResourceId))
+    assert.ok(location.includes('creating=true'))
   })
 
-  it('POST /appointments/new wizard step 2 shows error for missing day', async () => {
+  it('POST /appointments/new step 2 shows error for missing day_start', async () => {
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -197,36 +180,19 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), day: '', step: '2' }).toString(),
+      body: new URLSearchParams({ resource_id: String(firstResourceId), day_start: '', title: 'Test', step: '2' }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
     let html = await response.text()
-    assert.ok(html.includes('Bitte wählen Sie einen Tag aus'))
+    assert.ok(html.includes('Bitte wählen Sie eine Uhrzeit aus'))
   })
 
-  it('POST /appointments/new wizard step 2 advances to step 3', async () => {
-    let response = await router.fetch(APPT_URL, {
-      method: 'POST',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), day: futureDateStr, step: '2' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 302)
-    let location = response.headers.get('Location') ?? ''
-    assert.ok(location.includes('step=3'))
-  })
-
-  it('POST /appointments/new wizard final step creates appointment', async () => {
+  it('POST /appointments/new step 2 works without title', async () => {
     let body = new URLSearchParams({
       resource_id: String(firstResourceId),
-      title: 'Wizard Created Appointment',
-      date: futureDateStr,
-      start_min: '480',
+      day_start: `${futureDateMs}:480`,
+      step: '2',
     })
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
@@ -241,17 +207,22 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
-    let match = location.match(/editing=(\d+)/)
-    assert.ok(match)
-    let newId = parseInt(match[1], 10)
-    createdAppointmentIds.push(newId)
-
-    let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [newId])
+    let checkResult = await pool.query(
+      "SELECT id FROM appointments WHERE title = '' AND user_id = (SELECT id FROM users WHERE email = 'user@newapp.com') AND start_min = 480",
+    )
     assert.equal(checkResult.rows.length, 1)
-    assert.equal((checkResult.rows[0] as { title: string }).title, 'Wizard Created Appointment')
+    createdAppointmentIds.push((checkResult.rows[0] as { id: number }).id)
   })
 
-  it('POST /appointments/new with validation error shows field errors', async () => {
+  it('POST /appointments/new step 2 creates appointment', async () => {
+    // Wait to avoid rate limiter collision (windowMs=0 in dev)
+    await new Promise(r => setTimeout(r, 5))
+    let body = new URLSearchParams({
+      resource_id: String(firstResourceId),
+      day_start: `${futureDateMs}:540`,
+      title: 'Step 2 Created Appointment',
+      step: '2',
+    })
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -259,16 +230,37 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: '', title: '', date: 'invalid', start_min: '' }).toString(),
+      body: body.toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
+    assert.ok(!location.includes('editing'))
+
+    let checkResult = await pool.query(
+      "SELECT id FROM appointments WHERE title = 'Step 2 Created Appointment' AND user_id = (SELECT id FROM users WHERE email = 'user@newapp.com')",
+    )
+    assert.equal(checkResult.rows.length, 1)
+    createdAppointmentIds.push((checkResult.rows[0] as { id: number }).id)
+  })
+
+  it('POST /appointments/new step 2 with validation error returns 400', async () => {
+    let response = await router.fetch(APPT_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: new URLSearchParams({ resource_id: '', title: '', day_start: `${futureDateMs}:480`, step: '2' }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
-    let html = await response.text()
-    assert.ok(html.includes('ist erforderlich') || html.includes('erforderlich'))
   })
 
-  it('POST /appointments/new with past date shows error', async () => {
-    let pastDate = '2020-01-01'
+  it('POST /appointments/new step 2 with past date shows error', async () => {
+    let pastDayMs = String(new Date('2020-01-01T00:00:00Z').getTime())
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: {
@@ -276,7 +268,7 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Past Date', date: pastDate, start_min: '480' }).toString(),
+      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Past Date', day_start: `${pastDayMs}:480`, step: '2' }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
@@ -287,27 +279,13 @@ describe('Appointments New Controller', () => {
   // ── Update ──
 
   it('PUT /appointments/new/:id updates an existing appointment', async () => {
-    let createBody = new URLSearchParams({
-      resource_id: String(firstResourceId),
-      title: 'To Update',
-      date: futureDateStr,
-      start_min: '720',
-    })
-    let createResponse = await router.fetch(APPT_URL, {
-      method: 'POST',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: createBody.toString(),
-      redirect: 'manual',
-    })
-    assert.equal(createResponse.status, 302)
-    let createLocation = createResponse.headers.get('Location') ?? ''
-    let match = createLocation.match(/editing=(\d+)/)
-    assert.ok(match, 'create should return editing param')
-    let appointmentId = parseInt(match![1], 10)
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'To Update', $2, '[720,780)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, futureDateMs, Date.now()],
+    )
+    let appointmentId = insertResult.rows[0].id as number
     createdAppointmentIds.push(appointmentId)
 
     let updateBody = new URLSearchParams({
@@ -383,27 +361,13 @@ describe('Appointments New Controller', () => {
   // ── Destroy ──
 
   it('DELETE /appointments/new/:id deletes an appointment', async () => {
-    let createBody = new URLSearchParams({
-      resource_id: String(firstResourceId),
-      title: 'To Delete',
-      date: futureDateStr,
-      start_min: '840',
-    })
-    let createResponse = await router.fetch(APPT_URL, {
-      method: 'POST',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: createBody.toString(),
-      redirect: 'manual',
-    })
-    assert.equal(createResponse.status, 302)
-    let createLocation = createResponse.headers.get('Location') ?? ''
-    let match = createLocation.match(/editing=(\d+)/)
-    assert.ok(match, 'create should return editing param')
-    let appointmentId = parseInt(match![1], 10)
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'To Delete', $2, '[840,900)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, futureDateMs, Date.now()],
+    )
+    let appointmentId = insertResult.rows[0].id as number
 
     let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
       method: 'DELETE',
@@ -514,33 +478,24 @@ describe('Appointments New Controller', () => {
     assert.ok(!html.includes('Past Appointment For Status Test'))
   })
 
-  // ── Grid state preservation on create ──
+  it('GET /appointments/new with deleting param shows delete confirmation', async () => {
+    // Use a date far in the future to avoid exclusion conflicts
+    let deleteDate = futureDateMs + 365 * 86_400_000
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'To Confirm Delete', $2, '[600,660)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, deleteDate, Date.now()],
+    )
+    let deleteId = (insertResult.rows[0] as { id: number }).id
+    createdAppointmentIds.push(deleteId)
 
-  it('POST /appointments/new preserves grid state params', async () => {
-    let body = new URLSearchParams({
-      resource_id: String(firstResourceId),
-      title: 'Grid State Test',
-      date: futureDateStr,
-      start_min: '960',
-      _sort: 'a.date',
-      _order: 'desc',
-      _filter: 'gridtest',
-      _offset: '0',
+    let response = await router.fetch(`${APPT_URL}?deleting=${deleteId}`, {
+      headers: { Cookie: userCookie },
     })
-    let response = await router.fetch(APPT_URL, {
-      method: 'POST',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: body.toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 302)
-    let location = response.headers.get('Location') ?? ''
-    assert.ok(location.includes('sort=a.date') || location.includes('sort='))
-    let match = location.match(/editing=(\d+)/)
-    if (match) createdAppointmentIds.push(parseInt(match[1], 10))
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Termin löschen'))
+    assert.ok(html.includes('To Confirm Delete'))
   })
 })

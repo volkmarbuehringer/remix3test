@@ -156,6 +156,33 @@ export async function getBookedRanges(
 }
 
 /**
+ * Batch query booked ranges for a resource over a week-long range.
+ * Returns a Map keyed by day (epoch ms) with arrays of booked ranges.
+ */
+export async function getBookedRangesForWeek(
+  db: Database,
+  resourceId: number,
+  weekStart: number,
+  weekEnd: number,
+): Promise<Map<number, { startMin: number; endMin: number }[]>> {
+  let result = await db.exec(sql`
+    SELECT date, start_min, end_min
+    FROM appointments
+    WHERE resource_id = ${resourceId}
+      AND date >= ${weekStart}
+      AND date < ${weekEnd}
+    ORDER BY date ASC, start_min ASC
+  `)
+  let map = new Map<number, { startMin: number; endMin: number }[]>()
+  for (let row of (result.rows ?? []) as { date: number; start_min: number; end_min: number }[]) {
+    let d = Number(row.date)
+    if (!map.has(d)) map.set(d, [])
+    map.get(d)!.push({ startMin: Number(row.start_min), endMin: Number(row.end_min) })
+  }
+  return map
+}
+
+/**
  * Filter full-hour slots to exclude those overlapping with booked ranges.
  * A slot at minute m is booked if ∃ booked range b where m < b.endMin AND m+60 > b.startMin.
  */

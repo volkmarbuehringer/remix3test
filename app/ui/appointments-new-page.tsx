@@ -5,12 +5,13 @@ import { Button } from 'remix/ui/button'
 import { Glyph } from 'remix/ui/glyph'
 
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl } from './mixins/admin-urls.ts'
+import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildCancelUrl } from './mixins/admin-urls.ts'
+import { formatDateDE } from '../utils/date-utils.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewEditPage } from './appointments-new-edit-page.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
-import type { AppointmentsNewRow, ResourceOption } from '../actions/appointments-new/controller.tsx'
+import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../actions/appointments-new/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
 const BASE = '/appointments/new'
@@ -50,6 +51,7 @@ interface AppointmentsNewPageProps {
   period?: string
   status?: string
   editRow?: AppointmentsNewRow | null
+  deletingRow?: AppointmentsNewRow | null
   creating?: boolean
   resources: ResourceOption[]
   error?: string
@@ -59,17 +61,9 @@ interface AppointmentsNewPageProps {
   formError?: string
   step?: number
   wizardResourceId?: string
-  wizardDay?: number
-  daysWithOfferings?: { day: number; ranges: { startMin: number; endMin: number }[] }[]
+  weekStart?: number
+  daysWithSlots?: DayWithSlots[]
   fullHourSlots?: number[]
-}
-
-function formatDate(day: string): string {
-  return new Date(Number(day)).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
 }
 
 function formatMinRange(startMin: number, endMin: number): string {
@@ -172,6 +166,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       period,
       status,
       editRow = null,
+      deletingRow = null,
       creating = false,
       resources,
       error,
@@ -181,14 +176,14 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       formError,
       step,
       wizardResourceId,
-      wizardDay,
-      daysWithOfferings,
+      weekStart,
+      daysWithSlots,
       fullHourSlots,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
-    let hasFormPanel = !!(editRow || creating)
+    let hasFormPanel = !!(editRow || deletingRow || creating)
     let gridSection = (
       <div mix={table.minWidth0}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
@@ -346,7 +341,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     <td mix={[table.td, compactTd]} title={row.resource_description ?? ''}>
                       {row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={[table.td, compactTd]} title={formatDate(row.date)}>{formatDate(row.date)}</td>
+                    <td mix={[table.td, compactTd]} title={formatDateDE(Number(row.date))}>{formatDateDE(Number(row.date))}</td>
                     <td mix={[table.td, compactTd]} title={row.during}>{formatDuring(row.during)}</td>
                     <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
                       <div mix={btnGroupStyle}>
@@ -357,29 +352,13 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         >
                           <Glyph name="edit" width={14} height={14} />
                         </a>
-                        <RestfulForm
-                          method="DELETE"
-                          action={`/appointments/new/${row.id}`}
-                          data-delete-form={row.id}
+                        <a
+                          href={`${BASE}?deleting=${row.id}&offset=${offset}&sort=${sortColumn}&order=${sortDirection}${filter ? '&filter=' + encodeURIComponent(filter) : ''}${period ? '&period=' + encodeURIComponent(period) : ''}${status ? '&status=' + encodeURIComponent(status) : ''}`}
+                          mix={delBtnStyle}
+                          title="Löschen"
                         >
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortColumn,
-                              order: sortDirection,
-                              filter: filter ?? '',
-                              period: period ?? '',
-                              status: status ?? '',
-                            }}
-                          />
-                          <button
-                            type="submit"
-                            mix={delBtnStyle}
-                            title="Löschen"
-                          >
-                            <Glyph name="close" width={14} height={14} />
-                          </button>
-                        </RestfulForm>
+                          <Glyph name="close" width={14} height={14} />
+                        </a>
                       </div>
                     </td>
                   </tr>
@@ -429,7 +408,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       </div>
     )
 
-    if (editRow || creating) {
+    if (editRow || deletingRow || creating) {
       return (
         <div mix={table.page}>
           <div mix={headerBarStyle}>
@@ -438,7 +417,48 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
-              {editRow ? (
+              {deletingRow ? (
+                <div mix={table.panel}>
+                  <div mix={table.panelHeader}>
+                    <span mix={table.panelTitle}>Termin löschen</span>
+                  </div>
+                  <div mix={table.panelBody}>
+                    <p mix={css({ margin: 0, marginBottom: theme.space.md, fontSize: theme.fontSize.sm, color: theme.colors.text.secondary })}>
+                      Möchten Sie diesen Termin wirklich löschen?
+                    </p>
+                    <div mix={css({
+                      padding: theme.space.sm,
+                      marginBottom: theme.space.md,
+                      background: theme.surface.lvl2,
+                      borderRadius: theme.radius.md,
+                      fontSize: theme.fontSize.sm,
+                    })}>
+                      <div>{deletingRow.title || '(kein Titel)'}</div>
+                      <div mix={css({ color: theme.colors.text.secondary, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>
+                        {formatDateDE(Number(deletingRow.date))} – {formatDuring(deletingRow.during)}
+                      </div>
+                    </div>
+                    <RestfulForm method="DELETE" action={`${BASE}/${deletingRow.id}`}>
+                      <GridStateHiddenInputs
+                        state={{
+                          offset: String(offset),
+                          sort: sortColumn,
+                          order: sortDirection,
+                          filter: filter ?? '',
+                          period: period ?? '',
+                          status: status ?? '',
+                        }}
+                      />
+                      <div mix={table.actions}>
+                        <Button type="submit" tone="danger" mix={table.spacer}>Ja, löschen</Button>
+                        <a href={buildCancelUrl(BASE, String(offset), sortColumn, sortDirection, filter, period, status)} mix={table.linkPlain}>
+                          <Button type="button" tone="secondary" mix={css({ width: '100%' })}>Abbrechen</Button>
+                        </a>
+                      </div>
+                    </RestfulForm>
+                  </div>
+                </div>
+              ) : editRow ? (
                 <AppointmentsNewEditPage
                   row={editRow}
                   resources={resources}
@@ -462,15 +482,13 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   filter={filter}
                   period={period}
                   status={status}
-                  defaultStartMin={defaultStartMin}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
                   step={step}
                   wizardResourceId={wizardResourceId}
-                  wizardDay={wizardDay}
-                  daysWithOfferings={daysWithOfferings}
-                  fullHourSlots={fullHourSlots}
+                  weekStart={weekStart}
+                  daysWithSlots={daysWithSlots}
                 />
               ) : null}
             </div>
