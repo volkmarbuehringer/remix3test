@@ -14,6 +14,13 @@ type NavSection = {
   items: NavItem[]
 }
 
+export type MobileNavItem = {
+  label: string
+  href: string
+  requireAuth: boolean
+  cta?: boolean
+}
+
 export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
@@ -27,4 +34,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Admin', href: '/admin', adminOnly: true },
     ],
   },
+]
+
+export const MOBILE_ITEMS: MobileNavItem[] = [
+  { label: 'Neuer Termin', href: '/appointments/new', requireAuth: true, cta: true },
+  { label: 'Einstellungen', href: '/settings', requireAuth: true },
 ]

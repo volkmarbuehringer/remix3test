@@ -5,7 +5,8 @@ import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
-import { NAV_SECTIONS } from './nav.ts'
+import { MOBILE_ITEMS, NAV_SECTIONS } from './nav.ts'
+import { NavToggle } from '../assets/nav-toggle.tsx'
 
 const indigo = {
   500: '#6366f1',
@@ -49,10 +50,9 @@ export function MainNav() {
             <span mix={logoNameCss}>
               new<span mix={logoAccentCss}>app</span>
             </span>
-            {user ? <span mix={userBadgeCss}>{user.email}</span> : null}
           </a>
 
-          <nav mix={navLinksCss}>
+          <nav mix={[navLinksCss, desktopOnlyCss]}>
             {NAV_SECTIONS.map((section, i) => {
               let items = section.items.filter(it => !it.adminOnly || user?.role === 'admin')
               if (items.length === 0) return null
@@ -94,18 +94,80 @@ export function MainNav() {
                 </a>
               </>
             )}
+          </nav>
+
+          <div mix={[headerActionsCss, mobileOnlyCss]}>
             <button
-              id="theme-toggle"
-              aria-label="Design umschalten"
-              title="Design umschalten"
-              mix={themeBtnCss}
+              id="nav-toggle"
+              aria-label="Menü"
+              aria-expanded="false"
+              aria-controls="nav-drawer"
+              mix={hamburgerBtnCss}
               type="button"
             >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
             </button>
-          </nav>
+          </div>
+
+          <button
+            id="theme-toggle"
+            aria-label="Design umschalten"
+            title="Design umschalten"
+            mix={themeBtnCss}
+            type="button"
+          >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          </button>
+        </div>
+
+        <NavToggle />
+        <div id="nav-drawer" role="dialog" aria-modal="true" aria-label="Navigation" mix={navDrawerCss}>
+          <div mix={drawerHeaderCss}>
+            <a href={routes.home.href()} mix={drawerLogoGroupCss}>
+              <span mix={drawerLogoTextCss}>
+                new<span mix={logoAccentCss}>app</span>
+              </span>
+            </a>
+            <button id="nav-close" mix={drawerCloseCss} type="button" aria-label="Menü schließen">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div mix={drawerBodyCss}>
+            {user ? (
+              <>
+                {MOBILE_ITEMS.filter(it => it.requireAuth).map((item) => (
+                  item.cta ? (
+                    <a key={item.href} href={item.href} mix={drawerCtaCss}>
+                      {item.label}
+                    </a>
+                  ) : (
+                    <a key={item.href} href={item.href} mix={drawerLinkCss}>
+                      {item.label}
+                    </a>
+                  )
+                ))}
+                <form method="POST" action={routes.auth.logout.href()} mix={drawerLogoutFormCss}>
+                  {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
+                  <button type="submit" mix={drawerLogoutBtnCss}>
+                    Abmelden
+                  </button>
+                </form>
+              </>
+            ) : (
+              <a href={routes.auth.login.index.href()} mix={drawerCtaCss}>
+                Anmelden
+              </a>
+            )}
+          </div>
         </div>
       </header>
     )
@@ -152,13 +214,6 @@ const logoNameCss = css({
 
 const logoAccentCss = css({
   color: indigo[500],
-})
-
-const userBadgeCss = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-  borderLeft: `1px solid ${theme.colors.border.default}`,
-  paddingLeft: theme.space.md,
 })
 
 const navLinksCss = css({
@@ -266,5 +321,144 @@ const themeBtnCss = css({
   borderRadius: theme.radius.md,
   marginLeft: theme.space.xs,
   transition: 'all 150ms ease',
+  '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
+})
+
+const desktopOnlyCss = css({
+  '@media (max-width: 768px)': {
+    display: 'none',
+  },
+})
+
+const mobileOnlyCss = css({
+  display: 'none',
+  '@media (max-width: 768px)': {
+    display: 'flex',
+  },
+})
+
+const headerActionsCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.25rem',
+})
+
+const hamburgerBtnCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: theme.colors.text.secondary,
+  padding: '0.375rem',
+  borderRadius: theme.radius.md,
+  '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
+})
+
+const navDrawerCss = css({
+  display: 'none',
+  position: 'fixed',
+  inset: 0,
+  zIndex: 200,
+  flexDirection: 'column',
+  background: theme.surface.lvl0,
+  '&.is-open': {
+    display: 'flex',
+  },
+  '@media (min-width: 769px)': {
+    display: 'none !important',
+  },
+})
+
+const drawerHeaderCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '0.5rem 2rem',
+  borderBottom: `1px solid ${theme.colors.border.subtle}`,
+})
+
+const drawerLogoGroupCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  textDecoration: 'none',
+})
+
+const drawerLogoTextCss = css({
+  fontSize: '1rem',
+  fontWeight: 700,
+  color: theme.colors.text.primary,
+  letterSpacing: theme.letterSpacing.tight,
+})
+
+const drawerCloseCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  color: theme.colors.text.secondary,
+  padding: '0.375rem',
+  borderRadius: theme.radius.md,
+  '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
+})
+
+const drawerBodyCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: 1,
+  gap: '1rem',
+  padding: '2rem',
+})
+
+const drawerCtaCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '0.375rem',
+  color: 'white',
+  textDecoration: 'none',
+  fontSize: '1.125rem',
+  fontWeight: 600,
+  padding: '0.75rem 2rem',
+  borderRadius: theme.radius.md,
+  background: indigo[600],
+  transition: 'background 200ms ease',
+  '&:hover': { background: indigo[700] },
+})
+
+const drawerLinkCss = css({
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  fontSize: '1rem',
+  fontWeight: 500,
+  padding: '0.5rem 1rem',
+  borderRadius: theme.radius.md,
+  '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
+})
+
+const drawerLogoutFormCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  margin: 0,
+  padding: 0,
+  width: '100%',
+  justifyContent: 'center',
+})
+
+const drawerLogoutBtnCss = css({
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  fontSize: '1rem',
+  fontWeight: 500,
+  padding: '0.5rem 1rem',
+  borderRadius: theme.radius.md,
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
 })

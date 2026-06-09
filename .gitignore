@@ -17,3 +17,6 @@ oc.sh
 *.pem
 *.crt
 *.key
+docker.sh
+mailer
+package.json.npm
