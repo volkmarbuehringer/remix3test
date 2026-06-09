@@ -15,6 +15,7 @@ import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSor
 import { appointmentChannel } from '../../lib/appointments-sse.ts'
 import { appointmentsNewSaveSchema, APPOINTMENTS_NEW_FORM_KEYS } from '../../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
+import { isExclusionConstraintError, isConstraintViolation } from '../../utils/db-errors.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 
 function redirectToLogin(context: AppContext): Response {
@@ -67,18 +68,6 @@ export interface DayWithSlots {
   dateStr: string
   slots: number[]
   ranges: { startMin: number; endMin: number }[]
-}
-
-function isExclusionConstraintError(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; message?: string; constraint?: string }
-    return (
-      err.constraint === 'no_overlapping_seats' ||
-      err.code === '23P01' ||
-      (err.message ?? '').includes('conflicts with key')
-    )
-  }
-  return false
 }
 
 function errorRedirectDestroy(formData: FormData, error: string): Response {
@@ -719,11 +708,8 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
           }
         } catch (error: unknown) {
-          if (error && typeof error === 'object') {
-            let err = error as { code?: string }
-            if (err.code === '23503') {
-              return errorRedirectDestroy(formData, 'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.')
-            }
+          if (isConstraintViolation(error)) {
+            return errorRedirectDestroy(formData, 'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.')
           }
           throw error
         }

@@ -9,3 +9,15 @@ export function isConstraintViolation(error: unknown): boolean {
   }
   return false
 }
+
+export function isExclusionConstraintError(error: unknown): boolean {
+  if (error && typeof error === 'object') {
+    let err = error as { code?: string; message?: string; constraint?: string }
+    return (
+      err.constraint === 'no_overlapping_seats' ||
+      err.code === '23P01' ||
+      (err.message ?? '').includes('conflicts with key')
+    )
+  }
+  return false
+}

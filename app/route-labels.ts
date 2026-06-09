@@ -1,5 +1,32 @@
 import { routes } from './routes.ts'
 
+function routeParentPath(route: {
+  pattern: {
+    pathname: {
+      tokens: ReadonlyArray<{
+        readonly type: string
+        readonly text?: string
+        readonly name?: string
+      }>
+    }
+  }
+}): string {
+  let tokens = route.pattern.pathname.tokens
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    if (tokens[i].type === ':' || tokens[i].type === '*') {
+      let path = ''
+      for (let j = 0; j < i; j++) {
+        let t = tokens[j]
+        if (t.type === 'text') path += t.text
+        else if (t.type === 'separator') path += '/'
+        else if (t.type === '(' || t.type === ')') path += t.type
+      }
+      return path
+    }
+  }
+  return (route as any).href()
+}
+
 export const ROUTE_LABELS: Record<string, string> = {
   [routes.home.href()]: 'Home',
 
@@ -17,12 +44,11 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Admin
   [routes.admin.index.href()]: 'Admin Dashboard',
   [routes.admin.chatlog.index.href()]: 'Chat Logs',
-  '/admin/chatlog/fragments/detail': 'Conversation Detail',
   [routes.admin.messages.index.href()]: 'Messages',
   [routes.admin.lists.index.href()]: 'Lists',
   [routes.admin.fragments.stats.href()]: 'Stats',
   [routes.admin.fragments.recentActivity.href()]: 'Recent Activity',
-  '/admin/fragments/user-detail': 'User Detail',
+  [routeParentPath(routes.admin.fragments.userDetail)]: 'User Detail',
   [routes.admin.users.index.href()]: 'Users',
 
   // Verwaltung
@@ -37,9 +63,9 @@ export const ROUTE_LABELS: Record<string, string> = {
 
   // UI showcase
   [routes.ui.href()]: 'UI Showcase',
-  '/ui/button': 'Button',
-  '/ui/form': 'Form',
-  '/ui/theme': 'Theme Tokens',
+  [routes.uiComponent.href({ component: 'button' })]: 'Button',
+  [routes.uiComponent.href({ component: 'form' })]: 'Form',
+  [routes.uiComponent.href({ component: 'theme' })]: 'Theme Tokens',
 
   // Lists
   [routes.lists.index.href()]: 'Lists',
@@ -56,6 +82,6 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Client
   [routes.client.index.href()]: 'Client Lab',
   [routes.client.grid.href()]: 'Grid',
-  '/client/edit': 'Edit',
+  [routeParentPath(routes.client.edit)]: 'Edit',
   [routes.client.create.href()]: 'Create',
 }

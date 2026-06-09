@@ -71,6 +71,10 @@ export const passwordProvider = createCredentialsAuthProvider({
       return null
     }
 
+    if (user.role !== 'admin' && user.email_verified !== 1) {
+      return null
+    }
+
     return user
   },
 })

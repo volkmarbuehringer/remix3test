@@ -3,7 +3,7 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
 
-import { isConstraintViolation } from '../../utils/db-errors.ts'
+import { isConstraintViolation, isExclusionConstraintError } from '../../utils/db-errors.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { offeringConfigs, resources, type Resource } from '../../data/schema.ts'
 import type { AppContext } from '../../types/context.ts'
@@ -112,24 +112,6 @@ interface OfferingPageData {
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
-}
-
-function formatTime(minutes: number): string {
-  let h = Math.floor(minutes / 60)
-  let m = minutes % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-}
-
-function isExclusionConstraintError(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; message?: string; constraint?: string }
-    return (
-      err.constraint === 'no_overlapping_seats' ||
-      err.code === '23P01' ||
-      (err.message ?? '').includes('conflicts with key')
-    )
-  }
-  return false
 }
 
 async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
