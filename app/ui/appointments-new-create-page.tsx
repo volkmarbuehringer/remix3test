@@ -12,6 +12,7 @@ export interface AppointmentsNewCreatePageProps {
   order?: string
   filter?: string
   period?: string
+  status?: string
   defaultStartMin?: number
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
@@ -25,9 +26,9 @@ export interface AppointmentsNewCreatePageProps {
 
 export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePageProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', period = '', defaultStartMin, formValues, fieldErrors, formError, step, wizardResourceId, wizardDay, daysWithOfferings, fullHourSlots } = handle.props
+    let { resources, offset = '', sort = '', order = '', filter = '', period = '', status = '', defaultStartMin, formValues, fieldErrors, formError, step, wizardResourceId, wizardDay, daysWithOfferings, fullHourSlots } = handle.props
 
-    let gridState = { offset, sort, order, filter: filter ?? '', period: period ?? '' }
+    let gridState = { offset, sort, order, filter: filter ?? '', period: period ?? '', status }
 
     if (step === 2 && wizardResourceId && daysWithOfferings) {
       return (

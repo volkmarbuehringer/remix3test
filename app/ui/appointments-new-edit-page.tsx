@@ -10,6 +10,7 @@ export interface AppointmentsNewEditPageProps {
   order: string
   filter?: string
   period?: string
+  status?: string
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -18,13 +19,13 @@ export interface AppointmentsNewEditPageProps {
 
 export function AppointmentsNewEditPage(handle: Handle<AppointmentsNewEditPageProps>) {
   return () => {
-    let { row, resources, offset, sort, order, filter = '', period = '', formValues, fieldErrors, formError, fullHourSlots } = handle.props
+    let { row, resources, offset, sort, order, filter = '', period = '', status = '', formValues, fieldErrors, formError, fullHourSlots } = handle.props
     return (
       <AppointmentsNewForm
         mode="edit"
         row={row}
         resources={resources}
-        gridState={{ offset, sort, order, filter: filter ?? '', period }}
+        gridState={{ offset, sort, order, filter: filter ?? '', period, status }}
         formValues={formValues}
         fieldErrors={fieldErrors}
         formError={formError}

@@ -15,17 +15,18 @@ import { parseDuring } from '../data/appointofferings.ts'
 
 const BASE = '/appointments/new'
 
-function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string): string {
+function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string, status?: string): string {
   let params = new URLSearchParams()
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (newPeriod) params.set('period', newPeriod)
+  if (status) params.set('status', status)
   return BASE + '?' + params.toString()
 }
 
-function buildEditUrl(id: string | number, offset: number, sort: string, order: string, filter?: string, period?: string): string {
+function buildEditUrl(id: string | number, offset: number, sort: string, order: string, filter?: string, period?: string, status?: string): string {
   let params = new URLSearchParams()
   params.set('editing', String(id))
   params.set('offset', String(offset))
@@ -33,6 +34,7 @@ function buildEditUrl(id: string | number, offset: number, sort: string, order: 
   params.set('order', order)
   if (filter) params.set('filter', filter)
   if (period) params.set('period', period)
+  if (status) params.set('status', status)
   return `${BASE}?${params.toString()}`
 }
 
@@ -46,6 +48,7 @@ interface AppointmentsNewPageProps {
   sortDirection: 'asc' | 'desc'
   filter?: string
   period?: string
+  status?: string
   editRow?: AppointmentsNewRow | null
   creating?: boolean
   resources: ResourceOption[]
@@ -167,6 +170,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       sortDirection,
       filter,
       period,
+      status,
       editRow = null,
       creating = false,
       resources,
@@ -190,28 +194,65 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
 
-        <div mix={[table.filterBar, css({ flexWrap: 'wrap' })]}>
-          <span mix={css({
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: theme.space.xs,
-          })}>
+        <div mix={css({
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.space.xs,
+          marginBottom: theme.space.md,
+        })}>
+          <div mix={css({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm })}>
+          <span mix={btnGroupStyle}>
             {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1
               let label = value === '' ? 'Alle' : { 'this-week': 'Diese Woche', 'next-week': 'Nächste Woche', 'this-month': 'Diesen Monat', 'next-month': 'Nächsten Monat' }[value]
               let active = value === '' ? !period : period === value
               let href = active
-                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter)
-                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter)
+                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
+                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
               return (
                 <a
                   href={href}
                   mix={css({
                     '& button': {
-                      paddingLeft: theme.space.sm,
-                      paddingRight: theme.space.sm,
+                      paddingLeft: theme.space.xs,
+                      paddingRight: theme.space.xs,
+                      borderTopLeftRadius: isFirst ? undefined : '0',
+                      borderBottomLeftRadius: isFirst ? undefined : '0',
+                      borderTopRightRadius: isLast ? undefined : '0',
+                      borderBottomRightRadius: isLast ? undefined : '0',
+                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                    },
+                  })}
+                >
+                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                </a>
+              )
+            })}
+          </span>
+          </div>
+          <div mix={css({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm })}>
+          <span mix={btnGroupStyle}>
+            {(['pending', 'expired'] as const).map((value, i, arr) => {
+              let isFirst = i === 0
+              let isLast = i === arr.length - 1
+              let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
+              let active = value === 'pending' ? (!status || status === 'pending') : status === 'expired'
+              let params = new URLSearchParams()
+              if (offset > 0) params.set('offset', String(offset))
+              params.set('sort', sortColumn)
+              params.set('order', sortDirection)
+              if (filter) params.set('filter', filter)
+              if (period) params.set('period', period)
+              if (!active) params.set('status', value)
+              let href = BASE + '?' + params.toString()
+              return (
+                <a
+                  href={href}
+                  mix={css({
+                    '& button': {
+                      paddingLeft: theme.space.xs,
+                      paddingRight: theme.space.xs,
                       borderTopLeftRadius: isFirst ? undefined : '0',
                       borderBottomLeftRadius: isFirst ? undefined : '0',
                       borderTopRightRadius: isLast ? undefined : '0',
@@ -227,11 +268,12 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           </span>
           <span mix={table.spacer} />
           <a
-            href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period)}
+            href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
             mix={table.linkPlain}
           >
             <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu</Button>
           </a>
+          </div>
         </div>
 
         <div mix={table.wrap} data-appointments-table="true">
@@ -252,7 +294,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                 <tr>
                   <th mix={[table.thSortable, compactTh]} title="Titel">
                     <a
-                      href={buildSortUrl(BASE, 'a.title', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(BASE, 'a.title', sortColumn, sortDirection, offset, filter, period, status)}
                       mix={table.sortLink}
                     >
                       Titel
@@ -263,7 +305,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Ressource">
                     <a
-                      href={buildSortUrl(BASE, 'r.description', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(BASE, 'r.description', sortColumn, sortDirection, offset, filter, period, status)}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -274,7 +316,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Datum">
                     <a
-                      href={buildSortUrl(BASE, 'a.date', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(BASE, 'a.date', sortColumn, sortDirection, offset, filter, period, status)}
                       mix={table.sortLink}
                     >
                       Datum
@@ -285,7 +327,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Zeit">
                     <a
-                      href={buildSortUrl(BASE, 'a.during', sortColumn, sortDirection, offset, filter, period)}
+                      href={buildSortUrl(BASE, 'a.during', sortColumn, sortDirection, offset, filter, period, status)}
                       mix={table.sortLink}
                     >
                       Zeit
@@ -309,7 +351,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
                       <div mix={btnGroupStyle}>
                         <a
-                          href={buildEditUrl(row.id, offset, sortColumn, sortDirection, filter, period)}
+                          href={buildEditUrl(row.id, offset, sortColumn, sortDirection, filter, period, status)}
                           mix={editBtnStyle}
                           title="Bearbeiten"
                         >
@@ -327,6 +369,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                               order: sortDirection,
                               filter: filter ?? '',
                               period: period ?? '',
+                              status: status ?? '',
                             }}
                           />
                           <button
@@ -356,7 +399,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(BASE, prevOffset, sortColumn, sortDirection, filter, period)}
+                  href={buildPaginationUrl(BASE, prevOffset, sortColumn, sortDirection, filter, period, status)}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} />{' '}
@@ -370,7 +413,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(BASE, nextOffset, sortColumn, sortDirection, filter, period)}
+                  href={buildPaginationUrl(BASE, nextOffset, sortColumn, sortDirection, filter, period, status)}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
@@ -404,6 +447,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   order={sortDirection}
                   filter={filter}
                   period={period}
+                  status={status}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                   formError={formError}
@@ -417,6 +461,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   order={sortDirection}
                   filter={filter}
                   period={period}
+                  status={status}
                   defaultStartMin={defaultStartMin}
                   formValues={formValues}
                   fieldErrors={fieldErrors}

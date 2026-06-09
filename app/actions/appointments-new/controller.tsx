@@ -11,7 +11,7 @@ import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { AppointmentsNewPage } from '../../ui/appointments-new-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
-import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod } from '../../utils/grid-state.ts'
+import { gridStateToParams, gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, gridStateStatus } from '../../utils/grid-state.ts'
 import { appointmentChannel } from '../../lib/appointments-sse.ts'
 import { appointmentsNewSaveSchema, APPOINTMENTS_NEW_FORM_KEYS } from '../../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
@@ -93,6 +93,7 @@ interface AppointmentsNewPageData {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   period: string | undefined
+  status: string | undefined
   resources: ResourceOption[]
   editRow: AppointmentsNewRow | null
   creating: boolean
@@ -111,11 +112,12 @@ interface AppointmentsNewPageData {
 async function loadAppointmentsNewPageData(
   context: AppContext,
   userId: number,
-  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'step' | 'wizardResourceId' | 'wizardDay'>>,
+  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'wizardDay'>>,
 ): Promise<AppointmentsNewPageData> {
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
+  let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
 
   let { column, direction } = overrides?.sortColumn ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const } : parseSort(context.url, {
     allowedColumns: Object.keys(ORDER_BY_COLUMNS),
@@ -142,6 +144,16 @@ async function loadAppointmentsNewPageData(
     paramIndex++
     query += ` AND a.date < $${paramIndex}`
     params.push(periodRange.endMs)
+  }
+
+  if (status === 'pending' || !status) {
+    paramIndex++
+    query += ` AND a.date >= $${paramIndex}`
+    params.push(Date.now())
+  } else if (status === 'expired') {
+    paramIndex++
+    query += ` AND a.date < $${paramIndex}`
+    params.push(Date.now())
   }
 
   paramIndex++
@@ -277,6 +289,7 @@ async function loadAppointmentsNewPageData(
     sortDirection: direction,
     filter,
     period,
+    status,
     resources,
     editRow,
     creating,
@@ -310,6 +323,7 @@ function renderAppointmentsNewPage(
         sortDirection={data.sortDirection}
         filter={data.filter}
         period={data.period}
+        status={data.status}
         editRow={data.editRow}
         creating={data.creating}
         resources={data.resources}
@@ -367,6 +381,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
@@ -375,6 +390,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
           params.set('step', '2')
           params.set('resource_id', resourceIdRaw.trim())
           if (gridValues.period) params.set('period', gridValues.period)
+          if (gridValues.status) params.set('status', gridValues.status)
           return new Response(null, {
             status: 302,
             headers: { Location: routes.appointmentsNew.index.href() + '?' + params.toString() },
@@ -400,6 +416,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
@@ -409,6 +426,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
           params.set('resource_id', resourceIdRaw.trim())
           params.set('day', dayRaw.trim())
           if (gridValues.period) params.set('period', gridValues.period)
+          if (gridValues.status) params.set('status', gridValues.status)
           return new Response(null, {
             status: 302,
             headers: { Location: routes.appointmentsNew.index.href() + '?' + params.toString() },
@@ -433,6 +451,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -453,6 +472,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -476,6 +496,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -506,6 +527,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
@@ -541,6 +563,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -556,6 +579,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -574,6 +598,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -595,6 +620,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -621,6 +647,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }
@@ -636,6 +663,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
               sortDirection: gridStateDirection(gridValues),
               filter: gridStateFilter(gridValues),
               period: gridStatePeriod(gridValues),
+              status: gridStateStatus(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }

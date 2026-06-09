@@ -9,6 +9,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import { routes } from '../routes.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
 
 const inlineErrorStyle = css({
   color: theme.colors.action.danger.background,
@@ -26,6 +27,7 @@ function buildBackUrl(resourceId: string, gridState: GridState): string {
   if (gridState.sort) params.set('sort', gridState.sort)
   if (gridState.order) params.set('order', gridState.order)
   if (gridState.filter) params.set('filter', gridState.filter)
+  if (gridState.status) params.set('status', gridState.status)
   return routes.appointmentsNew.index.href() + '?' + params.toString()
 }
 
@@ -70,6 +72,7 @@ export function WizardStep3(handle: Handle<WizardStep3Props>) {
           <input type="hidden" name="_order" value={gridState.order} />
           <input type="hidden" name="_filter" value={gridState.filter} />
           <input type="hidden" name="_period" value={gridState.period ?? ''} />
+          <input type="hidden" name="_status" value={gridState.status ?? ''} />
           <input type="hidden" name="step" value="3" />
           <input type="hidden" name="resource_id" value={resourceId} />
           <input type="hidden" name="date" value={new Date(Number(day)).toISOString().split('T')[0]} />
@@ -128,7 +131,7 @@ export function WizardStep3(handle: Handle<WizardStep3Props>) {
                     Zurück
                   </Button>
                 </a>
-                <a href={routes.appointmentsNew.index.href()} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.appointmentsNew.index.href(), gridState.offset, gridState.sort, gridState.order, gridState.filter, gridState.period, gridState.status)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

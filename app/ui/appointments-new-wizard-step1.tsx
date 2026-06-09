@@ -9,6 +9,7 @@ import { RestfulForm } from './restful-form.tsx'
 import type { GridState } from '../utils/grid-state.ts'
 import type { ResourceOption } from '../actions/appointments-new/controller.tsx'
 import { routes } from '../routes.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
 
 const inlineErrorStyle = css({
   color: theme.colors.action.danger.background,
@@ -36,6 +37,7 @@ export function WizardStep1(handle: Handle<WizardStep1Props>) {
           <input type="hidden" name="_order" value={gridState.order} />
           <input type="hidden" name="_filter" value={gridState.filter} />
           <input type="hidden" name="_period" value={gridState.period ?? ''} />
+          <input type="hidden" name="_status" value={gridState.status ?? ''} />
           <input type="hidden" name="step" value="1" />
 
           <div mix={table.panel}>
@@ -68,7 +70,7 @@ export function WizardStep1(handle: Handle<WizardStep1Props>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Weiter
                 </Button>
-                <a href={routes.appointmentsNew.index.href()} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.appointmentsNew.index.href(), gridState.offset, gridState.sort, gridState.order, gridState.filter, gridState.period, gridState.status)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

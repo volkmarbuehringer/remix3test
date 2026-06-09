@@ -58,7 +58,7 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
   return () => {
     let { mode, resources, gridState, row, defaultStartMin = 480, fieldErrors, formError, formValues, fullHourSlots } = handle.props
     let isEdit = mode === 'edit'
-    let { offset, sort, order, filter = '', period = '' } = gridState
+    let { offset, sort, order, filter = '', period = '', status = '' } = gridState
 
     let resolvedResourceId = formValues?.resource_id ?? (isEdit && row ? row.resource_id : undefined)
     let resolvedTitle = formValues?.title ?? (isEdit && row ? row.title : undefined)
@@ -156,7 +156,7 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   {submitLabel}
                 </Button>
-                <a href={buildCancelUrl(BASE, offset, sort, order, filter, period)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(BASE, offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>

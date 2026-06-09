@@ -463,6 +463,59 @@ describe('Appointments New Controller', () => {
 
   // ── Grid state preservation on create ──
 
+  // ── Status filter ──
+
+  it('GET /appointments/new defaults to pending (future appointments)', async () => {
+    let futureDate = futureDateStr
+    let response = await router.fetch(APPT_URL, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    // Ausstehend button should be active by default
+    assert.ok(html.includes('Ausstehend'))
+  })
+
+  it('GET /appointments/new with status=pending shows future appointments', async () => {
+    let response = await router.fetch(`${APPT_URL}?status=pending`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Meine Termine'))
+  })
+
+  it('GET /appointments/new with status=expired shows past appointments', async () => {
+    // Insert a past appointment directly (POST blocks past dates)
+    let pastDayMs = new Date('2020-06-01T00:00:00Z').getTime()
+    let pastResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Past Appointment For Status Test', $2, '[480,540)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, pastDayMs, Date.now()],
+    )
+    let pastId = pastResult.rows[0].id as number
+    createdAppointmentIds.push(pastId)
+
+    let response = await router.fetch(`${APPT_URL}?status=expired`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Past Appointment For Status Test'))
+  })
+
+  it('GET /appointments/new with status=pending filters out past appointments', async () => {
+    let response = await router.fetch(`${APPT_URL}?status=pending`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(!html.includes('Past Appointment For Status Test'))
+  })
+
+  // ── Grid state preservation on create ──
+
   it('POST /appointments/new preserves grid state params', async () => {
     let body = new URLSearchParams({
       resource_id: String(firstResourceId),
