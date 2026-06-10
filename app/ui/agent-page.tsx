@@ -318,6 +318,7 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
                       <div mix={messageMetaStyle}>
                         <span mix={messageLabelStyle}>
                           {msg.role === 'user' ? 'Du' : 'Assistent'}
+                          {msg.timestamp && <span mix={messageLabelStyle}> · {new Date(msg.timestamp).toLocaleString('de-DE')}</span>}
                           {msg.elapsed && (
                             <span mix={elapsedBadgeStyle}>
                               {msg.elapsed < 1000
