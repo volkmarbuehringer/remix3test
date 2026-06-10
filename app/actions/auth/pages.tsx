@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
+import { Glyph } from 'remix/ui/glyph'
 
 import { routes } from '../../routes.ts'
 
@@ -184,10 +185,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                   mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
                 />
                 <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
+                  <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
@@ -209,10 +207,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                   mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
                 />
                 <button type="button" data-toggle-pw="confirmPassword" aria-label="Show password" mix={toggleButtonCss}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
+                  <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
               {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
@@ -336,10 +331,7 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
                 />
                 <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
+                  <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
@@ -361,10 +353,7 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
                 />
                 <button type="button" data-toggle-pw="confirmPassword" aria-label="Show password" mix={toggleButtonCss}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
+                  <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
               {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}

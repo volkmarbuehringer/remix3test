@@ -4,6 +4,7 @@ import * as f from 'remix/data-schema/form-data'
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
+import { Glyph } from 'remix/ui/glyph'
 import { createController } from 'remix/router'
 
 import { routes } from '../../routes.ts'
@@ -210,10 +211,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                     mix={[input.base, input.focus, passwordErrors?.currentPassword ? input.error : undefined, inputHasToggleCss]}
                   />
                   <button type="button" data-toggle-pw="currentPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
+                    <Glyph name="eye" width={18} height={18} />
                   </button>
                 </div>
                 {passwordErrors?.currentPassword ? <span id="current-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.currentPassword}</span> : null}
@@ -233,10 +231,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                     mix={[input.base, input.focus, passwordErrors?.newPassword ? input.error : undefined, inputHasToggleCss]}
                   />
                   <button type="button" data-toggle-pw="newPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
+                    <Glyph name="eye" width={18} height={18} />
                   </button>
                 </div>
                 {passwordErrors?.newPassword ? <span id="new-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.newPassword}</span> : null}
@@ -257,10 +252,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                     mix={[input.base, input.focus, passwordErrors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
                   />
                   <button type="button" data-toggle-pw="confirmPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
+                    <Glyph name="eye" width={18} height={18} />
                   </button>
                 </div>
                 {passwordErrors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.confirmPassword}</span> : null}

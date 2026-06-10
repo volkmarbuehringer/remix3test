@@ -239,9 +239,7 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
           <div mix={sectionCardStyles}>
             <div mix={sectionHeaderStyles}>
               <div mix={sectionIconStyles}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                </svg>
+                <Glyph name="clock" width={24} height={24} />
               </div>
               <h2>Letzte Ausführungen</h2>
             </div>
@@ -249,9 +247,7 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
             {recentRuns.length === 0 ? (
               <div mix={emptyStateStyles}>
                 <div mix={emptyIconStyles}>
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                  </svg>
+                  <Glyph name="clock" width={48} height={48} />
                 </div>
                 <p>Noch keine Ausführungen.</p>
                 <span>Wähle oben einen Workflow, um zu beginnen.</span>
@@ -270,15 +266,11 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                       </div>
                       <div mix={runCardMetaStyles}>
                         <span mix={runMetaStyles}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                          </svg>
+                          <Glyph name="user" width={12} height={12} />
                           {run.id.slice(0, 8)}...
                         </span>
                         <span mix={runMetaStyles}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                          </svg>
+                          <Glyph name="clock" width={12} height={12} />
                           {new Date(Number(run.created_at)).toLocaleString('de-DE')}
                         </span>
                       </div>

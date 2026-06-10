@@ -1,6 +1,7 @@
 import { clientEntry, css, on, ref, type Handle, type SerializableProps } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 import { Glyph } from 'remix/ui/glyph'
+import { Separator } from 'remix/ui/separator'
 import * as menu from 'remix/ui/menu'
 import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
 
@@ -145,7 +146,7 @@ export const AppointTypePanel = clientEntry(
               })}
             >
               <MenuItem name="edit"><Glyph name="edit" width={14} height={14} /> Bearbeiten</MenuItem>
-              <div role="separator" />
+              <Separator />
               <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}><Glyph name="trash" width={14} height={14} /> Löschen</MenuItem>
             </MenuList>
           </menu.Context>

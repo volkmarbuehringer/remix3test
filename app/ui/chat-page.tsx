@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
+import { Glyph } from 'remix/ui/glyph'
 import { Button } from 'remix/ui/button'
 import { routes } from '../routes.ts'
 import { ScrollToTop } from './scroll-to-top.tsx'
@@ -281,10 +282,7 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
                 <div key={index} mix={[messageStyle, msg.role === 'user' ? userMessageStyle : assistantMessageStyle]}>
                   <div mix={[messageAvatarStyle, msg.role === 'user' ? userAvatarStyle : assistantAvatarStyle]}>
                     {msg.role === 'user' ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
+                      <Glyph name="user" width={18} height={18} />
                     ) : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
@@ -331,10 +329,7 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
               mix={messageInputStyle}
             />
             <Button type="submit" tone="primary" aria-label="Nachricht senden" mix={sendButtonStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
+              <Glyph name="send" width={20} height={20} />
             </Button>
           </div>
         </form>

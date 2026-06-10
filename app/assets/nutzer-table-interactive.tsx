@@ -2,6 +2,7 @@ import { clientEntry, css, on, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
 import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
 import { Glyph } from 'remix/ui/glyph'
+import { Separator } from 'remix/ui/separator'
 import { theme } from 'remix/ui/theme'
 import { showToast } from '../ui/toast.ts'
 
@@ -54,7 +55,7 @@ export const NutzerTableInteractive = clientEntry(
           >
             <MenuItem name="edit"><Glyph name="edit" width={14} height={14} /> Bearbeiten</MenuItem>
             <MenuItem name="reset-password"><Glyph name="chevronRight" width={14} height={14} /> Passwort zurücksetzen</MenuItem>
-            <div role="separator" />
+            <Separator />
             {isLocked
               ? <MenuItem name="unlock">Entsperren</MenuItem>
               : <MenuItem name="lock">Sperren</MenuItem>}
@@ -62,7 +63,7 @@ export const NutzerTableInteractive = clientEntry(
               ? <MenuItem name="deactivate">Deaktivieren</MenuItem>
               : <MenuItem name="activate">Aktivieren</MenuItem>}
             <MenuItem name="copy-email" disabled={!currentRow?.n_email}><Glyph name="copy" width={14} height={14} /> E-Mail kopieren</MenuItem>
-            <div role="separator" />
+            <Separator />
             <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}><Glyph name="trash" width={14} height={14} /> Löschen</MenuItem>
           </MenuList>
         </menu.Context>

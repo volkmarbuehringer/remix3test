@@ -1,6 +1,7 @@
 import { css } from 'remix/ui'
 import type { Handle } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
+import { Glyph } from 'remix/ui/glyph'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
 import { MainNav } from './main-nav.tsx'
@@ -84,26 +85,44 @@ function HeroSection() {
         </h1>
         <div mix={heroDividerCss} />
         <p mix={heroDescCss}>
-          openDesk vereint Terminplanung, Kundenmanagement und intelligente
-          KI-Assistenz in einer Plattform, die dein Team lieben wird.
+          openDesk vereint Terminplanung, Kundenmanagement und intelligente KI-Assistenz in einer
+          Plattform, die dein Team lieben wird.
         </p>
         <div mix={heroBtnGroupCss}>
           <a href={routes.auth.register.index.href()} mix={heroBtnCss}>
             <span>30 Tage testen</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <Glyph name="arrowRight" width={16} height={16} />
           </a>
           <a href={routes.ui.href()} mix={heroGhostBtnCss}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polygon points="10 8 16 12 10 16 10 8" />
+            </svg>
             Demo ansehen
           </a>
         </div>
         <div mix={trustRowCss}>
           <div mix={trustAvatarsCss}>
             {[indigo[500], amber, emerald, rose].map((c, i) => (
-              <div key={i} mix={trustAvatarCss} style={{ background: c, borderColor: theme.surface.lvl0 }} />
+              <div
+                key={i}
+                mix={trustAvatarCss}
+                style={{ background: c, borderColor: theme.surface.lvl0 }}
+              />
             ))}
           </div>
-          <span mix={trustTextCss}>Von <strong>12+</strong> Teams vertraut</span>
+          <span mix={trustTextCss}>
+            Von <strong>12+</strong> Teams vertraut
+          </span>
         </div>
       </div>
       <div mix={heroVisualCss}>
@@ -129,11 +148,11 @@ function HeroSection() {
           </div>
         </div>
         <div mix={heroFloatingBadge1Css}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={emerald} stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <Glyph name="check" width={14} height={14} style={{ color: emerald }} />
           KI-gestützt
         </div>
         <div mix={heroFloatingBadge2Css}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={indigo[500]} stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <Glyph name="calendar" width={14} height={14} style={{ color: indigo[500] }} />
           Termine sync
         </div>
       </div>
@@ -148,9 +167,14 @@ function StatBar(handle: Handle<{ label: string; value: string; color: string }>
       <div mix={statBarRowCss}>
         <span mix={statBarLabelCss}>{label}</span>
         <div mix={statBarTrackCss}>
-          <div mix={statBarFillCss} style={{ width: `${Number(value) * 10}%`, background: color }} />
+          <div
+            mix={statBarFillCss}
+            style={{ width: `${Number(value) * 10}%`, background: color }}
+          />
         </div>
-        <span mix={statBarValueCss} style={{ color }}>{value}</span>
+        <span mix={statBarValueCss} style={{ color }}>
+          {value}
+        </span>
       </div>
     )
   }
@@ -164,30 +188,49 @@ function ApproachSection() {
         Administration, die sich nach <span mix={approachHighlightCss}>Menschen</span> richtet
       </h2>
       <p mix={approachDescCss}>
-        Nicht nach Tabellen. Wir haben die typische Verwaltungssoftware von Grund auf
-        neu gedacht — mit Fokus auf Geschwindigkeit, Klarheit und einem Hauch von Freude.
+        Nicht nach Tabellen. Wir haben die typische Verwaltungssoftware von Grund auf neu gedacht —
+        mit Fokus auf Geschwindigkeit, Klarheit und einem Hauch von Freude.
       </p>
       <div mix={approachGridCss}>
         <div mix={approachCardCss}>
           <div mix={approachIconCss} style={{ background: `${indigo[100]}`, color: indigo[600] }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <Glyph name="zap" width={20} height={20} />
           </div>
           <h3 mix={approachCardTitleCss}>Blitzschnell</h3>
-          <p mix={approachCardDescCss}>Seitenwechsel ohne Neuladen. Keine Wartezeiten, keine Unterbrechungen.</p>
+          <p mix={approachCardDescCss}>
+            Seitenwechsel ohne Neuladen. Keine Wartezeiten, keine Unterbrechungen.
+          </p>
         </div>
         <div mix={approachCardCss}>
           <div mix={approachIconCss} style={{ background: `${emerald}15`, color: emerald }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <Glyph name="shield" width={20} height={20} />
           </div>
           <h3 mix={approachCardTitleCss}>Sicher & DSGVO</h3>
-          <p mix={approachCardDescCss}>Europäische Server, Ende-zu-Ende-Verschlüsselung, volle Kontrolle.</p>
+          <p mix={approachCardDescCss}>
+            Europäische Server, Ende-zu-Ende-Verschlüsselung, volle Kontrolle.
+          </p>
         </div>
         <div mix={approachCardCss}>
           <div mix={approachIconCss} style={{ background: `${amber}15`, color: amber }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
+              <path d="M12 18V6" />
+            </svg>
           </div>
           <h3 mix={approachCardTitleCss}>Fair Prepaid</h3>
-          <p mix={approachCardDescCss}>Keine versteckten Kosten. Ein klarer Preis, alle Funktionen.</p>
+          <p mix={approachCardDescCss}>
+            Keine versteckten Kosten. Ein klarer Preis, alle Funktionen.
+          </p>
         </div>
       </div>
     </section>
@@ -197,7 +240,7 @@ function ApproachSection() {
 function CapabilitiesSection() {
   return () => {
     let user = getCurrentUserSafely()
-    let authHref = (path: string) => user ? path : routes.auth.login.index.href()
+    let authHref = (path: string) => (user ? path : routes.auth.login.index.href())
     return (
       <section mix={capSectionCss}>
         <div mix={capGridCss}>
@@ -238,29 +281,49 @@ function CapabilitiesSection() {
   }
 }
 
-function CapCard(handle: Handle<{ number: string; title: string; desc: string; tags: string[]; accent: string; href?: string }>) {
+function CapCard(
+  handle: Handle<{
+    number: string
+    title: string
+    desc: string
+    tags: string[]
+    accent: string
+    href?: string
+  }>,
+) {
   return () => {
     let { number, title, desc, tags, accent, href } = handle.props
     let content = (
       <>
         <div mix={capCardTopCss}>
-          <span mix={capNumCss} style={{ color: accent }}>{number}</span>
+          <span mix={capNumCss} style={{ color: accent }}>
+            {number}
+          </span>
           {href ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={accent} stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <Glyph name="arrowRight" width={20} height={20} style={{ color: accent }} />
           ) : null}
         </div>
         <h3 mix={capTitleCss}>{title}</h3>
         <p mix={capDescCss}>{desc}</p>
         <div mix={capTagsCss}>
           {tags.map((t) => (
-            <span key={t} mix={capTagCss} style={{ background: `${accent}12`, color: accent }}>{t}</span>
+            <span key={t} mix={capTagCss} style={{ background: `${accent}12`, color: accent }}>
+              {t}
+            </span>
           ))}
         </div>
-        <div mix={capBarCss} style={{ background: `linear-gradient(90deg, ${accent}, ${accent}40)` }} />
+        <div
+          mix={capBarCss}
+          style={{ background: `linear-gradient(90deg, ${accent}, ${accent}40)` }}
+        />
       </>
     )
     if (href) {
-      return <a href={href} mix={[capCardCss, capCardLinkCss]}>{content}</a>
+      return (
+        <a href={href} mix={[capCardCss, capCardLinkCss]}>
+          {content}
+        </a>
+      )
     }
     return <article mix={capCardCss}>{content}</article>
   }
@@ -275,9 +338,11 @@ function CtaSection() {
         <div mix={ctaBtnGroupCss}>
           <a href={routes.auth.register.index.href()} mix={ctaBtnCss}>
             Kostenlos starten
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <Glyph name="arrowRight" width={16} height={16} />
           </a>
-          <a href={routes.auth.login.index.href()} mix={ctaGhostCss}>Ich habe bereits ein Konto</a>
+          <a href={routes.auth.login.index.href()} mix={ctaGhostCss}>
+            Ich habe bereits ein Konto
+          </a>
         </div>
       </div>
     </section>
@@ -417,7 +482,11 @@ const heroBtnCss = css({
   fontWeight: 600,
   transition: 'all 200ms ease',
   boxShadow: `0 4px 14px ${indigo[500]}40`,
-  '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 8px 25px ${indigo[500]}60`, background: indigo[700] },
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: `0 8px 25px ${indigo[500]}60`,
+    background: indigo[700],
+  },
 })
 
 const heroGhostBtnCss = css({
@@ -432,7 +501,11 @@ const heroGhostBtnCss = css({
   fontWeight: 500,
   border: `1px solid ${theme.colors.border.default}`,
   transition: 'all 150ms ease',
-  '&:hover': { color: theme.colors.text.primary, borderColor: theme.colors.border.strong, background: theme.surface.lvl1 },
+  '&:hover': {
+    color: theme.colors.text.primary,
+    borderColor: theme.colors.border.strong,
+    background: theme.surface.lvl1,
+  },
 })
 
 const trustRowCss = css({
@@ -671,7 +744,11 @@ const approachCardCss = css({
   border: `1px solid ${theme.colors.border.subtle}`,
   textAlign: 'left',
   transition: 'all 250ms ease',
-  '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadow.lg, borderColor: theme.colors.border.default },
+  '&:hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: theme.shadow.lg,
+    borderColor: theme.colors.border.default,
+  },
 })
 
 const approachIconCss = css({
@@ -735,7 +812,11 @@ const capCardLinkCss = css({
   position: 'relative',
   transition: 'all 250ms ease',
   cursor: 'pointer',
-  '&:hover': { transform: 'translateY(-3px)', boxShadow: theme.shadow.md, borderColor: theme.colors.border.default },
+  '&:hover': {
+    transform: 'translateY(-3px)',
+    boxShadow: theme.shadow.md,
+    borderColor: theme.colors.border.default,
+  },
 })
 
 const capCardTopCss = css({

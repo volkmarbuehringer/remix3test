@@ -31,3 +31,6 @@ minimumReleaseAgeExclude:
   - '@typescript/native-preview-win32-x64@7.0.0-dev.20260608.1'
   - '@typescript/native-preview@7.0.0-dev.20260608.1'
   - oxlint@1.69.0
+  - '@ai-sdk/gateway@3.0.127'
+  - ai@6.0.199
+  - prettier@3.8.4

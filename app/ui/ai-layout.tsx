@@ -29,11 +29,7 @@ function navIcon(id: AiNavItem): RemixNode {
     case 'dashboard':
       return <Glyph name="menu" width={16} height={16} />
     case 'chat':
-      return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      )
+      return <Glyph name="chat" width={16} height={16} />
     case 'agent':
       return <Glyph name="info" width={16} height={16} />
     case 'workflow':
@@ -46,12 +42,7 @@ function navIcon(id: AiNavItem): RemixNode {
 }
 
 function sidebarHeaderIcon(): RemixNode {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 6v6l4 2" />
-    </svg>
-  )
+  return <Glyph name="clock" width={14} height={14} />
 }
 
 // ── Exports ─────────────────────────────────────────────────────
