@@ -1,5 +1,5 @@
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 import { LABEL_WIDTH, HOURS, SLOT_HEIGHT, SUB_SLOT_HEIGHT } from './appointment-grid-types.ts'
 
 export const gridWrapperStyle = css({

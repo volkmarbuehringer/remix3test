@@ -1,5 +1,5 @@
 import type { RemixNode } from 'remix/ui'
-import { Glyph } from 'remix/ui/glyph'
+import { Glyph } from '../lib/glyph.ts'
 
 import { routes, frames } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'

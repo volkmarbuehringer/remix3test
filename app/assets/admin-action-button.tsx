@@ -1,7 +1,7 @@
 import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
 import { Button } from 'remix/ui/button'
-import { Glyph } from 'remix/ui/glyph'
-import { theme } from 'remix/ui/theme'
+import { Glyph } from '../lib/glyph.ts'
+import { theme } from '../lib/theme.ts'
 
 interface AdminActionButtonProps extends SerializableProps {
   action: string

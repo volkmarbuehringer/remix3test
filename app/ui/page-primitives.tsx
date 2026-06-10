@@ -1,6 +1,6 @@
 import { css } from 'remix/ui'
 import type { Handle, RemixNode } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 interface PageSectionProps {
   children: RemixNode

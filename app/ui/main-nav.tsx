@@ -1,6 +1,6 @@
 import { css } from 'remix/ui'
-import { Glyph } from 'remix/ui/glyph'
-import { theme } from 'remix/ui/theme'
+import { Glyph } from '../lib/glyph.ts'
+import { theme } from '../lib/theme.ts'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCurrentUserSafely } from '../utils/context.ts'

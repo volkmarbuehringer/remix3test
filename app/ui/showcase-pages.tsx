@@ -1,5 +1,5 @@
 import { css, type Handle, type RemixNode } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 import { Button } from 'remix/ui/button'
 import { SHOWCASE_SECTIONS, SHOWCASE_PAGES } from './showcase-registry.ts'

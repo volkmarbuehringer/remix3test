@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
-import { Glyph } from 'remix/ui/glyph'
+import { theme } from '../../lib/theme.ts'
+import { Glyph } from '../../lib/glyph.ts'
 
 import { routes } from '../../routes.ts'
 

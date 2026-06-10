@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 import { routes, frames } from '../routes.ts'
 import { AdminActionButton } from '../assets/admin-action-button.tsx'

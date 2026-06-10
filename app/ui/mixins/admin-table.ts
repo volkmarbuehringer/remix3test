@@ -1,5 +1,5 @@
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../../lib/theme.ts'
 
 const surface = theme.surface as Record<string, string>
 

@@ -1,4 +1,4 @@
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 const TOAST_DURATION = 3500
 

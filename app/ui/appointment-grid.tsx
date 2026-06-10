@@ -1,5 +1,5 @@
 import { clientEntry, on, ref, type Handle } from 'remix/ui'
-import { Glyph } from 'remix/ui/glyph'
+import { Glyph } from '../lib/glyph.ts'
 
 import {
   previewMoveBlock,

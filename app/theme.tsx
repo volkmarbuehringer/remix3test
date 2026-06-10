@@ -1,4 +1,4 @@
-import { createTheme } from 'remix/ui/theme'
+import { createTheme } from './lib/theme.ts'
 
 // ── Brand palette (standalone so theme values can reference it) ──
 

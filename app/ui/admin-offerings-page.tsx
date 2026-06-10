@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 import { Button } from 'remix/ui/button'
-import { Glyph } from 'remix/ui/glyph'
+import { Glyph } from '../lib/glyph.ts'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 

@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../../lib/theme.ts'
 import { routes } from '../../routes.ts'
 
 interface Activity {

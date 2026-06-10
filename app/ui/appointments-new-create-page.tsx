@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 import type { ResourceOption, DayWithSlots } from '../actions/appointments-new/controller.tsx'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'

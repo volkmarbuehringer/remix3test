@@ -1,5 +1,5 @@
 import { css, Frame, type Handle } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 
 import { Layout } from './layout.tsx'
 import { AppointmentSidebar } from './appointment-sidebar.tsx'

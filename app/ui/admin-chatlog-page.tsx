@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { theme } from '../lib/theme.ts'
 import { Button } from 'remix/ui/button'
 import { routes, frames } from '../routes.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
