@@ -131,6 +131,10 @@ export const routes = route({
     report1: route('report1', {
       index: get('/'),
     }),
+
+    pdf: route('pdf', {
+      index: get('/'),
+    }),
   }),
 
   ai: route('ai', {
