@@ -7,10 +7,12 @@ let initialized = false
 
 function ensureFonts() {
   if (initialized) return
+  pdfmake.setUrlAccessPolicy(() => false)
   let dir = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    '../../node_modules/.pnpm/pdfmake@0.3.10/node_modules/pdfmake/fonts/Roboto',
+    '../../node_modules/pdfmake/fonts/Roboto',
   )
+  pdfmake.setLocalAccessPolicy((fp: string) => fp.startsWith(dir))
   pdfmake.setFonts({
     Roboto: {
       normal: path.join(dir, 'Roboto-Regular.ttf'),
