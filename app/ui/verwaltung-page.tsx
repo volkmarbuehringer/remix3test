@@ -91,6 +91,13 @@ export function VerwaltungDashboardContent() {
             Auswertung öffnen
           </a>
         </div>
+        <div mix={cardStyle}>
+          <h2 mix={cardTitleStyle}>PDF-Export</h2>
+          <p mix={cardDescStyle}>Alle Termine als PDF herunterladen.</p>
+          <a href={routes.verwaltung.pdf.index.href()} mix={btnStyle}>
+            PDF herunterladen
+          </a>
+        </div>
       </div>
     </div>
   )
