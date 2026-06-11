@@ -127,6 +127,10 @@ export const routes = route({
     resources: resources('resources', { exclude: ['new', 'show', 'edit'] }),
 
     offeringConfigs: resources('offering-configs', { exclude: ['new', 'show', 'edit'] }),
+
+    report1: route('report1', {
+      index: get('/'),
+    }),
   }),
 
   ai: route('ai', {

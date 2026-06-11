@@ -4,7 +4,7 @@ import * as s from 'remix/data-schema'
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
-import { isDateInPast, getPeriodRange, getCurrentWeekMonday } from '../../utils/date-utils.ts'
+import { isDateInPast, getPeriodRange, getCurrentWeekMonday, getTodayUtcMidnight } from '../../utils/date-utils.ts'
 import { listOfferingsByDayRange, parseDuring, computeFullHourSlots, getBookedRanges, getBookedRangesForWeek, filterAvailableSlots } from '../../data/appointofferings.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
@@ -143,14 +143,15 @@ async function loadAppointmentsNewPageData(
     params.push(periodRange.endMs)
   }
 
+  let todayMidnight = getTodayUtcMidnight()
   if (status === 'pending' || !status) {
     paramIndex++
     query += ` AND a.date >= $${paramIndex}`
-    params.push(Date.now())
+    params.push(todayMidnight)
   } else if (status === 'expired') {
     paramIndex++
     query += ` AND a.date < $${paramIndex}`
-    params.push(Date.now())
+    params.push(todayMidnight)
   }
 
   paramIndex++

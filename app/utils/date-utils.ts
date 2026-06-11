@@ -19,6 +19,14 @@ export function isWithinHours(epochMs: number, hours: number): boolean {
 }
 
 /**
+ * Returns epoch ms for today at 00:00:00 UTC.
+ */
+export function getTodayUtcMidnight(): number {
+  let now = new Date()
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+}
+
+/**
  * Returns epoch ms for Monday 00:00:00 UTC of the current week.
  */
 export function getCurrentWeekMonday(): number {

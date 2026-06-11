@@ -31,6 +31,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Client Lab', href: '/client' },
       { label: 'Nutzer', href: '/nutzer', adminOnly: true },
       { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
+      { label: 'Auswertung', href: '/verwaltung/report1', adminOnly: true },
       { label: 'Admin', href: '/admin', adminOnly: true },
     ],
   },

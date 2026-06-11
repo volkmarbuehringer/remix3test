@@ -84,6 +84,13 @@ export function VerwaltungDashboardContent() {
             Konfigurationen öffnen
           </a>
         </div>
+        <div mix={cardStyle}>
+          <h2 mix={cardTitleStyle}>Monatsauswertung</h2>
+          <p mix={cardDescStyle}>Termine pro Benutzer nach Monat auswerten.</p>
+          <a href={routes.verwaltung.report1.index.href()} mix={btnStyle}>
+            Auswertung öffnen
+          </a>
+        </div>
       </div>
     </div>
   )

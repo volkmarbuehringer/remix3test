@@ -9,7 +9,7 @@ import { default as aiController, aiChat, aiAgent, aiWorkflow, aiFragments } fro
 import clientController from './actions/client/controller.tsx'
 import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
-import { default as verwaltungController, verwaltungOfferings, verwaltungAppointments, verwaltungResources, verwaltungOfferingConfigs } from './actions/verwaltung/controller.tsx'
+import { default as verwaltungController, verwaltungOfferings, verwaltungAppointments, verwaltungResources, verwaltungOfferingConfigs, verwaltungReport1 } from './actions/verwaltung/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
@@ -89,6 +89,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.verwaltung.appointments, verwaltungAppointments)
   router.map(routes.verwaltung.resources, verwaltungResources)
   router.map(routes.verwaltung.offeringConfigs, verwaltungOfferingConfigs)
+  router.map(routes.verwaltung.report1, verwaltungReport1)
 
   return router
 }
