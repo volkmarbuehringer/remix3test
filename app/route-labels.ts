@@ -61,6 +61,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.verwaltung.resources.index.href()]: 'Ressourcen',
   [routes.verwaltung.offeringConfigs.index.href()]: 'Angebotskonfigurationen',
 
+  [routes.verwaltung.usersPdf.index.href()]: 'Benutzer-PDF',
+
   // UI showcase
   [routes.ui.href()]: 'UI Showcase',
   [routes.uiComponent.href({ component: 'button' })]: 'Button',

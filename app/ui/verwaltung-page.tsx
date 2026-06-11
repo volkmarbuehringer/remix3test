@@ -98,6 +98,13 @@ export function VerwaltungDashboardContent() {
             PDF herunterladen
           </a>
         </div>
+        <div mix={cardStyle}>
+          <h2 mix={cardTitleStyle}>Benutzer-PDF</h2>
+          <p mix={cardDescStyle}>Benutzerübersicht mit Terminzusammenfassung als PDF.</p>
+          <a href={routes.verwaltung.usersPdf.index.href()} rmx-document mix={btnStyle}>
+            PDF herunterladen
+          </a>
+        </div>
       </div>
     </div>
   )

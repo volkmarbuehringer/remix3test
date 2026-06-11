@@ -11,6 +11,7 @@ import { adminController, adminChatlog, adminChatlogFragments, adminMessages, ad
 import adminNutzerController from './actions/nutzer/controller.tsx'
 import { default as verwaltungController, verwaltungOfferings, verwaltungAppointments, verwaltungResources, verwaltungOfferingConfigs, verwaltungReport1 } from './actions/verwaltung/controller.tsx'
 import verwaltungPdf from './actions/verwaltung/pdf/controller.tsx'
+import verwaltungUsersPdf from './actions/verwaltung/users-pdf/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
@@ -92,6 +93,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.verwaltung.offeringConfigs, verwaltungOfferingConfigs)
   router.map(routes.verwaltung.report1, verwaltungReport1)
   router.map(routes.verwaltung.pdf, verwaltungPdf)
+  router.map(routes.verwaltung.usersPdf, verwaltungUsersPdf)
 
   return router
 }
