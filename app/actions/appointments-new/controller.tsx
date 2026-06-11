@@ -155,7 +155,7 @@ async function loadAppointmentsNewPageData(
   }
 
   paramIndex++
-  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.start_min ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
   params.push(PAGE_SIZE + 1)
 
@@ -233,6 +233,20 @@ async function loadAppointmentsNewPageData(
         ranges: data.ranges,
       }))
 
+    // Filter out past days and past time slots for today
+    let todayMs = getTodayUtcMidnight()
+    daysWithSlots = daysWithSlots
+      .filter(dws => dws.day >= todayMs)
+      .map(dws => {
+        if (dws.day === todayMs) {
+          let now = new Date()
+          let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+          dws.slots = dws.slots.filter(min => currentMin < min)
+        }
+        return dws
+      })
+      .filter(dws => dws.slots.length > 0)
+
     if (daysWithSlots.length > 0 && daysWithSlots[0].slots.length > 0) {
       defaultStartMin = daysWithSlots[0].slots[0]
     }
@@ -263,6 +277,12 @@ async function loadAppointmentsNewPageData(
     let booked = await getBookedRanges(context.db, editResourceId, editDate, Number(editRowLocal.id))
     if (booked.length > 0) {
       allSlots = filterAvailableSlots(allSlots, booked)
+    }
+    // Filter past time slots for today
+    if (editDate === getTodayUtcMidnight()) {
+      let now = new Date()
+      let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+      allSlots = allSlots.filter(min => currentMin < min)
     }
     fullHourSlots = allSlots
   }
@@ -482,7 +502,8 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
           let { resource_id, title } = result.value
           let end_min = startMin + 60
 
-          if (isDateInPast(dayMs)) {
+          let appointmentStartMs = dayMs + startMin * 60000
+          if (appointmentStartMs <= Date.now()) {
             let data = await loadAppointmentsNewPageData(context, userId, {
               creating: true,
               step: 2,
@@ -612,8 +633,9 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
         let end_min = start_min + 60
 
         let dayMs = new Date(date + 'T00:00:00Z').getTime()
+        let appointmentStartMs = dayMs + start_min * 60000
 
-        if (isDateInPast(dayMs)) {
+        if (appointmentStartMs <= Date.now()) {
           let editRow = await fetchEditRow(id, userId)
           let data = await loadAppointmentsNewPageData(context, userId, {
             editRow,

@@ -10,7 +10,7 @@ import { createController } from 'remix/router'
 import { routes } from '../../routes.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
-import { users } from '../../data/schema.ts'
+import { users, type User } from '../../data/schema.ts'
 import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
@@ -40,7 +40,7 @@ export default createController(routes.settings, {
   actions: {
     index(context) {
       let user = getCurrentUser()
-      return context.render(<SettingsPage />)
+      return context.render(<SettingsPage user={user} />)
     },
 
     async action(context) {
@@ -53,14 +53,14 @@ export default createController(routes.settings, {
       if (_action === 'delete-account') {
         if (user.role === 'admin') {
           return context.render(
-            <SettingsPage deleteError="Administratoren können ihr Konto nicht selbst löschen." />,
+            <SettingsPage user={user} deleteError="Administratoren können ihr Konto nicht selbst löschen." />,
             { status: 403 },
           )
         }
 
         if (!deleteAccountLimiter.attempt(user.id)) {
           return context.render(
-            <SettingsPage deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage user={user} deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
             { status: 429 },
           )
         }
@@ -72,7 +72,7 @@ export default createController(routes.settings, {
         let passwordValid = await verifyPassword(inputPassword, user.password_hash)
         if (!passwordValid) {
           return context.render(
-            <SettingsPage
+            <SettingsPage user={user}
               deleteError="Aktuelles Passwort ist falsch."
             />,
             { status: 400 },
@@ -102,7 +102,7 @@ export default createController(routes.settings, {
           await client.query('ROLLBACK')
           deleteAccountLimiter.reset(user.id)
           return context.render(
-            <SettingsPage deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage user={user} deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
             { status: 500 },
           )
         } finally {
@@ -122,7 +122,7 @@ export default createController(routes.settings, {
 
       if (!changePasswordLimiter.attempt(user.id)) {
         return context.render(
-          <SettingsPage passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+          <SettingsPage user={user} passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
           { status: 429 },
         )
       }
@@ -130,7 +130,7 @@ export default createController(routes.settings, {
       let parsed = s.parseSafe(changePasswordSchema, context.formData)
       if (!parsed.success) {
         return context.render(
-          <SettingsPage passwordError="Bitte überprüfen Sie Ihre Eingabe." passwordErrors={issuesToFieldErrors(parsed.issues)} />,
+          <SettingsPage user={user} passwordError="Bitte überprüfen Sie Ihre Eingabe." passwordErrors={issuesToFieldErrors(parsed.issues)} />,
           { status: 400 },
         )
       }
@@ -140,14 +140,14 @@ export default createController(routes.settings, {
       let valid = await verifyPassword(currentPassword, user.password_hash)
       if (!valid) {
         return context.render(
-          <SettingsPage passwordError="Aktuelles Passwort ist falsch." passwordErrors={{ currentPassword: 'Falsches Passwort' }} />,
+          <SettingsPage user={user} passwordError="Aktuelles Passwort ist falsch." passwordErrors={{ currentPassword: 'Falsches Passwort' }} />,
           { status: 400 },
         )
       }
 
       if (newPassword !== confirmPassword) {
         return context.render(
-          <SettingsPage passwordError="Passwörter stimmen nicht überein." passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }} />,
+          <SettingsPage user={user} passwordError="Passwörter stimmen nicht überein." passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }} />,
           { status: 400 },
         )
       }
@@ -155,7 +155,7 @@ export default createController(routes.settings, {
       let complexityError = validatePasswordComplexity(newPassword)
       if (complexityError) {
         return context.render(
-          <SettingsPage passwordError={complexityError} passwordErrors={{ newPassword: complexityError }} />,
+          <SettingsPage user={user} passwordError={complexityError} passwordErrors={{ newPassword: complexityError }} />,
           { status: 400 },
         )
       }
@@ -171,12 +171,13 @@ export default createController(routes.settings, {
 
       changePasswordLimiter.reset(user.id)
 
-      return context.render(<SettingsPage passwordSuccess="Passwort erfolgreich aktualisiert." />)
+      return context.render(<SettingsPage user={user} passwordSuccess="Passwort erfolgreich aktualisiert." />)
     },
   },
 })
 
 type SettingsPageProps = {
+  user: User
   passwordError?: string
   passwordErrors?: Record<string, string | undefined>
   passwordSuccess?: string
@@ -186,11 +187,24 @@ type SettingsPageProps = {
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
-    let { passwordError, passwordErrors, passwordSuccess, deleteError, deleteSuccess } = handle.props
+    let { user, passwordError, passwordErrors, passwordSuccess, deleteError, deleteSuccess } = handle.props
 
     return (
       <Layout title="Einstellungen">
         <PageSection title="Einstellungen" description="Verwalten Sie Ihre Kontoeinstellungen.">
+          <div mix={panelCss}>
+            <div mix={profileGridCss}>
+              <div mix={profileFieldCss}>
+                <span mix={profileLabelCss}>Name</span>
+                <span mix={profileValueCss}>{user.name}</span>
+              </div>
+              <div mix={profileFieldCss}>
+                <span mix={profileLabelCss}>E-Mail</span>
+                <span mix={profileValueCss}>{user.email}</span>
+              </div>
+            </div>
+          </div>
+
           <div mix={panelCss}>
             <h2 mix={sectionTitleCss}>Passwort ändern</h2>
             {passwordError ? <p role="alert" mix={errorBanner}>{passwordError}</p> : null}
@@ -300,6 +314,31 @@ const sectionTitleCss = css({
   fontSize: theme.fontSize.lg,
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.primary,
+})
+
+const profileGridCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.sm,
+})
+
+const profileFieldCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+})
+
+const profileLabelCss = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+})
+
+const profileValueCss = css({
+  fontSize: theme.fontSize.base,
+  color: theme.colors.text.primary,
+  fontWeight: theme.fontWeight.medium,
 })
 
 const formContainer = css({
