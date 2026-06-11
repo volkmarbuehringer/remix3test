@@ -68,6 +68,8 @@ export function readData(): AppData {
     currentUserId: (data.currentUserId as number) ?? 0,
     selectedResourceId: (data.selectedResourceId as number) ?? 0,
     isAdmin: (data.isAdmin as boolean) ?? false,
+    appointmentHref: (data.appointmentHref as string) ?? '',
+    appointmentTypesHref: (data.appointmentTypesHref as string) ?? '',
   }
 }
 

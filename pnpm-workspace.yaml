@@ -34,3 +34,6 @@ minimumReleaseAgeExclude:
   - '@ai-sdk/gateway@3.0.127'
   - ai@6.0.199
   - prettier@3.8.4
+  - '@opencode-ai/plugin@1.17.3'
+  - '@opencode-ai/sdk@1.17.3'
+  - ecc-universal@2.0.0

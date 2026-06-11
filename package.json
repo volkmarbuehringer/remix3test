@@ -27,6 +27,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "^1.4.1",
+    "@opencode-ai/plugin": "^1.17.3",
+    "ecc-universal": "2.0.0",
+ 
     "@ai-sdk/devtools": "^0.0.18",
     "@oxlint/plugins": "^1.69.0",
     "@playwright/test": "^1.60.0",
