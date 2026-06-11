@@ -2437,7 +2437,9 @@ async function loadReport1PageData(
 ): Promise<Report1PageData> {
   let now = new Date()
   let year = overrides?.year ?? (Number(context.url.searchParams.get('year')) || now.getUTCFullYear())
+  year = Math.max(2000, Math.min(2100, year))
   let month = overrides?.month ?? (Number(context.url.searchParams.get('month')) || (now.getUTCMonth() + 1))
+  month = Math.max(1, Math.min(12, month))
   let selectedUserId = overrides?.selectedUserId
   if (selectedUserId === undefined) {
     let raw = context.url.searchParams.get('user_id')

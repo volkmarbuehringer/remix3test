@@ -72,13 +72,13 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
           <select name="year" mix={table.select}>
             {Array.from({ length: 5 }, (_, i) => {
               let y = curYear - 2 + i
-              return <option value={y} selected={y === curYear}>{y}</option>
+              return <option key={y} value={y} selected={y === curYear}>{y}</option>
             })}
           </select>
 
           <select name="month" mix={table.select}>
             {Array.from({ length: 12 }, (_, i) => (
-              <option value={i + 1} selected={i + 1 === curMonth}>{String(i + 1).padStart(2, '0')}</option>
+              <option key={i} value={i + 1} selected={i + 1 === curMonth}>{String(i + 1).padStart(2, '0')}</option>
             ))}
           </select>
 
