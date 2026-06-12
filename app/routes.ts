@@ -1,5 +1,7 @@
 import { del, get, post, put, route, form, resources } from 'remix/routes'
 
+export const uploadsDownload = get('/uploads/:id/download')
+
 export const frames = {
   adminContent: 'admin-content',
   aiContent: 'ai-content',
@@ -52,6 +54,7 @@ export const routes = route({
   }),
 
   settings: form('settings'),
+  uploads: form('uploads'),
 
   appointment: route('appointment', {
     index: get('/'),

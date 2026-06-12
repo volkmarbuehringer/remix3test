@@ -4,6 +4,7 @@ import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
 import { csrf } from 'remix/middleware/csrf'
 import { formData } from 'remix/middleware/form-data'
+import { uploadHandler } from './uploads.ts'
 import { logger, Logger } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
@@ -42,7 +43,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     securityHeaders(),
     compression(),
     globalRateLimit({ maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined }),
-    formData(),
+    formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
     methodOverride(),
     session(cookie, storage),
     csrf(),

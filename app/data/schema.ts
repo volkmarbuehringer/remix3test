@@ -500,6 +500,30 @@ export const offeringConfigs = table({
   },
 })
 
+export const uploads = table({
+  name: 'uploads',
+  primaryKey: ['id'],
+  columns: {
+    id: c.integer(),
+    filename: c.text(),
+    mime_type: c.text(),
+    size: c.integer(),
+    uploaded_by: c.integer(),
+    created_at: c.integer(),
+  },
+  beforeWrite({ operation, value }) {
+    let next = { ...value }
+    if (operation === 'create' && next.created_at === undefined) {
+      next.created_at = Date.now()
+    }
+    return { value: next }
+  },
+  afterRead({ value }) {
+    parseIntFields(value, 'created_at', 'size', 'uploaded_by')
+    return { value }
+  },
+})
+
 export type User = TableRow<typeof users>
 export type Client = TableRow<typeof clients>
 export type Appointment = TableRow<typeof appointments>
@@ -507,3 +531,4 @@ export type AppointType = TableRow<typeof appointtypes>
 export type Resource = TableRow<typeof resources>
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>
+export type Upload = TableRow<typeof uploads>

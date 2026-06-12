@@ -16,8 +16,9 @@ import verwaltungUsersExport from './actions/verwaltung/users-export/controller.
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
+import uploadsController, { download as uploadsDownloadHandler } from './actions/uploads/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes } from './routes.ts'
+import { routes, uploadsDownload } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -64,6 +65,10 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Settings routes
   router.map(routes.settings, settingsController)
+
+  // Uploads routes
+  router.map(routes.uploads, uploadsController)
+  router.get(uploadsDownload, uploadsDownloadHandler)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointment)
