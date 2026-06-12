@@ -12,16 +12,16 @@
     }
   },
   "permission": {
-    "external_directory": {
-      "*": "ask",
-      "/home/lucky/.opencode/**": "allow",
-      "/home/lucky/remix/**": "allow",
-       "/home/lucky/.local/share/ecc-homunculus/**": "allow",
-       "/home/lucky/remix3test/node_modules/**": {
-         "edit": "deny",
-         "write": "deny"
-       }
-    }
+  "/home/lucky/remix3test/node_modules/**": {
+    "edit": "deny",
+    "write": "deny"
+  },
+  "external_directory": {
+    "*": "ask",
+    "/home/lucky/.opencode/**": "allow",
+    "/home/lucky/remix/**": "allow",
+    "/home/lucky/.local/share/ecc-homunculus/**": "allow"
   }
+}
   
 }
