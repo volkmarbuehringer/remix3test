@@ -12,7 +12,7 @@ export default {
   },
 
   // Max number of concurrent test workers (default `os.availableParallelism()`)
-  concurrency: 2,
+  concurrency: 6,
 
   // Pool for server and E2E test files ("forks", "threads")
   pool: 'forks',
@@ -22,8 +22,8 @@ export default {
     // Output directory (default: ".coverage")
     dir: '.coverage',
     // Glob pattern(s) to include/exclude
-    include: 'src/**',
-    exclude: 'src/**/*.test.ts',
+    include: 'app/**',
+    exclude: 'app/**/*.test.ts',
     // Minimum thresholds (%)
     statements: 80,
     lines: 80,
