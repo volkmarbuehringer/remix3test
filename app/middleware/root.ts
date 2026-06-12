@@ -28,7 +28,7 @@ export function skipAssetsLogger(): Middleware {
       context.set(Logger, console.log, { property: 'logger' })
       let response = await next()
       if (response.status >= 400) {
-        console.warn(`${context.request.method} ${context.url.pathname} → ${response.status}`)
+        context.get(Logger)?.(`${context.request.method} ${context.url.pathname} → ${response.status}`)
       }
       return response
     }

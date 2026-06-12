@@ -2,6 +2,7 @@ import { ilike } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
+import { Logger } from 'remix/middleware/logger'
 
 import { isConstraintViolation, isExclusionConstraintError } from '../../utils/db-errors.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
@@ -1789,7 +1790,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
         await db.deleteMany(resources, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during resource deletion', { code: (error as { code?: string }).code, resourceId: id })
+          if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('Constraint violation during resource deletion: ' + JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }))
           let gridValues = gridStateFromFormData(formData)
           let data = await loadResourcePageData(context, {
             formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
@@ -2154,7 +2155,7 @@ export const verwaltungOfferingConfigs = createController<typeof routes.verwaltu
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config creation', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('Constraint violation during offering config creation: ' + JSON.stringify({ code: (error as { code?: string }).code }))
           let data = await loadOfferingConfigPageData(context, {
             creating: true,
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
@@ -2293,7 +2294,7 @@ export const verwaltungOfferingConfigs = createController<typeof routes.verwaltu
         )
       } catch (error) {
         if (isConstraintViolation(error)) {
-          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config update', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('Constraint violation during offering config update: ' + JSON.stringify({ code: (error as { code?: string }).code }))
           let data = await loadOfferingConfigPageData(context, {
             editRow: toOfferingConfigRow(target as Record<string, unknown>),
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
@@ -2348,7 +2349,7 @@ export const verwaltungOfferingConfigs = createController<typeof routes.verwaltu
         await db.deleteMany(offeringConfigs, { where: { id } })
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          if (process.env.NODE_ENV !== 'test') console.error('Constraint violation during offering config deletion', { code: (error as { code?: string }).code })
+          if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('Constraint violation during offering config deletion: ' + JSON.stringify({ code: (error as { code?: string }).code }))
           let gridValues = gridStateFromFormData(formData)
           let data = await loadOfferingConfigPageData(context, {
             formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',

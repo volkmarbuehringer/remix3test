@@ -22,9 +22,9 @@ import { AiDashboardContent } from '../../ui/ai-page.tsx'
 import { WorkflowPage } from '../../ui/workflow-page.tsx'
 import { WorkflowRunPage } from '../../ui/workflow-run-page.tsx'
 import { getModel } from '../../utils/ai-provider.ts'
+import { Logger } from 'remix/middleware/logger'
 import { getCurrentUser } from '../../utils/context.ts'
 import { toastRedirect } from '../../utils/error-handling.ts'
-import { userLogger } from '../../utils/logger.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 
 const messageField = f.field(s.string())
@@ -57,16 +57,16 @@ export const aiChat = createController(routes.ai.chat, {
 
   actions: {
     async index(context) {
-      let logger = userLogger('Chat')
-      logger.log('GET index - SSR with conversation history')
-
       let user = getCurrentUser()
+      let logger = (...args: string[]) => context.get(Logger)?.(`[Chat] [user:${user.id}] ${args.join(' ')}`)
+      logger('GET index - SSR with conversation history')
+
       let chatId = context.url.searchParams.get('chatId')
       let error = context.url.searchParams.get('error')
       let messages: ChatMessage[] = []
 
       if (chatId && !/^[a-zA-Z0-9_-]+$/.test(chatId)) {
-        logger.warn('invalid chatId format:', chatId)
+        logger('invalid chatId format: ' + chatId)
         chatId = null
       }
 
@@ -75,12 +75,12 @@ export const aiChat = createController(routes.ai.chat, {
           let chat = await getConversation(chatId, user.id)
           if (chat) {
             messages = chat.conversation
-            logger.log('loaded', messages.length, 'messages from conversation:', chatId)
+            logger('loaded ' + messages.length + ' messages from conversation: ' + chatId)
           } else {
-            logger.log('conversation not found:', chatId)
+            logger('conversation not found: ' + chatId)
           }
         } catch (e) {
-          logger.error('failed to load conversation:', chatId, e)
+          logger('failed to load conversation: ' + chatId + ' ' + String(e))
           messages = []
         }
       }
@@ -89,10 +89,9 @@ export const aiChat = createController(routes.ai.chat, {
     },
 
     async action(context) {
-      let logger = userLogger('Chat')
-      logger.log('POST action - processing message')
-
       let user = getCurrentUser()
+      let log = (...args: unknown[]) => context.get(Logger)?.(`[Chat] [user:${user.id}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`)
+      log('POST action - processing message')
 
       if (!chatRateLimiter.attempt(user.id)) {
         return context.json({ error: 'Please wait before sending another message' }, { status: 429 })
@@ -104,38 +103,38 @@ export const aiChat = createController(routes.ai.chat, {
       if (rawConversationId && /^[a-zA-Z0-9_-]+$/.test(rawConversationId)) {
         conversationId = rawConversationId
       } else if (rawConversationId) {
-        logger.warn('invalid conversationId format:', rawConversationId)
+        log('invalid conversationId format: ' + rawConversationId)
       }
 
       let parsed = s.parseSafe(messageSchema, formData)
       if (!parsed.success) {
-        logger.log('message validation failed')
+        log('message validation failed')
         return context.json({ error: 'Please enter a message' }, { status: 400 })
       }
 
       let message = parsed.value.message
 
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
-        logger.log('empty message rejected')
+        log('empty message rejected')
         return context.json({ error: 'Please enter a message' }, { status: 400 })
       }
 
       if (message.length > MAX_MESSAGE_LENGTH) {
-        logger.log('message too long:', message.length)
+        log('message too long: ' + message.length)
         return context.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
       }
 
       let chatId: string
       if (!conversationId) {
         chatId = await createConversation(user.id)
-        logger.log('created new conversation:', chatId)
+        log('created new conversation: ' + chatId)
       } else {
         chatId = conversationId
-        logger.log('using existing conversation:', chatId)
+        log('using existing conversation: ' + chatId)
       }
 
       try {
-        logger.log('calling LLM with generateText')
+        log('calling LLM with generateText')
 
         let existingChat = await getConversation(chatId, user.id)
         let llmMessages: Array<{ role: 'user' | 'assistant'; content: Array<{ type: 'text'; text: string }> }> = []
@@ -167,15 +166,15 @@ export const aiChat = createController(routes.ai.chat, {
         let responseText = result.text
         let llmElapsed = Date.now() - llmStartTime
 
-        logger.log('LLM finished:', {
+        log('LLM finished: ' + JSON.stringify({
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           totalTokens: result.usage.totalTokens,
           finishReason: result.finishReason,
-        })
+        }))
 
         if (!responseText || responseText.trim().length === 0) {
-          logger.warn('empty LLM response for chatId:', chatId)
+          log('empty LLM response for chatId: ' + chatId)
           return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
         }
 
@@ -199,7 +198,7 @@ export const aiChat = createController(routes.ai.chat, {
             : undefined,
         })
 
-        logger.log('conversation saved, chatId:', chatId)
+        log('conversation saved, chatId: ' + chatId)
 
         let redirectUrl = new URL('/ai/chat', context.url.origin)
         redirectUrl.searchParams.set('chatId', chatId)
@@ -208,7 +207,7 @@ export const aiChat = createController(routes.ai.chat, {
           headers: { Location: redirectUrl.toString() },
         })
       } catch (e) {
-        logger.error('error calling LLM:', e)
+        log('error calling LLM: ' + String(e))
 
         let redirectUrl = new URL('/ai/chat', context.url.origin)
         redirectUrl.searchParams.set('chatId', chatId)
@@ -231,15 +230,14 @@ export const aiAgent = createController(routes.ai.agent, {
 
   actions: {
     async index(context) {
-      let logger = userLogger('Agent')
-      logger.log('GET index - SSR with conversation history')
-
       let user = getCurrentUser()
+      let logger = (...args: string[]) => context.get(Logger)?.(`[Agent] [user:${user.id}] ${args.join(' ')}`)
+      logger('GET index - SSR with conversation history')
       let agentId = context.url.searchParams.get('agentId')
       let messages: ChatMessage[] = []
 
       if (agentId && !/^[a-zA-Z0-9_-]+$/.test(agentId)) {
-        logger.warn('invalid agentId format:', agentId)
+        logger('invalid agentId format: ' + agentId)
         agentId = null
       }
 
@@ -248,10 +246,10 @@ export const aiAgent = createController(routes.ai.agent, {
           let chat = await getConversation(agentId, user.id)
           if (chat) {
             messages = chat.conversation
-            logger.log('loaded', messages.length, 'messages from conversation:', agentId)
+            logger('loaded ' + messages.length + ' messages from conversation: ' + agentId)
           }
         } catch (e) {
-          logger.error('failed to load conversation:', agentId, e)
+          logger('failed to load conversation: ' + agentId + ' ' + String(e))
           messages = []
         }
       }
@@ -260,10 +258,9 @@ export const aiAgent = createController(routes.ai.agent, {
     },
 
     async action(context) {
-      let logger = userLogger('Agent')
-      logger.log('POST action - processing message')
-
       let user = getCurrentUser()
+      let log = (...args: unknown[]) => context.get(Logger)?.(`[Agent] [user:${user.id}] ${args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}`)
+      log('POST action - processing message')
       let formData = context.formData
       let rawConversationId = context.url.searchParams.get('agentId') ?? formData.get('conversationId')?.toString() ?? null
       let conversationId: string | null = null
@@ -271,7 +268,7 @@ export const aiAgent = createController(routes.ai.agent, {
       if (rawConversationId && /^[a-zA-Z0-9_-]+$/.test(rawConversationId)) {
         conversationId = rawConversationId
       } else if (rawConversationId) {
-        logger.warn('invalid conversationId format:', rawConversationId)
+        log('invalid conversationId format: ' + rawConversationId)
       }
 
       let parsed = s.parseSafe(messageSchema, formData)
@@ -288,15 +285,15 @@ export const aiAgent = createController(routes.ai.agent, {
         return context.json({ error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` }, { status: 400 })
       }
 
-      logger.log('message parsed:', message, 'conversationId:', conversationId)
+      log('message parsed: ' + message + ' conversationId: ' + conversationId)
 
       let chatId: string
       if (!conversationId) {
         chatId = await createConversation(user.id)
-        logger.log('created new conversation:', chatId)
+        log('created new conversation: ' + chatId)
       } else {
         chatId = conversationId
-        logger.log('using existing conversation:', chatId)
+        log('using existing conversation: ' + chatId)
       }
 
       try {
@@ -310,7 +307,7 @@ export const aiAgent = createController(routes.ai.agent, {
         }
 
         messages.push({ role: 'user', content: [{ type: 'text', text: message }] })
-        logger.log('messages with history:', messages.length, 'messages')
+        log('messages with history: ' + messages.length + ' messages')
 
         let controller = new AbortController()
         let timeout = setTimeout(() => controller.abort(), 60000)
@@ -353,13 +350,13 @@ Use tools to provide accurate, real-time information.`,
         let llmElapsed = Date.now() - llmStartTime
 
         let responseText = result.steps?.map(step => step.text).join('') ?? result.text ?? ''
-        logger.log('Agent response received, length:', responseText.length)
+        log('Agent response received, length: ' + responseText.length)
 
         if (!responseText || responseText.trim().length === 0) {
           return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
         }
 
-        logger.log('Tool calls captured:', capturedToolCalls.length)
+        log('Tool calls captured: ' + capturedToolCalls.length)
 
         await appendMessage(chatId, user.id, { role: 'user', content: message, timestamp: Date.now() })
         await appendMessage(chatId, user.id, {
@@ -371,13 +368,13 @@ Use tools to provide accurate, real-time information.`,
           toolCalls: capturedToolCalls.length > 0 ? capturedToolCalls : undefined,
         })
 
-        logger.log('conversation saved, chatId:', chatId)
+        log('conversation saved, chatId: ' + chatId)
 
         let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
         redirectUrl.searchParams.set('agentId', chatId)
         return new Response(null, { status: 302, headers: { Location: redirectUrl.toString() } })
       } catch (e) {
-        logger.error('error calling agent:', e)
+        log('error calling agent: ' + String(e))
         let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
         if (chatId) redirectUrl.searchParams.set('agentId', chatId)
         return toastRedirect(redirectUrl.toString(), 'An error occurred while processing your message. Please try again.', true)
@@ -397,9 +394,10 @@ export const aiWorkflow = createController(routes.ai.workflow, {
 
   actions: {
     async index(context) {
-      let logger = userLogger('Workflow')
+      let user = getCurrentUser()
+      let log = (msg: string) => context.get(Logger)?.(`[Workflow] [user:${user.id}] ${msg}`)
 
-      logger.log('GET index:', { hasDb: !!context.db, hasAuth: !!context.auth, authOk: context.auth?.ok })
+      log('GET index: ' + JSON.stringify({ hasDb: !!context.db, hasAuth: !!context.auth, authOk: context.auth?.ok }))
 
       let runId = context.url.searchParams.get('runId')
 
@@ -415,21 +413,23 @@ export const aiWorkflow = createController(routes.ai.workflow, {
       let workflows = listWorkflows()
       let recentRuns = await listWorkflowRuns(context.db, 20)
 
-      logger.log('loaded', { workflows: workflows.length, runs: recentRuns.length })
+      log('loaded: ' + JSON.stringify({ workflows: workflows.length, runs: recentRuns.length }))
 
       return renderAiPage(context.render, 'workflow', <WorkflowPage workflows={workflows} recentRuns={recentRuns} />)
     },
 
     async action(context) {
-      let logger = userLogger('Workflow')
       let db = context.db
       let auth = context.auth
       let formData = context.formData
+      let user = getCurrentUser()
+      let log = (msg: string) => context.get(Logger)?.(`[Workflow] [user:${user.id}] ${msg}`)
+      let engineLog = { log: (...args: unknown[]) => log(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')), warn: (...args: unknown[]) => log(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')), error: (...args: unknown[]) => log(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')) }
 
-      logger.log('POST action:', {
+      log('POST action: ' + JSON.stringify({
         hasDb: !!db, hasAuth: !!auth, authOk: auth?.ok,
         formEntries: Array.from(formData.entries()).length
-      })
+      }))
 
       let parsed = s.parseSafe(workflowSchema, formData)
       if (!parsed.success) {
@@ -439,7 +439,7 @@ export const aiWorkflow = createController(routes.ai.workflow, {
 
       let workflow = getWorkflow(workflowId)
       if (!workflow) {
-        logger.log('workflow not found:', workflowId)
+        log('workflow not found: ' + workflowId)
         return context.json({ error: 'Workflow not found' }, { status: 404 })
       }
 
@@ -453,20 +453,20 @@ export const aiWorkflow = createController(routes.ai.workflow, {
         }
       }
 
-      logger.log('parsed params:', params)
+      log('parsed params: ' + JSON.stringify(params))
 
       let userId = auth?.ok ? (auth.identity as { id: number }).id : null
       let runId = await createWorkflowRun(db, workflowId, params, userId)
 
-      logger.log('created run:', { runId, workflowId, userId })
+      log('created run: ' + JSON.stringify({ runId, workflowId, userId }))
 
       executeWorkflow(runId, {
         workflowId, params, db,
         user: auth?.ok ? (auth.identity as User) : null,
-        logger,
+        logger: engineLog,
       }).catch(async error => {
         let errorMessage = error instanceof Error ? error.message : String(error)
-        logger.error('execution failed:', errorMessage)
+        log('execution failed: ' + errorMessage)
         await db.exec(sql`UPDATE workflow_runs SET status = 'failed', error = ${errorMessage}, completed_at = ${Date.now()} WHERE id = ${runId}`)
       })
 

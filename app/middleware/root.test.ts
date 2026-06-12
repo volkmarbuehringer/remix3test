@@ -47,20 +47,17 @@ describe('skipAssetsLogger', () => {
   })
 
   it('warns for failing asset requests', async () => {
-    let warns: string[] = []
-    let origWarn = console.warn
+    let logs: string[] = []
     let origLog = console.log
-    console.warn = (msg: unknown) => { warns.push(String(msg)) }
-    console.log = () => {}
+    console.log = (msg: unknown) => { logs.push(String(msg)) }
 
     let mw = skipAssetsLogger()
     let ctx = context('https://test/assets/missing.js')
     await mw(ctx, async () => new Response('Not Found', { status: 404 }))
 
-    console.warn = origWarn
     console.log = origLog
-    assert.equal(warns.length, 1)
-    assert.ok(warns[0].includes('/assets/missing.js'))
-    assert.ok(warns[0].includes('404'))
+    assert.equal(logs.length, 1)
+    assert.ok(logs[0].includes('/assets/missing.js'))
+    assert.ok(logs[0].includes('404'))
   })
 })

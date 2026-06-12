@@ -3,6 +3,7 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
+import { Logger } from 'remix/middleware/logger'
 
 import { logAdminAction } from '../../data/audit-log.ts'
 import { lists, messages, users } from '../../data/schema.ts'
@@ -76,7 +77,7 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
 
         return renderAdminPage(context.render, 'chatlog', <ChatLogPage conversations={conversations} filter={filter} type={type} page={page} hasMore={hasMore} />)
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') console.error('[Admin Chatlog] Error loading conversations:', error)
+        if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('[Admin Chatlog] Error loading conversations: ' + String(error))
         return renderAdminPage(context.render, 'chatlog', <ChatLogPage conversations={[]} filter={undefined} type={undefined} page={1} hasMore={false} />)
       }
     },

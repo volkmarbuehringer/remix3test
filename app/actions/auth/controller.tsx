@@ -3,6 +3,7 @@ import * as s from 'remix/data-schema'
 import { email, minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { getContext } from 'remix/middleware/async-context'
+import { Logger } from 'remix/middleware/logger'
 import { createAction, createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
@@ -204,7 +205,7 @@ export const authRegister = createController(routes.auth.register, {
             verificationUrl,
           )
         } catch (err) {
-          console.error('Failed to send verification email:', err)
+          context.get(Logger)?.('Failed to send verification email: ' + String(err))
           return context.render(
             <RegisterPage error="Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut." formValues={formValues} />,
             { status: 500 },
@@ -276,7 +277,7 @@ export const authForgotten = createController(routes.auth.forgotten, {
             resetUrl,
           )
         } catch (err) {
-          console.error('Failed to send password reset email:', err)
+          context.get(Logger)?.('Failed to send password reset email: ' + String(err))
         }
       }
 

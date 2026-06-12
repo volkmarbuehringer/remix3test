@@ -1,4 +1,5 @@
 import { createController } from 'remix/router'
+import { Logger } from 'remix/middleware/logger'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { minLength, email } from 'remix/data-schema/checks'
@@ -255,7 +256,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         await client.query('ROLLBACK')
         client.release()
 
-        if (process.env.NODE_ENV !== 'test') console.error('DB error in nutzer update:', error)
+        if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer update: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'
@@ -409,7 +410,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         await client.query('ROLLBACK')
         client.release()
 
-        if (process.env.NODE_ENV !== 'test') console.error('DB error in nutzer create:', error)
+        if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer create: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'

@@ -1,4 +1,5 @@
 import type { Middleware } from 'remix/router'
+import { Logger } from 'remix/middleware/logger'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 
@@ -34,14 +35,12 @@ export function globalRateLimit(options?: {
 
     let check = limiter.check(ip)
     if (!check.allowed) {
-      console.warn(
-        JSON.stringify({
-          event: 'rate_limit.exceeded',
-          ip,
-          path: context.url.pathname,
-          retryAfter: check.retryAfter,
-        }),
-      )
+      context.get(Logger)?.(JSON.stringify({
+        event: 'rate_limit.exceeded',
+        ip,
+        path: context.url.pathname,
+        retryAfter: check.retryAfter,
+      }))
       return new Response('Too Many Requests', {
         status: 429,
         statusText: 'Too Many Requests',
