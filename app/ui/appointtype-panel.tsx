@@ -91,7 +91,7 @@ export const AppointTypePanel = clientEntry(
                             editInputs.delete(t.id)
                           }
                         }),
-                        on('keydown', (e: any) => {
+                        on('keydown', (e) => {
                           if (e.key === 'Escape') { cancelRename(); return }
                           if (e.key === 'Enter') { commitRename(t, csrfToken); return }
                         }),
@@ -116,7 +116,7 @@ export const AppointTypePanel = clientEntry(
                         addInput = el
                         if (el) { el.focus() }
                       }),
-                      on('keydown', (e: any) => {
+                      on('keydown', (e) => {
                         if (e.key === 'Escape') { cancelAdd(); return }
                         if (e.key === 'Enter') { commitAdd(csrfToken); return }
                       }),

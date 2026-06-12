@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
+import { Logger } from 'remix/middleware/logger'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { lists } from '../../data/schema.ts'
@@ -36,7 +37,8 @@ export default createController(routes.lists, {
       let body: unknown
       try {
         body = await context.request.json()
-      } catch {
+      } catch (error) {
+        context.get(Logger)?.('Invalid JSON body in lists/save: ' + String(error))
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
@@ -71,7 +73,8 @@ export default createController(routes.lists, {
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
-      } catch {
+      } catch (error) {
+        context.get(Logger)?.('Invalid list ID in lists/update: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -87,7 +90,8 @@ export default createController(routes.lists, {
       let body: unknown
       try {
         body = await context.request.json()
-      } catch {
+      } catch (error) {
+        context.get(Logger)?.('Invalid JSON body in lists/update: ' + String(error))
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
@@ -121,7 +125,8 @@ export default createController(routes.lists, {
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
-      } catch {
+      } catch (error) {
+        context.get(Logger)?.('Invalid list ID in lists/data: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 

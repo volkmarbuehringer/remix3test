@@ -371,7 +371,7 @@ export const AppointmentGrid = clientEntry(
                                 renameInputs.delete(appt.id)
                               }
                             }),
-                            on('keydown', (e: any) => {
+                            on('keydown', (e) => {
                               if (e.key === 'Escape') {
                                 cancelEdit()
                                 return
@@ -394,7 +394,7 @@ export const AppointmentGrid = clientEntry(
                               aria-label="Save appointment"
                               mix={[
                                 draftSaveButtonStyle,
-                                on('pointerdown', (e: any) => {
+                                on('pointerdown', (e) => {
                                   e.preventDefault()
                                   commitEdit(appt, csrfToken)
                                 }),
@@ -407,7 +407,7 @@ export const AppointmentGrid = clientEntry(
                               aria-label="Termin abbrechen"
                               mix={[
                                 draftCancelButtonStyle,
-                                on('pointerdown', (e: any) => {
+                                on('pointerdown', (e) => {
                                   e.preventDefault()
                                   cancelEdit()
                                 }),
@@ -502,7 +502,7 @@ export const AppointmentGrid = clientEntry(
                           ref((el) => {
                             if (el instanceof HTMLTextAreaElement) draftInput = el
                           }),
-                          on('keydown', (e: any) => {
+                          on('keydown', (e) => {
                             if (e.key === 'Escape') {
                               cancelDraft()
                               return
@@ -521,7 +521,7 @@ export const AppointmentGrid = clientEntry(
                           aria-label="Termin speichern"
                           mix={[
                             draftSaveButtonStyle,
-                            on('pointerdown', (e: any) => {
+                            on('pointerdown', (e) => {
                               e.preventDefault()
                               commitDraft(csrfToken)
                             }),
@@ -534,7 +534,7 @@ export const AppointmentGrid = clientEntry(
                           aria-label="Termin abbrechen"
                           mix={[
                             draftCancelButtonStyle,
-                            on('pointerdown', (e: any) => {
+                            on('pointerdown', (e) => {
                               e.preventDefault()
                               cancelDraft()
                             }),

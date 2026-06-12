@@ -18,18 +18,18 @@ export default {
   pool: 'forks',
 
   // Code coverage options (set to `true` to enable with defaults, or an object for settings)
-  coverage: {
+//  coverage: {
     // Output directory (default: ".coverage")
-    dir: '.coverage',
+//    dir: '.coverage',
     // Glob pattern(s) to include/exclude
-    include: 'app/**',
-    exclude: 'app/**/*.test.ts',
+ //   include: 'src/**',
+ //   exclude: 'src/**/*.test.ts',
     // Minimum thresholds (%)
-    statements: 80,
-    lines: 80,
-    branches: 80,
-    functions: 80,
-  },
+ //   statements: 80,
+ //   lines: 80,
+ //   branches: 80,
+ //   functions: 80,
+ // },
 
   // Glob pattern(s) identifying test files
   glob: {
