@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["ecc-universal"],
+
   "command": {
     "remember": {
       "description": "Save a successful fix or solution as project knowledge with auto-tagging and instinct creation",
