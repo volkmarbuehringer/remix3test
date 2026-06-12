@@ -113,7 +113,6 @@ describe('computeBookableSlots', () => {
       {
         id: 1, title: 'Test', user_id: 1, resource_id: 1,
         date: MON, start_min: 490, end_min: 510,
-        column: 0, totalColumns: 1,
       },
     ]
     let result = computeBookableSlots(offerings, visibleDays, appointments)
@@ -147,7 +146,6 @@ describe('copyAppt', () => {
     let block: AppointmentLayoutBlock = {
       id: 1, title: 'Test', user_id: 1, resource_id: 1,
       date: MON, start_min: 480, end_min: 540,
-      column: 0, totalColumns: 1,
     }
     let copy = copyAppt(block)
     assert.notEqual(copy, block)

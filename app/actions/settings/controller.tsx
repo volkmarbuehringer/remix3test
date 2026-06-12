@@ -336,7 +336,7 @@ const profileLabelCss = css({
 })
 
 const profileValueCss = css({
-  fontSize: theme.fontSize.base,
+  fontSize: theme.fontSize.md,
   color: theme.colors.text.primary,
   fontWeight: theme.fontWeight.medium,
 })
