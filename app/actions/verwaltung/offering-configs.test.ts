@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
@@ -7,9 +7,6 @@ import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 
 const BASE = 'https://remix.run'
 const CONFIGS_URL = `${BASE}/verwaltung/offering-configs`
-
-const createdConfigIds: number[] = []
-const createdResourceIds: number[] = []
 
 describe('Admin Offering Configs Controller', () => {
   let adminCookie: string
@@ -44,20 +41,6 @@ describe('Admin Offering Configs Controller', () => {
       [`Offering Config Test Resource ${now}`, now, now],
     )
     seedResourceId = result.rows[0].id as number
-    createdResourceIds.push(seedResourceId)
-  })
-
-  after(async () => {
-    for (let id of createdConfigIds) {
-      try {
-        await pool.query('DELETE FROM offering_configs WHERE id = $1', [id])
-      } catch {}
-    }
-    for (let id of createdResourceIds) {
-      try {
-        await pool.query('DELETE FROM resources WHERE id = $1', [id])
-      } catch {}
-    }
   })
 
   describe('index (GET /verwaltung/offering-configs)', () => {
@@ -133,9 +116,6 @@ describe('Admin Offering Configs Controller', () => {
       assert.ok(location.startsWith('/verwaltung/offering-configs?editing='))
 
       let match = location.match(/editing=(\d+)/)
-      if (match) {
-        createdConfigIds.push(Number(match[1]))
-      }
     })
 
     it('rejects duplicate resource_id', async () => {
@@ -196,7 +176,6 @@ describe('Admin Offering Configs Controller', () => {
         [`Offering Config Time Range Res ${now}`, now, now],
       )
       let resId = resResult.rows[0].id as number
-      createdResourceIds.push(resId)
 
       let body = new URLSearchParams({
         resource_id: String(resId),
@@ -227,7 +206,6 @@ describe('Admin Offering Configs Controller', () => {
         [`Offering Config Out Of Range Res ${now}`, now, now],
       )
       let resId = resResult.rows[0].id as number
-      createdResourceIds.push(resId)
 
       let body = new URLSearchParams({
         resource_id: String(resId),
@@ -301,14 +279,12 @@ describe('Admin Offering Configs Controller', () => {
         [`Offering Config Update Res ${now}`, now, now],
       )
       let resId = resResult.rows[0].id as number
-      createdResourceIds.push(resId)
 
       let cfgResult = await pool.query(
         `INSERT INTO offering_configs (resource_id, rules, created_at, updated_at) VALUES ($1, $2::jsonb, $3, $3) RETURNING id`,
         [resId, JSON.stringify({ monday: [480, 1020] }), now],
       )
       testConfigId = cfgResult.rows[0].id as number
-      createdConfigIds.push(testConfigId)
     })
 
     it('updates an offering config rules', async () => {
@@ -396,7 +372,6 @@ describe('Admin Offering Configs Controller', () => {
         [`Offering Config Delete Res ${now}`, now, now],
       )
       let resId = resResult.rows[0].id as number
-      createdResourceIds.push(resId)
 
       let cfgResult = await pool.query(
         `INSERT INTO offering_configs (resource_id, rules, created_at, updated_at) VALUES ($1, $2::jsonb, $3, $3) RETURNING id`,

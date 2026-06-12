@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
@@ -7,8 +7,6 @@ import { createAuthCookieWithCsrfForUser, createTestUser, extractCookie } from '
 
 const BASE = 'https://remix.run'
 const USERS_URL = `${BASE}/admin/users`
-
-const createdUserIds: number[] = []
 
 describe('Admin Users Controller', () => {
   let adminCookie: string
@@ -34,18 +32,6 @@ describe('Admin Users Controller', () => {
     }
     userCookie = userAuth.cookie
     userCsrfToken = userAuth.csrfToken
-  })
-
-  after(async () => {
-    // Clean up created test users
-    for (let id of createdUserIds) {
-      try {
-        await pool.query('DELETE FROM users WHERE id = $1', [id])
-      } catch {
-        // ignore cleanup errors
-      }
-    }
-    createdUserIds.length = 0
   })
 
   describe('index (GET /admin/users)', () => {
@@ -117,10 +103,6 @@ describe('Admin Users Controller', () => {
   describe('create (POST /admin/users)', () => {
     let testEmail: string
 
-    after(() => {
-      // cleanup is done in the outer after with createdUserIds
-    })
-
     it('creates a new user with valid data', async () => {
       testEmail = `test-create-${Date.now()}@example.com`
       let body = new URLSearchParams({
@@ -142,12 +124,6 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users?editing='))
-
-      // Extract created user ID from query params and add to cleanup list
-      let match = location.match(/editing=(\d+)/)
-      if (match) {
-        createdUserIds.push(Number(match[1]))
-      }
     })
 
     it('rejects missing name', async () => {
@@ -256,7 +232,6 @@ describe('Admin Users Controller', () => {
       let match = location.match(/editing=(\d+)/)
       if (match) {
         let id = Number(match[1])
-        createdUserIds.push(id)
         // Verify role is admin
         let result = await pool.query('SELECT role FROM users WHERE id = $1', [id])
         assert.equal(result.rows[0]?.role, 'admin')
@@ -271,7 +246,6 @@ describe('Admin Users Controller', () => {
       let id = await createTestUser(`test-update-${Date.now()}@example.com`)
       if (!id) throw new Error('Failed to create test user for update')
       testUserId = id
-      createdUserIds.push(testUserId)
     })
 
     it('updates a user name', async () => {
@@ -324,7 +298,6 @@ describe('Admin Users Controller', () => {
     it('redacts password_hash from audit log details', async () => {
       let id = await createTestUser(`test-audit-${Date.now()}@example.com`)
       if (!id) throw new Error('Failed to create test user for audit test')
-      createdUserIds.push(id)
 
       let body = new URLSearchParams({
         name: 'Audit User',

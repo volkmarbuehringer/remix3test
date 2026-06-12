@@ -70,6 +70,7 @@ export async function teardownTestEnvironment(
       // Ignore cleanup errors
     }
   }
+  // delete offerings before the resource that owns them
   try {
     await pool.query('DELETE FROM appointoffering WHERE resource_id = $1 OR resource_id = $2', [resourceId, resource2Id])
   } catch { /* ignore */ }
@@ -77,3 +78,5 @@ export async function teardownTestEnvironment(
     await pool.query('DELETE FROM resources WHERE id = $1 OR id = $2', [resourceId, resource2Id])
   } catch { /* ignore */ }
 }
+
+

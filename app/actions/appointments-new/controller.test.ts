@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
@@ -9,8 +9,6 @@ import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
 const APPT_URL = `${BASE}${routes.appointmentsNew.index.href()}`
-
-const createdAppointmentIds: number[] = []
 
 function currentMonday(): number {
   let now = new Date()
@@ -65,13 +63,6 @@ describe('Appointments New Controller', () => {
 
     let { year, week } = isoWeekFromMonday(mondayMs)
     appointmentWeekUrl = `${APPT_URL}?year=${year}&week=${week}`
-  })
-
-  after(async () => {
-    for (let id of createdAppointmentIds) {
-      await pool.query('DELETE FROM appointments WHERE id = $1', [id])
-    }
-    createdAppointmentIds.length = 0
   })
 
   // ── Auth guards ──
@@ -211,7 +202,6 @@ describe('Appointments New Controller', () => {
       "SELECT id FROM appointments WHERE title = '' AND user_id = (SELECT id FROM users WHERE email = 'user@newapp.com') AND start_min = 480",
     )
     assert.equal(checkResult.rows.length, 1)
-    createdAppointmentIds.push((checkResult.rows[0] as { id: number }).id)
   })
 
   it('POST /appointments/new step 2 creates appointment', async () => {
@@ -242,7 +232,6 @@ describe('Appointments New Controller', () => {
       "SELECT id FROM appointments WHERE title = 'Step 2 Created Appointment' AND user_id = (SELECT id FROM users WHERE email = 'user@newapp.com')",
     )
     assert.equal(checkResult.rows.length, 1)
-    createdAppointmentIds.push((checkResult.rows[0] as { id: number }).id)
   })
 
   it('POST /appointments/new step 2 with validation error returns 400', async () => {
@@ -286,7 +275,6 @@ describe('Appointments New Controller', () => {
       [firstResourceId, futureDateMs, Date.now()],
     )
     let appointmentId = insertResult.rows[0].id as number
-    createdAppointmentIds.push(appointmentId)
 
     let updateBody = new URLSearchParams({
       resource_id: String(firstResourceId),
@@ -459,7 +447,6 @@ describe('Appointments New Controller', () => {
       [firstResourceId, pastDayMs, Date.now()],
     )
     let pastId = pastResult.rows[0].id as number
-    createdAppointmentIds.push(pastId)
 
     let response = await router.fetch(`${APPT_URL}?status=expired`, {
       headers: { Cookie: userCookie },
@@ -488,7 +475,6 @@ describe('Appointments New Controller', () => {
       [firstResourceId, deleteDate, Date.now()],
     )
     let deleteId = (insertResult.rows[0] as { id: number }).id
-    createdAppointmentIds.push(deleteId)
 
     let response = await router.fetch(`${APPT_URL}?deleting=${deleteId}`, {
       headers: { Cookie: userCookie },

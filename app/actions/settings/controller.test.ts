@@ -68,10 +68,6 @@ describe('Settings controller', () => {
       )
     })
 
-    after(async () => {
-      await pool.query('DELETE FROM users WHERE email = $1', [testUserEmail])
-    })
-
     it('successfully changes password with valid current password', async () => {
       let session = await createAuthCookieWithCsrfForUser(testUserEmail)
       if (!session) throw new Error('Could not create auth session')
@@ -264,8 +260,6 @@ describe('Settings controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show password error')
-
-      await pool.query('DELETE FROM users WHERE email = $1', [deleteUserEmail])
     })
 
     it('successfully deletes account and redirects to login', async () => {
@@ -326,8 +320,6 @@ describe('Settings controller', () => {
           assert.equal(r.status, 429, `attempt ${i + 1} should be rate-limited`)
         }
       }
-
-      await pool.query('DELETE FROM users WHERE email = $1', [rateLimitEmail])
     })
 
     it('cleans up related records on deletion (messages sender_id set to NULL)', { todo: true }, () => {})

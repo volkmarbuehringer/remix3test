@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
@@ -7,8 +7,6 @@ import { createAuthCookieWithCsrfForUser, extractCookie } from '../../test-utils
 
 const BASE = 'https://remix.run'
 const RESOURCES_URL = `${BASE}/verwaltung/resources`
-
-const createdResourceIds: number[] = []
 
 describe('Admin Resources Controller', () => {
   let adminCookie: string
@@ -34,18 +32,6 @@ describe('Admin Resources Controller', () => {
     }
     userCookie = userAuth.cookie
     userCsrfToken = userAuth.csrfToken
-  })
-
-  after(async () => {
-    // Clean up created test resources
-    for (let id of createdResourceIds) {
-      try {
-        await pool.query('DELETE FROM resources WHERE id = $1', [id])
-      } catch {
-        // ignore cleanup errors
-      }
-    }
-    createdResourceIds.length = 0
   })
 
   describe('index (GET /verwaltung/resources)', () => {
@@ -116,9 +102,6 @@ describe('Admin Resources Controller', () => {
       assert.ok(location.startsWith('/verwaltung/resources?editing='))
 
       let match = location.match(/editing=(\d+)/)
-      if (match) {
-        createdResourceIds.push(Number(match[1]))
-      }
     })
 
     it('rejects empty description', async () => {
@@ -170,7 +153,6 @@ describe('Admin Resources Controller', () => {
         [`Test Resource Update ${now}`, now, now],
       )
       testResourceId = result.rows[0].id as number
-      createdResourceIds.push(testResourceId)
     })
 
     it('updates a resource description', async () => {

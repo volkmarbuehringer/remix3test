@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../data/setup.ts'
@@ -35,10 +35,6 @@ describe('Admin Chatlog Fragments Controller', () => {
         { role: 'assistant', content: 'Test response', timestamp: now },
       ])}::jsonb, ${now}, ${now})
     `)
-  })
-
-  after(async () => {
-    await db.exec(sql`DELETE FROM chatlog WHERE id = ${testConversationId}`)
   })
 
   // -----------------------------------------------------------------------

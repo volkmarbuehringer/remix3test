@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../data/setup.ts'
@@ -16,20 +16,13 @@ const BASE = 'https://remix.run'
 const ADMIN_CHATLOG_URL = `${BASE}/admin/chatlog`
 
 describe('Admin Chatlog controller', () => {
-  // IDs created in `before` so we can clean them up in `after`
-  let testConversationIds: string[] = []
-
   before(async () => {
     await initializeAppDatabase()
-
-    // Remove any leftover test data from previous aborted runs
-    await db.exec(sql`DELETE FROM chatlog WHERE id LIKE 'admin-chatlog-test-%'`)
 
     let now = Date.now()
 
     // Chat-only conversation: no toolCalls on any message
     let chatId = `admin-chatlog-test-chat-${now}`
-    testConversationIds.push(chatId)
     await db.exec(sql`
       INSERT INTO chatlog (id, conversation, created_at, updated_at)
       VALUES (${chatId}, ${JSON.stringify([
@@ -40,7 +33,6 @@ describe('Admin Chatlog controller', () => {
 
     // Agent conversation: the assistant message has toolCalls
     let agentId = `admin-chatlog-test-agent-${now}`
-    testConversationIds.push(agentId)
     await db.exec(sql`
       INSERT INTO chatlog (id, conversation, created_at, updated_at)
       VALUES (${agentId}, ${JSON.stringify([
@@ -55,12 +47,6 @@ describe('Admin Chatlog controller', () => {
         },
       ])}::jsonb, ${now}, ${now})
     `)
-  })
-
-  after(async () => {
-    for (let id of testConversationIds) {
-      await db.exec(sql`DELETE FROM chatlog WHERE id = ${id}`)
-    }
   })
 
   // -----------------------------------------------------------------------

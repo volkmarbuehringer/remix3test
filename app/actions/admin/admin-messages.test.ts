@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase, pool } from '../../data/setup.ts'
@@ -19,17 +19,9 @@ const ADMIN_MESSAGES_URL = `${BASE}/admin/messages`
 describe('Admin Messages controller', () => {
   let adminCookie: string
   let userCookie: string
-  let testMessageIds: number[] = []
 
   before(async () => {
     await initializeAppDatabase()
-
-    // Clean up any leftover test messages from previous runs
-    if (testMessageIds.length > 0) {
-      for (let id of testMessageIds) {
-        await db.exec(sql`DELETE FROM messages WHERE id = ${id}`)
-      }
-    }
 
     // Admin auth — login as admin@newapp.com
     let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
@@ -38,15 +30,6 @@ describe('Admin Messages controller', () => {
     // User auth — login as user@newapp.com
     let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
     userCookie = userResult?.cookie ?? ''
-  })
-
-  after(async () => {
-    // Clean up test messages
-    for (let id of testMessageIds) {
-      try {
-        await db.exec(sql`DELETE FROM messages WHERE id = ${id}`)
-      } catch { /* ignore cleanup errors */ }
-    }
   })
 
   it('GET /admin/messages redirects to login when not authenticated', async () => {
@@ -122,13 +105,6 @@ describe('Admin Messages controller', () => {
     assert.equal(response.status, 302)
     assert.equal(response.headers.get('Location'), '/admin/messages')
 
-    // Find and track our test message for cleanup
-    let result = await pool.query(
-      `SELECT id FROM messages WHERE content = 'Test message from admin' ORDER BY created_at DESC LIMIT 1`,
-    )
-    if (result.rows.length > 0) {
-      testMessageIds.push(result.rows[0].id)
-    }
   })
 
   it('POST /admin/messages with sanitizable content creates message (after rate limit window)', async () => {
@@ -162,7 +138,6 @@ describe('Admin Messages controller', () => {
       [now],
     )
     let messageId = createResult.rows[0].id as number
-    testMessageIds.push(messageId)
 
     // Delete it
     let formData = new FormData()

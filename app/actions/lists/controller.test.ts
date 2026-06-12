@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../data/setup.ts'
@@ -18,8 +18,6 @@ import { routes } from '../../routes.ts'
 const BASE = 'https://remix.run'
 const LISTS_URL = `${BASE}/lists`
 const ADMIN_LISTS_URL = `${BASE}/admin/lists`
-
-const testListIds: number[] = []
 
 describe('Lists controller', () => {
   let userCookie: string
@@ -45,16 +43,6 @@ describe('Lists controller', () => {
     let nonAdmin = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!nonAdmin?.cookie) throw new Error('Failed to create non-admin session — check user@newapp.com exists')
     nonAdminCookie = nonAdmin.cookie
-  })
-
-  after(async () => {
-    for (let id of testListIds) {
-      try {
-        await db.exec(sql`DELETE FROM lists WHERE id = ${id}`)
-      } catch {
-        /* ignore cleanup errors */
-      }
-    }
   })
 
   // -----------------------------------------------------------------------
@@ -106,7 +94,6 @@ describe('Lists controller', () => {
     let body = await response.json()
     assert.ok(typeof body.id === 'number', 'response should include a numeric id')
     assert.equal(body.description, 'My grocery list', 'response should include the description')
-    testListIds.push(body.id)
   })
 
   it('POST /lists/save without description returns 400', async () => {
@@ -241,7 +228,6 @@ describe('Lists controller', () => {
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
-    testListIds.push(id)
 
     let response = await router.fetch(`${LISTS_URL}/${id}/data`, {
       headers: { Cookie: userCookie },
@@ -285,8 +271,6 @@ describe('Lists controller', () => {
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
-    testListIds.push(id)
-
     // Update it
     let updateResponse = await router.fetch(`${LISTS_URL}/${id}/update`, {
       method: 'PUT',
@@ -365,7 +349,6 @@ describe('Lists controller', () => {
       }),
     })
     let { id } = await saveResponse.json()
-    testListIds.push(id)
 
     let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
       method: 'PUT',
@@ -395,7 +378,6 @@ describe('Lists controller', () => {
       }),
     })
     let { id } = await saveResponse.json()
-    testListIds.push(id)
 
     let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
       method: 'PUT',
@@ -567,7 +549,6 @@ describe('Lists controller', () => {
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
-    testListIds.push(id)
 
     // Filter by the unique label — should find the list
     let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=${encodeURIComponent(uniqueLabel)}`, {
