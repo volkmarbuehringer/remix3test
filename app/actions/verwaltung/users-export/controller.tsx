@@ -1,0 +1,185 @@
+import { createController } from 'remix/router'
+
+import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
+import { requireAuth } from '../../../middleware/auth.ts'
+import { requireAdmin } from '../../../middleware/admin.ts'
+import { pool } from '../../../data/setup.ts'
+import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
+import { UsersExportPage } from '../../../ui/users-export-page.tsx'
+
+function formatMin(minutes: number): string {
+  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
+  let m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
+function formatDate(date: string | number | null): string {
+  if (date === null) return '\u2014'
+  let d = new Date(Number(date))
+  if (isNaN(d.getTime())) return '\u2014'
+  return d.toLocaleDateString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+}
+
+function toLocalDateString(date: string): string {
+  return new Date(date + 'T00:00:00').toLocaleDateString('de-DE', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  })
+}
+
+interface UserSummaryRow {
+  user_id: number
+  name: string
+  email: string
+  appointment_count: number
+  total_minutes: number
+  first_date: number | null
+  last_date: number | null
+}
+
+export default createController<typeof routes.verwaltung.usersExport, AppContext>(
+  routes.verwaltung.usersExport,
+  {
+    middleware: [requireAuth(), requireAdmin()],
+
+    actions: {
+      async index(context) {
+        return renderVerwaltungPage(
+          context.render,
+          <UsersExportPage />,
+        )
+      },
+
+      async create(context) {
+        let formData = context.formData
+        let startDate = formData.get('startDate') as string | null
+        let endDate = formData.get('endDate') as string | null
+
+        if (!startDate || !endDate) {
+          return renderVerwaltungPage(
+            context.render,
+            <UsersExportPage
+              error="Bitte Start- und Enddatum auswählen."
+              startDate={startDate ?? undefined}
+              endDate={endDate ?? undefined}
+            />,
+            { status: 400 },
+          )
+        }
+
+        let startMs = new Date(startDate + 'T00:00:00Z').getTime()
+        let endMs = new Date(endDate + 'T00:00:00Z').getTime() + 86_400_000
+
+        if (isNaN(startMs) || isNaN(endMs)) {
+          return renderVerwaltungPage(
+            context.render,
+            <UsersExportPage
+              error="Ungültiges Datumsformat."
+              startDate={startDate}
+              endDate={endDate}
+            />,
+            { status: 400 },
+          )
+        }
+
+        if (endMs <= startMs) {
+          return renderVerwaltungPage(
+            context.render,
+            <UsersExportPage
+              error="Das Enddatum muss nach dem Startdatum liegen."
+              startDate={startDate}
+              endDate={endDate}
+            />,
+            { status: 400 },
+          )
+        }
+
+        try {
+          let result = await pool.query(
+            `SELECT u.id AS user_id, u.name, u.email,
+                    COUNT(a.id)::int AS appointment_count,
+                    COALESCE(SUM(a.end_min - a.start_min), 0)::int AS total_minutes,
+                    MIN(a.date) AS first_date,
+                    MAX(a.date) AS last_date
+             FROM users u
+             INNER JOIN appointments a ON a.user_id = u.id
+             WHERE a.date >= $1 AND a.date < $2
+             GROUP BY u.id, u.name, u.email
+             ORDER BY u.name ASC`,
+            [startMs, endMs],
+          )
+          let rows = result.rows as UserSummaryRow[]
+
+          if (rows.length === 0) {
+            return renderVerwaltungPage(
+              context.render,
+              <UsersExportPage
+                error="Keine Benutzer mit Terminen im gewählten Zeitraum gefunden."
+                startDate={startDate}
+                endDate={endDate}
+              />,
+              { status: 404 },
+            )
+          }
+
+          let buffer = await generatePdfBuffer({
+            pageSize: 'A4',
+            pageMargins: [40, 60, 40, 60],
+            content: [
+              { text: 'Benutzer-Export', style: 'header' },
+              {
+                text: `Zeitraum: ${toLocalDateString(startDate)} \u2013 ${toLocalDateString(endDate)}`,
+                style: 'subheader',
+              },
+              { text: `Insgesamt ${rows.length} Benutzer mit Terminen`, style: 'subheader', margin: [0, 0, 0, 20] },
+              {
+                table: {
+                  headerRows: 1,
+                  widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
+                  body: [
+                    [
+                      { text: 'Name', bold: true },
+                      { text: 'E-Mail', bold: true },
+                      { text: 'Termine', bold: true },
+                      { text: 'Gesamtzeit', bold: true },
+                      { text: 'Erster Termin', bold: true },
+                      { text: 'Letzter Termin', bold: true },
+                    ],
+                    ...rows.map(row => [
+                      row.name ?? row.email,
+                      row.email,
+                      String(row.appointment_count),
+                      row.appointment_count > 0 ? formatMin(row.total_minutes) : '\u2014',
+                      formatDate(row.first_date),
+                      formatDate(row.last_date),
+                    ]),
+                  ],
+                },
+                layout: 'lightHorizontalLines',
+              },
+            ],
+            styles: {
+              header: { fontSize: 18, bold: true, margin: [0, 0, 0, 8] },
+              subheader: { fontSize: 11, color: '#666666', margin: [0, 0, 0, 4] },
+            },
+          })
+
+          let filename = `benutzer-export-${startDate}_${endDate}.pdf`
+
+          return new Response(new Uint8Array(buffer), {
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              'Content-Length': String(buffer.length),
+            },
+          })
+        } catch {
+          return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
+        }
+      },
+    },
+  },
+)

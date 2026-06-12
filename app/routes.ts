@@ -139,6 +139,11 @@ export const routes = route({
     usersPdf: route('users-pdf', {
       index: get('/'),
     }),
+
+    usersExport: route('users-export', {
+      index: get('/'),
+      create: post('/'),
+    }),
   }),
 
   ai: route('ai', {

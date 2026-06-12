@@ -105,6 +105,13 @@ export function VerwaltungDashboardContent() {
             PDF herunterladen
           </a>
         </div>
+        <div mix={cardStyle}>
+          <h2 mix={cardTitleStyle}>Benutzer-Export (gefiltert)</h2>
+          <p mix={cardDescStyle}>Benutzer mit Terminen in einem Zeitraum als PDF exportieren.</p>
+          <a href={routes.verwaltung.usersExport.index.href()} mix={btnStyle}>
+            Zum Export
+          </a>
+        </div>
       </div>
     </div>
   )
