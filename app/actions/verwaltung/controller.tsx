@@ -633,22 +633,22 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
 
       async configSave(context) {
         let formData = context.formData
-        let resourceIdStr = formData.get('resource_id') as string | null
 
-        if (!resourceIdStr) {
+        let result = s.parseSafe(
+          f.object({
+            resource_id: f.field(s.string().refine(v => /^\d+$/.test(v), 'Ressource ist erforderlich.')),
+          }),
+          formData,
+        )
+
+        if (!result.success) {
           return context.json(
-            { ok: false, error: 'resource_id ist erforderlich.' },
+            { ok: false, error: result.issues[0]?.message ?? 'Ungültige Anfrage.' },
             { status: 400 },
           )
         }
 
-        let resourceId = parseInt(resourceIdStr, 10)
-        if (isNaN(resourceId)) {
-          return context.json(
-            { ok: false, error: 'Ungültige resource_id.' },
-            { status: 400 },
-          )
-        }
+        let resourceId = parseInt(result.value.resource_id, 10)
 
         let DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
         let rules: Record<string, [number, number]> = {}
@@ -687,25 +687,24 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
 
       async weekGenerate(context) {
         let formData = context.formData
-        let yearStr = formData.get('year') as string | null
-        let weekStr = formData.get('week') as string | null
 
-        if (!yearStr || !weekStr) {
+        let result = s.parseSafe(
+          f.object({
+            year: f.field(s.string().refine(v => /^\d+$/.test(v), 'Jahr ist erforderlich.')),
+            week: f.field(s.string().refine(v => /^\d+$/.test(v), 'Woche ist erforderlich.')),
+          }),
+          formData,
+        )
+
+        if (!result.success) {
           return context.json(
-            { ok: false, error: 'year und week sind erforderlich.' },
+            { ok: false, error: result.issues[0]?.message ?? 'Ungültige Anfrage.' },
             { status: 400 },
           )
         }
 
-        let year = parseInt(yearStr, 10)
-        let week = parseInt(weekStr, 10)
-
-        if (isNaN(year) || isNaN(week)) {
-          return context.json(
-            { ok: false, error: 'Ungültige Parameter.' },
-            { status: 400 },
-          )
-        }
+        let year = parseInt(result.value.year, 10)
+        let week = parseInt(result.value.week, 10)
 
         let configsResult = await pool.query('SELECT resource_id FROM offering_configs')
         let totalCreated = 0

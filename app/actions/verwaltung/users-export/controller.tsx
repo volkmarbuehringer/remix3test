@@ -1,4 +1,6 @@
 import { createController } from 'remix/router'
+import * as s from 'remix/data-schema'
+import * as f from 'remix/data-schema/form-data'
 
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
@@ -55,35 +57,30 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
 
       async create(context) {
         let formData = context.formData
-        let startDate = formData.get('startDate') as string | null
-        let endDate = formData.get('endDate') as string | null
 
-        if (!startDate || !endDate) {
+        let result = s.parseSafe(
+          f.object({
+            startDate: f.field(s.string().refine(v => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Startdatum erforderlich (YYYY-MM-DD).')),
+            endDate: f.field(s.string().refine(v => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Enddatum erforderlich (YYYY-MM-DD).')),
+          }),
+          formData,
+        )
+
+        if (!result.success) {
           return renderVerwaltungPage(
             context.render,
             <UsersExportPage
-              error="Bitte Start- und Enddatum auswählen."
-              startDate={startDate ?? undefined}
-              endDate={endDate ?? undefined}
+              error={result.issues[0]?.message ?? 'Ungültige Anfrage.'}
+              startDate={formData.get('startDate') as string ?? undefined}
+              endDate={formData.get('endDate') as string ?? undefined}
             />,
             { status: 400 },
           )
         }
 
+        let { startDate, endDate } = result.value
         let startMs = new Date(startDate + 'T00:00:00Z').getTime()
         let endMs = new Date(endDate + 'T00:00:00Z').getTime() + 86_400_000
-
-        if (isNaN(startMs) || isNaN(endMs)) {
-          return renderVerwaltungPage(
-            context.render,
-            <UsersExportPage
-              error="Ungültiges Datumsformat."
-              startDate={startDate}
-              endDate={endDate}
-            />,
-            { status: 400 },
-          )
-        }
 
         if (endMs <= startMs) {
           return renderVerwaltungPage(

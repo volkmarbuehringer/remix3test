@@ -214,7 +214,6 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '60px' })} />
                 <col />
                 <col />
                 <col />
@@ -222,15 +221,6 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'id', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
-                      ID
-                      <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.thSortable}>
                     <a href={buildSortUrl(ADMIN_BASE, 'resource_description', sortColumn, sortDirection, offset, filter)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
@@ -255,9 +245,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={String(row.id)}>{row.id}</td>
-                    <td mix={table.td} title={row.resource_name ?? ''}>{row.resource_name ?? '\u2014'}</td>
+                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
+                      <td mix={table.td} title={row.resource_name ?? ''}>{row.resource_name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description ?? '\u2014'}</td>
                     <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>{formatTimestamp(row.updated_at)}</td>

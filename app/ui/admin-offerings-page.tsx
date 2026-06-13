@@ -283,7 +283,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '40px' })} />
                 <col mix={css({ width: '35px' })} />
                 <col mix={css({ width: '30px' })} />
                 <col />
@@ -294,15 +293,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable} title="ID">
-                      <a href={buildSortUrl(ADMIN_BASE, 'ao.id', sortColumn, sortDirection, offset, filter, period, status)}
-                        rmx-target={frames.adminContent} mix={table.sortLink}>
-                      ID
-                      <span mix={'ao.id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('ao.id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.th}>KW</th>
                   <th mix={table.th}>WD</th>
                   <th mix={table.thSortable} title="Tag">
@@ -346,9 +336,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={row.id}>{row.id}</td>
-                    <td mix={table.td}>{formatWeekNumber(row.day)}</td>
+                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
+                      <td mix={table.td}>{formatWeekNumber(row.day)}</td>
                     <td mix={table.td}>{formatWeekday(row.day)}</td>
                     <td mix={table.td} title={formatDate(row.day)}>{formatDate(row.day)}</td>
                     <td mix={table.td} title={row.resource_name ?? ''}>

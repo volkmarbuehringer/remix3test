@@ -96,7 +96,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '60px' })} />
                 <col mix={css({ width: '180px' })} />
                 <col />
                 <col mix={css({ width: '160px' })} />
@@ -105,15 +104,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'id', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
-                      ID
-                      <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.thSortable}>
                     <a href={buildSortUrl(ADMIN_BASE, 'name', sortColumn, sortDirection, offset, filter)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
@@ -155,9 +145,8 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={String(row.id)}>{row.id}</td>
-                    <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
+                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
+                      <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.description}>{row.description}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>{formatTimestamp(row.updated_at as number)}</td>

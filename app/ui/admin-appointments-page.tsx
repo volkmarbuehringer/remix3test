@@ -245,7 +245,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '40px' })} />
                 <col />
                 <col />
                 <col />
@@ -256,18 +255,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable} title="ID">
-                    <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.id', sortColumn, sortDirection, offset, filter, period, status)}
-                      rmx-target={frames.adminContent}
-                      mix={table.sortLink}
-                    >
-                      ID
-                      <span mix={'a.id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('a.id', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.thSortable} title="Titel">
                     <a
                       href={buildSortUrl(ADMIN_BASE, 'a.title', sortColumn, sortDirection, offset, filter, period, status)}
@@ -357,11 +344,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               </thead>
               <tbody>
                   {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={row.id}>
-                      {row.id}
-                    </td>
-                    <td mix={table.td} title={row.title}>
+                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
+                      <td mix={table.td} title={row.title}>
                       {row.title}
                     </td>
                     <td mix={table.td} title={row.user_email ?? ''}>
