@@ -1,6 +1,7 @@
 import { ilike } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
+import { minLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 import { Logger } from 'remix/middleware/logger'
 
@@ -70,18 +71,19 @@ const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
   'ao.id': 'ao.id',
   'ao.day': 'ao.day',
   'ao.resource_id': 'ao.resource_id',
-  'r.description': 'r.description',
+  'r.description': 'r.name',
   'ao.during': 'ao.during',
   'ao.created_at': 'ao.created_at',
   'ao.updated_at': 'ao.updated_at',
 }
 
-const OFFERINGS_SEARCH_COLUMNS = ['r.description'] as const
+const OFFERINGS_SEARCH_COLUMNS = ['r.name', 'r.description'] as const
 
 export interface OfferingRow {
   id: string
   day: string
   resource_id: string
+  resource_name: string | null
   resource_description: string | null
   during: string
   created_at: string
@@ -90,6 +92,7 @@ export interface OfferingRow {
 
 export interface OfferingsResourceOption {
   id: string
+  name: string
   description: string
 }
 
@@ -118,7 +121,7 @@ interface OfferingPageData {
 
 async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
   let result = await pool.query(
-    `SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
+    `SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
             ao.during, ao.created_at, ao.updated_at
      FROM appointoffering ao
      LEFT JOIN resources r ON r.id = ao.resource_id
@@ -146,7 +149,7 @@ async function loadOfferingPageData(
       })
 
   let query = `
-    SELECT ao.id, ao.day, ao.resource_id, r.description AS resource_description,
+    SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
            ao.during, ao.created_at, ao.updated_at
     FROM appointoffering ao
     LEFT JOIN resources r ON r.id = ao.resource_id
@@ -218,7 +221,7 @@ async function loadOfferingPageData(
   if (hasMore) rows.pop()
 
   let resourcesResult = await pool.query(
-    'SELECT id, description FROM resources ORDER BY description ASC',
+    'SELECT id, name, description FROM resources ORDER BY name ASC',
   )
   let resourceOptions = resourcesResult.rows as OfferingsResourceOption[]
 
@@ -794,14 +797,14 @@ const APPOINTMENTS_ORDER_BY_COLUMNS: Record<string, string> = {
   'a.id': 'a.id',
   'a.title': 'a.title',
   'u.email': 'u.email',
-  'r.description': 'r.description',
+  'r.description': 'r.name',
   'a.date': 'a.date',
   'a.during': 'a.during',
   'a.created_at': 'a.created_at',
   'a.updated_at': 'a.updated_at',
 }
 
-const APPOINTMENTS_SEARCH_COLUMNS = ['a.title', 'u.email', 'r.description'] as const
+const APPOINTMENTS_SEARCH_COLUMNS = ['a.title', 'u.email', 'r.description', 'r.name'] as const
 
 export interface AppointmentRow {
   id: string
@@ -809,6 +812,7 @@ export interface AppointmentRow {
   user_id: string
   user_email: string
   resource_id: string
+  resource_name: string | null
   resource_description: string | null
   date: string
   during: string
@@ -820,6 +824,7 @@ export interface AppointmentRow {
 
 export interface AppointmentResourceOption {
   id: string
+  name: string
   description: string
 }
 
@@ -863,7 +868,7 @@ function errorRedirectDestroy(formData: FormData, error: string): Response {
 async function fetchEditRow(id: string): Promise<AppointmentRow | undefined> {
   let editResult = await pool.query(
     `SELECT a.id, a.title, a.user_id, u.email AS user_email,
-            a.resource_id, r.description AS resource_description,
+            a.resource_id, r.name AS resource_name, r.description AS resource_description,
             a.date, during::text AS during, a.start_min, a.end_min,
             a.created_at, a.updated_at
      FROM appointments a
@@ -892,7 +897,7 @@ async function loadAppointmentPageData(
 
   let query = `
     SELECT a.id, a.title, a.user_id, u.email AS user_email,
-           a.resource_id, r.description AS resource_description,
+           a.resource_id, r.name AS resource_name, r.description AS resource_description,
            a.date, during::text AS during, a.start_min, a.end_min,
            a.created_at, a.updated_at
     FROM appointments a
@@ -961,7 +966,7 @@ async function loadAppointmentPageData(
     resourcesPromise = Promise.resolve({ rows: appointmentsResourcesCache.data })
   } else {
     resourcesPromise = pool.query(
-      'SELECT id, description FROM resources ORDER BY description ASC',
+      'SELECT id, name, description FROM resources ORDER BY name ASC',
     ).then((r) => {
       appointmentsResourcesCache = { data: r.rows as AppointmentResourceOption[], expiresAt: Date.now() + CACHE_TTL_MS }
       return r
@@ -1553,9 +1558,9 @@ type ResourceRow = Resource
 
 const RESOURCES_PAGE_SIZE = 15
 
-const RESOURCE_FORM_KEYS = ['description'] as const
+const RESOURCE_FORM_KEYS = ['name', 'description'] as const
 
-const RESOURCES_SORTABLE_FIELDS = ['id', 'description', 'created_at', 'updated_at'] as const
+const RESOURCES_SORTABLE_FIELDS = ['id', 'name', 'description', 'created_at', 'updated_at'] as const
 
 interface ResourcePageData {
   rows: ResourceRow[]
@@ -1586,12 +1591,12 @@ async function loadResourcePageData(
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
     : parseSort(context.url, {
         allowedColumns: RESOURCES_SORTABLE_FIELDS,
-        defaultColumn: 'description',
+        defaultColumn: 'name',
         defaultDirection: 'asc',
       })
 
   let filterPredicate = filter && filter.length <= 200
-    ? ilike('description', `%${filter}%`)
+    ? ilike('name', `%${filter}%`)
     : undefined
 
   let { items: page, hasMore } = await paginate(db, resources, {
@@ -1630,7 +1635,8 @@ async function loadResourcePageData(
 }
 
 const resourceSaveSchema = f.object({
-  description: f.field(s.string().refine((v) => v.length >= 8, 'Beschreibung muss mindestens 8 Zeichen lang sein')),
+  name: f.field(s.defaulted(s.string(), '').pipe(minLength(4))),
+  description: f.field(s.defaulted(s.string(), '').refine((v) => v.length >= 8, 'Beschreibung muss mindestens 8 Zeichen lang sein')),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
@@ -1694,7 +1700,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
 
       let row = await db.create(
         resources,
-        { description: parsed.description.trim() },
+        { name: parsed.name.trim(), description: parsed.description.trim() },
         { returnRow: true },
       )
 
@@ -1706,7 +1712,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
           action_type: 'create',
           target_type: 'resources',
           target_id: row.id as number,
-          details: { description: parsed.description.trim() },
+          details: { name: parsed.name.trim(), description: parsed.description.trim() },
         })
       }
 
@@ -1749,7 +1755,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
 
       let parsed = result.value as Record<string, string>
 
-      await db.updateMany(resources, { description: parsed.description.trim() }, { where: { id } })
+      await db.updateMany(resources, { name: parsed.name.trim(), description: parsed.description.trim() }, { where: { id } })
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
@@ -1759,7 +1765,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
           action_type: 'update',
           target_type: 'resources',
           target_id: id,
-          details: { description: parsed.description.trim() },
+          details: { name: parsed.name.trim(), description: parsed.description.trim() },
         })
       }
 
@@ -1835,6 +1841,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
 export interface OfferingConfigRow {
   id: number
   resource_id: number
+  resource_name: string | null
   resource_description: string | null
   rules: Record<string, [number, number]>
   created_at: number
@@ -1843,6 +1850,7 @@ export interface OfferingConfigRow {
 
 export interface OfferingConfigResourceOption {
   id: number
+  name: string
   description: string
 }
 
@@ -1854,7 +1862,7 @@ const OFFERING_CONFIG_FORM_KEYS_LIST = ['resource_id', 'monday_enabled', 'monday
 
 const OFFERING_CONFIGS_ORDER_BY_COLUMNS: Record<string, string> = {
   id: 'oc.id',
-  resource_description: 'r.description',
+  resource_description: 'r.name',
   created_at: 'oc.created_at',
   updated_at: 'oc.updated_at',
 }
@@ -1894,7 +1902,7 @@ async function loadOfferingConfigPageData(
   let whereClause = ''
   let sqlParams: unknown[] = []
   if (filter && filter.length <= 200) {
-    whereClause = 'WHERE r.description ILIKE $1'
+    whereClause = 'WHERE r.name ILIKE $1'
     sqlParams.push(`%${filter}%`)
   }
 
@@ -1912,7 +1920,7 @@ async function loadOfferingConfigPageData(
 
   let dataParams = [...sqlParams, OFFERING_CONFIGS_PAGE_SIZE + 1, offset]
   let dataResult = await pool.query(
-    `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
+    `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
      FROM offering_configs oc
      JOIN resources r ON r.id = oc.resource_id
      ${whereClause}
@@ -1928,7 +1936,7 @@ async function loadOfferingConfigPageData(
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
     let editResult = await pool.query(
-      `SELECT oc.id, oc.resource_id, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
+      `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
        FROM offering_configs oc
        JOIN resources r ON r.id = oc.resource_id
        WHERE oc.id = $1`,
@@ -1942,10 +1950,11 @@ async function loadOfferingConfigPageData(
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
   let resourcesResult = await pool.query(
-    'SELECT id, description FROM resources ORDER BY description ASC',
+    'SELECT id, name, description FROM resources ORDER BY name ASC',
   )
   let resourceOptions: OfferingConfigResourceOption[] = resourcesResult.rows.map((r: Record<string, unknown>) => ({
     id: Number(r.id),
+    name: r.name as string,
     description: r.description as string,
   }))
 
@@ -2043,6 +2052,7 @@ function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfigRow {
   return {
     id: Number(row.id),
     resource_id: Number(row.resource_id),
+    resource_name: (row.resource_name as string) ?? null,
     resource_description: (row.resource_description as string) ?? null,
     rules: typeof row.rules === 'string' ? JSON.parse(row.rules as string) : (row.rules as Record<string, [number, number]>),
     created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),

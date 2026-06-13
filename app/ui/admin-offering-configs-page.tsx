@@ -15,6 +15,7 @@ import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/controller.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]
@@ -166,6 +167,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
 
     let gridSection = (
       <div mix={table.minWidth0}>
+        <ConfirmDelete />
         {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         <form
           method="GET"
@@ -263,7 +265,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                 {rows.map((row) => (
                   <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description}</td>
+                    <td mix={table.td} title={row.resource_name ?? row.resource_description ?? ''}>{row.resource_name ?? row.resource_description}</td>
                     <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>{formatTimestamp(row.updated_at)}</td>
@@ -280,6 +282,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                           method="DELETE"
                           action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
                           mix={css({ display: 'inline' })}
+                          data-confirm="Wirklich löschen?"
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -409,7 +412,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
                 <select id="oc-resource" name="resource_id" mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
                   {resources.map(r => (
                     <option key={r.id} value={r.id} selected={Number(r.id) === selectedResourceId}>
-                      {r.description}
+                      {r.name}
                     </option>
                   ))}
                 </select>
@@ -473,7 +476,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
                 <select id="oc-resource-c" name="resource_id" required mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
                   <option value="" disabled selected={!selectedResourceId}>Ressource auswählen</option>
                   {resources.map(r => (
-                    <option key={r.id} value={r.id} selected={selectedResourceId === Number(r.id)}>{r.description}</option>
+                    <option key={r.id} value={r.id} selected={selectedResourceId === Number(r.id)}>{r.name}</option>
                   ))}
                 </select>
                 {hasResourceError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.resource_id}</div> : null}

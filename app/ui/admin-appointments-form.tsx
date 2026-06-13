@@ -128,7 +128,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                       value={res.id}
                       selected={resolvedResourceId != null && String(resolvedResourceId) === String(res.id)}
                     >
-                      {res.description}
+                      {res.name}
                     </option>
                   ))}
                 </select>

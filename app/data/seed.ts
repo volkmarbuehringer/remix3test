@@ -95,17 +95,19 @@ export async function seed(): Promise<void> {
   if (resourcesCount === 0) {
     await db.createMany(resources, [
       {
-        description: 'resource1',
+        name: 'Raum 1',
+        description: 'Hauptraum mit Beamer und Whiteboard',
         created_at: Date.now(),
         updated_at: Date.now(),
       },
       {
-        description: 'resource2',
+        name: 'Raum 2',
+        description: 'Nebenraum für Kleingruppen',
         created_at: Date.now(),
         updated_at: Date.now(),
       },
     ])
-    console.log('✅ Seeded 2 resources: resource1, resource2')
+    console.log('✅ Seeded 2 resources: Raum 1, Raum 2')
   } else {
     console.log('ℹ️ Skipping resource seed, resources already present')
   }

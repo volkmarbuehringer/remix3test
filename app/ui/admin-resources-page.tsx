@@ -12,6 +12,7 @@ import { frames, routes } from '../routes.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 interface AdminResourcesPageProps {
   rows: Resource[]
@@ -48,6 +49,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
 
     let gridSection = (
       <div mix={table.minWidth0}>
+        <ConfirmDelete />
         {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {/* Toolbar + Filter */}
         <form
@@ -95,6 +97,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             <table mix={table.table}>
               <colgroup>
                 <col mix={css({ width: '60px' })} />
+                <col mix={css({ width: '180px' })} />
                 <col />
                 <col mix={css({ width: '160px' })} />
                 <col mix={css({ width: '160px' })} />
@@ -108,6 +111,15 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                       ID
                       <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('id', sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  </th>
+                  <th mix={table.thSortable}>
+                    <a href={buildSortUrl(ADMIN_BASE, 'name', sortColumn, sortDirection, offset, filter)}
+                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                      Name
+                      <span mix={'name' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('name', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
@@ -145,6 +157,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                 {rows.map((row) => (
                   <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
+                    <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.description}>{row.description}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>{formatTimestamp(row.updated_at as number)}</td>
@@ -161,6 +174,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                           method="DELETE"
                           action={routes.verwaltung.resources.destroy.href({ id: row.id })}
                           mix={css({ display: 'inline' })}
+                          data-confirm="Wirklich löschen?"
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -272,6 +286,8 @@ interface EditPanelProps {
 function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
     let { row, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let nameValue = formValues?.name ?? row.name ?? ''
+    let nameError = fieldErrors?.name
     let descValue = formValues?.description ?? row.description ?? ''
     let hasError = !!fieldErrors?.description
     return (
@@ -285,6 +301,18 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
             </div>
 
             <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ar-name">Name</label>
+                <input
+                  id="ar-name"
+                  name="name"
+                  type="text"
+                  value={nameValue}
+                  mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
+                />
+                {nameError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{nameError}</div> : null}
+              </div>
+
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ar-desc">Beschreibung</label>
                 <input
@@ -329,6 +357,7 @@ interface CreatePanelProps {
 function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let nameError = fieldErrors?.name
     let hasError = !!fieldErrors?.description
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
@@ -341,6 +370,19 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
             </div>
 
             <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ar-name-c">Name</label>
+                <input
+                  id="ar-name-c"
+                  name="name"
+                  type="text"
+                  required
+                  defaultValue={formValues?.name ?? ''}
+                  mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
+                />
+                {nameError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{nameError}</div> : null}
+              </div>
+
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ar-desc-c">Beschreibung</label>
                 <input

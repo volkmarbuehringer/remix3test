@@ -23,7 +23,7 @@ function readData(): {
   week: number
   weekStart: number
   selectedResourceId: number
-  resources: Array<{ id: number; description: string }>
+  resources: Array<{ id: number; name: string }>
 } {
   let data = readAppointmentData()
   return {
@@ -31,7 +31,7 @@ function readData(): {
     week: (data.week as number) ?? 1,
     weekStart: (data.weekStart as number) ?? 0,
     selectedResourceId: (data.selectedResourceId as number) ?? 0,
-    resources: (data.resources ?? []) as Array<{ id: number; description: string }>,
+    resources: (data.resources ?? []) as Array<{ id: number; name: string }>,
   }
 }
 
@@ -41,7 +41,7 @@ function navigateWithParams(baseYear: string | number, baseWeek: string | number
 
 interface ResourceOption {
   id: number
-  description: string
+  name: string
 }
 
 export const AppointmentSidebar = clientEntry(
@@ -78,7 +78,7 @@ export const AppointmentSidebar = clientEntry(
               >
                 {resourceOptions.map((res) => (
                   <option key={res.id} value={res.id} selected={res.id === selectedResourceId}>
-                    {res.description}
+                    {res.name}
                   </option>
                 ))}
               </select>

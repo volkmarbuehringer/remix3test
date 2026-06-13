@@ -101,7 +101,7 @@ export function AppointmentsNewForm(handle: Handle<AppointmentsNewFormProps>) {
                       value={res.id}
                       selected={resolvedResourceId != null && String(resolvedResourceId) === String(res.id)}
                     >
-                      {res.description}
+                      {res.name}
                     </option>
                   ))}
                 </select>

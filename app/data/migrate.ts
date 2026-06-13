@@ -107,11 +107,13 @@ export async function migrate(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS resources (
       id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT 'Unbenannt',
       description TEXT NOT NULL,
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
   `)
+  await pool.query(`ALTER TABLE resources ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Unbenannt'`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS appointments (

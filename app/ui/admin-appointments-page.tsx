@@ -380,8 +380,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     <td mix={table.td} title={row.user_email ?? ''}>
                       {row.user_email ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>
-                      {row.resource_description ?? '\u2014'}
+                    <td mix={table.td} title={row.resource_name ?? row.resource_description ?? ''}>
+                      {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
                     <td mix={table.td} title={formatDate(row.date)}>
                       {formatDate(row.date)}

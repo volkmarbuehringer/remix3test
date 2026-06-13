@@ -81,7 +81,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                   <option value="" disabled selected={!resolvedResourceId}>Ressource auswählen...</option>
                   {resources.map((res) => (
                     <option key={res.id} value={res.id} selected={String(resolvedResourceId) === String(res.id)}>
-                      {res.description}
+                      {res.name}
                     </option>
                   ))}
                 </select>

@@ -85,7 +85,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 <label mix={table.label}>Ressource</label>
                 <select name="_resource_display" disabled mix={[input.base, input.focus, table.select]}>
                   {resources.filter(r => Number(r.id) === resourceId).map(r => (
-                    <option key={r.id} value={r.id} selected>{r.description}</option>
+                    <option key={r.id} value={r.id} selected>{r.name}</option>
                   ))}
                 </select>
               </div>

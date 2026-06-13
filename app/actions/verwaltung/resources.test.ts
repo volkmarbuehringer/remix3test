@@ -82,6 +82,7 @@ describe('Admin Resources Controller', () => {
     it('creates a new resource with valid data', async () => {
       let desc = `Test Resource ${Date.now()}`
       let body = new URLSearchParams({
+        name: 'Test Raum',
         description: desc,
         _csrf: adminCsrfToken,
         _offset: '',
@@ -106,6 +107,7 @@ describe('Admin Resources Controller', () => {
 
     it('rejects empty description', async () => {
       let body = new URLSearchParams({
+        name: 'Test Raum',
         description: '',
         _csrf: adminCsrfToken,
         _offset: '',
@@ -149,14 +151,15 @@ describe('Admin Resources Controller', () => {
     before(async () => {
       let now = Date.now()
       let result = await pool.query(
-        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
-        [`Test Resource Update ${now}`, now, now],
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+        ['Test Update', `Test Resource Update ${now}`, now, now],
       )
       testResourceId = result.rows[0].id as number
     })
 
     it('updates a resource description', async () => {
       let body = new URLSearchParams({
+        name: 'Test Update',
         description: 'Updated Description',
         _csrf: adminCsrfToken,
         _offset: '',
@@ -184,6 +187,7 @@ describe('Admin Resources Controller', () => {
 
     it('rejects update with empty description', async () => {
       let body = new URLSearchParams({
+        name: 'Test Update',
         description: '',
         _csrf: adminCsrfToken,
         _offset: '',
@@ -210,8 +214,8 @@ describe('Admin Resources Controller', () => {
     it('deletes a resource with no appointments', async () => {
       let now = Date.now()
       let result = await pool.query(
-        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
-        [`Delete Test ${now}`, now, now],
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+        ['Delete Test', `Delete Test ${now}`, now, now],
       )
       let id = result.rows[0].id as number
 

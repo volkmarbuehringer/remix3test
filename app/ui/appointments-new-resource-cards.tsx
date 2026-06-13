@@ -76,7 +76,7 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
         {resources.map((res) => (
           <li key={res.id}>
             <a href={buildResourceUrl(res.id, gridState)} mix={cardLink}>
-              {res.description}
+              {res.name}
             </a>
           </li>
         ))}

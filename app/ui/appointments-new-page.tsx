@@ -338,8 +338,8 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                 {rows.map((row) => (
                   <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={[table.td, compactTd]} title={row.title}>{row.title}</td>
-                    <td mix={[table.td, compactTd]} title={row.resource_description ?? ''}>
-                      {row.resource_description ?? '\u2014'}
+                    <td mix={[table.td, compactTd]} title={row.resource_name ?? row.resource_description ?? ''}>
+                      {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
                     <td mix={[table.td, compactTd]} title={formatDateDE(Number(row.date))}>{formatDateDE(Number(row.date))}</td>
                     <td mix={[table.td, compactTd]} title={row.during}>{formatDuring(row.during)}</td>

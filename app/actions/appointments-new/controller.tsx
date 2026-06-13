@@ -42,7 +42,7 @@ const deleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true
 const ORDER_BY_COLUMNS: Record<string, string> = {
   'a.id': 'a.id',
   'a.title': 'a.title',
-  'r.description': 'r.description',
+  'r.description': 'r.name',
   'a.date': 'a.date',
   'a.during': 'a.during',
 }
@@ -51,6 +51,7 @@ export interface AppointmentsNewRow {
   id: string
   title: string
   resource_id: string
+  resource_name: string | null
   resource_description: string | null
   date: string
   during: string
@@ -60,6 +61,7 @@ export interface AppointmentsNewRow {
 
 export interface ResourceOption {
   id: string
+  name: string
   description: string
 }
 
@@ -124,7 +126,7 @@ async function loadAppointmentsNewPageData(
 
   let query = `
     SELECT a.id, a.title,
-           a.resource_id, r.description AS resource_description,
+           a.resource_id, r.name AS resource_name, r.description AS resource_description,
            a.date, during::text AS during, a.start_min, a.end_min
     FROM appointments a
     LEFT JOIN resources r ON r.id = a.resource_id
@@ -180,7 +182,7 @@ async function loadAppointmentsNewPageData(
       resourcesResult = { rows: resourcesCache.data }
     } else {
       resourcesResult = await pool.query(
-        'SELECT id, description FROM resources ORDER BY description ASC',
+        'SELECT id, name, description FROM resources ORDER BY name ASC',
       )
       resourcesCache = { data: resourcesResult.rows as ResourceOption[], expiresAt: Date.now() + CACHE_TTL_MS }
     }
@@ -258,7 +260,7 @@ async function loadAppointmentsNewPageData(
   if (!editRowLocal && editingParam) {
     let editResult = await pool.query(
       `SELECT a.id, a.title,
-              a.resource_id, r.description AS resource_description,
+              a.resource_id, r.name AS resource_name, r.description AS resource_description,
               a.date, during::text AS during, a.start_min, a.end_min
        FROM appointments a
        LEFT JOIN resources r ON r.id = a.resource_id
@@ -294,7 +296,7 @@ async function loadAppointmentsNewPageData(
   if (!deletingRow && deletingParam) {
     let deleteResult = await pool.query(
       `SELECT a.id, a.title,
-              a.resource_id, r.description AS resource_description,
+              a.resource_id, r.name AS resource_name, r.description AS resource_description,
               a.date, during::text AS during, a.start_min, a.end_min
        FROM appointments a
        LEFT JOIN resources r ON r.id = a.resource_id
@@ -757,7 +759,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 async function fetchEditRow(id: string, userId: number): Promise<AppointmentsNewRow | undefined> {
   let editResult = await pool.query(
     `SELECT a.id, a.title,
-            a.resource_id, r.description AS resource_description,
+            a.resource_id, r.name AS resource_name, r.description AS resource_description,
             a.date, during::text AS during, a.start_min, a.end_min
      FROM appointments a
      LEFT JOIN resources r ON r.id = a.resource_id

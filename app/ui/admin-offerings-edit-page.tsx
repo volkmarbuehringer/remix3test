@@ -125,7 +125,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                       value={res.id}
                       selected={String(resolvedResourceId) === String(res.id)}
                     >
-                      {res.description}
+                      {res.name}
                     </option>
                   ))}
                 </select>

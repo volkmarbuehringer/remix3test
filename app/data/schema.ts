@@ -384,12 +384,17 @@ export const resources = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
+    name: c.text(),
     description: c.text(),
     created_at: c.integer(),
     updated_at: c.integer(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
+
+    if (typeof next.name === 'string') {
+      next.name = next.name.trim()
+    }
 
     if (typeof next.description === 'string') {
       next.description = next.description.trim()

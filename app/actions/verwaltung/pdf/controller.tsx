@@ -25,6 +25,7 @@ interface AppointmentRow {
   id: number
   user_name: string | null
   user_email: string
+  resource_name: string | null
   resource_description: string | null
   title: string
   date: number
@@ -51,7 +52,7 @@ export default createController<typeof routes.verwaltung.pdf, AppContext>(
         try {
           let result = await pool.query(
             `SELECT a.id, u.name AS user_name, u.email AS user_email,
-                    r.description AS resource_description,
+                    r.name AS resource_name, r.description AS resource_description,
                     a.title, a.date, a.start_min, a.end_min
              FROM appointments a
              LEFT JOIN users u ON u.id = a.user_id
@@ -85,7 +86,7 @@ export default createController<typeof routes.verwaltung.pdf, AppContext>(
                       formatDate(row.date),
                       `${formatMin(row.start_min)}–${formatMin(row.end_min)}`,
                       row.user_name ?? row.user_email,
-                      row.resource_description ?? '—',
+                      row.resource_name ?? row.resource_description ?? '—',
                       row.title || '—',
                     ]),
                   ],

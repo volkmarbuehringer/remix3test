@@ -359,8 +359,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     <td mix={table.td}>{formatWeekNumber(row.day)}</td>
                     <td mix={table.td}>{formatWeekday(row.day)}</td>
                     <td mix={table.td} title={formatDate(row.day)}>{formatDate(row.day)}</td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>
-                      {row.resource_description ?? '\u2014'}
+                    <td mix={table.td} title={row.resource_name ?? row.resource_description ?? ''}>
+                      {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
                     <td mix={table.td} title={row.during}>{formatDuring(row.during)}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
