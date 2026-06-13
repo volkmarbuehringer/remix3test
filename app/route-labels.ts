@@ -53,14 +53,16 @@ export const ROUTE_LABELS: Record<string, string> = {
 
   // Verwaltung
   [routes.verwaltung.index.href()]: 'Verwaltung',
-  [routes.verwaltung.offerings.index.href()]: 'Angebote',
-  [routes.verwaltung.offerings.configSave.href()]: 'Konfiguration',
-  [routes.verwaltung.offerings.weekGenerate.href()]: 'Wochenansicht',
-  [routes.verwaltung.appointments.index.href()]: 'Termine',
   [routes.verwaltung.appointments.events.href()]: 'Termine',
-  [routes.verwaltung.resources.index.href()]: 'Ressourcen',
+  [routes.verwaltung.appointments.index.href()]: 'Termine',
   [routes.verwaltung.offeringConfigs.index.href()]: 'Angebotskonfigurationen',
-
+  [routes.verwaltung.offerings.configSave.href()]: 'Konfiguration',
+  [routes.verwaltung.offerings.index.href()]: 'Angebote',
+  [routes.verwaltung.offerings.weekGenerate.href()]: 'Wochenansicht',
+  [routes.verwaltung.pdf.index.href()]: 'PDF-Export',
+  [routes.verwaltung.report1.index.href()]: 'Monatsauswertung',
+  [routes.verwaltung.resources.index.href()]: 'Ressourcen',
+  [routes.verwaltung.usersExport.index.href()]: 'Benutzer-Export',
   [routes.verwaltung.usersPdf.index.href()]: 'Benutzer-PDF',
 
   // UI showcase
