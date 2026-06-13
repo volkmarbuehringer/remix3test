@@ -11,7 +11,6 @@ import {
   deleteAppointment,
   AppointmentError,
   AppointmentCollisionError,
-  AppointmentTooCloseError,
   isExclusionViolation,
 } from '../../data/appointments.ts'
 import {

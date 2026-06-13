@@ -216,7 +216,7 @@ export const DarkTheme = createTheme(
 
 // ── Brand palette (extracts raw values for use outside the theme contract) ──
 
-export const brand = {
+const brand = {
   light: {
     accent: BRAND_LIGHT_ACCENT,
     accentHover: BRAND_LIGHT_ACCENT_HOVER,

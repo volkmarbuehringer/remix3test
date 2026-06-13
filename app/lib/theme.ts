@@ -17,4 +17,4 @@ export type {
   GlyphSymbol,
   GlyphValues,
 } from './theme/glyph-contract.ts'
-export { RMX_01, RMX_01_GLYPHS } from './theme/presets/rmx-01/index.ts'
+export { RMX_01_GLYPHS } from './theme/presets/rmx-01/index.ts'

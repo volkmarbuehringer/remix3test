@@ -6,12 +6,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { pool } from '../../../data/setup.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
-
-function formatMin(minutes: number): string {
-  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  let m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
-}
+import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 
 function formatDate(date: string | number | null): string {
   if (date === null) return '—'

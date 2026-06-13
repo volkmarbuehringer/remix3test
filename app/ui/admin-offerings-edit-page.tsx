@@ -10,6 +10,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
+import { parseDuring as parseDuringRange } from '../data/appointofferings.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
 
 interface AdminOfferingsEditPageProps {
@@ -35,23 +36,6 @@ function dayToInputDate(day: string): string {
 // Hourly interval options
 const START_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
 const END_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 60)
-
-function parseDuring(during: unknown): { startMin: number; endMin: number } {
-  if (typeof during === 'object' && during !== null) {
-    let r = during as { lower: number; upper: number }
-    return { startMin: Number(r.lower) || 0, endMin: Number(r.upper) || 60 }
-  }
-  let str = String(during)
-  let match = str.match(/^\[(\d+)\s*,\s*(\d+)\)$/)
-  if (match) {
-    return { startMin: parseInt(match[1], 10), endMin: parseInt(match[2], 10) }
-  }
-  let fallback = str.match(/\[(\d+)\s*,\s*(\d+)/)
-  if (fallback) {
-    return { startMin: parseInt(fallback[1], 10), endMin: parseInt(fallback[2], 10) }
-  }
-  return { startMin: 0, endMin: 60 }
-}
 
 // ── Styles ──
 
@@ -88,7 +72,7 @@ const formErrorBanner = css({
 export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProps>) {
   return () => {
     let { row, resources, offset, sort, order, filter = '', period = '', status = '', formValues, fieldErrors, formError } = handle.props
-    let { startMin: rowStartMin, endMin: rowEndMin } = parseDuring(row.during)
+    let { startMin: rowStartMin, endMin: rowEndMin } = parseDuringRange(row.during) ?? { startMin: 0, endMin: 60 }
     let dateValue = dayToInputDate(row.day)
 
     let resolvedResourceId = formValues?.resource_id ?? row.resource_id

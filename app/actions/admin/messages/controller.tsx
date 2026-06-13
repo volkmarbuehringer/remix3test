@@ -1,6 +1,5 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import { maxLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 

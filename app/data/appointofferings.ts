@@ -43,7 +43,7 @@ export async function listOfferingsByDayRange(
 /**
  * Query offerings for a specific day and resource.
  */
-export async function listOfferingsByDay(
+async function listOfferingsByDay(
   db: Database,
   day: number,
   resourceId: number,
@@ -59,17 +59,25 @@ export async function listOfferingsByDay(
  * Parse an offering's `during` range string into [startMin, endMin).
  * Handles various formats the PostgreSQL driver might return.
  */
-export function parseDuring(during: string): { startMin: number; endMin: number } | null {
+export function parseDuring(during: unknown): { startMin: number; endMin: number } | null {
   // Guard against null/undefined values the PostgreSQL driver might return
   if (during == null) return null
 
+  // Handle Postgres range object format { lower, upper }
+  if (typeof during === 'object' && during !== null) {
+    let r = during as { lower: unknown; upper: unknown }
+    return { startMin: Number(r.lower) || 0, endMin: Number(r.upper) || 60 }
+  }
+
+  let str = String(during)
+
   // Standard format: "[start,end)"
-  let match = during.match(/^\[(\d+),(\d+)\)$/)
+  let match = str.match(/^\[(\d+),(\d+)\)$/)
   if (match) {
     return { startMin: parseInt(match[1], 10), endMin: parseInt(match[2], 10) }
   }
   // Fallback: try to extract two numbers separated by comma within brackets
-  let fallback = during.match(/\[(\d+)\s*,\s*(\d+)/)
+  let fallback = str.match(/\[(\d+)\s*,\s*(\d+)/)
   if (fallback) {
     return { startMin: parseInt(fallback[1], 10), endMin: parseInt(fallback[2], 10) }
   }
