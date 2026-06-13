@@ -7,7 +7,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { routes } from '../routes.ts'
-import type { OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
+import type { OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
 interface AdminOfferingsConfigPageProps {

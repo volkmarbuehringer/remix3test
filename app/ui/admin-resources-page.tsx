@@ -13,6 +13,8 @@ import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
+import { AdminResourcesContextMenu } from '../assets/admin-resources-context-menu.tsx'
 
 interface AdminResourcesPageProps {
   rows: Resource[]
@@ -86,7 +88,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         </form>
 
         {/* Table */}
-        <div mix={table.wrap}>
+        <div mix={table.wrap} data-resources-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -100,7 +102,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                 <col />
                 <col mix={css({ width: '160px' })} />
                 <col mix={css({ width: '160px' })} />
-                <col mix={css({ width: '100px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -140,50 +141,54 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th} />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                     <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                      <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
+                    <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
                     <td mix={table.td} title={row.description}>{row.description}</td>
                     <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>{formatTimestamp(row.updated_at as number)}</td>
-                    <td mix={table.actionCell}>
-                      <div mix={table.btnGroup}>
-                        <a
-                          href={buildEditUrl(ADMIN_BASE, row.id!, offset, sortColumn, sortDirection, filter)}
-                          rmx-target={frames.adminContent}
-                          mix={table.editBtn}
-                        >
-                          <Glyph name="edit" width={14} height={14} />
-                        </a>
-                        <RestfulForm
-                          method="DELETE"
-                          action={routes.verwaltung.resources.destroy.href({ id: row.id })}
-                          mix={css({ display: 'inline' })}
-                          data-confirm="Wirklich löschen?"
-                        >
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortColumn,
-                              order: sortDirection,
-                              filter: filter ?? '',
-                            }}
-                          />
-                          <button type="submit" mix={table.delBtn}>
-                            <Glyph name="trash" width={14} height={14} />
-                          </button>
-                        </RestfulForm>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          {/* Hidden DELETE forms for context menu */}
+          {rows.length > 0 ? (
+            <div mix={table.displayNone} aria-hidden="true">
+              {rows.map((row) => (
+                <RestfulForm
+                  key={row.id}
+                  method="DELETE"
+                  action={routes.verwaltung.resources.destroy.href({ id: row.id })}
+                  data-delete-form={row.id}
+                >
+                  <GridStateHiddenInputs
+                    state={{
+                      offset: String(offset),
+                      sort: sortColumn,
+                      order: sortDirection,
+                      filter: filter ?? '',
+                    }}
+                  />
+                </RestfulForm>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Context menu data and clientEntry */}
+          <script id="resources-grid-state" type="application/json" nonce={getCspNonce()}>
+            {JSON.stringify({
+              offset: String(offset),
+              sort: sortColumn,
+              order: sortDirection,
+              filter: filter ?? '',
+              baseHref: routes.verwaltung.resources.index.href(),
+            })}
+          </script>
+          <AdminResourcesContextMenu />
         </div>
 
         {/* Pagination */}

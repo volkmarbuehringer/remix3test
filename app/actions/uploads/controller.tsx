@@ -65,7 +65,7 @@ export const download = createAction(uploadsDownload, {
 
     let { filename, mime_type, data } = result.rows[0]
 
-    let safeFilename = filename.replace(/"/g, '\\"')
+    let safeFilename = filename.replace(/[\r\n"]/g, '').replace(/\\/g, '\\\\')
 
     return new Response(data, {
       status: 200,

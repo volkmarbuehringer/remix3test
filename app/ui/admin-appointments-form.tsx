@@ -11,7 +11,7 @@ import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../actions/verwaltung/controller.tsx'
+import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../actions/verwaltung/appointments/controller.tsx'
 
 // ── Shared constants ─────────────────────────────────────────────
 

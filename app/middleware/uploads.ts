@@ -21,7 +21,8 @@ export async function uploadHandler(file: FileUpload): Promise<string | void> {
       [file.name, file.type, data, data.length, null, Date.now()],
     )
     return String(result.rows[0].id)
-  } catch {
+  } catch (err) {
+    console.error('[Upload] Failed to store file:', err)
     return
   }
 }

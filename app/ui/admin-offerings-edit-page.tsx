@@ -10,7 +10,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption } from '../utils/date-utils.ts'
-import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
+import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
 
 interface AdminOfferingsEditPageProps {
   row: OfferingRow

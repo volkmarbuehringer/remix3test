@@ -5,7 +5,7 @@ import { routes } from '../routes.ts'
 import { Glyph } from '../lib/glyph.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
-import type { Report1Row } from '../actions/verwaltung/controller.tsx'
+import type { Report1Row } from '../actions/verwaltung/report1/controller.tsx'
 
 export interface Report1UserOption {
   id: string

@@ -19,7 +19,7 @@ import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AdminOfferingsContextMenu } from '../assets/admin-offerings-context-menu.tsx'
 import { DeletePastButton } from '../assets/admin-delete-past-button.tsx'
-import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/controller.tsx'
+import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
 
 interface AdminOfferingsPageProps {
   rows: OfferingRow[]

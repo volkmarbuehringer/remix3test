@@ -14,7 +14,7 @@ import {
 import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/controller.tsx'
+import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/offering-configs/controller.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { AdminOfferingConfigsContextMenu } from '../assets/admin-offering-configs-context-menu.tsx'

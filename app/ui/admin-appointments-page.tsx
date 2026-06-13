@@ -19,7 +19,7 @@ import type {
   AppointmentRow,
   AppointmentResourceOption,
   AppointmentUserOption,
-} from '../actions/verwaltung/controller.tsx'
+} from '../actions/verwaltung/appointments/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()
