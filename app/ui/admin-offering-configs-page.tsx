@@ -8,7 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow, buildSortUrl, buildPaginationUrl,
-  buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp,
+  buildCreateUrl, buildCancelUrl, formatTimestamp,
 } from './mixins/admin-urls.ts'
 
 import { frames, routes } from '../routes.ts'
@@ -16,6 +16,8 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import type { OfferingConfigRow, OfferingConfigResourceOption } from '../actions/verwaltung/controller.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { getCspNonce } from '../middleware/security-headers.ts'
+import { AdminOfferingConfigsContextMenu } from '../assets/admin-offering-configs-context-menu.tsx'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]
@@ -202,7 +204,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           </a>
         </form>
 
-        <div mix={table.wrap}>
+        <div mix={table.wrap} data-offering-configs-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter
@@ -215,9 +217,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                 <col mix={css({ width: '60px' })} />
                 <col />
                 <col />
+                <col />
                 <col mix={css({ width: '160px' })} />
-                <col mix={css({ width: '160px' })} />
-                <col mix={css({ width: '100px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -239,16 +240,8 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}>Beschreibung</th>
                   <th mix={table.th}>Regeln</th>
-                  <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'created_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
-                      Erstellt
-                      <span mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
-                        {sortArrow('created_at', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.thSortable}>
                     <a href={buildSortUrl(ADMIN_BASE, 'updated_at', sortColumn, sortDirection, offset, filter)}
                        rmx-target={frames.adminContent} mix={table.sortLink}>
@@ -258,51 +251,43 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th} />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
                     <td mix={table.td} title={String(row.id)}>{row.id}</td>
-                    <td mix={table.td} title={row.resource_name ?? row.resource_description ?? ''}>{row.resource_name ?? row.resource_description}</td>
+                    <td mix={table.td} title={row.resource_name ?? ''}>{row.resource_name ?? '\u2014'}</td>
+                    <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description ?? '\u2014'}</td>
                     <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>{formatTimestamp(row.updated_at)}</td>
-                    <td mix={table.actionCell}>
-                      <div mix={table.btnGroup}>
-                        <a
-                          href={buildEditUrl(ADMIN_BASE, row.id, offset, sortColumn, sortDirection, filter)}
-                          rmx-target={frames.adminContent}
-                          mix={table.editBtn}
-                        >
-                          <Glyph name="edit" width={14} height={14} />
-                        </a>
-                        <RestfulForm
-                          method="DELETE"
-                          action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
-                          mix={css({ display: 'inline' })}
-                          data-confirm="Wirklich löschen?"
-                        >
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortColumn,
-                              order: sortDirection,
-                              filter: filter ?? '',
-                            }}
-                          />
-                          <button type="submit" mix={table.delBtn}>
-                            <Glyph name="trash" width={14} height={14} />
-                          </button>
-                        </RestfulForm>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          {/* Hidden DELETE forms for context menu */}
+          {rows.length > 0 ? (
+            <div mix={table.displayNone} aria-hidden="true">
+              {rows.map((row) => (
+                <RestfulForm
+                  key={row.id}
+                  method="DELETE"
+                  action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
+                  data-delete-form={row.id}
+                >
+                  <GridStateHiddenInputs
+                    state={{
+                      offset: String(offset),
+                      sort: sortColumn,
+                      order: sortDirection,
+                      filter: filter ?? '',
+                    }}
+                  />
+                </RestfulForm>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {(offset > 0 || hasMore) && (
@@ -332,6 +317,18 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             </div>
           </div>
         )}
+
+        {/* Context menu data and clientEntry */}
+        <script id="offering-configs-grid-state" type="application/json" nonce={getCspNonce()}>
+          {JSON.stringify({
+            offset: String(offset),
+            sort: sortColumn,
+            order: sortDirection,
+            filter: filter ?? '',
+            baseHref: routes.verwaltung.offeringConfigs.index.href(),
+          })}
+        </script>
+        <AdminOfferingConfigsContextMenu />
       </div>
     )
 

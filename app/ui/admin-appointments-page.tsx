@@ -314,6 +314,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}>Beschreibung</th>
                   <th mix={table.thSortable} title="Datum">
                     <a
                       href={buildSortUrl(ADMIN_BASE, 'a.date', sortColumn, sortDirection, offset, filter, period, status)}
@@ -335,20 +336,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       Zeit
                       <span mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('a.during', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
-                  <th mix={table.thSortable} title="Erstellt">
-                    <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.created_at', sortColumn, sortDirection, offset, filter, period, status)}
-                      rmx-target={frames.adminContent}
-                      mix={table.sortLink}
-                    >
-                      Erstellt
-                      <span
-                        mix={'a.created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
-                      >
-                        {sortArrow('a.created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
@@ -380,17 +367,17 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     <td mix={table.td} title={row.user_email ?? ''}>
                       {row.user_email ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.resource_name ?? row.resource_description ?? ''}>
-                      {row.resource_name ?? row.resource_description ?? '\u2014'}
+                    <td mix={table.td} title={row.resource_name ?? ''}>
+                      {row.resource_name ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.resource_description ?? ''}>
+                      {row.resource_description ?? '\u2014'}
                     </td>
                     <td mix={table.td} title={formatDate(row.date)}>
                       {formatDate(row.date)}
                     </td>
                     <td mix={table.td} title={row.during}>
                       {formatDuring(row.during)}
-                    </td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at)}>
-                      {formatTimestamp(row.created_at)}
                     </td>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>
                       {formatTimestamp(row.updated_at)}
