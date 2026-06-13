@@ -1,5 +1,6 @@
 import { createAction, createController } from 'remix/router'
 import { css } from 'remix/ui'
+import { SuperHeaders } from 'remix/headers'
 import { theme } from '../../lib/theme.ts'
 import { routes, uploadsDownload } from '../../routes.ts'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -65,15 +66,12 @@ export const download = createAction(uploadsDownload, {
 
     let { filename, mime_type, data } = result.rows[0]
 
-    let safeFilename = filename.replace(/[\r\n"]/g, '').replace(/\\/g, '\\\\')
+    let cleanFilename = filename.replace(/[\r\n"]/g, '')
 
-    return new Response(data, {
-      status: 200,
-      headers: {
-        'Content-Type': mime_type,
-        'Content-Disposition': `attachment; filename="${safeFilename}"`,
-      },
-    })
+    let downloadHeaders = new SuperHeaders()
+    downloadHeaders.contentType = mime_type
+    downloadHeaders.contentDisposition = { type: 'attachment', filename: cleanFilename }
+    return new Response(data, { status: 200, headers: downloadHeaders })
   },
 })
 

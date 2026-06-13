@@ -1,5 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
+import { CacheControl, ContentType } from 'remix/headers'
 
 import { createChannel } from './sse.ts'
 
@@ -64,8 +65,8 @@ describe('createChannel', () => {
     controller.abort()
 
     assert.equal(response.status, 200)
-    assert.equal(response.headers.get('Content-Type'), 'text/event-stream')
-    assert.equal(response.headers.get('Cache-Control'), 'no-cache')
+    assert.equal(ContentType.from(response.headers.get('Content-Type')).mediaType, 'text/event-stream')
+    assert.ok(CacheControl.from(response.headers.get('Cache-Control')).noCache)
     assert.equal(response.headers.get('Connection'), 'keep-alive')
     assert.equal(response.headers.get('X-Accel-Buffering'), 'no')
   })

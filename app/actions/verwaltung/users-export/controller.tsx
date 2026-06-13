@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
+import { SuperHeaders } from 'remix/headers'
 
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
@@ -161,13 +162,11 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
 
           let filename = `benutzer-export-${startDate}_${endDate}.pdf`
 
-          return new Response(new Uint8Array(buffer), {
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="${filename}"`,
-              'Content-Length': String(buffer.length),
-            },
-          })
+          let pdfHeaders = new SuperHeaders()
+          pdfHeaders.contentType = 'application/pdf'
+          pdfHeaders.contentDisposition = { type: 'attachment', filename }
+          pdfHeaders.contentLength = buffer.length
+          return new Response(new Uint8Array(buffer), { headers: pdfHeaders })
         } catch {
           return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
         }

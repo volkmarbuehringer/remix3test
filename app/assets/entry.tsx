@@ -1,6 +1,7 @@
 import type { FrameContent, Handle, RemixNode } from 'remix/ui'
 import { createRoot, css, on, run } from 'remix/ui'
 import { animateEntrance, spring } from 'remix/ui/animation'
+import { Accept, SuperHeaders } from 'remix/headers'
 import { theme } from '../lib/theme.ts'
 
 import { routes } from '../routes.ts'
@@ -24,8 +25,8 @@ async function resolveFrameResponse(
   signal?: AbortSignal,
   target?: string,
 ): Promise<FrameContent> {
-  let headers = new Headers()
-  headers.set('Accept', 'text/html')
+  let headers = new SuperHeaders()
+  headers.accept = new Accept('text/html')
   headers.set('X-Remix-Frame', 'true')
 
   if (target) {

@@ -3,6 +3,7 @@ import { ilike, or } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import { minLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
+import { redirect } from 'remix/response/redirect'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
@@ -310,10 +311,7 @@ export default createController(routes.client, {
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let qs = params.toString()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: '/client' + (qs ? '?' + qs : '') },
-      })
+      return redirect('/client' + (qs ? '?' + qs : ''))
     },
   },
 })

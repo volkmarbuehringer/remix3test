@@ -3,6 +3,7 @@ import { Logger } from 'remix/middleware/logger'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { minLength, email } from 'remix/data-schema/checks'
+import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
@@ -313,10 +314,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
       }
       let qp = gridStateToParams(redirectState)
       let qs = qp.toString()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: '/nutzer' + (qs ? '?' + qs : '') },
-      })
+      return redirect('/nutzer' + (qs ? '?' + qs : ''))
     },
 
     async create(context) {
@@ -402,10 +400,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         }
         let qp = gridStateToParams(redirectState)
         qp.set('editing', newNId)
-        return new Response(null, {
-          status: 302,
-          headers: { Location: '/nutzer?' + qp.toString() },
-        })
+        return redirect('/nutzer?' + qp.toString())
       } catch (error) {
         await client.query('ROLLBACK')
         client.release()
@@ -495,10 +490,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
       }
       let qp = gridStateToParams(redirectState)
       let qs = qp.toString()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: '/nutzer' + (qs ? '?' + qs : '') },
-      })
+      return redirect('/nutzer' + (qs ? '?' + qs : ''))
     },
 
     async resetPassword(context) {

@@ -4,6 +4,8 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { sql } from 'remix/data-table'
 import { createController } from 'remix/router'
+import { SuperHeaders } from 'remix/headers'
+import { redirect } from 'remix/response/redirect'
 
 import { getConversation, createConversation, appendMessage } from '../../lib/chatlog.ts'
 import type { ChatMessage } from '../../lib/chatlog.ts'
@@ -202,20 +204,14 @@ export const aiChat = createController(routes.ai.chat, {
 
         let redirectUrl = new URL('/ai/chat', context.url.origin)
         redirectUrl.searchParams.set('chatId', chatId)
-        return new Response(null, {
-          status: 302,
-          headers: { Location: redirectUrl.toString() },
-        })
+        return redirect(redirectUrl.toString())
       } catch (e) {
         log('error calling LLM: ' + String(e))
 
         let redirectUrl = new URL('/ai/chat', context.url.origin)
         redirectUrl.searchParams.set('chatId', chatId)
         redirectUrl.searchParams.set('error', 'Sorry, the AI assistant encountered an error. Please try again.')
-        return new Response(null, {
-          status: 302,
-          headers: { Location: redirectUrl.toString() },
-        })
+        return redirect(redirectUrl.toString())
       }
     },
   },
@@ -372,7 +368,7 @@ Use tools to provide accurate, real-time information.`,
 
         let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
         redirectUrl.searchParams.set('agentId', chatId)
-        return new Response(null, { status: 302, headers: { Location: redirectUrl.toString() } })
+        return redirect(redirectUrl.toString())
       } catch (e) {
         log('error calling agent: ' + String(e))
         let redirectUrl = new URL(routes.ai.agent.index.href(), context.url.origin)
@@ -471,10 +467,9 @@ export const aiWorkflow = createController(routes.ai.workflow, {
       })
 
       let redirectUrl = routes.ai.workflow.index.href()
-      return new Response(null, {
-        status: 303,
-        headers: { Location: `${redirectUrl}?runId=${runId}` },
-      })
+      let workflowHeaders = new SuperHeaders()
+      workflowHeaders.location = `${redirectUrl}?runId=${runId}`
+      return new Response(null, { status: 303, headers: workflowHeaders })
     },
   },
 })

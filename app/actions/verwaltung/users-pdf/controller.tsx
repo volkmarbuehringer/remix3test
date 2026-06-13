@@ -1,4 +1,6 @@
 import { createController } from 'remix/router'
+import { SuperHeaders } from 'remix/headers'
+import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
@@ -36,10 +38,7 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
       async index(context) {
         if (context.request.headers.get('X-Remix-Frame') === 'true') {
           let url = new URL(context.url)
-          return new Response(null, {
-            status: 302,
-            headers: { Location: url.href },
-          })
+          return redirect(url.href)
         }
 
         try {
@@ -105,13 +104,11 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
             },
           })
 
-          return new Response(new Uint8Array(buffer), {
-            headers: {
-              'Content-Type': 'application/pdf',
-              'Content-Disposition': `attachment; filename="benutzeruebersicht-${new Date(now).toISOString().split('T')[0]}.pdf"`,
-              'Content-Length': String(buffer.length),
-            },
-          })
+          let pdfHeaders = new SuperHeaders()
+          pdfHeaders.contentType = 'application/pdf'
+          pdfHeaders.contentDisposition = { type: 'attachment', filename: `benutzeruebersicht-${new Date(now).toISOString().split('T')[0]}.pdf` }
+          pdfHeaders.contentLength = buffer.length
+          return new Response(new Uint8Array(buffer), { headers: pdfHeaders })
         } catch {
           return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
         }

@@ -6,6 +6,7 @@ import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
 import { Glyph } from '../../lib/glyph.ts'
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../routes.ts'
 
@@ -114,10 +115,7 @@ export default createController(routes.settings, {
           session.regenerateId(true)
         }
 
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.auth.login.index.href() },
-        })
+        return redirect(routes.auth.login.index.href())
       }
 
       if (!changePasswordLimiter.attempt(user.id)) {

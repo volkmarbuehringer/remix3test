@@ -1,3 +1,5 @@
+import { redirect } from 'remix/response/redirect'
+
 export interface GridState {
   offset: string
   sort: string
@@ -62,7 +64,7 @@ export function editingRedirect(
   }
   let qs = params.toString()
   let url = base + (qs ? '?' + qs : '')
-  return new Response(null, { status: 302, headers: { Location: url } })
+  return redirect(url)
 }
 
 export function gridStateOffset(state: GridState): number | undefined {

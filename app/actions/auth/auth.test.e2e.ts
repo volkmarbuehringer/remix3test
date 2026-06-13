@@ -1,5 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
+import { SetCookie } from 'remix/headers'
 
 import { router } from '../../router.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
@@ -29,10 +30,9 @@ const BASE = 'https://remix.run'
  * or null if no session cookie was set.
  */
 function extractSessionCookie(response: Response): string | null {
-  let setCookie = response.headers.get('Set-Cookie')
-  if (!setCookie) return null
-  let match = setCookie.match(/session=([^;]+)/)
-  return match ? `session=${match[1]}` : null
+  let setCookie = SetCookie.from(response.headers.get('Set-Cookie'))
+  if (!setCookie.name) return null
+  return `${setCookie.name}=${setCookie.value ?? ''}`
 }
 
 describe('auth e2e', () => {

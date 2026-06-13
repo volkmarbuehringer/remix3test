@@ -1,5 +1,6 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
+import { ContentDisposition, ContentType } from 'remix/headers'
 
 import { router } from '../../../router.ts'
 import { initializeAppDatabase } from '../../../data/setup.ts'
@@ -28,11 +29,11 @@ describe('Verwaltung PDF', () => {
       headers: { Cookie: adminCookie },
     })
     assert.equal(response.status, 200)
-    let contentType = response.headers.get('Content-Type') ?? ''
-    assert.ok(contentType.includes('application/pdf'))
-    let disposition = response.headers.get('Content-Disposition') ?? ''
-    assert.ok(disposition.includes('attachment'))
-    assert.ok(disposition.includes('.pdf'))
+    let contentType = ContentType.from(response.headers.get('Content-Type'))
+    assert.equal(contentType.mediaType, 'application/pdf')
+    let disposition = ContentDisposition.from(response.headers.get('Content-Disposition'))
+    assert.equal(disposition.type, 'attachment')
+    assert.ok(disposition.filename?.endsWith('.pdf'))
     let buffer = await response.arrayBuffer()
     assert.ok(buffer.byteLength > 0)
     let header = new Uint8Array(buffer, 0, 4)

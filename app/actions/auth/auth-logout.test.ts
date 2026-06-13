@@ -1,5 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
+import { SetCookie } from 'remix/headers'
 
 import { router } from '../../router.ts'
 import { createCsrfSession } from '../../test-utils.ts'
@@ -41,11 +42,8 @@ describe('auth-logout action', () => {
 
     // Even though auth is unset, the session middleware should issue a new
     // session cookie with the regenerated ID
-    let setCookie = response.headers.get('Set-Cookie')
-    assert.ok(setCookie, 'should set a session cookie')
-    assert.ok(
-      setCookie!.includes('session='),
-      'set-cookie should contain session key',
-    )
+    let setCookie = SetCookie.from(response.headers.get('Set-Cookie'))
+    assert.ok(setCookie.name, 'should set a session cookie')
+    assert.equal(setCookie.name, 'session', 'set-cookie should contain session key')
   })
 })

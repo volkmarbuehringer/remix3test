@@ -1,5 +1,6 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
+import { CacheControl, ContentType } from 'remix/headers'
 
 import { db, initializeAppDatabase, pool } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
@@ -176,8 +177,8 @@ describe('Admin Messages controller', () => {
       headers: { Cookie: adminCookie },
     })
     assert.equal(response.status, 200)
-    assert.equal(response.headers.get('Content-Type'), 'text/event-stream')
-    assert.equal(response.headers.get('Cache-Control'), 'no-cache')
+    assert.equal(ContentType.from(response.headers.get('Content-Type')).mediaType, 'text/event-stream')
+    assert.ok(CacheControl.from(response.headers.get('Cache-Control')).noCache)
     assert.equal(response.headers.get('Connection'), 'keep-alive')
     assert.equal(response.headers.get('X-Accel-Buffering'), 'no')
   })

@@ -1,6 +1,7 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 
 import { isConstraintViolation, isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
@@ -408,10 +409,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
         let params = gridStateToParams(gridValues)
         params.set('editing', String(newId))
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },
 
       async update(context) {
@@ -548,10 +546,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
 
         let params = gridStateToParams(gridValues)
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },
 
       async destroy(context) {
@@ -592,20 +587,14 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
           if (isConstraintViolation(error)) {
             let params = gridStateToParams(gridStateFromFormData(formData))
             let qs = params.toString()
-            return new Response(null, {
-              status: 302,
-              headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-            })
+            return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
           }
           throw error
         }
 
         let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },
 
       async configSave(context) {
@@ -656,10 +645,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
           })
         }
 
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() },
-        })
+        return redirect(routes.verwaltung.offerings.index.href())
       },
 
       async weekGenerate(context) {
@@ -714,10 +700,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
         }
 
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },
 
       async deletePast(context) {
@@ -743,10 +726,7 @@ export const verwaltungOfferings = createController<typeof routes.verwaltung.off
         let params = gridStateToParams(gridValues)
         params.set('error', `${result.rowCount ?? 0} vergangene Angebote gelöscht.`)
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },
     },
   },

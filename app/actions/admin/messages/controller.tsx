@@ -113,10 +113,7 @@ export const adminMessages = createController(routes.admin.messages, {
 
       broadcastInvalidate()
 
-      return new Response(null, {
-        status: 302,
-        headers: { Location: routes.admin.messages.index.href() },
-      })
+      return redirect(routes.admin.messages.index.href())
     },
 
     async destroy(context) {
@@ -141,10 +138,7 @@ export const adminMessages = createController(routes.admin.messages, {
 
       broadcastInvalidate()
 
-      return new Response(null, {
-        status: 302,
-        headers: { Location: routes.admin.messages.index.href() },
-      })
+      return redirect(routes.admin.messages.index.href())
     },
 
     subscribe(context) {

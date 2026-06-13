@@ -174,10 +174,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let baseUrl = routes.admin.users.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + '?' + params.toString() },
-      })
+      return redirect(baseUrl + '?' + params.toString())
     },
 
     async update(context) {
@@ -240,10 +237,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + (qs ? '?' + qs : '') },
-      })
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
 
     async destroy(context) {
@@ -290,10 +284,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let params = gridStateToParams(gridStateFromForm(fields))
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + (qs ? '?' + qs : '') },
-      })
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
   },
 })

@@ -3,6 +3,7 @@ import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 import { Renderer } from 'remix/middleware/render'
 import type { Handle, RemixNode } from 'remix/ui'
+import { SuperHeaders } from 'remix/headers'
 
 import type { User } from '../data/schema.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
@@ -31,9 +32,11 @@ export function requireAdmin(options?: RequireAdminOptions): Middleware {
       let location = returnTo
         ? `${redirectTo}?returnTo=${encodeURIComponent(returnTo)}`
         : redirectTo
+      let redirectHeaders = new SuperHeaders()
+      redirectHeaders.location = location
       return new Response(null, {
         status: 302,
-        headers: { Location: location },
+        headers: redirectHeaders,
       })
     }
 

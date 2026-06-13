@@ -1,5 +1,6 @@
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
+import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
@@ -23,10 +24,7 @@ function redirectToLogin(context: AppContext): Response {
   let location = returnTo
     ? `${routes.auth.login.index.href()}?returnTo=${encodeURIComponent(returnTo)}`
     : routes.auth.login.index.href()
-  return new Response(null, {
-    status: 302,
-    headers: { Location: location },
-  })
+  return redirect(location)
 }
 
 const PAGE_SIZE = 15
@@ -75,10 +73,7 @@ export interface DayWithSlots {
 function errorRedirectDestroy(formData: FormData, error: string): Response {
   let params = gridStateToParams(gridStateFromFormData(formData))
   params.set('error', error)
-  return new Response(null, {
-    status: 302,
-    headers: { Location: routes.appointmentsNew.index.href() + '?' + params.toString() },
-  })
+  return redirect(routes.appointmentsNew.index.href() + '?' + params.toString())
 }
 
 interface AppointmentsNewPageData {
@@ -560,17 +555,11 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
           let params = gridStateToParams(gridValues)
           let qs = params.toString()
-          return new Response(null, {
-            status: 302,
-            headers: { Location: routes.appointmentsNew.index.href() + (qs ? '?' + qs : '') },
-          })
+          return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
         }
 
         // No valid step — redirect to step 1 (resource cards)
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.appointmentsNew.index.href() + '?creating=true' },
-        })
+        return redirect(routes.appointmentsNew.index.href() + '?creating=true')
       },
 
       async update(context) {
@@ -702,10 +691,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         let params = gridStateToParams(gridValues)
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.appointmentsNew.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
       },
 
       async destroy(context) {
@@ -743,10 +729,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.appointmentsNew.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
       },
 
       async events(context) {

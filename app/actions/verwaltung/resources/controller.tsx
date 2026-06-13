@@ -4,6 +4,7 @@ import * as f from 'remix/data-schema/form-data'
 import { minLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 import { Logger } from 'remix/middleware/logger'
+import { redirect } from 'remix/response/redirect'
 
 import { isConstraintViolation } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
@@ -198,10 +199,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
       let params = gridStateToParams(gridStateFromForm(parsed))
       params.set('editing', String(row.id))
       let baseUrl = routes.verwaltung.resources.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + '?' + params.toString() },
-      })
+      return redirect(baseUrl + '?' + params.toString())
     },
 
     async update(context) {
@@ -251,10 +249,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
       let params = gridStateToParams(gridStateFromForm(parsed))
       let qs = params.toString()
       let baseUrl = routes.verwaltung.resources.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + (qs ? '?' + qs : '') },
-      })
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
 
     async destroy(context) {
@@ -305,10 +300,7 @@ export const verwaltungResources = createController<typeof routes.verwaltung.res
       let params = gridStateToParams(gridStateFromForm(parsed))
       let qs = params.toString()
       let baseUrl = routes.verwaltung.resources.index.href()
-      return new Response(null, {
-        status: 302,
-        headers: { Location: baseUrl + (qs ? '?' + qs : '') },
-      })
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
   },
 })

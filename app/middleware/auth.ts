@@ -7,6 +7,7 @@ import {
 } from 'remix/middleware/auth'
 import { Database } from 'remix/data-table'
 import { html } from 'remix/html-template'
+import { SuperHeaders } from 'remix/headers'
 import { routes } from '../routes.ts'
 
 import { users } from '../data/schema.ts'
@@ -87,14 +88,11 @@ export function requireAuth(options?: { redirectTo?: string }) {
       let isFrameRequest = context.request.headers.get('X-Remix-Frame') === 'true'
 
       if (isFrameRequest) {
+        let headers = new SuperHeaders()
+        headers.contentType = { mediaType: 'text/html', charset: 'utf-8' }
         return new Response(
           String(html`<div><h1>Not authorized</h1><p>Refresh the page to sign in again.</p></div>`),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'text/html; charset=UTF-8',
-            },
-          },
+          { status: 401, headers },
         )
       }
 
@@ -103,9 +101,11 @@ export function requireAuth(options?: { redirectTo?: string }) {
       let location = returnTo
         ? `${redirectTo}?returnTo=${encodeURIComponent(returnTo)}`
         : redirectTo
+      let redirectHeaders = new SuperHeaders()
+      redirectHeaders.location = location
       return new Response(null, {
         status: 302,
-        headers: { Location: location },
+        headers: redirectHeaders,
       })
     },
   })

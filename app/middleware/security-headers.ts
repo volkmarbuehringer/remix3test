@@ -1,5 +1,6 @@
 import { createContextKey, type Middleware } from 'remix/router'
 import { getContext } from 'remix/middleware/async-context'
+import { SuperHeaders } from 'remix/headers'
 
 const cspNonceKey = createContextKey<string>()
 
@@ -17,7 +18,7 @@ export function securityHeaders(): Middleware {
     context.set(cspNonceKey, nonce)
 
     let response = await next()
-    let headers = new Headers(response.headers)
+    let headers = new SuperHeaders(response.headers)
 
     let csp = [
       `default-src 'self'`,
@@ -32,23 +33,23 @@ export function securityHeaders(): Middleware {
     ].join('; ')
 
     if (!headers.has('X-Content-Type-Options')) {
-      headers.set('X-Content-Type-Options', 'nosniff')
+      headers.xContentTypeOptions = 'nosniff'
     }
     if (!headers.has('X-Frame-Options')) {
-      headers.set('X-Frame-Options', 'DENY')
+      headers.xFrameOptions = 'DENY'
     }
     if (!headers.has('Referrer-Policy')) {
-      headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+      headers.referrerPolicy = 'strict-origin-when-cross-origin'
     }
     if (!headers.has('Content-Security-Policy')) {
-      headers.set('Content-Security-Policy', csp)
+      headers.contentSecurityPolicy = csp
     }
     if (!headers.has('Permissions-Policy')) {
-      headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()')
+      headers.permissionsPolicy = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
     }
 
     if (process.env.NODE_ENV === 'production' && !headers.has('Strict-Transport-Security')) {
-      headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+      headers.strictTransportSecurity = 'max-age=31536000; includeSubDomains'
     }
 
     return new Response(response.body, {

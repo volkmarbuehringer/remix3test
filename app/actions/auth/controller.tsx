@@ -436,8 +436,5 @@ export const authLogout = createAction(routes.auth.logout, () => {
   }
   session.unset('auth')
   session.regenerateId(true)
-  return new Response(null, {
-    status: 302,
-    headers: { Location: routes.home.href() },
-  })
+  return redirect(routes.home.href())
 })

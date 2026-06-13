@@ -1,4 +1,5 @@
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 import { isConstraintViolation, isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import type { AppContext } from '../../../types/context.ts'
@@ -111,10 +112,7 @@ interface AppointmentPageData {
 function errorRedirectDestroy(formData: FormData, error: string): Response {
   let params = gridStateToParams(gridStateFromFormData(formData))
   params.set('error', error)
-  return new Response(null, {
-    status: 302,
-    headers: { Location: routes.verwaltung.appointments.index.href() + '?' + params.toString() },
-  })
+  return redirect(routes.verwaltung.appointments.index.href() + '?' + params.toString())
 }
 
 async function fetchEditRow(id: string): Promise<AppointmentRow | undefined> {
@@ -518,10 +516,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
         let params = gridStateToParams(gridValues)
         params.set('editing', String(newId))
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },
 
       async update(context) {
@@ -733,10 +728,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
 
         let params = gridStateToParams(gridValues)
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },
 
       async destroy(context) {
@@ -789,10 +781,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
 
         let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
-        return new Response(null, {
-          status: 302,
-          headers: { Location: routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '') },
-        })
+        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },
 
       async events(context) {

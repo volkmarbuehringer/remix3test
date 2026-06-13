@@ -105,10 +105,7 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
       if (filter) params.set('filter', filter)
       let qs = params.toString()
 
-      return new Response(null, {
-        status: 302,
-        headers: { Location: routes.admin.lists.index.href() + (qs ? '?' + qs : '') },
-      })
+      return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''))
     },
   },
 })
