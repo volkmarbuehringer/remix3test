@@ -2,7 +2,7 @@
 title: "Shared afterRead Normalization for BIGINT/String Mismatch"
 tags: [remix3, data-table, postgres, schema, refactor]
 created: 2026-06-03
-status: active
+status: archived
 ---
 
 ## Problem

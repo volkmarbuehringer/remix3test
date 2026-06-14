@@ -2,7 +2,7 @@
 title: "Encoding per-field validation errors through redirect URL params in Remix 3"
 tags: [remix3, validation, forms, redirect, field-errors, admin]
 created: 2026-06-02
-status: active
+status: archived
 ---
 
 ## Problem

@@ -72,6 +72,29 @@ export const DeletePastButton = clientEntry(
 )
 ```
 
+### Where to Mount Global clientEntry Behaviors
+
+A `clientEntry` that registers global event listeners (e.g., theme toggle, analytics, keyboard shortcuts) must mount in the **root `<Document>` wrapper**, not `<Layout>`. Pages rendered directly through `<Document>` (standalone landing pages) never mount `<Layout>`, so the `clientEntry` never hydrates and the feature silently breaks.
+
+Mount global `clientEntry` components in `<body>` inside `Document`:
+
+```tsx
+// app/ui/document.tsx — shared by ALL pages
+export function Document(handle: Handle<DocumentProps>) {
+  return () => (
+    <html>
+      <head>...</head>
+      <body>
+        {children}
+        <ThemeToggle />   {/* ← mounted on every page */}
+      </body>
+    </html>
+  )
+}
+```
+
+Remove duplicate mounts from `<Layout>` — `<Document>` is the single root wrapper for all routes, and `clientEntry` components use an `initialized` flag to prevent duplicate hydration.
+
 **Key points:**
 - Props must extend `SerializableProps` (strings, numbers, booleans, null — no functions)
 - Use `import.meta.url + '#ComponentName'` as the entry ID

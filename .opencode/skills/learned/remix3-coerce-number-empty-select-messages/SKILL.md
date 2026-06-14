@@ -56,6 +56,19 @@ f.field(
 )
 ```
 
+### Related: PostgreSQL integer vs URL string type coercion in `<option selected>`
+
+A separate but related select trap: `<option selected={resolvedId === res.id}>` silently fails when `res.id` is a `number` from PostgreSQL but `resolvedId` is a `string` from URL params. PostgreSQL `integer` columns return as JS `number` through `pg`, while `URLSearchParams.get()` and `FormData.get()` always return strings. `===` is strict — `"5" === 5` → `false`.
+
+Use `String()` on both sides to handle the mismatch:
+
+```tsx
+// ✅ Works for both number and string types
+<option selected={resolvedId != null && String(resolvedId) === String(res.id)}>
+```
+
+Detection: if a `<select>` shows the wrong option after a validation redirect but works on initial load, the runtime types likely differ. Log `typeof res.id` vs `typeof resolvedResourceId` to confirm.
+
 ## When to Use
 
 - HTML `<select>` elements with a placeholder `<option value="" disabled selected>`

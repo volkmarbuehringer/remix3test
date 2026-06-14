@@ -32,6 +32,37 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 
 The `CsrfTokenInput` component renders `<input type="hidden" name="_csrf" value="<token>" />` during SSR by reading the CSRF token from the async request context via `getCsrfToken(getContext())`.
 
+### Alternative: clientEntry Forms (No Server Context)
+
+Forms rendered inside `clientEntry` components cannot use `<CsrfTokenInput />` because they have no access to server async context. Inject the CSRF token from the DOM `<meta>` tag on submission:
+
+```tsx
+<form action="/logout" method="post" id="logout-form">
+  <button
+    type="submit"
+    mix={[
+      on('click', () => {
+        let form = document.getElementById('logout-form') as HTMLFormElement | null
+        if (form && !form.querySelector('input[name="_csrf"]')) {
+          let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+          if (token) {
+            let input = document.createElement('input')
+            input.type = 'hidden'
+            input.name = '_csrf'
+            input.value = token
+            form.appendChild(input)
+          }
+        }
+      }),
+    ]}
+  >
+    Logout
+  </button>
+</form>
+```
+
+The `on('click')` handler injects the hidden input just before submission, keeping the token fresh. The CSRF token is served in `<meta name="csrf-token">` in the document `<head>`, making it always available client-side.
+
 ## When to Use
 
 - You're creating a new `<form method="POST">` in a Remix 3 app

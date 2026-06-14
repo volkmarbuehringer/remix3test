@@ -2,7 +2,7 @@
 title: "Remix 3 parseSafe + declarative schemas replace hand-written validation"
 tags: [remix3, validation, forms, parseSafe, refine, coerce, schema]
 created: 2026-06-02
-status: active
+status: archived
 ---
 
 ## Problem

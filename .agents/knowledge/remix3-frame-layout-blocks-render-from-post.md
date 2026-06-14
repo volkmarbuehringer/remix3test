@@ -2,7 +2,7 @@
 title: "Remix 3 Frame Layout Blocks Re-Render-From-POST for Admin Forms"
 tags: [remix3, admin, forms, validation, sidebar-layout, createSidebarLayout, ShellOrFragment, frame, re-render-from-post]
 created: 2026-06-02
-status: active
+status: archived
 ---
 
 ## Problem

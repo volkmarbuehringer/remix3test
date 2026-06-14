@@ -2,7 +2,7 @@
 title: "Preserving form state across Remix 3 frame redirects"
 tags: [remix3, forms, validation, frames, session, redirect, admin, url-params]
 created: 2026-06-02
-status: active
+status: archived
 ---
 
 ## Problem

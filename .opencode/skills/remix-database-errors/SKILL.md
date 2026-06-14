@@ -47,6 +47,43 @@ export function isConstraintViolation(error: unknown): boolean {
 
 Always check BOTH codes. `ON DELETE RESTRICT` produces `23001`, not `23503`.
 
+### Exclusion Constraint Violations (`23P01`)
+
+PostgreSQL exclusion constraints (e.g., preventing double-booked appointments via `EXCLUDE USING GIST`) produce error code `23P01`. These can be identified by the constraint name or the error code:
+
+```typescript
+const PG_EXCLUSION_VIOLATION = '23P01'
+
+function isExclusionConstraintError(error: unknown): boolean {
+  if (error && typeof error === 'object') {
+    let err = error as { code?: string; message?: string; constraint?: string }
+    return (
+      err.constraint === 'no_overlapping_seats' ||
+      err.code === PG_EXCLUSION_VIOLATION ||
+      (err.message ?? '').includes('conflicts with key')
+    )
+  }
+  return false
+}
+```
+
+When using a data-table adapter that wraps errors, unwrap the cause chain to find the original PostgreSQL error:
+
+```typescript
+export function isExclusionViolation(error: unknown): boolean {
+  let cause: unknown = error
+  while (cause instanceof Error && 'cause' in cause && cause.cause != null) {
+    cause = (cause as Error).cause
+  }
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    (cause as { code: string }).code === PG_EXCLUSION_VIOLATION
+  )
+}
+```
+
 ## Structured Logging
 
 Use structured logging instead of raw `console.error(error)`:
