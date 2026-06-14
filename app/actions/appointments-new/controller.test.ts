@@ -180,6 +180,10 @@ describe('Appointments New Controller', () => {
   })
 
   it('POST /appointments/new step 2 works without title', async () => {
+    // Clean up stale data from previous test runs
+    await pool.query(
+      "DELETE FROM appointments WHERE title = '' AND user_id = (SELECT id FROM users WHERE email = 'user@newapp.com') AND start_min = 480",
+    )
     let body = new URLSearchParams({
       resource_id: String(firstResourceId),
       day_start: `${futureDateMs}:480`,
