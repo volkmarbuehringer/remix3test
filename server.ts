@@ -2,6 +2,7 @@ import * as http from 'node:http'
 import * as https from 'node:https'
 import * as fs from 'node:fs'
 import { createRequestListener } from 'remix/node-fetch-server'
+import { html } from 'remix/html-template'
 
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/data/setup.ts'
@@ -19,7 +20,23 @@ const handler = createRequestListener(async (request) => {
     if (!(request.signal.aborted && error === request.signal.reason)) {
       console.error(error)
     }
-    return new Response('Internal Server Error', { status: 500 })
+    return new Response(
+      String(html`<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Serverfehler — newapp</title>
+<style>
+  body { font-family: 'JetBrains Mono', ui-monospace, monospace; background: #f7fbff; color: #313539; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .card { background: #ffffff; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; max-width: 480px; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+  p { color: #5a5e62; margin: 0; }
+</style></head>
+<body><div class="card"><h1>Serverfehler</h1><p>Bitte versuchen Sie es später erneut.</p></div></body>
+</html>`),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      },
+    )
   }
 })
 

@@ -1,5 +1,6 @@
 import type { Middleware } from 'remix/router'
 import { Logger } from 'remix/middleware/logger'
+import { html } from 'remix/html-template'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
 
@@ -41,17 +42,32 @@ export function globalRateLimit(options?: {
         path: context.url.pathname,
         retryAfter: check.retryAfter,
       }))
-      return new Response('Too Many Requests', {
-        status: 429,
-        statusText: 'Too Many Requests',
-        headers: {
-          'Retry-After': String(check.retryAfter ?? Math.ceil(windowMs / 1000)),
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Ratelimit-Limit': String(maxPerWindow),
-          'Ratelimit-Remaining': '0',
-          'Ratelimit-Reset': String(check.retryAfter ?? Math.ceil(windowMs / 1000)),
+      let retryAfter = check.retryAfter ?? Math.ceil(windowMs / 1000)
+      return new Response(
+        String(html`<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Zu viele Anfragen — newapp</title>
+<style>
+  body { font-family: 'JetBrains Mono', ui-monospace, monospace; background: #f7fbff; color: #313539; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .card { background: #ffffff; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; max-width: 480px; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+  p { color: #5a5e62; margin: 0 0 1rem; }
+  .retry { font-size: 0.75rem; color: #94989c; }
+</style></head>
+<body><div class="card"><h1>Zu viele Anfragen</h1><p>Sie haben in kurzer Zeit zu viele Anfragen gesendet. Bitte warten Sie einen Moment und versuchen Sie es erneut.</p><p class="retry">Wiederholen in ${retryAfter} Sekunden</p></div></body>
+</html>`),
+        {
+          status: 429,
+          statusText: 'Too Many Requests',
+          headers: {
+            'Retry-After': String(retryAfter),
+            'Content-Type': 'text/html; charset=utf-8',
+            'Ratelimit-Limit': String(maxPerWindow),
+            'Ratelimit-Remaining': '0',
+            'Ratelimit-Reset': String(retryAfter),
+          },
         },
-      })
+      )
     }
 
     limiter.set(ip)
