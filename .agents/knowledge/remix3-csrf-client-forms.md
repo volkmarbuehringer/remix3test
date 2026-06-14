@@ -2,7 +2,7 @@
 title: "CSRF token in client-side POST forms in Remix 3"
 tags: [remix3, csrf, auth, client-entry, forms]
 created: 2026-06-01
-status: active
+status: archived
 ---
 
 ## Problem

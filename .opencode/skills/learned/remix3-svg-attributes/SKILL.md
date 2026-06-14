@@ -1,9 +1,14 @@
 ---
-title: "Remix 3 SVG attributes use kebab-case (not camelCase)"
-tags: [remix3, svg, jsx, attributes, kebab-case]
-created: 2026-06-01
-status: active
+name: remix3-svg-attributes
+description: "Remix 3 SVG attributes use kebab-case (not camelCase) — React conventions silently break"
+user-invocable: false
+origin: auto-extracted
 ---
+
+# Remix 3 SVG Attributes Use Kebab-Case
+
+**Extracted:** 2026-06-14
+**Context:** Rendering SVG icons and graphics in Remix 3 using `remix/ui` JSX.
 
 ## Problem
 
@@ -45,3 +50,9 @@ Full list of commonly affected attributes:
 ## Why
 
 Remix 3 uses its own JSX runtime (`remix/ui`) that does not go through React's attribute name translation. React normalizes SVG attributes from camelCase to their native HTML/SVG lowercase form; Remix 3 passes attributes through verbatim. SVG is case-sensitive — the browser's SVG parser only recognizes the lowercase kebab-case forms defined in the SVG specification.
+
+## When to Use
+
+- Rendering inline SVG elements in Remix 3 components
+- Migrating SVG code from React projects
+- SVG icons, illustrations, or decorative graphics not rendering visually without errors

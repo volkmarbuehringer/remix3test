@@ -1,6 +1,6 @@
 ---
 title: "Re-render-from-POST form validation with value preservation in Remix 3"
-tags: [remix3, form-validation, parseSafe, re-render, controller, client-lab]
+tags: [remix3, form-validation, parseSafe, re-render, controller, design]
 created: 2026-06-02
 status: active
 ---
@@ -89,3 +89,28 @@ Page component renders `value={formValues?.name ?? row.name}` on inputs and erro
 - **Email `type="email"` blocks server validation**: Browser's built-in validation prevents submission entirely — change to `type="text"` so server can catch invalid formats.
 - **Error color**: Use `theme.colors.action.danger.background` (not `.foreground`) for error text — matches all other forms in newapp.
 - **Grid state preservation**: Hidden fields (`_offset`, `_sort`, `_order`, `_filter`) must be re-passed to frameSrc and page props so the Frame grid reloads at the correct position.
+
+## Design Rationale
+
+### Why re-render-from-POST over alternatives
+
+- **Remix 3 demos consistently use this**: timeboxer, social-auth both re-render from POST. No demo uses redirects for validation errors.
+- **No redirect means no data loss**: `FormData` is still available in the controller, no URL encoding needed.
+- **Simplicity**: One function call (`render(...)`) replaces: build redirect URL → encode state → follow redirect → decode state → render.
+- **`parseSafe` returns per-field issues**: Each issue has `{ message, path }` where `path[0]` is the field name. Map to `Record<string, string>` for the page.
+
+### Trade-offs
+
+- Browser URL stays as POST URL (e.g., `/admin/offerings` instead of `/admin/offerings?sort=...`)
+- Refresh → "Confirm form resubmission" dialog (browser warns about re-POSTing)
+- Remix 3 auth demos accept this trade-off — it's standard for all server-rendered form apps
+- For frame-based admin layouts (ShellOrFragment), use redirect + URL-encoded state instead — see `remix3-frame-layout-blocks-render-from-post`
+
+### Source
+
+`~/remix/demos/timeboxer/app/controllers/auth/controller.tsx:78-86`
+
+### Cross-reference
+
+- Phase 2 (parseSafe + .refine()): `openspec/changes/offerings-in-memory-token/phase-2-parseSafe.md`
+- `f.object` + `parseSafe` compatibility confirmed in `node_modules/remix/src/data-schema/README.md:74-94`
