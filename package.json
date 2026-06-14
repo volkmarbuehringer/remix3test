@@ -12,6 +12,7 @@
     "lint:fix": "oxlint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "sync-skills": "node ./scripts/sync-skills.ts",
     "postinstall": "node ./scripts/postinstall.ts"
   },
   "engines": {
