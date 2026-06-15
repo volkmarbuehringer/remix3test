@@ -2,9 +2,11 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 
+import { Button } from 'remix/ui/button'
 import { routes, frames } from '../routes.ts'
-import { AdminActionButton } from '../assets/admin-action-button.tsx'
+
 import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 interface ListRowData {
   id: number
@@ -229,6 +231,12 @@ const paginationInfoStyle = css({
   color: theme.colors.text.muted,
 })
 
+const smallBtnStyle = css({
+  minHeight: '1.75rem',
+  paddingInline: '0.5rem',
+  fontSize: '0.75rem',
+})
+
 const pageLinkStyle = css({
   padding: `${theme.space.sm} ${theme.space.md}`,
   background: theme.surface.lvl2,
@@ -259,6 +267,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
 
     return (
       <div mix={pageStyle}>
+        <ConfirmDelete />
         <h2 mix={titleStyle}>Gespeicherte Listen</h2>
         <p mix={descriptionStyle}>
           Alle von Benutzern gespeicherten Listen. Jede Zeile repräsentiert einen Speichervorgang.
@@ -343,17 +352,12 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <form
                             method="POST"
                             action={routes.admin.lists.destroy.href({ id: row.id })}
+                            rmx-target={frames.adminContent}
+                            data-confirm={`Liste #${row.id} (${items.length} Elemente) löschen?`}
                             mix={css({ margin: 0, padding: 0 })}
                           >
                             <CsrfTokenInput />
-                            <AdminActionButton
-                              action={routes.admin.lists.destroy.href({ id: row.id })}
-                              method="POST"
-                              label="Löschen"
-                              pendingLabel="Wird gelöscht…"
-                              confirmMsg={`Liste #${row.id} (${items.length} Elemente) löschen?`}
-                              compact
-                            />
+                            <Button type="submit" tone="danger" mix={smallBtnStyle}>Löschen</Button>
                           </form>
                         </div>
                       </td>

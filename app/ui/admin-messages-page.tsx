@@ -2,10 +2,11 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 
+import { Button } from 'remix/ui/button'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { AdminActionButton } from '../assets/admin-action-button.tsx'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 interface MessageRow {
   id: number
@@ -162,6 +163,12 @@ const paginationInfoStyle = css({
   color: theme.colors.text.muted,
 })
 
+const smallBtnStyle = css({
+  minHeight: '1.75rem',
+  paddingInline: '0.5rem',
+  fontSize: '0.75rem',
+})
+
 const pageLinkStyle = css({
   padding: `${theme.space.sm} ${theme.space.md}`,
   background: theme.surface.lvl2,
@@ -185,6 +192,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
 
     return (
       <div mix={pageStyle}>
+        <ConfirmDelete />
         <div mix={headerStyle}>
           <h2 mix={titleStyle}>Nachrichten</h2>
           <ConnectionIndicator url={routes.admin.messages.subscribe.href()} />
@@ -211,15 +219,12 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   <form
                     method="POST"
                     action={routes.admin.messages.destroy.href({ id: msg.id })}
+                    rmx-target={frames.adminContent}
+                    data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
+                    mix={css({ margin: 0, padding: 0 })}
                   >
                     <CsrfTokenInput />
-                    <AdminActionButton
-                      action={routes.admin.messages.destroy.href({ id: msg.id })}
-                      method="POST"
-                      label="Löschen"
-                      pendingLabel="Wird gelöscht…"
-                      confirmMsg={`Nachricht von ${msg.sender_name} löschen?`}
-                    />
+                    <Button type="submit" tone="danger" mix={smallBtnStyle}>Löschen</Button>
                   </form>
                 </div>
               </div>

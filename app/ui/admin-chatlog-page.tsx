@@ -4,9 +4,9 @@ import { theme } from '../lib/theme.ts'
 import { Button } from 'remix/ui/button'
 import { routes, frames } from '../routes.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
-import { AdminActionButton } from '../assets/admin-action-button.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ChatlogRowDetail } from '../assets/chatlog-row-detail.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 interface ChatLogPageProps {
   conversations: Array<{
@@ -108,6 +108,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
 
     return (
       <div>
+        <ConfirmDelete />
         <div mix={pageStyle}>
           <h1 mix={pageTitleStyle}>Chat-Konversationen</h1>
  
@@ -145,15 +146,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                       <form
                         method="POST"
                         action={routes.admin.chatlog.destroy.href({ id: conv.id })}
+                        rmx-target={frames.adminContent}
+                        data-confirm={`Konversation #${conv.id} löschen?`}
                       >
                         <CsrfTokenInput />
-                        <AdminActionButton
-                          action={routes.admin.chatlog.destroy.href({ id: conv.id })}
-                          method="POST"
-                          label="Löschen"
-                          pendingLabel="Wird gelöscht…"
-                          confirmMsg={`Konversation #${conv.id} löschen?`}
-                        />
+                        <Button type="submit" tone="danger">Löschen</Button>
                       </form>
                       <ChatlogRowDetail conversationId={conv.id} />
                     </div>
