@@ -11,6 +11,7 @@ import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const LISTS_PAGE_LIMIT = 10
 
@@ -19,6 +20,7 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
 
   actions: {
     async index(context) {
+      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
 
@@ -37,7 +39,7 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
               )
            ORDER BY created_at DESC
            LIMIT $2 OFFSET $3`,
-          [searchPattern, LISTS_PAGE_LIMIT + 1, offset],
+          [searchPattern, effectivePageSize + 1, offset],
         )
         rows = result.rows.map((row: Record<string, unknown>) => {
           let list = row.list
@@ -51,15 +53,15 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
             updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : row.updated_at,
           }
         })
-        hasMore = rows.length > LISTS_PAGE_LIMIT
+        hasMore = rows.length > effectivePageSize
         if (hasMore) rows.pop()
       } else {
         rows = await context.db.findMany(lists, {
-          limit: LISTS_PAGE_LIMIT + 1,
+          limit: effectivePageSize + 1,
           offset,
           orderBy: [['created_at', 'desc']] as const,
         })
-        hasMore = rows.length > LISTS_PAGE_LIMIT
+        hasMore = rows.length > effectivePageSize
         if (hasMore) rows.pop()
       }
 
@@ -71,8 +73,8 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
           offset={offset}
           hasMore={hasMore}
           filter={filter}
-          prevOffset={Math.max(0, offset - LISTS_PAGE_LIMIT)}
-          nextOffset={offset + LISTS_PAGE_LIMIT}
+          prevOffset={Math.max(0, offset - effectivePageSize)}
+          nextOffset={offset + effectivePageSize}
         />,
       )
     },

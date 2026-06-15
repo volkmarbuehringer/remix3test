@@ -21,6 +21,7 @@ import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { gridStateFromForm, gridStateFromFormData, gridStateToParams, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, gridStateStatus } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 import { AdminAppointmentsPage } from '../../../ui/admin-appointments-page.tsx'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -134,6 +135,7 @@ async function loadAppointmentPageData(
   context: AppContext,
   overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
 ): Promise<AppointmentPageData> {
+  let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
@@ -203,7 +205,7 @@ async function loadAppointmentPageData(
   paramIndex++
   query += ` ORDER BY ${APPOINTMENTS_ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
-  params.push(APPOINTMENTS_PAGE_SIZE + 1)
+  params.push(effectivePageSize + 1)
 
   paramIndex++
   query += ` OFFSET $${paramIndex}`
@@ -239,7 +241,7 @@ async function loadAppointmentPageData(
     resultPromise, resourcesPromise, usersPromise,
   ])
   let rows = result.rows as AppointmentRow[]
-  let hasMore = rows.length > APPOINTMENTS_PAGE_SIZE
+  let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
 
   let resourceOptions = resourcesResult.rows as AppointmentResourceOption[]
@@ -280,8 +282,8 @@ async function loadAppointmentPageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - APPOINTMENTS_PAGE_SIZE),
-    nextOffset: offset + APPOINTMENTS_PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,

@@ -14,6 +14,7 @@ import { Layout } from '../../ui/layout.tsx'
 import { AdminNutzerPage, type NutzerRow } from '../../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams } from '../../utils/grid-state.ts'
+import { getPageSize } from '../../utils/get-page-size.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
@@ -69,8 +70,9 @@ async function fetchNutzerGrid(opts: {
   column: string
   direction: 'asc' | 'desc'
   filter?: string
+  pageSize?: number
 }) {
-  let { offset, column, direction, filter } = opts
+  let { offset, column, direction, filter, pageSize = PAGE_SIZE } = opts
 
   let query = `
     SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
@@ -93,7 +95,7 @@ async function fetchNutzerGrid(opts: {
   paramIndex++
   query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
-  params.push(PAGE_SIZE + 1)
+  params.push(pageSize + 1)
 
   paramIndex++
   query += ` OFFSET $${paramIndex}`
@@ -101,7 +103,7 @@ async function fetchNutzerGrid(opts: {
 
   let result = await pool.query(query, params)
   let rows = result.rows as NutzerRow[]
-  let hasMore = rows.length > PAGE_SIZE
+  let hasMore = rows.length > pageSize
   if (hasMore) rows.pop()
 
   return { rows, hasMore }
@@ -126,6 +128,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
 
   actions: {
     async index(context) {
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
 
@@ -135,7 +138,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         defaultDirection: 'asc',
       })
 
-      let { rows, hasMore } = await fetchNutzerGrid({ offset, column, direction, filter })
+      let { rows, hasMore } = await fetchNutzerGrid({ offset, column, direction, filter, pageSize: effectivePageSize })
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam || null
@@ -152,8 +155,8 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
             rows={rows}
             offset={offset}
             hasMore={hasMore}
-            prevOffset={Math.max(0, offset - PAGE_SIZE)}
-            nextOffset={offset + PAGE_SIZE}
+            prevOffset={Math.max(0, offset - effectivePageSize)}
+            nextOffset={offset + effectivePageSize}
             sortColumn={column}
             sortDirection={direction}
             filter={filter}
@@ -165,6 +168,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
     },
 
     async update(context) {
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
       let formData = context.formData
       let id = context.params.id
 
@@ -187,6 +191,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
           column: sortCol,
           direction: sortDir,
           filter: gridFilter,
+          pageSize: effectivePageSize,
         })
 
         let editRow: NutzerRow = {
@@ -208,8 +213,8 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
               rows={rows}
               offset={gridOffset}
               hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
-              nextOffset={gridOffset + PAGE_SIZE}
+              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+              nextOffset={gridOffset + effectivePageSize}
               sortColumn={sortCol}
               sortDirection={sortDir}
               filter={gridFilter}
@@ -269,6 +274,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
           column: sortCol,
           direction: sortDir,
           filter: gridFilter,
+          pageSize: effectivePageSize,
         })
 
         let editRow: NutzerRow = {
@@ -290,8 +296,8 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
               rows={rows}
               offset={gridOffset}
               hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
-              nextOffset={gridOffset + PAGE_SIZE}
+              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+              nextOffset={gridOffset + effectivePageSize}
               sortColumn={sortCol}
               sortDirection={sortDir}
               filter={gridFilter}
@@ -318,6 +324,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
     },
 
     async create(context) {
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
       let formData = context.formData
 
       let rawValues = readFormFieldValues(NUTZER_FORM_KEYS, formData)
@@ -335,6 +342,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
           column: sortCol,
           direction: sortDir,
           filter: gridFilter,
+          pageSize: effectivePageSize,
         })
 
         return context.render(
@@ -343,8 +351,8 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
               rows={rows}
               offset={gridOffset}
               hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
-              nextOffset={gridOffset + PAGE_SIZE}
+              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+              nextOffset={gridOffset + effectivePageSize}
               sortColumn={sortCol}
               sortDirection={sortDir}
               filter={gridFilter}
@@ -417,6 +425,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
           column: sortCol,
           direction: sortDir,
           filter: gridFilter,
+          pageSize: effectivePageSize,
         })
 
         return context.render(
@@ -425,8 +434,8 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
               rows={rows}
               offset={gridOffset}
               hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - PAGE_SIZE)}
-              nextOffset={gridOffset + PAGE_SIZE}
+              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+              nextOffset={gridOffset + effectivePageSize}
               sortColumn={sortCol}
               sortDirection={sortDir}
               filter={gridFilter}

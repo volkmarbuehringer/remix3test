@@ -19,6 +19,7 @@ import { pool } from '../../../data/setup.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 import {
   gridStateFromForm,
   gridStateFromFormData,
@@ -63,8 +64,9 @@ async function loadResourcePageData(
   overrides?: Partial<Pick<ResourcePageData, 'creating' | 'editRow' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
 ): Promise<ResourcePageData> {
   let db = context.db
+  let effectivePageSize = getPageSize(context.session, RESOURCES_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-  let pageNum = Math.floor(offset / RESOURCES_PAGE_SIZE) + 1
+  let pageNum = Math.floor(offset / effectivePageSize) + 1
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
   let { column, direction } = overrides?.sortColumn
@@ -80,7 +82,7 @@ async function loadResourcePageData(
     : undefined
 
   let { items: page, hasMore } = await paginate(db, resources, {
-    pageSize: RESOURCES_PAGE_SIZE,
+    pageSize: effectivePageSize,
     page: pageNum,
     orderBy: [[column, direction]],
     where: filterPredicate as Record<string, unknown>,
@@ -101,8 +103,8 @@ async function loadResourcePageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - RESOURCES_PAGE_SIZE),
-    nextOffset: offset + RESOURCES_PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,

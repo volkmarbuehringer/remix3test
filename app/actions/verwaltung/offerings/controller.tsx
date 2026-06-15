@@ -32,6 +32,7 @@ import { getAdminIdentity } from '../../../utils/context.ts'
 import { AdminOfferingsPage } from '../../../ui/admin-offerings-page.tsx'
 import { getConfig, upsertConfig, generateWeek } from '../../../data/offering-configs.ts'
 import type { OfferingConfig } from '../../../data/offering-configs.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const hd = new Holidays('DE', 'rp')
 
@@ -113,6 +114,7 @@ async function loadOfferingPageData(
   context: AppContext,
   overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
 ): Promise<OfferingPageData> {
+  let effectivePageSize = getPageSize(context.session, OFFERINGS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
@@ -187,7 +189,7 @@ async function loadOfferingPageData(
   paramIndex++
   query += ` ORDER BY ${OFFERINGS_ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
-  queryParams.push(OFFERINGS_PAGE_SIZE + 1)
+  queryParams.push(effectivePageSize + 1)
 
   paramIndex++
   query += ` OFFSET $${paramIndex}`
@@ -195,7 +197,7 @@ async function loadOfferingPageData(
 
   let result = await pool.query(query, queryParams)
   let rows = result.rows as OfferingRow[]
-  let hasMore = rows.length > OFFERINGS_PAGE_SIZE
+  let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
 
   let resourcesResult = await pool.query(
@@ -232,8 +234,8 @@ async function loadOfferingPageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - OFFERINGS_PAGE_SIZE),
-    nextOffset: offset + OFFERINGS_PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,

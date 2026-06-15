@@ -22,6 +22,7 @@ import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
 import { paginate } from '../../../utils/pagination.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 type SafeUser = Pick<User, 'id' | 'email' | 'name' | 'role' | 'email_verified' | 'created_at' | 'updated_at'>
 
@@ -59,8 +60,9 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
   actions: {
     async index(context) {
       let db = context.db
+      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let pageNum = Math.floor(offset / USERS_PAGE_SIZE) + 1
+      let pageNum = Math.floor(offset / effectivePageSize) + 1
       let filter = context.url.searchParams.get('filter') || undefined
 
       let { column, direction } = parseSort(context.url, {
@@ -74,7 +76,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
         : undefined
 
       let { items: page, hasMore } = await paginate(db, users, {
-        pageSize: USERS_PAGE_SIZE,
+        pageSize: effectivePageSize,
         page: pageNum,
         orderBy: [[column, direction]],
         where: filterPredicate as Record<string, unknown>,
@@ -104,8 +106,8 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           rows={rows}
           offset={offset}
           hasMore={hasMore}
-          prevOffset={Math.max(0, offset - USERS_PAGE_SIZE)}
-          nextOffset={offset + USERS_PAGE_SIZE}
+          prevOffset={Math.max(0, offset - effectivePageSize)}
+          nextOffset={offset + effectivePageSize}
           sortColumn={column}
           sortDirection={direction}
           filter={filter}

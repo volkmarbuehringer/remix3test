@@ -14,6 +14,7 @@ import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const messageSchema = f.object({
   content: f.field(s.string()),
@@ -34,6 +35,7 @@ export const adminMessages = createController(routes.admin.messages, {
 
   actions: {
     async index(context) {
+      let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
 
       let result = await pool.query(
@@ -43,7 +45,7 @@ export const adminMessages = createController(routes.admin.messages, {
          ORDER BY m.created_at DESC
          LIMIT $1
          OFFSET $2`,
-        [MESSAGES_PAGE_LIMIT + 1, offset],
+        [effectivePageSize + 1, offset],
       )
 
       let rows = result.rows.map((row: Record<string, unknown>) => ({
@@ -54,7 +56,7 @@ export const adminMessages = createController(routes.admin.messages, {
         created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
       }))
 
-      let hasMore = rows.length > MESSAGES_PAGE_LIMIT
+      let hasMore = rows.length > effectivePageSize
       if (hasMore) rows.pop()
 
       return renderAdminPage(
@@ -64,8 +66,8 @@ export const adminMessages = createController(routes.admin.messages, {
           messages={rows}
           offset={offset}
           hasMore={hasMore}
-          prevOffset={Math.max(0, offset - MESSAGES_PAGE_LIMIT)}
-          nextOffset={offset + MESSAGES_PAGE_LIMIT}
+          prevOffset={Math.max(0, offset - effectivePageSize)}
+          nextOffset={offset + effectivePageSize}
         />,
       )
     },

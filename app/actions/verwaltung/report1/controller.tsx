@@ -7,6 +7,7 @@ import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { pool } from '../../../data/setup.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 import { AdminReport1Page } from '../../../ui/admin-report1-page.tsx'
 
@@ -62,6 +63,7 @@ async function loadReport1PageData(
   context: AppContext,
   overrides?: Partial<Pick<Report1PageData, 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'year' | 'month' | 'selectedUserId'>>,
 ): Promise<Report1PageData> {
+  let effectivePageSize = getPageSize(context.session, REPORT1_PAGE_SIZE)
   let now = new Date()
   let year = overrides?.year ?? (Number(context.url.searchParams.get('year')) || now.getUTCFullYear())
   year = Math.max(2000, Math.min(2100, year))
@@ -136,7 +138,7 @@ async function loadReport1PageData(
   paramIndex++
   query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
-  params.push(REPORT1_PAGE_SIZE + 1)
+  params.push(effectivePageSize + 1)
 
   paramIndex++
   query += ` OFFSET $${paramIndex}`
@@ -148,7 +150,7 @@ async function loadReport1PageData(
   ])
 
   let rows = result.rows as Report1Row[]
-  let hasMore = rows.length > REPORT1_PAGE_SIZE
+  let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
 
   let userOptions = usersResult.rows as Report1UserOption[]
@@ -157,8 +159,8 @@ async function loadReport1PageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - REPORT1_PAGE_SIZE),
-    nextOffset: offset + REPORT1_PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,

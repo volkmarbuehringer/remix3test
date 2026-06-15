@@ -15,6 +15,7 @@ import { users, type User } from '../../data/schema.ts'
 import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import { getPageSize, VALID_PAGE_SIZES } from '../../utils/get-page-size.ts'
 import { pool } from '../../data/setup.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -41,11 +42,13 @@ export default createController(routes.settings, {
   actions: {
     index(context) {
       let user = getCurrentUser()
-      return context.render(<SettingsPage user={user} />)
+      let pageSize = getPageSize(context.session, 15)
+      return context.render(<SettingsPage user={user} pageSize={pageSize} />)
     },
 
     async action(context) {
       let user = getCurrentUser()
+      let pageSize = getPageSize(context.session, 15)
       let _action =
         typeof context.formData.get('_action') === 'string'
           ? (context.formData.get('_action') as string)
@@ -54,14 +57,14 @@ export default createController(routes.settings, {
       if (_action === 'delete-account') {
         if (user.role === 'admin') {
           return context.render(
-            <SettingsPage user={user} deleteError="Administratoren können ihr Konto nicht selbst löschen." />,
+            <SettingsPage user={user} pageSize={pageSize} deleteError="Administratoren können ihr Konto nicht selbst löschen." />,
             { status: 403 },
           )
         }
 
         if (!deleteAccountLimiter.attempt(user.id)) {
           return context.render(
-            <SettingsPage user={user} deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage user={user} pageSize={pageSize} deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
             { status: 429 },
           )
         }
@@ -73,7 +76,7 @@ export default createController(routes.settings, {
         let passwordValid = await verifyPassword(inputPassword, user.password_hash)
         if (!passwordValid) {
           return context.render(
-            <SettingsPage user={user}
+            <SettingsPage user={user} pageSize={pageSize}
               deleteError="Aktuelles Passwort ist falsch."
             />,
             { status: 400 },
@@ -103,7 +106,7 @@ export default createController(routes.settings, {
           await client.query('ROLLBACK')
           deleteAccountLimiter.reset(user.id)
           return context.render(
-            <SettingsPage user={user} deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage user={user} pageSize={pageSize} deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
             { status: 500 },
           )
         } finally {
@@ -118,9 +121,21 @@ export default createController(routes.settings, {
         return redirect(routes.auth.login.index.href())
       }
 
+      if (_action === 'set-page-size') {
+        let session = context.session
+        if (session) {
+          let raw = context.formData.get('pageSize')
+          let pageSize = typeof raw === 'string' ? Number(raw) : NaN
+          if (!isNaN(pageSize) && (VALID_PAGE_SIZES as readonly number[]).includes(pageSize)) {
+            session.set('pageSize', pageSize)
+          }
+        }
+        return redirect(routes.settings.index.href())
+      }
+
       if (!changePasswordLimiter.attempt(user.id)) {
         return context.render(
-          <SettingsPage user={user} passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+          <SettingsPage user={user} pageSize={pageSize} passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
           { status: 429 },
         )
       }
@@ -128,7 +143,7 @@ export default createController(routes.settings, {
       let parsed = s.parseSafe(changePasswordSchema, context.formData)
       if (!parsed.success) {
         return context.render(
-          <SettingsPage user={user} passwordError="Bitte überprüfen Sie Ihre Eingabe." passwordErrors={issuesToFieldErrors(parsed.issues)} />,
+          <SettingsPage user={user} pageSize={pageSize} passwordError="Bitte überprüfen Sie Ihre Eingabe." passwordErrors={issuesToFieldErrors(parsed.issues)} />,
           { status: 400 },
         )
       }
@@ -138,14 +153,14 @@ export default createController(routes.settings, {
       let valid = await verifyPassword(currentPassword, user.password_hash)
       if (!valid) {
         return context.render(
-          <SettingsPage user={user} passwordError="Aktuelles Passwort ist falsch." passwordErrors={{ currentPassword: 'Falsches Passwort' }} />,
+          <SettingsPage user={user} pageSize={pageSize} passwordError="Aktuelles Passwort ist falsch." passwordErrors={{ currentPassword: 'Falsches Passwort' }} />,
           { status: 400 },
         )
       }
 
       if (newPassword !== confirmPassword) {
         return context.render(
-          <SettingsPage user={user} passwordError="Passwörter stimmen nicht überein." passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }} />,
+          <SettingsPage user={user} pageSize={pageSize} passwordError="Passwörter stimmen nicht überein." passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }} />,
           { status: 400 },
         )
       }
@@ -153,7 +168,7 @@ export default createController(routes.settings, {
       let complexityError = validatePasswordComplexity(newPassword)
       if (complexityError) {
         return context.render(
-          <SettingsPage user={user} passwordError={complexityError} passwordErrors={{ newPassword: complexityError }} />,
+          <SettingsPage user={user} pageSize={pageSize} passwordError={complexityError} passwordErrors={{ newPassword: complexityError }} />,
           { status: 400 },
         )
       }
@@ -169,13 +184,14 @@ export default createController(routes.settings, {
 
       changePasswordLimiter.reset(user.id)
 
-      return context.render(<SettingsPage user={user} passwordSuccess="Passwort erfolgreich aktualisiert." />)
+      return context.render(<SettingsPage user={user} pageSize={pageSize} passwordSuccess="Passwort erfolgreich aktualisiert." />)
     },
   },
 })
 
 type SettingsPageProps = {
   user: User
+  pageSize: number
   passwordError?: string
   passwordErrors?: Record<string, string | undefined>
   passwordSuccess?: string
@@ -185,7 +201,7 @@ type SettingsPageProps = {
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
-    let { user, passwordError, passwordErrors, passwordSuccess, deleteError, deleteSuccess } = handle.props
+    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError, deleteSuccess } = handle.props
 
     return (
       <Layout title="Einstellungen">
@@ -201,6 +217,26 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 <span mix={profileValueCss}>{user.email}</span>
               </div>
             </div>
+          </div>
+
+          <div mix={panelCss}>
+            <h2 mix={sectionTitleCss}>Anzeige</h2>
+            <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
+            <form action={routes.settings.action.href()} method="POST" mix={formContainer}>
+              <input type="hidden" name="_action" value="set-page-size" />
+              <CsrfTokenInput />
+              <label mix={fieldLabelCss}>
+                <span>Einträge pro Seite</span>
+                <select name="pageSize" mix={selectCss}>
+                  <option value={10} selected={pageSize === 10}>10</option>
+                  <option value={15} selected={pageSize === 15}>15</option>
+                  <option value={20} selected={pageSize === 20}>20</option>
+                  <option value={25} selected={pageSize === 25}>25</option>
+                  <option value={50} selected={pageSize === 50}>50</option>
+                </select>
+              </label>
+              <button type="submit" mix={submitButton}>Speichern</button>
+            </form>
           </div>
 
           <div mix={panelCss}>
@@ -368,6 +404,25 @@ const successBanner = css({
   color: successSurface.successText ?? '#065f46',
   margin: 0,
   padding: theme.space.md,
+})
+
+const selectCss = css({
+  display: 'block',
+  width: '100%',
+  padding: '0.5rem',
+  fontSize: theme.fontSize.md,
+  fontFamily: theme.fontFamily.sans,
+  color: theme.colors.text.primary,
+  backgroundColor: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  cursor: 'pointer',
+})
+
+const hintTextCss = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  margin: '0 0 1rem',
 })
 
 const submitButton = css({

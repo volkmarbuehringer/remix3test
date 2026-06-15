@@ -25,6 +25,7 @@ import {
   gridStateFilter,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 
 import { AdminOfferingConfigsPage } from '../../../ui/admin-offering-configs-page.tsx'
 
@@ -82,6 +83,7 @@ async function loadOfferingConfigPageData(
   context: AppContext,
   overrides?: Partial<Pick<OfferingConfigPageData, 'creating' | 'editRow' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
 ): Promise<OfferingConfigPageData> {
+  let effectivePageSize = getPageSize(context.session, OFFERING_CONFIGS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
@@ -110,9 +112,9 @@ async function loadOfferingConfigPageData(
     sqlParams,
   )
   let totalRows = Number(countResult.rows[0]?.count ?? 0)
-  let hasMore = offset + OFFERING_CONFIGS_PAGE_SIZE < totalRows
+  let hasMore = offset + effectivePageSize < totalRows
 
-  let dataParams = [...sqlParams, OFFERING_CONFIGS_PAGE_SIZE + 1, offset]
+  let dataParams = [...sqlParams, effectivePageSize + 1, offset]
   let dataResult = await pool.query(
     `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
      FROM offering_configs oc
@@ -156,8 +158,8 @@ async function loadOfferingConfigPageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - OFFERING_CONFIGS_PAGE_SIZE),
-    nextOffset: offset + OFFERING_CONFIGS_PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,

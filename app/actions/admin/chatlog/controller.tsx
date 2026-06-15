@@ -10,6 +10,7 @@ import { fragmentResponseInit } from '../../../middleware/render.tsx'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 import { ChatLogPage } from '../../../ui/admin-chatlog-page.tsx'
 import { ChatlogDetailFragment } from '../../../ui/admin-fragments/chatlog-detail-fragment.tsx'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -33,14 +34,15 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
           type = rawType
         }
 
+        let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
         let rawPage = parseInt(context.url.searchParams.get('page') ?? '1', 10)
         let page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
-        let offset = (page - 1) * CHATLOG_PAGE_SIZE
+        let offset = (page - 1) * effectivePageSize
 
-        let allConversations = await getAllConversations(filter, CHATLOG_PAGE_SIZE + 1, offset, type)
+        let allConversations = await getAllConversations(filter, effectivePageSize + 1, offset, type)
 
-        let hasMore = allConversations.length > CHATLOG_PAGE_SIZE
-        let conversations = hasMore ? allConversations.slice(0, CHATLOG_PAGE_SIZE) : allConversations
+        let hasMore = allConversations.length > effectivePageSize
+        let conversations = hasMore ? allConversations.slice(0, effectivePageSize) : allConversations
 
         return renderAdminPage(context.render, 'chatlog', <ChatLogPage conversations={conversations} filter={filter} type={type} page={page} hasMore={hasMore} />)
       } catch (error) {

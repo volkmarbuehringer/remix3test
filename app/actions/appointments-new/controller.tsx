@@ -18,6 +18,7 @@ import { appointmentsNewSaveSchema, APPOINTMENTS_NEW_FORM_KEYS } from '../../uti
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { isExclusionConstraintError, isConstraintViolation } from '../../utils/db-errors.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import { getPageSize } from '../../utils/get-page-size.ts'
 
 function redirectToLogin(context: AppContext): Response {
   let returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? context.url.pathname
@@ -108,6 +109,7 @@ async function loadAppointmentsNewPageData(
   userId: number,
   overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'deletingRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'weekStart'>>,
 ): Promise<AppointmentsNewPageData> {
+  let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
@@ -154,7 +156,7 @@ async function loadAppointmentsNewPageData(
   paramIndex++
   query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.start_min ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
-  params.push(PAGE_SIZE + 1)
+  params.push(effectivePageSize + 1)
 
   paramIndex++
   query += ` OFFSET $${paramIndex}`
@@ -186,7 +188,7 @@ async function loadAppointmentsNewPageData(
 
   let result = await pool.query(query, params)
   let rows = result.rows as AppointmentsNewRow[]
-  let hasMore = rows.length > PAGE_SIZE
+  let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
   let wizardResourceId = overrides?.wizardResourceId ?? (context.url.searchParams.get('resource_id') || undefined)
   let weekStartRaw = overrides?.weekStart !== undefined ? String(overrides.weekStart) : (context.url.searchParams.get('week_start') || undefined)
@@ -310,8 +312,8 @@ async function loadAppointmentsNewPageData(
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - PAGE_SIZE),
-    nextOffset: offset + PAGE_SIZE,
+    prevOffset: Math.max(0, offset - effectivePageSize),
+    nextOffset: offset + effectivePageSize,
     sortColumn: column,
     sortDirection: direction,
     filter,
