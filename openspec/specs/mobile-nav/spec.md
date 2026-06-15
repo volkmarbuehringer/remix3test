@@ -39,6 +39,6 @@ Responsive mobile navigation that replaces the desktop horizontal nav bar with a
 ## States
 
 - **Collapsed**: Hamburger icon visible in header bar, overlay hidden
-- **Open**: Overlay covers entire viewport, hamburger becomes ✕
+- **Open**: Overlay covers entire viewport, hamburger becomes ✕. Page scroll is locked via `lockScroll()` from `remix/ui/scroll-lock`, with scrollbar-gutter compensation to prevent layout shift. Scroll position is saved on open and restored on close.
 - **Empty (logged out)**: Overlay shows only "Anmelden" link
 - **Full (logged in)**: Overlay shows Neuer Termin CTA, Einstellungen, Abmelden

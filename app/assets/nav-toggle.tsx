@@ -1,10 +1,12 @@
 import { clientEntry, type Handle } from 'remix/ui'
+import { lockScroll } from 'remix/ui/scroll-lock'
 
 export const NavToggle = clientEntry(
   import.meta.url + '#NavToggle',
   function NavToggleEntry(handle: Handle) {
     let initialized = false
     let previousFocus: HTMLElement | null = null
+    let unlockScroll: (() => void) | null = null
 
     return () => {
       if (!initialized && typeof document !== 'undefined') {
@@ -25,14 +27,19 @@ export const NavToggle = clientEntry(
         function toggle() {
           let isOpen = drawer!.classList.toggle('is-open')
           btn!.setAttribute('aria-expanded', String(isOpen))
-          document.body.style.overflow = isOpen ? 'hidden' : ''
           if (isOpen) {
+            if (unlockScroll) unlockScroll()
+            unlockScroll = lockScroll()
             previousFocus = document.activeElement as HTMLElement
             let closeBtn = document.getElementById('nav-close')
             if (closeBtn) closeBtn.focus()
-          } else if (previousFocus) {
-            previousFocus.focus()
-            previousFocus = null
+          } else {
+            if (unlockScroll) unlockScroll()
+            unlockScroll = null
+            if (previousFocus) {
+              previousFocus.focus()
+              previousFocus = null
+            }
           }
         }
 

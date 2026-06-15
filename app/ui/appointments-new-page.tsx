@@ -5,18 +5,36 @@ import { Button } from 'remix/ui/button'
 import { Glyph } from '../lib/glyph.ts'
 
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildCancelUrl } from './mixins/admin-urls.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildCancelUrl,
+} from './mixins/admin-urls.ts'
 import { formatDateDE } from '../utils/date-utils.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewEditPage } from './appointments-new-edit-page.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
-import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../actions/appointments-new/controller.tsx'
+import type {
+  AppointmentsNewRow,
+  ResourceOption,
+  DayWithSlots,
+} from '../actions/appointments-new/controller.tsx'
 import { parseDuring } from '../data/appointofferings.ts'
+import { AppointmentsScrollLock } from '../assets/appointments-scroll-lock.tsx'
 
 const BASE = '/appointments/new'
 
-function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string, status?: string): string {
+function buildPeriodUrl(
+  newPeriod: string | null,
+  offset: number,
+  sort: string,
+  order: string,
+  filter?: string,
+  status?: string,
+): string {
   let params = new URLSearchParams()
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
@@ -27,7 +45,15 @@ function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, 
   return BASE + '?' + params.toString()
 }
 
-function buildEditUrl(id: string | number, offset: number, sort: string, order: string, filter?: string, period?: string, status?: string): string {
+function buildEditUrl(
+  id: string | number,
+  offset: number,
+  sort: string,
+  order: string,
+  filter?: string,
+  period?: string,
+  status?: string,
+): string {
   let params = new URLSearchParams()
   params.set('editing', String(id))
   params.set('offset', String(offset))
@@ -189,85 +215,114 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
 
-        <div mix={css({
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.space.xs,
-          marginBottom: theme.space.md,
-        })}>
-          <div mix={css({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm })}>
-          <span mix={btnGroupStyle}>
-            {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map((value, i, arr) => {
-              let isFirst = i === 0
-              let isLast = i === arr.length - 1
-              let label = value === '' ? 'Alle' : { 'this-week': 'Diese Woche', 'next-week': 'Nächste Woche', 'this-month': 'Diesen Monat', 'next-month': 'Nächsten Monat' }[value]
-              let active = value === '' ? !period : period === value
-              let href = active
-                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
-                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
-              return (
-                <a
-                  href={href}
-                  mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                    },
-                  })}
-                >
-                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
-                </a>
-              )
+        <div
+          mix={css({
+            display: 'flex',
+            flexDirection: 'column',
+            gap: theme.space.xs,
+            marginBottom: theme.space.md,
+          })}
+        >
+          <div
+            mix={css({
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: theme.space.sm,
             })}
-          </span>
-          </div>
-          <div mix={css({ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.sm })}>
-          <span mix={btnGroupStyle}>
-            {(['pending', 'expired'] as const).map((value, i, arr) => {
-              let isFirst = i === 0
-              let isLast = i === arr.length - 1
-              let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
-              let active = value === 'pending' ? (!status || status === 'pending') : status === 'expired'
-              let params = new URLSearchParams()
-              if (offset > 0) params.set('offset', String(offset))
-              params.set('sort', sortColumn)
-              params.set('order', sortDirection)
-              if (filter) params.set('filter', filter)
-              if (period) params.set('period', period)
-              if (!active) params.set('status', value)
-              let href = BASE + '?' + params.toString()
-              return (
-                <a
-                  href={href}
-                  mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                    },
-                  })}
-                >
-                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
-                </a>
-              )
-            })}
-          </span>
-          <span mix={table.spacer} />
-          <a
-            href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
-            mix={table.linkPlain}
           >
-            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu</Button>
-          </a>
+            <span mix={btnGroupStyle}>
+              {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map(
+                (value, i, arr) => {
+                  let isFirst = i === 0
+                  let isLast = i === arr.length - 1
+                  let label =
+                    value === ''
+                      ? 'Alle'
+                      : {
+                          'this-week': 'Diese Woche',
+                          'next-week': 'Nächste Woche',
+                          'this-month': 'Diesen Monat',
+                          'next-month': 'Nächsten Monat',
+                        }[value]
+                  let active = value === '' ? !period : period === value
+                  let href = active
+                    ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
+                    : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
+                  return (
+                    <a
+                      href={href}
+                      mix={css({
+                        '& button': {
+                          paddingLeft: theme.space.xs,
+                          paddingRight: theme.space.xs,
+                          borderTopLeftRadius: isFirst ? undefined : '0',
+                          borderBottomLeftRadius: isFirst ? undefined : '0',
+                          borderTopRightRadius: isLast ? undefined : '0',
+                          borderBottomRightRadius: isLast ? undefined : '0',
+                          borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                        },
+                      })}
+                    >
+                      <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                    </a>
+                  )
+                },
+              )}
+            </span>
+          </div>
+          <div
+            mix={css({
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: theme.space.sm,
+            })}
+          >
+            <span mix={btnGroupStyle}>
+              {(['pending', 'expired'] as const).map((value, i, arr) => {
+                let isFirst = i === 0
+                let isLast = i === arr.length - 1
+                let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
+                let active =
+                  value === 'pending' ? !status || status === 'pending' : status === 'expired'
+                let params = new URLSearchParams()
+                if (offset > 0) params.set('offset', String(offset))
+                params.set('sort', sortColumn)
+                params.set('order', sortDirection)
+                if (filter) params.set('filter', filter)
+                if (period) params.set('period', period)
+                if (!active) params.set('status', value)
+                let href = BASE + '?' + params.toString()
+                return (
+                  <a
+                    href={href}
+                    mix={css({
+                      '& button': {
+                        paddingLeft: theme.space.xs,
+                        paddingRight: theme.space.xs,
+                        borderTopLeftRadius: isFirst ? undefined : '0',
+                        borderBottomLeftRadius: isFirst ? undefined : '0',
+                        borderTopRightRadius: isLast ? undefined : '0',
+                        borderBottomRightRadius: isLast ? undefined : '0',
+                        borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                      },
+                    })}
+                  >
+                    <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                  </a>
+                )
+              })}
+            </span>
+            <span mix={table.spacer} />
+            <a
+              href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
+              mix={table.linkPlain}
+            >
+              <Button tone="primary">
+                <Glyph name="add" width={14} height={14} /> Neu
+              </Button>
+            </a>
           </div>
         </div>
 
@@ -289,29 +344,62 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                 <tr>
                   <th mix={[table.thSortable, compactTh]} title="Titel">
                     <a
-                      href={buildSortUrl(BASE, 'a.title', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        BASE,
+                        'a.title',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       mix={table.sortLink}
                     >
                       Titel
-                      <span mix={'a.title' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'a.title' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('a.title', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Ressource">
                     <a
-                      href={buildSortUrl(BASE, 'r.description', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        BASE,
+                        'r.description',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       mix={table.sortLink}
                     >
                       Ressource
-                      <span mix={'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={
+                          'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow
+                        }
+                      >
                         {sortArrow('r.description', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Datum">
                     <a
-                      href={buildSortUrl(BASE, 'a.date', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        BASE,
+                        'a.date',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       mix={table.sortLink}
                     >
                       Datum
@@ -322,11 +410,22 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   </th>
                   <th mix={[table.thSortable, compactTh]} title="Zeit">
                     <a
-                      href={buildSortUrl(BASE, 'a.during', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        BASE,
+                        'a.during',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       mix={table.sortLink}
                     >
                       Zeit
-                      <span mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('a.during', sortColumn, sortDirection)}
                       </span>
                     </a>
@@ -336,17 +435,38 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={[table.td, compactTd]} title={row.title}>{row.title}</td>
-                    <td mix={[table.td, compactTd]} title={row.resource_name ?? row.resource_description ?? ''}>
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    data-row-id={row.id}
+                  >
+                    <td mix={[table.td, compactTd]} title={row.title}>
+                      {row.title}
+                    </td>
+                    <td
+                      mix={[table.td, compactTd]}
+                      title={row.resource_name ?? row.resource_description ?? ''}
+                    >
                       {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={[table.td, compactTd]} title={formatDateDE(Number(row.date))}>{formatDateDE(Number(row.date))}</td>
-                    <td mix={[table.td, compactTd]} title={row.during}>{formatDuring(row.during)}</td>
+                    <td mix={[table.td, compactTd]} title={formatDateDE(Number(row.date))}>
+                      {formatDateDE(Number(row.date))}
+                    </td>
+                    <td mix={[table.td, compactTd]} title={row.during}>
+                      {formatDuring(row.during)}
+                    </td>
                     <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
                       <div mix={btnGroupStyle}>
                         <a
-                          href={buildEditUrl(row.id, offset, sortColumn, sortDirection, filter, period, status)}
+                          href={buildEditUrl(
+                            row.id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
                           mix={editBtnStyle}
                           title="Bearbeiten"
                         >
@@ -378,21 +498,47 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(BASE, prevOffset, sortColumn, sortDirection, filter, period, status)}
+                  href={buildPaginationUrl(
+                    BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                    period,
+                    status,
+                  )}
                   mix={table.pageLink}
                 >
-                  <Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} />{' '}
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
                   Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} />{' '}
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
                   Zurück
                 </span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(BASE, nextOffset, sortColumn, sortDirection, filter, period, status)}
+                  href={buildPaginationUrl(
+                    BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                    period,
+                    status,
+                  )}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
@@ -411,6 +557,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
     if (editRow || deletingRow || creating) {
       return (
         <div mix={table.page}>
+          <AppointmentsScrollLock />
           <div mix={headerBarStyle}>
             <h2 mix={table.title}>Meine Termine</h2>
           </div>
@@ -423,19 +570,35 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     <span mix={table.panelTitle}>Termin löschen</span>
                   </div>
                   <div mix={table.panelBody}>
-                    <p mix={css({ margin: 0, marginBottom: theme.space.md, fontSize: theme.fontSize.sm, color: theme.colors.text.secondary })}>
+                    <p
+                      mix={css({
+                        margin: 0,
+                        marginBottom: theme.space.md,
+                        fontSize: theme.fontSize.sm,
+                        color: theme.colors.text.secondary,
+                      })}
+                    >
                       Möchten Sie diesen Termin wirklich löschen?
                     </p>
-                    <div mix={css({
-                      padding: theme.space.sm,
-                      marginBottom: theme.space.md,
-                      background: theme.surface.lvl2,
-                      borderRadius: theme.radius.md,
-                      fontSize: theme.fontSize.sm,
-                    })}>
+                    <div
+                      mix={css({
+                        padding: theme.space.sm,
+                        marginBottom: theme.space.md,
+                        background: theme.surface.lvl2,
+                        borderRadius: theme.radius.md,
+                        fontSize: theme.fontSize.sm,
+                      })}
+                    >
                       <div>{deletingRow.title || '(kein Titel)'}</div>
-                      <div mix={css({ color: theme.colors.text.secondary, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>
-                        {formatDateDE(Number(deletingRow.date))} – {formatDuring(deletingRow.during)}
+                      <div
+                        mix={css({
+                          color: theme.colors.text.secondary,
+                          fontSize: theme.fontSize.xs,
+                          marginTop: theme.space.xs,
+                        })}
+                      >
+                        {formatDateDE(Number(deletingRow.date))} –{' '}
+                        {formatDuring(deletingRow.during)}
                       </div>
                     </div>
                     <RestfulForm method="DELETE" action={`${BASE}/${deletingRow.id}`}>
@@ -450,9 +613,24 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         }}
                       />
                       <div mix={table.actions}>
-                        <Button type="submit" tone="danger" mix={table.spacer}>Ja, löschen</Button>
-                        <a href={buildCancelUrl(BASE, String(offset), sortColumn, sortDirection, filter, period, status)} mix={table.linkPlain}>
-                          <Button type="button" tone="secondary" mix={css({ width: '100%' })}>Abbrechen</Button>
+                        <Button type="submit" tone="danger" mix={table.spacer}>
+                          Ja, löschen
+                        </Button>
+                        <a
+                          href={buildCancelUrl(
+                            BASE,
+                            String(offset),
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
+                          mix={table.linkPlain}
+                        >
+                          <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                            Abbrechen
+                          </Button>
                         </a>
                       </div>
                     </RestfulForm>
