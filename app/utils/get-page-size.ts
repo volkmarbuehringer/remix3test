@@ -1,4 +1,4 @@
-export const VALID_PAGE_SIZES = [10, 15, 20, 25, 50] as const
+export const VALID_PAGE_SIZES = [10, 15, 20, 25, 50, 100] as const
 
 export type PageSize = (typeof VALID_PAGE_SIZES)[number]
 

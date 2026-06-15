@@ -143,14 +143,23 @@ describe('Client lab controller', () => {
   it('DELETE /client/10 deletes valid row and redirects', async () => {
     let response = await router.fetch('https://remix.run/client/10', {
       method: 'POST',
-      body: new URLSearchParams({ _method: 'DELETE', _offset: '0', _csrf: csrfToken! }),
+      body: new URLSearchParams({
+        _method: 'DELETE',
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+        _csrf: csrfToken!,
+      }),
       redirect: 'manual',
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/client/grid'), 'should redirect to /client/grid')
+    assert.ok(location.includes('offset=0'), 'should preserve grid offset')
+    assert.ok(location.includes('sort=name'), 'should preserve grid sort')
   })
 
   // -----------------------------------------------------------------------

@@ -4,9 +4,11 @@ import { theme } from '../../lib/theme.ts'
 import { Button } from 'remix/ui/button'
 
 import type { Client } from '../../data/schema.ts'
-import { DelButton } from '../../assets/client-del-button.tsx'
 import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'
+import { ConfirmDelete } from '../../assets/confirm-delete.tsx'
 import { routes } from '../../routes.ts'
+import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
+import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null
@@ -301,6 +303,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
 
     return (
       <div id="client-grid-content">
+        <ConfirmDelete />
         {/* Toolbar: Add New + Refresh button */}
         <div mix={css({ display: 'flex', justifyContent: 'flex-end', gap: theme.space.sm, marginBottom: theme.space.sm })}>
           <FrameRefreshButton />
@@ -425,7 +428,12 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
                           <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
                         </a>
-                        <DelButton action={`/client/${row.id}`} offset={String(offset)} sort={sortField ?? ''} order={sortOrder} filterValue={filter ?? ''} />
+                        <form method="POST" action={`/client/${row.id}`} rmx-target="client-grid" data-confirm="Delete this row?">
+                          <CsrfTokenInput />
+                          <input type="hidden" name="_method" value="DELETE" />
+                          <GridStateHiddenInputs state={{ offset: String(offset), sort: sortField ?? '', order: sortOrder, filter: filter ?? '' }} />
+                          <Button type="submit" tone="danger" mix={smallBtnStyle}>Del</Button>
+                        </form>
                       </div>
                     </td>
                   </tr>

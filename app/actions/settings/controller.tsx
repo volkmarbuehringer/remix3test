@@ -233,6 +233,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                   <option value={20} selected={pageSize === 20}>20</option>
                   <option value={25} selected={pageSize === 25}>25</option>
                   <option value={50} selected={pageSize === 50}>50</option>
+                  <option value={100} selected={pageSize === 100}>100</option>
                 </select>
               </label>
               <button type="submit" mix={submitButton}>Speichern</button>

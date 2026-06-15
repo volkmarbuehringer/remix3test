@@ -260,11 +260,20 @@ export default createController(routes.client, {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      await db.delete(clients, { id })
+      try {
+        await db.delete(clients, { id })
+      } catch (error) {
+        let message = 'Delete failed. Please try again.'
+        if (error && typeof error === 'object' && 'code' in error) {
+          let pg = error as { code: string }
+          if (pg.code === '23503') message = 'Cannot delete: this client has related records.'
+        }
+        return context.json({ ok: false, error: message }, { status: 409 })
+      }
 
       // Redirect back to grid with preserved state
       let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
-      return editingRedirect('/client', null, redirectState)
+      return editingRedirect('/client/grid', null, redirectState)
     },
 
     // ── POST /client — Create a new client row ──
