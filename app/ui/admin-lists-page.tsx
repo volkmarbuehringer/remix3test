@@ -26,7 +26,7 @@ interface AdminListsPageProps {
 }
 
 function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleDateString('de')
+  return new Date(ms).toLocaleString('de')
 }
 
 function formatPreview(items: Array<{ label: string }>): string {
@@ -136,18 +136,10 @@ const tdStyle = css({
 
 // ── Column width styles ──
 
-const colIdWidth = css({ width: '50px' })
 const colItemsWidth = css({ width: '60px' })
 const colDescWidth = css({ width: '220px' })
-const colCreatedWidth = css({ width: '165px' })
-const colUpdatedWidth = css({ width: '165px' })
+const colUpdatedWidth = css({ width: '155px' })
 const colActionsWidth = css({ width: '60px' })
-
-const idStyle = css({
-  fontFamily: 'monospace',
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.xs,
-})
 
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
@@ -303,11 +295,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             <table mix={tableStyle}>
               <thead>
                 <tr>
-                  <th mix={[thStyle, colIdWidth]}>ID</th>
                   <th mix={[thStyle, colItemsWidth]}>Elemente</th>
                   <th mix={thStyle}>Vorschau</th>
                   <th mix={[thStyle, colDescWidth]}>Beschreibung</th>
-                  <th mix={[thStyle, colCreatedWidth]}>Erstellt</th>
                   <th mix={[thStyle, colUpdatedWidth]}>Aktualisiert</th>
                   <th mix={[thStyle, colActionsWidth]}>Aktionen</th>
                 </tr>
@@ -317,9 +307,6 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   let items = Array.isArray(row.list) ? row.list : []
                   return (
                     <tr key={row.id}>
-                      <td mix={[tdStyle, colIdWidth]}>
-                        <span mix={idStyle}>{row.id}</span>
-                      </td>
                       <td mix={[tdStyle, colItemsWidth]}>
                         <span mix={itemCountBadgeStyle}>{items.length}</span>
                       </td>
@@ -345,7 +332,6 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           : <span mix={descEmptyStyle}>(keine Beschreibung)</span>
                         }
                       </td>
-                      <td mix={[tdStyle, colCreatedWidth]}>{formatTimestamp(row.created_at)}</td>
                       <td mix={[tdStyle, colUpdatedWidth]}>{formatTimestamp(row.updated_at)}</td>
                       <td mix={[tdStyle, colActionsWidth]}>
                         <div mix={css({ display: 'flex', gap: theme.space.xs, alignItems: 'center' })}>

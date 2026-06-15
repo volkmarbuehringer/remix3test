@@ -37,7 +37,7 @@ export const appointmentsNewSaveSchema = f.object({
     coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.'),
   ),
   title: f.field(
-    s.defaulted(s.string().transform(v => v.trim()), ''),
+    s.defaulted(s.string().transform(v => v.trim()).refine(v => v.length > 0, 'Titel ist erforderlich.'), ''),
   ),
   date: f.field(
     s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
