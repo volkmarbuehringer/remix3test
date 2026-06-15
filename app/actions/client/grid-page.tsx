@@ -8,7 +8,9 @@ import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'
 import { ConfirmDelete } from '../../assets/confirm-delete.tsx'
 import { routes } from '../../routes.ts'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
-import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
+import { CsrfTokenInput, tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
+import { getCspNonce } from '../../middleware/security-headers.ts'
+import { ClientGridInlineEdit } from '../../assets/client-grid-inline-edit.tsx'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null
@@ -23,6 +25,7 @@ interface ClientGridPageProps {
   totalRows?: number
   fieldOptions?: Record<string, string[]>
   filter?: string
+  pageSize?: number
   editingId?: number | null
 }
 
@@ -295,6 +298,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sortOrder = 'asc',
       totalRows = rows.length + offset,
       filter,
+      pageSize = 20,
       editingId,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
@@ -416,10 +420,17 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}>
+                  <tr key={row.id} data-row-id={row.id} mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}>
                     <td mix={tdIdStyle}>{row.id}</td>
                     <td mix={tdStyle} title={row.name}>{row.name}</td>
-                    <td mix={tdStyle} title={row.email}>{row.email}</td>
+                    <td
+  mix={tdStyle}
+  title={row.email}
+  data-inline-edit="email"
+  tabindex={0}
+  role="button"
+  aria-label={`Edit email: ${row.email}`}
+>{row.email}</td>
                     <td mix={tdStyle}>{row.role}</td>
                     <td mix={tdStyle}>{row.status}</td>
                     <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
@@ -448,7 +459,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               </span>
               <div mix={paginationBtnGroupStyle}>
                   <a
-                    href={buildPaginationUrl(offset - 20, sortField, sortOrder, filter)}
+                    href={buildPaginationUrl(offset - pageSize, sortField, sortOrder, filter)}
                     rmx-target="client-grid"
                     mix={css({ textDecoration: 'none' })}
                   >
@@ -457,7 +468,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     </Button>
                   </a>
                   <a
-                    href={buildPaginationUrl(offset + 20, sortField, sortOrder, filter)}
+                    href={buildPaginationUrl(offset + pageSize, sortField, sortOrder, filter)}
                     rmx-target="client-grid"
                     mix={css({ textDecoration: 'none' })}
                   >
@@ -469,6 +480,18 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             </div>
           </>
         )}
+
+        {/* Inline edit state for clientEntry */}
+        <script
+          id="client-grid-state"
+          type="application/json"
+          nonce={getCspNonce()}
+        >
+          {JSON.stringify({
+            csrfToken: tryGetCsrfToken() ?? '',
+          })}
+        </script>
+        <ClientGridInlineEdit />
       </div>
     )
   }

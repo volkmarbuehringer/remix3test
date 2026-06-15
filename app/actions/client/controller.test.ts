@@ -137,6 +137,55 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
   })
 
+  it('PUT /client/5 with JSON body updates email', async () => {
+    let response = await router.fetch('https://remix.run/client/5', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': csrfToken!,
+        Cookie: authCookie!,
+      },
+      body: JSON.stringify({ email: 'json-updated@example.com' }),
+    })
+
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.ok, true)
+  })
+
+  it('PUT /client/5 with JSON body and invalid email returns 400', async () => {
+    let response = await router.fetch('https://remix.run/client/5', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': csrfToken!,
+        Cookie: authCookie!,
+      },
+      body: JSON.stringify({ email: 'not-an-email' }),
+    })
+
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.equal(body.ok, false)
+    assert.ok(body.error, 'should include error message')
+  })
+
+  it('PUT /client/5 with JSON body and empty email returns 400', async () => {
+    let response = await router.fetch('https://remix.run/client/5', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': csrfToken!,
+        Cookie: authCookie!,
+      },
+      body: JSON.stringify({ email: '' }),
+    })
+
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.equal(body.ok, false)
+  })
+
   // -----------------------------------------------------------------------
   // DELETE /client/:id — delete a row (via methodOverride with _method=DELETE)
   // -----------------------------------------------------------------------

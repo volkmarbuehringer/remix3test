@@ -167,6 +167,7 @@ export default createController(routes.client, {
           totalRows={total}
           filter={filter}
           fieldOptions={FIELD_OPTIONS}
+          pageSize={effectivePageSize}
           editingId={editingId}
         />
       )
@@ -191,12 +192,31 @@ export default createController(routes.client, {
     // ── PUT /client/:id — Update a client row ──
     async update(context) {
       let db = context.db
-      let formData = context.formData
-
       let id = Number(context.params.id)
       if (!Number.isFinite(id) || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
+
+      // Handle JSON body (inline edit) vs form data (sidebar edit)
+      let contentType = context.request.headers.get('Content-Type') || ''
+      let isJson = contentType.includes('application/json')
+
+      if (isJson) {
+        let body = await context.request.json()
+        let emailVal = typeof body.email === 'string' ? body.email.trim() : ''
+        if (!emailVal) {
+          return context.json({ ok: false, error: 'Email is required' }, { status: 400 })
+        }
+        let parsed = s.parseSafe(s.string().pipe(email()), emailVal)
+        if (!parsed.success) {
+          let firstIssue = parsed.issues[0]
+          return context.json({ ok: false, error: firstIssue?.message || 'Invalid email' }, { status: 400 })
+        }
+        await db.updateMany(clients, { email: emailVal }, { where: { id } })
+        return context.json({ ok: true })
+      }
+
+      let formData = context.formData
 
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)
