@@ -23,8 +23,10 @@ import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { fieldLabelCss, fieldErrorCss, inputWrapperCss, inputHasToggleCss, toggleButtonCss } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
+import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
+import { Logger } from 'remix/middleware/logger'
 import { PasswordToggle } from '../../assets/password-toggle.tsx'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
@@ -116,6 +118,14 @@ export default createController(routes.settings, {
         let session = context.session
         if (session) {
           session.regenerateId(true)
+        }
+
+        if (process.env.NODE_ENV !== 'test') {
+          try {
+            await sendAccountDeletionEmail(context.mailer, { name: user.name, email: user.email }, 'self')
+          } catch (err) {
+            context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
+          }
         }
 
         return redirect(routes.auth.login.index.href())

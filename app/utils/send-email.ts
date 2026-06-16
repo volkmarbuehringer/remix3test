@@ -1,4 +1,4 @@
-import { html } from 'remix/html-template'
+import { email as de } from '../locale/de.ts'
 
 export interface SendEmailOptions {
   to: string
@@ -31,36 +31,11 @@ export async function sendVerificationEmail(
   user: { name: string; email: string },
   verificationUrl: string,
 ): Promise<void> {
-  let subject = 'Verify your email address'
-
-  let htmlBody = String(html`
-    <h1>Verify your email address</h1>
-    <p>Hi ${user.name},</p>
-    <p>Thanks for creating an account! Please verify your email address by clicking the link below:</p>
-    <p><a href="${verificationUrl}">${verificationUrl}</a></p>
-    <p>This link will expire in 24 hours.</p>
-    <p>If you didn't create this account, you can safely ignore this email.</p>
-  `)
-
-  let textBody = [
-    'Verify your email address',
-    '',
-    `Hi ${user.name},`,
-    '',
-    'Thanks for creating an account! Please verify your email address by visiting:',
-    '',
-    verificationUrl,
-    '',
-    'This link will expire in 24 hours.',
-    '',
-    "If you didn't create this account, you can safely ignore this email.",
-  ].join('\n')
-
   await sendEmail({
     to: user.email,
-    subject,
-    text: textBody,
-    html: htmlBody,
+    subject: de.verification.subject,
+    text: de.verification.text(user.name, verificationUrl),
+    html: de.verification.html(user.name, verificationUrl),
   })
 }
 
@@ -69,35 +44,25 @@ export async function sendPasswordResetEmail(
   user: { name: string; email: string },
   resetUrl: string,
 ): Promise<void> {
-  let subject = 'Reset your password'
+  await sendEmail({
+    to: user.email,
+    subject: de.passwordReset.subject,
+    text: de.passwordReset.text(user.name, resetUrl),
+    html: de.passwordReset.html(user.name, resetUrl),
+  })
+}
 
-  let htmlBody = String(html`
-    <h1>Reset your password</h1>
-    <p>Hi ${user.name},</p>
-    <p>We received a request to reset your password. Click the link below to set a new password:</p>
-    <p><a href="${resetUrl}">${resetUrl}</a></p>
-    <p>This link will expire in 1 hour.</p>
-    <p>If you didn't request a password reset, you can safely ignore this email.</p>
-  `)
-
-  let textBody = [
-    'Reset your password',
-    '',
-    `Hi ${user.name},`,
-    '',
-    'We received a request to reset your password. Visit the link below to set a new password:',
-    '',
-    resetUrl,
-    '',
-    'This link will expire in 1 hour.',
-    '',
-    "If you didn't request a password reset, you can safely ignore this email.",
-  ].join('\n')
+export async function sendAccountDeletionEmail(
+  sendEmail: SendEmailFn,
+  user: { name: string; email: string },
+  initiatedBy: 'self' | 'admin',
+): Promise<void> {
+  let content = initiatedBy === 'admin' ? de.accountDeletion.admin : de.accountDeletion.self
 
   await sendEmail({
     to: user.email,
-    subject,
-    text: textBody,
-    html: htmlBody,
+    subject: de.accountDeletion.subject,
+    text: content.text(user.name),
+    html: content.html(user.name),
   })
 }

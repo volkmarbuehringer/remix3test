@@ -21,6 +21,8 @@ import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
 import { paginate } from '../../../utils/pagination.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
+import { sendAccountDeletionEmail } from '../../../utils/send-email.ts'
+import { Logger } from 'remix/middleware/logger'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
@@ -269,7 +271,18 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
         }
       }
 
+      let deletedEmail = user.email
+      let deletedName = user.name
+
       await db.deleteMany(users, { where: { id } })
+
+      if (process.env.NODE_ENV !== 'test') {
+        try {
+          await sendAccountDeletionEmail(context.mailer, { name: deletedName, email: deletedEmail }, 'admin')
+        } catch (err) {
+          context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
+        }
+      }
 
       if (authIdentity) {
         await logAdminAction(pool, {
