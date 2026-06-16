@@ -11,10 +11,12 @@ export const assetServer = createAssetServer({
   },
   allow: ['app/assets/**', 'app/routes.ts', 'app/ui/**', 'app/lib/**', 'app/utils/**', 'node_modules/**'],
   deny: ['app/**/*.server.*'],
+  target: { es: '2022', chrome: '109', safari: '16.4' },
   sourceMaps: process.env.NODE_ENV === 'development' ? 'external' : undefined,
   scripts: {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
     },
   },
+   minify: true,
 })
