@@ -316,7 +316,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
             <p mix={warningTextCss}>Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht rückgängig gemacht werden.</p>
             {deleteError ? <p role="alert" mix={errorBanner}>{deleteError}</p> : null}
             {deleteSuccess ? <p role="status" mix={successBanner}>{deleteSuccess}</p> : null}
-            <form action={routes.settings.action.href()} method="POST" mix={formContainer}>
+            <form action={routes.settings.action.href()} method="POST" mix={[formContainer, deleteFormCss]}>
               <input type="hidden" name="_action" value="delete-account" />
               <CsrfTokenInput />
               <label mix={fieldLabelCss}>
@@ -381,6 +381,12 @@ const formContainer = css({
   gap: theme.space.md,
 })
 
+const deleteFormCss = css({
+  '@media (max-width: 768px)': {
+    gap: theme.space.sm,
+  },
+})
+
 const complexityFeedbackCss = css({
   display: 'flex',
   flexDirection: 'column',
@@ -442,19 +448,21 @@ const submitButton = css({
   '&:hover': {
     opacity: 0.9,
   },
+  '@media (max-width: 768px)': {
+    padding: '0.35rem 1rem',
+  },
 })
 
 const deletePanelCss = css({
   border: `1px solid ${theme.colors.action.danger.border}`,
   borderRadius: theme.radius.md,
-  padding: theme.space.lg,
-  marginTop: theme.space.xl,
+  padding: theme.space.md,
 })
 
 const warningTextCss = css({
   color: theme.colors.action.danger.foreground,
   fontSize: theme.fontSize.sm,
-  marginBottom: theme.space.md,
+  marginBottom: theme.space.sm,
   lineHeight: 1.5,
 })
 
