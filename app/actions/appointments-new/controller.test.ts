@@ -304,6 +304,46 @@ describe('Appointments New Controller', () => {
     assert.equal((checkResult.rows[0] as { title: string }).title, 'Updated Title')
   })
 
+  it('PUT /appointments/new/:id clears filter, period, offset, and status on successful update', async () => {
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Grid State Update', $2, '[780,840)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, futureDateMs, Date.now()],
+    )
+    let appointmentId = insertResult.rows[0].id as number
+
+    let updateBody = new URLSearchParams({
+      resource_id: String(firstResourceId),
+      title: 'Grid State Updated',
+      date: futureDateStr,
+      start_min: '780',
+      _sort: 'a.date',
+      _order: 'asc',
+      _filter: 'shouldbecleared',
+      _period: 'this-month',
+      _status: 'expired',
+    })
+    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
+      method: 'PUT',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: updateBody.toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302, 'update should redirect')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
+    assert.ok(!location.includes('period='), 'should NOT preserve period param')
+    assert.ok(!location.includes('offset='), 'should NOT preserve offset param')
+    assert.ok(!location.includes('status='), 'should NOT preserve status param')
+    assert.ok(location.includes('sort=a.date'), 'should preserve sort param')
+    assert.ok(location.includes('order=asc'), 'should preserve order param')
+  })
+
   it('PUT /appointments/new/:id with validation error shows field errors', async () => {
     let response = await router.fetch(`${APPT_URL}/1`, {
       method: 'PUT',
@@ -379,6 +419,43 @@ describe('Appointments New Controller', () => {
     assert.equal(checkResult.rows.length, 0)
   })
 
+  it('DELETE /appointments/new/:id clears filter, period, offset, and status on successful delete', async () => {
+    let dayMs = new Date('2026-09-15T00:00:00Z').getTime()
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Grid State Delete', $2, '[900,960)', $3, $3)
+       RETURNING id`,
+      [firstResourceId, dayMs, Date.now()],
+    )
+    let deleteId = insertResult.rows[0].id as number
+
+    let body = new URLSearchParams({
+      _sort: 'a.title',
+      _order: 'desc',
+      _filter: 'shouldbecleared',
+      _period: 'this-week',
+      _status: 'expired',
+    })
+    let response = await router.fetch(`${APPT_URL}/${deleteId}`, {
+      method: 'DELETE',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: body.toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302, 'delete should redirect')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
+    assert.ok(!location.includes('period='), 'should NOT preserve period param')
+    assert.ok(!location.includes('offset='), 'should NOT preserve offset param')
+    assert.ok(!location.includes('status='), 'should NOT preserve status param')
+    assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
+    assert.ok(location.includes('order=desc'), 'should preserve order param')
+  })
+
   it('DELETE /appointments/new/:id for non-existent appointment shows error', async () => {
     let response = await router.fetch(`${APPT_URL}/999999999`, {
       method: 'DELETE',
@@ -418,6 +495,39 @@ describe('Appointments New Controller', () => {
   })
 
   // ── Grid state preservation on create ──
+
+  it('POST /appointments/new clears filter, period, offset, and status on successful create', async () => {
+    await new Promise(r => setTimeout(r, 5))
+    let body = new URLSearchParams({
+      resource_id: String(firstResourceId),
+      day_start: `${futureDateMs + 1}:600`,
+      title: 'Grid State Create Test',
+      step: '2',
+      _sort: 'a.title',
+      _order: 'desc',
+      _filter: 'shouldbecleared',
+      _period: 'this-week',
+      _status: 'expired',
+    })
+    let response = await router.fetch(APPT_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: body.toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302, 'create should redirect')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
+    assert.ok(!location.includes('period='), 'should NOT preserve period param')
+    assert.ok(!location.includes('offset='), 'should NOT preserve offset param')
+    assert.ok(!location.includes('status='), 'should NOT preserve status param')
+    assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
+    assert.ok(location.includes('order=desc'), 'should preserve order param')
+  })
 
   // ── Status filter ──
 

@@ -459,6 +459,8 @@ describe('Admin Appointments Controller', () => {
         _sort: 'a.date',
         _order: 'asc',
         _filter: 'updatefilter',
+        _period: 'this-month',
+        _status: 'expired',
       })
 
       // Act
@@ -478,7 +480,9 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.date'), 'should preserve sort param')
       assert.ok(location.includes('order=asc'), 'should preserve order param')
-      assert.ok(location.includes('filter=updatefilter'), 'should preserve filter param')
+      assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
+      assert.ok(!location.includes('period='), 'should NOT preserve period param')
+      assert.ok(!location.includes('status='), 'should NOT preserve status param')
     })
   })
 })

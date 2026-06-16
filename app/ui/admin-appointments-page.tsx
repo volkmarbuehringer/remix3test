@@ -168,6 +168,26 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               let href = active
                 ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
                 : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
+              if (status === 'expired') {
+                return (
+                  <span mix={css({
+                    '& button': {
+                      paddingLeft: theme.space.xs,
+                      paddingRight: theme.space.xs,
+                      borderTopLeftRadius: isFirst ? undefined : '0',
+                      borderBottomLeftRadius: isFirst ? undefined : '0',
+                      borderTopRightRadius: isLast ? undefined : '0',
+                      borderBottomRightRadius: isLast ? undefined : '0',
+                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                      opacity: 0.4,
+                      cursor: 'not-allowed',
+                      pointerEvents: 'none',
+                    },
+                  })}>
+                    <Button tone={active ? 'primary' : 'secondary'} disabled>{label}</Button>
+                  </span>
+                )
+              }
               return (
                 <a
                   href={href}

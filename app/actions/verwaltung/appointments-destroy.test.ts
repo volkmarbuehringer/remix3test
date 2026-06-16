@@ -152,6 +152,8 @@ describe('Admin Appointments Controller', () => {
         _sort: 'a.title',
         _order: 'desc',
         _filter: 'deletefilter',
+        _period: 'this-week',
+        _status: 'expired',
       })
 
       let response = await router.fetch(`${ADMIN_APPT_URL}/${deleteId}`, {
@@ -170,7 +172,9 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
       assert.ok(location.includes('order=desc'), 'should preserve order param')
-      assert.ok(location.includes('filter=deletefilter'), 'should preserve filter param')
+      assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
+      assert.ok(!location.includes('period='), 'should NOT preserve period param')
+      assert.ok(!location.includes('status='), 'should NOT preserve status param')
     })
   })
 })

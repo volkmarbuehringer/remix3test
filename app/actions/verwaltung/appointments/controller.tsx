@@ -515,7 +515,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams(gridValues)
+        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
         params.set('editing', String(newId))
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
@@ -728,7 +728,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams(gridValues)
+        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },
@@ -781,7 +781,7 @@ export const verwaltungAppointments = createController<typeof routes.verwaltung.
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams(gridStateFromFormData(formData))
+        let params = gridStateToParams({ ...gridStateFromFormData(formData), period: '', filter: '', offset: '', status: '' })
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },

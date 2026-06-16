@@ -555,7 +555,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
           appointmentChannel.broadcast('invalidate')
 
-          let params = gridStateToParams(gridValues)
+          let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
           let qs = params.toString()
           return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
         }
@@ -691,7 +691,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams(gridValues)
+        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
         let qs = params.toString()
         return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
       },
@@ -729,7 +729,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams(gridStateFromFormData(formData))
+        let params = gridStateToParams({ ...gridStateFromFormData(formData), period: '', filter: '', offset: '', status: '' })
         let qs = params.toString()
         return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
       },
