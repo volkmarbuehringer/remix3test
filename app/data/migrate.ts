@@ -59,18 +59,29 @@ export async function migrate(): Promise<void> {
       error TEXT,
       created_at BIGINT NOT NULL,
       completed_at BIGINT,
-      created_by INTEGER REFERENCES users(id),
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       parent_run_id TEXT,
       chain_depth INTEGER NOT NULL DEFAULT 0
     )
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS workflow_runs_status_idx ON workflow_runs (status)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS workflow_runs_created_at_idx ON workflow_runs (created_at)`)
+  await pool.query(`ALTER TABLE workflow_runs DROP CONSTRAINT IF EXISTS workflow_runs_created_by_fkey`)
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'workflow_runs_created_by_fkey'
+      ) THEN
+        ALTER TABLE workflow_runs ADD CONSTRAINT workflow_runs_created_by_fkey
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+  `)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
-      sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+      sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
       content TEXT NOT NULL,
       created_at BIGINT NOT NULL
     )
@@ -78,6 +89,17 @@ export async function migrate(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at)`)
   await pool.query(`ALTER TABLE messages ALTER COLUMN sender_id DROP NOT NULL`)
+  await pool.query(`ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_sender_id_fkey`)
+  await pool.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'messages_sender_id_fkey'
+      ) THEN
+        ALTER TABLE messages ADD CONSTRAINT messages_sender_id_fkey
+          FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+  `)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clients (
@@ -92,6 +114,8 @@ export async function migrate(): Promise<void> {
 
   await pool.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`)
   await pool.query(`CREATE EXTENSION IF NOT EXISTS btree_gist`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS users_name_trgm_idx ON users USING GIN (name gin_trgm_ops)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS users_email_trgm_idx ON users USING GIN (email gin_trgm_ops)`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lists (
@@ -179,7 +203,7 @@ export async function migrate(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id SERIAL PRIMARY KEY,
-      admin_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      admin_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
       admin_email TEXT NOT NULL,
       action_type TEXT NOT NULL,
       target_type TEXT NOT NULL,

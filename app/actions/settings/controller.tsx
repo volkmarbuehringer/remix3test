@@ -97,22 +97,14 @@ export default createController(routes.settings, {
           // Non-blocking: audit log failure should not prevent account deletion
         }
 
-        let client = await pool.connect()
         try {
-          await client.query('BEGIN')
-          await client.query('UPDATE messages SET sender_id = NULL WHERE sender_id = $1', [user.id])
-          await client.query('UPDATE workflow_runs SET created_by = NULL WHERE created_by = $1', [user.id])
-          await client.query('DELETE FROM users WHERE id = $1', [user.id])
-          await client.query('COMMIT')
+          await pool.query('DELETE FROM users WHERE id = $1', [user.id])
         } catch (err) {
-          await client.query('ROLLBACK')
           deleteAccountLimiter.reset(user.id)
           return context.render(
             <SettingsPage user={user} pageSize={pageSize} deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
             { status: 500 },
           )
-        } finally {
-          client.release()
         }
 
         let session = context.session

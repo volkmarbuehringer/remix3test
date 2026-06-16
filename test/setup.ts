@@ -4,9 +4,27 @@ let originalDatabaseUrl = ''
 let adminDatabaseUrl = ''
 let testDbName = ''
 
+type AppSetupModule = {
+  initializeAppDatabase(): Promise<void>
+  closeAppDatabase(): Promise<void>
+}
+
+let appModule: AppSetupModule | undefined
+let appClosed = false
+
+async function forceDropTestDb() {
+  if (!testDbName || !adminDatabaseUrl) return
+  let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
+  try {
+    await adminPool.query(`DROP DATABASE IF EXISTS "${testDbName}" WITH (FORCE)`)
+  } finally {
+    await adminPool.end()
+  }
+}
+
 export async function globalSetup() {
-  process.env.NODE_ENV = 'test'
   process.loadEnvFile('./.env')
+  process.env.NODE_ENV = 'test'
 
   originalDatabaseUrl = process.env.DATABASE_URL!
   if (!originalDatabaseUrl) {
@@ -15,12 +33,10 @@ export async function globalSetup() {
 
   testDbName = `newapp_test_${Date.now()}_${process.pid}`
 
-  // build the admin URL (postgres maintenance DB) once and reuse it
   let parsed = new URL(originalDatabaseUrl)
   parsed.pathname = '/postgres'
   adminDatabaseUrl = parsed.toString()
 
-  // create the temp database
   let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
   try {
     await adminPool.query(`CREATE DATABASE "${testDbName}"`)
@@ -28,44 +44,32 @@ export async function globalSetup() {
     await adminPool.end()
   }
 
-  // point DATABASE_URL to the new temp database
   parsed.pathname = `/${testDbName}`
   process.env.DATABASE_URL = parsed.toString()
 
-  // run migration + seed on the temp database
-  // this also creates the app pool from the updated DATABASE_URL
+  appModule = await import('../app/data/setup.ts')
   try {
-    let { initializeAppDatabase } = await import('../app/data/setup.ts')
-    await initializeAppDatabase()
+    await appModule.initializeAppDatabase()
   } catch (err) {
-    // drop the temp database if migration or seed fails
-    let cleanupPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
-    try {
-      await cleanupPool.query(`DROP DATABASE IF EXISTS "${testDbName}"`)
-    } finally {
-      await cleanupPool.end()
-    }
-    console.error(`Dropped temp database "${testDbName}" after setup failure`)
+    console.error(`Setup failed for "${testDbName}":`, err)
+    await appModule.closeAppDatabase().catch(() => {})
+    appClosed = true
+    await forceDropTestDb().catch(() => {})
     throw err
   }
 }
 
 export async function globalTeardown() {
-  // close the app pool first
-  try {
-    let { pool } = await import('../app/data/connection.ts')
-    await pool.end()
-  } catch (err) {
-    console.error('Error closing database pool:', err)
-  }
-
-  // drop the temp database
-  if (testDbName) {
-    let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
+  if (!appClosed) {
     try {
-      await adminPool.query(`DROP DATABASE IF EXISTS "${testDbName}"`)
-    } finally {
-      await adminPool.end()
+      await Promise.race([
+        appModule?.closeAppDatabase() ?? Promise.resolve(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('pool.end() timed out after 5s')), 5000)),
+      ])
+    } catch (err) {
+      console.error('Error closing app database pool:', err)
     }
   }
+
+  await forceDropTestDb()
 }
