@@ -1,6 +1,7 @@
 import { clientEntry, css, on, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
-import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'
+import { onMenuSelect } from 'remix/ui/menu'
+import { MenuItem, MenuList } from 'remix/components/menu'
 import { Glyph } from '../lib/glyph.ts'
 import { Separator } from '../lib/separator.ts'
 import { theme } from '../lib/theme.ts'

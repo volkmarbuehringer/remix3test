@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
-import { Button } from 'remix/ui/button'
+import { Button } from 'remix/components/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
 import { table } from '../../ui/mixins/admin-table.ts'

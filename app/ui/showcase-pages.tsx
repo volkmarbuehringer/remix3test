@@ -1,7 +1,7 @@
 import { css, type Handle, type RemixNode } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 
-import { Button } from 'remix/ui/button'
+import { Button } from 'remix/components/button'
 import { SHOWCASE_SECTIONS, SHOWCASE_PAGES } from './showcase-registry.ts'
 import { input } from './mixins/input.ts'
 import {

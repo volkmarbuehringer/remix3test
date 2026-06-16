@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
-import { Button } from 'remix/ui/button'
+import { Button } from 'remix/components/button'
 
 import type { Client } from '../../data/schema.ts'
 import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'

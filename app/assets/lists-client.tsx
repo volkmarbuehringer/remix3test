@@ -2,7 +2,7 @@ import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 import { Glyph } from '../lib/glyph.ts'
 
-import { Button } from 'remix/ui/button'
+import { Button } from 'remix/components/button'
 
 type ListItem = {
   id: string

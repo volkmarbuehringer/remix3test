@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/ui/button'
+import { Button } from 'remix/components/button'
 import { routes, frames } from '../routes.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
