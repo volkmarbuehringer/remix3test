@@ -28,6 +28,8 @@ export function MainNav() {
       csrfToken = getCsrfToken(getContext())
     } catch { /* CSRF may not be active */ }
 
+    // `path + '/'` in startsWith prevents collision between /appointment
+    // and /appointments/new — the trailing slash ensures exact segment matching
     let isActive = (path: string) => {
       if (!currentPath) return false
       return currentPath === path || currentPath.startsWith(path + '/')

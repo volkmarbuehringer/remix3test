@@ -76,6 +76,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.lists.save.href()]: 'Save',
 
   // Appointment
+  [routes.appointmentsNew.index.href()]: 'Neuer Termin',
   [routes.appointment.index.href()]: 'Terminbuchung',
   [routes.appointment.events.href()]: 'Termine',
   [routes.appointment.types.index.href()]: 'Termintypen',

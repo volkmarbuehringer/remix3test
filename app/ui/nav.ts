@@ -25,7 +25,8 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
       { label: 'Home', href: '/' },
-      { label: 'Termine', href: '/appointment' },
+      { label: 'Termine', href: '/appointments/new' },
+      { label: 'TermineUI', href: '/appointment' },
       { label: 'Listen', href: '/lists' },
       { label: 'KI', href: '/ai' },
       { label: 'Client Lab', href: '/client' },

@@ -143,7 +143,7 @@ const pageStyle = css({
   margin: '0 auto',
   padding: `0 ${theme.space.lg}`,
   paddingTop: theme.space.lg,
-  paddingBottom: theme.space.xl,
+  paddingBottom: 0,
   boxSizing: 'border-box',
 })
 

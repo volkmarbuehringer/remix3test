@@ -232,21 +232,23 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
           <div mix={panelCss}>
             <h2 mix={sectionTitleCss}>Anzeige</h2>
             <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
-            <form action={routes.settings.action.href()} method="POST" mix={formContainer}>
+            <form action={routes.settings.action.href()} method="POST">
               <input type="hidden" name="_action" value="set-page-size" />
               <CsrfTokenInput />
-              <label mix={fieldLabelCss}>
-                <span>Einträge pro Seite</span>
-                <select name="pageSize" mix={selectCss}>
-                  <option value={10} selected={pageSize === 10}>10</option>
-                  <option value={15} selected={pageSize === 15}>15</option>
-                  <option value={20} selected={pageSize === 20}>20</option>
-                  <option value={25} selected={pageSize === 25}>25</option>
-                  <option value={50} selected={pageSize === 50}>50</option>
-                  <option value={100} selected={pageSize === 100}>100</option>
-                </select>
-              </label>
-              <button type="submit" mix={submitButton}>Speichern</button>
+              <div mix={formContainer}>
+                <label mix={fieldLabelCss}>
+                  <span>Einträge pro Seite</span>
+                  <select name="pageSize" mix={selectCss}>
+                    <option value={10} selected={pageSize === 10}>10</option>
+                    <option value={15} selected={pageSize === 15}>15</option>
+                    <option value={20} selected={pageSize === 20}>20</option>
+                    <option value={25} selected={pageSize === 25}>25</option>
+                    <option value={50} selected={pageSize === 50}>50</option>
+                    <option value={100} selected={pageSize === 100}>100</option>
+                  </select>
+                </label>
+                <button type="submit" mix={submitButton}>Speichern</button>
+              </div>
             </form>
           </div>
 
@@ -254,11 +256,12 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
             <h2 mix={sectionTitleCss}>Passwort ändern</h2>
             {passwordError ? <p role="alert" mix={errorBanner}>{passwordError}</p> : null}
             {passwordSuccess ? <p role="status" mix={successBanner}>{passwordSuccess}</p> : null}
-            <form action={routes.settings.action.href()} method="POST" mix={formContainer}>
+            <form action={routes.settings.action.href()} method="POST">
               <CsrfTokenInput />
               <PasswordToggle />
-              <label mix={fieldLabelCss}>
-                <span>Aktuelles Passwort</span>
+              <div mix={formContainer}>
+                <label mix={fieldLabelCss}>
+                  <span>Aktuelles Passwort</span>
                 <div mix={inputWrapperCss}>
                   <input
                     type="password"
@@ -318,34 +321,37 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               </label>
 
               <button type="submit" mix={submitButton}>Speichern</button>
+              </div>
             </form>
           </div>
 
-          <div mix={[panelCss, deletePanelCss]}>
+          <div mix={panelCss}>
             <h2 mix={sectionTitleCss}>Konto löschen</h2>
             <p mix={warningTextCss}>Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht rückgängig gemacht werden.</p>
             {deleteError ? <p role="alert" mix={errorBanner}>{deleteError}</p> : null}
             {deleteSuccess ? <p role="status" mix={successBanner}>{deleteSuccess}</p> : null}
-            <form action={routes.settings.action.href()} method="POST" mix={[formContainer, deleteFormCss]}>
+            <form action={routes.settings.action.href()} method="POST">
               <input type="hidden" name="_action" value="delete-account" />
               <CsrfTokenInput />
-              <label mix={fieldLabelCss}>
-                <span>Passwort eingeben zur Bestätigung</span>
-                <div mix={inputWrapperCss}>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    required
-                    autoComplete="current-password"
-                    mix={[input.base, input.focus]}
-                  />
-                </div>
-              </label>
-              <label mix={confirmLabelCss}>
-                <input type="checkbox" name="confirmDelete" required />
-                <span>Wollen Sie wirklich löschen?</span>
-              </label>
-              <button type="submit" mix={deleteButtonCss}>Konto löschen</button>
+              <div mix={[formContainer, deleteFormCss]}>
+                <label mix={fieldLabelCss}>
+                  <span>Passwort eingeben zur Bestätigung</span>
+                  <div mix={inputWrapperCss}>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      required
+                      autoComplete="current-password"
+                      mix={[input.base, input.focus]}
+                    />
+                  </div>
+                </label>
+                <label mix={confirmLabelCss}>
+                  <input type="checkbox" name="confirmDelete" required />
+                  <span>Wollen Sie wirklich löschen?</span>
+                </label>
+                <button type="submit" mix={deleteButtonCss}>Konto löschen</button>
+              </div>
             </form>
           </div>
         </PageSection>
@@ -463,17 +469,10 @@ const submitButton = css({
   },
 })
 
-const deletePanelCss = css({
-  border: `1px solid ${theme.colors.action.danger.border}`,
-  borderRadius: theme.radius.md,
-  padding: theme.space.md,
-})
-
 const warningTextCss = css({
-  color: theme.colors.action.danger.foreground,
-  fontSize: theme.fontSize.sm,
-  marginBottom: theme.space.sm,
-  lineHeight: 1.5,
+  color: theme.colors.action.danger.border,
+  fontSize: theme.fontSize.xs,
+  margin: '0 0 1rem',
 })
 
 const deleteButtonCss = css({

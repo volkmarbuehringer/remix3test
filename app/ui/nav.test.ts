@@ -12,7 +12,8 @@ describe('NAV_SECTIONS', () => {
     let allItems = NAV_SECTIONS.flatMap((s) => s.items)
     let hrefs = allItems.map((i) => i.href)
     assert.ok(hrefs.includes('/'), 'should link to home')
-    assert.ok(hrefs.includes('/appointment'), 'should link to Termine')
+    assert.ok(hrefs.includes('/appointments/new'), 'should link to Termine')
+    assert.ok(hrefs.includes('/appointment'), 'should link to TermineUI')
     assert.ok(hrefs.includes('/lists'), 'should link to Listen')
     assert.ok(hrefs.includes('/ai'), 'should link to KI')
     assert.ok(hrefs.includes('/admin'), 'should link to admin')
@@ -22,8 +23,15 @@ describe('NAV_SECTIONS', () => {
     let allItems = NAV_SECTIONS.flatMap((s) => s.items)
     let findByLabel = (label: string) => allItems.find((i) => i.label === label)
     assert.ok(findByLabel('Termine'))
+    assert.ok(findByLabel('TermineUI'))
     assert.ok(findByLabel('Listen'))
     assert.ok(findByLabel('KI'))
+  })
+
+  it('Termine links to appointments/new and TermineUI links to appointment', () => {
+    let allItems = NAV_SECTIONS.flatMap((s) => s.items)
+    assert.equal(allItems.find((i) => i.label === 'Termine')?.href, '/appointments/new')
+    assert.equal(allItems.find((i) => i.label === 'TermineUI')?.href, '/appointment')
   })
 
   it('admin is adminOnly', () => {
