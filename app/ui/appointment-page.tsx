@@ -10,15 +10,6 @@ import type { AppointOffering, Appointment, Resource } from '../data/schema.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
-function formatDateRange(mondayMs: number): string {
-  let monday = new Date(mondayMs)
-  let sunday = new Date(mondayMs + 6 * 86_400_000)
-  let months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
-  let monStr = `${months[monday.getUTCMonth()]} ${monday.getUTCDate()}`
-  let sunStr = `${months[sunday.getUTCMonth()]} ${sunday.getUTCDate()}, ${sunday.getUTCFullYear()}`
-  return `${monStr} – ${sunStr}`
-}
-
 interface AppointmentPageProps {
   year: number
   week: number

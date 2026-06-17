@@ -17,8 +17,6 @@ const separatorCss: CSSMixinDescriptor = css({
   borderTop: `1px solid ${theme.colors.border.subtle}`,
 })
 
-export const separatorStyle = separatorCss
-
 export function Separator(_handle: Handle): () => RemixNode {
   return () => createElement('div', { role: 'separator', mix: separatorCss })
 }

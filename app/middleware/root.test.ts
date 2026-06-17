@@ -6,7 +6,6 @@ import { skipAssetsLogger } from './root.ts'
 
 function context(url: string): MiddlewareContext<any> {
   let log = console.log
-  let warn = console.warn
   return {
     get: () => log,
     set(_key: object, value: unknown, opts?: { property?: string }) {

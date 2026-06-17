@@ -536,4 +536,3 @@ export type AppointType = TableRow<typeof appointtypes>
 export type Resource = TableRow<typeof resources>
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>
-export type Upload = TableRow<typeof uploads>

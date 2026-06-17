@@ -1,1 +1,1 @@
-export { Separator, separatorStyle } from './separator/separator.ts'
+export { Separator } from './separator/separator.ts'

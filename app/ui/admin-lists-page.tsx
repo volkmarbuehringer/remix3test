@@ -7,6 +7,7 @@ import { routes, frames } from '../routes.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { buildPaginationUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
 interface ListRowData {
   id: number
@@ -23,10 +24,6 @@ interface AdminListsPageProps {
   filter?: string
   prevOffset: number
   nextOffset: number
-}
-
-function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleString('de')
 }
 
 function formatPreview(items: Array<{ label: string }>): string {
@@ -244,13 +241,6 @@ const pageLinkStyle = css({
 
 // ── Page component ──
 
-function buildPaginationUrl(newOffset: number, filter?: string): string {
-  let params = new URLSearchParams()
-  params.set('offset', String(newOffset))
-  if (filter) params.set('filter', filter)
-  return routes.admin.lists.index.href() + '?' + params.toString()
-}
-
 export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
   return () => {
     let { lists, offset, hasMore, filter, prevOffset, nextOffset } = handle.props
@@ -366,7 +356,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 && (
                 <a
-                  href={buildPaginationUrl(prevOffset, filter)}
+                  href={buildPaginationUrl(routes.admin.lists.index.href(), prevOffset, 'id', 'asc', filter)}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
@@ -375,7 +365,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               )}
               {hasMore && (
                 <a
-                  href={buildPaginationUrl(nextOffset, filter)}
+                  href={buildPaginationUrl(routes.admin.lists.index.href(), nextOffset, 'id', 'asc', filter)}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >

@@ -9,6 +9,7 @@ import {
   sortArrow,
   buildSortUrl,
   buildPaginationUrl,
+  buildEditUrl,
   buildCreateUrl,
   buildCancelUrl,
 } from './mixins/admin-urls.ts'
@@ -43,26 +44,6 @@ function buildPeriodUrl(
   if (newPeriod) params.set('period', newPeriod)
   if (status) params.set('status', status)
   return BASE + '?' + params.toString()
-}
-
-function buildEditUrl(
-  id: string | number,
-  offset: number,
-  sort: string,
-  order: string,
-  filter?: string,
-  period?: string,
-  status?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('editing', String(id))
-  params.set('offset', String(offset))
-  params.set('sort', sort)
-  params.set('order', order)
-  if (filter) params.set('filter', filter)
-  if (period) params.set('period', period)
-  if (status) params.set('status', status)
-  return `${BASE}?${params.toString()}`
 }
 
 interface AppointmentsNewPageProps {
@@ -479,6 +460,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       <div mix={btnGroupStyle}>
                         <a
                           href={buildEditUrl(
+                            BASE,
                             row.id,
                             offset,
                             sortColumn,
