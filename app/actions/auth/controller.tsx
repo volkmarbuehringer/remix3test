@@ -62,7 +62,7 @@ function resetFailedAttempts(email: string): void {
   longLimiter.reset(email)
 }
 
-export const authLogin = createController(routes.auth.login, {
+export const authLogin = createController<typeof routes.auth.login, AppContext>(routes.auth.login, {
   middleware: [],
   actions: {
     index(context) {
@@ -115,7 +115,7 @@ const registerSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authRegister = createController(routes.auth.register, {
+export const authRegister = createController<typeof routes.auth.register, AppContext>(routes.auth.register, {
   middleware: [],
   actions: {
     index(context) {
@@ -236,7 +236,7 @@ const passwordSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authForgotten = createController(routes.auth.forgotten, {
+export const authForgotten = createController<typeof routes.auth.forgotten, AppContext>(routes.auth.forgotten, {
   middleware: [],
   actions: {
     index(context) {
@@ -286,7 +286,7 @@ export const authForgotten = createController(routes.auth.forgotten, {
   },
 })
 
-export const authForgottenReset = createController(routes.auth.forgottenReset, {
+export const authForgottenReset = createController<typeof routes.auth.forgottenReset, AppContext>(routes.auth.forgottenReset, {
   middleware: [],
   actions: {
     async index(context) {

@@ -14,6 +14,7 @@ import type { Client } from '../../data/schema.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { ClientPage } from './page.tsx'
 import { paginate } from '../../utils/pagination.ts'
+import type { AppContext } from '../../types/context.ts'
 import { parseSort } from '../../utils/sort-params.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
 import {
@@ -80,7 +81,7 @@ async function fetchGridData(db: Database, opts: { offset: number; column: strin
   return { rows: page, hasMore, effectivePageSize }
 }
 
-export default createController(routes.admin.client, {
+export default createController<typeof routes.admin.client, AppContext>(routes.admin.client, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     // ── GET /admin/client — Render main page ──

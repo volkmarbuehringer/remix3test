@@ -9,6 +9,7 @@ import { ListsClient } from '../../assets/lists-client.tsx'
 import { ListsShowPage } from './show-page.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
+import type { AppContext } from '../../types/context.ts'
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -20,7 +21,7 @@ const listsSaveSchema = s.object({
   items: s.array(listItemSchema),
 })
 
-export default createController(routes.lists, {
+export default createController<typeof routes.lists, AppContext>(routes.lists, {
   middleware: [requireAuth()],
 
   actions: {

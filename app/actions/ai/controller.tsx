@@ -28,6 +28,7 @@ import { Logger } from 'remix/middleware/logger'
 import { getCurrentUser } from '../../utils/context.ts'
 import { toastRedirect } from '../../utils/error-handling.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import type { AppContext } from '../../types/context.ts'
 
 const messageField = f.field(s.string())
 const messageSchema = f.object({
@@ -38,7 +39,7 @@ const MAX_MESSAGE_LENGTH = 5000
 
 // ── Dashboard ──
 
-export default createController(routes.ai, {
+export default createController<typeof routes.ai, AppContext>(routes.ai, {
   middleware: [requireAuth()],
 
   actions: {
@@ -54,7 +55,7 @@ const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
 const SYSTEM_PROMPT = `You are a helpful AI assistant. Answer user questions conversationally and helpfully.`
 
-export const aiChat = createController(routes.ai.chat, {
+export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes.ai.chat, {
   middleware: [requireAuth()],
 
   actions: {
@@ -221,7 +222,7 @@ export const aiChat = createController(routes.ai.chat, {
 
 const tools = { ...baseTools }
 
-export const aiAgent = createController(routes.ai.agent, {
+export const aiAgent = createController<typeof routes.ai.agent, AppContext>(routes.ai.agent, {
   middleware: [requireAuth()],
 
   actions: {
@@ -385,7 +386,7 @@ const workflowSchema = f.object({
   workflowId: f.field(s.string()),
 })
 
-export const aiWorkflow = createController(routes.ai.workflow, {
+export const aiWorkflow = createController<typeof routes.ai.workflow, AppContext>(routes.ai.workflow, {
   middleware: [requireAuth()],
 
   actions: {
@@ -476,7 +477,7 @@ export const aiWorkflow = createController(routes.ai.workflow, {
 
 // ── Fragments ──
 
-export const aiFragments = createController(
+export const aiFragments = createController<typeof routes.ai.fragments, AppContext>(
   routes.ai.fragments,
   {
     middleware: [requireAuth()],

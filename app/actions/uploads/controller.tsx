@@ -9,8 +9,9 @@ import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../utils/context.ts'
+import type { AppContext } from '../../types/context.ts'
 
-export default createController(routes.uploads, {
+export default createController<typeof routes.uploads, AppContext>(routes.uploads, {
   middleware: [requireAuth()],
   actions: {
     async index(context) {

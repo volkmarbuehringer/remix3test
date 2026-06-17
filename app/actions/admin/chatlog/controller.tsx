@@ -73,7 +73,7 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
 
 // ── Chatlog Fragments ──
 
-export const adminChatlogFragments = createController(
+export const adminChatlogFragments = createController<typeof routes.admin.chatlog.fragments, AppContext>(
   routes.admin.chatlog.fragments,
   {
     middleware: [requireAuth(), requireAdmin()],

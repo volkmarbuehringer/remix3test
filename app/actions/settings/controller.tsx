@@ -39,7 +39,9 @@ const changePasswordSchema = f.object({
   confirmPassword: f.field(s.string()),
 })
 
-export default createController(routes.settings, {
+import type { AppContext } from '../../types/context.ts'
+
+export default createController<typeof routes.settings, AppContext>(routes.settings, {
   middleware: [requireAuth()],
   actions: {
     index(context) {

@@ -2,13 +2,14 @@ import { createController } from 'remix/router'
 
 import { assetServer } from '../../assets.ts'
 import { routes } from '../../routes.ts'
+import type { AppContext } from '../../types/context.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { HomePage } from '../../ui/scaffold-home-page.tsx'
 import { ShowcaseIndexPage } from '../../ui/showcase-pages.tsx'
 import { SHOWCASE_PAGES, type ShowcasePageId } from '../../ui/showcase-registry.ts'
 
-export default createController(routes, {
+export default createController<typeof routes, AppContext>(routes, {
   actions: {
     async assets(context) {
       return (

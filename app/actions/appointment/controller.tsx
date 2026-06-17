@@ -34,6 +34,7 @@ import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
 import { routes } from '../../routes.ts'
+import type { AppContext } from '../../types/context.ts'
 
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
@@ -115,7 +116,7 @@ function weekDates(mondayMs: number): Array<{ dayName: string; date: number; dat
   return days
 }
 
-export const appointment = createController(routes.appointment, {
+export const appointment = createController<typeof routes.appointment, AppContext>(routes.appointment, {
   middleware: [requireAuth()],
 
   actions: {
@@ -393,7 +394,7 @@ const appointTypeUpdateSchema = s.object({
   title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
 })
 
-export const appointmentTypes = createController(
+export const appointmentTypes = createController<typeof routes.appointment.types, AppContext>(
   routes.appointment.types,
   {
     middleware: [requireAuth()],
