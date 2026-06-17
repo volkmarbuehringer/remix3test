@@ -68,7 +68,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
     <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-      <RestfulForm method="POST" action="/client">
+      <RestfulForm method="POST" action="/admin/client">
         <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
         <div mix={table.panel}>
@@ -155,7 +155,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
               </Button>
               {(() => {
                 let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
-                let cancelHref = '/client' + (cancelQ ? '?' + cancelQ : '')
+                let cancelHref = '/admin/client' + (cancelQ ? '?' + cancelQ : '')
                 return (
                   <a href={cancelHref} mix={[table.spacer, table.linkPlain]}>
                     <Button type="button" tone="secondary" mix={css({ width: '100%' })}>

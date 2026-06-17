@@ -33,8 +33,8 @@ describe('Client Grid', () => {
   // CRUD redirect flow
   // -----------------------------------------------------------------------
 
-  it('POST /client creates a new row and redirects', async () => {
-    let response = await router.fetch(`${BASE}/client`, {
+  it('POST /admin/client creates a new row and redirects', async () => {
+    let response = await router.fetch(`${BASE}/admin/client`, {
       method: 'POST',
       body: new URLSearchParams({
         name: 'Test User',
@@ -50,30 +50,29 @@ describe('Client Grid', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
   })
 
   // -----------------------------------------------------------------------
   // Grid page rendering
   // -----------------------------------------------------------------------
 
-  it('GET /client/grid?offset=0 renders grid page with content', async () => {
-    let response = await router.fetch(`${BASE}/client/grid?offset=0`, {
+  it('GET /admin/client?offset=0 renders grid page with content', async () => {
+    let response = await router.fetch(`${BASE}/admin/client?offset=0`, {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 200)
     let html = await response.text()
 
-    // Grid page should include the client-grid marker
     assert.ok(
-      html.includes('client-grid'),
-      'grid page should reference the client-grid frame',
+      html.includes('client-grid-content'),
+      'grid page should contain the grid content',
     )
   })
 
-  it('GET /client renders the client lab page', async () => {
-    let response = await router.fetch(`${BASE}/client`, {
+  it('GET /admin/client renders the client admin page', async () => {
+    let response = await router.fetch(`${BASE}/admin/client`, {
       headers: authHeaders(),
     })
 
@@ -82,8 +81,8 @@ describe('Client Grid', () => {
 
     // Page should contain the client-grid frame reference
     assert.ok(
-      html.includes('client-grid'),
-      'client page should reference the client-grid frame',
+      html.includes('client-grid-section'),
+      'client page should contain the grid section',
     )
   })
 
@@ -91,14 +90,14 @@ describe('Client Grid', () => {
   // Edit redirect flow
   // -----------------------------------------------------------------------
 
-  it('GET /client/edit/1 redirects to /client with editing param', async () => {
-    let response = await router.fetch(`${BASE}/client/edit/1`, {
+  it('GET /admin/client/edit/1 redirects to /admin/client with editing param', async () => {
+    let response = await router.fetch(`${BASE}/admin/client/edit/1`, {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
     assert.ok(location.includes('editing=1'), 'should include editing param')
   })
 })

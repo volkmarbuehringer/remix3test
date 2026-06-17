@@ -85,7 +85,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
     <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-      <RestfulForm method="PUT" action={`/client/${row.id}`}>
+      <RestfulForm method="PUT" action={`/admin/client/${row.id}`}>
         <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
         <div mix={table.panel}>
@@ -171,7 +171,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               <Button type="submit" tone="primary" mix={table.spacer}>
                 Save Changes
               </Button>
-              <a href={buildCancelUrl('/client', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+              <a href={buildCancelUrl('/admin/client', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                 <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                   Cancel
                 </Button>

@@ -25,61 +25,61 @@ describe('Client lab controller', () => {
   // -----------------------------------------------------------------------
   // GET /client — page rendering
   // -----------------------------------------------------------------------
-  it('GET /client returns the client lab page', async () => {
-    let response = await router.fetch('https://remix.run/client', {
+  it('GET /admin/client returns the client page', async () => {
+    let response = await router.fetch('https://remix.run/admin/client', {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(
-      html.includes('>Client</'),
-      'page should contain Client heading',
+      html.includes('Client-Test'),
+      'page should contain Client-Test nav label',
     )
   })
 
   // -----------------------------------------------------------------------
-  // GET /client/grid — Frame fragment rendering
+  // GET /admin/client — grid rendering
   // -----------------------------------------------------------------------
-  it('GET /client/grid?offset=0 returns first page rows', async () => {
-    let response = await router.fetch('https://remix.run/client/grid?offset=0', {
+  it('GET /admin/client?offset=0 returns first page rows', async () => {
+    let response = await router.fetch('https://remix.run/admin/client?offset=0', {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('client-grid-content'), 'should have grid content')
-    assert.ok(html.includes('data-pagination') || html.includes('Next'), 'should have pagination')
+    assert.ok(html.includes('Next'), 'should have pagination')
   })
 
   // -----------------------------------------------------------------------
-  // GET /client/edit/:rowId — edit page
+  // GET /admin/client/edit/:rowId — edit page
   // -----------------------------------------------------------------------
-  it('GET /client/edit/1 redirects to /client with editing param', async () => {
-    let response = await router.fetch('https://remix.run/client/edit/1', {
+  it('GET /admin/client/edit/1 redirects to /admin/client with editing param', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/edit/1', {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
     assert.ok(location.includes('editing=1'), 'should include editing param')
   })
 
-  it('GET /client/edit/99999 redirects to /client', async () => {
-    let response = await router.fetch('https://remix.run/client/edit/99999', {
+  it('GET /admin/client/edit/99999 redirects to /admin/client', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/edit/99999', {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
   })
 
   // -----------------------------------------------------------------------
-  // PUT /client/:id — update a row (via methodOverride with _method=PUT)
+  // PUT /admin/client/:id — update a row (via methodOverride with _method=PUT)
   // -----------------------------------------------------------------------
-  it('PUT /client/5 updates a row and redirects', async () => {
+  it('PUT /admin/client/5 updates a row and redirects', async () => {
     let body = new URLSearchParams({
       _method: 'PUT',
       name: 'Updated Name',
@@ -89,7 +89,7 @@ describe('Client lab controller', () => {
       registered: '2026-05-01',
       _csrf: csrfToken!,
     })
-    let response = await router.fetch('https://remix.run/client/5', {
+    let response = await router.fetch('https://remix.run/admin/client/5', {
       method: 'POST',
       body,
       redirect: 'manual',
@@ -99,11 +99,11 @@ describe('Client lab controller', () => {
     // Should redirect
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
   })
 
-  it('PUT /client/0 returns 400 for invalid id', async () => {
-    let response = await router.fetch('https://remix.run/client/0', {
+  it('PUT /admin/client/0 returns 400 for invalid id', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/0', {
       method: 'POST',
       body: new URLSearchParams({ _method: 'PUT', name: 'Test', _csrf: csrfToken! }),
       redirect: 'manual',
@@ -113,7 +113,7 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 400)
   })
 
-  it('PUT /client/5 with short name returns 400 with validation error', async () => {
+  it('PUT /admin/client/5 with short name returns 400 with validation error', async () => {
     let body = new URLSearchParams({
       _method: 'PUT',
       name: 'Ed',
@@ -123,7 +123,7 @@ describe('Client lab controller', () => {
       registered: '2026-05-01',
       _csrf: csrfToken!,
     })
-    let response = await router.fetch('https://remix.run/client/5', {
+    let response = await router.fetch('https://remix.run/admin/client/5', {
       method: 'POST',
       body,
       redirect: 'manual',
@@ -137,8 +137,8 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
   })
 
-  it('PUT /client/5 with JSON body updates email', async () => {
-    let response = await router.fetch('https://remix.run/client/5', {
+  it('PUT /admin/client/5 with JSON body updates email', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/5', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -153,8 +153,8 @@ describe('Client lab controller', () => {
     assert.equal(body.ok, true)
   })
 
-  it('PUT /client/5 with JSON body and invalid email returns 400', async () => {
-    let response = await router.fetch('https://remix.run/client/5', {
+  it('PUT /admin/client/5 with JSON body and invalid email returns 400', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/5', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -170,8 +170,8 @@ describe('Client lab controller', () => {
     assert.ok(body.error, 'should include error message')
   })
 
-  it('PUT /client/5 with JSON body and empty email returns 400', async () => {
-    let response = await router.fetch('https://remix.run/client/5', {
+  it('PUT /admin/client/5 with JSON body and empty email returns 400', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/5', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -187,10 +187,10 @@ describe('Client lab controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // DELETE /client/:id — delete a row (via methodOverride with _method=DELETE)
+  // DELETE /admin/client/:id — delete a row (via methodOverride with _method=DELETE)
   // -----------------------------------------------------------------------
-  it('DELETE /client/10 deletes valid row and redirects', async () => {
-    let response = await router.fetch('https://remix.run/client/10', {
+  it('DELETE /admin/client/10 deletes valid row and redirects', async () => {
+    let response = await router.fetch('https://remix.run/admin/client/10', {
       method: 'POST',
       body: new URLSearchParams({
         _method: 'DELETE',
@@ -206,15 +206,15 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client/grid'), 'should redirect to /client/grid')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
     assert.ok(location.includes('offset=0'), 'should preserve grid offset')
     assert.ok(location.includes('sort=name'), 'should preserve grid sort')
   })
 
   // -----------------------------------------------------------------------
-  // POST /client — create a new row (via methodOverride with _method=POST)
+  // POST /admin/client — create a new row (via methodOverride with _method=POST)
   // -----------------------------------------------------------------------
-  it('POST /client creates a new row and redirects to editing', async () => {
+  it('POST /admin/client creates a new row and redirects to editing', async () => {
     let body = new URLSearchParams({
       name: 'Created Test',
       email: 'created-test@example.com',
@@ -223,7 +223,7 @@ describe('Client lab controller', () => {
       registered: '2026-05-01',
       _csrf: csrfToken!,
     })
-    let response = await router.fetch('https://remix.run/client', {
+    let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
       body,
       redirect: 'manual',
@@ -232,12 +232,12 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client?editing='), 'should redirect to /client?editing=<id>')
+    assert.ok(location.startsWith('/admin/client?editing='), 'should redirect to /admin/client?editing=<id>')
     assert.ok(/\bediting=\d+/.test(location), 'editing param should be a number')
   })
 
-  it('POST /client with empty data returns 400 with validation error', async () => {
-    let response = await router.fetch('https://remix.run/client', {
+  it('POST /admin/client with empty data returns 400 with validation error', async () => {
+    let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
       body: new URLSearchParams({ _csrf: csrfToken! }),
       redirect: 'manual',
@@ -250,14 +250,14 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('Create Record'), 'should show Create Record button')
   })
 
-  it('POST /client with year 2025 returns 400 with validation error', async () => {
+  it('POST /admin/client with year 2025 returns 400 with validation error', async () => {
     let body = new URLSearchParams({
       name: 'ValidNameHere',
       email: 'valid@test.com',
       registered: '2025-06-01',
       _csrf: csrfToken!,
     })
-    let response = await router.fetch('https://remix.run/client', {
+    let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
       body,
       redirect: 'manual',
@@ -271,14 +271,14 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('value="2025-06-01"'), 'should preserve submitted date value')
   })
 
-  it('POST /client with short name returns 400 with field error', async () => {
+  it('POST /admin/client with short name returns 400 with field error', async () => {
     let body = new URLSearchParams({
       name: 'Bob',
       email: 'bob@test.com',
       role: 'Viewer',
       _csrf: csrfToken!,
     })
-    let response = await router.fetch('https://remix.run/client', {
+    let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
       body,
       redirect: 'manual',
@@ -292,8 +292,8 @@ describe('Client lab controller', () => {
     assert.ok(html.includes('value="bob@test.com"'), 'should preserve submitted email value')
   })
 
-  it('POST /client creates a new row and redirects', async () => {
-    let response = await router.fetch('https://remix.run/client', {
+  it('POST /admin/client creates a new row and redirects', async () => {
+    let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
       body: new URLSearchParams({ name: 'Refresh Test', email: 'refresh-test@example.com', _csrf: csrfToken! }),
       redirect: 'manual',
@@ -302,14 +302,14 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/client'), 'should redirect to /client after create')
+    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client after create')
   })
 
   // -----------------------------------------------------------------------
-  // GET /client?creating=true — create form rendering
+  // GET /admin/client?creating=true — create form rendering
   // -----------------------------------------------------------------------
-  it('GET /client?creating=true renders the create form', async () => {
-    let response = await router.fetch('https://remix.run/client?creating=true', {
+  it('GET /admin/client?creating=true renders the create form', async () => {
+    let response = await router.fetch('https://remix.run/admin/client?creating=true', {
       headers: authHeaders(),
     })
 
@@ -322,8 +322,8 @@ describe('Client lab controller', () => {
   // -----------------------------------------------------------------------
   // Unauthenticated access is rejected with redirect
   // -----------------------------------------------------------------------
-  it('rejects unauthenticated GET /client with 302 redirect', async () => {
-    let response = await router.fetch('https://remix.run/client')
+  it('rejects unauthenticated GET /admin/client with 302 redirect', async () => {
+    let response = await router.fetch('https://remix.run/admin/client')
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''

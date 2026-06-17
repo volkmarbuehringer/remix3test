@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
-import { frames } from '../../routes.ts'
+import { css } from 'remix/ui'
 import type { Client } from '../../data/schema.ts'
+import { ClientGridPage } from './grid-page.tsx'
 import { ClientEditPage } from './edit-page.tsx'
 import { ClientCreatePage } from './create-page.tsx'
 
@@ -10,7 +10,13 @@ import { ClientCreatePage } from './create-page.tsx'
 // ---------------------------------------------------------------------------
 
 interface ClientPageProps {
-  frameSrc: string
+  rows: Client[]
+  offset: number
+  hasMore: boolean
+  sortField: string
+  sortOrder: 'asc' | 'desc'
+  filter?: string
+  pageSize: number
   editRow?: Client | null
   creating?: boolean
   editingOffset?: string
@@ -24,7 +30,13 @@ interface ClientPageProps {
 function ClientPage(handle: Handle<ClientPageProps>) {
   return () => {
     let {
-      frameSrc,
+      rows,
+      offset,
+      hasMore,
+      sortField,
+      sortOrder,
+      filter,
+      pageSize,
       editRow,
       creating = false,
       editingOffset = '',
@@ -38,7 +50,17 @@ function ClientPage(handle: Handle<ClientPageProps>) {
 
     let gridSection = (
       <div mix={css({ minWidth: 0 })} id="client-grid-section">
-        <Frame name={frames.clientGrid} src={frameSrc} />
+        <ClientGridPage
+          rows={rows}
+          offset={offset}
+          hasPrev={offset > 0}
+          hasNext={hasMore}
+          sortField={sortField}
+          sortOrder={sortOrder}
+          filter={filter}
+          pageSize={pageSize}
+          editingId={editRow?.id ?? null}
+        />
       </div>
     )
 

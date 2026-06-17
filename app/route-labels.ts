@@ -85,8 +85,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.admin.nutzer.index.href()]: 'Nutzer',
 
   // Client
-  [routes.client.index.href()]: 'Client Lab',
-  [routes.client.grid.href()]: 'Grid',
-  [routeParentPath(routes.client.edit)]: 'Edit',
-  [routes.client.create.href()]: 'Create',
+  [routes.admin.client.index.href()]: 'Client',
+  [routeParentPath(routes.admin.client.edit)]: 'Edit',
+  [routes.admin.client.create.href()]: 'Create',
 }

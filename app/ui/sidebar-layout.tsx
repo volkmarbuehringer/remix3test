@@ -60,6 +60,13 @@ export function createSidebarLayout<ID extends string>(
       if (isFrameRequest()) {
         return <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
       }
+      if (getContext().request.method !== 'GET') {
+        return (
+          <Layout>
+            <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
+          </Layout>
+        )
+      }
       return (
         <Layout>
           <Frame name={frameTarget} src={getContext().request.url} />

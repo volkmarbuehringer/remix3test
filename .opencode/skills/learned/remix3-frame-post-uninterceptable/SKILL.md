@@ -59,6 +59,51 @@ The `index` action (GET) continues using `renderAdminPage()` — that's fine bec
 
 On success, the POST handler redirects (standard Post/Redirect/Get), the browser follows the redirect as GET, and the Frame bootstraps normally.
 
+### Better Fix: One-Time `ShellOrFragment` Patch
+
+Instead of the per-controller workaround above, patch the shared `ShellOrFragment` in `sidebar-layout.tsx` to wrap non-GET responses in the outer `<Layout>`:
+
+```tsx
+// app/ui/sidebar-layout.tsx
+function ShellOrFragment(handle: Handle<PageProps>) {
+  return () => {
+    let { activeItem, children } = handle.props
+    if (isFrameRequest()) {
+      return <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
+    }
+    // POST/PUT/DELETE validation errors: render full page (outer Layout + admin shell)
+    // not just LayoutComponent — otherwise the browser gets no <html>/<head>/<body>/MainNav
+    if (getContext().request.method !== 'GET') {
+      return (
+        <Layout>
+          <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
+        </Layout>
+      )
+    }
+    return (
+      <Layout>
+        <Frame name={frameTarget} src={getContext().request.url} />
+      </Layout>
+    )
+  }
+}
+```
+
+This way **every controller** can use `renderAdminPage()` uniformly — even on POST validation error paths — and the shared component handles the wrapping correctly:
+
+```tsx
+// ✅ All controllers — works on GET, POST, PUT, DELETE
+return renderAdminPage(context.render, 'resource',
+  <Page formValues={rawValues} fieldErrors={fieldErrors} />,
+  { status: 400 },
+)
+```
+
+**Why this is better:**
+- One fix applies to all admin routes — no per-controller `Layout + AdminLayout` duplication
+- Controllers stay consistent (always `renderAdminPage`)
+- The outer `<Layout>` provides `<Document>` (html/head/body), `<MainNav>` (top nav), `<main>`, and `<footer>` — without it, browsers receive a bare `<div>` fragment with no page structure, causing a "layout crash"
+
 ## When to Use
 
 - Adding render-on-error form validation to a CRUD page inside an admin sidebar Frame

@@ -233,7 +233,7 @@ function sortArrow(field: string, sortField: string | null | undefined, sortOrde
   return sortOrder === 'asc' ? '\u2191' : '\u2193'
 }
 
-function buildSortUrl(field: string, currentSort: string | null | undefined, currentOrder: 'asc' | 'desc', offset: number, filter?: string): string {
+function buildSortUrl(field: string, currentSort: string | null | undefined, currentOrder: 'asc' | 'desc', offset: number, filter?: string, editingId?: number | null): string {
   let newOrder: 'asc' | 'desc'
   if (field === currentSort) {
     newOrder = currentOrder === 'asc' ? 'desc' : 'asc'
@@ -245,16 +245,18 @@ function buildSortUrl(field: string, currentSort: string | null | undefined, cur
   params.set('sort', field)
   params.set('order', newOrder)
   if (filter) params.set('filter', filter)
-  return '/client/grid?' + params.toString()
+  if (editingId) params.set('editing', String(editingId))
+  return '/admin/client?' + params.toString()
 }
 
-function buildPaginationUrl(newOffset: number, sort: string | null | undefined, order: 'asc' | 'desc', filter?: string): string {
+function buildPaginationUrl(newOffset: number, sort: string | null | undefined, order: 'asc' | 'desc', filter?: string, editingId?: number | null): string {
   let params = new URLSearchParams()
   params.set('offset', String(newOffset))
   if (sort) params.set('sort', sort)
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
-  return '/client/grid?' + params.toString()
+  if (editingId) params.set('editing', String(editingId))
+  return '/admin/client?' + params.toString()
 }
 
 function formatDate(ts: number): string {
@@ -270,7 +272,7 @@ function buildCreateUrl(sort: string | null | undefined, order: string, offset: 
   if (order) params.set('order', order)
   if (offset > 0) params.set('offset', String(offset))
   if (filter) params.set('filter', filter)
-  return '/client?' + params.toString()
+  return '/admin/client?' + params.toString()
 }
 
 function buildEditUrl(rowId: number, offset: number, sort: string | null | undefined, order: string, filter?: string): string {
@@ -280,7 +282,7 @@ function buildEditUrl(rowId: number, offset: number, sort: string | null | undef
   if (sort) params.set('sort', sort)
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
-  return '/client?' + params.toString()
+  return '/admin/client?' + params.toString()
 }
 
 // ---------------------------------------------------------------------------
@@ -321,7 +323,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
         </div>
         {/* Filter bar */}
         <div mix={filterBarStyle}>
-          <form method="GET" action="/client" mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}>
+          <form method="GET" action="/admin/client" mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}>
             <input
               type="text"
               name="filter"
@@ -329,10 +331,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               defaultValue={filter ?? ''}
               mix={filterInputStyle}
             />
+            {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
             <Button type="submit" tone="secondary">Search</Button>
           </form>
           {filter ? (
-            <a href={routes.client.index.href()} mix={clearLinkStyle}>Clear</a>
+            <a href={routes.admin.client.index.href()} mix={clearLinkStyle}>Clear</a>
           ) : null}
         </div>
 
@@ -357,8 +360,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thStyle}>ID</th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('name', sortField, sortOrder, offset, filter)}
-                      rmx-target="client-grid"
+                      href={buildSortUrl('name', sortField, sortOrder, offset, filter, editingId)}
+                      rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Name
@@ -369,8 +372,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('email', sortField, sortOrder, offset, filter)}
-                      rmx-target="client-grid"
+                      href={buildSortUrl('email', sortField, sortOrder, offset, filter, editingId)}
+                      rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Email
@@ -381,8 +384,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('role', sortField, sortOrder, offset, filter)}
-                      rmx-target="client-grid"
+                      href={buildSortUrl('role', sortField, sortOrder, offset, filter, editingId)}
+                      rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Role
@@ -393,8 +396,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('status', sortField, sortOrder, offset, filter)}
-                      rmx-target="client-grid"
+                      href={buildSortUrl('status', sortField, sortOrder, offset, filter, editingId)}
+                      rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Status
@@ -405,8 +408,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('registered', sortField, sortOrder, offset, filter)}
-                      rmx-target="client-grid"
+                      href={buildSortUrl('registered', sortField, sortOrder, offset, filter, editingId)}
+                      rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Reg.
@@ -439,7 +442,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
                           <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
                         </a>
-                        <form method="POST" action={`/client/${row.id}`} rmx-target="client-grid" data-confirm="Delete this row?">
+                        <form method="POST" action={`/admin/client/${row.id}`} rmx-target="admin-content" data-confirm="Delete this row?">
                           <CsrfTokenInput />
                           <input type="hidden" name="_method" value="DELETE" />
                           <GridStateHiddenInputs state={{ offset: String(offset), sort: sortField ?? '', order: sortOrder, filter: filter ?? '' }} />
@@ -459,8 +462,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               </span>
               <div mix={paginationBtnGroupStyle}>
                   <a
-                    href={buildPaginationUrl(offset - pageSize, sortField, sortOrder, filter)}
-                    rmx-target="client-grid"
+                    href={buildPaginationUrl(offset - pageSize, sortField, sortOrder, filter, editingId)}
+                    rmx-target="admin-content"
                     mix={css({ textDecoration: 'none' })}
                   >
                     <Button tone="secondary" disabled={!hasPrev} mix={smallBtnStyle}>
@@ -468,8 +471,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     </Button>
                   </a>
                   <a
-                    href={buildPaginationUrl(offset + pageSize, sortField, sortOrder, filter)}
-                    rmx-target="client-grid"
+                    href={buildPaginationUrl(offset + pageSize, sortField, sortOrder, filter, editingId)}
+                    rmx-target="admin-content"
                     mix={css({ textDecoration: 'none' })}
                   >
                     <Button tone="secondary" disabled={!hasNext} mix={smallBtnStyle}>

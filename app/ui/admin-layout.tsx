@@ -32,7 +32,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'agentonly', label: 'Nur Agent', href: routes.admin.chatlog.index.href() + '?type=agent' },
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
-      { id: 'client', label: 'Client-Test', href: routes.client.index.href(), iframeNav: false },
+      { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
       { id: 'uploads', label: 'Uploads', route: routes.uploads.index },

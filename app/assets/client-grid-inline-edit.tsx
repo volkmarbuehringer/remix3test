@@ -139,7 +139,7 @@ export const ClientGridInlineEdit = clientEntry(
       let csrfToken = readCsrfToken()
       let rowId = activeRowId
 
-      fetch(`/client/${rowId}`, {
+      fetch(`/admin/client/${rowId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

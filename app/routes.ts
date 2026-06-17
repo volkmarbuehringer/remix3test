@@ -5,7 +5,7 @@ export const uploadsDownload = get('/uploads/:id/download')
 export const frames = {
   adminContent: 'admin-content',
   aiContent: 'ai-content',
-  clientGrid: 'client-grid',
+
   appointmentContent: 'appointment-content',
   appointTypes: 'appoint-types',
 } as const
@@ -15,15 +15,6 @@ export const routes = route({
   home: get('/'),
   ui: get('/ui'),
   uiComponent: get('/ui/:component'),
-
-  client: route('client', {
-    index: get('/'),
-    grid: get('/grid'),
-    edit: get('/edit/:rowId'),
-    create: post('/'),
-    update: put('/:id'),
-    destroy: del('/:id'),
-  }),
 
   lists: route('lists', {
     index: get('/'),
@@ -74,6 +65,14 @@ export const routes = route({
       resetPassword: post('/:id/reset-password'),
       toggleLock: post('/:id/toggle-lock'),
       toggleActive: post('/:id/toggle-active'),
+    }),
+
+    client: route('client', {
+      index: get('/'),
+      edit: get('/edit/:rowId'),
+      create: post('/'),
+      update: put('/:id'),
+      destroy: del('/:id'),
     }),
 
     chatlog: route('chatlog', {
