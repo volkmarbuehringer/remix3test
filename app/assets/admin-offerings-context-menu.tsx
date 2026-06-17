@@ -27,13 +27,7 @@ interface GridState {
 export const AdminOfferingsContextMenu = clientEntry(
   import.meta.url + '#AdminOfferingsContextMenu',
   function AdminOfferingsContextMenu(handle: Handle) {
-    let triggerRef: HTMLDivElement | null = null
     let rightClickedRowId: string | null = null
-    let mounted = false
-
-    handle.signal.addEventListener('abort', () => {
-      triggerRef = null
-    })
 
     return () => (
       <menu.Context label="Angebotsaktionen">
@@ -46,10 +40,6 @@ export const AdminOfferingsContextMenu = clientEntry(
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              triggerRef = el
-              if (mounted) return
-              mounted = true
-
               let table = document.querySelector('[data-offerings-table]')
               if (!table) return
 

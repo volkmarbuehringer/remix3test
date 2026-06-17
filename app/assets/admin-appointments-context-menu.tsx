@@ -29,17 +29,7 @@ interface GridState {
 export const AdminAppointmentsContextMenu = clientEntry(
   import.meta.url + '#AdminAppointmentsContextMenu',
   function AdminAppointmentsContextMenu(handle: Handle) {
-    let triggerRef: HTMLDivElement | null = null
     let rightClickedRowId: string | null = null
-    let mounted = false
-
-    // ── Mount: attach contextmenu delegation on the table ──
-
-    handle.signal.addEventListener('abort', () => {
-      // The ref callback checks `if (!el) return` for cleanup, but the abort
-      // signal provides an additional safety net for component disposal.
-      triggerRef = null
-    })
 
     // ── Render ──
 
@@ -54,10 +44,6 @@ export const AdminAppointmentsContextMenu = clientEntry(
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              triggerRef = el
-              if (mounted) return
-              mounted = true
-
               let table = document.querySelector('[data-appointments-table]')
               if (!table) return
 

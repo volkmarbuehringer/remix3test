@@ -26,7 +26,6 @@ export const AdminUsersContextMenu = clientEntry(
   import.meta.url + '#AdminUsersContextMenu',
   function AdminUsersContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
-    let mounted = false
 
     return () => (
       <menu.Context label="Benutzeraktionen">
@@ -34,9 +33,6 @@ export const AdminUsersContextMenu = clientEntry(
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              if (mounted) return
-              mounted = true
-
               let table = document.querySelector('[data-users-table]')
               if (!table) return
 

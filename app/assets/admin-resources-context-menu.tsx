@@ -17,13 +17,7 @@ interface GridState {
 export const AdminResourcesContextMenu = clientEntry(
   import.meta.url + '#AdminResourcesContextMenu',
   function AdminResourcesContextMenu(handle: Handle) {
-    let triggerRef: HTMLDivElement | null = null
     let rightClickedRowId: string | null = null
-    let mounted = false
-
-    handle.signal.addEventListener('abort', () => {
-      triggerRef = null
-    })
 
     return () => (
       <menu.Context label="Ressourcenaktionen">
@@ -31,10 +25,6 @@ export const AdminResourcesContextMenu = clientEntry(
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              triggerRef = el
-              if (mounted) return
-              mounted = true
-
               let table = document.querySelector('[data-resources-table]')
               if (!table) return
 

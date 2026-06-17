@@ -1,4 +1,4 @@
-import { clientEntry, css, on, type Handle } from 'remix/ui'
+import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu'
 import { onMenuSelect } from 'remix/ui/menu'
 import { MenuItem, MenuList } from 'remix/components/menu'
@@ -21,18 +21,9 @@ let lastRightClickedRow: NutzerRow | null = null
 export const NutzerTableInteractive = clientEntry(
   import.meta.url + '#NutzerTableInteractive',
   function NutzerTableInteractive(handle: Handle) {
-    let mounted = false
-
     return () => {
       let tableData = readData()
       let { rows, offset, sortColumn, sortDirection, filter } = tableData
-
-      // Attach event delegation once on mount
-      let tableEl = typeof document !== 'undefined' ? document.getElementById('nutzer-table') : null
-      if (!mounted && tableEl) {
-        mounted = true
-        attachContextMenuListeners(tableData, () => handle.update(), handle.signal)
-      }
 
       // Show lock or unlock based on right-clicked row's current state
       let currentRow = lastRightClickedRow
@@ -43,7 +34,46 @@ export const NutzerTableInteractive = clientEntry(
         <menu.Context label="Nutzer Aktionen">
           {/* Hidden trigger — contextTrigger opens the MenuList when dispatched */}
           <div
-            mix={[menu.contextTrigger(), hiddenTriggerStyle]}
+            mix={[
+              menu.contextTrigger(),
+              hiddenTriggerStyle,
+              ref((el, signal) => {
+                let table = document.getElementById('nutzer-table')
+                if (!table) return
+
+                function onContextMenu(event: Event) {
+                  let mouseEvent = event as MouseEvent
+                  let tr = (mouseEvent.target as Element)?.closest?.('tr[data-row-id]') as HTMLElement | null
+                  if (!tr) return
+
+                  mouseEvent.preventDefault()
+
+                  let rowId = tr.getAttribute('data-row-id')
+                  let freshData = readData()
+                  let row = freshData.rows.find((r) => r.n_id === rowId)
+                  if (!row) return
+
+                  lastRightClickedRow = row
+                  handle.update()
+
+                  el.style.left = mouseEvent.clientX + 'px'
+                  el.style.top = mouseEvent.clientY + 'px'
+                  el.dispatchEvent(
+                    new MouseEvent('contextmenu', {
+                      clientX: mouseEvent.clientX,
+                      clientY: mouseEvent.clientY,
+                      bubbles: true,
+                      cancelable: true,
+                    }),
+                  )
+                }
+
+                table.addEventListener('contextmenu', onContextMenu, { capture: true })
+                signal.addEventListener('abort', () => {
+                  table.removeEventListener('contextmenu', onContextMenu)
+                })
+              }),
+            ]}
             data-nutzer-trigger="true"
           />
 
@@ -72,42 +102,6 @@ export const NutzerTableInteractive = clientEntry(
     }
   },
 )
-
-function attachContextMenuListeners(data: TableData, onRowChange?: () => void, signal?: AbortSignal) {
-  if (typeof document === 'undefined') return
-  let table = document.getElementById('nutzer-table')
-  if (!table) return
-
-  table.addEventListener('contextmenu', (e: Event) => {
-    let event = e as MouseEvent
-    let tr = (event.target as Element)?.closest?.('tr[data-row-id]') as HTMLElement | null
-    if (!tr) return
-
-    event.preventDefault()
-
-    let rowId = tr.getAttribute('data-row-id')
-    let row = data.rows.find((r) => r.n_id === rowId)
-    if (!row) return
-
-    lastRightClickedRow = row
-    onRowChange?.()
-
-    // Position hidden trigger at click coordinates and dispatch contextmenu to open menu
-    let trigger = document.querySelector<HTMLElement>('[data-nutzer-trigger]')
-    if (trigger) {
-      trigger.style.left = event.clientX + 'px'
-      trigger.style.top = event.clientY + 'px'
-      trigger.dispatchEvent(
-        new MouseEvent('contextmenu', {
-          clientX: event.clientX,
-          clientY: event.clientY,
-          bubbles: true,
-          cancelable: true,
-        }),
-      )
-    }
-  }, { capture: true, signal })
-}
 
 function handleRowAction(
   row: NutzerRow,

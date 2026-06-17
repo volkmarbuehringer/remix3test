@@ -8,16 +8,18 @@ interface GridState {
 export const ClientGridInlineEdit = clientEntry(
   import.meta.url + '#ClientGridInlineEdit',
   function ClientGridInlineEdit(handle: Handle) {
-    let mounted = false
     let activeInput: HTMLInputElement | null = null
     let activeCell: HTMLTableCellElement | null = null
     let activeRowId: number | null = null
     let originalValue = ''
     let errorEl: HTMLDivElement | null = null
     let saving = false
+    let currentTable: HTMLElement | null = null
+    let attachController: AbortController | null = null
 
     handle.signal.addEventListener('abort', () => {
       cleanup()
+      attachController?.abort()
     })
 
     function cleanup() {
@@ -54,15 +56,18 @@ export const ClientGridInlineEdit = clientEntry(
     }
 
     return () => {
-      if (!mounted && typeof document !== 'undefined') {
-        mounted = true
-        let table = document.querySelector<HTMLElement>('#client-grid-content table')
-        if (!table) return <div mix={css({ display: 'none' })} />
+      let table = typeof document !== 'undefined'
+        ? document.querySelector<HTMLElement>('#client-grid-content table')
+        : null
+      if (table && table !== currentTable) {
+        attachController?.abort()
+        attachController = new AbortController()
+        currentTable = table
 
         table.addEventListener('click', onCellClick)
         table.addEventListener('keydown', onCellKeydown)
 
-        handle.signal.addEventListener('abort', () => {
+        attachController.signal.addEventListener('abort', () => {
           table.removeEventListener('click', onCellClick)
           table.removeEventListener('keydown', onCellKeydown)
         })
