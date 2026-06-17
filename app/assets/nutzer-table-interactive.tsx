@@ -128,12 +128,12 @@ function handleRowAction(
       params.set('sort', sortColumn)
       params.set('order', sortDirection)
       if (filter) params.set('filter', filter)
-       window.location.href = '/nutzer?' + params.toString()
+       window.location.href = '/admin/nutzer?' + params.toString()
       break
     }
     case 'reset-password': {
       if (!confirm(`Passwort für ${row.n_name || row.n_l_login} zurücksetzen?`)) return
-      fetch(`/nutzer/${row.n_id}/reset-password`, {
+      fetch(`/admin/nutzer/${row.n_id}/reset-password`, {
         method: 'POST',
         headers: { 'X-Csrf-Token': csrfToken },
       })
@@ -151,7 +151,7 @@ function handleRowAction(
     case 'lock':
     case 'unlock': {
       let newValue = event.item.name === 'lock'
-      fetch(`/nutzer/${row.n_id}/toggle-lock`, {
+      fetch(`/admin/nutzer/${row.n_id}/toggle-lock`, {
         method: 'POST',
         headers: {
           'X-Csrf-Token': csrfToken,
@@ -169,7 +169,7 @@ function handleRowAction(
     case 'activate':
     case 'deactivate': {
       let newValue = event.item.name === 'activate'
-      fetch(`/nutzer/${row.n_id}/toggle-active`, {
+      fetch(`/admin/nutzer/${row.n_id}/toggle-active`, {
         method: 'POST',
         headers: {
           'X-Csrf-Token': csrfToken,
@@ -192,7 +192,7 @@ function handleRowAction(
     case 'delete': {
       let name = row.n_name || row.n_l_login
       if (!confirm(`${name} wirklich löschen?`)) return
-      fetch(`/nutzer/${row.n_id}`, {
+      fetch(`/admin/nutzer/${row.n_id}`, {
         method: 'POST',
         headers: {
           'X-Csrf-Token': csrfToken,

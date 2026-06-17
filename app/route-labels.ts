@@ -82,7 +82,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.appointment.types.index.href()]: 'Termintypen',
 
   // Nutzer
-  [routes.nutzer.index.href()]: 'Nutzer',
+  [routes.admin.nutzer.index.href()]: 'Nutzer',
 
   // Client
   [routes.client.index.href()]: 'Client Lab',

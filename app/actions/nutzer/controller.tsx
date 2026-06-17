@@ -6,11 +6,12 @@ import { minLength, email } from 'remix/data-schema/checks'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../routes.ts'
+import { Layout } from '../../ui/layout.tsx'
+import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
-import { Layout } from '../../ui/layout.tsx'
 import { AdminNutzerPage, type NutzerRow } from '../../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams } from '../../utils/grid-state.ts'
@@ -123,7 +124,7 @@ async function fetchNutzerEditRow(editingRowId: string): Promise<NutzerRow | nul
   return null
 }
 
-export default createController<typeof routes.nutzer, AppContext>(routes.nutzer, {
+export default createController<typeof routes.admin.nutzer, AppContext>(routes.admin.nutzer, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
@@ -149,21 +150,19 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
 
       let creating = context.url.searchParams.get('creating') === 'true'
 
-      return context.render(
-        <Layout title="Nutzer">
-          <AdminNutzerPage
-            rows={rows}
-            offset={offset}
-            hasMore={hasMore}
-            prevOffset={Math.max(0, offset - effectivePageSize)}
-            nextOffset={offset + effectivePageSize}
-            sortColumn={column}
-            sortDirection={direction}
-            filter={filter}
-            editRow={editRow}
-            creating={creating}
-          />
-        </Layout>,
+      return renderAdminPage(context.render, 'nutzer',
+        <AdminNutzerPage
+          rows={rows}
+          offset={offset}
+          hasMore={hasMore}
+          prevOffset={Math.max(0, offset - effectivePageSize)}
+          nextOffset={offset + effectivePageSize}
+          sortColumn={column}
+          sortDirection={direction}
+          filter={filter}
+          editRow={editRow}
+          creating={creating}
+        />,
       )
     },
 
@@ -208,20 +207,22 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         }
 
         return context.render(
-          <Layout title="Nutzer">
-            <AdminNutzerPage
-              rows={rows}
-              offset={gridOffset}
-              hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
-              nextOffset={gridOffset + effectivePageSize}
-              sortColumn={sortCol}
-              sortDirection={sortDir}
-              filter={gridFilter}
-              editRow={editRow}
-              formValues={rawValues}
-              fieldErrors={fieldErrors}
-            />
+          <Layout>
+            <AdminLayout activeItem="nutzer">
+              <AdminNutzerPage
+                rows={rows}
+                offset={gridOffset}
+                hasMore={hasMore}
+                prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+                nextOffset={gridOffset + effectivePageSize}
+                sortColumn={sortCol}
+                sortDirection={sortDir}
+                filter={gridFilter}
+                editRow={editRow}
+                formValues={rawValues}
+                fieldErrors={fieldErrors}
+              />
+            </AdminLayout>
           </Layout>,
           { status: 400 },
         )
@@ -291,20 +292,22 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         }
 
         return context.render(
-          <Layout title="Nutzer">
-            <AdminNutzerPage
-              rows={rows}
-              offset={gridOffset}
-              hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
-              nextOffset={gridOffset + effectivePageSize}
-              sortColumn={sortCol}
-              sortDirection={sortDir}
-              filter={gridFilter}
-              editRow={editRow}
-              error={dbErrorMessage(error)}
-              formValues={rawValues}
-            />
+          <Layout>
+            <AdminLayout activeItem="nutzer">
+              <AdminNutzerPage
+                rows={rows}
+                offset={gridOffset}
+                hasMore={hasMore}
+                prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+                nextOffset={gridOffset + effectivePageSize}
+                sortColumn={sortCol}
+                sortDirection={sortDir}
+                filter={gridFilter}
+                editRow={editRow}
+                error={dbErrorMessage(error)}
+                formValues={rawValues}
+              />
+            </AdminLayout>
           </Layout>,
           { status: 400 },
         )
@@ -320,7 +323,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
       }
       let qp = gridStateToParams(redirectState)
       let qs = qp.toString()
-      return redirect('/nutzer' + (qs ? '?' + qs : ''))
+      return redirect(routes.admin.nutzer.index.href() + (qs ? '?' + qs : ''))
     },
 
     async create(context) {
@@ -346,20 +349,22 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         })
 
         return context.render(
-          <Layout title="Nutzer">
-            <AdminNutzerPage
-              rows={rows}
-              offset={gridOffset}
-              hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
-              nextOffset={gridOffset + effectivePageSize}
-              sortColumn={sortCol}
-              sortDirection={sortDir}
-              filter={gridFilter}
-              creating={true}
-              formValues={rawValues}
-              fieldErrors={fieldErrors}
-            />
+          <Layout>
+            <AdminLayout activeItem="nutzer">
+              <AdminNutzerPage
+                rows={rows}
+                offset={gridOffset}
+                hasMore={hasMore}
+                prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+                nextOffset={gridOffset + effectivePageSize}
+                sortColumn={sortCol}
+                sortDirection={sortDir}
+                filter={gridFilter}
+                creating={true}
+                formValues={rawValues}
+                fieldErrors={fieldErrors}
+              />
+            </AdminLayout>
           </Layout>,
           { status: 400 },
         )
@@ -408,7 +413,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         }
         let qp = gridStateToParams(redirectState)
         qp.set('editing', newNId)
-        return redirect('/nutzer?' + qp.toString())
+        return redirect(routes.admin.nutzer.index.href() + '?' + qp.toString())
       } catch (error) {
         await client.query('ROLLBACK')
         client.release()
@@ -429,20 +434,22 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
         })
 
         return context.render(
-          <Layout title="Nutzer">
-            <AdminNutzerPage
-              rows={rows}
-              offset={gridOffset}
-              hasMore={hasMore}
-              prevOffset={Math.max(0, gridOffset - effectivePageSize)}
-              nextOffset={gridOffset + effectivePageSize}
-              sortColumn={sortCol}
-              sortDirection={sortDir}
-              filter={gridFilter}
-              creating={true}
-              error={dbErrorMessage(error)}
-              formValues={rawValues}
-            />
+          <Layout>
+            <AdminLayout activeItem="nutzer">
+              <AdminNutzerPage
+                rows={rows}
+                offset={gridOffset}
+                hasMore={hasMore}
+                prevOffset={Math.max(0, gridOffset - effectivePageSize)}
+                nextOffset={gridOffset + effectivePageSize}
+                sortColumn={sortCol}
+                sortDirection={sortDir}
+                filter={gridFilter}
+                creating={true}
+                error={dbErrorMessage(error)}
+                formValues={rawValues}
+              />
+            </AdminLayout>
           </Layout>,
           { status: 400 },
         )
@@ -499,7 +506,7 @@ export default createController<typeof routes.nutzer, AppContext>(routes.nutzer,
       }
       let qp = gridStateToParams(redirectState)
       let qs = qp.toString()
-      return redirect('/nutzer' + (qs ? '?' + qs : ''))
+      return redirect(routes.admin.nutzer.index.href() + (qs ? '?' + qs : ''))
     },
 
     async resetPassword(context) {

@@ -4,6 +4,7 @@ import { theme } from '../lib/theme.ts'
 import { Button } from 'remix/components/button'
 import { Glyph } from '../lib/glyph.ts'
 
+import { frames, routes } from '../routes.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
@@ -52,7 +53,7 @@ const SORTABLE_COLUMNS: Array<{ key: string; label: string }> = [
   { key: 'l_letzte_login', label: 'Letzter Login' },
 ]
 
-const ADMIN_BASE = '/nutzer'
+const ADMIN_BASE = routes.admin.nutzer.index.href()
 
 function boolLabel(val: boolean): string { return val ? 'Ja' : 'Nein' }
 
@@ -88,20 +89,21 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let gridSection = (
       <div mix={table.minWidth0}>
         {/* Filter bar + Add New */}
-        <form method="GET" action={ADMIN_BASE} mix={table.filterBar}>
+        <form method="GET" action={ADMIN_BASE} rmx-target={frames.adminContent} mix={table.filterBar}>
           <input
             type="text" name="filter" placeholder="Suche nach Name, Email oder Login..."
             defaultValue={filter ?? ''} mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
           {filter && (
-            <a href={ADMIN_BASE} mix={table.clearLink}>
+            <a href={ADMIN_BASE} rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+            rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
@@ -134,7 +136,8 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                     <th key={col.key} mix={table.thSortable} title={col.label}>
                       <a
                         href={buildSortUrl(ADMIN_BASE, col.key, sortColumn, sortDirection, offset, filter)}
-                         mix={table.sortLink}
+                        rmx-target={frames.adminContent}
+                        mix={table.sortLink}
                       >
                         {col.label}
                         <span mix={col.key === sortColumn ? table.sortArrowActive : table.sortArrow}>
@@ -185,7 +188,8 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               {offset > 0 ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
-                   mix={table.pageLink}
+                  rmx-target={frames.adminContent}
+                  mix={table.pageLink}
                 ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
               ) : (
                 <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
@@ -193,7 +197,8 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               {hasMore ? (
                 <a
                   href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
-                   mix={table.pageLink}
+                  rmx-target={frames.adminContent}
+                  mix={table.pageLink}
                 >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
               ) : (
                 <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>

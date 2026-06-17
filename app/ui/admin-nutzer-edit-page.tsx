@@ -1,11 +1,12 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
+import { routes } from '../routes.ts'
 import { Button } from 'remix/components/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
-import { RestfulForm } from './restful-form.tsx'
+import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import type { NutzerRow } from './admin-nutzer-page.tsx'
@@ -72,7 +73,9 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={`/nutzer/${row.n_id}`} novalidate>
+        <form method="POST" action={routes.admin.nutzer.update.href({ id: row.n_id })} novalidate>
+          <input type="hidden" name="_method" value="PUT" />
+          <CsrfTokenInput />
           <input type="hidden" name="_l_id" value={row.l_id} />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -178,7 +181,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Speichern
                 </Button>
-                <a href={buildCancelUrl('/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.admin.nutzer.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -186,7 +189,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
               </div>
             </div>
           </div>
-        </RestfulForm>
+        </form>
       </div>
     )
   }

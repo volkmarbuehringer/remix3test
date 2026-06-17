@@ -25,16 +25,6 @@ export const routes = route({
     destroy: del('/:id'),
   }),
 
-  nutzer: route('nutzer', {
-    index: get('/'),
-    create: post('/'),
-    update: put('/:id'),
-    destroy: del('/:id'),
-    resetPassword: post('/:id/reset-password'),
-    toggleLock: post('/:id/toggle-lock'),
-    toggleActive: post('/:id/toggle-active'),
-  }),
-
   lists: route('lists', {
     index: get('/'),
     save: post('/save'),
@@ -75,6 +65,16 @@ export const routes = route({
 
   admin: route('admin', {
     index: get('/'),
+
+    nutzer: route('nutzer', {
+      index: get('/'),
+      create: post('/'),
+      update: put('/:id'),
+      destroy: del('/:id'),
+      resetPassword: post('/:id/reset-password'),
+      toggleLock: post('/:id/toggle-lock'),
+      toggleActive: post('/:id/toggle-active'),
+    }),
 
     chatlog: route('chatlog', {
       index: get('/'),

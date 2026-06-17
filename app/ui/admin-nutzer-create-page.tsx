@@ -1,11 +1,12 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
+import { routes } from '../routes.ts'
 import { Button } from 'remix/components/button'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
-import { RestfulForm } from './restful-form.tsx'
+import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 
@@ -60,7 +61,8 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="POST" action="/nutzer" novalidate>
+        <form method="POST" action={routes.admin.nutzer.create.href()} novalidate>
+          <CsrfTokenInput />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -164,7 +166,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                 <Button type="submit" tone="primary" mix={table.spacer}>
                   Anlegen
                 </Button>
-                <a href={buildCancelUrl('/nutzer', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
+                <a href={buildCancelUrl(routes.admin.nutzer.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
                   <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
                     Abbrechen
                   </Button>
@@ -172,7 +174,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
               </div>
             </div>
           </div>
-        </RestfulForm>
+        </form>
       </div>
     )
   }
