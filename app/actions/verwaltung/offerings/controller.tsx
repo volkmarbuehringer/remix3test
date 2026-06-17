@@ -283,7 +283,7 @@ function renderOfferingsPage(context: AppContext, data: OfferingPageData, init?:
   )
 }
 
-export const verwaltungOfferings = createController<typeof routes.verwaltung.offerings, AppContext>(
+export default createController<typeof routes.verwaltung.offerings, AppContext>(
   routes.verwaltung.offerings,
   {
     middleware: [requireAuth(), requireAdmin()],

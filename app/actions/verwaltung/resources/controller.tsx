@@ -147,7 +147,7 @@ function renderResourcePage(context: AppContext, data: ResourcePageData, init?: 
   )
 }
 
-export const verwaltungResources = createController<typeof routes.verwaltung.resources, AppContext>(routes.verwaltung.resources, {
+export default createController<typeof routes.verwaltung.resources, AppContext>(routes.verwaltung.resources, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

@@ -14,6 +14,7 @@ import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
+import type { AppContext } from '../../../types/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const messageSchema = f.object({
@@ -30,7 +31,7 @@ function sanitizeContent(content: string): string {
 
 const MESSAGES_PAGE_LIMIT = 10
 
-export const adminMessages = createController(routes.admin.messages, {
+export default createController<typeof routes.admin.messages, AppContext>(routes.admin.messages, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

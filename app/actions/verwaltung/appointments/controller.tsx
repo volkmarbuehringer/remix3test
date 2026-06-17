@@ -335,7 +335,7 @@ function renderAppointmentsPage(
   )
 }
 
-export const verwaltungAppointments = createController<typeof routes.verwaltung.appointments, AppContext>(
+export default createController<typeof routes.verwaltung.appointments, AppContext>(
   routes.verwaltung.appointments,
   {
     middleware: [requireAuth(), requireAdmin()],

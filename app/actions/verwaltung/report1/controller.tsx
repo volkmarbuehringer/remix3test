@@ -192,7 +192,7 @@ function renderReport1Page(context: AppContext, data: Report1PageData, init?: Re
   )
 }
 
-export const verwaltungReport1 = createController<typeof routes.verwaltung.report1, AppContext>(
+export default createController<typeof routes.verwaltung.report1, AppContext>(
   routes.verwaltung.report1,
   {
     middleware: [requireAuth(), requireAdmin()],

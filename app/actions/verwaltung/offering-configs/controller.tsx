@@ -256,7 +256,7 @@ function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfigRow {
   }
 }
 
-export const verwaltungOfferingConfigs = createController<typeof routes.verwaltung.offeringConfigs, AppContext>(routes.verwaltung.offeringConfigs, {
+export default createController<typeof routes.verwaltung.offeringConfigs, AppContext>(routes.verwaltung.offeringConfigs, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

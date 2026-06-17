@@ -4,12 +4,13 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../../middleware/render.tsx'
 import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { StatsFragment } from '../../../ui/admin-fragments/stats-fragment.tsx'
 import { RecentActivityFragment } from '../../../ui/admin-fragments/recent-activity-fragment.tsx'
 import { UserDetailFragment } from '../../../ui/admin-fragments/user-detail-fragment.tsx'
 
-export const adminFragments = createController(
+export default createController<typeof routes.admin.fragments, AppContext>(
   routes.admin.fragments,
   {
     middleware: [requireAuth(), requireAdmin()],
