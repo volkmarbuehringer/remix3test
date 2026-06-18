@@ -19,8 +19,8 @@
     "node": ">=26.2.0"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.50",
-    "ai": "^6.0.206",
+    "@ai-sdk/openai-compatible": "^2.0.51",
+    "ai": "^6.0.207",
     "date-holidays": "^3.30.2",
     "nodemailer": "^9.0.0",
     "pdfmake": "^0.3.11",
