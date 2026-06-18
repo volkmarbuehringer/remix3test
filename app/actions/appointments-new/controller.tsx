@@ -5,8 +5,8 @@ import { redirect } from 'remix/response/redirect'
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
-import { isDateInPast, getPeriodRange, getCurrentWeekMonday, getTodayUtcMidnight } from '../../utils/date-utils.ts'
-import { listOfferingsByDayRange, parseDuring, computeFullHourSlots, getBookedRanges, getBookedRangesForWeek, filterAvailableSlots } from '../../data/appointofferings.ts'
+import { getPeriodRange, getCurrentWeekMonday, getTodayUtcMidnight, isWithinHours } from '../../utils/date-utils.ts'
+import { listOfferingsByDayRange, parseDuring, computeFullHourSlots, getBookedRangesForWeek, filterAvailableSlots } from '../../data/appointofferings.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -35,7 +35,6 @@ let resourcesCache: { data: ResourceOption[]; expiresAt: number } | null = null
 
 const RATE_LIMIT_MS = Number(process.env.APPOINTMENT_RATE_LIMIT_MS) || (process.env.NODE_ENV === 'production' ? 1000 : 0)
 const createLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
-const updateLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 const deleteLimiter = createRateLimiter({ windowMs: RATE_LIMIT_MS, perUser: true })
 
 const ORDER_BY_COLUMNS: Record<string, string> = {
@@ -56,6 +55,7 @@ export interface AppointmentsNewRow {
   during: string
   start_min: number
   end_min: number
+  blocked?: boolean
 }
 
 export interface ResourceOption {
@@ -89,7 +89,6 @@ interface AppointmentsNewPageData {
   period: string | undefined
   status: string | undefined
   resources: ResourceOption[]
-  editRow: AppointmentsNewRow | null
   deletingRow: AppointmentsNewRow | null
   creating: boolean
   error: string | undefined
@@ -101,13 +100,12 @@ interface AppointmentsNewPageData {
   wizardResourceId?: string
   weekStart?: number
   daysWithSlots?: DayWithSlots[]
-  fullHourSlots?: number[]
 }
 
 async function loadAppointmentsNewPageData(
   context: AppContext,
   userId: number,
-  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'editRow' | 'deletingRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'weekStart'>>,
+  overrides?: Partial<Pick<AppointmentsNewPageData, 'creating' | 'deletingRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status' | 'step' | 'wizardResourceId' | 'weekStart'>>,
 ): Promise<AppointmentsNewPageData> {
   let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
@@ -162,7 +160,6 @@ async function loadAppointmentsNewPageData(
   query += ` OFFSET $${paramIndex}`
   params.push(offset)
 
-  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let deletingParam = overrides?.deletingRow !== undefined ? null : context.url.searchParams.get('deleting')
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
@@ -190,12 +187,15 @@ async function loadAppointmentsNewPageData(
   let rows = result.rows as AppointmentsNewRow[]
   let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
+  for (let r of rows) {
+    let apptStartMs = Number(r.date) + r.start_min * 60000
+    r.blocked = !isWithinHours(apptStartMs, 24)
+  }
   let wizardResourceId = overrides?.wizardResourceId ?? (context.url.searchParams.get('resource_id') || undefined)
   let weekStartRaw = overrides?.weekStart !== undefined ? String(overrides.weekStart) : (context.url.searchParams.get('week_start') || undefined)
   let weekStart = weekStartRaw ? parseInt(weekStartRaw, 10) : (creating && step === 2 ? getCurrentWeekMonday() : undefined)
 
   let daysWithSlots: DayWithSlots[] | undefined
-  let fullHourSlots: number[] | undefined
   let defaultStartMin = 480
 
   if (creating && step === 2 && wizardResourceId) {
@@ -252,42 +252,6 @@ async function loadAppointmentsNewPageData(
   }
   }
 
-  // Compute full-hour slots for edit mode
-  let editRowLocal = overrides?.editRow !== undefined ? overrides.editRow : null
-  if (!editRowLocal && editingParam) {
-    let editResult = await pool.query(
-      `SELECT a.id, a.title,
-              a.resource_id, r.name AS resource_name, r.description AS resource_description,
-              a.date, during::text AS during, a.start_min, a.end_min
-       FROM appointments a
-       LEFT JOIN resources r ON r.id = a.resource_id
-       WHERE a.id = $1 AND a.user_id = $2`,
-      [editingParam, userId],
-    )
-    editRowLocal = editResult.rows.length > 0 ? (editResult.rows[0] as AppointmentsNewRow) : null
-  }
-
-  if (editRowLocal) {
-    let editResourceId = parseInt(editRowLocal.resource_id, 10)
-    let editDate = Number(editRowLocal.date)
-    let editOfferings = await listOfferingsByDayRange(context.db, editDate, editDate + 86_400_000, editResourceId)
-    let editRanges = editOfferings.map(o => parseDuring(o.during)).filter((r): r is { startMin: number; endMin: number } => r !== null)
-    let allSlots = computeFullHourSlots(editRanges)
-    let booked = await getBookedRanges(context.db, editResourceId, editDate, Number(editRowLocal.id))
-    if (booked.length > 0) {
-      allSlots = filterAvailableSlots(allSlots, booked)
-    }
-    // Filter past time slots for today
-    if (editDate === getTodayUtcMidnight()) {
-      let now = new Date()
-      let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-      allSlots = allSlots.filter(min => currentMin < min)
-    }
-    fullHourSlots = allSlots
-  }
-
-  let editRow = editRowLocal
-
   // Load row for delete confirmation
   let deletingRow: AppointmentsNewRow | null = overrides?.deletingRow !== undefined ? overrides.deletingRow : null
   if (!deletingRow && deletingParam) {
@@ -301,6 +265,10 @@ async function loadAppointmentsNewPageData(
       [deletingParam, userId],
     )
     deletingRow = deleteResult.rows.length > 0 ? (deleteResult.rows[0] as AppointmentsNewRow) : null
+    if (deletingRow) {
+      let apptStartMs = Number(deletingRow.date) + deletingRow.start_min * 60000
+      deletingRow.blocked = !isWithinHours(apptStartMs, 24)
+    }
   }
 
   let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
@@ -320,7 +288,6 @@ async function loadAppointmentsNewPageData(
     period,
     status,
     resources,
-    editRow,
     deletingRow,
     creating,
     error,
@@ -332,7 +299,6 @@ async function loadAppointmentsNewPageData(
     wizardResourceId,
     weekStart,
     daysWithSlots,
-    fullHourSlots,
   }
 }
 
@@ -354,7 +320,6 @@ function renderAppointmentsNewPage(
         filter={data.filter}
         period={data.period}
         status={data.status}
-        editRow={data.editRow}
         deletingRow={data.deletingRow}
         creating={data.creating}
         resources={data.resources}
@@ -367,7 +332,6 @@ function renderAppointmentsNewPage(
         wizardResourceId={data.wizardResourceId}
         weekStart={data.weekStart}
         daysWithSlots={data.daysWithSlots}
-        fullHourSlots={data.fullHourSlots}
       />
     </Layout>,
     init,
@@ -564,137 +528,7 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
         return redirect(routes.appointmentsNew.index.href() + '?creating=true')
       },
 
-      async update(context) {
-        let auth = context.auth
-        if (!auth?.ok) return redirectToLogin(context)
-        let userId = (auth.identity as { id: number }).id
-        let formData = context.formData
-        let formValues = readFormFieldValues(APPOINTMENTS_NEW_FORM_KEYS, formData)
-        let gridValues = gridStateFromFormData(formData)
 
-        if (!updateLimiter.attempt(userId)) {
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            editRow: context.params.id ? await fetchEditRow(context.params.id, userId) : undefined,
-            formValues,
-            formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let id = context.params.id
-
-        if (!id) {
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            formValues,
-            formError: 'Ungültige ID.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let result = s.parseSafe(appointmentsNewSaveSchema, formData)
-
-        if (!result.success) {
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let editRow = await fetchEditRow(id, userId)
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            editRow,
-            formValues,
-            fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let { resource_id, title, date, start_min } = result.value
-        let end_min = start_min + 60
-
-        let dayMs = new Date(date + 'T00:00:00Z').getTime()
-        let appointmentStartMs = dayMs + start_min * 60000
-
-        if (appointmentStartMs <= Date.now()) {
-          let editRow = await fetchEditRow(id, userId)
-          let data = await loadAppointmentsNewPageData(context, userId, {
-            editRow,
-            formValues,
-            formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsNewPage(context, data, { status: 400 })
-        }
-
-        let during = `[${start_min},${end_min})`
-        let now = Date.now()
-
-        try {
-          let updateResult = await pool.query(
-            `UPDATE appointments
-             SET resource_id = $1, title = $2, date = $3, during = $4, updated_at = $5
-             WHERE id = $6 AND user_id = $7`,
-            [resource_id, title, dayMs, during, now, id, userId],
-          )
-
-          if (updateResult.rowCount === 0) {
-            let editRow = await fetchEditRow(id, userId)
-            let data = await loadAppointmentsNewPageData(context, userId, {
-              editRow,
-              formValues,
-              formError: 'Eintrag nicht gefunden.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsNewPage(context, data, { status: 400 })
-          }
-        } catch (error: unknown) {
-          if (isExclusionConstraintError(error)) {
-            let editRow = await fetchEditRow(id, userId)
-            let data = await loadAppointmentsNewPageData(context, userId, {
-              editRow,
-              formValues,
-              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsNewPage(context, data, { status: 400 })
-          }
-          throw error
-        }
-
-        appointmentChannel.broadcast('invalidate')
-
-        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
-        let qs = params.toString()
-        return redirect(routes.appointmentsNew.index.href() + (qs ? '?' + qs : ''))
-      },
 
       async destroy(context) {
         let auth = context.auth
@@ -709,6 +543,19 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
 
         if (!id) {
           return errorRedirectDestroy(formData, 'Ungültige ID.')
+        }
+
+        let rowResult = await pool.query(
+          `SELECT date, start_min FROM appointments WHERE id = $1 AND user_id = $2`,
+          [id, userId],
+        )
+        if (rowResult.rows.length === 0) {
+          return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
+        }
+        let row = rowResult.rows[0] as { date: string; start_min: number }
+        let appointmentStartMs = Number(row.date) + row.start_min * 60000
+        if (!isWithinHours(appointmentStartMs, 24) && (auth.identity as { role: string }).role !== 'admin') {
+          return errorRedirectDestroy(formData, 'Termine können nur bis 24 Stunden vor Beginn bearbeitet oder gelöscht werden.')
         }
 
         try {
@@ -741,15 +588,3 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
   },
 )
 
-async function fetchEditRow(id: string, userId: number): Promise<AppointmentsNewRow | undefined> {
-  let editResult = await pool.query(
-    `SELECT a.id, a.title,
-            a.resource_id, r.name AS resource_name, r.description AS resource_description,
-            a.date, during::text AS during, a.start_min, a.end_min
-     FROM appointments a
-     LEFT JOIN resources r ON r.id = a.resource_id
-     WHERE a.id = $1 AND a.user_id = $2`,
-    [id, userId],
-  )
-  return editResult.rows.length > 0 ? (editResult.rows[0] as AppointmentsNewRow) : undefined
-}

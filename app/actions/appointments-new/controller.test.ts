@@ -84,16 +84,6 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 403)
   })
 
-  it('PUT /appointments/new/999 returns 403 without CSRF', async () => {
-    let response = await router.fetch(`${APPT_URL}/999`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Test', date: futureDateStr, start_min: '480' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 403)
-  })
-
   it('DELETE /appointments/new/999 returns 403 without CSRF', async () => {
     let response = await router.fetch(`${APPT_URL}/999`, {
       method: 'DELETE',
@@ -269,127 +259,6 @@ describe('Appointments New Controller', () => {
     assert.ok(html.includes('Vergangenheit'))
   })
 
-  // ── Update ──
-
-  it('PUT /appointments/new/:id updates an existing appointment', async () => {
-    let insertResult = await pool.query(
-      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'To Update', $2, '[720,780)', $3, $3)
-       RETURNING id`,
-      [firstResourceId, futureDateMs, Date.now()],
-    )
-    let appointmentId = insertResult.rows[0].id as number
-
-    let updateBody = new URLSearchParams({
-      resource_id: String(firstResourceId),
-      title: 'Updated Title',
-      date: futureDateStr,
-      start_min: '720',
-    })
-    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
-      method: 'PUT',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: updateBody.toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 302)
-    let location = response.headers.get('Location') ?? ''
-    assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
-
-    let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [appointmentId])
-    assert.equal((checkResult.rows[0] as { title: string }).title, 'Updated Title')
-  })
-
-  it('PUT /appointments/new/:id clears filter, period, offset, and status on successful update', async () => {
-    let insertResult = await pool.query(
-      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Grid State Update', $2, '[780,840)', $3, $3)
-       RETURNING id`,
-      [firstResourceId, futureDateMs, Date.now()],
-    )
-    let appointmentId = insertResult.rows[0].id as number
-
-    let updateBody = new URLSearchParams({
-      resource_id: String(firstResourceId),
-      title: 'Grid State Updated',
-      date: futureDateStr,
-      start_min: '780',
-      _sort: 'a.date',
-      _order: 'asc',
-      _filter: 'shouldbecleared',
-      _period: 'this-month',
-      _status: 'expired',
-    })
-    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
-      method: 'PUT',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: updateBody.toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 302, 'update should redirect')
-    let location = response.headers.get('Location') ?? ''
-    assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
-    assert.ok(!location.includes('period='), 'should NOT preserve period param')
-    assert.ok(!location.includes('offset='), 'should NOT preserve offset param')
-    assert.ok(!location.includes('status='), 'should NOT preserve status param')
-    assert.ok(location.includes('sort=a.date'), 'should preserve sort param')
-    assert.ok(location.includes('order=asc'), 'should preserve order param')
-  })
-
-  it('PUT /appointments/new/:id with validation error shows field errors', async () => {
-    let response = await router.fetch(`${APPT_URL}/1`, {
-      method: 'PUT',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: new URLSearchParams({ resource_id: '', title: '', date: '', start_min: '' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 400)
-  })
-
-  it('PUT /appointments/new/:id with past date shows error', async () => {
-    let response = await router.fetch(`${APPT_URL}/1`, {
-      method: 'PUT',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Past Update', date: '2020-01-01', start_min: '480' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 400)
-    let html = await response.text()
-    assert.ok(html.includes('Vergangenheit'))
-  })
-
-  it('PUT /appointments/new/:id for non-existent appointment shows error', async () => {
-    let response = await router.fetch(`${APPT_URL}/999999999`, {
-      method: 'PUT',
-      headers: {
-        Cookie: userCookie,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-Csrf-Token': userCsrfToken,
-      },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Not Found', date: futureDateStr, start_min: '480' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 400)
-    let html = await response.text()
-    assert.ok(html.includes('nicht gefunden'))
-  })
-
   // ── Destroy ──
 
   it('DELETE /appointments/new/:id deletes an appointment', async () => {
@@ -456,6 +325,40 @@ describe('Appointments New Controller', () => {
     assert.ok(location.includes('order=desc'), 'should preserve order param')
   })
 
+  it('DELETE /appointments/new/:id rejects deletion when appointment starts within 24h', async () => {
+    let now = new Date()
+    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+    let nearFutureMin = currentMin + 70
+    // Use a unique resource to avoid exclusion constraint conflicts
+    let uniqueResourceId = firstResourceId + 100
+    let resourceNow = Date.now()
+    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, '24h Delete Test', 'Temporary', resourceNow, resourceNow])
+
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Near Future Delete', $2, $3, $4, $4)
+       RETURNING id`,
+      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, Date.now()],
+    )
+    let appointmentId = insertResult.rows[0].id as number
+
+    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
+      method: 'DELETE',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: new URLSearchParams().toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.includes('24+Stunden') || location.includes('24%20Stunden'))
+  })
+
   it('DELETE /appointments/new/:id for non-existent appointment shows error', async () => {
     let response = await router.fetch(`${APPT_URL}/999999999`, {
       method: 'DELETE',
@@ -470,18 +373,6 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('Eintrag+nicht+gefunden') || location.includes('Eintrag%20nicht%20gefunden'))
-  })
-
-  // ── Update auth guard ──
-
-  it('PUT /appointments/new/:id returns 403 when not authenticated (CSRF before auth)', async () => {
-    let response = await router.fetch(`${APPT_URL}/1`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Test', date: futureDateStr, start_min: '480' }).toString(),
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 403)
   })
 
   it('DELETE /appointments/new/:id returns 403 when not authenticated (CSRF before auth)', async () => {

@@ -9,14 +9,12 @@ import {
   sortArrow,
   buildSortUrl,
   buildPaginationUrl,
-  buildEditUrl,
   buildCreateUrl,
   buildCancelUrl,
 } from './mixins/admin-urls.ts'
 import { formatDateDE } from '../utils/date-utils.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { AppointmentsNewEditPage } from './appointments-new-edit-page.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
 import type {
   AppointmentsNewRow,
@@ -57,7 +55,6 @@ interface AppointmentsNewPageProps {
   filter?: string
   period?: string
   status?: string
-  editRow?: AppointmentsNewRow | null
   deletingRow?: AppointmentsNewRow | null
   creating?: boolean
   resources: ResourceOption[]
@@ -70,7 +67,6 @@ interface AppointmentsNewPageProps {
   wizardResourceId?: string
   weekStart?: number
   daysWithSlots?: DayWithSlots[]
-  fullHourSlots?: number[]
 }
 
 function formatMinRange(startMin: number, endMin: number): string {
@@ -125,22 +121,16 @@ const compactTh = css({
   fontSize: theme.fontSize.xs,
 })
 
-const editBtnStyle = css({
+const lockedIconStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   padding: '2px',
   minWidth: '22px',
   minHeight: '22px',
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRight: 'none',
-  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
   fontSize: theme.fontSize.xs,
-  textDecoration: 'none',
-  cursor: 'pointer',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  color: theme.colors.text.secondary,
+  opacity: 0.5,
 })
 
 const delBtnStyle = css({
@@ -153,7 +143,7 @@ const delBtnStyle = css({
   background: theme.colors.action.danger.background,
   color: theme.colors.action.danger.foreground,
   border: 'none',
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+  borderRadius: theme.radius.md,
   fontSize: theme.fontSize.xs,
   cursor: 'pointer',
   '&:hover': { opacity: 0.9 },
@@ -172,7 +162,6 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       filter,
       period,
       status,
-      editRow = null,
       deletingRow = null,
       creating = false,
       resources,
@@ -185,12 +174,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       wizardResourceId,
       weekStart,
       daysWithSlots,
-      fullHourSlots,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
-    let hasFormPanel = !!(editRow || deletingRow || creating)
+    let hasFormPanel = !!(deletingRow || creating)
     let gridSection = (
       <div mix={table.minWidth0}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
@@ -339,7 +327,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                 <col />
                 <col />
                 <col />
-                <col mix={css({ width: '65px' })} />
+                <col mix={css({ width: '45px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -431,14 +419,14 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={[table.th, compactTh, css({ textAlign: 'right' })]}>Aktion</th>
+                  <th mix={[table.th, compactTh, css({ textAlign: 'right' })]}>Löschen</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    mix={table.row}
                     data-row-id={row.id}
                   >
                     <td mix={[table.td, compactTd]} title={row.title}>
@@ -457,23 +445,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       {formatDuring(row.during)}
                     </td>
                     <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
-                      <div mix={btnGroupStyle}>
-                        <a
-                          href={buildEditUrl(
-                            BASE,
-                            row.id,
-                            offset,
-                            sortColumn,
-                            sortDirection,
-                            filter,
-                            period,
-                            status,
-                          )}
-                          mix={editBtnStyle}
-                          title="Bearbeiten"
-                        >
-                          <Glyph name="edit" width={14} height={14} />
-                        </a>
+                      {row.blocked ? (
+                        <span mix={lockedIconStyle} title="Nicht löschbar — weniger als 24 Stunden bis zum Beginn">
+                          {'\u2014'}
+                        </span>
+                      ) : (
                         <a
                           href={`${BASE}?deleting=${row.id}&offset=${offset}&sort=${sortColumn}&order=${sortDirection}${filter ? '&filter=' + encodeURIComponent(filter) : ''}${period ? '&period=' + encodeURIComponent(period) : ''}${status ? '&status=' + encodeURIComponent(status) : ''}`}
                           mix={delBtnStyle}
@@ -481,7 +457,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         >
                           <Glyph name="close" width={14} height={14} />
                         </a>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -556,7 +532,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       </div>
     )
 
-    if (editRow || deletingRow || creating) {
+    if (deletingRow || creating) {
       return (
         <div mix={table.page}>
           <AppointmentsScrollLock />
@@ -566,12 +542,25 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
-              {deletingRow ? (
+               {deletingRow ? (
                 <div mix={table.panel}>
                   <div mix={table.panelHeader}>
                     <span mix={table.panelTitle}>Termin löschen</span>
                   </div>
                   <div mix={table.panelBody}>
+                    {deletingRow.blocked ? (
+                      <p
+                        mix={css({
+                          margin: 0,
+                          fontSize: theme.fontSize.sm,
+                          color: theme.colors.text.secondary,
+                        })}
+                      >
+                        Dieser Termin kann nicht gelöscht werden, da weniger als 24 Stunden bis zum
+                        Beginn verbleiben.
+                      </p>
+                    ) : (
+                    <>
                     <p
                       mix={css({
                         margin: 0,
@@ -636,24 +625,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         </a>
                       </div>
                     </RestfulForm>
+                    </>
+                    )}
                   </div>
                 </div>
-              ) : editRow ? (
-                <AppointmentsNewEditPage
-                  row={editRow}
-                  resources={resources}
-                  offset={String(offset)}
-                  sort={sortColumn}
-                  order={sortDirection}
-                  filter={filter}
-                  period={period}
-                  status={status}
-                  formValues={formValues}
-                  fieldErrors={fieldErrors}
-                  formError={formError}
-                  fullHourSlots={fullHourSlots}
-                />
-              ) : creating ? (
+               ) : creating ? (
                 <AppointmentsNewCreatePage
                   resources={resources}
                   offset={String(offset)}
