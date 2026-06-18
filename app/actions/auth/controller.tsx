@@ -196,8 +196,7 @@ export const authRegister = createController<typeof routes.auth.register, AppCon
       registerLimiter.reset(normalizedEmail)
 
       if (process.env.NODE_ENV !== 'test') {
-        let serverUrl = process.env.SERVER_URL || context.url.origin
-        let verificationUrl = `${serverUrl}${routes.auth.verify.href({ token })}`
+        let verificationUrl = `${context.url.origin}${routes.auth.verify.href({ token })}`
         try {
           await sendVerificationEmail(
             context.mailer,
@@ -268,8 +267,7 @@ export const authForgotten = createController<typeof routes.auth.forgotten, AppC
           password_reset_expires: expires,
         })
 
-        let serverUrl = process.env.SERVER_URL || context.url.origin
-        let resetUrl = `${serverUrl}${routes.auth.forgottenReset.index.href({ token })}`
+        let resetUrl = `${context.url.origin}${routes.auth.forgottenReset.index.href({ token })}`
         try {
           await sendPasswordResetEmail(
             context.mailer,

@@ -46,7 +46,10 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
     methodOverride(),
     session(cookie, storage),
-    csrf(),
+    csrf({
+      origin: (origin, context) =>
+        /\.trycloudflare\.com$/.test(origin) || origin === context.url.origin,
+    }),
     asyncContext(),
     loadDatabase(),
     loadAuth(),
