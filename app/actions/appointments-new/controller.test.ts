@@ -325,7 +325,7 @@ describe('Appointments New Controller', () => {
     assert.ok(location.includes('order=desc'), 'should preserve order param')
   })
 
-  it('DELETE /appointments/new/:id rejects deletion when appointment starts within 24h', async () => {
+  it('DELETE /appointments/new/:id rejects deletion when appointment starts within 24h and outside grace period', async () => {
     let now = new Date()
     let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
     let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
@@ -336,11 +336,13 @@ describe('Appointments New Controller', () => {
     await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
       [uniqueResourceId, '24h Delete Test', 'Temporary', resourceNow, resourceNow])
 
+    // Use created_at 30 minutes ago so grace period doesn't apply
+    let oldCreatedAt = Date.now() - 30 * 60 * 1000
     let insertResult = await pool.query(
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Near Future Delete', $2, $3, $4, $4)
        RETURNING id`,
-      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, Date.now()],
+      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, oldCreatedAt],
     )
     let appointmentId = insertResult.rows[0].id as number
 
@@ -357,6 +359,80 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.includes('24+Stunden') || location.includes('24%20Stunden'))
+  })
+
+  it('DELETE /appointments/new/:id allows deletion within 10-minute grace period', async () => {
+    let now = new Date()
+    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+    let nearFutureMin = currentMin + 75
+    let uniqueResourceId = firstResourceId + 200
+    let resourceNow = Date.now()
+    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, 'Grace Period Test', 'Temporary', resourceNow, resourceNow])
+
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Grace Period Delete', $2, $3, $4, $4)
+       RETURNING id`,
+      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, Date.now()],
+    )
+    let appointmentId = insertResult.rows[0].id as number
+
+    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
+      method: 'DELETE',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: new URLSearchParams().toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302, 'should succeed due to grace period')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
+
+    let checkResult = await pool.query('SELECT id FROM appointments WHERE id = $1', [appointmentId])
+    assert.equal(checkResult.rows.length, 0)
+  })
+
+  it('DELETE /appointments/new/:id allows admin to delete within 24h (no grace period)', async () => {
+    let now = new Date()
+    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+    let nearFutureMin = currentMin + 80
+    let uniqueResourceId = firstResourceId + 201
+    let resourceNow = Date.now()
+    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, 'Admin Override Test', 'Temporary', resourceNow, resourceNow])
+
+    // Insert with a created_at 30 minutes ago (outside grace period)
+    let oldCreatedAt = Date.now() - 30 * 60 * 1000
+    let insertResult = await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, 'Admin Override Delete', $2, $3, $4, $4)
+       RETURNING id`,
+      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, oldCreatedAt],
+    )
+    let appointmentId = insertResult.rows[0].id as number
+
+    let response = await router.fetch(`${APPT_URL}/${appointmentId}`, {
+      method: 'DELETE',
+      headers: {
+        Cookie: adminCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': adminCsrfToken,
+      },
+      body: new URLSearchParams().toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302, 'admin should bypass 24h restriction')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.startsWith(routes.appointmentsNew.index.href()))
+
+    let checkResult = await pool.query('SELECT id FROM appointments WHERE id = $1', [appointmentId])
+    assert.equal(checkResult.rows.length, 0)
   })
 
   it('DELETE /appointments/new/:id for non-existent appointment shows error', async () => {

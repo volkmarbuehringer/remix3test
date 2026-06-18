@@ -55,6 +55,7 @@ export interface AppointmentsNewRow {
   during: string
   start_min: number
   end_min: number
+  created_at?: string
   blocked?: boolean
 }
 
@@ -122,7 +123,7 @@ async function loadAppointmentsNewPageData(
   let query = `
     SELECT a.id, a.title,
            a.resource_id, r.name AS resource_name, r.description AS resource_description,
-           a.date, during::text AS during, a.start_min, a.end_min
+           a.date, during::text AS during, a.start_min, a.end_min, a.created_at
     FROM appointments a
     LEFT JOIN resources r ON r.id = a.resource_id
     WHERE a.user_id = $1
@@ -187,9 +188,11 @@ async function loadAppointmentsNewPageData(
   let rows = result.rows as AppointmentsNewRow[]
   let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
+  let isAdmin = !!(context.auth?.ok && (context.auth.identity as { role: string }).role === 'admin')
   for (let r of rows) {
     let apptStartMs = Number(r.date) + r.start_min * 60000
-    r.blocked = !isWithinHours(apptStartMs, 24)
+    let isWithinGracePeriod = r.created_at ? Date.now() - Number(r.created_at) < 10 * 60 * 1000 : false
+    r.blocked = !isAdmin && !isWithinHours(apptStartMs, 24) && !isWithinGracePeriod
   }
   let wizardResourceId = overrides?.wizardResourceId ?? (context.url.searchParams.get('resource_id') || undefined)
   let weekStartRaw = overrides?.weekStart !== undefined ? String(overrides.weekStart) : (context.url.searchParams.get('week_start') || undefined)
@@ -258,7 +261,7 @@ async function loadAppointmentsNewPageData(
     let deleteResult = await pool.query(
       `SELECT a.id, a.title,
               a.resource_id, r.name AS resource_name, r.description AS resource_description,
-              a.date, during::text AS during, a.start_min, a.end_min
+              a.date, during::text AS during, a.start_min, a.end_min, a.created_at
        FROM appointments a
        LEFT JOIN resources r ON r.id = a.resource_id
        WHERE a.id = $1 AND a.user_id = $2`,
@@ -267,7 +270,8 @@ async function loadAppointmentsNewPageData(
     deletingRow = deleteResult.rows.length > 0 ? (deleteResult.rows[0] as AppointmentsNewRow) : null
     if (deletingRow) {
       let apptStartMs = Number(deletingRow.date) + deletingRow.start_min * 60000
-      deletingRow.blocked = !isWithinHours(apptStartMs, 24)
+      let isWithinGracePeriod = deletingRow.created_at ? Date.now() - Number(deletingRow.created_at) < 10 * 60 * 1000 : false
+      deletingRow.blocked = !isAdmin && !isWithinHours(apptStartMs, 24) && !isWithinGracePeriod
     }
   }
 
@@ -546,15 +550,16 @@ export default createController<typeof routes.appointmentsNew, AppContext>(
         }
 
         let rowResult = await pool.query(
-          `SELECT date, start_min FROM appointments WHERE id = $1 AND user_id = $2`,
+          `SELECT date, start_min, created_at FROM appointments WHERE id = $1 AND user_id = $2`,
           [id, userId],
         )
         if (rowResult.rows.length === 0) {
           return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
         }
-        let row = rowResult.rows[0] as { date: string; start_min: number }
+        let row = rowResult.rows[0] as { date: string; start_min: number; created_at: string }
         let appointmentStartMs = Number(row.date) + row.start_min * 60000
-        if (!isWithinHours(appointmentStartMs, 24) && (auth.identity as { role: string }).role !== 'admin') {
+        let isWithinGracePeriod = Date.now() - Number(row.created_at) < 10 * 60 * 1000
+        if (!isWithinHours(appointmentStartMs, 24) && !isWithinGracePeriod && (auth.identity as { role: string }).role !== 'admin') {
           return errorRedirectDestroy(formData, 'Termine können nur bis 24 Stunden vor Beginn bearbeitet oder gelöscht werden.')
         }
 
