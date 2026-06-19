@@ -158,6 +158,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           email: fields.email.trim().toLowerCase(),
           password_hash: passwordHash,
           role,
+          token_version: 1,
         },
         { returnRow: true },
       )
@@ -217,6 +218,8 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           return context.json({ ok: false, error: complexityError }, { status: 400 })
         }
         changes.password_hash = await hashPassword(fields.password)
+        let currentUser = await db.find(users, id) as { token_version: number } | undefined
+        changes.token_version = (currentUser?.token_version ?? 0) + 1
       }
 
       await db.updateMany(users, changes, { where: { id } })

@@ -97,28 +97,10 @@ async function syncRemixSkill() {
 }
 
 function formatPlaywrightInstallError(error: unknown): string {
-    console.warn(formatPlaywrightInstallError(error))
-
-    if (installLocations.length === 0) {
-      installLocations = getPlaywrightInstallLocations()
-    }
-
-    cleanPartialPlaywrightInstalls(installLocations)
-    console.warn('Retrying Playwright browser installation...')
-
-    try {
-      await installPlaywrightBrowsers()
-    } catch (retryError) {
-      throw new Error(
-        [
-          formatPlaywrightInstallError(retryError),
-          '',
-          'Playwright browser installation failed after one retry.',
-          'Run `npx playwright install` to retry manually.',
-        ].join('\n'),
-      )
-    }
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`
   }
+  return String(error)
 }
 
 function getPlaywrightInstallLocations(): string[] {

@@ -18,6 +18,7 @@ import { getSafeReturnTo } from '../utils/redirect.ts'
 
 interface AppAuthSession {
   userId: number
+  tv: number
 }
 
 export function loadAuth() {
@@ -34,6 +35,8 @@ export function loadAuth() {
           }
           let user = await db.find(users, value.userId)
           if (!user) return null
+
+          if (user.token_version !== value.tv) return null
 
           if (user.role !== 'admin' && user.email_verified !== 1) {
             return null
@@ -117,7 +120,10 @@ function parseAppAuthSession(value: unknown): AppAuthSession | null {
   let userId = parseId((value as { userId?: unknown }).userId)
   if (userId == null) return null
 
-  return { userId }
+  let tv = (value as { tv?: unknown }).tv
+  if (typeof tv !== 'number' || !Number.isInteger(tv)) return null
+
+  return { userId, tv }
 }
 
 function normalizeEmail(email: string): string {

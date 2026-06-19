@@ -30,6 +30,7 @@ export async function seed(): Promise<void> {
         name: 'Admin User',
         role: 'admin',
         email_verified: 1,
+        token_version: 1,
         created_at: new Date('2024-01-15').getTime(),
       },
       {
@@ -38,6 +39,7 @@ export async function seed(): Promise<void> {
         name: 'John Doe',
         role: 'customer',
         email_verified: 1,
+        token_version: 1,
         created_at: new Date('2024-03-01').getTime(),
       },
     ])

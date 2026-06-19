@@ -15,6 +15,7 @@ export const users = table({
     verification_expires: c.integer(),
     password_reset_token: c.text(),
     password_reset_expires: c.integer(),
+    token_version: c.integer(),
     created_at: c.integer(),
     updated_at: c.integer(),
   },

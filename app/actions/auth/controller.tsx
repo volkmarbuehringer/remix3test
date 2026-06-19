@@ -93,8 +93,7 @@ export const authLogin = createController<typeof routes.auth.login, AppContext>(
       resetFailedAttempts(parsed.value.email)
 
       let session = completeAuth(context)
-      session.regenerateId()
-      session.set('auth', { userId: user.id })
+      session.set('auth', { userId: user.id, tv: user.token_version })
 
       returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? '/'
       return redirect(returnTo)
@@ -342,8 +341,11 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
         return context.render(<ResetErrorPage title={result.error.title} message={result.error.message} />, { status: 400 })
       }
 
+      let currentUser = await context.db.find(users, result.user.id) as { token_version: number } | undefined
+
       await context.db.update(users, result.user.id, {
         password_hash: await hashPassword(parsed.value.password),
+        token_version: (currentUser?.token_version ?? 0) + 1,
         password_reset_token: null as unknown as string,
         password_reset_expires: null as unknown as number,
       })
@@ -362,6 +364,7 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
 
       let session = context.session
       if (session) {
+        session.regenerateId(true)
         session.unset('auth')
         session.flash('reset', 'Password reset successfully! Please log in.')
       }

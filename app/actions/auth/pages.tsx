@@ -11,6 +11,7 @@ import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 import { PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
+import { PasswordToggle } from '../../assets/password-toggle.tsx'
 
 // ── Login ──
 
@@ -212,6 +213,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
               </div>
               {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
             </label>
+            <PasswordToggle />
           </AuthForm>
         </AuthShell>
       </Layout>
@@ -356,8 +358,9 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
-              {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
+            {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
             </label>
+            <PasswordToggle />
           </AuthForm>
         </AuthShell>
       </Layout>

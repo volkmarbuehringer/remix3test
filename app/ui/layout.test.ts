@@ -33,16 +33,16 @@ describe('Layout — flash messages', () => {
     key: 'error' | 'success',
     value: string,
   ): Promise<string> {
-    let result = await pool.query('SELECT id FROM users WHERE email = $1', [
+    let result = await pool.query('SELECT id, token_version FROM users WHERE email = $1', [
       'user@newapp.com',
     ])
-    let userId = result.rows[0]?.id as number | undefined
-    if (!userId) throw new Error('Test user not found in DB')
+    let row = result.rows[0] as { id: number; token_version: number } | undefined
+    if (!row) throw new Error('Test user not found in DB')
 
     // Create a session exactly as the login controller would,
     // including _csrf so the CSRF middleware doesn't need to write to it.
     let session = createSession()
-    session.set('auth', { userId })
+    session.set('auth', { userId: row.id, tv: row.token_version ?? 1 })
     session.set(key, value)
     session.set('_csrf', 'test-csrf-token-for-flash-tests')
 
@@ -55,14 +55,14 @@ describe('Layout — flash messages', () => {
 
   /** Create an authenticated session with no extra values. */
   async function createCleanAuthSession(): Promise<string> {
-    let result = await pool.query('SELECT id FROM users WHERE email = $1', [
+    let result = await pool.query('SELECT id, token_version FROM users WHERE email = $1', [
       'user@newapp.com',
     ])
-    let userId = result.rows[0]?.id as number | undefined
-    if (!userId) throw new Error('Test user not found in DB')
+    let row = result.rows[0] as { id: number; token_version: number } | undefined
+    if (!row) throw new Error('Test user not found in DB')
 
     let session = createSession()
-    session.set('auth', { userId })
+    session.set('auth', { userId: row.id, tv: row.token_version ?? 1 })
     session.set('_csrf', 'test-csrf-token-for-flash-tests')
 
     let sid = await sessionStorage.save(session)

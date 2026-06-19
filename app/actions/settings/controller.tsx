@@ -177,13 +177,17 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
         )
       }
 
+      let newTv = (user as { token_version?: number }).token_version ?? 0
+
       await context.db.update(users, user.id, {
         password_hash: await hashPassword(newPassword),
+        token_version: newTv + 1,
       })
 
       let session = context.session
       if (session) {
-        session.regenerateId()
+        session.regenerateId(true)
+        session.set('auth', { userId: user.id, tv: newTv + 1 })
       }
 
       changePasswordLimiter.reset(user.id)

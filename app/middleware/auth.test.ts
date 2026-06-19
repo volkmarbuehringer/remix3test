@@ -9,7 +9,9 @@ import { requireAuth } from './auth.ts'
 import { router } from '../router.ts'
 import { createCsrfSession, extractCookie } from '../test-utils.ts'
 import { routes } from '../routes.ts'
-import { initializeAppDatabase } from '../data/setup.ts'
+import { initializeAppDatabase, pool } from '../data/setup.ts'
+import { createSession } from 'remix/session'
+import { sessionCookie, sessionStorage } from './session.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -216,5 +218,59 @@ describe('Auth + CSRF integration', () => {
       302,
       'POST with valid CSRF token should succeed',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Session token_version invalidation
+// ---------------------------------------------------------------------------
+
+describe('Session token_version invalidation', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('session without tv is treated as unauthenticated', async () => {
+    let result = await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com'])
+    let userId = result.rows[0]?.id as number | undefined
+    if (!userId) throw new Error('Test user not found')
+
+    let session = createSession()
+    session.set('auth', { userId })
+    let sid = await sessionStorage.save(session)
+    if (!sid) throw new Error('sessionStorage.save returned null')
+
+    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]
+
+    let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+      headers: { Cookie: cookie },
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302, 'should redirect to login when tv is missing')
+    let location = response.headers.get('Location')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
+  })
+
+  it('session with wrong tv is treated as unauthenticated', async () => {
+    let result = await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com'])
+    let userId = result.rows[0]?.id as number | undefined
+    if (!userId) throw new Error('Test user not found')
+
+    let session = createSession()
+    session.set('auth', { userId, tv: 999 })
+    let sid = await sessionStorage.save(session)
+    if (!sid) throw new Error('sessionStorage.save returned null')
+
+    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]
+
+    let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+      headers: { Cookie: cookie },
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302, 'should redirect to login when tv is wrong')
+    let location = response.headers.get('Location')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
   })
 })

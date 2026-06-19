@@ -46,14 +46,15 @@ export async function createCsrfSession(url: string): Promise<{ cookie: string; 
  */
 export async function createAuthCookieWithCsrf(): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let result = await pool.query('SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
     if (result.rows.length === 0) return null
 
     let userId = result.rows[0].id as number
+    let tv = (result.rows[0] as { token_version: number }).token_version ?? 1
     let csrfToken = generateCsrfToken()
 
-    let session = createSession<{ auth: { userId: number }; _csrf: string }>()
-    session.set('auth', { userId })
+    let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
+    session.set('auth', { userId, tv })
     session.set('_csrf', csrfToken)
 
     let sid = await sessionStorage.save(session)
@@ -71,14 +72,14 @@ export async function createAuthCookieWithCsrf(): Promise<{ cookie: string; csrf
 
 export async function createAuthCookieWithCsrfForUser(email: string): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id, role FROM users WHERE email = $1', [email])
+    let result = await pool.query('SELECT id, role, token_version FROM users WHERE email = $1', [email])
     if (result.rows.length === 0) return null
 
-    let user = result.rows[0] as { id: number; role: string }
+    let user = result.rows[0] as { id: number; role: string; token_version: number }
     let csrfToken = generateCsrfToken()
 
-    let session = createSession<{ auth: { userId: number }; _csrf: string }>()
-    session.set('auth', { userId: user.id })
+    let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
+    session.set('auth', { userId: user.id, tv: user.token_version ?? 1 })
     session.set('_csrf', csrfToken)
 
     let sid = await sessionStorage.save(session)
@@ -102,7 +103,7 @@ export async function createTestUser(email?: string): Promise<number | null> {
   try {
     let testEmail = email ?? `test-${Date.now()}@example.com`
     let result = await pool.query(
-      'INSERT INTO users (email, password_hash, name, role, email_verified, created_at) VALUES ($1, $2, $3, $4, 1, $5) RETURNING id',
+      'INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at) VALUES ($1, $2, $3, $4, 1, 1, $5) RETURNING id',
       [testEmail, 'hashed-password-for-testing', 'Test User', 'customer', Date.now()],
     )
     return (result.rows[0]?.id as number) ?? null
