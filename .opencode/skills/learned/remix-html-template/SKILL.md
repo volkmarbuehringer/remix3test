@@ -79,6 +79,32 @@ Outside the component system, CSS custom properties (`--rmx-*`) and `css()` mixi
 
 For the outermost 500 handler in `server.ts`, use minimal HTML (static content, no dynamic interpolation) to avoid cascading failures if the error originates in the module system.
 
+## Caveats: Don't Lose XSS Escaping on Refactor
+
+When you refactor away from the `html` tagged template to plain string interpolation (array `.join()`, `+` concatenation, or raw template literals), you **silently lose auto-escaping**:
+
+```ts
+// BEFORE — safe (auto-escaped via tagged template)
+String(html`<p>Hallo ${userName}</p>`)
+
+// AFTER — unsafe (plain interpolation, XSS vector)
+`<p>Hallo ${userName}</p>`
+```
+
+If you must move to plain strings, add a manual escape helper and wrap every interpolated value:
+
+```ts
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// Now safe
+`<p>Hallo ${esc(userName)},</p>`
+```
+
+This is most commonly encountered when extracting template strings into locale/i18n message functions. Code review should flag when `html` tagged template is removed but values are still interpolated into HTML strings.
+
 ## References
 
 - `~/remix/packages/html-template/README.md` — full API docs

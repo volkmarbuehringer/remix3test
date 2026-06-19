@@ -1,0 +1,64 @@
+{
+  "instincts": [
+    {
+      "trigger": "adding form validation to a Remix 3 controller action (POST/PUT/DELETE)",
+      "action": "Use s.parseSafe() instead of s.parse(). Check parsed.success. On failure, extract raw FormData values before validation, convert issues to Record<string, string> keyed by field name, and return context.render() with 400 status and formValues/fieldErrors props.",
+      "confidence": 0.95,
+      "source": "git-history-analysis—commits: c4d77ee, 8761359, 58b14ee, 9c80ffc"
+    },
+    {
+      "trigger": "users report that form inputs clear after a validation error",
+      "action": "Extract raw form values from FormData before running parseSafe. Pass them as formValues prop to the component. In the component, use the value priority: formValues (submitted) > row (DB) > defaults. Check each input/select: input.value = formValues?.field ?? row.field; select.selected = formValues ? formValues.role === 'option' : row.role === 'option'.",
+      "confidence": 0.92,
+      "source": "git-history-analysis—commits: c4d77ee (create-page.tsx, edit-page.tsx)"
+    },
+    {
+      "trigger": "writing a controller action that validates and uses FormData",
+      "action": "Call extractFormValues(formData) BEFORE parseSafe to capture the raw strings. Even if validation fails, you have the original values to re-render. On the happy path, use parsed.value for the typed, validated output.",
+      "confidence": 0.90,
+      "source": "git-history-analysis—commits: c4d77ee (controller.tsx:216-217)"
+    },
+    {
+      "trigger": "building a form inside a Remix 3 <Frame> component",
+      "action": "Use the URL param roundtrip pattern (Pattern 2). On validation failure, encode form values as fv_ prefixed search params and field errors as fe_ prefixed params. Redirect with these params. On the next GET render, decode them from context.url. Do NOT use direct re-render with 400 inside a Frame context—Frame navigation expects redirects.",
+      "confidence": 0.88,
+      "source": "git-history-analysis—commits: 9c80ffc, 58b14ee (form-params.ts, admin-appointments-controller.tsx)"
+    },
+    {
+      "trigger": "parsing validation issues from s.parseSafe to display in UI",
+      "action": "Iterate over parsed.issues. Read issue.path[0] for the field name (must be typeof 'string'). Map the first error per field using issue.message. Use a helper function issuesToFieldErrors(issues) that returns Record<string, string>. Key constraint: only set if !errors[field] to take the first error per field.",
+      "confidence": 0.89,
+      "source": "git-history-analysis—commits: c4d77ee (controller.tsx:61-69)"
+    },
+    {
+      "trigger": "rendering error state on an input after validation failure in Remix 3",
+      "action": "Conditionally apply an error style mixin: mix={fieldErrors?.name ? inputErrorStyle : null}. Render the error message text below the input: {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}. Use theme.colors.action.danger.background for error border and text colors.",
+      "confidence": 0.90,
+      "source": "git-history-analysis—commits: c4d77ee (create-page.tsx, edit-page.tsx)"
+    },
+    {
+      "trigger": "writing tests for form validation in Remix 3 controller",
+      "action": "Always use redirect: 'manual' in fetch options to assert the 400 status. Check response.text() for preserved values (value=\"...\" in HTML) and error messages. Test at least: empty submission returns 400, specific constraint violations return 400 with error text, valid submission redirects with 302. Use URLSearchParams body and _csrf token for CSRF-protected routes.",
+      "confidence": 0.91,
+      "source": "git-history-analysis—commits: c4d77ee (controller.test.ts)"
+    },
+    {
+      "trigger": "using s.defaulted(s.string(), '') with pipe() for form schema",
+      "action": "Always wrap pipe() checks AFTER the defaulted coercion. Pattern: s.defaulted(s.string(), '').pipe(minLength(8)). The default prevents undefined values from reaching the check, and pipe chains validation after coercion. For custom logic, use .refine(callback, 'error message') instead of pipe.",
+      "confidence": 0.87,
+      "source": "git-history-analysis—commits: c4d77ee (controller.tsx:36-37)"
+    },
+    {
+      "trigger": "HTML form uses type=\"email\" with custom email validation schema",
+      "action": "Change type=\"email\" to type=\"text\". HTML5 email validation can conflict with remix/data-schema email() check, causing double validation and inconsistent error messages. Rely exclusively on the server-side schema validation. The schema generates the authoritative error message.",
+      "confidence": 0.85,
+      "source": "git-history-analysis—commits: c4d77ee (edit-page.tsx: type=\"email\" -> type=\"text\")"
+    },
+    {
+      "trigger": "refactoring try/catch form validation to parseSafe",
+      "action": "Replace: try { parsed = s.parse(schema, formData) } catch { return json(error) } with: let rawValues = extractFormValues(formData); let parsed = s.parseSafe(schema, formData); if (!parsed.success) { let fieldErrors = issuesToFieldErrors(parsed.issues); return render(<Page formValues={rawValues} fieldErrors={fieldErrors} />, { status: 400 }) }. This is the canonical upgrade path from legacy Remix 3 form error handling.",
+      "confidence": 0.93,
+      "source": "git-history-analysis—commits: c4d77ee (controller.tsx diff)"
+    }
+  ]
+}

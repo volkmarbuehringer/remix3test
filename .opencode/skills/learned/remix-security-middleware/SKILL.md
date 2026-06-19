@@ -21,6 +21,42 @@ let router = createRouter({
 
 Token sources (by default): `X-Csrf-Token` header > `_csrf` form field > `_csrf` query param. Requires `session-middleware` to run first.
 
+### Common Pitfall: Every POST Form Needs a CSRF Token Input
+
+When `csrf()` is installed globally, every non-GET request is validated. A `<form method="POST">` without a hidden `_csrf` field will get a **403 Forbidden** with "missing csrf token" in the server log.
+
+Add `<CsrfTokenInput />` inside every `<form method="POST">`:
+
+```tsx
+import { CsrfTokenInput } from './csrf-token-input.tsx'
+
+<form method="POST" action={routes.someRoute.index.href()}>
+  <CsrfTokenInput />
+  <button type="submit">Submit</button>
+</form>
+```
+
+`CsrfTokenInput` renders `<input type="hidden" name="_csrf" value="<token>" />` during SSR by reading the CSRF token from async request context.
+
+**clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
+
+```tsx
+<form action="/logout" method="post" id="logout-form">
+  <button type="submit" mix={on('click', () => {
+    let form = document.getElementById('logout-form') as HTMLFormElement
+    if (form && !form.querySelector('input[name="_csrf"]')) {
+      let token = document.querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content')
+      if (token) {
+        let input = document.createElement('input')
+        input.type = 'hidden'; input.name = '_csrf'; input.value = token
+        form.appendChild(input)
+      }
+    }
+  })}>Logout</button>
+</form>
+```
+
 ## CORS
 
 ```ts
