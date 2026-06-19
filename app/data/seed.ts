@@ -15,13 +15,17 @@ export async function seed(): Promise<void> {
   if (usersCount === 0) {
     let adminPassword = process.env.SEED_ADMIN_PASSWORD
     if (!adminPassword) {
-      adminPassword = 'admin123'
-      console.warn('⚠️  SEED_ADMIN_PASSWORD not set — using weak default. Set in .env for production.')
+      throw new Error(
+        'SEED_ADMIN_PASSWORD environment variable is required for seeding. ' +
+        'Set it in .env to a strong password (min 12 chars).'
+      )
     }
     let userPassword = process.env.SEED_USER_PASSWORD
     if (!userPassword) {
-      userPassword = 'password123'
-      console.warn('⚠️  SEED_USER_PASSWORD not set — using weak default. Set in .env for production.')
+      throw new Error(
+        'SEED_USER_PASSWORD environment variable is required for seeding. ' +
+        'Set it in .env to a strong password (min 12 chars).'
+      )
     }
     await db.createMany(users, [
       {

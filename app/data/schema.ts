@@ -1,6 +1,49 @@
-import { column as c, table } from 'remix/data-table'
+import { column as c, table, type ColumnBuilder, DataTableConstraintError } from 'remix/data-table'
 import type { TableRow } from 'remix/data-table'
 import { parseIntFields } from '../utils/schema-utils.ts'
+
+/**
+ * BIGINT column that TypeScript treats as `number`.
+ * pg returns BIGINT as string; parseIntFields in afterRead converts it back.
+ */
+function bigint(): ColumnBuilder<number> {
+  return c.bigint() as unknown as ColumnBuilder<number>
+}
+
+function validateAppointmentTimes(
+  start_min: unknown,
+  end_min: unknown,
+  issues?: Array<{ message: string; path?: Array<string | number> }>,
+): void {
+  if ((start_min === undefined) !== (end_min === undefined)) {
+    let msg = 'Both start_min and end_min are required when specifying time changes.'
+    if (issues) {
+      issues.push({ message: msg, path: ['start_min'] })
+    } else {
+      throw new DataTableConstraintError(msg)
+    }
+    return
+  }
+  if (typeof start_min !== 'number' || typeof end_min !== 'number') return
+  if (start_min < 0 || start_min > 1440) {
+    let msg = 'start_min must be between 0 and 1440.'
+    if (issues) issues.push({ message: msg, path: ['start_min'] })
+    else throw new DataTableConstraintError(msg)
+    return
+  }
+  if (end_min < 0 || end_min > 1440) {
+    let msg = 'end_min must be between 0 and 1440.'
+    if (issues) issues.push({ message: msg, path: ['end_min'] })
+    else throw new DataTableConstraintError(msg)
+    return
+  }
+  if (start_min >= end_min) {
+    let msg = 'start_min must be less than end_min.'
+    if (issues) issues.push({ message: msg, path: ['start_min'] })
+    else throw new DataTableConstraintError(msg)
+    return
+  }
+}
 
 export const users = table({
   name: 'users',
@@ -12,12 +55,12 @@ export const users = table({
     role: c.enum(['customer', 'admin']),
     email_verified: c.integer(),
     verification_token: c.text(),
-    verification_expires: c.integer(),
+    verification_expires: bigint(),
     password_reset_token: c.text(),
-    password_reset_expires: c.integer(),
+    password_reset_expires: bigint(),
     token_version: c.integer(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -102,8 +145,8 @@ export const chatlog = table({
     id: c.text(),
     user_id: c.integer(),
     conversation: c.json(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ value }) {
     if (Array.isArray(value.conversation)) {
@@ -131,7 +174,7 @@ export const messages = table({
     id: c.integer(),
     sender_id: c.integer(),
     content: c.text(),
-    created_at: c.integer(),
+    created_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -155,7 +198,7 @@ export const clients = table({
     email: c.text(),
     role: c.text(),
     status: c.text(),
-    registered: c.integer(),
+    registered: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -214,8 +257,8 @@ export const lists = table({
     id: c.integer(),
     list: c.json(),
     description: c.text(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -261,9 +304,9 @@ export const appointments = table({
     user_id: c.integer(),
     resource_id: c.integer(),
     title: c.text(),
-    date: c.integer(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    date: bigint(),
+    created_at: bigint(),
+    updated_at: bigint(),
     during: c.text(),
     start_min: c.integer(),
     end_min: c.integer(),
@@ -278,52 +321,19 @@ export const appointments = table({
       })
     }
 
-    // If either time field is provided, both must be provided together
-    if (
-      (value.start_min === undefined) !== (value.end_min === undefined)
-    ) {
-      issues.push({
-        message: 'Both start_min and end_min are required for time changes.',
-        path: ['start_min'],
-      })
-    }
-
-    // start_min must be less than end_min
-    if (
-      typeof value.start_min === 'number' &&
-      typeof value.end_min === 'number' &&
-      value.start_min >= value.end_min
-    ) {
-      issues.push({
-        message: 'start_min must be less than end_min.',
-        path: ['start_min'],
-      })
-    }
-
-    // Time values must be within the day (0–1440)
-    if (typeof value.start_min === 'number' && (value.start_min < 0 || value.start_min > 1440)) {
-      issues.push({
-        message: 'start_min must be between 0 and 1440.',
-        path: ['start_min'],
-      })
-    }
-    if (typeof value.end_min === 'number' && (value.end_min < 0 || value.end_min > 1440)) {
-      issues.push({
-        message: 'end_min must be between 0 and 1440.',
-        path: ['end_min'],
-      })
-    }
+    validateAppointmentTimes(value.start_min, value.end_min, issues)
 
     return issues.length > 0 ? { issues } : { value }
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
 
-    // Convert start_min/end_min to during range string;
-    // strip computed columns (start_min/end_min are GENERATED ALWAYS, cannot be written)
+    // Validate and convert start_min/end_min to during range string
+    validateAppointmentTimes(next.start_min, next.end_min)
     if (next.start_min !== undefined && next.end_min !== undefined) {
       next.during = `[${next.start_min},${next.end_min})`
     }
+    // Strip generated columns — cannot be written directly
     delete next.start_min
     delete next.end_min
 
@@ -356,8 +366,8 @@ export const appointtypes = table({
     id: c.integer(),
     user_id: c.integer(),
     title: c.text(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -387,8 +397,8 @@ export const resources = table({
     id: c.integer(),
     name: c.text(),
     description: c.text(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -424,11 +434,11 @@ export const appointofferings = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
-    day: c.integer(),
+    day: bigint(),
     resource_id: c.integer(),
     during: c.text(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   validate({ value }) {
     let issues: Array<{ message: string; path?: Array<string | number> }> = []
@@ -479,8 +489,8 @@ export const offeringConfigs = table({
     id: c.integer(),
     resource_id: c.integer(),
     rules: c.json(),
-    created_at: c.integer(),
-    updated_at: c.integer(),
+    created_at: bigint(),
+    updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
@@ -513,9 +523,9 @@ export const uploads = table({
     id: c.integer(),
     filename: c.text(),
     mime_type: c.text(),
-    size: c.integer(),
+    size: bigint(),
     uploaded_by: c.integer(),
-    created_at: c.integer(),
+    created_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }

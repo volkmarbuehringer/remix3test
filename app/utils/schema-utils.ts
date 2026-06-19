@@ -1,6 +1,7 @@
 /**
  * Parse BIGINT columns (returned as strings by the PostgreSQL driver) back to numbers.
- * The DB schema (migrate.ts) uses BIGINT, but the ORM maps them as c.integer().
+ * Schema.ts now uses bigint() column type to match the DB's BIGINT, but pg still
+ * returns BIGINT values as strings. This normalizes them to numbers.
  */
 export function parseIntFields(value: Record<string, unknown>, ...fields: string[]): void {
   for (let field of fields) {

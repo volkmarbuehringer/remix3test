@@ -12,8 +12,11 @@ export const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  maxUses: 7500,
   statement_timeout: 30000,
+})
+
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error:', err?.message ?? err)
 })
 
 const adapter = createPostgresDatabaseAdapter(pool)
