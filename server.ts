@@ -13,15 +13,16 @@ const router = createNewappRouter()
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 
-const handler = createRequestListener(async (request) => {
-  try {
-    return await router.fetch(request)
-  } catch (error) {
-    if (!(request.signal.aborted && error === request.signal.reason)) {
-      console.error(error)
-    }
-    return new Response(
-      String(html`<!doctype html>
+const handler = createRequestListener(
+  async (request) => {
+    try {
+      return await router.fetch(request)
+    } catch (error) {
+      if (!(request.signal.aborted && error === request.signal.reason)) {
+        console.error(error)
+      }
+      return new Response(
+        String(html`<!doctype html>
 <html lang="de">
 <head><meta charset="utf-8"><title>Serverfehler — newapp</title>
 <style>
@@ -32,13 +33,15 @@ const handler = createRequestListener(async (request) => {
 </style></head>
 <body><div class="card"><h1>Serverfehler</h1><p>Bitte versuchen Sie es später erneut.</p></div></body>
 </html>`),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      },
-    )
-  }
-})
+        {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        },
+      )
+    }
+  },
+  { trustProxy: true },
+)
 
 const isProduction = process.env.NODE_ENV === 'production'
 

@@ -1,30 +1,7 @@
 import { routes } from './routes.ts'
 
-function routeParentPath(route: {
-  pattern: {
-    pathname: {
-      tokens: ReadonlyArray<{
-        readonly type: string
-        readonly text?: string
-        readonly name?: string
-      }>
-    }
-  }
-}): string {
-  let tokens = route.pattern.pathname.tokens
-  for (let i = tokens.length - 1; i >= 0; i--) {
-    if (tokens[i].type === ':' || tokens[i].type === '*') {
-      let path = ''
-      for (let j = 0; j < i; j++) {
-        let t = tokens[j]
-        if (t.type === 'text') path += t.text
-        else if (t.type === 'separator') path += '/'
-        else if (t.type === '(' || t.type === ')') path += t.type
-      }
-      return path
-    }
-  }
-  return (route as any).href()
+function routeParentPath(route: { pattern: { source: string } }): string {
+  return route.pattern.source.replace(/\/[:*][^/]*$/, '/')
 }
 
 export const ROUTE_LABELS: Record<string, string> = {
