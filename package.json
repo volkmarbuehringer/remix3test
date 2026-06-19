@@ -25,7 +25,7 @@
     "nodemailer": "^9.0.1",
     "pdfmake": "^0.3.11",
     "pg": "^8.21.0",
-    "remix": "github:remix-run/remix#f112ef1b9b0a19951c2676a65c9b3fa53d17c5dc&path:packages/remix",
+    "remix": "github:remix-run/remix#preview/main&path:packages/remix",
     "zod": "^4.4.3"
   },
   "devDependencies": {
