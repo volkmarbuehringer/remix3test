@@ -1,8 +1,10 @@
 import * as cp from 'node:child_process'
 import * as fs from 'node:fs'
+import * as fsPromise from 'node:fs/promises'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PLAYWRIGHT_CLI_PATH = fileURLToPath(
   new URL('../node_modules/playwright/cli.js', import.meta.url),
 )
@@ -11,6 +13,9 @@ const PLAYWRIGHT_INSTALL_ARGS = ['install', '--only-shell', 'chromium', 'firefox
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000
 
 async function main() {
+  // Always sync vendor skill, regardless of CI or Playwright status
+  await syncRemixSkill()
+
   if (process.env.CI) {
     return
   }
@@ -27,6 +32,71 @@ async function main() {
   try {
     await installPlaywrightBrowsers()
   } catch (error) {
+    console.warn(formatPlaywrightInstallError(error))
+
+    if (installLocations.length === 0) {
+      installLocations = getPlaywrightInstallLocations()
+    }
+
+    cleanPartialPlaywrightInstalls(installLocations)
+    console.warn('Retrying Playwright browser installation...')
+
+    try {
+      await installPlaywrightBrowsers()
+    } catch (retryError) {
+      throw new Error(
+        [
+          formatPlaywrightInstallError(retryError),
+          '',
+          'Playwright browser installation failed after one retry.',
+          'Run `npx playwright install` to retry manually.',
+        ].join('\n'),
+      )
+    }
+  }
+
+  // Sync vendor skill from @remix-run/cli
+  await syncRemixSkill()
+}
+
+async function syncRemixSkill() {
+  let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
+  let linkPath = path.join(PROJECT_ROOT, '.opencode/skills/remix')
+
+  try {
+    let remixLink = fs.readlinkSync(path.join(PROJECT_ROOT, 'node_modules/remix'))
+    let commitMatch = remixLink.match(/tar\.gz\+([a-f0-9]{7,})/)?.[1] || ''
+    let commitPrefix = commitMatch.slice(0, 9)
+
+    let entries = await fsPromise.readdir(pnpmDir)
+    let cliDir = entries.find(e => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
+    if (!cliDir) {
+      console.warn('@remix-run/cli not found in pnpm store, skipping skill sync.')
+      return
+    }
+
+    let sourceDir = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli/template/.agents/skills/remix')
+    if (!fs.existsSync(sourceDir)) {
+      console.warn('Vendor skill not found at', sourceDir)
+      return
+    }
+
+    // Remove existing (file, dir, or broken symlink)
+    try {
+      let existing = fs.lstatSync(linkPath)
+      if (existing.isSymbolicLink() || existing.isDirectory() || existing.isFile()) {
+        fs.rmSync(linkPath, { recursive: true, force: true })
+      }
+    } catch {}
+
+    fs.symlinkSync(sourceDir, linkPath, 'dir')
+    console.log('Linked remix vendor skill.')
+  } catch (error) {
+    console.warn('Failed to sync remix skill:', error)
+  }
+}
+
+function formatPlaywrightInstallError(error: unknown): string {
     console.warn(formatPlaywrightInstallError(error))
 
     if (installLocations.length === 0) {
@@ -161,15 +231,8 @@ function killProcessTree(child: cp.ChildProcess) {
   } catch {}
 }
 
-function formatPlaywrightInstallError(error: unknown): string {
-  if (error instanceof Error) {
-    return `Playwright browser installation failed: ${error.message}`
-  }
-
-  return `Playwright browser installation failed: ${String(error)}`
-}
-
 main().catch((error: unknown) => {
   console.error(formatPlaywrightInstallError(error))
   process.exit(1)
 })
+

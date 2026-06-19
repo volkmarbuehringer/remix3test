@@ -5,11 +5,18 @@ import { fileURLToPath } from 'node:url'
 const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 async function findCliPackage(): Promise<string | null> {
-  // Check pnpm store for @remix-run/cli
   let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
   try {
+    // Get the pnpm store entry name from the currently installed remix package
+    let remixLink = await fs.readlink(path.join(PROJECT_ROOT, 'node_modules/remix'))
+    // Extract the git commit hash from the store dir name
+    // .pnpm/remix@https+++...tar.gz+<COMMIT_HASH>cb5c2d.../node_modules/remix
+    let commitMatch = remixLink.match(/tar\.gz\+([a-f0-9]{7,})/)?.[1] || ''
+    // The CLI shares the same commit hash prefix in its pnpm store entry
+    let commitPrefix = commitMatch.slice(0, 9)
+
     let entries = await fs.readdir(pnpmDir)
-    let cliDir = entries.find(e => e.startsWith('@remix-run+cli@'))
+    let cliDir = entries.find(e => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
     if (cliDir) {
       let p = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli')
       let s = await fs.stat(p)
@@ -17,20 +24,6 @@ async function findCliPackage(): Promise<string | null> {
     }
   } catch {}
   return null
-}
-
-async function copyDir(src: string, dest: string) {
-  await fs.mkdir(dest, { recursive: true })
-  let entries = await fs.readdir(src, { withFileTypes: true })
-  for (let entry of entries) {
-    let s = path.join(src, entry.name)
-    let d = path.join(dest, entry.name)
-    if (entry.isDirectory()) {
-      await copyDir(s, d)
-    } else {
-      await fs.copyFile(s, d)
-    }
-  }
 }
 
 async function main() {
@@ -41,11 +34,19 @@ async function main() {
   }
 
   let sourceDir = path.join(cliPkg, 'template/.agents/skills/remix')
-  let opencodeTarget = path.join(PROJECT_ROOT, '.opencode/skills/remix')
+  let linkPath = path.join(PROJECT_ROOT, '.opencode/skills/remix')
 
-  console.log(`Syncing remix skill from ${sourceDir}`)
-  await copyDir(sourceDir, opencodeTarget)
-  console.log('Done.')
+  // Remove existing skill (file, dir, or broken symlink)
+  try {
+    let existing = await fs.lstat(linkPath)
+    if (existing.isSymbolicLink() || existing.isDirectory() || existing.isFile()) {
+      await fs.rm(linkPath, { recursive: true, force: true })
+    }
+  } catch {}
+
+  // Create symlink
+  await fs.symlink(sourceDir, linkPath, 'dir')
+  console.log(`Linked remix skill: ${linkPath} → ${sourceDir}`)
 }
 
 main().catch(console.error)
