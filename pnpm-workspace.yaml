@@ -1,5 +1,5 @@
 allowBuilds:
-  'remix@*': true
+  'remix@https://codeload.github.com/remix-run/remix/tar.gz/f112ef1b9b0a19951c2676a65c9b3fa53d17c5dc#path:packages/remix': true
 blockExoticSubdeps: false
 minimumReleaseAgeExclude:
   - '@oxlint/binding-android-arm-eabi@1.69.0'
