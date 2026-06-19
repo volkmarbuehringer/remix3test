@@ -64,8 +64,9 @@ if (isProduction) {
   server = http.createServer(handler)
 }
 
-server.listen(port, () => {
-  console.log(`Server listening on ${isProduction ? 'https' : 'http'}://localhost:${port}`)
+let host = process.env.HOST || '0.0.0.0'
+server.listen(port, host, () => {
+  console.log(`Server listening on ${isProduction ? 'https' : 'http'}://${host}:${port}`)
   if (!isProduction) {
     console.log('')
     console.log('Demo accounts:')
