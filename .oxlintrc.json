@@ -1,7 +1,13 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "categories": {
-    "correctness": "off"
+    "correctness": "off",
+    "nursery": "off",
+    "pedantic": "off",
+    "perf": "off",
+    "restriction": "off",
+    "style": "off",
+    "suspicious": "off"
   },
   "env": {
     "builtin": true
@@ -10,17 +16,10 @@
     "**/*.d.ts",
     "**/dist/**",
     "**/docs/**",
-    "**/demos/bookstore/public/assets/**",
-    "**/demos/sse/public/assets/**",
     "**/coverage/**",
-    "**/bench/**",
-    "**/examples/**",
     "**/*.min.js",
-    "**/*.bundled.*",
     "**/public/assets/**",
-    "node_modules/**",
-    "reference/**",
-    "packages/multipart-parser/demos/deno/**"
+    "node_modules/**"
   ],
   "options": {
     "typeAware": true

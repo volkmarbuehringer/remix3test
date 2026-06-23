@@ -64,7 +64,7 @@ if (isProduction) {
   server = http.createServer(handler)
 }
 
-let host = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
+const host = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
 server.listen(port, host, () => {
   console.log(`Server listening on ${isProduction ? 'https' : 'http'}://${host}:${port}`)
   if (!isProduction) {
