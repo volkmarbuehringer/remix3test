@@ -9,8 +9,8 @@ const csrfMiddleware = csrf({
 export function skipCsrf(): Middleware {
   return async (context, next) => {
     if (
-      context.url.pathname.startsWith('/webhook/') ||
-      context.url.pathname.startsWith('/app-webhook/') ||
+      context.url.pathname === '/webhook' ||
+      context.url.pathname === '/app-webhook' ||
       context.url.pathname === '/callback'
     ) {
       return next()

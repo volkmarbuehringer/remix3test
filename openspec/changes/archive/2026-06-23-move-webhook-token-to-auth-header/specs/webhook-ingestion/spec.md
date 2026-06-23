@@ -1,8 +1,4 @@
-## Purpose
-
-A token-authenticated HTTP endpoint that accepts JSON payloads via POST, stores them in the database, and notifies connected SSE clients of new data. Powers third-party webhook integrations.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Token-authenticated POST endpoint
 
@@ -52,3 +48,10 @@ After a successful insertion, the system SHALL emit an event on the SSE channel 
 
 - **WHEN** a valid webhook POST succeeds
 - **THEN** the SSE channel SHALL notify connected clients that new data is available
+
+## REMOVED Requirements
+
+### Requirement: Token-authenticated POST endpoint (token-in-path variant)
+
+**Reason**: Token moved from URL path parameter to `Authorization: Bearer` header for security.
+**Migration**: Update webhook senders to use `/webhook` (without `/:token` suffix) and include `Authorization: Bearer <token>` header.

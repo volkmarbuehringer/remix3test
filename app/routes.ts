@@ -1,8 +1,8 @@
 import { del, get, post, put, route, form, resources } from 'remix/routes'
 
 export const uploadsDownload = get('/uploads/:id/download')
-export const webhookRoute = post('/webhook/:token')
-export const appWebhookRoute = post('/app-webhook/:token')
+export const webhookRoute = post('/webhook')
+export const appWebhookRoute = post('/app-webhook')
 export const webhookRequestsRoute = get('/webhook-requests')
 export const webhookRequestsEventsRoute = get('/webhook-requests/events')
 export const webhookRequestsResendRoute = post('/webhook-requests/:id/resend')

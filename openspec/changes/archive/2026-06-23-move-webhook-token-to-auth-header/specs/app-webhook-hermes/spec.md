@@ -1,8 +1,4 @@
-## Purpose
-
-A token-authenticated HTTP endpoint that accepts JSON payloads via POST, stores them in the database, and forwards the data to the hermes event processor for background handling. Powers app-specific webhook integrations with external event processing.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Webhook payload ingestion with UUID generation
 
@@ -65,3 +61,10 @@ After inserting the webhook payload, the system SHALL POST the UUID and payload 
 - **WHEN** the insert succeeds but hermes does not respond within 3 seconds
 - **THEN** the response SHALL still return 200 with `{ "id": "<uuid>", "callbackUrl": "<url>", "payload": { ... } }`
 - **THEN** `webhook_requests.hermes_status` SHALL be `"error"`
+
+## REMOVED Requirements
+
+### Requirement: Webhook payload ingestion (token-in-path variant)
+
+**Reason**: Token moved from URL path parameter to `Authorization: Bearer` header for security.
+**Migration**: Update webhook senders to use `/app-webhook` (without `/:token` suffix) and include `Authorization: Bearer <token>` header.

@@ -4,12 +4,8 @@ import { pool } from '../../data/setup.ts'
 import { webhookRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { sourceIp } from '../../lib/request-ip.ts'
+import { authenticateWebhook, SENSITIVE_HEADERS } from '../../lib/auth-webhook.ts'
 import type { AppContext } from '../../types/context.ts'
-
-const SENSITIVE_HEADERS = new Set([
-  'authorization', 'cookie', 'set-cookie', 'proxy-authorization',
-  'x-api-key', 'x-auth-token', 'www-authenticate', 'x-client-ip',
-])
 
 const MAX_PAYLOAD_BYTES = 256 * 1024
 
@@ -19,14 +15,9 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
     handler: async (context) => {
       let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Webhook]') : () => {}
 
-      let token = context.params.token
-      let expected = process.env.WEBHOOK_TOKEN
-      if (expected === undefined || expected === '') {
-        return new Response('Service unavailable', { status: 503 })
-      }
-      if (token !== expected) {
-        return new Response('Unauthorized', { status: 401 })
-      }
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
+      let token = auth
 
       let contentType = context.request.headers.get('Content-Type') ?? ''
       if (!contentType.includes('application/json')) {
