@@ -74,7 +74,6 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
         return new Response('Conflict: callback already received', { status: 409 })
       }
 
-      webhookChannel.broadcast('callback_received')
       webhookChannel.broadcast('invalidate')
 
       let responseHeaders = new SuperHeaders()

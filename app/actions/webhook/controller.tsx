@@ -65,7 +65,6 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
       let id = result.rows[0].id
       log('Gespeichert: id=' + id + ' payload=' + serialized.slice(0, 500))
 
-      webhookChannel.broadcast('new_request')
       webhookChannel.broadcast('invalidate')
 
       let responseHeaders = new SuperHeaders()

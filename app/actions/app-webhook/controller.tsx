@@ -77,7 +77,6 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       if (!row?.id) throw new Error('INSERT did not return an id')
       let id = row.id
 
-      webhookChannel.broadcast('new_request')
       webhookChannel.broadcast('invalidate')
 
       let hermesStatusText: string

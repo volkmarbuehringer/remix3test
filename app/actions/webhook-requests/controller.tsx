@@ -177,7 +177,6 @@ export const webhookRequestsResend = createAction<typeof webhookRequestsResendRo
         [hermesStatusText, id],
       )
 
-      webhookChannel.broadcast('new_request')
       webhookChannel.broadcast('invalidate')
 
       let params = new URLSearchParams()
