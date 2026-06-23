@@ -62,6 +62,34 @@ export function skipCsrf(): Middleware {
 }
 ```
 
+### Gotcha: New `createAction`/`router.post()` Routes Also Need CSRF Bypass
+
+When you add a new POST route via `createAction` + `router.post()` (not a form), it still goes through CSRF middleware and silently returns 403 — not with "missing csrf token" but a bare 403 that looks like an auth/IP rejection.
+
+**Scenario:** You add:
+```ts
+// routes.ts
+export const callbackRoute = post('/callback')
+
+// router.ts
+router.post(callbackRoute, callbackReceive)
+```
+
+And `callbackReceive` returns 403 even when the controller logic looks correct. The root cause is CSRF middleware running before your handler.
+
+**Fix:** Add the new path to the existing `skip-csrf.ts` skip list:
+```ts
+if (
+  context.url.pathname.startsWith('/webhook/') ||
+  context.url.pathname === '/callback'   // ← add new routes here
+) {
+  return next()
+}
+```
+
+**Debug tip:** When a new POST route returns 403 and the handler's logic seems correct, check `skip-csrf.ts` first. If the route isn't a browser form (server-to-server, API, callback), it needs to be added to the skip list.
+```
+
 In your middleware chain, replace the standalone `csrf()` with the wrapper:
 
 ```tsx

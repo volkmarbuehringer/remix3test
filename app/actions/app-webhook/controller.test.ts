@@ -49,7 +49,7 @@ describe('App-Webhook controller', () => {
     assert.equal(response.status, 200)
     let json = await response.json()
     assert.ok(typeof json.id === 'string' && json.id.length > 0, 'should return a UUID string')
-    assert.equal(json.callbackUrl, 'http://127.0.0.1:44100/webhook-response')
+    assert.equal(json.callbackUrl, 'http://127.0.0.1:44100/callback')
     assert.deepEqual(json.payload, { event: 'test', data: { foo: 'bar' } })
 
     let { rows } = await pool.query('SELECT hermes_status FROM webhook_requests WHERE id = $1', [json.id])

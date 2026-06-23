@@ -25,6 +25,8 @@ export interface WebhookRequestRow {
   source_ip: string
   created_at: number
   hermes_status: string | null
+  callback_response: Record<string, unknown> | string | null
+  callback_received_at: number | null
 }
 
 interface PageData {
@@ -54,7 +56,7 @@ async function loadPageData(
     direction = overrides.sortDirection ?? 'desc'
   }
 
-  let query = `SELECT id, payload, token, headers, source_ip, created_at, hermes_status FROM webhook_requests`
+  let query = `SELECT id, payload, token, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests`
   let params: unknown[] = []
   let paramIndex = 0
 

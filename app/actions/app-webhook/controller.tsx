@@ -3,6 +3,7 @@ import { SuperHeaders } from 'remix/headers'
 import { pool } from '../../data/setup.ts'
 import { appWebhookRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
+import { sourceIp } from '../../lib/request-ip.ts'
 import type { AppContext } from '../../types/context.ts'
 
 function hermesUrl(): string {
@@ -65,17 +66,11 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
         }
       })
 
-      let sourceIp =
-        context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
-        context.request.headers.get('X-Real-Ip') ??
-        context.request.headers.get('X-Client-Ip') ??
-        ''
-
       let result = await pool.query<WebhookInsertResult>(
         `INSERT INTO webhook_requests (payload, token, headers, source_ip, created_at)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [serializedPayload, token, JSON.stringify(headers), sourceIp, now],
+        [serializedPayload, token, JSON.stringify(headers), sourceIp(context.request), now],
       )
 
       let row = result.rows[0]
@@ -85,13 +80,16 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       webhookChannel.broadcast('new_request')
 
       let hermesStatusText: string
+      let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
+      let hermesPayload = JSON.stringify({ id, callbackUrl, payload: body })
+      if (process.env.NODE_ENV !== 'test') console.log(`[Webhook] Sende an Hermes: ${hermesUrl()} payload=${hermesPayload}`)
 
       try {
         let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
         let hermesResponse = await fetch(hermesUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, payload: body }),
+          body: hermesPayload,
           signal,
         })
         hermesStatusText = String(hermesResponse.status)
@@ -107,7 +105,6 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       let responseHeaders = new SuperHeaders()
       responseHeaders.contentType = { mediaType: 'application/json' }
 
-      let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://127.0.0.1:44100/webhook-response'
       let responseBody = { id, callbackUrl, payload: body }
 
       return new Response(JSON.stringify(responseBody), {

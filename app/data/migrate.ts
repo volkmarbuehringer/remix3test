@@ -256,6 +256,8 @@ export async function migrate(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_token_idx ON webhook_requests (token)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_created_at_idx ON webhook_requests (created_at DESC)`)
   await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS hermes_status TEXT`)
+  await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_response JSONB`)
+  await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_received_at BIGINT`)
 
   console.log('[DB] Tables created/verified')
   } finally {

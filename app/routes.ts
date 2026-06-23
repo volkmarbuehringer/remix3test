@@ -5,6 +5,7 @@ export const webhookRoute = post('/webhook/:token')
 export const appWebhookRoute = post('/app-webhook/:token')
 export const webhookRequestsRoute = get('/webhook-requests')
 export const webhookRequestsEventsRoute = get('/webhook-requests/events')
+export const callbackRoute = post('/callback')
 
 export const frames = {
   adminContent: 'admin-content',

@@ -3,6 +3,7 @@ import { SuperHeaders } from 'remix/headers'
 import { pool } from '../../data/setup.ts'
 import { webhookRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
+import { sourceIp } from '../../lib/request-ip.ts'
 import type { AppContext } from '../../types/context.ts'
 
 const SENSITIVE_HEADERS = new Set([
@@ -16,6 +17,8 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
   webhookRoute,
   {
     handler: async (context) => {
+      let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Webhook]') : () => {}
+
       let token = context.params.token
       let expected = process.env.WEBHOOK_TOKEN
       if (expected === undefined || expected === '') {
@@ -51,20 +54,16 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
         }
       })
 
-      let sourceIp =
-        context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
-        context.request.headers.get('X-Real-Ip') ??
-        context.request.headers.get('X-Client-Ip') ??
-        ''
-
+      let serialized = JSON.stringify(body)
       let result = await pool.query(
         `INSERT INTO webhook_requests (payload, token, headers, source_ip, created_at)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id`,
-        [JSON.stringify(body), token, JSON.stringify(headers), sourceIp, now],
+        [serialized, token, JSON.stringify(headers), sourceIp(context.request), now],
       )
 
       let id = result.rows[0].id
+      log('Gespeichert: id=' + id + ' payload=' + serialized.slice(0, 500))
 
       webhookChannel.broadcast('new_request')
 

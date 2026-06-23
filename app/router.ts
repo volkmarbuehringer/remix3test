@@ -25,8 +25,9 @@ import uploadsController, { download as uploadsDownloadHandler } from './actions
 import { webhookReceive } from './actions/webhook/controller.tsx'
 import { appWebhookReceive } from './actions/app-webhook/controller.tsx'
 import { webhookRequestsIndex, webhookRequestsEvents } from './actions/webhook-requests/controller.tsx'
+import { callbackReceive } from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookRequestsEventsRoute, appWebhookRoute } from './routes.ts'
+import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookRequestsEventsRoute, appWebhookRoute, callbackRoute } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -77,6 +78,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Webhook routes
   router.post(webhookRoute, webhookReceive)
   router.post(appWebhookRoute, appWebhookReceive)
+  router.post(callbackRoute, callbackReceive)
   router.get(webhookRequestsRoute, webhookRequestsIndex)
   router.get(webhookRequestsEventsRoute, webhookRequestsEvents)
 

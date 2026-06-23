@@ -80,6 +80,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                   ['token', 'Token'],
                   ['source_ip', 'Quelle'],
                   ['hermes_status', 'Status'],
+                  ['', 'Callback'],
                   ['', 'Payload'],
                 ].map(([field, label]) => (
                   <th key={field || 'payload'} mix={field ? table.thSortable : table.th}>
@@ -101,7 +102,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             <tbody>
               {p.rows.length === 0 ? (
                 <tr>
-                    <td colspan={5} mix={table.empty}>Noch keine Webhook-Requests.</td>
+                    <td colspan={6} mix={table.empty}>Noch keine Webhook-Requests.</td>
                 </tr>
               ) : (
                 p.rows.map((row) => (
@@ -110,6 +111,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}><code mix={codeStyle}>{row.token}</code></td>
                     <td mix={table.td}>{row.source_ip}</td>
                     <td mix={table.td}><span mix={!row.hermes_status ? statusBadgeNeutral : row.hermes_status === 'error' ? statusBadgeError : is2xx(row.hermes_status) ? statusBadgeOk : statusBadgeError}>{row.hermes_status ?? '-'}</span></td>
+                    <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                   </tr>
                 ))
@@ -154,6 +156,19 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             let evtSource = new EventSource('${webhookRequestsEventsRoute.href()}')
             let reloadTimer = null
             evtSource.addEventListener('new_request', function() {
+              if (reloadTimer) return
+              if (statusEl) {
+                statusEl.textContent = 'Neu laden...'
+                statusEl.style.backgroundColor = '#22c55e'
+              }
+              reloadTimer = setTimeout(function() {
+                reloadTimer = null
+                let url = new URL(window.location.href)
+                url.searchParams.set('_t', Date.now())
+                window.location.href = url.toString()
+              }, 2000)
+            })
+            evtSource.addEventListener('callback_received', function() {
               if (reloadTimer) return
               if (statusEl) {
                 statusEl.textContent = 'Neu laden...'
