@@ -153,6 +153,30 @@ describe('Callback controller', () => {
     assert.equal(response.status, 400)
   })
 
+  it('returns 409 for duplicate callback', async () => {
+    let id = crypto.randomUUID()
+    await insertWebhookRow(id)
+
+    let body = { id, status: 'completed', result: { output: 'data' } }
+    let makeRequest = () =>
+      new Request(`${BASE}/callback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Forwarded-For': '127.0.0.1',
+        },
+        body: JSON.stringify(body),
+      })
+
+    let first = await router.fetch(makeRequest())
+    assert.equal(first.status, 200)
+
+    let second = await router.fetch(makeRequest())
+    assert.equal(second.status, 409)
+    let text = await second.text()
+    assert.ok(text.includes('already received'), 'should mention conflict reason')
+  })
+
   it('returns 404 for non-existent UUID', async () => {
     let response = await router.fetch(`${BASE}/callback`, {
       method: 'POST',

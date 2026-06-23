@@ -11,7 +11,7 @@ The system SHALL render an SSR page at `/webhook-requests` displaying the conten
 #### Scenario: Page renders with data
 
 - **WHEN** a user navigates to `/webhook-requests`
-- **THEN** the page SHALL display a table of webhook requests with columns: created_at, payload (truncated), token, source_ip
+- **THEN** the page SHALL display a table of webhook requests with columns: created_at, payload (truncated), token, source_ip, callback_received_at
 - **THEN** empty state SHALL display a "No requests yet" message
 
 ### Requirement: Paging
@@ -27,7 +27,7 @@ The table SHALL support pagination with configurable page size.
 
 ### Requirement: Sorting
 
-The table SHALL support sorting by any column (created_at, token, source_ip).
+The table SHALL support sorting by any column (created_at, token, source_ip, callback_received_at).
 
 #### Scenario: Sort by column
 

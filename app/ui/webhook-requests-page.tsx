@@ -75,15 +75,17 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
           <table mix={table.table}>
             <thead>
               <tr>
-                {[
-                  ['created_at', 'Zeit'],
-                  ['token', 'Token'],
-                  ['source_ip', 'Quelle'],
-                  ['hermes_status', 'Status'],
-                  ['', 'Callback'],
-                  ['', 'Payload'],
-                ].map(([field, label]) => (
-                  <th key={field || 'payload'} mix={field ? table.thSortable : table.th}>
+                {(
+                  [
+                    ['created_at', 'Zeit', 'auto'],
+                    ['source_ip', 'Quelle', '130px'],
+                    ['hermes_status', 'Status', '70px'],
+                    ['callback_received_at', 'Callback empfangen', '145px'],
+                    ['', 'Callback', '100px'],
+                    ['', 'Payload', 'auto'],
+                  ] as [string, string, string][]
+                ).map(([field, label, w]) => (
+                  <th key={field || label} style={w !== 'auto' ? { width: w } : undefined} mix={field ? table.thSortable : table.th}>
                     {field ? (
                       <a
                         href={buildUrl({ sort: field, order: field === curSort ? (curOrder === 'asc' ? 'desc' : 'asc') : 'desc', offset: '0', filter: curFilter || undefined })}
@@ -108,9 +110,9 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                 p.rows.map((row) => (
                   <tr key={row.id} mix={table.row}>
                     <td mix={table.td}>{fmtDate(row.created_at)}</td>
-                    <td mix={table.td}><code mix={codeStyle}>{row.token}</code></td>
                     <td mix={table.td}>{row.source_ip}</td>
                     <td mix={table.td}><span mix={!row.hermes_status ? statusBadgeNeutral : row.hermes_status === 'error' ? statusBadgeError : is2xx(row.hermes_status) ? statusBadgeOk : statusBadgeError}>{row.hermes_status ?? '-'}</span></td>
+                    <td mix={table.td}>{row.callback_received_at ? fmtDate(row.callback_received_at) : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                   </tr>

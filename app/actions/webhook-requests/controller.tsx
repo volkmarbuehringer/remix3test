@@ -16,6 +16,7 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
   token: 'token',
   source_ip: 'source_ip',
   hermes_status: 'hermes_status',
+  callback_received_at: 'callback_received_at',
 }
 
 export interface WebhookRequestRow {

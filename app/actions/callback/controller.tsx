@@ -62,12 +62,16 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
       let now = Date.now()
 
       let result = await pool.query(
-        `UPDATE webhook_requests SET callback_response = $1, callback_received_at = $2 WHERE id = $3`,
+        `UPDATE webhook_requests SET callback_response = $1, callback_received_at = $2 WHERE id = $3 AND callback_received_at IS NULL`,
         [serialized, now, id],
       )
 
       if (result.rowCount === 0) {
-        return new Response('Not Found', { status: 404 })
+        let exists = await pool.query(`SELECT 1 FROM webhook_requests WHERE id = $1`, [id])
+        if (exists.rowCount === 0) {
+          return new Response('Not Found', { status: 404 })
+        }
+        return new Response('Conflict: callback already received', { status: 409 })
       }
 
       webhookChannel.broadcast('callback_received')
