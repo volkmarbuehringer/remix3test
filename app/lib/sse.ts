@@ -121,7 +121,7 @@ export function createChannel<EventMap extends Record<string, unknown>>(
 
     let headers = new SuperHeaders()
     headers.contentType = { mediaType: 'text/event-stream' }
-    headers.cacheControl = { noCache: true }
+    headers.cacheControl = { noCache: true, noStore: true }
     headers.connection = 'keep-alive'
     headers.set('X-Accel-Buffering', 'no')
 

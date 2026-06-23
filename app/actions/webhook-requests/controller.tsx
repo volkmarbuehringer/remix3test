@@ -178,6 +178,7 @@ export const webhookRequestsResend = createAction<typeof webhookRequestsResendRo
       )
 
       webhookChannel.broadcast('new_request')
+      webhookChannel.broadcast('invalidate')
 
       let params = new URLSearchParams()
       if (offset !== '0') params.set('offset', String(offset))

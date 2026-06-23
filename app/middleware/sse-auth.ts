@@ -4,7 +4,7 @@ import { Auth } from 'remix/middleware/auth'
 export function requireSseAuth(): Middleware {
   return async (context, next) => {
     let auth = context.get(Auth)
-    if (!auth || !('user' in auth) || !auth.user) {
+    if (!auth || !auth.ok || !auth.identity) {
       return new Response('Unauthorized', { status: 401 })
     }
     return next()

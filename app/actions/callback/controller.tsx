@@ -75,6 +75,7 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
       }
 
       webhookChannel.broadcast('callback_received')
+      webhookChannel.broadcast('invalidate')
 
       let responseHeaders = new SuperHeaders()
       responseHeaders.contentType = { mediaType: 'application/json' }

@@ -15,6 +15,7 @@ describe('App-Webhook controller', () => {
   before(async () => {
     await initializeAppDatabase()
     process.env.WEBHOOK_TOKEN = TEST_TOKEN
+    process.env.WEBHOOK_CALLBACK_URL = 'http://127.0.0.1:44100/callback'
 
     await new Promise<void>((resolve) => {
       hermesServer = createServer((req, res) => {
@@ -35,6 +36,7 @@ describe('App-Webhook controller', () => {
     hermesServer?.close()
     await pool.query(`DELETE FROM webhook_requests WHERE token = $1`, [TEST_TOKEN])
     delete process.env.WEBHOOK_TOKEN
+    delete process.env.WEBHOOK_CALLBACK_URL
   })
 
   it('inserts payload, returns id + callbackUrl + payload, and forwards to hermes', async () => {

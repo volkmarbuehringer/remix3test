@@ -5,8 +5,9 @@ import { webhookRequestsRoute, webhookRequestsEventsRoute } from '../routes.ts'
 import type { WebhookRequestRow } from '../actions/webhook-requests/controller.tsx'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
-import { getCspNonce } from '../middleware/security-headers.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 
 const BASE = webhookRequestsRoute.href()
 
@@ -56,9 +57,10 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
 
     return (
       <div mix={page}>
+        <ConfirmDelete />
         <div mix={headerRow}>
           <h1 mix={table.title}>Webhook Requests</h1>
-          <span mix={sseBadge} id="sse-status">Verbunden</span>
+          <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" />
         </div>
 
         <form method="GET" action={BASE} mix={table.filterBar}>
@@ -118,7 +120,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                     <td mix={table.td}>
-                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`}>
+                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?">
                         <CsrfTokenInput />
                         <button type="submit" mix={resendBtn}>Resenden</button>
                       </form>
@@ -160,51 +162,6 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
           </div>
         )}
 
-        <script type="module" nonce={getCspNonce()}>{`
-          (function() {
-            let statusEl = document.getElementById('sse-status')
-            let evtSource = new EventSource('${webhookRequestsEventsRoute.href()}')
-            let reloadTimer = null
-            evtSource.addEventListener('new_request', function() {
-              if (reloadTimer) return
-              if (statusEl) {
-                statusEl.textContent = 'Neu laden...'
-                statusEl.style.backgroundColor = '#22c55e'
-              }
-              reloadTimer = setTimeout(function() {
-                reloadTimer = null
-                let url = new URL(window.location.href)
-                url.searchParams.set('_t', Date.now())
-                window.location.href = url.toString()
-              }, 2000)
-            })
-            evtSource.addEventListener('callback_received', function() {
-              if (reloadTimer) return
-              if (statusEl) {
-                statusEl.textContent = 'Neu laden...'
-                statusEl.style.backgroundColor = '#22c55e'
-              }
-              reloadTimer = setTimeout(function() {
-                reloadTimer = null
-                let url = new URL(window.location.href)
-                url.searchParams.set('_t', Date.now())
-                window.location.href = url.toString()
-              }, 2000)
-            })
-            evtSource.addEventListener('connected', function() {
-              if (statusEl) {
-                statusEl.textContent = 'Live'
-                statusEl.style.backgroundColor = '#22c55e'
-              }
-            })
-            evtSource.onerror = function() {
-              if (statusEl) {
-                statusEl.textContent = 'Getrennt'
-                statusEl.style.backgroundColor = '#ef4444'
-              }
-            }
-          })()
-        `}</script>
       </div>
     )
   }
@@ -215,12 +172,6 @@ const page = css({ maxWidth: '1000px', margin: '0 auto', padding: theme.space.xl
 const headerRow = css({
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
   marginBottom: theme.space.md,
-})
-
-const sseBadge = css({
-  fontSize: theme.fontSize.xs, padding: `${theme.space.xs} ${theme.space.sm}`,
-  borderRadius: theme.radius.md, backgroundColor: '#22c55e', color: '#fff',
-  fontWeight: theme.fontWeight.semibold,
 })
 
 const statusBadgeOk = css({
@@ -247,4 +198,5 @@ const resendBtn = css({
   fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
   backgroundColor: '#3b82f6', color: '#fff', fontWeight: theme.fontWeight.semibold,
   border: 'none', cursor: 'pointer',
+  '&:hover': { backgroundColor: '#2563eb' },
 })

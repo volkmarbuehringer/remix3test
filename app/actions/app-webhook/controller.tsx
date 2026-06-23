@@ -78,6 +78,7 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       let id = row.id
 
       webhookChannel.broadcast('new_request')
+      webhookChannel.broadcast('invalidate')
 
       let hermesStatusText: string
       let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'

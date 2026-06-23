@@ -66,6 +66,7 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
       log('Gespeichert: id=' + id + ' payload=' + serialized.slice(0, 500))
 
       webhookChannel.broadcast('new_request')
+      webhookChannel.broadcast('invalidate')
 
       let responseHeaders = new SuperHeaders()
       responseHeaders.contentType = { mediaType: 'application/json' }
