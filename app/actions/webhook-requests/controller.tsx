@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
 import { pool } from '../../data/setup.ts'
-import { webhookRequestsRoute, webhookRequestsEventsRoute } from '../../routes.ts'
+import { webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
@@ -115,5 +115,81 @@ export const webhookRequestsEvents = createAction<typeof webhookRequestsEventsRo
   {
     middleware: [requireSseAuth()],
     handler: async (context) => webhookChannel.subscribe(context.request),
+  },
+)
+
+function hermesUrl(): string {
+  return process.env.HERMES_URL ?? 'http://127.0.0.1:8644/webhooks/app-webhook'
+}
+
+const HERMES_TIMEOUT_MS = 3_000
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const webhookRequestsResend = createAction<typeof webhookRequestsResendRoute, AppContext>(
+  webhookRequestsResendRoute,
+  {
+    middleware: [requireAuth()],
+    handler: async (context) => {
+      let id = context.params.id
+      if (!id || !UUID_RE.test(id)) {
+        return new Response('Invalid UUID', { status: 400 })
+      }
+
+      let offset = context.url.searchParams.get('offset') || '0'
+      let sort = context.url.searchParams.get('sort') || 'created_at'
+      let order = context.url.searchParams.get('order') || 'desc'
+      let filter = context.url.searchParams.get('filter') || ''
+
+      let rowResult = await pool.query(
+        `SELECT payload FROM webhook_requests WHERE id = $1`,
+        [id],
+      )
+      if (rowResult.rowCount === 0) {
+        return new Response('Not Found', { status: 404 })
+      }
+
+      let row = rowResult.rows[0] as { payload: Record<string, unknown> }
+
+      await pool.query(
+        `UPDATE webhook_requests SET callback_response = NULL, callback_received_at = NULL WHERE id = $1`,
+        [id],
+      )
+
+      let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
+      let hermesPayload = JSON.stringify({ id, callbackUrl, payload: row.payload })
+
+      let hermesStatusText: string
+      try {
+        let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
+        let hermesResponse = await fetch(hermesUrl(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: hermesPayload,
+          signal,
+        })
+        hermesStatusText = String(hermesResponse.status)
+      } catch {
+        hermesStatusText = 'error'
+      }
+
+      await pool.query(
+        `UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2`,
+        [hermesStatusText, id],
+      )
+
+      webhookChannel.broadcast('new_request')
+
+      let params = new URLSearchParams()
+      if (offset !== '0') params.set('offset', String(offset))
+      params.set('sort', String(sort))
+      params.set('order', String(order))
+      if (filter) params.set('filter', String(filter))
+      let qs = params.toString()
+
+      return new Response(null, {
+        status: 303,
+        headers: { Location: webhookRequestsRoute.href() + (qs ? '?' + qs : '') },
+      })
+    },
   },
 )

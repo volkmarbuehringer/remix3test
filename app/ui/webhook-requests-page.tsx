@@ -6,6 +6,7 @@ import type { WebhookRequestRow } from '../actions/webhook-requests/controller.t
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
+import { CsrfTokenInput } from './csrf-token-input.tsx'
 
 const BASE = webhookRequestsRoute.href()
 
@@ -83,6 +84,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     ['callback_received_at', 'Callback empfangen', '145px'],
                     ['', 'Callback', '100px'],
                     ['', 'Payload', 'auto'],
+                    ['', 'Aktion', '90px'],
                   ] as [string, string, string][]
                 ).map(([field, label, w]) => (
                   <th key={field || label} style={w !== 'auto' ? { width: w } : undefined} mix={field ? table.thSortable : table.th}>
@@ -104,7 +106,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             <tbody>
               {p.rows.length === 0 ? (
                 <tr>
-                    <td colspan={6} mix={table.empty}>Noch keine Webhook-Requests.</td>
+                    <td colspan={7} mix={table.empty}>Noch keine Webhook-Requests.</td>
                 </tr>
               ) : (
                 p.rows.map((row) => (
@@ -115,6 +117,12 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}>{row.callback_received_at ? fmtDate(row.callback_received_at) : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
+                    <td mix={table.td}>
+                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`}>
+                        <CsrfTokenInput />
+                        <button type="submit" mix={resendBtn}>Resenden</button>
+                      </form>
+                    </td>
                   </tr>
                 ))
               )}
@@ -233,4 +241,10 @@ const statusBadgeError = css({
 const codeStyle = css({
   fontSize: theme.fontSize.xs, backgroundColor: theme.surface.lvl2,
   padding: '2px 6px', borderRadius: theme.radius.sm,
+})
+
+const resendBtn = css({
+  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
+  backgroundColor: '#3b82f6', color: '#fff', fontWeight: theme.fontWeight.semibold,
+  border: 'none', cursor: 'pointer',
 })
