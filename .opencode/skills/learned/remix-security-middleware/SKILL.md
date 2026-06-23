@@ -38,6 +38,42 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 
 `CsrfTokenInput` renders `<input type="hidden" name="_csrf" value="<token>" />` during SSR by reading the CSRF token from async request context.
 
+### Skipping CSRF for External Endpoints (Webhooks)
+
+When `csrf()` is installed globally, external callers (webhooks, API integrations) cannot provide a CSRF token. Wrap the `csrf()` middleware in a path-checking conditional:
+
+```tsx
+// app/middleware/skip-csrf.ts
+import type { Middleware } from 'remix/router'
+import { csrf } from 'remix/middleware/csrf'
+
+const csrfMiddleware = csrf({
+  origin: (origin, context) =>
+    /\.trusteddomain\.com$/.test(origin) || origin === context.url.origin,
+})
+
+export function skipCsrf(): Middleware {
+  return async (context, next) => {
+    if (context.url.pathname.startsWith('/webhook/')) {
+      return next()  // ← bypass CSRF for webhook paths
+    }
+    return csrfMiddleware(context, next)  // ← CSRF for everything else
+  }
+}
+```
+
+In your middleware chain, replace the standalone `csrf()` with the wrapper:
+
+```tsx
+// app/middleware/root.ts
+createMiddleware(
+  ...
+  session(cookie, storage),
+  skipCsrf(),  // ← replaces csrf({...})
+  ...
+)
+```
+
 **clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
 
 ```tsx

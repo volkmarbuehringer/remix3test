@@ -243,6 +243,19 @@ export async function migrate(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS uploads_uploaded_by_idx ON uploads (uploaded_by)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS uploads_created_at_idx ON uploads (created_at DESC)`)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS webhook_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      payload JSONB NOT NULL DEFAULT '{}',
+      token TEXT NOT NULL,
+      headers JSONB NOT NULL DEFAULT '{}',
+      source_ip TEXT NOT NULL DEFAULT '',
+      created_at BIGINT NOT NULL
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_token_idx ON webhook_requests (token)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_created_at_idx ON webhook_requests (created_at DESC)`)
+
   console.log('[DB] Tables created/verified')
   } finally {
     await pool.query(`SELECT pg_advisory_unlock(287140921)`)

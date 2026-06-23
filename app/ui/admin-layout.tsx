@@ -1,7 +1,7 @@
 import type { RemixNode } from 'remix/ui'
 import { Glyph } from '../lib/glyph.ts'
 
-import { routes, frames } from '../routes.ts'
+import { routes, frames, webhookRequestsRoute } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 import { AdminViewToggle } from '../assets/admin-view-toggle.tsx'
 import { PersistentAdminCounter } from '../assets/persistent-admin-counter.tsx'
@@ -17,6 +17,7 @@ export type AdminNavItem =
   | 'users'
   | 'nutzer'
   | 'uploads'
+  | 'webhooks'
 
 // ── Nav data ────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
       { id: 'uploads', label: 'Uploads', route: routes.uploads.index },
+      { id: 'webhooks', label: 'Webhooks', route: webhookRequestsRoute, iframeNav: false },
     ],
   },
 ]
@@ -64,6 +66,8 @@ function navIcon(id: AdminNavItem): RemixNode {
       return usersSvg()
     case 'uploads':
       return uploadSvg()
+    case 'webhooks':
+      return webhookSvg()
   }
 }
 
@@ -113,6 +117,16 @@ function usersSvg(): RemixNode {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function webhookSvg(): RemixNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 8a6 6 0 0 1 0 8" />
+      <path d="M6 8a6 6 0 0 0 0 8" />
+      <path d="M2 12h20" />
     </svg>
   )
 }

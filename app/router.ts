@@ -22,8 +22,10 @@ import { appointment, appointmentTypes } from './actions/appointment/controller.
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
 import uploadsController, { download as uploadsDownloadHandler } from './actions/uploads/controller.tsx'
+import { webhookReceive } from './actions/webhook/controller.tsx'
+import { webhookRequestsIndex, webhookRequestsEvents } from './actions/webhook-requests/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes, uploadsDownload } from './routes.ts'
+import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookRequestsEventsRoute } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -70,6 +72,11 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Settings routes
   router.map(routes.settings, settingsController)
+
+  // Webhook routes
+  router.post(webhookRoute, webhookReceive)
+  router.get(webhookRequestsRoute, webhookRequestsIndex)
+  router.get(webhookRequestsEventsRoute, webhookRequestsEvents)
 
   // Uploads routes
   router.map(routes.uploads, uploadsController)

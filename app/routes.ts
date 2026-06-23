@@ -1,6 +1,9 @@
 import { del, get, post, put, route, form, resources } from 'remix/routes'
 
 export const uploadsDownload = get('/uploads/:id/download')
+export const webhookRoute = post('/webhook/:token')
+export const webhookRequestsRoute = get('/webhook-requests')
+export const webhookRequestsEventsRoute = get('/webhook-requests/events')
 
 export const frames = {
   adminContent: 'admin-content',

@@ -1,0 +1,114 @@
+import { createAction } from 'remix/router'
+import { pool } from '../../data/setup.ts'
+import { webhookRequestsRoute, webhookRequestsEventsRoute } from '../../routes.ts'
+import { webhookChannel } from '../../lib/sse-events.ts'
+import { Document } from '../../ui/document.tsx'
+import { Layout } from '../../ui/layout.tsx'
+import { WebhookRequestsPage } from '../../ui/webhook-requests-page.tsx'
+import { requireAuth } from '../../middleware/auth.ts'
+import { requireSseAuth } from '../../middleware/sse-auth.ts'
+import type { AppContext } from '../../types/context.ts'
+
+const PAGE_SIZE = 15
+
+const ORDER_BY_COLUMNS: Record<string, string> = {
+  created_at: 'created_at',
+  token: 'token',
+  source_ip: 'source_ip',
+}
+
+export interface WebhookRequestRow {
+  id: string
+  payload: Record<string, unknown>
+  token: string
+  source_ip: string
+  created_at: number
+}
+
+interface PageData {
+  rows: WebhookRequestRow[]
+  offset: number
+  hasMore: boolean
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+}
+
+async function loadPageData(
+  context: AppContext,
+  overrides?: Partial<Pick<PageData, 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+): Promise<PageData> {
+  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
+
+  let sortParam = context.url.searchParams.get('sort') || 'created_at'
+  let orderParam = context.url.searchParams.get('order') || 'desc'
+  let column = ORDER_BY_COLUMNS[sortParam] || 'created_at'
+  let direction: 'asc' | 'desc' = orderParam === 'asc' ? 'asc' : 'desc'
+  if (overrides?.sortColumn) {
+    column = ORDER_BY_COLUMNS[overrides.sortColumn] || 'created_at'
+    direction = overrides.sortDirection ?? 'desc'
+  }
+
+  let query = `SELECT id, payload, token, headers, source_ip, created_at FROM webhook_requests`
+  let params: unknown[] = []
+  let paramIndex = 0
+
+  if (filter && filter.length <= 200) {
+    paramIndex++
+    query += ` WHERE token ILIKE $${paramIndex}`
+    params.push(`%${filter}%`)
+  }
+
+  paramIndex++
+  query += ` ORDER BY ${column} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` LIMIT $${paramIndex}`
+  params.push(PAGE_SIZE + 1)
+
+  paramIndex++
+  query += ` OFFSET $${paramIndex}`
+  params.push(offset)
+
+  let result = await pool.query(query, params)
+  let rows = result.rows as WebhookRequestRow[]
+  let hasMore = rows.length > PAGE_SIZE
+  if (hasMore) rows.pop()
+
+  return {
+    rows,
+    offset,
+    hasMore,
+    prevOffset: Math.max(0, offset - PAGE_SIZE),
+    nextOffset: offset + PAGE_SIZE,
+    sortColumn: sortParam,
+    sortDirection: direction,
+    filter,
+  }
+}
+
+export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, AppContext>(
+  webhookRequestsRoute,
+  {
+    middleware: [requireAuth()],
+    handler: async (context) => {
+      let data = await loadPageData(context)
+      return context.render(
+        <Document title="Webhook Requests">
+          <Layout>
+            <WebhookRequestsPage {...data} />
+          </Layout>
+        </Document>,
+      )
+    },
+  },
+)
+
+export const webhookRequestsEvents = createAction<typeof webhookRequestsEventsRoute, AppContext>(
+  webhookRequestsEventsRoute,
+  {
+    middleware: [requireSseAuth()],
+    handler: async (context) => webhookChannel.subscribe(context.request),
+  },
+)

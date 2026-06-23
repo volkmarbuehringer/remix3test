@@ -2,7 +2,7 @@ import type { Cookie } from 'remix/cookie'
 import { createMiddleware, type Middleware } from 'remix/router'
 import { asyncContext } from 'remix/middleware/async-context'
 import { compression } from 'remix/middleware/compression'
-import { csrf } from 'remix/middleware/csrf'
+
 import { formData } from 'remix/middleware/form-data'
 import { uploadHandler } from './uploads.ts'
 import { logger, Logger } from 'remix/middleware/logger'
@@ -11,6 +11,9 @@ import { session } from 'remix/middleware/session'
 import type { SessionStorage } from 'remix/session'
 
 import { globalRateLimit } from './global-rate-limit.ts'
+import { skipCsrf } from './skip-csrf.ts'
+
+
 import { json } from './json-render.ts'
 import { render } from './render.tsx'
 import { loadAssetEntry } from './asset-entry.ts'
@@ -46,10 +49,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
     methodOverride(),
     session(cookie, storage),
-    csrf({
-      origin: (origin, context) =>
-        /\.trycloudflare\.com$/.test(origin) || origin === context.url.origin,
-    }),
+    skipCsrf(),
     asyncContext(),
     loadDatabase(),
     loadAuth(),

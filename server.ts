@@ -14,8 +14,11 @@ const router = createNewappRouter()
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 
 const handler = createRequestListener(
-  async (request) => {
+  async (request, client) => {
     try {
+      if (client?.address) {
+        request.headers.set('X-Client-Ip', client.address)
+      }
       return await router.fetch(request)
     } catch (error) {
       if (!(request.signal.aborted && error === request.signal.reason)) {
