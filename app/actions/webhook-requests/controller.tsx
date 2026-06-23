@@ -15,6 +15,7 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
   created_at: 'created_at',
   token: 'token',
   source_ip: 'source_ip',
+  hermes_status: 'hermes_status',
 }
 
 export interface WebhookRequestRow {
@@ -23,6 +24,7 @@ export interface WebhookRequestRow {
   token: string
   source_ip: string
   created_at: number
+  hermes_status: string | null
 }
 
 interface PageData {
@@ -52,7 +54,7 @@ async function loadPageData(
     direction = overrides.sortDirection ?? 'desc'
   }
 
-  let query = `SELECT id, payload, token, headers, source_ip, created_at FROM webhook_requests`
+  let query = `SELECT id, payload, token, headers, source_ip, created_at, hermes_status FROM webhook_requests`
   let params: unknown[] = []
   let paramIndex = 0
 

@@ -34,6 +34,11 @@ function fmtDate(ts: number | string): string {
   return new Date(Number(ts)).toLocaleString('de-DE')
 }
 
+function is2xx(s: string): boolean {
+  let n = Number(s)
+  return !Number.isNaN(n) && n >= 200 && n < 300
+}
+
 function truncatePayload(payload: Record<string, unknown>): string {
   let text = JSON.stringify(payload)
   if (text.length > 100) return text.slice(0, 100) + '...'
@@ -74,6 +79,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                   ['created_at', 'Zeit'],
                   ['token', 'Token'],
                   ['source_ip', 'Quelle'],
+                  ['hermes_status', 'Status'],
                   ['', 'Payload'],
                 ].map(([field, label]) => (
                   <th key={field || 'payload'} mix={field ? table.thSortable : table.th}>
@@ -95,7 +101,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             <tbody>
               {p.rows.length === 0 ? (
                 <tr>
-                  <td colspan={4} mix={table.empty}>Noch keine Webhook-Requests.</td>
+                    <td colspan={5} mix={table.empty}>Noch keine Webhook-Requests.</td>
                 </tr>
               ) : (
                 p.rows.map((row) => (
@@ -103,6 +109,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}>{fmtDate(row.created_at)}</td>
                     <td mix={table.td}><code mix={codeStyle}>{row.token}</code></td>
                     <td mix={table.td}>{row.source_ip}</td>
+                    <td mix={table.td}><span mix={!row.hermes_status ? statusBadgeNeutral : row.hermes_status === 'error' ? statusBadgeError : is2xx(row.hermes_status) ? statusBadgeOk : statusBadgeError}>{row.hermes_status ?? '-'}</span></td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                   </tr>
                 ))
@@ -189,6 +196,21 @@ const sseBadge = css({
   fontSize: theme.fontSize.xs, padding: `${theme.space.xs} ${theme.space.sm}`,
   borderRadius: theme.radius.md, backgroundColor: '#22c55e', color: '#fff',
   fontWeight: theme.fontWeight.semibold,
+})
+
+const statusBadgeOk = css({
+  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
+  backgroundColor: '#22c55e', color: '#fff', fontWeight: theme.fontWeight.semibold,
+})
+
+const statusBadgeNeutral = css({
+  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
+  backgroundColor: '#6b7280', color: '#fff', fontWeight: theme.fontWeight.semibold,
+})
+
+const statusBadgeError = css({
+  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
+  backgroundColor: '#ef4444', color: '#fff', fontWeight: theme.fontWeight.semibold,
 })
 
 const codeStyle = css({
