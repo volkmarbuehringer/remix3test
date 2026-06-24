@@ -60,7 +60,10 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
         <ConfirmDelete />
         <div mix={headerRow}>
           <h1 mix={table.title}>Webhook Requests</h1>
-          <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" />
+          <div mix={headerActions}>
+            <a href="/webhook-requests/create" mix={composeBtn}>Erstellen</a>
+            <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" />
+          </div>
         </div>
 
         <form method="GET" action={BASE} mix={table.filterBar}>
@@ -168,6 +171,25 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
 }
 
 const page = css({ maxWidth: '1000px', margin: '0 auto', padding: theme.space.xl })
+
+const headerActions = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+})
+
+const composeBtn = css({
+  padding: `${theme.space.sm} ${theme.space.md}`,
+  backgroundColor: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  borderRadius: theme.radius.md,
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  textDecoration: 'none',
+  '&:hover': {
+    backgroundColor: theme.colors.action.primary.backgroundHover,
+  },
+})
 
 const headerRow = css({
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',

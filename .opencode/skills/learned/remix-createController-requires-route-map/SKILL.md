@@ -1,6 +1,6 @@
 ---
 name: remix-createController-requires-route-map
-description: "Use createAction not createController for single post()/get()/put()/del() routes in Remix 3"
+description: "Use createAction for single routes, createController for form() routes in Remix 3"
 user-invocable: false
 origin: auto-extracted
 ---
@@ -54,8 +54,57 @@ router.post(routes.auth.logout, authLogout)
 // router.map(routes.auth.logout, logoutController)
 ```
 
+## Complementary Pattern: `form()` Routes Need `createController`
+
+The reverse situation also occurs. `createAction()` on a route defined with `form()` produces a different error:
+
+```
+error TS2344: Type '{ index: Route<"GET", "...">; action: Route<"POST", "...">; }'
+does not satisfy the constraint 'ActionRoute'.
+```
+
+`form()` creates a virtual route map with `index` (GET) and `action` (POST) sub-routes, but `createAction` expects a single `Route` object.
+
+**Fix:** Use `createController` with `actions.index` and `actions.action`, wired via `router.map()`:
+
+```typescript
+// routes.ts
+export const myFormRoute = form('/some-path')
+
+// controller.tsx — CORRECT
+import { createController } from 'remix/router'
+
+export const myFormController = createController<typeof myFormRoute, AppContext>(
+  myFormRoute,
+  {
+    middleware: [requireAuth()],
+    actions: {
+      index(context) {
+        return context.render(...)
+      },
+      async action(context) {
+        // POST handling
+        return new Response(null, { status: 303, headers: { Location: '/' } })
+      },
+    },
+  },
+)
+
+// router.ts — CORRECT
+router.map(myFormRoute, myFormController)
+```
+
+### Quick reference
+
+| Route type | Controller | Router call |
+|---|---|---|
+| `get()` / `post()` / `put()` / `del()` | `createAction` (single handler) | `router.get()` / `router.post()` / etc. |
+| `form()` | `createController` (`actions.index` + `actions.action`) | `router.map()` |
+
 ## When to Use
 
 - Adding a standalone `post()`, `get()`, `put()`, or `del()` route that doesn't belong to a larger route map controller
 - Refactoring auth/logout or search endpoints defined as single-method leaves
 - When `router.map()` type errors mention "Route not assignable to RouteMap"
+- When `createAction` produces TS2344 mentioning `index` and `action` — switch to `createController`
+- Adding a form page with GET + POST handling via `form()` in routes.ts

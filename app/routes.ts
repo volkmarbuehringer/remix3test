@@ -6,6 +6,7 @@ export const appWebhookRoute = post('/app-webhook')
 export const webhookRequestsRoute = get('/webhook-requests')
 export const webhookRequestsEventsRoute = get('/webhook-requests/events')
 export const webhookRequestsResendRoute = post('/webhook-requests/:id/resend')
+export const webhookCreateRoute = form('/webhook-requests/create')
 export const callbackRoute = post('/callback')
 
 export const frames = {
