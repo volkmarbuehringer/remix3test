@@ -133,16 +133,18 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                     <td mix={table.td}>
-                      <a
-                        href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
-                        mix={table.editBtn}
-                      >
-                        Bearbeiten
-                      </a>
-                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?" style="display:inline">
-                        <CsrfTokenInput />
-                        <button type="submit" mix={resendBtn}>Resenden</button>
-                      </form>
+                      <div mix={table.btnGroup}>
+                        <a
+                          href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
+                          mix={table.editBtn}
+                        >
+                          Bearbeiten
+                        </a>
+                        <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?" mix={inlineForm}>
+                          <CsrfTokenInput />
+                          <button type="submit" mix={actionBtn}>Resenden</button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -254,9 +256,18 @@ const codeStyle = css({
   padding: '2px 6px', borderRadius: theme.radius.sm,
 })
 
-const resendBtn = css({
-  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
-  backgroundColor: '#3b82f6', color: '#fff', fontWeight: theme.fontWeight.semibold,
-  border: 'none', cursor: 'pointer', marginLeft: theme.space.xs,
-  '&:hover': { backgroundColor: '#2563eb' },
+const inlineForm = css({
+  display: 'inline-flex',
+})
+
+const actionBtn = css({
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  border: 'none',
+  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+  fontSize: theme.fontSize.xs, cursor: 'pointer',
+  fontWeight: theme.fontWeight.semibold,
+  '&:hover': { opacity: 0.9 },
 })
