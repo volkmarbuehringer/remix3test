@@ -42,12 +42,6 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.verwaltung.usersExport.index.href()]: 'Benutzer-Export',
   [routes.verwaltung.usersPdf.index.href()]: 'Benutzer-PDF',
 
-  // UI showcase
-  [routes.ui.href()]: 'UI Showcase',
-  [routes.uiComponent.href({ component: 'button' })]: 'Button',
-  [routes.uiComponent.href({ component: 'form' })]: 'Form',
-  [routes.uiComponent.href({ component: 'theme' })]: 'Theme Tokens',
-
   // Lists
   [routes.lists.index.href()]: 'Lists',
   [routes.lists.save.href()]: 'Save',

@@ -20,8 +20,6 @@ export const frames = {
 export const routes = route({
   assets: get('/assets/*path'),
   home: get('/'),
-  ui: get('/ui'),
-  uiComponent: get('/ui/:component'),
 
   lists: route('lists', {
     index: get('/'),

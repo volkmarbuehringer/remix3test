@@ -6,8 +6,6 @@ import type { AppContext } from '../../types/context.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { HomePage } from '../../ui/scaffold-home-page.tsx'
-import { ShowcaseIndexPage } from '../../ui/showcase-pages.tsx'
-import { SHOWCASE_PAGES, type ShowcasePageId } from '../../ui/showcase-registry.ts'
 
 export default createController<typeof routes, AppContext>(routes, {
   actions: {
@@ -21,22 +19,6 @@ export default createController<typeof routes, AppContext>(routes, {
         <Document>
           <HomePage />
         </Document>,
-      )
-    },
-    ui(context) {
-      return context.render(
-        <Layout>
-          <ShowcaseIndexPage />
-        </Layout>,
-      )
-    },
-    uiComponent(context) {
-      let page = SHOWCASE_PAGES[context.params.component as ShowcasePageId]
-      if (!page) return new Response('Not Found', { status: 404 })
-      return context.render(
-        <Layout>
-          <page.render />
-        </Layout>,
       )
     },
   },
