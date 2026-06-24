@@ -1,10 +1,19 @@
-import { clientEntry, css, on, type Handle } from 'remix/ui'
+import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 
 interface Row {
   id: number
   key: string
   value: string
+}
+
+interface WebhookComposerProps extends SerializableProps {
+  initialPayload?: string
+  editId?: string
+  _offset?: string
+  _sort?: string
+  _order?: string
+  _filter?: string
 }
 
 let nextId = 0
@@ -18,10 +27,33 @@ function csrfToken(): string {
   return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 }
 
+function payloadToRows(payload: Record<string, unknown>): Row[] {
+  let rows: Row[] = []
+  for (let [key, value] of Object.entries(payload)) {
+    let val: string
+    if (typeof value === 'string') {
+      val = value
+    } else if (value !== null && typeof value === 'object') {
+      val = JSON.stringify(value)
+    } else {
+      val = String(value)
+    }
+    rows.push({ id: nextId++, key, value: val })
+  }
+  if (rows.length === 0) rows.push(newRow())
+  return rows
+}
+
 export const WebhookComposer = clientEntry(
   import.meta.url + '#WebhookComposer',
-  function WebhookComposer(handle: Handle) {
-    let rows: Row[] = [newRow()]
+  function WebhookComposer(handle: Handle<WebhookComposerProps>) {
+    let props = handle.props
+    let isEdit = !!props.editId
+    let initialPayload: Record<string, unknown> = {}
+    if (props.initialPayload) {
+      try { initialPayload = JSON.parse(props.initialPayload) } catch {}
+    }
+    let rows: Row[] = Object.keys(initialPayload).length > 0 ? payloadToRows(initialPayload) : [newRow()]
 
     function assembledPayload(): Record<string, string> {
       let obj: Record<string, string> = {}
@@ -57,12 +89,38 @@ export const WebhookComposer = clientEntry(
     return () => {
       let json = assembledPayload()
       let jsonStr = JSON.stringify(json, null, 2)
+      let action = isEdit ? `/webhook-requests/${props.editId}` : '/webhook-requests/create'
+
+      let cancelUrl = '/webhook-requests'
+      if (isEdit) {
+        let p = new URLSearchParams()
+        if (props._offset && props._offset !== '0') p.set('offset', props._offset)
+        if (props._sort && props._sort !== 'created_at') p.set('sort', props._sort)
+        if (props._order && props._order !== 'desc') p.set('order', props._order)
+        if (props._filter) p.set('filter', props._filter)
+        let qs = p.toString()
+        if (qs) cancelUrl += '?' + qs
+      }
 
       return (
         <div mix={pageStyle}>
-          <form method="POST" action="/webhook-requests/create" mix={formStyle}>
+          <form method="POST" action={action} mix={formStyle}>
             <input type="hidden" name="payload" value={jsonStr} />
             <input type="hidden" name="_csrf" value={csrfToken()} />
+            {isEdit && <input type="hidden" name="_method" value="PUT" />}
+
+            {isEdit && props._offset !== undefined && (
+              <input type="hidden" name="_offset" value={props._offset} />
+            )}
+            {isEdit && props._sort !== undefined && (
+              <input type="hidden" name="_sort" value={props._sort} />
+            )}
+            {isEdit && props._order !== undefined && (
+              <input type="hidden" name="_order" value={props._order} />
+            )}
+            {isEdit && props._filter !== undefined && (
+              <input type="hidden" name="_filter" value={props._filter} />
+            )}
 
             <div mix={gridWrap}>
               <table mix={gridTable}>
@@ -122,8 +180,8 @@ export const WebhookComposer = clientEntry(
             </div>
 
             <div mix={actionsStyle}>
-              <a href="/webhook-requests" mix={cancelLinkStyle}>Abbrechen</a>
-              <button type="submit" mix={submitBtnStyle}>In Tabelle speichern</button>
+              <a href={cancelUrl} mix={cancelLinkStyle}>Abbrechen</a>
+              <button type="submit" mix={submitBtnStyle}>{isEdit ? 'Speichern' : 'In Tabelle speichern'}</button>
             </div>
           </form>
         </div>

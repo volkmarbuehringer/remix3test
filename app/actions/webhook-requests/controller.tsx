@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
 import { pool } from '../../data/setup.ts'
-import { webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute } from '../../routes.ts'
+import { webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute, webhookRequestsUpdateRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
@@ -8,6 +8,7 @@ import { WebhookRequestsPage } from '../../ui/webhook-requests-page.tsx'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireSseAuth } from '../../middleware/sse-auth.ts'
 import type { AppContext } from '../../types/context.ts'
+import { gridStateFromFormData, editingRedirect } from '../../utils/grid-state.ts'
 
 const PAGE_SIZE = 15
 
@@ -99,10 +100,30 @@ export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, Ap
     middleware: [requireAuth()],
     handler: async (context) => {
       let data = await loadPageData(context)
+
+      let editingParam = context.url.searchParams.get('editing')
+      let editRow: WebhookRequestRow | null = null
+      if (editingParam && UUID_RE.test(editingParam)) {
+        let result = await pool.query(
+          `SELECT id, payload, token, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = $1`,
+          [editingParam],
+        )
+        if (result.rowCount && result.rowCount > 0) {
+          editRow = result.rows[0] as WebhookRequestRow
+        }
+      }
+
       return context.render(
         <Document title="Webhook Requests">
           <Layout>
-            <WebhookRequestsPage {...data} />
+            <WebhookRequestsPage
+              {...data}
+              editRow={editRow}
+              editingOffset={context.url.searchParams.get('offset') || '0'}
+              editingSort={context.url.searchParams.get('sort') || 'created_at'}
+              editingOrder={context.url.searchParams.get('order') || 'desc'}
+              editingFilter={context.url.searchParams.get('filter') || ''}
+            />
           </Layout>
         </Document>,
       )
@@ -124,6 +145,55 @@ function hermesUrl(): string {
 
 const HERMES_TIMEOUT_MS = 3_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRoute, AppContext>(
+  webhookRequestsUpdateRoute,
+  {
+    middleware: [requireAuth()],
+    handler: async (context) => {
+      let id = context.params.id
+      if (!id || !UUID_RE.test(id)) {
+        return new Response('Invalid UUID', { status: 400 })
+      }
+
+      let payloadRaw = context.formData.get('payload')
+
+      let payload: Record<string, string> = {}
+      if (payloadRaw && typeof payloadRaw === 'string') {
+        try {
+          let parsed = JSON.parse(payloadRaw)
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            for (let [key, value] of Object.entries(parsed)) {
+              if (key.trim()) {
+                payload[key] = String(value)
+              }
+            }
+          }
+        } catch {
+          return new Response('Invalid JSON payload', { status: 400 })
+        }
+      }
+
+      try {
+        let result = await pool.query(
+          `UPDATE webhook_requests SET payload = $1 WHERE id = $2`,
+          [JSON.stringify(payload), id],
+        )
+        if (result.rowCount === 0) {
+          return new Response('Not Found', { status: 404 })
+        }
+      } catch (err) {
+        console.error('Failed to update webhook request:', err)
+        return new Response('Fehler beim Speichern', { status: 500 })
+      }
+
+      webhookChannel.broadcast('invalidate')
+
+      let gridState = gridStateFromFormData(context.formData)
+      return editingRedirect(webhookRequestsRoute.href(), id, gridState)
+    },
+  },
+)
 
 export const webhookRequestsResend = createAction<typeof webhookRequestsResendRoute, AppContext>(
   webhookRequestsResendRoute,

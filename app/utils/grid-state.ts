@@ -55,7 +55,7 @@ export function gridStateToParams(state: GridState): URLSearchParams {
 
 export function editingRedirect(
   base: string,
-  editingId: number | null,
+  editingId: number | string | null,
   state: GridState,
 ): Response {
   let params = gridStateToParams(state)

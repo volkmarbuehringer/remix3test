@@ -4,10 +4,11 @@ import { theme } from '../lib/theme.ts'
 import { webhookRequestsRoute, webhookRequestsEventsRoute } from '../routes.ts'
 import type { WebhookRequestRow } from '../actions/webhook-requests/controller.tsx'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow } from './mixins/admin-urls.ts'
+import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { WebhookComposer } from '../assets/webhook-composer.tsx'
 
 const BASE = webhookRequestsRoute.href()
 
@@ -20,6 +21,11 @@ interface WebhookRequestsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  editRow?: WebhookRequestRow | null
+  editingOffset?: string
+  editingSort?: string
+  editingOrder?: string
+  editingFilter?: string
 }
 
 function buildUrl(overrides: Record<string, string | undefined>): string {
@@ -54,18 +60,22 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
     let curOrder = p.sortDirection
     let curOffset = p.offset
     let curFilter = p.filter ?? ''
+    let editRow = p.editRow
+    let hasSidebar = !!editRow
 
-    return (
-      <div mix={page}>
-        <ConfirmDelete />
-        <div mix={headerRow}>
-          <h1 mix={table.title}>Webhook Requests</h1>
-          <div mix={headerActions}>
-            <a href="/webhook-requests/create" mix={composeBtn}>Erstellen</a>
-            <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" />
-          </div>
+    let headerContent = (
+      <div mix={headerRow}>
+        <h1 mix={table.title}>Webhook Requests</h1>
+        <div mix={headerActions}>
+          <a href="/webhook-requests/create" mix={composeBtn}>Erstellen</a>
+          <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" skipReloadParams={['editing']} />
         </div>
+      </div>
+    )
 
+    let gridSection = (
+      <div mix={hasSidebar ? table.minWidth0 : undefined}>
+        <ConfirmDelete />
         <form method="GET" action={BASE} mix={table.filterBar}>
           <input type="text" name="filter" placeholder="Filter (Token)" value={curFilter} mix={table.filterInput} />
           <input type="hidden" name="sort" value={curSort} />
@@ -89,7 +99,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     ['callback_received_at', 'Callback empfangen', '145px'],
                     ['', 'Callback', '100px'],
                     ['', 'Payload', 'auto'],
-                    ['', 'Aktion', '90px'],
+                    ['', 'Aktion', '150px'],
                   ] as [string, string, string][]
                 ).map(([field, label, w]) => (
                   <th key={field || label} style={w !== 'auto' ? { width: w } : undefined} mix={field ? table.thSortable : table.th}>
@@ -115,7 +125,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                 </tr>
               ) : (
                 p.rows.map((row) => (
-                  <tr key={row.id} mix={table.row}>
+                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}>
                     <td mix={table.td}>{fmtDate(row.created_at)}</td>
                     <td mix={table.td}>{row.source_ip}</td>
                     <td mix={table.td}><span mix={!row.hermes_status ? statusBadgeNeutral : row.hermes_status === 'error' ? statusBadgeError : is2xx(row.hermes_status) ? statusBadgeOk : statusBadgeError}>{row.hermes_status ?? '-'}</span></td>
@@ -123,7 +133,13 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
                     <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
                     <td mix={table.td}>
-                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?">
+                      <a
+                        href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
+                        mix={table.editBtn}
+                      >
+                        Bearbeiten
+                      </a>
+                      <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?" style="display:inline">
                         <CsrfTokenInput />
                         <button type="submit" mix={resendBtn}>Resenden</button>
                       </form>
@@ -164,7 +180,29 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             </div>
           </div>
         )}
+      </div>
+    )
 
+    let editPanel = hasSidebar && editRow ? (
+      <div mix={table.stickyPanel}>
+        <WebhookComposer
+          initialPayload={JSON.stringify(editRow.payload)}
+          editId={editRow.id}
+          _offset={p.editingOffset ?? String(curOffset)}
+          _sort={p.editingSort ?? curSort}
+          _order={p.editingOrder ?? curOrder}
+          _filter={p.editingFilter ?? curFilter}
+        />
+      </div>
+    ) : null
+
+    return (
+      <div mix={page}>
+        {headerContent}
+        <div mix={hasSidebar ? table.twoColumn : undefined}>
+          {gridSection}
+          {editPanel}
+        </div>
       </div>
     )
   }
@@ -219,6 +257,6 @@ const codeStyle = css({
 const resendBtn = css({
   fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
   backgroundColor: '#3b82f6', color: '#fff', fontWeight: theme.fontWeight.semibold,
-  border: 'none', cursor: 'pointer',
+  border: 'none', cursor: 'pointer', marginLeft: theme.space.xs,
   '&:hover': { backgroundColor: '#2563eb' },
 })
