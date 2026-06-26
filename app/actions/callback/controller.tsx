@@ -4,6 +4,7 @@ import { pool } from '../../data/setup.ts'
 import { callbackRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { connectionIp, isLocalhost } from '../../lib/request-ip.ts'
+import { JsonBody } from '../../middleware/json-body.ts'
 import type { AppContext } from '../../types/context.ts'
 
 const MAX_PAYLOAD_BYTES = 256 * 1024
@@ -21,24 +22,10 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
         return new Response('Forbidden', { status: 403 })
       }
 
-      let contentType = context.request.headers.get('Content-Type') ?? ''
-      if (!contentType.includes('application/json')) {
-        log('Expected application/json, got', contentType)
+      let body = context.get(JsonBody) as Record<string, unknown> | undefined
+      if (!body) {
+        log('Expected application/json')
         return new Response('Expected application/json', { status: 400 })
-      }
-
-      let contentLength = Number(context.request.headers.get('Content-Length')) || 0
-      if (contentLength > MAX_PAYLOAD_BYTES) {
-        log('Payload too large:', contentLength, 'bytes')
-        return new Response('Payload too large', { status: 413 })
-      }
-
-      let body: Record<string, unknown>
-      try {
-        body = await context.request.json()
-      } catch {
-        log('Invalid JSON body')
-        return new Response('Invalid JSON body', { status: 400 })
       }
 
       log('Received:', JSON.stringify(body))
@@ -49,7 +36,7 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
         return new Response('Payload too large', { status: 413 })
       }
 
-      let id = body?.id
+      let id = body.id
       if (!id || typeof id !== 'string') {
         log('Missing or invalid id field in:', JSON.stringify(body))
         return new Response('Missing or invalid id', { status: 400 })

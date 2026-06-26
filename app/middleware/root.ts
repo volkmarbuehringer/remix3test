@@ -15,6 +15,7 @@ import { skipCsrf } from './skip-csrf.ts'
 
 
 import { json } from './json-render.ts'
+import { jsonBody } from './json-body.ts'
 import { render } from './render.tsx'
 import { loadAssetEntry } from './asset-entry.ts'
 import { securityHeaders } from './security-headers.ts'
@@ -48,6 +49,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     globalRateLimit({ maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined }),
     formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
     methodOverride(),
+    jsonBody({ maxSize: 256 * 1024 }),
     session(cookie, storage),
     skipCsrf(),
     asyncContext(),

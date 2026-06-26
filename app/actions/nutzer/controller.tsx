@@ -12,6 +12,7 @@ import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
+import { JsonBody } from '../../middleware/json-body.ts'
 import { AdminNutzerPage, type NutzerRow } from '../../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams } from '../../utils/grid-state.ts'
@@ -558,14 +559,9 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      let body: { locked?: boolean }
-      try {
-        body = await context.request.json()
-      } catch {
-        return context.json({ error: 'Expected JSON body' }, { status: 400 })
-      }
+      let body = context.get(JsonBody) as { locked?: boolean } | undefined
 
-      if (typeof body.locked !== 'boolean') {
+      if (!body || typeof body.locked !== 'boolean') {
         return context.json({ error: 'Expected boolean "locked" field' }, { status: 400 })
       }
 
@@ -600,14 +596,9 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      let body: { active?: boolean }
-      try {
-        body = await context.request.json()
-      } catch {
-        return context.json({ error: 'Expected JSON body' }, { status: 400 })
-      }
+      let body = context.get(JsonBody) as { active?: boolean } | undefined
 
-      if (typeof body.active !== 'boolean') {
+      if (!body || typeof body.active !== 'boolean') {
         return context.json({ error: 'Expected boolean "active" field' }, { status: 400 })
       }
 

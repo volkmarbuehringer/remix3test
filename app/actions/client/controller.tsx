@@ -8,6 +8,7 @@ import { redirect } from 'remix/response/redirect'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
+import { JsonBody } from '../../middleware/json-body.ts'
 import { routes } from '../../routes.ts'
 import { clients } from '../../data/schema.ts'
 import type { Client } from '../../data/schema.ts'
@@ -152,8 +153,8 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
       let isJson = contentType.includes('application/json')
 
       if (isJson) {
-        let body = await context.request.json()
-        let emailVal = typeof body.email === 'string' ? body.email.trim() : ''
+        let body = context.get(JsonBody) as Record<string, unknown> | undefined
+        let emailVal = typeof body?.email === 'string' ? (body.email as string).trim() : ''
         if (!emailVal) {
           return context.json({ ok: false, error: 'Email is required' }, { status: 400 })
         }

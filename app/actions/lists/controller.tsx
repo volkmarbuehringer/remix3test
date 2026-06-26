@@ -4,6 +4,7 @@ import { maxLength, minLength } from 'remix/data-schema/checks'
 import { Logger } from 'remix/middleware/logger'
 
 import { requireAuth } from '../../middleware/auth.ts'
+import { JsonBody } from '../../middleware/json-body.ts'
 import { lists } from '../../data/schema.ts'
 import { ListsClient } from '../../assets/lists-client.tsx'
 import { ListsShowPage } from './show-page.tsx'
@@ -35,11 +36,8 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     async save(context) {
       let db = context.db
 
-      let body: unknown
-      try {
-        body = await context.request.json()
-      } catch (error) {
-        context.get(Logger)?.('Invalid JSON body in lists/save: ' + String(error))
+      let body = context.get(JsonBody)
+      if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 
@@ -88,11 +86,8 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      let body: unknown
-      try {
-        body = await context.request.json()
-      } catch (error) {
-        context.get(Logger)?.('Invalid JSON body in lists/update: ' + String(error))
+      let body = context.get(JsonBody)
+      if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
 

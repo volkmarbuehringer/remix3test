@@ -33,6 +33,7 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
+import { JsonBody } from '../../middleware/json-body.ts'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 
@@ -186,10 +187,9 @@ export const appointment = createController<typeof routes.appointment, AppContex
         return context.json({ error: 'Too many requests. Please wait before creating another appointment.' }, { status: 429 })
       }
 
-      let body: Record<string, unknown>
-      try {
-        body = await context.request.json()
-      } catch {
+      let body = context.get(JsonBody) as Record<string, unknown> | undefined
+
+      if (!body) {
         return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
@@ -282,10 +282,9 @@ export const appointment = createController<typeof routes.appointment, AppContex
 
       let appointmentId = Number(context.params.id)
 
-      let body: unknown
-      try {
-        body = await context.request.json()
-      } catch {
+      let body = context.get(JsonBody)
+
+      if (!body) {
         return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
       }
 
@@ -421,10 +420,9 @@ export const appointmentTypes = createController<typeof routes.appointment.types
         }
         let userId = (auth.identity as User).id
 
-        let body: unknown
-        try {
-          body = await context.request.json()
-        } catch {
+        let body = context.get(JsonBody)
+
+        if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
         }
 
@@ -445,10 +443,9 @@ export const appointmentTypes = createController<typeof routes.appointment.types
         let userId = (auth.identity as User).id
         let typeId = Number(context.params.id)
 
-        let body: unknown
-        try {
-          body = await context.request.json()
-        } catch {
+        let body = context.get(JsonBody)
+
+        if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
         }
 
