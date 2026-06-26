@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from 'remix/ui'
-import { lockScroll } from 'remix/ui/scroll-lock'
+import { lockScroll } from '../lib/scroll-lock.ts'
 
 export const NavToggle = clientEntry(
   import.meta.url + '#NavToggle',

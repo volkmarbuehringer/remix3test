@@ -1,5 +1,5 @@
 import { clientEntry, type Handle } from 'remix/ui'
-import { lockScroll } from 'remix/ui/scroll-lock'
+import { lockScroll } from '../lib/scroll-lock.ts'
 
 function hasPanel(searchParams: string): boolean {
   let params = new URLSearchParams(searchParams)

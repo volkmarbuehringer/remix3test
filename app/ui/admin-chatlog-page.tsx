@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { routes, frames } from '../routes.ts'
 import type { ChatMessage } from '../lib/chatlog.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -114,7 +114,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
  
           <form method="get" mix={filterFormStyle}>
             <input type="text" name="filter" placeholder="Konversationen durchsuchen..." defaultValue={filter ?? ''} mix={filterInputStyle} />
-            <Button type="submit" tone="primary">Suchen</Button>
+            <button type="submit" mix={[button({ tone: 'primary' })]}>Suchen</button>
             {filter && <a href={routes.admin.chatlog.index.href()} mix={clearLinkStyle}>Filter zurücksetzen</a>}
           </form>
  
@@ -150,7 +150,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                         data-confirm={`Konversation #${conv.id} löschen?`}
                       >
                         <CsrfTokenInput />
-                        <Button type="submit" tone="danger">Löschen</Button>
+                        <button type="submit" mix={[button({ tone: 'danger' })]}>Löschen</button>
                       </form>
                       <ChatlogRowDetail conversationId={conv.id} />
                     </div>

@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
@@ -221,7 +221,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                     mix={css({ margin: 0, padding: 0 })}
                   >
                     <CsrfTokenInput />
-                    <Button type="submit" tone="danger" mix={smallBtnStyle}>Löschen</Button>
+                    <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>Löschen</button>
                   </form>
                 </div>
               </div>

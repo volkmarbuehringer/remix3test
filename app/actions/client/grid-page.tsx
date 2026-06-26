@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../../lib/button.ts'
 
 import type { Client } from '../../data/schema.ts'
 import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'
@@ -318,7 +318,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             rmx-document
             mix={css({ textDecoration: 'none' })}
           >
-            <Button tone="primary" mix={smallBtnStyle}>+ Add New</Button>
+            <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>+ Add New</button>
           </a>
         </div>
         {/* Filter bar */}
@@ -332,7 +332,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               mix={filterInputStyle}
             />
             {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
-            <Button type="submit" tone="secondary">Search</Button>
+            <button type="submit" mix={[button({ tone: 'secondary' })]}>Search</button>
           </form>
           {filter ? (
             <a href={routes.admin.client.index.href()} mix={clearLinkStyle}>Clear</a>
@@ -440,13 +440,13 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     <td mix={tdActionsStyle}>
                       <div mix={actionBtnGroup}>
                         <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
-                          <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
+                          <button mix={[button({ tone: 'secondary' }), smallBtnStyle]}>Edit</button>
                         </a>
                         <form method="POST" action={`/admin/client/${row.id}`} rmx-target="admin-content" data-confirm="Delete this row?">
                           <CsrfTokenInput />
                           <input type="hidden" name="_method" value="DELETE" />
                           <GridStateHiddenInputs state={{ offset: String(offset), sort: sortField ?? '', order: sortOrder, filter: filter ?? '' }} />
-                          <Button type="submit" tone="danger" mix={smallBtnStyle}>Del</Button>
+                          <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>Del</button>
                         </form>
                       </div>
                     </td>
@@ -466,18 +466,18 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     rmx-target="admin-content"
                     mix={css({ textDecoration: 'none' })}
                   >
-                    <Button tone="secondary" disabled={!hasPrev} mix={smallBtnStyle}>
+                    <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                       ← Prev
-                    </Button>
+                    </button>
                   </a>
                   <a
                     href={buildPaginationUrl(offset + pageSize, sortField, sortOrder, filter, editingId)}
                     rmx-target="admin-content"
                     mix={css({ textDecoration: 'none' })}
                   >
-                    <Button tone="secondary" disabled={!hasNext} mix={smallBtnStyle}>
+                    <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                       Next →
-                    </Button>
+                    </button>
                   </a>
               </div>
             </div>

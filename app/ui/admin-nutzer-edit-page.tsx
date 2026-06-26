@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 import { routes } from '../routes.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
@@ -178,13 +178,13 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={table.spacer}>
+                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
-                </Button>
+                </button>
                 <a href={buildCancelUrl(routes.admin.nutzer.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                     Abbrechen
-                  </Button>
+                  </button>
                 </a>
               </div>
             </div>

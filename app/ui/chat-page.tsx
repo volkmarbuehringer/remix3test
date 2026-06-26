@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 import { Glyph } from '../lib/glyph.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { routes } from '../routes.ts'
 import { ScrollToTop } from './scroll-to-top.tsx'
 import { FormLoadingState } from './form-loading-state.tsx'
@@ -329,9 +329,9 @@ export function ChatPage(handle: Handle<ChatPageProps>) {
               placeholder="Nachricht eingeben…"
               mix={messageInputStyle}
             />
-            <Button type="submit" tone="primary" aria-label="Nachricht senden" mix={sendButtonStyle}>
+            <button type="submit" aria-label="Nachricht senden" mix={[button({ tone: 'primary' }), sendButtonStyle]}>
               <Glyph name="send" width={20} height={20} />
-            </Button>
+            </button>
           </div>
         </form>
         <ScrollToTop />

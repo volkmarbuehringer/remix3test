@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { Glyph } from '../lib/glyph.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
@@ -83,7 +83,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
+            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
           </a>
         </form>
 
@@ -333,13 +333,13 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={table.spacer}>
+                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
-                </Button>
+                </button>
                 <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                     Abbrechen
-                  </Button>
+                  </button>
                 </a>
               </div>
             </div>
@@ -420,13 +420,13 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={table.spacer}>
+                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
-                </Button>
+                </button>
                 <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                     Abbrechen
-                  </Button>
+                  </button>
                 </a>
               </div>
             </div>

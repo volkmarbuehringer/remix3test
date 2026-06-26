@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { Glyph } from '../lib/glyph.ts'
 
 import { table } from './mixins/admin-table.ts'
@@ -234,7 +234,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                           pointerEvents: 'none',
                         },
                       })}>
-                        <Button tone={active ? 'primary' : 'secondary'} disabled>{label}</Button>
+                        <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
                       </span>
                     )
                   }
@@ -253,7 +253,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         },
                       })}
                     >
-                      <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                      <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
                     </a>
                   )
                 },
@@ -298,7 +298,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       },
                     })}
                   >
-                    <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
                   </a>
                 )
               })}
@@ -308,9 +308,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               href={buildCreateUrl(BASE, offset, sortColumn, sortDirection, filter, period, status)}
               mix={table.linkPlain}
             >
-              <Button tone="primary">
+              <button mix={[button({ tone: 'primary' })]}>
                 <Glyph name="add" width={14} height={14} /> Neu
-              </Button>
+              </button>
             </a>
           </div>
         </div>
@@ -604,9 +604,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         }}
                       />
                       <div mix={table.actions}>
-                        <Button type="submit" tone="danger" mix={table.spacer}>
+                        <button type="submit" mix={[button({ tone: 'danger' }), table.spacer]}>
                           Ja, löschen
-                        </Button>
+                        </button>
                         <a
                           href={buildCancelUrl(
                             BASE,
@@ -619,9 +619,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                           )}
                           mix={table.linkPlain}
                         >
-                          <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                          <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                             Abbrechen
-                          </Button>
+                          </button>
                         </a>
                       </div>
                     </RestfulForm>

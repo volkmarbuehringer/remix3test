@@ -2,7 +2,7 @@ import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 import { Glyph } from '../lib/glyph.ts'
 
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 
 type ListItem = {
   id: string
@@ -289,39 +289,36 @@ export const ListsClient = clientEntry(
               alignItems: 'center',
             })}
           >
-            <Button tone="secondary" mix={on('click', reverse)}>
+            <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>
               ↺ Umkehren
-            </Button>
-            <Button tone="primary" mix={on('click', shuffle)}>
+            </button>
+            <button mix={[button({ tone: 'primary' }), on('click', shuffle)]}>
               ⇄ Mischen
-            </Button>
-            <Button
-              tone="danger"
-              mix={on('click', clearAll)}
+            </button>
+            <button
+              mix={[button({ tone: 'danger' }), on('click', clearAll)]}
               disabled={items.length === 0}
             >
               ✕ Alle löschen
-            </Button>
+            </button>
             <div
               mix={css({
                 display: 'inline-flex',
                 marginLeft: 'auto',
               })}
             >
-              <Button
-                tone="primary"
-                mix={[css({ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }), on('click', updateList)]}
+              <button
+                mix={[button({ tone: 'primary' }), css({ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }), on('click', updateList)]}
                 disabled={loadedListId === null || !description.trim() || items.length === 0 || updating}
               >
                 {updating ? '⏳ Wird aktualisiert…' : '🔄 Aktualisieren'}
-              </Button>
-              <Button
-                tone="primary"
-                mix={[css({ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }), on('click', saveToStorage)]}
+              </button>
+              <button
+                mix={[button({ tone: 'primary' }), css({ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }), on('click', saveToStorage)]}
                 disabled={!description.trim() || items.length === 0 || saving}
               >
                 {saving ? '⏳ Speichern…' : '💾 Hinzufügen'}
-              </Button>
+              </button>
             </div>
           </div>
 
@@ -432,9 +429,9 @@ export const ListsClient = clientEntry(
               wrap="soft"
               defaultValue={newItemLabel}
             />
-            <Button tone="primary" mix={on('click', addItem)}>
+            <button mix={[button({ tone: 'primary' }), on('click', addItem)]}>
               + Element hinzufügen
-            </Button>
+            </button>
           </div>
 
           {/* Items list */}
@@ -576,15 +573,15 @@ export const ListsClient = clientEntry(
                     <div mix={css({ display: 'flex', gap: theme.space.xs })}>
                       {editingIndex === index ? (
                         <>
-                          <Button tone="primary" mix={on('click', saveEdit)} title="Speichern"><Glyph name="check" width={16} height={16} /></Button>
-                          <Button tone="secondary" mix={on('click', cancelEdit)} title="Abbrechen"><Glyph name="close" width={16} height={16} /></Button>
+                          <button mix={[button({ tone: 'primary' }), on('click', saveEdit)]} title="Speichern"><Glyph name="check" width={16} height={16} /></button>
+                          <button mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]} title="Abbrechen"><Glyph name="close" width={16} height={16} /></button>
                         </>
                       ) : (
                         <>
-                          <Button tone="secondary" mix={on('click', () => startEditing(index))} title="Bearbeiten"><Glyph name="edit" width={16} height={16} /></Button>
-                          <Button tone="danger" mix={on('click', () => deleteItem(index))} title="Löschen"><Glyph name="close" width={16} height={16} /></Button>
-                          <Button tone="secondary" mix={on('click', () => moveUp(index))} disabled={index === 0} title="Nach oben">↑</Button>
-                          <Button tone="secondary" mix={on('click', () => moveDown(index))} disabled={index === items.length - 1} title="Nach unten">↓</Button>
+                          <button mix={[button({ tone: 'secondary' }), on('click', () => startEditing(index))]} title="Bearbeiten"><Glyph name="edit" width={16} height={16} /></button>
+                          <button mix={[button({ tone: 'danger' }), on('click', () => deleteItem(index))]} title="Löschen"><Glyph name="close" width={16} height={16} /></button>
+                          <button mix={[button({ tone: 'secondary' }), on('click', () => moveUp(index))]} disabled={index === 0} title="Nach oben">↑</button>
+                          <button mix={[button({ tone: 'secondary' }), on('click', () => moveDown(index))]} disabled={index === items.length - 1} title="Nach unten">↓</button>
                         </>
                       )}
                     </div>

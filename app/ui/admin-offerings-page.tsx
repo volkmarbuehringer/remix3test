@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { Glyph } from '../lib/glyph.ts'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
@@ -199,7 +199,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     },
                   })}
                 >
-                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
                 </a>
               )
             })}
@@ -237,7 +237,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     },
                   })}
                 >
-                  <Button tone={active ? 'primary' : 'secondary'}>{label}</Button>
+                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
                 </a>
               )
             })}
@@ -250,14 +250,14 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
+            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter, period, status)}
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Woche hinzufügen</Button>
+            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Woche hinzufügen</button>
           </a>
           <span mix={table.spacer} />
           <DeletePastButton

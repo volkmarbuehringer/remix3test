@@ -1,6 +1,6 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { theme } from '../lib/theme.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -63,9 +63,9 @@ export function AuthForm(handle: Handle<AuthFormProps>) {
           </p>
         ) : null}
         {children}
-        <Button type="submit" tone="primary" mix={submitButton}>
+        <button type="submit" mix={[button({ tone: 'primary' }), submitButton]}>
           {submitLabel}
-        </Button>
+        </button>
         {footer ? <div mix={footerContainer}>{footer}</div> : null}
       </form>
     )

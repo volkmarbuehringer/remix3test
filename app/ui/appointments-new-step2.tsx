@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
@@ -175,14 +175,14 @@ export function Step2(handle: Handle<Step2Props>) {
                   </span>
                 ) : (
                   <a href={buildWeekUrl(prevWeekStart)} mix={css({ textDecoration: 'none' })}>
-                    <Button type="button" tone="secondary">◀ Vorherige</Button>
+                    <button type="button" mix={[button({ tone: 'secondary' })]}>◀ Vorherige</button>
                   </a>
                 )}
                 <span mix={css({ fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.sm })}>
                   {formatWeekLabel(weekStart)}
                 </span>
                 <a href={buildWeekUrl(nextWeekStart)} mix={css({ textDecoration: 'none' })}>
-                  <Button type="button" tone="secondary">Nächste ▶</Button>
+                  <button type="button" mix={[button({ tone: 'secondary' })]}>Nächste ▶</button>
                 </a>
               </div>
 
@@ -232,18 +232,18 @@ export function Step2(handle: Handle<Step2Props>) {
               </div>
 
               <div mix={table.actions}>
-                <Button type="submit" tone="primary" mix={table.spacer} disabled={daysWithSlots.length === 0}>
+                <button type="submit" disabled={daysWithSlots.length === 0} mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
-                </Button>
+                </button>
                 <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
-                  <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                     Zurück
-                  </Button>
+                  </button>
                 </a>
                 <a href={buildCancelUrl(base, gridState.offset, gridState.sort, gridState.order, gridState.filter, gridState.period, gridState.status)} mix={[table.spacer, table.linkPlain]}>
-                  <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                     Abbrechen
-                  </Button>
+                  </button>
                 </a>
               </div>
             </div>

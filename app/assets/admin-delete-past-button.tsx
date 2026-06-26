@@ -1,5 +1,5 @@
 import { clientEntry, on, type Handle, type SerializableProps } from 'remix/ui'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 
 interface DeletePastButtonProps extends SerializableProps {
   csrfToken: string
@@ -47,9 +47,9 @@ export const DeletePastButton = clientEntry(
       })
 
       return (
-        <Button type="button" tone="danger" mix={clickHandler}>
+        <button type="button" mix={[button({ tone: 'danger' }), clickHandler]}>
           Vergangene löschen
-        </Button>
+        </button>
       )
     }
   },

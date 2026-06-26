@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 import { Glyph } from '../lib/glyph.ts'
 
 import { frames, routes } from '../routes.ts'
@@ -106,7 +106,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <Button tone="primary"><Glyph name="add" width={14} height={14} /> Neu anlegen</Button>
+            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
           </a>
         </form>
 

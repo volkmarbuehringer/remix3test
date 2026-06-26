@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../lib/theme.ts'
 import { Glyph } from '../lib/glyph.ts'
-import { Button } from 'remix/components/button'
+import button from '../lib/button.ts'
 
 import { routes } from '../routes.ts'
 import { FormLoadingState } from './form-loading-state.tsx'
@@ -223,13 +223,12 @@ export function WorkflowPage(handle: Handle<WorkflowPageProps>) {
                   <div id="parameters-list" mix={parametersListStyles} />
                 </div>
 
-                <Button type="submit" id="run-button" tone="primary" data-loading-text="Wird ausgeführt…" startIcon={
+                <button type="submit" id="run-button" data-loading-text="Wird ausgeführt…" mix={[button({ tone: 'primary' })]}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
-                }>
                   Workflow ausführen
-                </Button>
+                </button>
               </form>
             )}
           </div>

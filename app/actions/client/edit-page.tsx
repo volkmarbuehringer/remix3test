@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../../lib/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
 import { table } from '../../ui/mixins/admin-table.ts'
@@ -168,13 +168,13 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
             </div>
 
             <div mix={table.actions}>
-              <Button type="submit" tone="primary" mix={table.spacer}>
+              <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                 Save Changes
-              </Button>
+              </button>
               <a href={buildCancelUrl('/admin/client', offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                   Cancel
-                </Button>
+                </button>
               </a>
             </div>
           </div>

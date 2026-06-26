@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../lib/theme.ts'
-import { Button } from 'remix/components/button'
+import button from '../../lib/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from '../../ui/mixins/input.ts'
 import { table } from '../../ui/mixins/admin-table.ts'
@@ -150,17 +150,17 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
             </div>
 
             <div mix={table.actions}>
-              <Button type="submit" tone="primary" mix={table.spacer}>
+              <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                 Create Record
-              </Button>
+              </button>
               {(() => {
                 let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
                 let cancelHref = '/admin/client' + (cancelQ ? '?' + cancelQ : '')
                 return (
                   <a href={cancelHref} mix={[table.spacer, table.linkPlain]}>
-                    <Button type="button" tone="secondary" mix={css({ width: '100%' })}>
+                    <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
                       Cancel
-                    </Button>
+                    </button>
                   </a>
                 )
               })()}
