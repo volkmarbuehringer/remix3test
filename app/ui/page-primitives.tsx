@@ -38,20 +38,10 @@ export const panelCss = css({
   boxShadow: theme.shadow.xs,
 })
 
-export const panelInsetCss = css({
-  backgroundColor: theme.surface.lvl1,
-})
-
 export const pageStackCss = css({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.space.xxl,
-})
-
-export const exampleGridCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.lg,
 })
 
 export const bodyTextCss = css({
@@ -59,13 +49,6 @@ export const bodyTextCss = css({
   fontSize: theme.fontSize.sm,
   lineHeight: theme.lineHeight.relaxed,
   color: theme.colors.text.secondary,
-})
-
-export const captionTextCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.xs,
-  lineHeight: theme.lineHeight.normal,
-  color: theme.colors.text.muted,
 })
 
 // ── Private CSS for primitives ──

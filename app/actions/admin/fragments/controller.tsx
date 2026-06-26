@@ -5,7 +5,7 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../../middleware/render.tsx'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
-import { renderAdminPage } from '../../../ui/admin-layout.tsx'
+import { delay } from '../../../utils/async.ts'
 import { StatsFragment } from '../../../ui/admin-fragments/stats-fragment.tsx'
 import { RecentActivityFragment } from '../../../ui/admin-fragments/recent-activity-fragment.tsx'
 import { UserDetailFragment } from '../../../ui/admin-fragments/user-detail-fragment.tsx'
@@ -85,6 +85,4 @@ export default createController<typeof routes.admin.fragments, AppContext>(
   },
 )
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+

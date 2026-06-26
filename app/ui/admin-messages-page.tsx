@@ -7,6 +7,7 @@ import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { formatTimestamp } from './mixins/admin-urls.ts'
 
 interface MessageRow {
   id: number
@@ -22,10 +23,6 @@ interface AdminMessagesPageProps {
   hasMore: boolean
   prevOffset: number
   nextOffset: number
-}
-
-function formatTimestamp(ms: number): string {
-  return new Date(ms).toLocaleString('de-DE')
 }
 
 // ── Styles ──

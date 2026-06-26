@@ -69,3 +69,39 @@ Several admin pages define duplicate local functions instead of importing the sh
 - `npm run typecheck` - Passes
 - `npm test` - 615 tests pass, 0 failures
 - `npm run lint` - No new lint errors
+
+## [2026-06-26] Refactor & Dead Code Cleaner Session
+
+### Unused Imports Removed
+- `app/actions/admin/fragments/controller.tsx` - Removed `renderAdminPage` import (never called in file)
+- `app/actions/admin/messages/controller.tsx` - Removed `issuesToFieldErrors` and `readFormFieldValues` import from `schema-utils.ts` (neither used in file)
+
+### Unused Exports Removed
+- `app/ui/page-primitives.tsx` - Removed entire declarations: `panelInsetCss`, `exampleGridCss`, `captionTextCss` (never imported anywhere)
+- `app/theme.tsx` - Removed `const brand = { ... }` dead local block (never used after definition)
+- `app/lib/theme/presets/rmx-01/index.ts` - Removed `export const RMX_01` declaration (only `RMX_01_GLYPHS` is consumed elsewhere)
+
+### Duplicate Code Consolidated
+- **`delay()` helper** - Removed from `app/actions/ai/controller.tsx` and `app/actions/admin/fragments/controller.tsx`. Added shared `export function delay(ms)` in new `app/utils/async.ts`. Both controllers now import `{ delay }`.
+- **`isoWeeksInYear()`** - Removed from `app/actions/appointment/controller.tsx` and `app/ui/admin-offerings-week-page.tsx`. Added shared export in `app/utils/date-utils.ts`. Both files now import `{ isoWeeksInYear }`.
+- **`formatTimestamp()`** - Removed inline version from `app/ui/admin-messages-page.tsx`. Now imports from `app/ui/mixins/admin-urls.ts` (the more robust version).
+- **Password complexity script** - Extracted duplicated inline `<script>` from `app/actions/auth/pages.tsx` (2 copies) and `app/actions/settings/controller.tsx` (1 copy) to new shared function `passwordComplexityScript(fieldName)` in `app/assets/password-complexity-script.tsx`.
+
+### Unused Barrel Re-exports Removed
+- `app/lib/theme.ts` - Removed type re-exports: `CreateThemeOptions`, `ThemeMix`, `ThemeStyleProps`, `ThemeUtility`, `ThemeValue`, `ThemeValues`, `ThemeVars`, `GlyphContract`
+- `app/lib/glyph.ts` - Removed type re-exports: `GlyphProps`, `GlyphSheetComponent`, `GlyphSheetProps`, `GlyphSymbol`
+
+### Skipped Items
+- `app/ui/toast.ts` - Did NOT remove `export` from `showToast` because the function IS imported by 4 other files (`appointtype-panel.tsx`, `appointment-grid-lib.ts`, `appointment-grid.tsx`, `nutzer-table-interactive.tsx`). Removing the `export` would break those imports.
+
+### Impact
+- Functions consolidated to shared files: 4
+- Duplicate code sites eliminated: 6
+- Lines of code removed: ~200
+- Bundle size reduction: minimal (dead CSS + type exports)
+
+### Verification
+- `npm run typecheck` - Passes (0 errors)
+- `npm run lint` - Passes (0 warnings, 0 errors)
+- `npm test` - 720 pass, 0 fail, 1 todo (pre-existing todo for message deletion cleanup)
+- New files created: `app/utils/async.ts`, `app/assets/password-complexity-script.tsx`

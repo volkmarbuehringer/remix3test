@@ -18,6 +18,7 @@ import { createWorkflowRun, executeWorkflow, getWorkflowRun, listWorkflowRuns } 
 import { baseTools } from '../../workflows/tools.ts'
 import { AgentResultFragment } from '../../ui/ai-fragments/agent-result-fragment.tsx'
 import { AgentPage } from '../../ui/agent-page.tsx'
+import { delay } from '../../utils/async.ts'
 import { ChatPage } from '../../ui/chat-page.tsx'
 import { renderAiPage } from '../../ui/ai-layout.tsx'
 import { AiDashboardContent } from '../../ui/ai-page.tsx'
@@ -509,6 +510,4 @@ export const aiFragments = createController<typeof routes.ai.fragments, AppConte
   },
 )
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+

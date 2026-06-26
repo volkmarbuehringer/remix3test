@@ -21,7 +21,7 @@ import {
   AppointTypeError,
 } from '../../data/appointtypes.ts'
 import { listOfferingsByWeek, isSlotBookable } from '../../data/appointofferings.ts'
-import { isDateInPast } from '../../utils/date-utils.ts'
+import { isDateInPast, isoWeeksInYear } from '../../utils/date-utils.ts'
 import { listResources } from '../../data/resources.ts'
 import { pool } from '../../data/setup.ts'
 import { appointments } from '../../data/schema.ts'
@@ -84,13 +84,6 @@ function clampYear(year: number): number {
   if (year < 2026) return 2026
   if (year > 2030) return 2030
   return year
-}
-
-function isoWeeksInYear(year: number): number {
-  let jan1 = new Date(Date.UTC(year, 0, 1))
-  let day = jan1.getUTCDay() || 7
-  let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
-  return day === 4 || (isLeap && day === 3) ? 53 : 52
 }
 
 function clampWeek(week: number, year?: number): number {

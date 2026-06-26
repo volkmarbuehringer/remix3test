@@ -102,4 +102,15 @@ export function getPeriodRange(period: string): { startMs: number; endMs: number
   return null
 }
 
+/**
+ * Calculate the number of ISO weeks in a given year.
+ * A year has 53 weeks if Jan 1 is a Thursday, or if it's a leap year and Jan 1 is a Wednesday.
+ */
+export function isoWeeksInYear(year: number): number {
+  let jan1 = new Date(Date.UTC(year, 0, 1))
+  let day = jan1.getUTCDay() || 7
+  let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+  return day === 4 || (isLeap && day === 3) ? 53 : 52
+}
+
 

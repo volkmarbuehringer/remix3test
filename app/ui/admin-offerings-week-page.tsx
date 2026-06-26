@@ -7,6 +7,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { mondayOfWeek } from '../data/offering-configs.ts'
+import { isoWeeksInYear } from '../utils/date-utils.ts'
 
 interface AdminOfferingsWeekPageProps {
   resources: ResourceOption[]
@@ -15,13 +16,6 @@ interface AdminOfferingsWeekPageProps {
 interface ResourceOption {
   id: string
   description: string
-}
-
-function isoWeeksInYear(year: number): number {
-  let jan1 = new Date(Date.UTC(year, 0, 1))
-  let day = jan1.getUTCDay() || 7
-  let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
-  return day === 4 || (isLeap && day === 3) ? 53 : 52
 }
 
 function weekDateRange(year: number, week: number): string {

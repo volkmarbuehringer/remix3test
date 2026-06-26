@@ -12,6 +12,7 @@ import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 import { PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { PasswordToggle } from '../../assets/password-toggle.tsx'
+import { passwordComplexityScript } from '../../assets/password-complexity-script.tsx'
 
 // ── Login ──
 
@@ -191,7 +192,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='password')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['Mindestens 10 Zeichen',v.length>=10],['Mindestens eine Zahl (0-9)',/[0-9]/.test(v)],['Mindestens ein Sonderzeichen',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
+              <script>{passwordComplexityScript('password')}</script>
             </label>
 
             <label mix={fieldLabelCss}>
@@ -338,7 +339,7 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
               </div>
               {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script>{`document.addEventListener('input',e=>{let i=e.target;if(i.name!=='password')return;let f=i.closest('form');if(!f)return;let g=f.querySelector('[data-pw-complexity]');if(!g)return;let v=i.value;g.innerHTML=[['Mindestens 10 Zeichen',v.length>=10],['Mindestens eine Zahl (0-9)',/[0-9]/.test(v)],['Mindestens ein Sonderzeichen',/[!@#$%^&*()_+\\-=\\[\\]{};':"\\\\|,.<>\\/?\`~]/.test(v)]].map(r=>'<span style="display:flex;align-items:center;gap:4px;font-size:12px;color:'+(r[1]?'#16a34a':'#6b7280')+'">'+(r[1]?'\\u2713':'\\u25CB')+' '+r[0]+'</span>').join('')})`}</script>
+              <script>{passwordComplexityScript('password')}</script>
             </label>
 
             <label mix={fieldLabelCss}>

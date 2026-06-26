@@ -214,15 +214,3 @@ export const DarkTheme = createTheme(
   { selector: '[data-theme="dark"]', reset: false },
 )
 
-// ── Brand palette (extracts raw values for use outside the theme contract) ──
-
-const brand = {
-  light: {
-    accent: BRAND_LIGHT_ACCENT,
-    accentHover: BRAND_LIGHT_ACCENT_HOVER,
-  },
-  dark: {
-    accent: BRAND_DARK_ACCENT,
-    accentHover: BRAND_DARK_ACCENT_HOVER,
-  },
-}
