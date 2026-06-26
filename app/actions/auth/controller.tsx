@@ -20,6 +20,7 @@ import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
+import { sourceIp } from '../../lib/request-ip.ts'
 
 import { LoginPage, RegisterPage, RegisterSentPage, ForgotPage, ForgotSentPage, ResetFormPage, ResetErrorPage, VerifyErrorPage } from './pages.tsx'
 
@@ -33,8 +34,9 @@ const loginSchema = f.object({
 const shortLimiter = createRateLimiter({ windowMs: 15_000, perKey: true, maxAttempts: 5 })
 const mediumLimiter = createRateLimiter({ windowMs: 5 * 60_000, perKey: true, maxAttempts: 15 })
 const longLimiter = createRateLimiter({ windowMs: 60 * 60_000, perKey: true, maxAttempts: 30 })
+const ipLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 20 })
 
-function checkRateLimit(email: string): { allowed: boolean; error: string; retryMs: number } | null {
+function checkRateLimit(email: string, ip: string): { allowed: boolean; error: string; retryMs: number } | null {
   let long = longLimiter.check(email)
   if (!long.allowed) {
     return { allowed: false, error: 'Account is locked due to too many failed attempts. Please try again later.', retryMs: (long.retryAfter ?? 3600) * 1000 }
@@ -47,13 +49,18 @@ function checkRateLimit(email: string): { allowed: boolean; error: string; retry
   if (!short.allowed) {
     return { allowed: false, error: 'Too many attempts. Please try again later.', retryMs: (short.retryAfter ?? 15) * 1000 }
   }
+  let ipCheck = ipLimiter.check(ip)
+  if (!ipCheck.allowed) {
+    return { allowed: false, error: 'Too many attempts from this IP. Please try again later.', retryMs: (ipCheck.retryAfter ?? 60) * 1000 }
+  }
   return null
 }
 
-function incrementFailedAttempts(email: string): void {
+function incrementFailedAttempts(email: string, ip: string): void {
   shortLimiter.set(email)
   mediumLimiter.set(email)
   longLimiter.set(email)
+  ipLimiter.set(ip)
 }
 
 function resetFailedAttempts(email: string): void {
@@ -78,7 +85,7 @@ export const authLogin = createController<typeof routes.auth.login, AppContext>(
         return context.render(<LoginPage error="Invalid email or password format." errors={issuesToFieldErrors(parsed.issues)} returnTo={returnTo} />, { status: 400 })
       }
 
-      let rateLimit = checkRateLimit(parsed.value.email)
+      let rateLimit = checkRateLimit(parsed.value.email, sourceIp(context.request))
       if (rateLimit) {
         return context.render(<LoginPage error={rateLimit.error} returnTo={returnTo} />, { status: 429 })
       }
@@ -86,7 +93,7 @@ export const authLogin = createController<typeof routes.auth.login, AppContext>(
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
-        incrementFailedAttempts(parsed.value.email)
+        incrementFailedAttempts(parsed.value.email, sourceIp(context.request))
         return context.render(<LoginPage error="Invalid email or password." returnTo={returnTo} />, { status: 401 })
       }
 
@@ -399,7 +406,7 @@ async function validateResetToken(
 const verifyLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 10 })
 
 export async function verify(context: AppContext) {
-  let ip = context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown'
+  let ip = sourceIp(context.request) || 'unknown'
   if (!verifyLimiter.attempt(ip)) {
     return context.render(<VerifyErrorPage title="Too many attempts" message="You have made too many verification attempts. Please try again later." />, { status: 429 })
   }

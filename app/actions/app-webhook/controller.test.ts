@@ -8,6 +8,7 @@ import { pool, initializeAppDatabase } from '../../data/setup.ts'
 
 const BASE = 'https://remix.run'
 const TEST_TOKEN = 'test-webhook-token-123'
+let cleanupIds: string[] = []
 
 describe('App-Webhook controller', () => {
   let hermesServer: ReturnType<typeof createServer>
@@ -34,7 +35,10 @@ describe('App-Webhook controller', () => {
 
   after(async () => {
     hermesServer?.close()
-    await pool.query(`DELETE FROM webhook_requests WHERE token = $1`, [TEST_TOKEN])
+    for (let id of cleanupIds) {
+      await pool.query(`DELETE FROM webhook_requests WHERE id = $1`, [id])
+    }
+    cleanupIds = []
     delete process.env.WEBHOOK_TOKEN
     delete process.env.WEBHOOK_CALLBACK_URL
   })
@@ -59,6 +63,7 @@ describe('App-Webhook controller', () => {
 
     let { rows } = await pool.query('SELECT hermes_status FROM webhook_requests WHERE id = $1', [json.id])
     assert.equal(rows[0].hermes_status, '202', 'hermes_status should store the HTTP response code')
+    cleanupIds.push(json.id)
   })
 
   it('inserts source_ip and headers from request', async () => {
@@ -83,6 +88,7 @@ describe('App-Webhook controller', () => {
     )
     assert.ok(rows[0].source_ip.includes('192.168.1.1'))
     assert.ok(rows[0].headers['x-custom-header'])
+    cleanupIds.push(json.id)
   })
 
   it('returns 401 when Authorization header is missing', async () => {

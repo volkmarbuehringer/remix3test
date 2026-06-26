@@ -77,7 +77,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       <div mix={hasSidebar ? table.minWidth0 : undefined}>
         <ConfirmDelete />
         <form method="GET" action={BASE} mix={table.filterBar}>
-          <input type="text" name="filter" placeholder="Filter (Token)" value={curFilter} mix={table.filterInput} />
+          <input type="text" name="filter" placeholder="Filter (Payload)" value={curFilter} mix={table.filterInput} />
           <input type="hidden" name="sort" value={curSort} />
           <input type="hidden" name="order" value={curOrder} />
           <input type="hidden" name="offset" value="0" />

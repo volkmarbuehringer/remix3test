@@ -3,18 +3,20 @@ import * as assert from 'remix/assert'
 import { router } from '../../router.ts'
 import { callbackRoute } from '../../routes.ts'
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
-import { sourceIp } from '../../lib/request-ip.ts'
+import { connectionIp } from '../../lib/request-ip.ts'
 import type { WebhookRequestRow } from '../webhook-requests/controller.tsx'
 
 const BASE = 'https://remix.run'
+let cleanupIds: string[] = []
 
 async function insertWebhookRow(id: string): Promise<void> {
   await pool.query(
-    `INSERT INTO webhook_requests (id, payload, token, headers, source_ip, created_at)
-     VALUES ($1, '{}', 'test', '{}', $2, $3)
+    `INSERT INTO webhook_requests (id, payload, headers, source_ip, created_at)
+     VALUES ($1, '{}', '{}', $2, $3)
      ON CONFLICT (id) DO NOTHING`,
     [id, '127.0.0.1', Date.now()],
   )
+  cleanupIds.push(id)
 }
 
 describe('Callback controller', () => {
@@ -26,7 +28,10 @@ describe('Callback controller', () => {
   })
 
   after(async () => {
-    await pool.query(`DELETE FROM webhook_requests WHERE token = 'test'`)
+    for (let id of cleanupIds) {
+      await pool.query(`DELETE FROM webhook_requests WHERE id = $1`, [id])
+    }
+    cleanupIds = []
   })
 
   it('returns 200 and stores callback payload on success', async () => {
@@ -38,12 +43,12 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: JSON.stringify(body),
     })
-    let ip = sourceIp(request)
-    assert.equal(ip, '127.0.0.1', 'sourceIp should extract X-Forwarded-For')
+    let ip = connectionIp(request)
+    assert.equal(ip, '127.0.0.1', 'connectionIp should extract X-Client-Ip')
 
     let response = await router.fetch(request)
 
@@ -70,7 +75,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '203.0.113.1',
+        'X-Client-Ip': '203.0.113.1',
       },
       body: JSON.stringify({ id }),
     })
@@ -93,7 +98,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: 'not json',
     })
@@ -106,7 +111,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: 'not json',
     })
@@ -119,7 +124,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: JSON.stringify({ status: 'completed' }),
     })
@@ -132,7 +137,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: JSON.stringify({ id: 123 }),
     })
@@ -145,7 +150,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: JSON.stringify({ id: 'callback-test-1' }),
     })
@@ -163,7 +168,7 @@ describe('Callback controller', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Forwarded-For': '127.0.0.1',
+          'X-Client-Ip': '127.0.0.1',
         },
         body: JSON.stringify(body),
       })
@@ -182,7 +187,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
       },
       body: JSON.stringify({ id: crypto.randomUUID() }),
     })
@@ -197,7 +202,7 @@ describe('Callback controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Forwarded-For': '127.0.0.1',
+        'X-Client-Ip': '127.0.0.1',
         'Content-Length': String(body.length),
       },
       body,

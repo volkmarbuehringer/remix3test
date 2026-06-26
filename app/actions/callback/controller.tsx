@@ -3,7 +3,7 @@ import { SuperHeaders } from 'remix/headers'
 import { pool } from '../../data/setup.ts'
 import { callbackRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
-import { sourceIp, isLocalhost } from '../../lib/request-ip.ts'
+import { connectionIp, isLocalhost } from '../../lib/request-ip.ts'
 import type { AppContext } from '../../types/context.ts'
 
 const MAX_PAYLOAD_BYTES = 256 * 1024
@@ -15,7 +15,7 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(
     handler: async (context) => {
       let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Callback]') : () => {}
 
-      let ip = sourceIp(context.request)
+      let ip = connectionIp(context.request)
       if (!isLocalhost(ip)) {
         log('Blocked non-localhost request from', ip)
         return new Response('Forbidden', { status: 403 })

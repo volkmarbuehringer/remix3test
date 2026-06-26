@@ -4,7 +4,7 @@ import { pool } from '../../data/setup.ts'
 import { appWebhookRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { sourceIp } from '../../lib/request-ip.ts'
-import { authenticateWebhook, SENSITIVE_HEADERS } from '../../lib/auth-webhook.ts'
+import { authenticateWebhook, verifyWebhookHmac, SENSITIVE_HEADERS } from '../../lib/auth-webhook.ts'
 import type { AppContext } from '../../types/context.ts'
 
 function hermesUrl(): string {
@@ -24,16 +24,18 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
     handler: async (context) => {
       let auth = authenticateWebhook(context.request)
       if (auth instanceof Response) return auth
-      let token = auth
-
-      let contentType = context.request.headers.get('Content-Type') ?? ''
-      if (!contentType.includes('application/json')) {
-        return new Response('Expected application/json', { status: 400 })
-      }
 
       let contentLength = Number(context.request.headers.get('Content-Length')) || 0
       if (contentLength > MAX_PAYLOAD_BYTES) {
         return new Response('Payload too large', { status: 413 })
+      }
+
+      let hmacResult = await verifyWebhookHmac(context.request, auth)
+      if (hmacResult) return hmacResult
+
+      let contentType = context.request.headers.get('Content-Type') ?? ''
+      if (!contentType.includes('application/json')) {
+        return new Response('Expected application/json', { status: 400 })
       }
 
       let body
@@ -58,10 +60,10 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       })
 
       let result = await pool.query<WebhookInsertResult>(
-        `INSERT INTO webhook_requests (payload, token, headers, source_ip, created_at)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
+         VALUES ($1, $2, $3, $4)
          RETURNING id`,
-        [serializedPayload, token, JSON.stringify(headers), sourceIp(context.request), now],
+        [serializedPayload, JSON.stringify(headers), sourceIp(context.request), now],
       )
 
       let row = result.rows[0]

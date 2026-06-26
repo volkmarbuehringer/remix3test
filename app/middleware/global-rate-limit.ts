@@ -11,7 +11,7 @@ export function globalRateLimit(options?: {
 }): Middleware {
   let maxPerWindow = options?.maxPerWindow ?? 500
   let windowMs = options?.windowMs ?? 60_000
-  let trustProxy = options?.trustProxy ?? false
+  let trustProxy = options?.trustProxy ?? process.env.NODE_ENV === 'production'
   let limiter = createRateLimiter({ windowMs, perKey: true, maxAttempts: maxPerWindow })
 
   return async (context, next) => {

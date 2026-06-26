@@ -253,7 +253,8 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL
     )
   `)
-  await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_token_idx ON webhook_requests (token)`)
+  await pool.query(`ALTER TABLE webhook_requests ALTER COLUMN token DROP NOT NULL`)
+  await pool.query(`UPDATE webhook_requests SET token = NULL WHERE token IS NOT NULL`)
   await pool.query(`CREATE INDEX IF NOT EXISTS webhook_requests_created_at_idx ON webhook_requests (created_at DESC)`)
   await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS hermes_status TEXT`)
   await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_response JSONB`)

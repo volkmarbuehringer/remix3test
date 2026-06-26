@@ -8,6 +8,10 @@ export function sourceIp(request: Request): string {
   )
 }
 
+export function connectionIp(request: Request): string {
+  return request.headers.get('X-Client-Ip') ?? ''
+}
+
 export function isLocalhost(ip: string): boolean {
   return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
 }

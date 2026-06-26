@@ -28,12 +28,22 @@ export const webhookRequestsCreate = createController<typeof webhookCreateRoute,
 
         let payload: Record<string, string> = {}
         if (payloadRaw && typeof payloadRaw === 'string') {
+          if (payloadRaw.length > 100_000) {
+            return new Response('Payload too large', { status: 413 })
+          }
           try {
             let parsed = JSON.parse(payloadRaw)
             if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
               for (let [key, value] of Object.entries(parsed)) {
                 if (key.trim()) {
-                  payload[key] = String(value)
+                  if (key.length > 256) {
+                    return new Response('Key too long', { status: 400 })
+                  }
+                  let strValue = String(value)
+                  if (strValue.length > 10_000) {
+                    return new Response('Value too long', { status: 400 })
+                  }
+                  payload[key] = strValue
                 }
               }
             }
@@ -45,8 +55,8 @@ export const webhookRequestsCreate = createController<typeof webhookCreateRoute,
         let now = Date.now()
         try {
           await pool.query(
-            `INSERT INTO webhook_requests (payload, token, headers, source_ip, created_at)
-             VALUES ($1, '', '{}', $2, $3)`,
+            `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
+             VALUES ($1, '{}', $2, $3)`,
             [JSON.stringify(payload), sourceIp(context.request), now],
           )
         } catch (err) {

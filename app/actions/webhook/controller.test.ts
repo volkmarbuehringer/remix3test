@@ -7,6 +7,7 @@ import { pool, initializeAppDatabase } from '../../data/setup.ts'
 
 const BASE = 'https://remix.run'
 const TEST_TOKEN = 'test-webhook-token-456'
+let cleanupIds: string[] = []
 
 describe('Webhook controller', () => {
   before(async () => {
@@ -15,7 +16,10 @@ describe('Webhook controller', () => {
   })
 
   after(async () => {
-    await pool.query(`DELETE FROM webhook_requests WHERE token = $1`, [TEST_TOKEN])
+    for (let id of cleanupIds) {
+      await pool.query(`DELETE FROM webhook_requests WHERE id = $1`, [id])
+    }
+    cleanupIds = []
     delete process.env.WEBHOOK_TOKEN
   })
 
@@ -37,6 +41,7 @@ describe('Webhook controller', () => {
 
     let { rows } = await pool.query('SELECT payload FROM webhook_requests WHERE id = $1', [json.id])
     assert.deepEqual(rows[0].payload, { event: 'test', data: { foo: 'bar' } })
+    cleanupIds.push(json.id)
   })
 
   it('inserts source_ip and headers from request', async () => {
@@ -61,6 +66,7 @@ describe('Webhook controller', () => {
     )
     assert.ok(rows[0].source_ip.includes('10.0.0.1'))
     assert.ok(rows[0].headers['x-custom-header'])
+    cleanupIds.push(json.id)
   })
 
   it('returns 401 when Authorization header is missing', async () => {

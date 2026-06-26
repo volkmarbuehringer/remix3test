@@ -25,7 +25,7 @@ export function securityHeaders(): Middleware {
       `script-src 'self' 'nonce-${nonce}'`,
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
       `font-src 'self' https://fonts.gstatic.com`,
-      `connect-src 'self' ws://localhost:44100 wss: https://opencode.ai`,
+      `connect-src 'self' ws://localhost:44100 https://opencode.ai`,
       `frame-ancestors 'none'`,
       `form-action 'self'`,
       `img-src 'self' data:`,
@@ -45,7 +45,7 @@ export function securityHeaders(): Middleware {
       headers.contentSecurityPolicy = csp
     }
     if (!headers.has('Permissions-Policy')) {
-      headers.permissionsPolicy = 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+      headers.permissionsPolicy = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()'
     }
 
     if (process.env.NODE_ENV === 'production' && !headers.has('Strict-Transport-Security')) {

@@ -14,7 +14,6 @@ const PAGE_SIZE = 15
 
 const ORDER_BY_COLUMNS: Record<string, string> = {
   created_at: 'created_at',
-  token: 'token',
   source_ip: 'source_ip',
   hermes_status: 'hermes_status',
   callback_received_at: 'callback_received_at',
@@ -23,7 +22,7 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
 export interface WebhookRequestRow {
   id: string
   payload: Record<string, unknown>
-  token: string
+  headers: Record<string, string>
   source_ip: string
   created_at: number
   hermes_status: string | null
@@ -58,13 +57,13 @@ async function loadPageData(
     direction = overrides.sortDirection ?? 'desc'
   }
 
-  let query = `SELECT id, payload, token, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests`
+  let query = `SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests`
   let params: unknown[] = []
   let paramIndex = 0
 
   if (filter && filter.length <= 200) {
     paramIndex++
-    query += ` WHERE token ILIKE $${paramIndex}`
+    query += ` WHERE payload::text ILIKE $${paramIndex}`
     params.push(`%${filter}%`)
   }
 
@@ -105,7 +104,7 @@ export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, Ap
       let editRow: WebhookRequestRow | null = null
       if (editingParam && UUID_RE.test(editingParam)) {
         let result = await pool.query(
-          `SELECT id, payload, token, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = $1`,
+          `SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = $1`,
           [editingParam],
         )
         if (result.rowCount && result.rowCount > 0) {
@@ -160,12 +159,22 @@ export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRo
 
       let payload: Record<string, string> = {}
       if (payloadRaw && typeof payloadRaw === 'string') {
+        if (payloadRaw.length > 100_000) {
+          return new Response('Payload too large', { status: 413 })
+        }
         try {
           let parsed = JSON.parse(payloadRaw)
           if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
             for (let [key, value] of Object.entries(parsed)) {
               if (key.trim()) {
-                payload[key] = String(value)
+                if (key.length > 256) {
+                  return new Response('Key too long', { status: 400 })
+                }
+                let strValue = String(value)
+                if (strValue.length > 10_000) {
+                  return new Response('Value too long', { status: 400 })
+                }
+                payload[key] = strValue
               }
             }
           }
