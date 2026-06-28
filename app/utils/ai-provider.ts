@@ -13,7 +13,7 @@ function getProvider() {
     }
     _provider = createOpenAICompatible({
       baseURL: 'https://opencode.ai/zen/go/v1',
-      name: 'opencode',
+      name: 'opencode-go',
       apiKey,
     })
   }
@@ -24,7 +24,7 @@ export function getModel() {
   if (!_model) {
     let provider = getProvider()
     _model = wrapLanguageModel({
-      model: provider.chatModel('minimax-m2.7'),
+      model: provider.chatModel('deepseek-v4-flash'),
       middleware: devToolsMiddleware(),
     })
   }

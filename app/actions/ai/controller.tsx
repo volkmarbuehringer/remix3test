@@ -161,10 +161,10 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
 
         let result = await generateText({
           model: getModel(),
-          maxOutputTokens: 1024,
+          maxOutputTokens: 4096,
           system: SYSTEM_PROMPT,
           messages: llmMessages,
-          timeout: 20000,
+          timeout: 60000,
         })
 
         let responseText = result.text
@@ -179,7 +179,10 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
 
         if (!responseText || responseText.trim().length === 0) {
           log('empty LLM response for chatId: ' + chatId)
-          return context.json({ error: 'No response from assistant. Please try again.' }, { status: 500 })
+          let errorUrl = new URL('/ai/chat', context.url.origin)
+          errorUrl.searchParams.set('chatId', chatId)
+          errorUrl.searchParams.set('error', 'No response from assistant. Please try again.')
+          return redirect(errorUrl.toString())
         }
 
         await appendMessage(chatId, user.id, {

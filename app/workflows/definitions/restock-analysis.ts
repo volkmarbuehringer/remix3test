@@ -10,7 +10,7 @@ const restockAnalysisWorkflow: Workflow = async function* (context, params) {
   let weatherResult: { temperature: number; humidity: number; windSpeed: number; condition: string; location: string } | undefined
   let weatherError: string | undefined
 
-  let weatherTool = tools['get_weather'] as { execute: (input: { location: string }, options: { toolCallId: string; messages: unknown[] }) => Promise<unknown> } | undefined
+  let weatherTool = tools['get_weather'] as unknown as { execute: (input: { location: string }, options: { toolCallId: string; messages: unknown[] }) => Promise<unknown> } | undefined
 
   if (weatherTool?.execute) {
     try {
