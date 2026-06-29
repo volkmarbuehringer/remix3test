@@ -22,6 +22,14 @@ export const routes = route({
   assets: get('/assets/*path'),
   home: get('/'),
 
+  apiLists: route('api/lists', {
+    index: get('/'),
+    show: get('/:id'),
+    create: post('/'),
+    update: put('/:id'),
+    destroy: del('/:id'),
+  }),
+
   lists: route('lists', {
     index: get('/'),
     save: post('/save'),

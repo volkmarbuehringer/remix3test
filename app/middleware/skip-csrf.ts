@@ -11,7 +11,8 @@ export function skipCsrf(): Middleware {
     if (
       context.url.pathname === '/webhook' ||
       context.url.pathname === '/app-webhook' ||
-      context.url.pathname === '/callback'
+      context.url.pathname === '/callback' ||
+      context.url.pathname.startsWith('/api/')
     ) {
       return next()
     }

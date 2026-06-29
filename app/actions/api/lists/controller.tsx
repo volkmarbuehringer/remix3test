@@ -3,15 +3,12 @@ import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 import { Logger } from 'remix/middleware/logger'
 
-import { requireAuth } from '../../middleware/auth.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
-import { ListsClient } from '../../assets/lists-client.tsx'
-import { ListsShowPage } from './show-page.tsx'
-import { Layout } from '../../ui/layout.tsx'
-import { routes } from '../../routes.ts'
-import { pool } from '../../data/setup.ts'
-import type { AppContext } from '../../types/context.ts'
-import { getListById, createList, updateList } from '../../lib/lists-api.ts'
+import { authenticateWebhook } from '../../../lib/auth-webhook.ts'
+import { JsonBody } from '../../../middleware/json-body.ts'
+import { pool } from '../../../data/setup.ts'
+import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
+import { getAllLists, getListById, createList, updateList, deleteList } from '../../../lib/lists-api.ts'
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -23,19 +20,52 @@ const listsSaveSchema = s.object({
   items: s.array(listItemSchema),
 })
 
-export default createController<typeof routes.lists, AppContext>(routes.lists, {
-  middleware: [requireAuth()],
+export default createController<typeof routes.apiLists, AppContext>(routes.apiLists, {
+  middleware: [],
 
   actions: {
-    index(context) {
-      return context.render(
-        <Layout>
-          <ListsClient />
-        </Layout>,
-      )
+    async index(context) {
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
+
+      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
+      let filter = context.url.searchParams.get('filter') || undefined
+
+      let result = await getAllLists(context.db, pool, { offset, limit, filter })
+      return context.json(result)
     },
-    async save(context) {
-      let db = context.db
+    async show(context) {
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
+
+      let listId: number
+      try {
+        listId = s.parse(s.number(), Number(context.params.id))
+      } catch {
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      if (listId < 1) {
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      let row = await getListById(context.db, listId)
+      if (!row) {
+        return context.json({ error: 'List not found' }, { status: 404 })
+      }
+
+      return context.json({
+        id: row.id,
+        items: row.list,
+        description: row.description,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })
+    },
+    async create(context) {
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
 
       let body = context.get(JsonBody)
       if (!body) {
@@ -58,17 +88,18 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let row = await createList(db, { description, items })
+      let row = await createList(context.db, { description, items })
       return context.json({ id: row.id, description: row.description })
     },
     async update(context) {
-      let db = context.db
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
 
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
       } catch (error) {
-        context.get(Logger)?.('Invalid list ID in lists/update: ' + String(error))
+        context.get(Logger)?.('Invalid list ID in api/lists/update: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -97,21 +128,21 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let updated = await updateList(db, listId, { description, items })
+      let updated = await updateList(context.db, listId, { description, items })
       if (!updated) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
       return context.json({ id: listId, description })
     },
-    async data(context) {
-      let db = context.db
+    async destroy(context) {
+      let auth = authenticateWebhook(context.request)
+      if (auth instanceof Response) return auth
 
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
-      } catch (error) {
-        context.get(Logger)?.('Invalid list ID in lists/data: ' + String(error))
+      } catch {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -119,25 +150,12 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let row = await getListById(db, listId)
-      if (!row) {
+      let deleted = await deleteList(context.db, listId)
+      if (!deleted) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      return context.json({
-        id: row.id,
-        items: row.list,
-        description: row.description,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      })
-    },
-    show(context) {
-      return context.render(
-        <Layout>
-          <ListsShowPage />
-        </Layout>,
-      )
+      return context.json({ deleted: true })
     },
   },
 })
