@@ -1,8 +1,4 @@
-## Purpose
-
-A token-authenticated HTTP endpoint that accepts JSON payloads via POST, stores them in the database, and notifies connected SSE clients of new data. Powers third-party webhook integrations.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Token-authenticated POST endpoint
 
@@ -45,20 +41,10 @@ The system SHALL expose a POST endpoint at `/webhook` that accepts JSON request 
 - **WHEN** a POST request is sent with a non-JSON Content-Type or unparseable body
 - **THEN** the server SHALL respond with HTTP 400
 
-### Requirement: Payload stored in database
+## REMOVED Requirements
 
-The system SHALL store the received JSON payload, the token used, request headers, source IP, and a timestamp in the `webhook_requests` table.
+### Requirement: WEBHOOK_TOKEN env var validation
 
-#### Scenario: Payload inserted
+**Reason**: Replaced by per-user API token validation against the `api_tokens` database table. The `WEBHOOK_TOKEN` environment variable is no longer checked.
 
-- **WHEN** a valid webhook request is received
-- **THEN** a new row SHALL be inserted into `webhook_requests` with the parsed JSON payload, the token value from the `Authorization` header, the request headers as JSONB (with `authorization` stripped), the source IP, and the current timestamp
-
-### Requirement: SSE notification after insertion
-
-After a successful insertion, the system SHALL emit an event on the SSE channel so the viewer page can refresh.
-
-#### Scenario: Viewer receives refresh after webhook
-
-- **WHEN** a valid webhook POST succeeds
-- **THEN** the SSE channel SHALL notify connected clients that new data is available
+**Migration**: Existing clients must generate a per-user token via `POST /api/login` and use that token in the `Authorization: Bearer` header.

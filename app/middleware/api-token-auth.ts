@@ -2,7 +2,7 @@ import { createContextKey, type Middleware } from 'remix/router'
 import { Database } from 'remix/data-table'
 
 import { hashToken } from '../utils/api-token.ts'
-import { parseBearerToken, constantTimeEqual } from '../utils/auth-header.ts'
+import { parseBearerToken } from '../utils/auth-header.ts'
 import { apiTokens, users } from '../data/schema.ts'
 import type { User } from '../data/schema.ts'
 
@@ -37,12 +37,6 @@ export function apiTokenAuth(): Middleware {
         context.set(ApiUser, user, { property: 'apiUser' })
         return next()
       }
-    }
-
-    // Fallback: check WEBHOOK_TOKEN for backward compatibility
-    let webhookToken = process.env.WEBHOOK_TOKEN
-    if (webhookToken && constantTimeEqual(token, webhookToken)) {
-      return next()
     }
 
     return next()

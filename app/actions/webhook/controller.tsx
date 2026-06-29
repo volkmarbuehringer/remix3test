@@ -4,22 +4,19 @@ import { pool } from '../../data/setup.ts'
 import { webhookRoute } from '../../routes.ts'
 import { webhookChannel } from '../../lib/sse-events.ts'
 import { sourceIp } from '../../lib/request-ip.ts'
-import { authenticateWebhook, verifyWebhookHmac, SENSITIVE_HEADERS } from '../../lib/auth-webhook.ts'
+import { SENSITIVE_HEADERS } from '../../lib/sensitive-headers.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
+import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
+import { requireApiAuth } from '../../middleware/api-require-auth.ts'
 import type { AppContext } from '../../types/context.ts'
 
 
 export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
   webhookRoute,
   {
+    middleware: [apiTokenAuth(), requireApiAuth()],
     handler: async (context) => {
       let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Webhook]') : () => {}
-
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
-      let hmacResult = await verifyWebhookHmac(context.request, auth)
-      if (hmacResult) return hmacResult
 
       let body = context.get(JsonBody)
       if (!body) {

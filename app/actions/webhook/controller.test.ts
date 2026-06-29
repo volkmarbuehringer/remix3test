@@ -3,16 +3,27 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../router.ts'
 import { webhookRoute } from '../../routes.ts'
-import { pool, initializeAppDatabase } from '../../data/setup.ts'
+import { pool, initializeAppDatabase, db } from '../../data/setup.ts'
+import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'
+import { users } from '../../data/schema.ts'
 
 const BASE = 'https://remix.run'
-const TEST_TOKEN = 'test-webhook-token-456'
+let authToken: string
 let cleanupIds: string[] = []
 
 describe('Webhook controller', () => {
   before(async () => {
     await initializeAppDatabase()
-    process.env.WEBHOOK_TOKEN = TEST_TOKEN
+    let adminUser = await db.findOne(users, { where: { email: 'admin@newapp.com' } })
+    if (!adminUser) throw new Error('Admin user not found')
+    let rawToken = generateApiToken()
+    let tokenHash = hashToken(rawToken)
+    await pool.query(
+      `INSERT INTO api_tokens (user_id, token_hash, created_at, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [adminUser.id, tokenHash, Date.now(), computeTokenExpiry()],
+    )
+    authToken = rawToken
   })
 
   after(async () => {
@@ -20,7 +31,7 @@ describe('Webhook controller', () => {
       await pool.query(`DELETE FROM webhook_requests WHERE id = $1`, [id])
     }
     cleanupIds = []
-    delete process.env.WEBHOOK_TOKEN
+    await pool.query(`DELETE FROM api_tokens WHERE token_hash = $1`, [hashToken(authToken)])
   })
 
   it('inserts payload and returns id', async () => {
@@ -30,7 +41,7 @@ describe('Webhook controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: rawBody,
     })
@@ -50,7 +61,7 @@ describe('Webhook controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
         'X-Forwarded-For': '10.0.0.1',
         'X-Custom-Header': 'test-value',
       },
@@ -118,31 +129,13 @@ describe('Webhook controller', () => {
     assert.equal(response.status, 401)
   })
 
-  it('returns 503 when WEBHOOK_TOKEN is not configured', async () => {
-    delete process.env.WEBHOOK_TOKEN
-    try {
-      let url = `${BASE}${webhookRoute.href()}`
-      let response = await router.fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${TEST_TOKEN}`,
-        },
-        body: JSON.stringify({ event: 'test' }),
-      })
-      assert.equal(response.status, 503)
-    } finally {
-      process.env.WEBHOOK_TOKEN = TEST_TOKEN
-    }
-  })
-
   it('returns 400 for non-JSON content type', async () => {
     let url = `${BASE}${webhookRoute.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: 'not json',
     })
@@ -157,7 +150,7 @@ describe('Webhook controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
         'Content-Length': String(body.length),
       },
       body,

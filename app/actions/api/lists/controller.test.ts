@@ -2,18 +2,17 @@ import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../../router.ts'
-import { initializeAppDatabase } from '../../../data/setup.ts'
+import { initializeAppDatabase, pool } from '../../../data/setup.ts'
+import { hashToken } from '../../../utils/api-token.ts'
 
 const BASE = 'https://remix.run'
 const API_URL = `${BASE}/api/lists`
-const TEST_TOKEN = 'test-api-lists-token'
 
 describe('API Lists controller', () => {
   let authToken: string
 
   before(async () => {
     await initializeAppDatabase()
-    process.env.WEBHOOK_TOKEN = TEST_TOKEN
 
     let loginResponse = await router.fetch(`${BASE}/api/login`, {
       method: 'POST',
@@ -28,13 +27,9 @@ describe('API Lists controller', () => {
     authToken = body.token
   })
 
-  after(() => {
-    delete process.env.WEBHOOK_TOKEN
+  after(async () => {
+    await pool.query(`DELETE FROM api_tokens WHERE token_hash = $1`, [hashToken(authToken)])
   })
-
-  // -----------------------------------------------------------------------
-  // Auth — backward compat with WEBHOOK_TOKEN
-  // -----------------------------------------------------------------------
 
   it('returns 401 when Authorization header is missing', async () => {
     let response = await router.fetch(API_URL)
@@ -53,13 +48,6 @@ describe('API Lists controller', () => {
       headers: { Authorization: 'Basic dXNlcjpwYXNz' },
     })
     assert.equal(response.status, 401)
-  })
-
-  it('WEBHOOK_TOKEN still works (backward compat)', async () => {
-    let response = await router.fetch(API_URL, {
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
-    })
-    assert.equal(response.status, 200)
   })
 
   // -----------------------------------------------------------------------

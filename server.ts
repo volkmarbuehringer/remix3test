@@ -9,7 +9,7 @@ import { initializeAppDatabase, closeAppDatabase } from './app/data/setup.ts'
 
 await initializeAppDatabase()
 
-const REQUIRED_ENV = ['SESSION_SECRET', 'DATABASE_URL', 'WEBHOOK_TOKEN'] as const
+const REQUIRED_ENV = ['SESSION_SECRET', 'DATABASE_URL'] as const
 for (let key of REQUIRED_ENV) {
   if (!process.env[key]) {
     throw new Error(`Missing required environment variable: ${key}`)

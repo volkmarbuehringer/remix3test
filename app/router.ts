@@ -71,7 +71,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.post(routes.api.login, apiLogin)
   router.post(routes.api.logout, apiLogout)
 
-  // API Lists routes (webhook token auth)
+  // API Lists routes (per-user token auth)
   router.map(routes.apiLists, apiListsController)
 
   // Auth routes

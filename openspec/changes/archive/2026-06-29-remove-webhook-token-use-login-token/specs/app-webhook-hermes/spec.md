@@ -1,8 +1,4 @@
-## Purpose
-
-A token-authenticated HTTP endpoint that accepts JSON payloads via POST, stores them in the database, and forwards the data to the hermes event processor for background handling. Powers app-specific webhook integrations with external event processing.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Webhook payload ingestion with UUID generation
 
@@ -13,7 +9,6 @@ The system SHALL accept POST requests to `/app-webhook` with a JSON body and ins
 - The endpoint SHALL reject invalid JSON with status 400
 - The endpoint SHALL authenticate via the `Authorization: Bearer <token>` header validated against the `api_tokens` table via the `apiTokenAuth` middleware
 - The endpoint SHALL return 401 if the token is invalid, expired, or revoked
-- The endpoint SHALL return 401 if the header is missing
 - The endpoint SHALL return 401 if a non-Bearer Authorization scheme is used
 - The endpoint SHALL NOT check `process.env.WEBHOOK_TOKEN`
 - The endpoint SHALL strip sensitive headers (authorization, cookie, x-api-key, etc.) before storage
@@ -55,24 +50,10 @@ The system SHALL accept POST requests to `/app-webhook` with a JSON body and ins
 - **WHEN** a POST is sent with a payload exceeding 256KB
 - **THEN** the endpoint SHALL return status 413
 
-### Requirement: Hermes event forwarding
+## REMOVED Requirements
 
-After inserting the webhook payload, the system SHALL POST the UUID and payload to the hermes event processor at `http://127.0.0.1:8644/webhooks/app-webhook`.
+### Requirement: WEBHOOK_TOKEN env var check and 503
 
-- The POST body SHALL be `{ "id": "<uuid>", "payload": { ... } }` where the UUID comes from the INSERT RETURNING clause
-- The hermes fetch SHALL use a 3-second timeout
-- The hermes HTTP response code SHALL be stored in the `webhook_requests.hermes_status` column
-- If hermes is unreachable, the API SHALL still return success (data is persisted) with `hermes_status` set to `"error"`
-- On successful hermes delivery, the response SHALL include the `callbackUrl` and original `payload`
+**Reason**: The `WEBHOOK_TOKEN` environment variable is no longer used. Token validation happens against the `api_tokens` database table, which always has a deterministic result (no "unconfigured" state).
 
-#### Scenario: Hermes responds successfully
-
-- **WHEN** the insert succeeds and hermes responds with HTTP 202
-- **THEN** the response SHALL include `{ "id": "<uuid>", "callbackUrl": "<url>", "payload": { ... } }`
-- **THEN** `webhook_requests.hermes_status` SHALL be `"202"`
-
-#### Scenario: Hermes is unreachable
-
-- **WHEN** the insert succeeds but hermes does not respond within 3 seconds
-- **THEN** the response SHALL still return 200 with `{ "id": "<uuid>", "callbackUrl": "<url>", "payload": { ... } }`
-- **THEN** `webhook_requests.hermes_status` SHALL be `"error"`
+**Migration**: Existing clients must generate a per-user token via `POST /api/login` and use that token in the `Authorization: Bearer` header.
