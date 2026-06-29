@@ -9,9 +9,23 @@ const API_URL = `${BASE}/api/lists`
 const TEST_TOKEN = 'test-api-lists-token'
 
 describe('API Lists controller', () => {
+  let authToken: string
+
   before(async () => {
     await initializeAppDatabase()
     process.env.WEBHOOK_TOKEN = TEST_TOKEN
+
+    let loginResponse = await router.fetch(`${BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@newapp.com',
+        password: process.env.SEED_ADMIN_PASSWORD || 'admin123',
+      }),
+    })
+    assert.equal(loginResponse.status, 200, 'login must succeed for per-user token tests')
+    let body = await loginResponse.json()
+    authToken = body.token
   })
 
   after(() => {
@@ -19,7 +33,7 @@ describe('API Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // Auth
+  // Auth — backward compat with WEBHOOK_TOKEN
   // -----------------------------------------------------------------------
 
   it('returns 401 when Authorization header is missing', async () => {
@@ -41,13 +55,20 @@ describe('API Lists controller', () => {
     assert.equal(response.status, 401)
   })
 
+  it('WEBHOOK_TOKEN still works (backward compat)', async () => {
+    let response = await router.fetch(API_URL, {
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+    })
+    assert.equal(response.status, 200)
+  })
+
   // -----------------------------------------------------------------------
-  // GET /api/lists — list all
+  // GET /api/lists — list all (using per-user token)
   // -----------------------------------------------------------------------
 
   it('GET /api/lists returns paginated list', async () => {
     let response = await router.fetch(API_URL, {
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 200)
     let body = await response.json()
@@ -58,7 +79,7 @@ describe('API Lists controller', () => {
 
   it('GET /api/lists respects offset and limit', async () => {
     let response = await router.fetch(`${API_URL}?offset=0&limit=2`, {
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 200)
     let body = await response.json()
@@ -76,7 +97,7 @@ describe('API Lists controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         description: 'API test list',
@@ -95,7 +116,7 @@ describe('API Lists controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ items: [{ id: '1', label: 'Item' }] }),
     })
@@ -109,7 +130,7 @@ describe('API Lists controller', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ description: 'Test', items: [] }),
     })
@@ -123,9 +144,9 @@ describe('API Lists controller', () => {
   // -----------------------------------------------------------------------
 
   it('GET /api/lists/:id returns a single list', async () => {
-    if (!createdId) throw new Error('No list created')
+    assert.ok(createdId !== null, 'a list must have been created')
     let response = await router.fetch(`${API_URL}/${createdId}`, {
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 200)
     let body = await response.json()
@@ -136,7 +157,7 @@ describe('API Lists controller', () => {
 
   it('GET /api/lists/9999999 returns 404', async () => {
     let response = await router.fetch(`${API_URL}/9999999`, {
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 404)
   })
@@ -146,12 +167,12 @@ describe('API Lists controller', () => {
   // -----------------------------------------------------------------------
 
   it('PUT /api/lists/:id updates a list', async () => {
-    if (!createdId) throw new Error('No list created')
+    assert.ok(createdId !== null, 'a list must have been created')
     let response = await router.fetch(`${API_URL}/${createdId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         description: 'Updated API list',
@@ -172,7 +193,7 @@ describe('API Lists controller', () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${TEST_TOKEN}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         description: 'Test',
@@ -187,10 +208,10 @@ describe('API Lists controller', () => {
   // -----------------------------------------------------------------------
 
   it('DELETE /api/lists/:id deletes a list', async () => {
-    if (!createdId) throw new Error('No list created')
+    assert.ok(createdId !== null, 'a list must have been created')
     let response = await router.fetch(`${API_URL}/${createdId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 200)
     let body = await response.json()
@@ -200,7 +221,7 @@ describe('API Lists controller', () => {
   it('DELETE /api/lists/9999999 returns 404', async () => {
     let response = await router.fetch(`${API_URL}/9999999`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      headers: { Authorization: `Bearer ${authToken}` },
     })
     assert.equal(response.status, 404)
   })

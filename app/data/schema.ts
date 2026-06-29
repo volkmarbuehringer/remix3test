@@ -545,5 +545,29 @@ export type Client = TableRow<typeof clients>
 export type Appointment = TableRow<typeof appointments>
 export type AppointType = TableRow<typeof appointtypes>
 export type Resource = TableRow<typeof resources>
+export const apiTokens = table({
+  name: 'api_tokens',
+  columns: {
+    id: c.integer(),
+    user_id: c.integer(),
+    token_hash: c.text(),
+    created_at: bigint(),
+    expires_at: bigint(),
+    revoked_at: bigint(),
+  },
+  beforeWrite({ operation, value }) {
+    let next = { ...value }
+    if (operation === 'create' && next.created_at === undefined) {
+      next.created_at = Date.now()
+    }
+    return { value: next }
+  },
+  afterRead({ value }) {
+    parseIntFields(value, 'created_at', 'expires_at', 'revoked_at')
+    return { value }
+  },
+})
+
+export type ApiToken = TableRow<typeof apiTokens>
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>

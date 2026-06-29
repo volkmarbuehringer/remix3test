@@ -22,6 +22,11 @@ export const routes = route({
   assets: get('/assets/*path'),
   home: get('/'),
 
+  api: route('api', {
+    login: post('/login'),
+    logout: post('/logout'),
+  }),
+
   apiLists: route('api/lists', {
     index: get('/'),
     show: get('/:id'),

@@ -24,6 +24,8 @@ import appointmentsNewController from './actions/appointments-new/controller.tsx
 import settingsController from './actions/settings/controller.tsx'
 import uploadsController, { download as uploadsDownloadHandler } from './actions/uploads/controller.tsx'
 import { webhookReceive } from './actions/webhook/controller.tsx'
+import { apiLogin } from './actions/api/login/controller.tsx'
+import { apiLogout } from './actions/api/logout/controller.tsx'
 import { appWebhookReceive } from './actions/app-webhook/controller.tsx'
 import { webhookRequestsIndex, webhookRequestsEvents, webhookRequestsResend, webhookRequestsUpdate } from './actions/webhook-requests/controller.tsx'
 import { webhookRequestsCreate } from './actions/webhook-requests/create/controller.tsx'
@@ -64,6 +66,10 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Lists routes (separate controller with requireAuth middleware)
   router.map(routes.lists, listsController)
+
+  // API auth routes
+  router.post(routes.api.login, apiLogin)
+  router.post(routes.api.logout, apiLogout)
 
   // API Lists routes (webhook token auth)
   router.map(routes.apiLists, apiListsController)

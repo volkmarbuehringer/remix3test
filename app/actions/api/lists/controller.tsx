@@ -3,8 +3,9 @@ import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 import { Logger } from 'remix/middleware/logger'
 
-import { authenticateWebhook } from '../../../lib/auth-webhook.ts'
 import { JsonBody } from '../../../middleware/json-body.ts'
+import { apiTokenAuth } from '../../../middleware/api-token-auth.ts'
+import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
 import { pool } from '../../../data/setup.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
@@ -21,13 +22,10 @@ const listsSaveSchema = s.object({
 })
 
 export default createController<typeof routes.apiLists, AppContext>(routes.apiLists, {
-  middleware: [],
+  middleware: [apiTokenAuth(), requireApiAuth()],
 
   actions: {
     async index(context) {
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
       let filter = context.url.searchParams.get('filter') || undefined
@@ -36,9 +34,6 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json(result)
     },
     async show(context) {
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
@@ -64,9 +59,6 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       })
     },
     async create(context) {
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
       let body = context.get(JsonBody)
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
@@ -92,9 +84,6 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json({ id: row.id, description: row.description })
     },
     async update(context) {
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
@@ -136,9 +125,6 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json({ id: listId, description })
     },
     async destroy(context) {
-      let auth = authenticateWebhook(context.request)
-      if (auth instanceof Response) return auth
-
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))

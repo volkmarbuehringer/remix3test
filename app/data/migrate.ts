@@ -260,6 +260,18 @@ export async function migrate(): Promise<void> {
   await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_response JSONB`)
   await pool.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_received_at BIGINT`)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      revoked_at BIGINT
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS api_tokens_token_hash_idx ON api_tokens (token_hash)`)
+
   console.log('[DB] Tables created/verified')
   } finally {
     await pool.query(`SELECT pg_advisory_unlock(287140921)`)
