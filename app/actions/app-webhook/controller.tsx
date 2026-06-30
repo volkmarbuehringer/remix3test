@@ -61,7 +61,7 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       let hermesStatusText: string
       let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
       let hermesPayload = JSON.stringify({ id, callbackUrl, payload: body })
-      if (process.env.NODE_ENV !== 'test') console.log(`[Webhook] Sende an Hermes: ${hermesUrl()} payload=${hermesPayload}`)
+      if (process.env.NODE_ENV !== 'test') console.log(`[Webhook] Sende an Hermes: ${hermesUrl()} id=${id}`)
 
       try {
         let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)

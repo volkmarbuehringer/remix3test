@@ -8,14 +8,16 @@ export function globalRateLimit(options?: {
   maxPerWindow?: number
   windowMs?: number
   trustProxy?: boolean
+  skip?: boolean
 }): Middleware {
   let maxPerWindow = options?.maxPerWindow ?? 500
   let windowMs = options?.windowMs ?? 60_000
   let trustProxy = options?.trustProxy ?? process.env.NODE_ENV === 'production'
+  let skip = options?.skip ?? process.env.NODE_ENV === 'test'
   let limiter = createRateLimiter({ windowMs, perKey: true, maxAttempts: maxPerWindow })
 
   return async (context, next) => {
-    if (process.env.NODE_ENV === 'test') {
+    if (skip) {
       return next()
     }
 
@@ -26,12 +28,13 @@ export function globalRateLimit(options?: {
     let ip: string
     if (trustProxy) {
       ip =
+        context.request.headers.get('X-Client-Ip') ??
         context.request.headers.get('Cf-Connecting-Ip') ??
         context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
         context.request.headers.get('X-Real-Ip') ??
         'unknown'
     } else {
-      ip = 'unknown'
+      ip = context.request.headers.get('X-Client-Ip') ?? 'unknown'
     }
 
     let check = limiter.check(ip)

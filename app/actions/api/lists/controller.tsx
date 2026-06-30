@@ -1,15 +1,28 @@
-import { createController } from 'remix/router'
+import { createController, type Middleware } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 import { Logger } from 'remix/middleware/logger'
 
 import { JsonBody } from '../../../middleware/json-body.ts'
-import { apiTokenAuth } from '../../../middleware/api-token-auth.ts'
+import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
+import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { pool } from '../../../data/setup.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAllLists, getListById, createList, updateList, deleteList } from '../../../lib/lists-api.ts'
+
+const apiListsLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 60 })
+
+function apiListsRateLimit(): Middleware {
+  return async (context, next) => {
+    let userId = context.get(ApiUser)?.id
+    if (userId != null && !apiListsLimiter.attempt(userId)) {
+      return Response.json({ error: 'Too many requests' }, { status: 429 })
+    }
+    return next()
+  }
+}
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -22,7 +35,7 @@ const listsSaveSchema = s.object({
 })
 
 export default createController<typeof routes.apiLists, AppContext>(routes.apiLists, {
-  middleware: [apiTokenAuth(), requireApiAuth()],
+  middleware: [apiTokenAuth(), requireApiAuth(), apiListsRateLimit()],
 
   actions: {
     async index(context) {
