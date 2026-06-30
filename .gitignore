@@ -24,3 +24,4 @@ package.json.npm
 
 # Vendor skill — symlinked from @remix-run/cli via scripts/sync-skills.ts
 .opencode/skills/remix
+.curler

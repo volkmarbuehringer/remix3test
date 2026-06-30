@@ -66,6 +66,62 @@ export function json(): Middleware<{
 // Enables: context.json({ ok: true })
 ```
 
+---
+
+## Avoiding Circular Dependencies
+
+When deriving `AppContext` from `createMiddleware()`, placing the middleware factory in `router.ts` and re-exporting its type from `types/context.ts` creates a circular dependency:
+
+```
+router.ts → controllers → types/context.ts → router.ts
+```
+
+TypeScript silently resolves `AppContext` to `DefaultContext` — middleware-provided properties (`context.formData`, `context.auth`, `context.render`) disappear from the type system.
+
+### Solution: One-directional dependency flow
+
+Place `createNewappMiddleware()` in a file with no dependency on `router.ts` or controllers:
+
+```
+app/middleware/root.ts         ← createNewappMiddleware() lives here
+app/types/context.ts           ← imports from root.ts, derives AppContext
+app/router.ts                  ← imports from both
+```
+
+Dependency flow:
+```
+router.ts → middleware/root.ts + types/context.ts → middleware/*.ts
+```
+
+```typescript
+// app/middleware/root.ts
+// Imports only from remix/* and sibling middleware — NO router/controller imports
+import { createMiddleware } from 'remix/router'
+import { formData } from 'remix/middleware/form-data'
+import { loadDatabase } from './database.ts'
+import { loadAuth } from './auth.ts'
+
+export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) {
+  return createMiddleware(formData(), session(cookie, storage), loadDatabase(), loadAuth())
+}
+```
+
+```typescript
+// app/types/context.ts — type-only import, erased at runtime
+import type { MiddlewareContext } from 'remix/router'
+import type { createNewappMiddleware } from '../middleware/root.ts'
+export type AppContext = MiddlewareContext<ReturnType<typeof createNewappMiddleware>>
+```
+
+```typescript
+// app/router.ts — no cycle
+import { createRouter } from 'remix/router'
+import { createNewappMiddleware } from './middleware/root.ts'
+import type { AppContext } from './types/context.ts'
+```
+
+**When to use:** Migrating to `createMiddleware()`, when the factory accepts parameters, whenever `export type { AppContext } from '../router.ts'` appears in `context.ts`, or if TypeScript reports "Property 'formData' does not exist on type 'RequestContext<{}...'" after refactoring.
+
 ## When to Use
 
 - Adding custom middleware that should expose a typed function or value on `context`

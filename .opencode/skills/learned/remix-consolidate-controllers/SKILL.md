@@ -128,12 +128,26 @@ UI-only imports (`Handle`, `css`, `theme`, page building blocks) move to `pages.
 ```bash
 npm run typecheck    # catches missing imports, wrong type names
 npm run lint         # catches const/let issues
-npx remix doctor     # confirms warnings silenced
+```
+
+### Step 10: Understand remix doctor false warnings
+
+After consolidation, `remix doctor` may produce false-positive warnings like:
+
+```
+[WARN] Action controller app/actions/admin-appointments/controller.tsx does not match any route map.
+[WARN] Directory app/actions/auth does not match any route-map key path.
+```
+
+**These are benign.** The doctor's heuristics expect flat `*-controller.tsx` filenames in `app/actions/`, not `directory/controller.tsx`. All routes work correctly via `router.ts` explicit mapping. Confirm with:
+
+```bash
+npm run typecheck    # passes — imports resolve
+npm test             # passes — routes work
 ```
 
 ## When to Use
 
-- When `remix doctor` produces "does not match any route map" warnings for controllers
 - When consolidating feature directories following the timeboxer demo pattern
 - When moving from flat kebab-case controller dirs to directory-per-feature layout
-- Always pair with `remix-doctor-feature-dir-warnings` skill for understanding the remaining false positives
+- When debugging `remix doctor` output after refactoring controllers

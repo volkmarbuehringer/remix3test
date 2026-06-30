@@ -150,4 +150,65 @@ let gridSection = (
     {/* ... */}
   </div>
 )
+
+---
+
+## PostgreSQL BIGINT Returned as String via Raw SQL
+
+PostgreSQL's `BIGINT`/`int8` columns are returned as **strings** by the Node.js `pg` driver in raw SQL query results. This breaks `new Date()`, strict equality (`===`), and arithmetic.
+
+Always wrap `BIGINT` values with `Number()` when consuming from raw SQL results:
+
+```typescript
+// ❌ BUG: string epoch → "Invalid Date"
+new Date(row.day).toLocaleDateString('de-DE')
+
+// ✅ FIX: Number() coerces string → number
+new Date(Number(row.day)).toLocaleDateString('de-DE')
+```
+
+For bulk conversion, use a utility:
+
+```typescript
+function parseIntFields(value: Record<string, unknown>, ...fields: string[]): void {
+  for (let field of fields) {
+    if (typeof value[field] === 'string') {
+      value[field] = parseInt(value[field] as string, 10)
+    }
+  }
+}
+```
+
+**When to use:** Consuming `BIGINT`/`int8` columns via raw SQL in Node.js (`pool.query`, `db.exec`), especially epoch-ms timestamps.
+
+---
+
+## Epoch-ms Granularity Comparison: UTC Midnight vs Wall-Clock
+
+When you store dates as **UTC-midnight epoch ms** (`Date.UTC(2026, 5, 11)`) and filter with `stored_date >= Date.now()`, **today's entries are silently excluded** at any time past midnight UTC.
+
+`Date.now()` returns wall-clock time (e.g., noon = `1768046400000`), which is always > midnight for the same day (`1768003200000`). The comparison `midnight >= noon` is `false` — no error, no exception, just missing data.
+
+**Fix:** Compare against today's UTC midnight instead:
+
+```typescript
+let now = new Date()
+let todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+query += ` AND a.date >= $${paramIndex}`
+params.push(todayUtcMidnight)
+```
+
+For the **expired/past** filter, same principle — use `< todayUtcMidnight`:
+
+```typescript
+if (status === 'pending' || !status) {
+  query += ` AND a.date >= $${paramIndex}`
+  params.push(todayUtcMidnight)   // includes today and future
+} else if (status === 'expired') {
+  query += ` AND a.date < $${paramIndex}`
+  params.push(todayUtcMidnight)   // excludes today (yesterday and older only)
+}
+```
+
+**When to use:** Database columns storing epoch-ms dates at UTC day boundaries (BIGINT), SQL `WHERE` clauses filtering by "future"/"past", or comparing timestamps at different granularities.
 ```

@@ -129,6 +129,10 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 </select>
 ```
 
+**Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. Remix 3's `remix/ui` runtime compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it. See Common Mistake #4.
+
+> _Consolidated from: remix3-select-default-value_
+
 ---
 
 ## Pattern 2: URL Param Roundtrip (DEPRECATED)
@@ -358,18 +362,57 @@ export const offeringSaveSchema = f.object({
 
 ### `coerce.number()` Empty-Select Pitfall
 
-When a `<select>` has a disabled placeholder option (`<option value="">`), the browser sends `""`. `coerce.number()` fails immediately with **English** `"Expected number"` before `.refine()` can produce a **German** message. See `.agents/knowledge/remix3-coerce-number-empty-select-messages.md`.
+When a `<select>` has a disabled placeholder option (`<option value="">`), the browser sends `""`. `coerce.number()` fails immediately with **English** `"Expected number"` before `.refine()` can produce a **German** message.
 
-**Fix:** Pre-check empty selects in the controller before `parseSafe`:
+From the `coerce.js` source:
+```
+// Empty string → immediate failure, .refine() never runs
+if (trimmed.length === 0) return fail('Expected number', ...)
+```
+
+**Fix:** Pre-check empty select values in the controller before calling `parseSafe`:
 
 ```typescript
 let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
 if (!resourceIdRaw.trim()) {
   return buildErrorRedirect(formValues, gridValues, {
-    creating: true, fieldErrors: { resource_id: 'ist erforderlich.' }
+    creating: true,
+    fieldErrors: { resource_id: 'ist erforderlich.' }
   })
 }
+
+// Only reaches parseSafe if resource_id is non-empty
+let result = s.parseSafe(offeringSaveSchema, formData)
 ```
+
+**Failed Approaches:**
+
+`s.string().refine(...).pipe(coerce.number()).refine(...)` — TypeScript fails because `.refine()` after `.pipe()` still expects the string type predicate:
+
+```typescript
+// Does NOT work:
+f.field(
+  s.string()
+    .refine(v => v.trim() !== '', 'ist erforderlich.')
+    .pipe(coerce.number())    // ← changes type to number
+    .refine(n => n > 0, ...)  // ← .refine() still expects string type
+)
+```
+
+**Related: PostgreSQL integer vs URL string type coercion in `<option selected>`**
+
+A separate but related select trap: `<option selected={resolvedId === res.id}>` silently fails when `res.id` is a `number` from PostgreSQL but `resolvedId` is a `string` from URL params. PostgreSQL `integer` columns return as JS `number` through `pg`, while `URLSearchParams.get()` and `FormData.get()` always return strings. `===` is strict — `"5" === 5` → `false`.
+
+Use `String()` on both sides to handle the mismatch:
+
+```tsx
+// ✅ Works for both number and string types
+<option selected={resolvedId != null && String(resolvedId) === String(res.id)}>
+```
+
+Detection: if a `<select>` shows the wrong option after a validation redirect but works on initial load, the runtime types likely differ. Log `typeof res.id` vs `typeof resolvedResourceId` to confirm.
+
+> _Consolidated from: remix3-coerce-number-empty-select-messages_
 
 ### Shared Utilities: `app/utils/schema-utils.ts`
 
@@ -407,6 +450,47 @@ if (result.value.end_min <= result.value.start_min) {
   return renderPage(context, data, { status: 400 })
 }
 ```
+
+### Multi-Step Wizard State Preservation
+
+In a Remix multi-step wizard, form submissions are POST requests. When validation fails and the action re-renders the page, `context.url.searchParams` is empty (POST has no query params). Wizard context values like `resource_id`, `day`, and `step` are only in `formData`, not the URL. If the shared data loader uses URL params to derive wizard data (offerings, time slots), the re-rendered page will have broken UI — empty dropdowns, missing computed data.
+
+**Solution:** Extract wizard context from `formData` at the top of the action handler, and pass them explicitly as overrides to the data loading function on every error re-render path.
+
+```typescript
+// In the action handler:
+let formData = context.formData
+
+// Extract wizard context from hidden form fields
+let wizardResourceId = (formData.get('resource_id') as string) || undefined
+let dateRaw = (formData.get('date') as string) || undefined
+let wizardDay = dateRaw ? new Date(dateRaw + 'T00:00:00Z').getTime() : undefined
+
+// Pass to every error re-render:
+let data = await loadPageData(context, userId, {
+  step: 3,
+  wizardResourceId,
+  wizardDay,
+  formValues,
+  fieldErrors,
+  formError: 'Validation failed.',
+})
+return renderPage(context, data, { status: 400 })
+```
+
+The data loader then uses `overrides.wizardResourceId` and `overrides.wizardDay` (falling back to URL params for GET requests):
+
+```typescript
+let wizardResourceId = overrides?.wizardResourceId
+  ?? context.url.searchParams.get('resource_id')
+  ?? undefined
+
+let wizardDayStr = overrides?.wizardDay !== undefined
+  ? String(overrides.wizardDay)
+  : (context.url.searchParams.get('day') || undefined)
+```
+
+> _Consolidated from: remix-wizard-post-validate-state_
 
 ---
 
@@ -613,12 +697,79 @@ Unicode escapes like `\u00e4` are NOT interpreted in JSX text content (only in `
 1. **Using `s.parse` instead of `s.parseSafe`** — `parse` throws on validation failure, losing error details. Use `parseSafe` and check `.success`.
 2. **Not preserving form values on failure** — Users must re-type all fields after a validation error. Always pass `formValues` back to the component.
 3. **Forgetting `redirect: 'manual'` in tests** — Without it, the test follows the 302 redirect and cannot assert the 400 response.
-4. **Select fields not showing preserved values** — In select dropdowns, `formValues` (from failed submit) must take priority over row data (from DB) for `selected` attributes.
+4. **Select fields not showing preserved values** — In select dropdowns, `formValues` (from failed submit) must take priority over row data (from DB) for `selected` attributes. Also, `defaultValue` on `<select>` does NOT work in Remix 3 — use `selected` on `<option>` instead. See "Select Fields: Preserve Selection" section above.
 5. **Mixing patterns incorrectly** — Don't return a 400 HTML re-render inside a Frame context; Frame navigation expects a redirect. Use Pattern 2 (URL params) for Frame-based forms.
 6. **Using `type="email"` with custom validation** — HTML5 email validation may conflict with schema validation. Use `type="text"` and rely on schema-based `email()` check.
 7. **Returning `context.json()` for admin form errors** — In Frame-based admin layouts, `context.json({ error }, 400)` renders raw JSON in the browser, not the form page. Always redirect with `?error=` param. See `admin-nutzer-controller.tsx` fix.
-8. **`coerce.number()` on empty select values** — `<option value="">` sends `""` which `coerce.number()` rejects with English `"Expected number"` before `.refine()` can run. Pre-check empty selects in the controller. See `.agents/knowledge/remix3-coerce-number-empty-select-messages.md`.
+8. **`coerce.number()` on empty select values** — `<option value="">` sends `""` which `coerce.number()` rejects with English `"Expected number"` before `.refine()` can run. Pre-check empty selects in the controller. Also watch for PostgreSQL `number` vs URL `string` type mismatch on `selected` — use `String()` coercion on both sides. See `coerce.number()` Empty-Select Pitfall section above.
 9. **Dropping the `if (!result.success)` guard** — When restructuring controller actions, ensure the parseSafe success check remains before accessing `result.value`.
+
+---
+
+## URL-Param-Driven SQL Filter Checklist
+
+Adding a new URL-query-param filter (e.g., `?status=pending`) that drives a SQL `WHERE` clause requires touching 8+ places across the controller, UI, forms, and wizard steps. Follow this touchpoint checklist in order:
+
+### 1. GridState utility (`app/utils/grid-state.ts`)
+- Add field to `GridState` interface
+- Add reader in `gridStateFromURL`, `gridStateFromForm`, `gridStateFromFormData`
+- Add writer in `gridStateToParams`
+- Add accessor helper (`gridStateStatus()` pattern)
+
+### 2. Controller — data layer (`app/actions/<route>/controller.tsx`)
+- Import the gridState accessor
+- Add field to data interface (`status?: string` in `AppointmentsNewPageData`)
+- Add field to `load*PageData()` overrides `Pick<>` type
+- Read from URL: `let val = overrides?.val ?? (context.url.searchParams.get('val') || undefined)`
+- Add SQL `WHERE` clause (parameterized, after period/other filters)
+- Return field in data object
+
+### 3. Controller — render function
+- Pass `val={data.val}` to the page component
+
+### 4. Controller — thread through all action override calls
+Every `load*PageData()` call with overrides needs `val: gridStateVal(gridValues)` — especially POST error paths where `context.url.searchParams` is empty. Check all:
+- Rate limit errors
+- Validation errors  
+- Past date / business rule errors
+- Exclusion constraint errors
+- Not-found errors
+
+Also add to explicit redirect URL params in wizard step transitions:
+```
+if (gridValues.val) params.set('val', gridValues.val)
+```
+
+### 5. UI — page component (`app/ui/<page>.tsx`)
+- Add `val?: string` to props interface
+- Destructure `val` from handle props
+- Update local URL builder functions to accept and pass `val`
+- Thread `val` through calls to imported URL builders (`buildSortUrl`, `buildPaginationUrl`, `buildCreateUrl`, `buildEditUrl`, `buildCancelUrl`)
+- Add filter UI (button group, select, etc.)
+- Add `val` to `GridStateHiddenInputs` state
+- Pass `val` to sub-page components (edit, create panels)
+
+### 6. Sub-page components
+- **Edit page**: Add to props interface, add to `gridState` object
+- **Create page**: Add to props interface, add to `gridState` object
+
+### 7. Form component (`app/ui/<form>.tsx`)
+- Destructure `val` from `gridState`
+- Pass `val` to `buildCancelUrl()`
+
+### 8. Wizard step components (if applicable)
+- Add `_val` hidden input to each step's form
+- Update local URL builder functions (`buildPeriodUrl`, `buildBackUrl`) to pass `gridState.val`
+- Update "Abbrechen" links to use `buildCancelUrl` with `val` instead of bare base URL
+- Import `buildCancelUrl` from `./mixins/admin-urls.ts`
+
+### 9. Tests
+- Test: default behavior (no param)
+- Test: param set to each valid value
+- Test: param filters correctly (verify content present/absent)
+- For filters that exclude data (e.g., "expired"), insert test data directly via SQL if the controller blocks creation of matching records
+
+> _Consolidated from: remix-url-param-sql-filter_
 
 ---
 
@@ -641,5 +792,5 @@ Unicode escapes like `\u00e4` are NOT interpreted in JSX text content (only in `
 ## Related Knowledge Files
 
 - `.agents/knowledge/remix3-parseSafe-declarative-schemas.md` — Full pattern: replacing hand-written validation with parseSafe + .refine()
-- `.agents/knowledge/remix3-coerce-number-empty-select-messages.md` — Fix for English error messages from empty selects
 - `.agents/knowledge/remix3-render-from-post-validation.md` — Why re-render-from-POST is the recommended Remix 3 pattern
+- `.opencode/skills/learned/form-error-handling-remix3/SKILL.md` — Consolidated skill (this file): coerce.number() empty-select fix, select defaultValue vs selected, wizard POST state, URL-param SQL filter checklist

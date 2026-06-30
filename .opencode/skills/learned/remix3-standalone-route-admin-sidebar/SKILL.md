@@ -95,6 +95,16 @@ export const mySseHandler = createAction<typeof mySseRoute, AppContext>(
 )
 ```
 
+**Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The `requireSseAuth()` middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint (EventSource, WebSocket).
+
+Auth state check behavior:
+
+| `auth` value | `context.get(Auth)` | Result |
+|---|---|---|
+| `loadAuth()` not installed | `undefined` | 401 |
+| No valid session | `{ ok: false }` (no `user` prop) | 401 |
+| Valid session | `{ user: {...} }` | passes through |
+
 ### 4. Client IP extraction with socket fallback
 
 When `X-Forwarded-For` and `X-Real-Ip` are unavailable (direct connections), fall back to the TCP socket remote address:
