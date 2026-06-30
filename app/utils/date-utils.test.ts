@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { isDateInPast, isWithinHours } from './date-utils.ts'
+import { isDateInPast, isWithinHours, generateMinOptions } from './date-utils.ts'
 
 describe('isDateInPast', () => {
   it('returns true for a date in the past (yesterday)', () => {
@@ -79,5 +79,51 @@ describe('isWithinHours', () => {
     let future = Date.now() + 2 * 3600000
     assert.ok(isWithinHours(future, 1), '2h in future is within 1h window')
     assert.ok(!isWithinHours(future, 3), '2h in future is NOT within 3h window')
+  })
+})
+
+describe('generateMinOptions', () => {
+  it('generates 0-based sequence', () => {
+    assert.deepEqual(generateMinOptions(3, 10), [0, 10, 20])
+  })
+
+  it('applies offset correctly', () => {
+    assert.deepEqual(generateMinOptions(3, 10, 1), [10, 20, 30])
+  })
+
+  it('matches 15-min appointment intervals (96 slots, offset 0)', () => {
+    let result = generateMinOptions(96, 15)
+    assert.equal(result.length, 96)
+    assert.equal(result[0], 0)
+    assert.equal(result[95], 1425)
+  })
+
+  it('matches 15-min appointment end intervals (96 slots, offset 1)', () => {
+    let result = generateMinOptions(96, 15, 1)
+    assert.equal(result.length, 96)
+    assert.equal(result[0], 15)
+    assert.equal(result[95], 1440)
+  })
+
+  it('matches 60-min offering intervals (24 slots, offset 0)', () => {
+    let result = generateMinOptions(24, 60)
+    assert.equal(result.length, 24)
+    assert.equal(result[0], 0)
+    assert.equal(result[23], 1380)
+  })
+
+  it('matches 60-min offering end intervals (24 slots, offset 1)', () => {
+    let result = generateMinOptions(24, 60, 1)
+    assert.equal(result.length, 24)
+    assert.equal(result[0], 60)
+    assert.equal(result[23], 1440)
+  })
+
+  it('returns empty array for count=0', () => {
+    assert.deepEqual(generateMinOptions(0, 15), [])
+  })
+
+  it('returns empty array for negative count', () => {
+    assert.deepEqual(generateMinOptions(-1, 15), [])
   })
 })

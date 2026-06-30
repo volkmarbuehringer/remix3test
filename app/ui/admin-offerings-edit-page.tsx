@@ -9,7 +9,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
-import { formatMinOption } from '../utils/date-utils.ts'
+import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import { parseDuring as parseDuringRange } from '../data/appointofferings.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
 
@@ -34,8 +34,8 @@ function dayToInputDate(day: string): string {
 }
 
 // Hourly interval options
-const START_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
-const END_MIN_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 60)
+const START_MIN_OPTIONS = generateMinOptions(24, 60)
+const END_MIN_OPTIONS = generateMinOptions(24, 60, 1)
 
 // ── Styles ──
 

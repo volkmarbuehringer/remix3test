@@ -70,25 +70,6 @@ export async function upsertConfig(
 }
 
 /**
- * Record existing offerings for the week in one batch query.
- */
-async function offeringExists(
-  pool: Pool,
-  resourceId: number,
-  day: number,
-  startMin: number,
-  endMin: number,
-): Promise<boolean> {
-  let result = await pool.query(
-    `SELECT 1 FROM appointoffering
-     WHERE resource_id = $1 AND day = $2 AND during = int4range($3, $4, '[)')
-     LIMIT 1`,
-    [resourceId, day, startMin, endMin],
-  )
-  return result.rows.length > 0
-}
-
-/**
  * Record existing offerings for the week in one batch query to avoid
  * the N+1 pattern of calling offeringExists for each day.
  */

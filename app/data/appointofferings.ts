@@ -41,21 +41,6 @@ export async function listOfferingsByDayRange(
 }
 
 /**
- * Query offerings for a specific day and resource.
- */
-async function listOfferingsByDay(
-  db: Database,
-  day: number,
-  resourceId: number,
-): Promise<AppointOffering[]> {
-  return await db
-    .query(appointofferings)
-    .where({ day, resource_id: resourceId })
-    .orderBy('during', 'asc')
-    .all()
-}
-
-/**
  * Parse an offering's `during` range string into [startMin, endMin).
  * Handles various formats the PostgreSQL driver might return.
  */

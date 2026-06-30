@@ -62,6 +62,10 @@ export function formatDateDE(epochMs: number): string {
   })
 }
 
+export function generateMinOptions(count: number, step: number, offset = 0): number[] {
+  return Array.from({ length: count }, (_, i) => (i + offset) * step)
+}
+
 export function formatMinOption(minutes: number): string {
   let h = String(Math.floor(minutes / 60)).padStart(2, '0')
   let m = String(minutes % 60).padStart(2, '0')

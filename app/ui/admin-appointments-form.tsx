@@ -9,15 +9,15 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
-import { formatMinOption } from '../utils/date-utils.ts'
+import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../actions/verwaltung/appointments/controller.tsx'
 
 // ── Shared constants ─────────────────────────────────────────────
 
 /** 15-minute interval options (matching /appointment calendar granularity). */
-const START_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => i * 15)
-const END_MIN_OPTIONS = Array.from({ length: 96 }, (_, i) => (i + 1) * 15)
+const START_MIN_OPTIONS = generateMinOptions(96, 15)
+const END_MIN_OPTIONS = generateMinOptions(96, 15, 1)
 
 // ── Local styles (unique to this form) ────────────────────────────
 

@@ -106,4 +106,4 @@ export const email = {
   },
 }
 
-export type EmailLocale = typeof email
+

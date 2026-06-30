@@ -33,4 +33,3 @@ export async function generatePdfBuffer(docDef: TDocumentDefinitions): Promise<B
   return await doc.getBuffer()
 }
 
-export type { TDocumentDefinitions }
