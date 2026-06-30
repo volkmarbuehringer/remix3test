@@ -117,7 +117,7 @@ describe('auth e2e', () => {
       method: 'POST',
       body: new URLSearchParams({
         email: 'admin@newapp.com',
-        password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD!,
         _csrf: loginCsrf,
       }),
       headers: { Cookie: loginCsrfCookie },
@@ -166,7 +166,7 @@ describe('auth e2e', () => {
       method: 'POST',
       body: new URLSearchParams({
         email: 'user@newapp.com',
-        password: process.env.SEED_USER_PASSWORD ?? 'password123',
+        password: process.env.SEED_USER_PASSWORD!,
         _csrf: csrfToken,
       }),
       headers: { Cookie: cookie },

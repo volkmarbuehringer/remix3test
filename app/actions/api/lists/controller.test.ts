@@ -19,7 +19,7 @@ describe('API Lists controller', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: 'admin@newapp.com',
-        password: process.env.SEED_ADMIN_PASSWORD || 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD!,
       }),
     })
     assert.equal(loginResponse.status, 200, 'login must succeed for per-user token tests')

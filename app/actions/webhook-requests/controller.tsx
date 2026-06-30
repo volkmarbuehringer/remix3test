@@ -6,6 +6,7 @@ import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { WebhookRequestsPage } from '../../ui/webhook-requests-page.tsx'
 import { requireAuth } from '../../middleware/auth.ts'
+import { requireAdmin } from '../../middleware/admin.ts'
 import { requireSseAuth } from '../../middleware/sse-auth.ts'
 import type { AppContext } from '../../types/context.ts'
 import { gridStateFromFormData, editingRedirect } from '../../utils/grid-state.ts'
@@ -96,7 +97,7 @@ async function loadPageData(
 export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, AppContext>(
   webhookRequestsRoute,
   {
-    middleware: [requireAuth()],
+    middleware: [requireAuth(), requireAdmin()],
     handler: async (context) => {
       let data = await loadPageData(context)
 
@@ -148,7 +149,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRoute, AppContext>(
   webhookRequestsUpdateRoute,
   {
-    middleware: [requireAuth()],
+    middleware: [requireAuth(), requireAdmin()],
     handler: async (context) => {
       let id = context.params.id
       if (!id || !UUID_RE.test(id)) {
@@ -207,7 +208,7 @@ export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRo
 export const webhookRequestsResend = createAction<typeof webhookRequestsResendRoute, AppContext>(
   webhookRequestsResendRoute,
   {
-    middleware: [requireAuth()],
+    middleware: [requireAuth(), requireAdmin()],
     handler: async (context) => {
       let id = context.params.id
       if (!id || !UUID_RE.test(id)) {

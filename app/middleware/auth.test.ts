@@ -166,7 +166,7 @@ describe('Auth + CSRF integration', () => {
       headers: { Cookie: cookie },
       body: new URLSearchParams({
         email: 'admin@newapp.com',
-        password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD!,
         _csrf: csrfToken,
       }),
       redirect: 'manual',
@@ -206,7 +206,7 @@ describe('Auth + CSRF integration', () => {
       headers: { Cookie: cookie },
       body: new URLSearchParams({
         email: 'user@newapp.com',
-        password: process.env.SEED_USER_PASSWORD ?? 'password123',
+        password: process.env.SEED_USER_PASSWORD!,
         _csrf: csrfToken,
       }),
       redirect: 'manual',

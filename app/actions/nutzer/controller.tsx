@@ -534,7 +534,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       }
 
       let hashed = await hashPassword(password)
-      await pool.query(`UPDATE login SET l_password=$1 WHERE l_id=$2`, [
+      await pool.query(`UPDATE login SET l_password=$1, l_tv = COALESCE(l_tv, 0) + 1 WHERE l_id=$2`, [
         hashed,
         result.rows[0].l_id,
       ])

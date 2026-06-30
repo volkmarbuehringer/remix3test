@@ -22,7 +22,7 @@
     "@ai-sdk/openai-compatible": "^3.0.1",
     "ai": "^7.0.4",
     "date-holidays": "^3.32.0",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
     "pg": "^8.22.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",

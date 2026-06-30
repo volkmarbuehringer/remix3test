@@ -31,7 +31,7 @@ describe('API Login controller', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: 'admin@newapp.com',
-        password: process.env.SEED_ADMIN_PASSWORD || 'admin123',
+        password: process.env.SEED_ADMIN_PASSWORD!,
       }),
     })
     assert.equal(response.status, 200)

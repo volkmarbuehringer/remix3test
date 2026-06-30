@@ -24,11 +24,11 @@ export function apiTokenAuth(): Middleware {
     let apiToken = await db.findOne(apiTokens, { where: { token_hash: tokenHash } })
 
     if (apiToken && apiToken.revoked_at !== null) {
-      return next()
+      return Response.json({ error: 'Token revoked' }, { status: 401 })
     }
 
     if (apiToken && apiToken.expires_at < Date.now()) {
-      return next()
+      return Response.json({ error: 'Token expired' }, { status: 401 })
     }
 
     if (apiToken) {
