@@ -28,6 +28,11 @@ export const ListsClient = clientEntry(
     let initialized = false
     let expectedListId: string | null = null
 
+    let dragIndex: number | null = null
+    let dropIndex: number | null = null
+    let draggedEl: HTMLElement | null = null
+    let indicatorEl: HTMLElement | null = null
+
     let multilineDisplayStyle = css({
       flex: 1,
       fontSize: theme.fontSize.lg,
@@ -38,6 +43,21 @@ export const ListsClient = clientEntry(
       overflow: 'hidden',
       wordBreak: 'break-word',
       whiteSpace: 'pre-wrap',
+    })
+
+    let gripStyle = css({
+      cursor: 'grab',
+      padding: '0 6px',
+      userSelect: 'none',
+      color: theme.colors.text.secondary,
+      fontSize: theme.fontSize.lg,
+      lineHeight: 1,
+      '&:active': {
+        cursor: 'grabbing',
+      },
+      '&:hover': {
+        color: theme.colors.text.primary,
+      },
     })
 
     let scrollToBottom = () => {
@@ -150,6 +170,108 @@ export const ListsClient = clientEntry(
       }
       items = newItems
       handle.update()
+    }
+
+    let clearDragOver = () => {
+      if (draggedEl) { draggedEl.style.opacity = ''; draggedEl = null }
+      if (indicatorEl) { indicatorEl.style.borderTop = ''; indicatorEl.style.borderBottom = ''; indicatorEl = null }
+    }
+
+    let handleDragStart = (e: DragEvent, index: number) => {
+      let target = e.target as HTMLElement
+      if (target.closest('button, input, textarea, [contenteditable]')) {
+        e.preventDefault()
+        return
+      }
+      dragIndex = index
+      dropIndex = null
+      e.dataTransfer!.effectAllowed = 'move'
+      e.dataTransfer!.setData('text/plain', index.toString())
+      let el = e.currentTarget as HTMLElement
+      draggedEl = el
+      el.style.opacity = '0.4'
+    }
+
+    let elByIndex = (i: number): HTMLElement | null => {
+      let child = listRef?.children[i]
+      return child instanceof HTMLElement ? child : null
+    }
+
+    let showIndicator = (pos: number) => {
+      if (indicatorEl) {
+        indicatorEl.style.borderTop = ''
+        indicatorEl.style.borderBottom = ''
+        indicatorEl = null
+      }
+      dropIndex = pos
+      let isNoop = dragIndex !== null && (dropIndex === dragIndex || dropIndex === dragIndex + 1)
+      if (isNoop) return
+      if (dropIndex < items.length) {
+        let el = elByIndex(dropIndex)
+        if (el) { el.style.borderTop = `2px solid ${theme.colors.focus.ring}`; indicatorEl = el }
+      } else if (dropIndex === items.length && items.length > 0) {
+        let el = elByIndex(items.length - 1)
+        if (el) { el.style.borderBottom = `2px solid ${theme.colors.focus.ring}`; indicatorEl = el }
+      }
+    }
+
+    let handleDragOver = (e: DragEvent, index: number) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (dragIndex === null) return
+      let rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      let midY = rect.top + rect.height / 2
+      let newDropIndex = e.clientY < midY ? index : index + 1
+      let isNoop = newDropIndex === dragIndex || newDropIndex === dragIndex + 1
+      e.dataTransfer!.dropEffect = isNoop ? 'none' : 'move'
+      if (newDropIndex === dropIndex) return
+      showIndicator(newDropIndex)
+    }
+
+    let handleContainerDragOver = (e: DragEvent) => {
+      e.preventDefault()
+      if (dragIndex === null || items.length === 0) return
+      let newDropIndex = items.length
+      for (let i = 0; i < items.length; i++) {
+        let el = elByIndex(i)
+        if (!el) continue
+        let rect = el.getBoundingClientRect()
+        if (e.clientY < rect.top + rect.height / 2) {
+          newDropIndex = i
+          break
+        }
+      }
+      let isNoop = newDropIndex === dragIndex || newDropIndex === dragIndex + 1
+      e.dataTransfer!.dropEffect = isNoop ? 'none' : 'move'
+      if (newDropIndex === dropIndex) return
+      showIndicator(newDropIndex)
+    }
+
+    let handleDrop = (e: DragEvent) => {
+      e.preventDefault()
+      clearDragOver()
+      if (dragIndex === null || dropIndex === null) {
+        dragIndex = null; dropIndex = null; return
+      }
+      if (dropIndex === dragIndex || dropIndex === dragIndex + 1) {
+        dragIndex = null; dropIndex = null; return
+      }
+      let newItems = [...items]
+      let [removed] = newItems.splice(dragIndex, 1)
+      let adjustedDrop = dropIndex > dragIndex ? dropIndex - 1 : dropIndex
+      newItems.splice(adjustedDrop, 0, removed)
+      items = newItems
+      dragIndex = null
+      dropIndex = null
+      handle.update()
+    }
+
+    let handleDragEnd = () => {
+      let dirty = draggedEl !== null || indicatorEl !== null || dragIndex !== null
+      clearDragOver()
+      dragIndex = null
+      dropIndex = null
+      if (dirty) handle.update()
     }
 
     let clearAll = () => {
@@ -511,24 +633,49 @@ export const ListsClient = clientEntry(
                     '&::-webkit-scrollbar-thumb:hover': { backgroundColor: theme.colors.text.muted },
                   }),
                   ref((el) => { listRef = el }),
+                  ref((el) => {
+                    let ac = new AbortController()
+                    el.addEventListener('dragover', (e) => handleContainerDragOver(e as DragEvent), { signal: ac.signal })
+                    el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
+                    return () => ac.abort()
+                  }),
                 ]}
               >
                 {items.map((item, index) => (
                   <div
                     key={item.id}
-                    mix={css({
-                      display: 'flex',
-                      gap: theme.space.md,
-                      alignItems: 'center',
-                      padding: `${theme.space.md} ${theme.space.md}`,
-                      borderBottom:
-                        index < items.length - 1
-                          ? `1px solid ${theme.colors.border.subtle}`
-                          : 'none',
-                      backgroundColor:
-                        index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
-                    })}
+                    mix={[
+                      css({
+                        display: 'flex',
+                        gap: theme.space.md,
+                        alignItems: 'center',
+                        padding: `${theme.space.md} ${theme.space.md}`,
+                        borderBottom:
+                          index < items.length - 1
+                            ? `1px solid ${theme.colors.border.subtle}`
+                            : 'none',
+                        backgroundColor:
+                          index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                      }),
+                      ref((el) => {
+                        let ac = new AbortController()
+                        el.addEventListener('dragstart', (e) => {
+                          let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+                          handleDragStart(e as DragEvent, idx)
+                        }, { signal: ac.signal })
+                        el.addEventListener('dragover', (e) => {
+                          let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+                          handleDragOver(e as DragEvent, idx)
+                        }, { signal: ac.signal })
+                        el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
+                        el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
+                        return () => ac.abort()
+                      }),
+                    ]}
+                    draggable="true"
+                    data-index={index}
                   >
+                    <span mix={gripStyle} data-grip="" aria-hidden="true">⠿</span>
                     <span
                       mix={css({
                         width: '28px',
@@ -580,7 +727,7 @@ export const ListsClient = clientEntry(
                       <span mix={multilineDisplayStyle}>{item.label}</span>
                     )}
 
-                    <div mix={css({ display: 'flex', gap: theme.space.xs })}>
+                    <div draggable="false" mix={css({ display: 'flex', gap: theme.space.xs })}>
                       {editingIndex === index ? (
                         <>
                           <button mix={[button({ tone: 'primary' }), on('click', saveEdit)]} title="Speichern"><Glyph name="check" width={16} height={16} /></button>
