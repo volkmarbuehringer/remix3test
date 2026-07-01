@@ -403,7 +403,7 @@ export const aiWorkflow = createController<typeof routes.ai.workflow, AppContext
       let runId = context.url.searchParams.get('runId')
 
       if (runId) {
-        let run = await getWorkflowRun(context.db, runId)
+        let run = await getWorkflowRun(context.db, runId, user.role === 'admin' ? undefined : user.id)
         if (!run) {
           return renderAiPage(context.render, 'workflow', <WorkflowRunPage error="Workflow run not found" />)
         }
@@ -412,7 +412,7 @@ export const aiWorkflow = createController<typeof routes.ai.workflow, AppContext
       }
 
       let workflows = listWorkflows()
-      let recentRuns = await listWorkflowRuns(context.db, 20)
+      let recentRuns = await listWorkflowRuns(context.db, 20, user.role === 'admin' ? undefined : user.id)
 
       log('loaded: ' + JSON.stringify({ workflows: workflows.length, runs: recentRuns.length }))
 

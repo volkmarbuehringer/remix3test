@@ -128,6 +128,8 @@ export async function migrate(): Promise<void> {
     )
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_lists_desc ON lists USING GIN (description gin_trgm_ops)`)
+  await pool.query(`ALTER TABLE lists ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id)`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS resources (

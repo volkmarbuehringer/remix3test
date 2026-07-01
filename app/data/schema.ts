@@ -255,6 +255,7 @@ export const lists = table({
   primaryKey: ['id'],
   columns: {
     id: c.integer(),
+    user_id: c.integer(),
     list: c.json(),
     description: c.text(),
     created_at: bigint(),
@@ -284,7 +285,7 @@ export const lists = table({
     return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
+    parseIntFields(value, 'created_at', 'updated_at', 'user_id')
     if (typeof value.list === 'string') {
       try {
         value.list = JSON.parse(value.list)

@@ -43,10 +43,14 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
       let filter = context.url.searchParams.get('filter') || undefined
 
-      let result = await getAllLists(context.db, pool, { offset, limit, filter })
+      let apiUser = context.get(ApiUser)!
+      let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
+      let result = await getAllLists(context.db, pool, { offset, limit, filter }, listUserId)
       return context.json(result)
     },
     async show(context) {
+      let apiUser = context.get(ApiUser)!
+      let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
@@ -58,7 +62,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let row = await getListById(context.db, listId)
+      let row = await getListById(context.db, listId, listUserId)
       if (!row) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
@@ -72,6 +76,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       })
     },
     async create(context) {
+      let userId = context.get(ApiUser)!.id
       let body = context.get(JsonBody)
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
@@ -93,10 +98,12 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let row = await createList(context.db, { description, items })
+      let row = await createList(context.db, { description, items }, userId)
       return context.json({ id: row.id, description: row.description })
     },
     async update(context) {
+      let apiUser = context.get(ApiUser)!
+      let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
@@ -130,7 +137,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let updated = await updateList(context.db, listId, { description, items })
+      let updated = await updateList(context.db, listId, { description, items }, listUserId)
       if (!updated) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
@@ -138,6 +145,8 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json({ id: listId, description })
     },
     async destroy(context) {
+      let apiUser = context.get(ApiUser)!
+      let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
@@ -149,7 +158,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let deleted = await deleteList(context.db, listId)
+      let deleted = await deleteList(context.db, listId, listUserId)
       if (!deleted) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }

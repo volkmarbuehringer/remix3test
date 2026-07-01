@@ -171,9 +171,11 @@ function rowToWorkflowRun(row: Record<string, unknown>): WorkflowRun {
 
 export async function getWorkflowRun(
   db: Database,
-  runId: string
+  runId: string,
+  userId?: number
 ): Promise<WorkflowRun | null> {
-  let result = await db.exec(sql`SELECT * FROM workflow_runs WHERE id = ${runId}`)
+  let ownerFilter = userId != null ? sql`AND created_by = ${userId}` : sql``
+  let result = await db.exec(sql`SELECT * FROM workflow_runs WHERE id = ${runId} ${ownerFilter}`)
   let rows = result.rows ?? []
   if (rows.length === 0) return null
   return rowToWorkflowRun(rows[0] as Record<string, unknown>)
@@ -181,9 +183,11 @@ export async function getWorkflowRun(
 
 export async function listWorkflowRuns(
   db: Database,
-  limit: number = 50
+  limit: number = 50,
+  userId?: number
 ): Promise<WorkflowRun[]> {
-  let result = await db.exec(sql`SELECT * FROM workflow_runs ORDER BY created_at DESC LIMIT ${limit}`)
+  let ownerFilter = userId != null ? sql`WHERE created_by = ${userId}` : sql``
+  let result = await db.exec(sql`SELECT * FROM workflow_runs ${ownerFilter} ORDER BY created_at DESC LIMIT ${limit}`)
   return (result.rows ?? []).map(r => rowToWorkflowRun(r as Record<string, unknown>))
 }
 

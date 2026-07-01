@@ -11,6 +11,7 @@ import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
 import { pool } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
+import { getCurrentUser } from '../../utils/context.ts'
 import { getListById, createList, updateList } from '../../lib/lists-api.ts'
 
 const listItemSchema = s.object({
@@ -36,6 +37,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     },
     async save(context) {
       let db = context.db
+      let user = getCurrentUser()
 
       let body = context.get(JsonBody)
       if (!body) {
@@ -58,11 +60,13 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let row = await createList(db, { description, items })
+      let row = await createList(db, { description, items }, user.id)
       return context.json({ id: row.id, description: row.description })
     },
     async update(context) {
       let db = context.db
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
 
       let listId: number
       try {
@@ -97,7 +101,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let updated = await updateList(db, listId, { description, items })
+      let updated = await updateList(db, listId, { description, items }, listUserId)
       if (!updated) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
@@ -106,6 +110,8 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     },
     async data(context) {
       let db = context.db
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
 
       let listId: number
       try {
@@ -119,7 +125,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let row = await getListById(db, listId)
+      let row = await getListById(db, listId, listUserId)
       if (!row) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }

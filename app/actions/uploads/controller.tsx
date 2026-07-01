@@ -15,9 +15,15 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
   middleware: [requireAuth()],
   actions: {
     async index(context) {
-      let result = await pool.query(
-        `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
-      )
+      let user = getCurrentUser()
+      let result = user.role === 'admin'
+        ? await pool.query(
+            `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
+          )
+        : await pool.query(
+            `SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = $1 ORDER BY created_at DESC LIMIT 100`,
+            [user.id],
+          )
       return renderAdminPage(context.render, 'uploads', <UploadsContent uploads={result.rows} uploadId={null} uploadError={null} />)
     },
 
@@ -28,14 +34,19 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
 
       if (uploadId && !Number.isNaN(uploadId)) {
         await pool.query(
-          `UPDATE uploads SET uploaded_by = $1 WHERE id = $2`,
+          `UPDATE uploads SET uploaded_by = $1 WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)`,
           [user.id, uploadId],
         )
       }
 
-      let result = await pool.query(
-        `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
-      )
+      let result = user.role === 'admin'
+        ? await pool.query(
+            `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
+          )
+        : await pool.query(
+            `SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = $1 ORDER BY created_at DESC LIMIT 100`,
+            [user.id],
+          )
       return renderAdminPage(
         context.render,
         'uploads',
@@ -52,15 +63,21 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
 export const download = createAction(uploadsDownload, {
   middleware: [requireAuth()],
   handler: async (context) => {
+    let user = getCurrentUser()
     let id = Number(context.params.id)
     if (Number.isNaN(id)) {
       return new Response('Invalid ID', { status: 400 })
     }
 
-    let result = await pool.query(
-      `SELECT filename, mime_type, data FROM uploads WHERE id = $1`,
-      [id],
-    )
+    let result = user.role === 'admin'
+      ? await pool.query(
+          `SELECT filename, mime_type, data FROM uploads WHERE id = $1`,
+          [id],
+        )
+      : await pool.query(
+          `SELECT filename, mime_type, data FROM uploads WHERE id = $1 AND uploaded_by = $2`,
+          [id, user.id],
+        )
     if (result.rows.length === 0) {
       return new Response('Not found', { status: 404 })
     }
