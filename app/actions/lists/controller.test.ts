@@ -23,6 +23,7 @@ describe('Lists controller', () => {
   let userCookie: string
   let userCsrfToken: string
   let adminCookie: string
+  let adminCsrfToken: string
   let nonAdminCookie: string
 
   before(async () => {
@@ -38,6 +39,7 @@ describe('Lists controller', () => {
     let admin = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     if (!admin?.cookie) throw new Error('Failed to create admin session — check admin@newapp.com exists')
     adminCookie = admin.cookie
+    adminCsrfToken = admin.csrfToken
 
     // Non-admin session for permission checks
     let nonAdmin = await createAuthCookieWithCsrfForUser('user@newapp.com')
@@ -511,6 +513,142 @@ describe('Lists controller', () => {
       }),
     })
     assert.equal(response.status, 400)
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /lists/:id/delete — destroy a list
+  // -----------------------------------------------------------------------
+
+  it('POST /lists/:id/delete deletes own list and redirects to /lists', async () => {
+    // Save a list first
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'List to delete',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Delete it
+    let deleteResponse = await router.fetch(`${LISTS_URL}/${id}/delete`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(deleteResponse.status, 302)
+    let location = deleteResponse.headers.get('Location')
+    assert.equal(location, '/lists')
+
+    // Verify it's gone
+    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(dataResponse.status, 404)
+  })
+
+  it('POST /lists/9999999/delete returns 404 for non-existent list', async () => {
+    let response = await router.fetch(`${LISTS_URL}/9999999/delete`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 404)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/delete returns 404 for another users list', async () => {
+    // Save a list as admin
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': adminCsrfToken,
+        Cookie: adminCookie,
+      },
+      body: JSON.stringify({
+        description: 'Admin owned list',
+        items: [{ id: '1', label: 'Admin item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Try to delete as non-admin user — should 404 (not found, not revealed)
+    let response = await router.fetch(`${LISTS_URL}/${id}/delete`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 404)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+
+    // Verify list still exists (admin can access it)
+    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(dataResponse.status, 200)
+  })
+
+  it('POST /lists/invalid/delete returns 400 for invalid list ID', async () => {
+    let response = await router.fetch(`${LISTS_URL}/invalid/delete`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/delete as admin deletes any users list', async () => {
+    // Save a list as the primary user
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Admin delete target',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Admin deletes it
+    let deleteResponse = await router.fetch(`${LISTS_URL}/${id}/delete`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': adminCsrfToken,
+        Cookie: adminCookie,
+      },
+    })
+    assert.equal(deleteResponse.status, 302)
+
+    // Verify it's gone
+    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(dataResponse.status, 404)
   })
 
   // -----------------------------------------------------------------------

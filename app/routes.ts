@@ -42,6 +42,7 @@ export const routes = route({
     update: put('/:id/update'),
     show: get('/:id'),
     data: get('/:id/data'),
+    destroy: post('/:id/delete'),
   }),
 
   auth: route('auth', {

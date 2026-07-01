@@ -1,4 +1,5 @@
 import { createController } from 'remix/router'
+import { redirect } from 'remix/response/redirect'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 import { Logger } from 'remix/middleware/logger'
@@ -12,7 +13,7 @@ import { routes } from '../../routes.ts'
 import { pool, db } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getListById, getAllLists, createList, updateList } from '../../lib/lists-api.ts'
+import { getListById, getAllLists, createList, updateList, deleteList } from '../../lib/lists-api.ts'
 import { renderListsPage, type ListsNavItem, type ListSidebarEntry } from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 
@@ -163,6 +164,30 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         created_at: row.created_at,
         updated_at: row.updated_at,
       })
+    },
+    async destroy(context) {
+      let db = context.db
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
+
+      let listId: number
+      try {
+        listId = s.parse(s.number(), Number(context.params.id))
+      } catch (error) {
+        context.get(Logger)?.('Invalid list ID in lists/destroy: ' + String(error))
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      if (listId < 1) {
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      let deleted = await deleteList(db, listId, listUserId)
+      if (!deleted) {
+        return context.json({ error: 'List not found' }, { status: 404 })
+      }
+
+      return redirect(routes.lists.index.href())
     },
     show(context) {
       return context.render(

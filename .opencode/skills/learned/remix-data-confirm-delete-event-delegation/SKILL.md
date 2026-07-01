@@ -97,6 +97,32 @@ import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 - **`data-confirm` on the `<form>`**: The attribute lives on the form element, not the button, so it survives any button restructuring.
 - **Single instance per page**: One `<ConfirmDelete />` at the grid section level handles all delete forms in that section.
 
+### Pitfall: Multiple `<ConfirmDelete />` Instances Break Confirmation
+
+Rendering `<ConfirmDelete />` inside a loop (e.g., inside `.map()`) creates **N instances**, each registering its own `document`-level capture-phase click listener via `ref()`. Clicking any delete button fires **all N listeners** — the user sees N consecutive `confirm()` dialogs. Clicking OK on the first and Cancel on any subsequent one calls `preventDefault()` and blocks form submission.
+
+```tsx
+// ❌ WRONG — N instances, N listeners, N dialogs on one click
+{items.map((item) => (
+  <div key={item.id}>
+    <form data-confirm="Löschen?">...</form>
+    <ConfirmDelete />
+  </div>
+))}
+
+// ✅ CORRECT — single instance handles all forms
+{items.map((item) => (
+  <div key={item.id}>
+    <form data-confirm="Löschen?">...</form>
+  </div>
+))}
+<ConfirmDelete />
+```
+
+**Root cause:** `clientEntry`'s `ref()` callback runs once per rendered instance during hydration. Unlike React's synthetic event delegation (which deduplicates at the root), each `clientEntry` instance independently calls `document.addEventListener(...)`. Since all listeners share `capture: true` and the same selector logic, they all match the same click target and all fire.
+
+**Test for this bug:** Click a delete button and count the confirmation dialogs. If you see more than one, you have multiple `<ConfirmDelete />` instances on the page.
+
 ## Comparison
 
 | Approach | Boilerplate | Reliability | Scalability |

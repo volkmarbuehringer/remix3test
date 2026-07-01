@@ -6,6 +6,8 @@ import { Layout } from './layout.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
+import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 import {
   shellStyle,
   sidebarStyle,
@@ -125,31 +127,51 @@ function ListsLayout(handle: Handle<{
                 : null
               let href = listId !== null ? buildListHref(listId) : routes.lists.index.href()
               let noDescription = !entry.label.trim()
+              let displayName = noDescription ? `Liste #${listId}` : entry.label
               return (
-                <NavLink
-                  key={entry.id}
-                  href={href}
-                  target={frameTarget}
-                  active={activeItem === entry.id}
-                  mix={[navLinkStyle, activeItem === entry.id && navActiveStyle].filter(Boolean)}
-                >
-                  <span mix={navIconStyle}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                      <rect x="9" y="3" width="6" height="4" rx="1" />
-                      <line x1="9" y1="12" x2="15" y2="12" />
-                      <line x1="9" y1="16" x2="13" y2="16" />
-                    </svg>
-                  </span>
-                  <span mix={noDescription ? descEmptyStyle : undefined}>
-                    {noDescription ? `Liste #${listId}` : entry.label}
-                  </span>
-                  <span mix={countBadgeStyle} aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}>
-                    {entry.count}
-                  </span>
-                </NavLink>
+                <div key={entry.id} mix={entryRowStyle}>
+                  <NavLink
+                    href={href}
+                    target={frameTarget}
+                    active={activeItem === entry.id}
+                    mix={[navLinkStyle, entryNavLinkStyle, activeItem === entry.id && navActiveStyle].filter(Boolean)}
+                  >
+                    <span mix={navIconStyle}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                        <rect x="9" y="3" width="6" height="4" rx="1" />
+                        <line x1="9" y1="12" x2="15" y2="12" />
+                        <line x1="9" y1="16" x2="13" y2="16" />
+                      </svg>
+                    </span>
+                    <span mix={noDescription ? descEmptyStyle : undefined}>
+                      {displayName}
+                    </span>
+                    <span mix={countBadgeStyle} aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}>
+                      {entry.count}
+                    </span>
+                  </NavLink>
+                  {listId !== null && (
+                    <form
+                      method="POST"
+                      action={routes.lists.destroy.href({ id: listId })}
+                      rmx-target={frameTarget}
+                      data-confirm={`"${displayName}" löschen?`}
+                      mix={deleteFormStyle}
+                    >
+                      <CsrfTokenInput />
+                      <button type="submit" mix={deleteBtnStyle} aria-label={`Liste "${displayName}" löschen`}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </form>
+                  )}
+                </div>
               )
             })}
+            <ConfirmDelete />
             {sidebarEntries.length === 0 && (
               <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>
             )}
@@ -193,4 +215,38 @@ const emptyHintStyle = css({
   padding: `${theme.space.sm} ${theme.space.md}`,
   color: theme.colors.text.muted,
   fontSize: theme.fontSize.xs,
+})
+
+const entryRowStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+})
+
+const deleteFormStyle = css({
+  margin: 0,
+  padding: 0,
+  flexShrink: 0,
+})
+
+const deleteBtnStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '24px',
+  height: '24px',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: theme.colors.action.danger.border,
+  cursor: 'pointer',
+  borderRadius: theme.radius.sm,
+  ':hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+})
+
+const entryNavLinkStyle = css({
+  flex: 1,
+  minWidth: 0,
 })
