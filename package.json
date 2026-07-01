@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.2",
-    "ai": "^7.0.8",
+    "ai": "^7.0.9",
     "date-holidays": "^3.32.0",
     "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
@@ -31,7 +31,7 @@
   "devDependencies": {
     "@ai-sdk/devtools": "^1.0.1",
     "@fission-ai/openspec": "^1.5.0",
-    "@opencode-ai/plugin": "^1.17.9",
+    "@opencode-ai/plugin": "^1.17.11",
     "@oxlint/plugins": "^1.72.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "latest",
@@ -41,7 +41,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260630.1",
     "ecc-universal": "2.0.0",
     "oxlint": "^1.72.0",
-    "oxlint-tsgolint": "^0.23.0",
+    "oxlint-tsgolint": "^0.24.0",
     "playwright": "^1.61.1",
     "prettier": "^3.9.4",
     "typescript": "6.0.3"
