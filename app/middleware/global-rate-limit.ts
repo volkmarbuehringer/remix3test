@@ -3,16 +3,15 @@ import { Logger } from 'remix/middleware/logger'
 import { html } from 'remix/html-template'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
+import { sourceIp } from '../lib/request-ip.ts'
 
 export function globalRateLimit(options?: {
   maxPerWindow?: number
   windowMs?: number
-  trustProxy?: boolean
   skip?: boolean
 }): Middleware {
   let maxPerWindow = options?.maxPerWindow ?? 500
   let windowMs = options?.windowMs ?? 60_000
-  let trustProxy = options?.trustProxy ?? process.env.NODE_ENV === 'production'
   let skip = options?.skip ?? process.env.NODE_ENV === 'test'
   let limiter = createRateLimiter({ windowMs, perKey: true, maxAttempts: maxPerWindow })
 
@@ -25,17 +24,7 @@ export function globalRateLimit(options?: {
       return next()
     }
 
-    let ip: string
-    if (trustProxy) {
-      ip =
-        context.request.headers.get('X-Client-Ip') ??
-        context.request.headers.get('Cf-Connecting-Ip') ??
-        context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
-        context.request.headers.get('X-Real-Ip') ??
-        'unknown'
-    } else {
-      ip = context.request.headers.get('X-Client-Ip') ?? 'unknown'
-    }
+    let ip = sourceIp(context.request) || 'unknown'
 
     let check = limiter.check(ip)
     if (!check.allowed) {
