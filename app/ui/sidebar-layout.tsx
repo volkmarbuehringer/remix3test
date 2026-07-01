@@ -147,15 +147,16 @@ export function createSidebarLayout<ID extends string>(
 }
 
 // ── Shared styles ──────────────────────────────────────────────
+// Re-exported for use by custom layouts (e.g. lists-layout.tsx)
 
-const shellStyle = css({
+export const shellStyle = css({
   display: 'grid',
   gridTemplateColumns: '220px minmax(0, 1fr)',
   gap: '1.25rem',
   alignItems: 'start',
 })
 
-const sidebarStyle = css({
+export const sidebarStyle = css({
   position: 'sticky',
   top: '1.5rem',
   border: `1px solid ${theme.colors.border.default}`,
@@ -165,7 +166,7 @@ const sidebarStyle = css({
   boxShadow: theme.shadow.sm,
 })
 
-const sidebarHeaderStyle = css({
+export const sidebarHeaderStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
@@ -176,7 +177,7 @@ const sidebarHeaderStyle = css({
   fontWeight: theme.fontWeight.semibold,
 })
 
-const headerIconWrapStyle = css({
+export const headerIconWrapStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -184,19 +185,19 @@ const headerIconWrapStyle = css({
   opacity: 0.65,
 })
 
-const headerDividerStyle = css({
+export const headerDividerStyle = css({
   margin: '0.625rem 0 0.75rem',
   height: '1px',
   background: theme.colors.border.subtle,
 })
 
-const navStyle = css({
+export const navStyle = css({
   display: 'flex',
   flexDirection: 'column',
   gap: '0.125rem',
 })
 
-const navLinkStyle = css({
+export const navLinkStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
@@ -215,21 +216,21 @@ const navLinkStyle = css({
   },
 })
 
-const navIconStyle = css({
+export const navIconStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   flexShrink: 0,
 })
 
-const navActiveStyle = css({
+export const navActiveStyle = css({
   color: theme.colors.text.primary,
   fontWeight: theme.fontWeight.semibold,
   background: theme.surface.lvl2,
   borderLeftColor: theme.colors.action.primary.background,
 })
 
-const groupLabelStyle = css({
+export const groupLabelStyle = css({
   margin: '1rem 0 0.25rem',
   padding: `0 ${theme.space.md}`,
   color: theme.colors.text.muted,
@@ -239,6 +240,6 @@ const groupLabelStyle = css({
   fontWeight: theme.fontWeight.semibold,
 })
 
-const contentStyle = css({
+export const contentStyle = css({
   minWidth: 0,
 })

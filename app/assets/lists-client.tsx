@@ -16,8 +16,6 @@ export const ListsClient = clientEntry(
     let description = ''
     let newItemLabel = ''
     let nextId = 0
-    let showSavedToast = false
-    let toastTimeout: ReturnType<typeof setTimeout> | null = null
     let saving = false
     let updating = false
     let loadedListId: number | null = null
@@ -28,6 +26,7 @@ export const ListsClient = clientEntry(
     let newItemRef: HTMLTextAreaElement | null = null
     let listRef: HTMLDivElement | null = null
     let initialized = false
+    let expectedListId: string | null = null
 
     let multilineDisplayStyle = css({
       flex: 1,
@@ -47,11 +46,17 @@ export const ListsClient = clientEntry(
       }
     }
 
+    function navigateFrame(href: string) {
+      handle.frame.src = href
+      handle.frame.reload().catch(() => {})
+    }
+
     let saveToStorage = async () => {
       saving = true
+      loadError = ''
       handle.update()
 
-      let ok = false
+      let newId: number | null = null
       try {
         let csrfToken = typeof document !== 'undefined'
           ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
@@ -63,21 +68,19 @@ export const ListsClient = clientEntry(
           headers,
           body: JSON.stringify({ description, items }),
         })
-        ok = response.ok
+        if (response.ok) {
+          let data = await response.json()
+          newId = typeof data.id === 'number' ? data.id : null
+        } else {
+          loadError = 'Speichern fehlgeschlagen'
+        }
       } catch {
-        // network error — button recovers
+        loadError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
       }
       saving = false
 
-      if (ok) {
-        showSavedToast = true
-        handle.update()
-        if (toastTimeout) clearTimeout(toastTimeout)
-        toastTimeout = setTimeout(() => {
-          showSavedToast = false
-          toastTimeout = null
-          handle.update()
-        }, 2000)
+      if (newId !== null) {
+        navigateFrame(`/lists?load=${newId}`)
       } else {
         handle.update()
       }
@@ -86,8 +89,10 @@ export const ListsClient = clientEntry(
     let updateList = async () => {
       if (loadedListId === null) return
       updating = true
+      loadError = ''
       handle.update()
 
+      let savedId = loadedListId
       let ok = false
       try {
         let csrfToken = typeof document !== 'undefined'
@@ -101,20 +106,16 @@ export const ListsClient = clientEntry(
           body: JSON.stringify({ description, items }),
         })
         ok = response.ok
+        if (!ok) {
+          loadError = 'Aktualisieren fehlgeschlagen'
+        }
       } catch {
-        // network error — button recovers
+        loadError = 'Aktualisieren fehlgeschlagen (Netzwerkfehler)'
       }
       updating = false
 
       if (ok) {
-        showSavedToast = true
-        handle.update()
-        if (toastTimeout) clearTimeout(toastTimeout)
-        toastTimeout = setTimeout(() => {
-          showSavedToast = false
-          toastTimeout = null
-          handle.update()
-        }, 2000)
+        navigateFrame(`/lists?load=${savedId}`)
       } else {
         handle.update()
       }
@@ -203,40 +204,71 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    let loadListFromServer = async (id: string) => {
+    let loadController: AbortController | null = null
+
+    let loadListFromServer = async (id: string, signal?: AbortSignal) => {
       try {
-        let response = await fetch(`/lists/${id}/data`)
+        let response = await fetch(`/lists/${id}/data`, signal ? { signal } : undefined)
         if (!response.ok) throw new Error('Failed to load')
         let data = await response.json()
+        if (signal?.aborted) return
         items = Array.isArray(data.items) ? data.items : []
         description = typeof data.description === 'string' ? data.description : ''
         loadedListId = typeof data.id === 'number' ? data.id : null
+        loadError = ''
         // Derive nextId from max existing ID + 1 to avoid key collisions
         nextId =
           items.reduce((max, item) => {
             let n = parseInt(item.id, 10)
             return Number.isFinite(n) && n > max ? n : max
           }, 0) + 1
-      } catch {
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return
         loadError = 'Liste konnte nicht geladen werden'
       }
+      if (signal?.aborted) return
       loadingList = false
       handle.update()
     }
 
+    function reloadListFromFrame() {
+      if (handle.signal.aborted) return
+      let url = new URL(handle.frame.src, location.origin)
+      let loadId = url.searchParams.get('load')
+      let effectiveLoadId = loadId ?? null
+      if (effectiveLoadId === expectedListId) return
+      expectedListId = effectiveLoadId
+      loadError = ''
+      loadController?.abort()
+      loadController = new AbortController()
+      if (effectiveLoadId) {
+        loadingList = true
+        handle.update()
+        loadListFromServer(effectiveLoadId, loadController.signal)
+      } else if (loadedListId !== null) {
+        items = []
+        description = ''
+        loadedListId = null
+        nextId = 0
+        handle.update()
+      }
+    }
+
+    // React to frame navigation — reloads the list when sidebar link is clicked
+    handle.frame.addEventListener('reloadComplete', reloadListFromFrame, { signal: handle.signal })
+
     return () => {
       if (!initialized && typeof document !== 'undefined') {
         initialized = true
-
-        // Defer all state changes to after hydration so SSR and first
-        // client render match (both show empty initial state)
         setTimeout(() => {
-          let params = new URLSearchParams(location.search)
-          let loadId = params.get('load')
+          let url = new URL(handle.frame.src, location.origin)
+          let loadId = url.searchParams.get('load')
           if (loadId) {
+            expectedListId = loadId
             loadingList = true
+            loadController = new AbortController()
             handle.update()
-            loadListFromServer(loadId)
+            loadListFromServer(loadId, loadController.signal)
           }
         }, 0)
       }
@@ -360,28 +392,6 @@ export const ListsClient = clientEntry(
               defaultValue={description}
             />
           </div>
-
-          {/* Toast notification */}
-          {showSavedToast && (
-            <div
-              mix={css({
-                position: 'fixed',
-                top: theme.space.lg,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: theme.colors.action.primary.background,
-                color: theme.colors.action.primary.foreground,
-                padding: `${theme.space.sm} ${theme.space.lg}`,
-                borderRadius: theme.radius.md,
-                fontSize: theme.fontSize.md,
-                fontWeight: theme.fontWeight.medium,
-                boxShadow: theme.shadow.md,
-                zIndex: 1000,
-              })}
-            >
-              ✓ {items.length} Eintr{items.length !== 1 ? 'äge' : 'ag'} gespeichert!
-            </div>
-          )}
 
           {/* Add item */}
           <div

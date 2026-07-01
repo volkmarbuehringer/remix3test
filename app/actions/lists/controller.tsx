@@ -9,10 +9,12 @@ import { ListsClient } from '../../assets/lists-client.tsx'
 import { ListsShowPage } from './show-page.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
-import { pool } from '../../data/setup.ts'
+import { pool, db } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getListById, createList, updateList } from '../../lib/lists-api.ts'
+import { getListById, getAllLists, createList, updateList } from '../../lib/lists-api.ts'
+import { renderListsPage, type ListsNavItem, type ListSidebarEntry } from '../../ui/lists-layout.tsx'
+import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -28,11 +30,35 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
   middleware: [requireAuth()],
 
   actions: {
-    index(context) {
-      return context.render(
-        <Layout>
-          <ListsClient />
-        </Layout>,
+    async index(context) {
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
+      let result = await getAllLists(db, pool, { limit: 50, offset: 0 }, listUserId)
+
+      let sidebarEntries: ListSidebarEntry[] = result.data.map((row) => ({
+        id: `list:${row.id}` as ListsNavItem,
+        label: row.description,
+        count: Array.isArray(row.list) ? row.list.length : 0,
+      }))
+
+      let loadParam = context.url.searchParams.get('load')
+      let activeItem: ListsNavItem
+      if (loadParam) {
+        let listId = Number(loadParam)
+        if (Number.isFinite(listId) && sidebarEntries.some((e) => e.id === `list:${listId}`)) {
+          activeItem = `list:${listId}` as ListsNavItem
+        } else {
+          activeItem = 'new'
+        }
+      } else {
+        activeItem = 'new'
+      }
+
+      return renderListsPage(
+        context.render,
+        activeItem,
+        sidebarEntries,
+        <ListsIndexPage />,
       )
     },
     async save(context) {

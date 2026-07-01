@@ -13,6 +13,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [Post Form Submissions in Frames](#post-form-submissions-in-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
+- [Post-Navigation Data Loading in clientEntry](#post-navigation-data-loading-in-cliententry)
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
 - [Inline-Edit Server-Rendered Table Cells](#inline-edit-server-rendered-table-cells)
 - [on Mixin Requires clientEntry](#on-mixin-requires-cliententry)
@@ -319,6 +320,152 @@ The `mounted` guard is unnecessary for `ref()` callbacks because:
 - Admin grid context menus, inline edit controls, or any interactive elements inside a Remix 3 `<Frame>`
 
 (Consolidated from `remix3-cliententry-mounted-guard-frame-reload`)
+
+---
+
+## Post-Navigation Data Loading in clientEntry
+
+# Remix 3: Reloading Data After Frame Navigation in clientEntry
+
+**Context:** A `clientEntry` editor needs to load a different resource when the user clicks a sidebar link targeting the frame — the URL changes but the `clientEntry` closure is preserved.
+
+### Problem
+
+A `clientEntry` reads its initial data from `location.search` (or a DOM attribute) on first hydration. When the enclosing `<Frame>` navigates to a different URL, the `clientEntry` needs to detect the URL change and reload data. However:
+
+1. The **render function IS re-called** after frame navigation (the factory closure persists, only the render function re-runs)
+2. But calling `handle.update()` inside the render function to trigger a re-render has **timing issues** — the DOM may not be fully updated yet, and setting state during render can interact badly with the scheduler
+3. Reading `location.search` in the render function is unreliable because address bar updates might not be synchronized with the frame's actual URL
+
+This produces symptoms like: "click loads the list the first time, but subsequent clicks on different sidebar entries don't load anything" or "the form is blocking reloading after the first navigation".
+
+### Solution
+
+Use `handle.frame.addEventListener('reloadComplete', ...)` to detect when the frame finished navigating, and read `handle.frame.src` (not `location.search`) as the source of truth for the frame's current URL:
+
+```typescript
+export const MyEditor = clientEntry(
+  import.meta.url + '#MyEditor',
+  function MyEditor(handle: Handle) {
+    let loadedItemId: number | null = null
+    let expectedItemId: string | null = null
+    let loading = false
+    let loadError = ''
+
+    function loadFromServer(id: string) {
+      loading = true
+      handle.update()
+      fetch(`/api/data/${id}`)
+        .then((r) => r.json())
+        .then((data) => { /* update state */ })
+        .catch(() => { loadError = 'Failed to load' })
+        .finally(() => { loading = false; handle.update() })
+    }
+
+    function reloadFromFrame() {
+      if (handle.signal.aborted) return
+      let url = new URL(handle.frame.src, location.origin)
+      let id = url.searchParams.get('id')
+      if (id === expectedItemId) return  // dedup — same item
+      expectedItemId = id
+      loadError = ''  // clear stale error on navigation
+      if (id) {
+        loadFromServer(id)
+      } else {
+        loadedItemId = null
+        handle.update()
+      }
+    }
+
+    // Listen for frame navigation
+    handle.frame.addEventListener(
+      'reloadComplete',
+      reloadFromFrame,
+      { signal: handle.signal },
+    )
+
+    return () => {
+      // Initial mount: read from frame.src
+      if (typeof document !== 'undefined' && !expectedItemId) {
+        let url = new URL(handle.frame.src, location.origin)
+        let id = url.searchParams.get('id')
+        if (id) {
+          expectedItemId = id
+          loadFromServer(id)
+        }
+      }
+
+      if (loading) return <div>Loading…</div>
+      if (loadError) return <div>{loadError}</div>
+      return <div>{/* render editor with data */}</div>
+    }
+  },
+)
+```
+
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:215`). At this point `handle.frame.src` contains the just-rendered URL. This is more reliable than reading `location.search` (which may not match the frame's actual URL after frame-only navigation).
+
+### Frame-Only Navigation (replace `window.location.href`)
+
+When you need to programmatically navigate the frame (e.g., after saving data), use the `handle.frame.src` + `handle.frame.reload()` pattern instead of `window.location.href`:
+
+```typescript
+function navigateFrame(href: string) {
+  handle.frame.src = href
+  handle.frame.reload().catch(() => {})  // returns Promise — suppress unhandled rejection
+}
+```
+
+This triggers a frame-only navigation (no full page reload), the `reloadComplete` listener fires, and the editor loads the new data. The parent page and other frames are unaffected.
+
+The `.catch(() => {})` is required because `handle.frame.reload()` returns a `Promise<AbortSignal>` and may reject on network errors.
+
+### Avoiding Race Conditions (AbortController)
+
+If the user clicks sidebar entries rapidly, multiple `reloadComplete` events can fire while previous fetches are still in flight. Cancel the previous fetch using `AbortController`:
+
+```typescript
+let loadController: AbortController | null = null
+
+function reloadFromFrame() {
+  if (handle.signal.aborted) return
+  let url = new URL(handle.frame.src, location.origin)
+  let id = url.searchParams.get('id')
+  if (id === expectedItemId) return
+  expectedItemId = id
+  loadController?.abort()           // cancel previous in-flight fetch
+  loadController = new AbortController()
+  if (id) {
+    loadFromServer(id, loadController.signal)
+  }
+}
+
+async function loadFromServer(id: string, signal?: AbortSignal) {
+  try {
+    let response = await fetch(`/api/data/${id}`, signal ? { signal } : undefined)
+    if (signal?.aborted) return
+    // ... process data ...
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return
+    loadError = 'Failed to load'
+  }
+  if (signal?.aborted) return
+  loading = false
+  handle.update()
+}
+```
+
+### When to Use
+
+- A `clientEntry` inside a `<Frame>` needs to reload data when the frame navigates to a different URL
+- The editor works on first page load but stops responding to sidebar/frame navigation clicks
+- You see the pattern `let initialized = false` guarding data reads from `location.search` or DOM attributes
+- You need to programmatically navigate a frame from within a `clientEntry` without a full page reload
+- Rapid sidebar clicks cause stale data to briefly appear (use the AbortController variant)
+
+**Related:** See the [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload) section above for re-attaching event listeners after frame navigation (complementary — use both patterns when the component has listeners AND needs to reload data).
+
+(Consolidated from `remix3-post-navigation-data-loading`)
 
 ---
 

@@ -13,6 +13,7 @@ export const callbackRoute = post('/callback')
 export const frames = {
   adminContent: 'admin-content',
   aiContent: 'ai-content',
+  listsContent: 'lists-content',
 
   appointmentContent: 'appointment-content',
   appointTypes: 'appoint-types',

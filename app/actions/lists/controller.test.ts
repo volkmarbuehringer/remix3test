@@ -69,6 +69,125 @@ describe('Lists controller', () => {
     )
   })
 
+  it('GET /lists renders the sidebar layout with Listen header and Neue Liste entry', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(text.includes('Listen'), 'should render sidebar header "Listen"')
+    assert.ok(text.includes('Neue Liste'), 'should render "Neue Liste" sidebar entry')
+  })
+
+  it('GET /lists sidebar scopes lists to current non-admin user', async () => {
+    // Save a list as the current user
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Owner scoped list',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Non-admin user should see the list in sidebar
+    let response = await router.fetch(LISTS_URL, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(text.includes('Owner scoped list'), 'non-admin should see own list in sidebar')
+    assert.ok(text.includes('?load=' + id), 'sidebar should link to list with load param')
+  })
+
+  it('GET /lists sidebar shows admin all lists', async () => {
+    // Save a list as the non-admin user (user@newapp.com)
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Admin visible list',
+        items: [{ id: '1', label: 'Admin test' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+
+    // Admin should see that list in sidebar
+    let response = await router.fetch(LISTS_URL, {
+      headers: { Cookie: adminCookie },
+    })
+    let text = await response.text()
+    assert.ok(text.includes('Admin visible list'), 'admin should see non-admin list in sidebar')
+  })
+
+  it('GET /lists with ?load param sets active list in sidebar', async () => {
+    // Save a list to get an id
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Active list test',
+        items: [{ id: '1', label: 'Active item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Load with ?load param
+    let response = await router.fetch(`${LISTS_URL}?load=${id}`, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    // The active list entry must be marked with aria-current="page"
+    assert.ok(text.includes('aria-current="page"'), 'active list entry should have aria-current="page"')
+  })
+
+  it('GET /lists with ?load for non-existent or foreign id defaults to Neue Liste', async () => {
+    // Use a list id that does not exist (9999999) — should fall back to 'new'
+    let response = await router.fetch(`${LISTS_URL}?load=9999999`, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    // The Neue Liste entry should be the active one
+    assert.ok(text.includes('aria-current="page"'), 'sidebar should have an active entry when ?load is invalid')
+  })
+
+  it('GET /lists without ?load defaults to Neue Liste as active', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(text.includes('Neue Liste'), '"Neue Liste" should render in sidebar')
+  })
+
+  it('GET /lists with X-Remix-Target: lists-content returns fragment (no Layout shell)', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      headers: {
+        Cookie: userCookie,
+        'X-Remix-Target': 'lists-content',
+      },
+    })
+    let text = await response.text()
+    assert.equal(response.status, 200)
+    // Fragment renders ListsLayout directly (no outer Frame wrapper).
+    // A full page response would have <Frame> with name="lists-content".
+    // A fragment response renders the content inline without the Frame element.
+    assert.ok(!text.includes('rmx-frame'), 'fragment should not include an outer rmx-frame element')
+    assert.ok(text.includes('Neue Liste'), 'fragment should contain sidebar layout content')
+  })
+
   // -----------------------------------------------------------------------
   // POST /lists/save — save a new list with description
   // -----------------------------------------------------------------------
