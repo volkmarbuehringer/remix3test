@@ -35,6 +35,16 @@ export function MainNav() {
       return currentPath === path || currentPath.startsWith(path + '/')
     }
 
+    // Determine if a link navigates to a different top-level section.
+    // Cross-section navigations from Frame-relay pages need rmx-document
+    // to avoid Remix 3 entering a frame-resolution loop.
+    let isCrossSection = (href: string) => {
+      if (!currentPath || !href || href === '/') return false
+      let linkSection = href.split('/')[1] || ''
+      let currentSection = currentPath.split('/')[1] || ''
+      return linkSection !== currentSection
+    }
+
     return (
       <header mix={navWrapCss}>
         <div mix={navInnerCss}>
@@ -65,6 +75,7 @@ export function MainNav() {
                     <a
                       key={item.href}
                       href={item.href}
+                      {...(item.href && isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
                       mix={[navLinkCss, item.href && isActive(item.href) ? navActiveCss : null].filter(Boolean)}
                     >
                       {item.label}
@@ -75,7 +86,7 @@ export function MainNav() {
             })}
             {user ? (
               <>
-                <a href={routes.settings.index.href()} mix={iconLinkCss} aria-label="Settings" title="Einstellungen">
+                <a href={routes.settings.index.href()} {...(isCrossSection(routes.settings.index.href()) ? { 'rmx-document': '' } : {})} mix={iconLinkCss} aria-label="Settings" title="Einstellungen">
                   <Glyph name="cog" width={18} height={18} />
                 </a>
                 <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
@@ -87,7 +98,7 @@ export function MainNav() {
               </>
             ) : (
               <>
-                <a href={routes.auth.login.index.href()} mix={navBtnCss}>
+                <a href={routes.auth.login.index.href()} {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})} mix={navBtnCss}>
                   <Glyph name="open" width={14} height={14} />
                   Anmelden
                 </a>
@@ -136,11 +147,11 @@ export function MainNav() {
               <>
                 {MOBILE_ITEMS.filter(it => it.requireAuth).map((item) => (
                   item.cta ? (
-                    <a key={item.href} href={item.href} mix={drawerCtaCss}>
+                    <a key={item.href} href={item.href} {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})} mix={drawerCtaCss}>
                       {item.label}
                     </a>
                   ) : (
-                    <a key={item.href} href={item.href} mix={drawerLinkCss}>
+                    <a key={item.href} href={item.href} {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})} mix={drawerLinkCss}>
                       {item.label}
                     </a>
                   )
@@ -153,7 +164,7 @@ export function MainNav() {
                 </form>
               </>
             ) : (
-              <a href={routes.auth.login.index.href()} mix={drawerCtaCss}>
+              <a href={routes.auth.login.index.href()} {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})} mix={drawerCtaCss}>
                 Anmelden
               </a>
             )}

@@ -939,6 +939,76 @@ This error appears in the browser when the frame router tries to mount binary da
 
 ---
 
+## Cross-Section Navigation CPU Loop
+
+**Context:** Navigating between different Frame-relay sections (e.g., admin ↔ lists) using plain `<a>` tags causes 100% CPU and browser freeze
+
+### Problem
+
+Plain `<a>` tags inside Frame contexts that navigate to a different Frame-relay section lack `rmx-document`. Remix 3's click interceptor treats them as frame navigations, which triggers a frame-resolution loop:
+
+```
+1. Remix intercepts plain <a> click inside a Frame
+2. Without rmx-document, does frame-based navigation to new URL
+3. Destination URL also uses Frame relay (returns <Frame> element)
+4. Remix resolves that Frame, which contains another <Frame>
+5. Infinite frame-resolution loop → 100% CPU → browser frozen
+```
+
+**Symptoms:**
+- Server returns 200 for all requests (server is fine)
+- Browser tab pegs at 100% CPU, completely unresponsive
+- Console: `[AdminViewToggle] Cleaned up, total cleanups: 1`
+- ClientEntry data fetches never fire (e.g., no `/lists/:id/data` request)
+- Browser error: "excessive CPU usage"
+
+### Solution
+
+#### 1. Add `rmx-document` to `target="_top"` links inside Frames
+
+```tsx
+<a href={`/lists?load=${row.id}`} target="_top" rmx-document>
+  {row.description}
+</a>
+```
+
+The `rmx-document` attribute causes Remix to skip frame interception for this link (`navigation.ts` line 148: `if (linkElement.hasAttribute('rmx-document')) return`), allowing the browser to perform a normal document-level navigation.
+
+#### 2. Conditionally apply `rmx-document` in shared navigation
+
+For components rendered across all sections (e.g., MainNav), apply `rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section.
+
+```typescript
+let currentPath = new URL(getContext().request.url).pathname
+
+let isCrossSection = (href: string) => {
+  if (!currentPath || !href || href === '/') return false
+  let linkSection = href.split('/')[1] || ''
+  let currentSection = currentPath.split('/')[1] || ''
+  return linkSection !== currentSection
+}
+```
+
+```tsx
+<a
+  href={item.href}
+  {...(item.href && isCrossSection(item.href)
+    ? { 'rmx-document': '' }
+    : {})}
+>
+  {item.label}
+</a>
+```
+
+### When to Use
+
+- Adding a plain `<a>` inside Frame-rendered content that navigates to another section
+- Debugging 100% CPU after clicking a link from a Frame-relay page
+- When navigation works from direct URL but hangs when clicked inside a Frame
+- Building shared navigation components that render across Frame-relay sections
+
+---
+
 ## Mobile Nav Hamburger
 
 # Remix 3 Mobile Nav Hamburger Pattern

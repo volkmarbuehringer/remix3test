@@ -318,7 +318,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       </td>
                       <td mix={[tdStyle, colDescWidth]}>
                         {row.description
-                          ? <a href={`/lists?load=${row.id}`} target="_top" mix={descLinkStyle} title={row.description}>{row.description}</a>
+                          ? <a href={`/lists?load=${row.id}`} target="_top" rmx-document mix={descLinkStyle} title={row.description}>{row.description}</a>
                           : <span mix={descEmptyStyle}>(keine Beschreibung)</span>
                         }
                       </td>
