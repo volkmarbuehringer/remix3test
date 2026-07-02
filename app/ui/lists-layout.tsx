@@ -2,7 +2,7 @@ import { type RemixNode, type Handle, css, Frame } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
 import { theme } from '../lib/theme.ts'
 
-import { Layout } from './layout.tsx'
+import { Layout, tooltipAnchorStyle } from './layout.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
@@ -134,7 +134,8 @@ function ListsLayout(handle: Handle<{
                     href={href}
                     target={frameTarget}
                     active={activeItem === entry.id}
-                    mix={[navLinkStyle, entryNavLinkStyle, activeItem === entry.id && navActiveStyle].filter(Boolean)}
+                    mix={[navLinkStyle, entryNavLinkStyle, tooltipAnchorStyle, activeItem === entry.id && navActiveStyle].filter(Boolean)}
+                    dataTooltip={displayName}
                   >
                     <span mix={navIconStyle}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -144,7 +145,7 @@ function ListsLayout(handle: Handle<{
                         <line x1="9" y1="16" x2="13" y2="16" />
                       </svg>
                     </span>
-                    <span mix={noDescription ? descEmptyStyle : undefined}>
+                    <span mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(Boolean)}>
                       {displayName}
                     </span>
                     <span mix={countBadgeStyle} aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}>
@@ -249,4 +250,10 @@ const deleteBtnStyle = css({
 const entryNavLinkStyle = css({
   flex: 1,
   minWidth: 0,
+})
+
+const truncateStyle = css({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 })

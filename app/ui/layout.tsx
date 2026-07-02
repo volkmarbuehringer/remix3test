@@ -329,6 +329,8 @@ const flashBase = {
 
 const surface = theme.surface as Record<string, string>
 
+export { tooltipAnchorStyle }
+
 const flashErrorStyle = css({
   ...flashBase,
   background: surface.dangerBg,

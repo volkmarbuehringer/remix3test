@@ -9,12 +9,13 @@ type NavLinkProps = {
   document?: boolean
   mix?: any
   style?: Record<string, string>
+  dataTooltip?: string
   children?: RemixNode
 }
 
 export function NavLink(handle: Handle<NavLinkProps>) {
   return () => {
-    let { href, route, frameSrc, target: frameTarget, active, document: isDocument, mix, style, children } = handle.props
+    let { href, route, frameSrc, target: frameTarget, active, document: isDocument, mix, style, dataTooltip, children } = handle.props
     let resolvedHref = href ?? route?.href() ?? '#'
 
     let extra: Record<string, string | undefined> = {}
@@ -24,6 +25,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       extra['rmx-document'] = ''
       extra['target'] = '_top'
     }
+    if (dataTooltip) extra['data-tooltip'] = dataTooltip
 
     return (
       <a
