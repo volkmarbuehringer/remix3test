@@ -132,6 +132,24 @@ export async function updateList(
   return true
 }
 
+export async function renameList(
+  db: { findOne: Function; updateMany: Function },
+  id: number,
+  description: string,
+  userId?: number,
+): Promise<boolean> {
+  let where = userId != null ? { id, user_id: userId } : { id }
+  let existing = await db.findOne(lists, { where })
+  if (!existing) return false
+
+  await db.updateMany(
+    lists,
+    { description, updated_at: Date.now() },
+    { where },
+  )
+  return true
+}
+
 export async function deleteList(
   db: { findOne: Function; delete: Function },
   id: number,

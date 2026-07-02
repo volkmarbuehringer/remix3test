@@ -516,6 +516,161 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // PUT /lists/:id/rename — rename a list (description-only update)
+  // -----------------------------------------------------------------------
+
+  it('PUT /lists/:id/rename renames a list', async () => {
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Original name',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let renameResponse = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Renamed' }),
+    })
+    assert.equal(renameResponse.status, 200)
+    let body = await renameResponse.json()
+    assert.equal(body.id, id)
+    assert.equal(body.description, 'Renamed')
+
+    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(dataResponse.status, 200)
+    let data = await dataResponse.json()
+    assert.equal(data.description, 'Renamed')
+    assert.equal(data.items.length, 1)
+  })
+
+  it('PUT /lists/:id/rename with invalid ID returns 400', async () => {
+    let response = await router.fetch(`${LISTS_URL}/invalid/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Test' }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  it('PUT /lists/:id/rename for non-existent list returns 404', async () => {
+    let response = await router.fetch(`${LISTS_URL}/9999999/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Test' }),
+    })
+    assert.equal(response.status, 404)
+  })
+
+  it('PUT /lists/:id/rename for another user\'s list returns 404', async () => {
+    // Save a list as admin (user_id = NULL)
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': adminCsrfToken,
+        Cookie: adminCookie,
+      },
+      body: JSON.stringify({
+        description: 'Admin owned list',
+        items: [{ id: '1', label: 'Admin item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    // Try to rename as non-admin user — should 404 (not found, not revealed)
+    let renameResponse = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Hacked' }),
+    })
+    assert.equal(renameResponse.status, 404)
+  })
+
+  it('PUT /lists/:id/rename with empty body returns 400', async () => {
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'List for empty body test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({}),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  it('PUT /lists/:id/rename with whitespace-only name returns 400', async () => {
+    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'List for whitespace test',
+        items: [{ id: '1', label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: '   ' }),
+    })
+    assert.equal(response.status, 400)
+  })
+
+  // -----------------------------------------------------------------------
   // POST /lists/:id/delete — destroy a list
   // -----------------------------------------------------------------------
 

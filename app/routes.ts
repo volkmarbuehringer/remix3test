@@ -40,6 +40,7 @@ export const routes = route({
     index: get('/'),
     save: post('/save'),
     update: put('/:id/update'),
+    rename: put('/:id/rename'),
     show: get('/:id'),
     data: get('/:id/data'),
     destroy: post('/:id/delete'),

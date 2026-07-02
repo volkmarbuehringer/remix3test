@@ -8,6 +8,7 @@ import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { ListNameEdit } from '../assets/list-name-edit.tsx'
 import {
   shellStyle,
   sidebarStyle,
@@ -151,7 +152,7 @@ function ListsLayout(handle: Handle<{
               let noDescription = !entry.label.trim()
               let displayName = noDescription ? `Liste #${listId}` : entry.label
               return (
-                <div key={entry.id} mix={entryRowStyle}>
+                <div key={entry.id} mix={entryRowStyle} data-list-id={listId ?? undefined}>
                   <NavLink
                     href={href}
                     target={frameTarget}
@@ -167,7 +168,7 @@ function ListsLayout(handle: Handle<{
                         <line x1="9" y1="16" x2="13" y2="16" />
                       </svg>
                     </span>
-                    <span mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(Boolean)}>
+                    <span mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(Boolean)} data-list-name>
                       {displayName}
                     </span>
                     <span mix={countBadgeStyle} aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}>
@@ -194,6 +195,7 @@ function ListsLayout(handle: Handle<{
                 </div>
               )
             })}
+            <ListNameEdit />
             <ConfirmDelete />
             {sidebarEntries.length === 0 && (
               <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>
