@@ -30,6 +30,12 @@ export type ListSidebarEntry = {
   count: number
 }
 
+export type PaginationState = {
+  offset: number
+  hasMore: boolean
+  limit: number
+}
+
 const frameTarget = frames.listsContent
 
 function isFrameRequest(): boolean {
@@ -41,10 +47,11 @@ export function renderListsPage(
   activeItem: ListsNavItem,
   sidebarEntries: ListSidebarEntry[],
   content: RemixNode,
+  pagination?: PaginationState,
   init?: ResponseInit,
 ) {
   return render(
-    <ShellOrFragment activeItem={activeItem} sidebarEntries={sidebarEntries}>
+    <ShellOrFragment activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>
       {content}
     </ShellOrFragment>,
     init,
@@ -54,17 +61,18 @@ export function renderListsPage(
 function ShellOrFragment(handle: Handle<{
   activeItem: ListsNavItem
   sidebarEntries: ListSidebarEntry[]
+  pagination?: PaginationState
   children?: RemixNode
 }>) {
   return () => {
-    let { activeItem, sidebarEntries, children } = handle.props
+    let { activeItem, sidebarEntries, pagination, children } = handle.props
     if (isFrameRequest()) {
-      return <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries}>{children}</ListsLayout>
+      return <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>{children}</ListsLayout>
     }
     if (getContext().request.method !== 'GET') {
       return (
         <Layout>
-          <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries}>{children}</ListsLayout>
+          <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>{children}</ListsLayout>
         </Layout>
       )
     }
@@ -76,19 +84,33 @@ function ShellOrFragment(handle: Handle<{
   }
 }
 
-function buildListHref(listId: number): string {
+function buildListHref(listId: number, pagination?: PaginationState): string {
   let params = new URLSearchParams()
   params.set('load', String(listId))
+  if (pagination && pagination.offset > 0) {
+    params.set('offset', String(pagination.offset))
+  }
+  return routes.lists.index.href() + '?' + params.toString()
+}
+
+function buildPageHref(offset: number, pagination: PaginationState): string {
+  let params = new URLSearchParams()
+  params.set('offset', String(offset))
+  let loadParam = new URL(getContext().request.url).searchParams.get('load')
+  if (loadParam) {
+    params.set('load', loadParam)
+  }
   return routes.lists.index.href() + '?' + params.toString()
 }
 
 function ListsLayout(handle: Handle<{
   activeItem: ListsNavItem
   sidebarEntries: ListSidebarEntry[]
+  pagination?: PaginationState
   children?: RemixNode
 }>) {
   return () => {
-    let { activeItem, sidebarEntries, children } = handle.props
+    let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
       <div mix={shellStyle}>
         <aside mix={sidebarStyle}>
@@ -125,7 +147,7 @@ function ListsLayout(handle: Handle<{
               let listId = typeof entry.id === 'string' && entry.id.startsWith('list:')
                 ? Number(entry.id.slice(5))
                 : null
-              let href = listId !== null ? buildListHref(listId) : routes.lists.index.href()
+              let href = listId !== null ? buildListHref(listId, pagination) : routes.lists.index.href()
               let noDescription = !entry.label.trim()
               let displayName = noDescription ? `Liste #${listId}` : entry.label
               return (
@@ -175,6 +197,35 @@ function ListsLayout(handle: Handle<{
             <ConfirmDelete />
             {sidebarEntries.length === 0 && (
               <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>
+            )}
+            {pagination && sidebarEntries.length > 0 && (
+              <div mix={paginationStyle}>
+                {pagination.offset > 0 ? (
+                  <NavLink
+                    href={buildPageHref(pagination.offset - pagination.limit, pagination)}
+                    target={frameTarget}
+                    mix={paginationBtnStyle}
+                  >
+                    ← Vorherige
+                  </NavLink>
+                ) : (
+                  <span mix={paginationBtnDisabledStyle}>← Vorherige</span>
+                )}
+                <span mix={pageIndicatorStyle}>
+                  Seite {Math.floor(pagination.offset / pagination.limit) + 1}
+                </span>
+                {pagination.hasMore ? (
+                  <NavLink
+                    href={buildPageHref(pagination.offset + pagination.limit, pagination)}
+                    target={frameTarget}
+                    mix={paginationBtnStyle}
+                  >
+                    Nächste →
+                  </NavLink>
+                ) : (
+                  <span mix={paginationBtnDisabledStyle}>Nächste →</span>
+                )}
+              </div>
             )}
           </nav>
         </aside>
@@ -256,4 +307,41 @@ const truncateStyle = css({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+})
+
+const paginationStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: `${theme.space.sm} ${theme.space.md}`,
+  borderTop: `1px solid ${theme.colors.border.default}`,
+  marginTop: theme.space.sm,
+})
+
+const paginationBtnStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  fontSize: theme.fontSize.xs,
+  borderRadius: theme.radius.sm,
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  ':hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+})
+
+const paginationBtnDisabledStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  opacity: 0.5,
+})
+
+const pageIndicatorStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
 })

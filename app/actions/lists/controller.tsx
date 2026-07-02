@@ -16,6 +16,7 @@ import { getCurrentUser } from '../../utils/context.ts'
 import { getListById, getAllLists, createList, updateList, deleteList } from '../../lib/lists-api.ts'
 import { renderListsPage, type ListsNavItem, type ListSidebarEntry } from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
+import { getPageSize } from '../../utils/get-page-size.ts'
 
 const listItemSchema = s.object({
   id: s.string(),
@@ -34,7 +35,9 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     async index(context) {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
-      let result = await getAllLists(db, pool, { limit: 50, offset: 0 }, listUserId)
+      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let pageSize = getPageSize(context.session, 15)
+      let result = await getAllLists(db, pool, { limit: pageSize, offset }, listUserId)
 
       let sidebarEntries: ListSidebarEntry[] = result.data.map((row) => ({
         id: `list:${row.id}` as ListsNavItem,
@@ -60,6 +63,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         activeItem,
         sidebarEntries,
         <ListsIndexPage />,
+        { offset: result.offset, hasMore: result.hasMore, limit: pageSize },
       )
     },
     async save(context) {
@@ -187,7 +191,12 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      return redirect(routes.lists.index.href())
+      let redirectUrl = routes.lists.index.href()
+      let offset = context.url.searchParams.get('offset')
+      if (offset) {
+        redirectUrl += '?offset=' + encodeURIComponent(offset)
+      }
+      return redirect(redirectUrl)
     },
     show(context) {
       return context.render(
