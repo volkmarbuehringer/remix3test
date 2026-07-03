@@ -9,6 +9,7 @@ import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 import { ListNameEdit } from '../assets/list-name-edit.tsx'
+import { ListsSearch } from '../assets/lists-search.tsx'
 import {
   shellStyle,
   sidebarStyle,
@@ -29,7 +30,15 @@ export type ListSidebarEntry = {
   id: ListsNavItem
   label: string
   count: number
+  updatedAt?: number
 }
+
+export type ListInitialState = {
+  id: number
+  description: string
+  items: Array<{ id: string; label: string }>
+  updated_at: number
+} | null
 
 export type PaginationState = {
   offset: number
@@ -113,7 +122,7 @@ function ListsLayout(handle: Handle<{
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
-      <div mix={shellStyle}>
+          <div mix={shellStyle}>
         <aside mix={sidebarStyle}>
           <div mix={sidebarHeaderStyle}>
             <span mix={headerIconWrapStyle}>
@@ -129,6 +138,32 @@ function ListsLayout(handle: Handle<{
           <div mix={headerDividerStyle} />
           <nav mix={navStyle}>
             <p mix={groupLabelStyle}>Meine Listen</p>
+            <input
+              id="lists-sidebar-search"
+              type="search"
+              defaultValue={new URL(getContext().request.url).searchParams.get('filter') ?? ''}
+              placeholder="Suchen…"
+              mix={css({
+                width: '100%',
+                padding: `${theme.space.xs} ${theme.space.sm}`,
+                marginBottom: theme.space.sm,
+                borderRadius: theme.radius.sm,
+                border: `1px solid ${theme.colors.border.default}`,
+                fontSize: theme.fontSize.xs,
+                outline: 'none',
+                fontFamily: theme.fontFamily.sans,
+                boxSizing: 'border-box',
+                backgroundColor: theme.surface.lvl0,
+                color: theme.colors.text.primary,
+                '&:focus': {
+                  borderColor: theme.colors.focus.ring,
+                },
+                '&::placeholder': {
+                  color: theme.colors.text.muted,
+                },
+              })}
+            />
+            <ListsSearch />
             <NavLink
               key="new"
               href={routes.lists.index.href()}
@@ -152,7 +187,7 @@ function ListsLayout(handle: Handle<{
               let noDescription = !entry.label.trim()
               let displayName = noDescription ? `Liste #${listId}` : entry.label
               return (
-                <div key={entry.id} mix={entryRowStyle} data-list-id={listId ?? undefined}>
+                <div key={entry.id} mix={entryRowStyle} data-list-id={listId ?? undefined} data-updated-at={entry.updatedAt ?? undefined}>
                   <NavLink
                     href={href}
                     target={frameTarget}

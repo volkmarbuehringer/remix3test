@@ -50,7 +50,11 @@ export const ListNameEdit = clientEntry(
               let headers: Record<string, string> = { 'Content-Type': 'application/json' }
               if (csrfToken) headers['X-Csrf-Token'] = csrfToken
 
-              fetch(`/lists/${listId}/rename`, {
+              let entryEl = span.closest('[data-list-id]') as HTMLElement | null
+              let updatedAt = entryEl?.getAttribute('data-updated-at')
+              if (updatedAt) headers['If-Match'] = updatedAt
+
+              fetch(`/lists/${listId}`, {
                 method: 'PUT',
                 headers,
                 body: JSON.stringify({ description: trimmed }),
@@ -58,15 +62,27 @@ export const ListNameEdit = clientEntry(
               }).then((response) => {
                 if (signal.aborted) return
                 if (response.ok) {
-                  span.textContent = trimmed
-                  let link = span.closest('[data-tooltip]')
-                  if (link) link.setAttribute('data-tooltip', trimmed)
-                  let deleteForm = span.closest('[data-list-id]')?.querySelector('form[data-confirm]')
-                  if (deleteForm) {
-                    deleteForm.setAttribute('data-confirm', `${trimmed} löschen?`)
-                    let deleteBtn = deleteForm.querySelector('button[aria-label]')
-                    if (deleteBtn) deleteBtn.setAttribute('aria-label', `Liste "${trimmed}" löschen`)
-                  }
+                  response.json().then((data) => {
+                    if (signal.aborted) return
+                    span.textContent = trimmed
+                    let link = span.closest('[data-tooltip]')
+                    if (link) link.setAttribute('data-tooltip', trimmed)
+                    let deleteForm = span.closest('[data-list-id]')?.querySelector('form[data-confirm]')
+                    if (deleteForm) {
+                      deleteForm.setAttribute('data-confirm', `${trimmed} löschen?`)
+                      let deleteBtn = deleteForm.querySelector('button[aria-label]')
+                      if (deleteBtn) deleteBtn.setAttribute('aria-label', `Liste "${trimmed}" löschen`)
+                    }
+                    // Update data-updated-at from response
+                    if (entryEl && typeof data.updated_at === 'number') {
+                      entryEl.setAttribute('data-updated-at', String(data.updated_at))
+                    }
+                  }).catch(() => {})
+                } else if (response.status === 409) {
+                  // Conflict — briefly flash red and abort
+                  span.style.color = ''
+                  span.style.color = 'var(--color-danger, #e53e3e)'
+                  errorTimer = setTimeout(() => { span.style.color = '' }, 2000)
                 }
                 cancelEdit()
               }).catch((err) => {

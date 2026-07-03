@@ -38,11 +38,8 @@ export const routes = route({
 
   lists: route('lists', {
     index: get('/'),
-    save: post('/save'),
-    update: put('/:id/update'),
-    rename: put('/:id/rename'),
-    show: get('/:id'),
-    data: get('/:id/data'),
+    create: post('/'),
+    update: put('/:id'),
     destroy: post('/:id/delete'),
   }),
 

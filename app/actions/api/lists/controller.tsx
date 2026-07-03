@@ -10,7 +10,7 @@ import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { pool } from '../../../data/setup.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
-import { getAllLists, getListById, createList, updateList, deleteList } from '../../../lib/lists-api.ts'
+import { getAllLists, getListById, createList, patchList, deleteList } from '../../../lib/lists-api.ts'
 
 const apiListsLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 60 })
 
@@ -137,8 +137,8 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Items array is required and must not be empty' }, { status: 400 })
       }
 
-      let updated = await updateList(context.db, listId, { description, items }, listUserId)
-      if (!updated) {
+      let result = await patchList(context.db, listId, { description, items }, listUserId)
+      if (!result.ok && result.reason === 'not_found') {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 

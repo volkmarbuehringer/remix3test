@@ -9,29 +9,66 @@ type ListItem = {
   label: string
 }
 
+type ListInitialState = {
+  id: number
+  description: string
+  items: Array<{ id: string; label: string }>
+  updated_at: number
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export const ListsClient = clientEntry(
   import.meta.url + '#ListsClient',
-  function ListsClient(handle: Handle) {
+  function ListsClient(handle: Handle<{ initialState?: ListInitialState | null }>) {
     let items: ListItem[] = []
     let description = ''
     let newItemLabel = ''
     let nextId = 0
-    let saving = false
-    let updating = false
     let loadedListId: number | null = null
-    let loadingList = false
+    let loadedUpdatedAt: number | null = null
+    let saving = false
     let loadError = ''
     let editingIndex: number | null = null
     let editText = ''
     let newItemRef: HTMLTextAreaElement | null = null
     let listRef: HTMLDivElement | null = null
     let initialized = false
-    let expectedListId: string | null = null
 
+    // Drag state
     let dragIndex: number | null = null
     let dropIndex: number | null = null
     let draggedEl: HTMLElement | null = null
     let indicatorEl: HTMLElement | null = null
+
+    // Autosave state
+    type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error'
+    let saveStatus: SaveStatus = 'saved'
+    let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+
+    // Conflict state
+    type ConflictState = { show: boolean; serverState: ListInitialState | null }
+    let conflictState: ConflictState = { show: false, serverState: null }
+
+    // Track whether items or description are dirty
+    let cleanDescription = ''
+    let cleanItemsJSON = ''
+    let snapshotClean = () => {
+      cleanDescription = description
+      cleanItemsJSON = JSON.stringify(items)
+    }
+    let isDirty = () => description !== cleanDescription || JSON.stringify(items) !== cleanItemsJSON
+
+    let setDirty = () => {
+      if (!isDirty()) return
+      if (saveStatus === 'saved' || saveStatus === 'error') {
+        saveStatus = 'dirty'
+        handle.update()
+      }
+      scheduleAutosave()
+    }
 
     let multilineDisplayStyle = css({
       flex: 1,
@@ -71,107 +108,217 @@ export const ListsClient = clientEntry(
       handle.frame.reload().catch(() => {})
     }
 
-    let saveToStorage = async () => {
-      saving = true
-      loadError = ''
-      handle.update()
+    let getCsrfHeaders = (): Record<string, string> => {
+      let csrfToken = typeof document !== 'undefined'
+        ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        : undefined
+      let headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (csrfToken) headers['X-Csrf-Token'] = csrfToken
+      if (loadedUpdatedAt !== null) headers['If-Match'] = String(loadedUpdatedAt)
+      return headers
+    }
 
-      let newId: number | null = null
-      try {
-        let csrfToken = typeof document !== 'undefined'
-          ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-          : undefined
-        let headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (csrfToken) headers['X-Csrf-Token'] = csrfToken
-        let response = await fetch('/lists/save', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ description, items }),
-        })
-        if (response.ok) {
-          let data = await response.json()
-          newId = typeof data.id === 'number' ? data.id : null
+    let saveNow = async (): Promise<boolean> => {
+      conflictState = { show: false, serverState: null }
+      if (loadedListId === null) {
+        // Create new list
+        saving = true
+        saveStatus = 'saving'
+        handle.update()
+        let ok = false
+        let newId: number | null = null
+        try {
+          let response = await fetch('/lists', {
+            method: 'POST',
+            headers: getCsrfHeaders(),
+            body: JSON.stringify({ description, items }),
+          })
+          if (response.ok) {
+            let data = await response.json()
+            newId = typeof data.id === 'number' ? data.id : null
+            ok = true
+            if (newId !== null) {
+              loadedListId = newId
+              loadedUpdatedAt = typeof data.updated_at === 'number' ? data.updated_at : null
+            }
+          } else {
+            loadError = 'Speichern fehlgeschlagen'
+          }
+        } catch {
+          loadError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
+        }
+        saving = false
+        if (ok && newId !== null) {
+          snapshotClean()
+          saveStatus = 'saved'
+          handle.update()
+          navigateFrame(`/lists?load=${newId}`)
+          return true
         } else {
-          loadError = 'Speichern fehlgeschlagen'
+          saveStatus = 'error'
+          handle.update()
+          return false
         }
-      } catch {
-        loadError = 'Speichern fehlgeschlagen (Netzwerkfehler)'
-      }
-      saving = false
-
-      if (newId !== null) {
-        navigateFrame(`/lists?load=${newId}`)
       } else {
+        // Patch existing list
+        saving = true
+        saveStatus = 'saving'
         handle.update()
+        // Capture snapshot at send time to detect drift during the await
+        let sentDesc = description
+        let sentItemsJSON = JSON.stringify(items)
+        let ok = false
+        try {
+          let partial: Record<string, unknown> = {}
+          if (isDirty()) {
+            if (description !== cleanDescription) partial.description = description
+            if (sentItemsJSON !== cleanItemsJSON) partial.items = items
+          } else {
+            // Fall back to sending full if nothing explicitly changed
+            partial = { description, items }
+          }
+          let response = await fetch(`/lists/${loadedListId}`, {
+            method: 'PUT',
+            headers: getCsrfHeaders(),
+            body: JSON.stringify(partial),
+          })
+          if (response.ok) {
+            let data = await response.json()
+            loadedUpdatedAt = typeof data.updated_at === 'number' ? data.updated_at : null
+            // If the user kept typing during the save, mark dirty and reschedule
+            let drifted = description !== sentDesc || JSON.stringify(items) !== sentItemsJSON
+            if (drifted) {
+              saveStatus = 'dirty'
+              scheduleAutosave()
+              ok = true
+              saving = false
+              handle.update()
+              return true
+            }
+            // Apply server echo only if nothing drifted
+            if (data.items) items = data.items
+            if (data.description !== undefined) description = data.description
+            ok = true
+          } else if (response.status === 409) {
+            let server = await response.json()
+            conflictState = {
+              show: true,
+              serverState: {
+                id: server.id,
+                description: server.description,
+                items: server.items,
+                updated_at: server.updated_at,
+              },
+            }
+            ok = false
+          } else {
+            loadError = 'Aktualisieren fehlgeschlagen'
+          }
+        } catch {
+          loadError = 'Aktualisieren fehlgeschlagen (Netzwerkfehler)'
+        }
+        saving = false
+        if (ok) {
+          snapshotClean()
+          saveStatus = 'saved'
+          handle.update()
+          return true
+        } else {
+          saveStatus = 'error'
+          handle.update()
+          return false
+        }
       }
     }
 
-    let updateList = async () => {
-      if (loadedListId === null) return
-      updating = true
+    let scheduleAutosave = (fast = false) => {
+      if (conflictState.show) return
+      if (autosaveTimer) clearTimeout(autosaveTimer)
+      autosaveTimer = setTimeout(async () => {
+        autosaveTimer = null
+        if (!isDirty()) return
+        // Re-check conflict before saving
+        if (conflictState.show) return
+        await saveNow()
+      }, fast ? 300 : 1500)
+    }
+
+    let flushNow = async () => {
+      if (autosaveTimer) clearTimeout(autosaveTimer)
+      autosaveTimer = null
+      if (!isDirty()) return
+      await saveNow()
+    }
+
+    // Hydrate from server-injected initial state
+    let hydrateFromInitialState = (state: ListInitialState) => {
+      items = state.items.map((item) => ({ ...item }))
+      description = state.description
+      loadedListId = state.id
+      loadedUpdatedAt = state.updated_at
+      nextId = items.reduce((max, item) => {
+        let n = parseInt(item.id, 10)
+        return Number.isFinite(n) && n > max ? n : max
+      }, 0) + 1
+      snapshotClean()
+      saveStatus = 'saved'
       loadError = ''
-      handle.update()
+      loadingList = false
+      conflictState = { show: false, serverState: null }
+    }
 
-      let savedId = loadedListId
-      let ok = false
-      try {
-        let csrfToken = typeof document !== 'undefined'
-          ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-          : undefined
-        let headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (csrfToken) headers['X-Csrf-Token'] = csrfToken
-        let response = await fetch(`/lists/${loadedListId}/update`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({ description, items }),
-        })
-        ok = response.ok
-        if (!ok) {
-          loadError = 'Aktualisieren fehlgeschlagen'
+    // Initialize from initial state
+    let loadingList = false
+    if (handle.props.initialState) {
+      hydrateFromInitialState(handle.props.initialState)
+      initialized = true
+    }
+
+    // Reload handler: re-reads initial state from the new frame document
+    function reloadFromFrame() {
+      if (handle.signal.aborted) return
+      if (typeof document === 'undefined') return
+      let el = document.getElementById('lists-initial-state')
+      if (el) {
+        let raw = el.getAttribute('data-state')
+        if (raw) {
+          try {
+            let data = JSON.parse(raw)
+            if (data && typeof data.id === 'number') {
+              hydrateFromInitialState(data)
+              handle.update()
+              return
+            }
+          } catch {
+            // ignore parse errors, fall through to new-list state
+          }
         }
-      } catch {
-        loadError = 'Aktualisieren fehlgeschlagen (Netzwerkfehler)'
       }
-      updating = false
-
-      if (ok) {
-        navigateFrame(`/lists?load=${savedId}`)
-      } else {
-        handle.update()
-      }
-    }
-
-    let moveUp = (index: number) => {
-      if (index === 0) return
-      let newItems = [...items]
-      ;[newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]]
-      items = newItems
+      // No initial state: start new
+      items = []
+      description = ''
+      loadedListId = null
+      loadedUpdatedAt = null
+      nextId = 0
+      saveStatus = 'saved'
+      loadError = ''
+      loadingList = false
+      conflictState = { show: false, serverState: null }
+      snapshotClean()
       handle.update()
     }
 
-    let moveDown = (index: number) => {
-      if (index === items.length - 1) return
-      let newItems = [...items]
-      ;[newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]]
-      items = newItems
-      handle.update()
+    // Listen for frame reloads
+    handle.frame.addEventListener('reloadComplete', reloadFromFrame, { signal: handle.signal })
+
+    // On init, if no initial state was already provided, wait for frame load
+    if (!initialized) {
+      setTimeout(() => {
+        reloadFromFrame()
+      }, 0)
     }
 
-    let reverse = () => {
-      items = [...items].reverse()
-      handle.update()
-    }
-
-    let shuffle = () => {
-      let newItems = [...items]
-      for (let i = newItems.length - 1; i > 0; i--) {
-        let j = Math.floor(Math.random() * (i + 1))
-        ;[newItems[i], newItems[j]] = [newItems[j], newItems[i]]
-      }
-      items = newItems
-      handle.update()
-    }
-
+    // Drag-and-drop handlers (unchanged logic, just no id rewriting)
     let clearDragOver = () => {
       if (draggedEl) { draggedEl.style.opacity = ''; draggedEl = null }
       if (indicatorEl) { indicatorEl.style.borderTop = ''; indicatorEl.style.borderBottom = ''; indicatorEl = null }
@@ -263,6 +410,7 @@ export const ListsClient = clientEntry(
       items = newItems
       dragIndex = null
       dropIndex = null
+      setDirty()
       handle.update()
     }
 
@@ -278,28 +426,65 @@ export const ListsClient = clientEntry(
       if (!confirm('Alle Elemente löschen? Dies kann nicht rückgängig gemacht werden.')) return
       items = []
       nextId = 0
+      setDirty()
       handle.update()
     }
 
     let addItem = () => {
       if (!newItemLabel.trim()) return
+      // Use crypto.randomUUID() for stable client-side id
       let newItem: ListItem = {
-        id: (nextId++).toString(),
+        id: crypto.randomUUID(),
         label: newItemLabel.trim(),
       }
       items = [...items, newItem]
       newItemLabel = ''
       if (newItemRef) newItemRef.value = ''
+      setDirty()
       handle.update()
       setTimeout(scrollToBottom, 0)
+      scheduleAutosave(true)
     }
 
     let deleteItem = (index: number) => {
-      items = items.filter((_, i) => i !== index).map((item, i) => ({
-        ...item,
-        id: (i + 1).toString(),
-      }))
-      nextId = items.length + 1
+      // Simply filter — no id rewriting
+      items = items.filter((_, i) => i !== index)
+      setDirty()
+      handle.update()
+    }
+
+    let moveUp = (index: number) => {
+      if (index === 0) return
+      let newItems = [...items]
+      ;[newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]]
+      items = newItems
+      setDirty()
+      handle.update()
+    }
+
+    let moveDown = (index: number) => {
+      if (index === items.length - 1) return
+      let newItems = [...items]
+      ;[newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]]
+      items = newItems
+      setDirty()
+      handle.update()
+    }
+
+    let reverse = () => {
+      items = [...items].reverse()
+      setDirty()
+      handle.update()
+    }
+
+    let shuffle = () => {
+      let newItems = [...items]
+      for (let i = newItems.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1))
+        ;[newItems[i], newItems[j]] = [newItems[j], newItems[i]]
+      }
+      items = newItems
+      setDirty()
       handle.update()
     }
 
@@ -314,6 +499,7 @@ export const ListsClient = clientEntry(
         items = items.map((item, i) =>
           i === editingIndex ? { ...item, label: editText.trim() } : item,
         )
+        setDirty()
       }
       editingIndex = null
       editText = ''
@@ -326,76 +512,66 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    let loadController: AbortController | null = null
-
-    let loadListFromServer = async (id: string, signal?: AbortSignal) => {
-      try {
-        let response = await fetch(`/lists/${id}/data`, signal ? { signal } : undefined)
-        if (!response.ok) throw new Error('Failed to load')
-        let data = await response.json()
-        if (signal?.aborted) return
-        items = Array.isArray(data.items) ? data.items : []
-        description = typeof data.description === 'string' ? data.description : ''
-        loadedListId = typeof data.id === 'number' ? data.id : null
-        loadError = ''
-        // Derive nextId from max existing ID + 1 to avoid key collisions
-        nextId =
-          items.reduce((max, item) => {
-            let n = parseInt(item.id, 10)
-            return Number.isFinite(n) && n > max ? n : max
-          }, 0) + 1
-      } catch (e) {
-        if (e instanceof DOMException && e.name === 'AbortError') return
-        loadError = 'Liste konnte nicht geladen werden'
+    // Conflict resolution handlers
+    let reloadFromServer = () => {
+      if (conflictState.serverState) {
+        hydrateFromInitialState(conflictState.serverState)
       }
-      if (signal?.aborted) return
-      loadingList = false
+      conflictState = { show: false, serverState: null }
       handle.update()
     }
 
-    function reloadListFromFrame() {
-      if (handle.signal.aborted) return
-      let url = new URL(handle.frame.src, location.origin)
-      let loadId = url.searchParams.get('load')
-      let effectiveLoadId = loadId ?? null
-      if (effectiveLoadId === expectedListId) return
-      expectedListId = effectiveLoadId
-      loadError = ''
-      loadController?.abort()
-      loadController = new AbortController()
-      if (effectiveLoadId) {
-        loadingList = true
-        handle.update()
-        loadListFromServer(effectiveLoadId, loadController.signal)
-      } else if (loadedListId !== null) {
-        items = []
-        description = ''
-        loadedListId = null
-        nextId = 0
-        handle.update()
+    let forceOverwrite = () => {
+      if (conflictState.serverState) {
+        loadedUpdatedAt = conflictState.serverState.updated_at
+      }
+      conflictState = { show: false, serverState: null }
+      handle.update()
+      // Re-trigger save immediately
+      setTimeout(() => saveNow(), 0)
+    }
+
+    // SendBeacon for navigate-away flush
+    // Beacon cannot set custom headers, so we pass the CSRF token as a query param
+    // and the precondition via _if_match in the body.
+    function flushOnUnload() {
+      if (!isDirty()) return
+      if (loadedListId === null) return
+      let partial: Record<string, unknown> = {}
+      if (description !== cleanDescription) partial.description = description
+      if (JSON.stringify(items) !== cleanItemsJSON) partial.items = items
+      if (Object.keys(partial).length === 0) return
+      partial._if_match = loadedUpdatedAt
+      let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+      let url = `/lists/${loadedListId}?_csrf=${encodeURIComponent(csrfToken)}`
+      let blob = new Blob([JSON.stringify(partial)], { type: 'application/json' })
+      navigator.sendBeacon(url, blob)
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', flushOnUnload, { signal: handle.signal })
+    }
+
+    // Status pill display
+    let statusLabel = (): string => {
+      switch (saveStatus) {
+        case 'saved': return 'Gespeichert'
+        case 'saving': return 'Speichern…'
+        case 'dirty': return 'Ungespeichert'
+        case 'error': return 'Fehler'
       }
     }
 
-    // React to frame navigation — reloads the list when sidebar link is clicked
-    handle.frame.addEventListener('reloadComplete', reloadListFromFrame, { signal: handle.signal })
+    let statusColor = (): string => {
+      switch (saveStatus) {
+        case 'saved': return theme.colors.text.muted
+        case 'saving': return theme.colors.text.secondary
+        case 'dirty': return '#d69e2e'
+        case 'error': return theme.colors.action.danger.background
+      }
+    }
 
     return () => {
-      if (!initialized && typeof document !== 'undefined') {
-        initialized = true
-        setTimeout(() => {
-          let url = new URL(handle.frame.src, location.origin)
-          let loadId = url.searchParams.get('load')
-          if (loadId) {
-            expectedListId = loadId
-            loadingList = true
-            loadController = new AbortController()
-            handle.update()
-            loadListFromServer(loadId, loadController.signal)
-          }
-        }, 0)
-      }
-
-      // Show loading state while fetching
+      // Show loading state
       if (loadingList) {
         return (
           <div
@@ -433,6 +609,36 @@ export const ListsClient = clientEntry(
 
       return (
         <div mix={css({ fontFamily: theme.fontFamily.sans, maxWidth: '600px' })}>
+          {/* Conflict banner */}
+          {conflictState.show && (
+            <div
+              mix={css({
+                marginBottom: theme.space.md,
+                padding: theme.space.md,
+                borderRadius: theme.radius.md,
+                backgroundColor: theme.colors.action.danger.background + '15',
+                border: `1px solid ${theme.colors.action.danger.border}`,
+                fontSize: theme.fontSize.sm,
+                display: 'flex',
+                gap: theme.space.sm,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              })}
+            >
+              <span mix={css({ flex: 1 })}>Die Liste wurde in einem anderen Tab geändert.</span>
+              <button
+                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', reloadFromServer)]}
+              >
+                Neu laden
+              </button>
+              <button
+                mix={[button({ tone: 'danger' }), css({ fontSize: theme.fontSize.xs }), on('click', forceOverwrite)]}
+              >
+                Trotzdem speichern
+              </button>
+            </div>
+          )}
+
           {/* Control bar */}
           <div
             mix={css({
@@ -455,25 +661,39 @@ export const ListsClient = clientEntry(
             >
               ✕ Alle löschen
             </button>
-            <div
+
+            {/* Status pill */}
+            <span
               mix={css({
-                display: 'inline-flex',
                 marginLeft: 'auto',
+                fontSize: theme.fontSize.xs,
+                fontWeight: theme.fontWeight.semibold,
+                color: statusColor(),
+                padding: `${theme.space.xs} ${theme.space.sm}`,
+                borderRadius: theme.radius.full,
+                backgroundColor: theme.surface.lvl2,
               })}
             >
+              {statusLabel()}
+            </span>
+
+            {/* Demoted manual flush buttons — escape hatch */}
+            {loadedListId !== null && (
               <button
-                mix={[button({ tone: 'primary' }), css({ minWidth: '120px', borderTopRightRadius: 0, borderBottomRightRadius: 0 }), on('click', updateList)]}
-                disabled={loadedListId === null || !description.trim() || items.length === 0 || updating}
+                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', () => { flushNow() })]}
+                disabled={!isDirty() || saving}
               >
-                {updating ? '⏳ Wird aktualisiert…' : '🔄 Aktualisieren'}
+                Aktualisieren
               </button>
+            )}
+            {loadedListId === null && (
               <button
-                mix={[button({ tone: 'primary' }), css({ minWidth: '100px', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none' }), on('click', saveToStorage)]}
+                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', () => { saveNow() })]}
                 disabled={!description.trim() || items.length === 0 || saving}
               >
-                {saving ? '⏳ Speichern…' : '💾 Hinzufügen'}
+                Hinzufügen
               </button>
-            </div>
+            )}
           </div>
 
           {/* Description input */}
@@ -505,7 +725,11 @@ export const ListsClient = clientEntry(
                 }),
                 on('input', (e) => {
                   description = e.currentTarget.value
+                  setDirty()
                   handle.update()
+                }),
+                on('blur', () => {
+                  scheduleAutosave(true)
                 }),
               ]}
               type="text"

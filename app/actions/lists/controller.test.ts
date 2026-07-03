@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
+import { lists } from '../../data/schema.ts'
 import { router } from '../../router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
@@ -11,8 +12,7 @@ import { routes } from '../../routes.ts'
 // Lists Controller integration tests
 // Requires a running PostgreSQL database seeded with demo users.
 //
-// Covers the public /lists endpoints and the admin /admin/lists page with
-// the new required `description` field on saved lists.
+// Covers the public /lists endpoints and the admin /admin/lists page.
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
@@ -29,19 +29,16 @@ describe('Lists controller', () => {
   before(async () => {
     await initializeAppDatabase()
 
-    // Any authenticated user session for public lists endpoints
     let user = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!user?.cookie) throw new Error('Failed to create user session — check user@newapp.com exists')
     userCookie = user.cookie
     userCsrfToken = user.csrfToken
 
-    // Admin session for admin endpoints
     let admin = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     if (!admin?.cookie) throw new Error('Failed to create admin session — check admin@newapp.com exists')
     adminCookie = admin.cookie
     adminCsrfToken = admin.csrfToken
 
-    // Non-admin session for permission checks
     let nonAdmin = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!nonAdmin?.cookie) throw new Error('Failed to create non-admin session — check user@newapp.com exists')
     nonAdminCookie = nonAdmin.cookie
@@ -81,8 +78,7 @@ describe('Lists controller', () => {
   })
 
   it('GET /lists sidebar scopes lists to current non-admin user', async () => {
-    // Save a list as the current user
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -91,13 +87,12 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Owner scoped list',
-        items: [{ id: '1', label: 'Item' }],
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
 
-    // Non-admin user should see the list in sidebar
     let response = await router.fetch(LISTS_URL, {
       headers: { Cookie: userCookie },
     })
@@ -107,8 +102,7 @@ describe('Lists controller', () => {
   })
 
   it('GET /lists sidebar shows admin all lists', async () => {
-    // Save a list as the non-admin user (user@newapp.com)
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -117,12 +111,11 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Admin visible list',
-        items: [{ id: '1', label: 'Admin test' }],
+        items: [{ label: 'Admin test' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
 
-    // Admin should see that list in sidebar
     let response = await router.fetch(LISTS_URL, {
       headers: { Cookie: adminCookie },
     })
@@ -131,8 +124,7 @@ describe('Lists controller', () => {
   })
 
   it('GET /lists with ?load param sets active list in sidebar', async () => {
-    // Save a list to get an id
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,28 +133,24 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Active list test',
-        items: [{ id: '1', label: 'Active item' }],
+        items: [{ label: 'Active item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
 
-    // Load with ?load param
     let response = await router.fetch(`${LISTS_URL}?load=${id}`, {
       headers: { Cookie: userCookie },
     })
     let text = await response.text()
-    // The active list entry must be marked with aria-current="page"
     assert.ok(text.includes('aria-current="page"'), 'active list entry should have aria-current="page"')
   })
 
   it('GET /lists with ?load for non-existent or foreign id defaults to Neue Liste', async () => {
-    // Use a list id that does not exist (9999999) — should fall back to 'new'
     let response = await router.fetch(`${LISTS_URL}?load=9999999`, {
       headers: { Cookie: userCookie },
     })
     let text = await response.text()
-    // The Neue Liste entry should be the active one
     assert.ok(text.includes('aria-current="page"'), 'sidebar should have an active entry when ?load is invalid')
   })
 
@@ -183,19 +171,16 @@ describe('Lists controller', () => {
     })
     let text = await response.text()
     assert.equal(response.status, 200)
-    // Fragment renders ListsLayout directly (no outer Frame wrapper).
-    // A full page response would have <Frame> with name="lists-content".
-    // A fragment response renders the content inline without the Frame element.
     assert.ok(!text.includes('rmx-frame'), 'fragment should not include an outer rmx-frame element')
     assert.ok(text.includes('Neue Liste'), 'fragment should contain sidebar layout content')
   })
 
   // -----------------------------------------------------------------------
-  // POST /lists/save — save a new list with description
+  // POST /lists — create a new list with description
   // -----------------------------------------------------------------------
 
-  it('POST /lists/save with description and items returns 200 with id and description', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists with description and items returns 200 with id, description, items and updated_at', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -205,8 +190,8 @@ describe('Lists controller', () => {
       body: JSON.stringify({
         description: 'My grocery list',
         items: [
-          { id: '1', label: 'Milk' },
-          { id: '2', label: 'Eggs' },
+          { label: 'Milk' },
+          { label: 'Eggs' },
         ],
       }),
     })
@@ -215,10 +200,14 @@ describe('Lists controller', () => {
     let body = await response.json()
     assert.ok(typeof body.id === 'number', 'response should include a numeric id')
     assert.equal(body.description, 'My grocery list', 'response should include the description')
+    assert.ok(Array.isArray(body.items), 'response should include items array')
+    assert.equal(body.items.length, 2, 'should have 2 items')
+    assert.ok(typeof body.updated_at === 'number', 'response should include updated_at')
+    assert.ok(body.updated_at > 0, 'updated_at should be a valid timestamp')
   })
 
-  it('POST /lists/save without description returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists without description returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -226,7 +215,7 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
       body: JSON.stringify({
-        items: [{ id: '1', label: 'Item A' }],
+        items: [{ label: 'Item A' }],
       }),
     })
 
@@ -235,8 +224,8 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists/save with empty description returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists with empty description returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -245,7 +234,7 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: '',
-        items: [{ id: '1', label: 'Item A' }],
+        items: [{ label: 'Item A' }],
       }),
     })
 
@@ -254,8 +243,8 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists/save with whitespace-only description returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists with whitespace-only description returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -264,7 +253,7 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: '   ',
-        items: [{ id: '1', label: 'Item A' }],
+        items: [{ label: 'Item A' }],
       }),
     })
 
@@ -273,8 +262,8 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists/save without items returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists without items returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -291,8 +280,8 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists/save with empty items array returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists with empty items array returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -310,8 +299,8 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists/save with invalid JSON returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/save`, {
+  it('POST /lists with invalid JSON returns 400', async () => {
+    let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -327,58 +316,11 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // GET /lists/:id/data — fetch list data by id
+  // PUT /lists/:id — partial update (patch) with If-Match
   // -----------------------------------------------------------------------
 
-  it('GET /lists/:id/data returns list data including description', async () => {
-    // First save a list to get its id
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        description: 'Data test list',
-        items: [
-          { id: '1', label: 'Data Item A' },
-          { id: '2', label: 'Data Item B' },
-        ],
-      }),
-    })
-    assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
-
-    let response = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: userCookie },
-    })
-
-    assert.equal(response.status, 200)
-    let data = await response.json()
-    assert.ok(typeof data.id === 'number', 'data should include id')
-    assert.equal(data.description, 'Data test list', 'data should include description')
-    assert.ok(Array.isArray(data.items), 'data should include items array')
-    assert.ok(typeof data.created_at === 'number', 'data should include created_at')
-    assert.ok(typeof data.updated_at === 'number', 'data should include updated_at')
-  })
-
-  it('GET /lists/9999999/data returns 404 for non-existent list', async () => {
-    let response = await router.fetch(`${LISTS_URL}/9999999/data`, {
-      headers: { Cookie: userCookie },
-    })
-    assert.equal(response.status, 404)
-    let body = await response.json()
-    assert.ok(body.error, 'response should include an error message')
-  })
-
-  // -----------------------------------------------------------------------
-  // PUT /lists/:id/update — update an existing list
-  // -----------------------------------------------------------------------
-
-  it('PUT /lists/:id/update updates list description and items', async () => {
-    // First save a list
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+  it('PUT /lists/:id (patch) description-only updates description', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -387,45 +329,70 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Original list',
-        items: [{ id: '1', label: 'Item A' }],
+        items: [{ label: 'Item A' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
-    // Update it
-    let updateResponse = await router.fetch(`${LISTS_URL}/${id}/update`, {
+    let { id, updated_at } = await saveResponse.json()
+
+    let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
       method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
+      },
+      body: JSON.stringify({ description: 'New desc' }),
+    })
+    assert.equal(patchResponse.status, 200)
+    let body = await patchResponse.json()
+    assert.equal(body.id, id)
+    assert.equal(body.description, 'New desc')
+    assert.ok(body.items.length === 1, 'items should be preserved')
+    assert.ok(body.updated_at > updated_at, 'updated_at should increase')
+  })
+
+  it('PUT /lists/:id (patch) items-only updates items', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
         Cookie: userCookie,
       },
       body: JSON.stringify({
-        description: 'Updated list',
-        items: [
-          { id: '1', label: 'Updated Item A' },
-          { id: '2', label: 'Item B' },
-        ],
+        description: 'Items update test',
+        items: [{ label: 'Old Item' }],
       }),
     })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
 
-    assert.equal(updateResponse.status, 200)
-    let body = await updateResponse.json()
-    assert.equal(body.id, id)
-    assert.equal(body.description, 'Updated list')
-
-    // Verify data was persisted
-    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: userCookie },
+    let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
+      },
+      body: JSON.stringify({
+        items: [{ label: 'New Item A' }, { label: 'New Item B' }],
+      }),
     })
-    assert.equal(dataResponse.status, 200)
-    let data = await dataResponse.json()
-    assert.equal(data.description, 'Updated list')
-    assert.equal(data.items.length, 2)
+    assert.equal(patchResponse.status, 200)
+    let body = await patchResponse.json()
+    assert.equal(body.id, id)
+    assert.equal(body.description, 'Items update test', 'description should be preserved')
+    assert.equal(body.items.length, 2, 'should have 2 items')
+    assert.equal(body.items[0].label, 'New Item A')
+    assert.equal(body.items[1].label, 'New Item B')
+    assert.ok(body.updated_at > updated_at, 'updated_at should increase')
   })
 
-  it('PUT /lists/:id/update with invalid ID returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/invalid/update`, {
+  it('PUT /lists/invalid (patch) returns 400 for invalid ID', async () => {
+    let response = await router.fetch(`${LISTS_URL}/invalid`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -434,159 +401,30 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Test',
-        items: [{ id: '1', label: 'Item' }],
       }),
     })
     assert.equal(response.status, 400)
   })
 
-  it('PUT /lists/:id/update for non-existent list returns 404', async () => {
-    let response = await router.fetch(`${LISTS_URL}/9999999/update`, {
+  it('PUT /lists/9999999 (patch) returns 404 for non-existent list', async () => {
+    let response = await router.fetch(`${LISTS_URL}/9999999`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
         Cookie: userCookie,
+        'If-Match': '0',
       },
       body: JSON.stringify({
         description: 'Test',
-        items: [{ id: '1', label: 'Item' }],
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(response.status, 404)
   })
 
-  it('PUT /lists/:id/update without description returns 400', async () => {
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        description: 'List for update test',
-        items: [{ id: '1', label: 'Item' }],
-      }),
-    })
-    let { id } = await saveResponse.json()
-
-    let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        items: [{ id: '1', label: 'Item' }],
-      }),
-    })
-    assert.equal(response.status, 400)
-  })
-
-  it('PUT /lists/:id/update with empty items returns 400', async () => {
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        description: 'List for empty items test',
-        items: [{ id: '1', label: 'Item' }],
-      }),
-    })
-    let { id } = await saveResponse.json()
-
-    let response = await router.fetch(`${LISTS_URL}/${id}/update`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        description: 'Test',
-        items: [],
-      }),
-    })
-    assert.equal(response.status, 400)
-  })
-
-  // -----------------------------------------------------------------------
-  // PUT /lists/:id/rename — rename a list (description-only update)
-  // -----------------------------------------------------------------------
-
-  it('PUT /lists/:id/rename renames a list', async () => {
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({
-        description: 'Original name',
-        items: [{ id: '1', label: 'Item' }],
-      }),
-    })
-    assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
-
-    let renameResponse = await router.fetch(`${LISTS_URL}/${id}/rename`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({ description: 'Renamed' }),
-    })
-    assert.equal(renameResponse.status, 200)
-    let body = await renameResponse.json()
-    assert.equal(body.id, id)
-    assert.equal(body.description, 'Renamed')
-
-    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: userCookie },
-    })
-    assert.equal(dataResponse.status, 200)
-    let data = await dataResponse.json()
-    assert.equal(data.description, 'Renamed')
-    assert.equal(data.items.length, 1)
-  })
-
-  it('PUT /lists/:id/rename with invalid ID returns 400', async () => {
-    let response = await router.fetch(`${LISTS_URL}/invalid/rename`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({ description: 'Test' }),
-    })
-    assert.equal(response.status, 400)
-  })
-
-  it('PUT /lists/:id/rename for non-existent list returns 404', async () => {
-    let response = await router.fetch(`${LISTS_URL}/9999999/rename`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': userCsrfToken,
-        Cookie: userCookie,
-      },
-      body: JSON.stringify({ description: 'Test' }),
-    })
-    assert.equal(response.status, 404)
-  })
-
-  it('PUT /lists/:id/rename for another user\'s list returns 404', async () => {
-    // Save a list as admin (user_id = NULL)
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+  it('PUT /lists/:id (patch) returns 404 for another user\'s list', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -595,27 +433,27 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Admin owned list',
-        items: [{ id: '1', label: 'Admin item' }],
+        items: [{ label: 'Admin item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
+    let { id, updated_at } = await saveResponse.json()
 
-    // Try to rename as non-admin user — should 404 (not found, not revealed)
-    let renameResponse = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+    let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
         Cookie: userCookie,
+        'If-Match': String(updated_at),
       },
       body: JSON.stringify({ description: 'Hacked' }),
     })
-    assert.equal(renameResponse.status, 404)
+    assert.equal(patchResponse.status, 404)
   })
 
-  it('PUT /lists/:id/rename with empty body returns 400', async () => {
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+  it('PUT /lists/:id (patch) with stale If-Match returns 409', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -623,27 +461,136 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
       body: JSON.stringify({
-        description: 'List for empty body test',
-        items: [{ id: '1', label: 'Item' }],
+        description: 'Conflict test',
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
+    let { id, updated_at: origUpdatedAt } = await saveResponse.json()
 
-    let response = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+    // Advance updated_at via a successful patch
+    let firstPatch = await router.fetch(`${LISTS_URL}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
         Cookie: userCookie,
+        'If-Match': String(origUpdatedAt),
+      },
+      body: JSON.stringify({ description: 'First edit' }),
+    })
+    assert.equal(firstPatch.status, 200)
+
+    // Now try patch with the original stale updated_at
+    let conflictResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(origUpdatedAt),
+      },
+      body: JSON.stringify({ description: 'Stale edit' }),
+    })
+    assert.equal(conflictResponse.status, 409)
+    let conflictBody = await conflictResponse.json()
+    assert.ok(conflictBody.updated_at > origUpdatedAt, '409 body should return current updated_at')
+    assert.equal(conflictBody.description, 'First edit', '409 body should return current description')
+  })
+
+  it('PUT /lists/:id (patch) force overwrite after conflict', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Force overwrite test',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at: origUpdatedAt } = await saveResponse.json()
+
+    // Advance updated_at
+    let firstPatch = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(origUpdatedAt),
+      },
+      body: JSON.stringify({ description: 'First edit' }),
+    })
+    assert.equal(firstPatch.status, 200)
+
+    // Get conflict with stale If-Match
+    let conflictResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(origUpdatedAt),
+      },
+      body: JSON.stringify({ description: 'Stale edit' }),
+    })
+    assert.equal(conflictResponse.status, 409)
+    let conflictBody = await conflictResponse.json()
+
+    // Retry with the updated_at from the 409 body → should succeed
+    let retryResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(conflictBody.updated_at),
+      },
+      body: JSON.stringify({ description: 'Overwritten' }),
+    })
+    assert.equal(retryResponse.status, 200)
+    let finalBody = await retryResponse.json()
+    assert.equal(finalBody.description, 'Overwritten')
+    assert.ok(finalBody.updated_at >= conflictBody.updated_at, 'final updated_at should be at least the conflict value')
+  })
+
+  it('PUT /lists/:id (patch) with empty body returns 400', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Empty body test',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
       },
       body: JSON.stringify({}),
     })
     assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
   })
 
-  it('PUT /lists/:id/rename with whitespace-only name returns 400', async () => {
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+  it('PUT /lists/:id (patch) with empty items array returns 400', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -651,23 +598,28 @@ describe('Lists controller', () => {
         Cookie: userCookie,
       },
       body: JSON.stringify({
-        description: 'List for whitespace test',
-        items: [{ id: '1', label: 'Item' }],
+        description: 'Empty items test',
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
+    let { id, updated_at } = await saveResponse.json()
 
-    let response = await router.fetch(`${LISTS_URL}/${id}/rename`, {
+    let response = await router.fetch(`${LISTS_URL}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-Csrf-Token': userCsrfToken,
         Cookie: userCookie,
+        'If-Match': String(updated_at),
       },
-      body: JSON.stringify({ description: '   ' }),
+      body: JSON.stringify({
+        items: [],
+      }),
     })
     assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
   })
 
   // -----------------------------------------------------------------------
@@ -675,8 +627,7 @@ describe('Lists controller', () => {
   // -----------------------------------------------------------------------
 
   it('POST /lists/:id/delete deletes own list and redirects to /lists', async () => {
-    // Save a list first
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -685,13 +636,12 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'List to delete',
-        items: [{ id: '1', label: 'Item' }],
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
 
-    // Delete it
     let deleteResponse = await router.fetch(`${LISTS_URL}/${id}/delete`, {
       method: 'POST',
       headers: {
@@ -703,11 +653,8 @@ describe('Lists controller', () => {
     let location = deleteResponse.headers.get('Location')
     assert.equal(location, '/lists')
 
-    // Verify it's gone
-    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: userCookie },
-    })
-    assert.equal(dataResponse.status, 404)
+    let row = await db.findOne(lists, { where: { id } })
+    assert.equal(row, null, 'list should be deleted')
   })
 
   it('POST /lists/9999999/delete returns 404 for non-existent list', async () => {
@@ -724,8 +671,7 @@ describe('Lists controller', () => {
   })
 
   it('POST /lists/:id/delete returns 404 for another users list', async () => {
-    // Save a list as admin
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -734,13 +680,12 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Admin owned list',
-        items: [{ id: '1', label: 'Admin item' }],
+        items: [{ label: 'Admin item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
 
-    // Try to delete as non-admin user — should 404 (not found, not revealed)
     let response = await router.fetch(`${LISTS_URL}/${id}/delete`, {
       method: 'POST',
       headers: {
@@ -752,11 +697,8 @@ describe('Lists controller', () => {
     let body = await response.json()
     assert.ok(body.error, 'response should include an error message')
 
-    // Verify list still exists (admin can access it)
-    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: adminCookie },
-    })
-    assert.equal(dataResponse.status, 200)
+    let row = await db.findOne(lists, { where: { id } })
+    assert.ok(row, 'list should still exist')
   })
 
   it('POST /lists/invalid/delete returns 400 for invalid list ID', async () => {
@@ -773,8 +715,7 @@ describe('Lists controller', () => {
   })
 
   it('POST /lists/:id/delete as admin deletes any users list', async () => {
-    // Save a list as the primary user
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -783,13 +724,12 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'Admin delete target',
-        items: [{ id: '1', label: 'Item' }],
+        items: [{ label: 'Item' }],
       }),
     })
     assert.equal(saveResponse.status, 200)
     let { id } = await saveResponse.json()
 
-    // Admin deletes it
     let deleteResponse = await router.fetch(`${LISTS_URL}/${id}/delete`, {
       method: 'POST',
       headers: {
@@ -799,11 +739,8 @@ describe('Lists controller', () => {
     })
     assert.equal(deleteResponse.status, 302)
 
-    // Verify it's gone
-    let dataResponse = await router.fetch(`${LISTS_URL}/${id}/data`, {
-      headers: { Cookie: adminCookie },
-    })
-    assert.equal(dataResponse.status, 404)
+    let row = await db.findOne(lists, { where: { id } })
+    assert.equal(row, null, 'list should be deleted')
   })
 
   // -----------------------------------------------------------------------
@@ -849,12 +786,12 @@ describe('Lists controller', () => {
   // -----------------------------------------------------------------------
 
   it('GET /admin/lists?filter= finds lists by description', async () => {
-    let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=Data+test`, {
+    let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=Admin+visible`, {
       headers: { Cookie: adminCookie },
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    assert.ok(text.includes('Data test list'), 'should find list with matching description')
+    assert.ok(text.includes('Admin visible list'), 'should find list with matching description')
   })
 
   it('GET /admin/lists?filter= finds lists by item label', async () => {
@@ -881,7 +818,6 @@ describe('Lists controller', () => {
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    // Should show multiple lists from seed + test data
     assert.ok(text.includes('Gespeicherte Listen'), 'should render the page')
   })
 
@@ -934,7 +870,6 @@ describe('Lists controller', () => {
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    // Pagination links should include filter param
     assert.ok(
       text.includes('filter=Milk') || text.includes('filter=milk'),
       'pagination links should preserve filter',
@@ -942,9 +877,8 @@ describe('Lists controller', () => {
   })
 
   it('GET /admin/lists?filter= renders item labels from parsed JSONB', async () => {
-    // Save a list with unique items that can be found by filter
     let uniqueLabel = `RenderedItem-${Date.now()}`
-    let saveResponse = await router.fetch(`${LISTS_URL}/save`, {
+    let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -960,18 +894,14 @@ describe('Lists controller', () => {
       }),
     })
     assert.equal(saveResponse.status, 200)
-    let { id } = await saveResponse.json()
 
-    // Filter by the unique label — should find the list
     let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=${encodeURIComponent(uniqueLabel)}`, {
       headers: { Cookie: adminCookie },
     })
     assert.equal(response.status, 200)
     let text = await response.text()
 
-    // The item label should be rendered in the HTML (proves list JSONB was parsed to array)
     assert.ok(text.includes(uniqueLabel), 'filtered list should render item labels from parsed JSONB')
-    // The description should also appear
     assert.ok(text.includes('JSONB Parse Test List'), 'filtered list should show its description')
   })
 })

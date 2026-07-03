@@ -16,6 +16,11 @@ export interface ListResult<T> {
   offset: number
 }
 
+export type PatchResult =
+  | { ok: true; row: ListRow }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'conflict'; current: ListRow }
+
 function parseRow(row: Record<string, unknown>): ListRow {
   let list = row.list
   if (typeof list === 'string') {
@@ -29,6 +34,17 @@ function parseRow(row: Record<string, unknown>): ListRow {
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
   }
+}
+
+function assignStableIds(
+  items: Array<{ id?: string; label: string }>,
+): Array<{ id: string; label: string }> {
+  return items.map((item) => ({
+    id: item.id && typeof item.id === 'string' && item.id.length > 0
+      ? item.id
+      : crypto.randomUUID(),
+    label: item.label,
+  }))
 }
 
 export async function getAllLists(
@@ -96,14 +112,15 @@ export async function getListById(
 
 export async function createList(
   db: { create: Function },
-  input: { description: string; items: Array<{ id: string; label: string }> },
+  input: { description: string; items: Array<{ id?: string; label: string }> },
   userId?: number,
 ): Promise<ListRow> {
   let now = Date.now()
+  let stableItems = assignStableIds(input.items)
   let row = await db.create(
     lists,
     {
-      list: input.items,
+      list: stableItems,
       description: input.description,
       created_at: now,
       updated_at: now,
@@ -114,40 +131,34 @@ export async function createList(
   return parseRow(row)
 }
 
-export async function updateList(
+export async function patchList(
   db: { findOne: Function; updateMany: Function },
   id: number,
-  input: { description: string; items: Array<{ id: string; label: string }> },
+  partial: { description?: string; items?: Array<{ id?: string; label: string }> },
   userId?: number,
-): Promise<boolean> {
+  options?: { expectedUpdatedAt?: number },
+): Promise<PatchResult> {
   let where = userId != null ? { id, user_id: userId } : { id }
   let existing = await db.findOne(lists, { where })
-  if (!existing) return false
+  if (!existing) return { ok: false, reason: 'not_found' }
 
-  await db.updateMany(
-    lists,
-    { list: input.items, description: input.description, updated_at: Date.now() },
-    { where },
-  )
-  return true
-}
+  let parsed = parseRow(existing)
 
-export async function renameList(
-  db: { findOne: Function; updateMany: Function },
-  id: number,
-  description: string,
-  userId?: number,
-): Promise<boolean> {
-  let where = userId != null ? { id, user_id: userId } : { id }
-  let existing = await db.findOne(lists, { where })
-  if (!existing) return false
+  if (options?.expectedUpdatedAt != null && parsed.updated_at !== options.expectedUpdatedAt) {
+    return { ok: false, reason: 'conflict', current: parsed }
+  }
 
-  await db.updateMany(
-    lists,
-    { description, updated_at: Date.now() },
-    { where },
-  )
-  return true
+  let updateFields: Record<string, unknown> = { updated_at: Date.now() }
+  if (partial.description !== undefined) {
+    updateFields.description = partial.description
+  }
+  if (partial.items !== undefined) {
+    updateFields.list = assignStableIds(partial.items)
+  }
+
+  await db.updateMany(lists, updateFields, { where })
+  let updated = await db.findOne(lists, { where })
+  return { ok: true, row: parseRow(updated) }
 }
 
 export async function deleteList(

@@ -44,7 +44,6 @@ export const ROUTE_LABELS: Record<string, string> = {
 
   // Lists
   [routes.lists.index.href()]: 'Lists',
-  [routes.lists.save.href()]: 'Save',
 
   // Appointment
   [routes.appointmentsNew.index.href()]: 'Neuer Termin',
