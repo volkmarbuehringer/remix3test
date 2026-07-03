@@ -105,3 +105,27 @@ Several admin pages define duplicate local functions instead of importing the sh
 - `npm run lint` - Passes (0 warnings, 0 errors)
 - `npm test` - 720 pass, 0 fail, 1 todo (pre-existing todo for message deletion cleanup)
 - New files created: `app/utils/async.ts`, `app/assets/password-complexity-script.tsx`
+
+## [2026-07-02] Cleanup Pass — No Unused Code Found
+
+### Temp Artifacts Cleaned
+- `tmp/sessions/` — Removed 256 Playwright browser session directories (~8 MB, git-ignored test artifacts)
+
+### Findings (no changes made)
+After exhaustive search (~299 TS/TSX files, ~54k LOC):
+- **Unused exports**: None found. All exported symbols across `app/`, `server.ts`, `scripts/` have at least one importer.
+- **Duplicate code**: No new duplicates found beyond what was consolidated in the 2026-06-26 session. Remaining `START_MIN_OPTIONS` / `END_MIN_OPTIONS` duplication is intentional (different intervals).
+- **`app/lib/` audit**: All files in `app/lib/` are genuinely shared across multiple consumers. `app/lib/` serves as a proper shared-UI-primitives directory, not a dumping ground.
+- **Stale `server.new`**: Draft alternative server using `remix/node-serve`. Not referenced by any source code. Not deleted without confirmation — may be intentional WIP.
+- **TODO/FIXME markers**: Only 1 found (a test assertion variable name) — no stale markers referencing completed work.
+
+### Impact
+- Files deleted: 0
+- Exports un-exported: 0  
+- Lines of code removed: ~0
+- Disk space reclaimed: ~8 MB (tmp/ sessions)
+
+### Verification
+- `pnpm run typecheck` — Passes (0 errors)
+- `pnpm run lint` — Passes (0 warnings, 0 errors)
+- `pnpm test` — 776 pass, 0 fail, 1 todo (pre-existing)
