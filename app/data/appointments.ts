@@ -46,7 +46,7 @@ class AppointmentPastDeleteError extends AppointmentError {
   }
 }
 
-export class AppointmentTooCloseError extends AppointmentError {
+class AppointmentTooCloseError extends AppointmentError {
   constructor() {
     super('Termine können nur bis 24 Stunden vor Beginn bearbeitet werden.', 422)
   }

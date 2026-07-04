@@ -138,35 +138,6 @@ export const users = table({
   },
 })
 
-export const chatlog = table({
-  name: 'chatlog',
-  primaryKey: ['id'],
-  columns: {
-    id: c.text(),
-    user_id: c.integer(),
-    conversation: c.json(),
-    created_at: bigint(),
-    updated_at: bigint(),
-  },
-  beforeWrite({ value }) {
-    if (Array.isArray(value.conversation)) {
-      value.conversation = JSON.stringify(value.conversation)
-    }
-    return { value }
-  },
-  afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
-    if (typeof value.conversation === 'string') {
-      try {
-        value.conversation = JSON.parse(value.conversation)
-      } catch {
-        value.conversation = []
-      }
-    }
-    return { value }
-  },
-})
-
 export const messages = table({
   name: 'messages',
   primaryKey: ['id'],
@@ -513,30 +484,6 @@ export const offeringConfigs = table({
     if (typeof value.rules === 'string') {
       try { value.rules = JSON.parse(value.rules) } catch { value.rules = {} }
     }
-    return { value }
-  },
-})
-
-export const uploads = table({
-  name: 'uploads',
-  primaryKey: ['id'],
-  columns: {
-    id: c.integer(),
-    filename: c.text(),
-    mime_type: c.text(),
-    size: bigint(),
-    uploaded_by: c.integer(),
-    created_at: bigint(),
-  },
-  beforeWrite({ operation, value }) {
-    let next = { ...value }
-    if (operation === 'create' && next.created_at === undefined) {
-      next.created_at = Date.now()
-    }
-    return { value: next }
-  },
-  afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'size', 'uploaded_by')
     return { value }
   },
 })

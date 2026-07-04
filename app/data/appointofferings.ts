@@ -124,31 +124,6 @@ export function computeFullHourSlots(
 }
 
 /**
- * Query booked time ranges for a resource on a given day.
- * Optionally excludes a specific appointment ID (for self-exclusion in edit mode).
- */
-export async function getBookedRanges(
-  db: Database,
-  resourceId: number,
-  date: number,
-  excludeId?: number,
-): Promise<{ startMin: number; endMin: number }[]> {
-  let query = sql`
-    SELECT start_min, end_min
-    FROM appointments
-    WHERE resource_id = ${resourceId} AND date = ${date}
-  `
-  if (excludeId !== undefined) {
-    query = sql`${query} AND id != ${excludeId}`
-  }
-  query = sql`${query} ORDER BY start_min ASC`
-  let result = await db.exec(query)
-  return ((result.rows ?? []) as { start_min: number; end_min: number }[]).map(
-    (r) => ({ startMin: Number(r.start_min), endMin: Number(r.end_min) }),
-  )
-}
-
-/**
  * Batch query booked ranges for a resource over a week-long range.
  * Returns a Map keyed by day (epoch ms) with arrays of booked ranges.
  */
