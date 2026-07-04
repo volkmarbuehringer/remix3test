@@ -3,7 +3,7 @@ import { css } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
 import { createCookie } from 'remix/cookie'
 import { Cookie } from 'remix/headers/cookie'
-import { theme as themeTokens, RMX_01_GLYPHS } from '../lib/theme.ts'
+import { theme as themeTokens, RMX_01_GLYPHS } from '../ui/theme/theme.ts'
 
 import { routes } from '../routes.ts'
 import { DarkTheme, Theme } from '../theme.tsx'

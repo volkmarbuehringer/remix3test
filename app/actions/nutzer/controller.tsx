@@ -8,34 +8,32 @@ import { redirect } from 'remix/response/redirect'
 import { routes } from '../../routes.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
-import { pool } from '../../data/setup.ts'
+import { AdminNutzerPage } from '../../ui/admin-nutzer-page.tsx'
 import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
-import { AdminNutzerPage, type NutzerRow } from '../../ui/admin-nutzer-page.tsx'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams } from '../../utils/grid-state.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
 import { hashPassword } from '../../utils/password-hash.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
+import { isConstraintViolation } from '../../utils/db-errors.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { getAdminIdentity } from '../../utils/context.ts'
+import {
+  listNutzerGrid,
+  fetchNutzerEditRow,
+  createNutzerWithLogin,
+  updateNutzerWithLogin,
+  deleteNutzer,
+  getNutzerWithLogin,
+  updateNutzerPassword,
+  toggleNutzerLock,
+  toggleNutzerActive,
+} from '../../data/nutzer.ts'
 
 const PAGE_SIZE = 15
-
-const ORDER_BY_COLUMNS: Record<string, string> = {
-  'n_vorname': 'n_vorname',
-  'n_name': 'n_name',
-  'n_email': 'n_email',
-  'n_verpflichtung': 'n_verpflichtung',
-  'l_login': 'l_login',
-  'l_aktiv': 'l_aktiv',
-  'l_gesperrt': 'l_gesperrt',
-  'l_letzte_login': 'l_letzte_login',
-}
-
-const SEARCH_COLUMNS = ['n_vorname', 'n_name', 'n_email', 'l_login']
 
 const NUTZER_FORM_KEYS = ['vorname', 'name', 'email', 'verpflichtung', 'login', 'aktiv', 'gesperrt', '_l_id', '_offset', '_sort', '_order', '_filter'] as const
 
@@ -59,70 +57,13 @@ function boolFromString(val: string): boolean {
 }
 
 function dbErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'code' in error) {
-    let pg = error as { code: string; constraint?: string }
-    if (pg.code === '23505') return 'Login existiert bereits.'
-    if (pg.code === '23514') return 'Ungültige Eingabe.'
+  if (error && typeof error === 'object') {
+    let pg = error as { code?: string; cause?: { code?: string } }
+    let code = pg.code ?? pg.cause?.code
+    if (code === '23505') return 'Login existiert bereits.'
+    if (code === '23514') return 'Ungültige Eingabe.'
   }
   return 'Ein Datenbankfehler ist aufgetreten.'
-}
-
-async function fetchNutzerGrid(opts: {
-  offset: number
-  column: string
-  direction: 'asc' | 'desc'
-  filter?: string
-  pageSize?: number
-}) {
-  let { offset, column, direction, filter, pageSize = PAGE_SIZE } = opts
-
-  let query = `
-    SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
-           l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
-    FROM nutzer
-    INNER JOIN login ON l_id = n_lid
-  `
-
-  let params: unknown[] = []
-  let paramIndex = 0
-
-  if (filter && filter.length <= 200) {
-    paramIndex++
-    let searchPattern = `%${filter}%`
-    let conditions = SEARCH_COLUMNS.map((col) => `${col} ILIKE $${paramIndex}`)
-    query += ` WHERE (${conditions.join(' OR ')})`
-    params.push(searchPattern)
-  }
-
-  paramIndex++
-  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-  query += ` LIMIT $${paramIndex}`
-  params.push(pageSize + 1)
-
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  params.push(offset)
-
-  let result = await pool.query(query, params)
-  let rows = result.rows as NutzerRow[]
-  let hasMore = rows.length > pageSize
-  if (hasMore) rows.pop()
-
-  return { rows, hasMore }
-}
-
-async function fetchNutzerEditRow(editingRowId: string): Promise<NutzerRow | null> {
-  let editResult = await pool.query(
-    `SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
-            l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
-     FROM nutzer INNER JOIN login ON l_id = n_lid
-     WHERE n_id = $1`,
-    [editingRowId],
-  )
-  if (editResult.rows.length > 0) {
-    return editResult.rows[0] as NutzerRow
-  }
-  return null
 }
 
 export default createController<typeof routes.admin.nutzer, AppContext>(routes.admin.nutzer, {
@@ -135,19 +76,16 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       let filter = context.url.searchParams.get('filter') || undefined
 
       let { column, direction } = parseSort(context.url, {
-        allowedColumns: Object.keys(ORDER_BY_COLUMNS),
+        allowedColumns: ['n_vorname', 'n_name', 'n_email', 'n_verpflichtung', 'l_login', 'l_aktiv', 'l_gesperrt', 'l_letzte_login'],
         defaultColumn: 'n_name',
         defaultDirection: 'asc',
       })
 
-      let { rows, hasMore } = await fetchNutzerGrid({ offset, column, direction, filter, pageSize: effectivePageSize })
+      let { rows, hasMore } = await listNutzerGrid(context.db, { offset, column, direction, filter, pageSize: effectivePageSize })
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam || null
-      let editRow: NutzerRow | null = null
-      if (editingRowId) {
-        editRow = await fetchNutzerEditRow(editingRowId)
-      }
+      let editRow = editingRowId ? await fetchNutzerEditRow(context.db, editingRowId) : null
 
       let creating = context.url.searchParams.get('creating') === 'true'
 
@@ -186,7 +124,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
         let gridFilter = rawValues._filter || undefined
 
-        let { rows, hasMore } = await fetchNutzerGrid({
+        let { rows, hasMore } = await listNutzerGrid(context.db, {
           offset: gridOffset,
           column: sortCol,
           direction: sortDir,
@@ -194,7 +132,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           pageSize: effectivePageSize,
         })
 
-        let editRow: NutzerRow = {
+        let editRow = {
           n_id: id,
           n_vorname: rawValues.vorname || null,
           n_name: rawValues.name || null,
@@ -234,24 +172,21 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ ok: false, error: 'Missing login reference' }, { status: 400 })
       }
 
-      let client = await pool.connect()
       try {
-        await client.query('BEGIN')
-        await client.query(
-          `UPDATE nutzer SET n_vorname=$1, n_name=$2, n_email=$3, n_verpflichtung=$4
-           WHERE n_id=$5`,
-          [parsed.value.vorname, parsed.value.name, parsed.value.email, boolFromString(parsed.value.verpflichtung), id],
-        )
-        await client.query(
-          `UPDATE login SET l_login=$1, l_aktiv=$2, l_gesperrt=$3
-           WHERE l_id=$4`,
-          [parsed.value.login, boolFromString(parsed.value.aktiv), boolFromString(parsed.value.gesperrt), lId],
-        )
-        await client.query('COMMIT')
+        await updateNutzerWithLogin(context.db, id, {
+          vorname: parsed.value.vorname,
+          name: parsed.value.name,
+          email: parsed.value.email,
+          verpflichtung: boolFromString(parsed.value.verpflichtung),
+          login: parsed.value.login,
+          aktiv: boolFromString(parsed.value.aktiv),
+          gesperrt: boolFromString(parsed.value.gesperrt),
+          lId,
+        })
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(pool, {
+          await logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'update',
@@ -261,9 +196,6 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           })
         }
       } catch (error) {
-        await client.query('ROLLBACK')
-        client.release()
-
         if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer update: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
@@ -271,7 +203,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
         let gridFilter = rawValues._filter || undefined
 
-        let { rows, hasMore } = await fetchNutzerGrid({
+        let { rows, hasMore } = await listNutzerGrid(context.db, {
           offset: gridOffset,
           column: sortCol,
           direction: sortDir,
@@ -279,7 +211,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           pageSize: effectivePageSize,
         })
 
-        let editRow: NutzerRow = {
+        let editRow = {
           n_id: id,
           n_vorname: rawValues.vorname || null,
           n_name: rawValues.name || null,
@@ -314,8 +246,6 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         )
       }
 
-      client.release()
-
       let redirectState = {
         offset: parsed.value._offset,
         sort: parsed.value._sort,
@@ -341,7 +271,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
         let gridFilter = rawValues._filter || undefined
 
-        let { rows, hasMore } = await fetchNutzerGrid({
+        let { rows, hasMore } = await listNutzerGrid(context.db, {
           offset: gridOffset,
           column: sortCol,
           direction: sortDir,
@@ -371,40 +301,27 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         )
       }
 
-      let client = await pool.connect()
       try {
-        await client.query('BEGIN')
-
-        let loginResult = await client.query(
-          `INSERT INTO login (l_login, l_aktiv, l_gesperrt)
-           VALUES ($1, $2, $3)
-           RETURNING l_id`,
-          [parsed.value.login, boolFromString(parsed.value.aktiv), boolFromString(parsed.value.gesperrt)],
-        )
-        let newLId = loginResult.rows[0].l_id
-
-        let nutzerResult = await client.query(
-          `INSERT INTO nutzer (n_vorname, n_name, n_email, n_verpflichtung, n_lid)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING n_id`,
-          [parsed.value.vorname, parsed.value.name, parsed.value.email, boolFromString(parsed.value.verpflichtung), newLId],
-        )
-        let newNId = nutzerResult.rows[0].n_id
-
-        await client.query('COMMIT')
+        let { nId } = await createNutzerWithLogin(context.db, {
+          vorname: parsed.value.vorname,
+          name: parsed.value.name,
+          email: parsed.value.email,
+          verpflichtung: boolFromString(parsed.value.verpflichtung),
+          login: parsed.value.login,
+          aktiv: boolFromString(parsed.value.aktiv),
+          gesperrt: boolFromString(parsed.value.gesperrt),
+        })
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(pool, {
+          await logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'create',
             target_type: 'nutzer',
-            target_id: newNId,
+            target_id: nId,
           })
         }
-
-        client.release()
 
         let redirectState = {
           offset: parsed.value._offset,
@@ -413,12 +330,9 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           filter: parsed.value._filter,
         }
         let qp = gridStateToParams(redirectState)
-        qp.set('editing', newNId)
+        qp.set('editing', String(nId))
         return redirect(routes.admin.nutzer.index.href() + '?' + qp.toString())
       } catch (error) {
-        await client.query('ROLLBACK')
-        client.release()
-
         if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer create: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
@@ -426,7 +340,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         let sortDir = (rawValues._order === 'desc' ? 'desc' : 'asc') as 'asc' | 'desc'
         let gridFilter = rawValues._filter || undefined
 
-        let { rows, hasMore } = await fetchNutzerGrid({
+        let { rows, hasMore } = await listNutzerGrid(context.db, {
           offset: gridOffset,
           column: sortCol,
           direction: sortDir,
@@ -463,42 +377,31 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      let formData = context.formData
-      let nLid: number
-
-      let client = await pool.connect()
+      let deleteResult: Awaited<ReturnType<typeof deleteNutzer>>
       try {
-        await client.query('BEGIN')
-        let nutzerResult = await client.query(
-          `DELETE FROM nutzer WHERE n_id=$1 RETURNING n_lid`,
-          [id],
-        )
-        if (nutzerResult.rows.length === 0) {
-          await client.query('ROLLBACK')
-          return context.json({ ok: false, error: 'Row not found' }, { status: 404 })
-        }
-        nLid = nutzerResult.rows[0].n_lid
-
-        await client.query(`DELETE FROM login WHERE l_id=$1`, [nLid])
-        await client.query('COMMIT')
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(pool, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'nutzer',
-            target_id: id,
-          })
-        }
+        deleteResult = await deleteNutzer(context.db, id)
       } catch (error) {
-        await client.query('ROLLBACK')
+        if (isConstraintViolation(error)) {
+          return context.json({ ok: false, error: 'Dieser Benutzer kann nicht gelöscht werden, da noch Verweise darauf bestehen.' }, { status: 409 })
+        }
         throw error
-      } finally {
-        client.release()
+      }
+      if (!deleteResult) {
+        return context.json({ ok: false, error: 'Row not found' }, { status: 404 })
       }
 
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        await logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'nutzer',
+          target_id: id,
+        })
+      }
+
+      let formData = context.formData
       let redirectState = {
         offset: (formData.get('_offset') as string) ?? '',
         sort: (formData.get('_sort') as string) ?? '',
@@ -516,13 +419,8 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      let result = await pool.query(
-        `SELECT n.n_id, n.n_name, n.n_vorname, l.l_id
-         FROM nutzer n JOIN login l ON n.n_lid = l.l_id
-         WHERE n.n_id = $1`,
-        [id],
-      )
-      if (result.rows.length === 0) {
+      let user = await getNutzerWithLogin(context.db, id)
+      if (!user) {
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
@@ -534,14 +432,11 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       }
 
       let hashed = await hashPassword(password)
-      await pool.query(`UPDATE login SET l_password=$1, l_tv = COALESCE(l_tv, 0) + 1 WHERE l_id=$2`, [
-        hashed,
-        result.rows[0].l_id,
-      ])
+      await updateNutzerPassword(context.db, user.lId, hashed)
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'password_reset',
@@ -565,19 +460,14 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Expected boolean "locked" field' }, { status: 400 })
       }
 
-      let updateResult = await pool.query(
-        `UPDATE login SET l_gesperrt=$1
-         FROM nutzer WHERE nutzer.n_lid = login.l_id AND nutzer.n_id = $2`,
-        [body.locked, id],
-      )
-
-      if (updateResult.rowCount === 0) {
+      let updated = await toggleNutzerLock(context.db, id, body.locked)
+      if (!updated) {
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'toggle_lock',
@@ -602,19 +492,14 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Expected boolean "active" field' }, { status: 400 })
       }
 
-      let updateResult = await pool.query(
-        `UPDATE login SET l_aktiv=$1
-         FROM nutzer WHERE nutzer.n_lid = login.l_id AND nutzer.n_id = $2`,
-        [body.active, id],
-      )
-
-      if (updateResult.rowCount === 0) {
+      let updated = await toggleNutzerActive(context.db, id, body.active)
+      if (!updated) {
         return context.json({ error: 'User not found' }, { status: 404 })
       }
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'toggle_active',

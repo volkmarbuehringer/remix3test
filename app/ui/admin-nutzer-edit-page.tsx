@@ -1,15 +1,15 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
-import button from '../lib/button.ts'
+import button from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
-import type { NutzerRow } from './admin-nutzer-page.tsx'
+import type { NutzerRow } from '../data/nutzer.ts'
 
 interface AdminNutzerEditPageProps {
   row: NutzerRow

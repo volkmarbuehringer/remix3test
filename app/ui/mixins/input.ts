@@ -1,5 +1,5 @@
 import { css } from 'remix/ui'
-import { theme } from '../../lib/theme.ts'
+import { theme } from '../../ui/theme/theme.ts'
 
 export const input = {
   base: css({

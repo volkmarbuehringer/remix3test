@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
-import button from '../lib/button.ts'
-import { Glyph } from '../lib/glyph.ts'
+import { theme } from '../ui/theme/theme.ts'
+import button from '../ui/theme/button.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
 
 import { frames, routes } from '../routes.ts'
 import { table } from './mixins/admin-table.ts'
@@ -12,19 +12,7 @@ import { AdminNutzerEditPage } from './admin-nutzer-edit-page.tsx'
 import { AdminNutzerCreatePage } from './admin-nutzer-create-page.tsx'
 import { NutzerTableInteractive } from '../assets/nutzer-table-interactive.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
-
-export interface NutzerRow {
-  n_id: string
-  n_vorname: string | null
-  n_name: string | null
-  n_email: string | null
-  n_verpflichtung: boolean
-  l_id: string
-  l_login: string
-  l_aktiv: boolean
-  l_gesperrt: boolean
-  l_letzte_login: string | null
-}
+import type { NutzerRow } from '../data/nutzer.ts'
 
 interface AdminNutzerPageProps {
   rows: NutzerRow[]

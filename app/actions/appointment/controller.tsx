@@ -23,12 +23,12 @@ import {
 import { listOfferingsByWeek, isSlotBookable } from '../../data/appointofferings.ts'
 import { isDateInPast, isoWeeksInYear } from '../../utils/date-utils.ts'
 import { listResources } from '../../data/resources.ts'
-import { pool } from '../../data/setup.ts'
 import { appointments } from '../../data/schema.ts'
+import { listUserEmails, createAppointmentFromType } from '../../data/appointment.ts'
 import type { User } from '../../data/schema.ts'
 import { AppointmentPage } from '../../ui/appointment-page.tsx'
 import { AppointTypePanel } from '../../ui/appointtype-panel.tsx'
-import { appointmentChannel } from '../../lib/appointments-sse.ts'
+import { appointmentChannel } from '../../utils/appointments-sse.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -146,13 +146,8 @@ export const appointment = createController<typeof routes.appointment, AppContex
 
       if (isAdmin && appts.length > 0) {
         let userIds = [...new Set(appts.map((a) => a.user_id))]
-        let result = await pool.query(
-          'SELECT id, email FROM users WHERE id = ANY($1::int[])',
-          [userIds],
-        )
-        let emailMap = new Map(
-          (result.rows as Array<{ id: number; email: string }>).map((r) => [r.id, r.email]),
-        )
+        let rows = await listUserEmails(context.db, userIds)
+        let emailMap = new Map(rows.map((r) => [r.id, r.email]))
         for (let appt of appts as Array<Record<string, unknown>>) {
           appt.user_email = emailMap.get(appt.user_id as number) ?? ''
         }
@@ -212,21 +207,21 @@ export const appointment = createController<typeof routes.appointment, AppContex
 
         let now = Date.now()
         try {
-          let result = await pool.query(
-            `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-             SELECT user_id, $6, title, $1::bigint, int4range($2::integer, $2::integer + 15, '[)'), $3, $3
-             FROM appointtypes
-             WHERE id = $4 AND user_id = $5
-             RETURNING id`,
-            [body.date, body.start_min, now, body.typeId, userId, body.resource_id],
-          )
+          let id = await createAppointmentFromType(context.db, {
+            date: body.date,
+            startMin: body.start_min,
+            now,
+            typeId: body.typeId,
+            userId,
+            resourceId: body.resource_id,
+          })
 
-          if (result.rows.length === 0) {
+          if (!id) {
             return context.json({ error: 'Appointment type not found or access denied.' }, { status: 404 })
           }
 
           appointmentChannel.broadcast('invalidate')
-          return context.json({ id: result.rows[0].id }, { status: 201 })
+          return context.json({ id }, { status: 201 })
         } catch (error) {
           if (isExclusionViolation(error)) {
             return context.json({ error: 'Time slot already taken.', code: 'collision' }, { status: 409 })

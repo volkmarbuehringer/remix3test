@@ -1,10 +1,10 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { callbackRoute } from '../../routes.ts'
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
-import { connectionIp } from '../../lib/request-ip.ts'
-import type { WebhookRequestRow } from '../webhook-requests/controller.tsx'
+import { connectionIp } from '../../utils/request-ip.ts'
+import type { WebhookRequestRow } from '../../data/webhook-requests.ts'
 
 const BASE = 'https://remix.run'
 let cleanupIds: string[] = []

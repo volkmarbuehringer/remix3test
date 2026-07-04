@@ -1,14 +1,14 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
-import button from '../lib/button.ts'
+import { theme } from '../ui/theme/theme.ts'
+import button from '../ui/theme/button.ts'
 
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { formatMinOption, getCurrentWeekMonday, formatWeekLabel, formatDateDE } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import type { DayWithSlots } from '../actions/appointments-new/controller.tsx'
+import type { DayWithSlots } from '../data/appointments-new-queries.ts'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 

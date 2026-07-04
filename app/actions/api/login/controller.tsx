@@ -7,7 +7,7 @@ import { users, apiTokens } from '../../../data/schema.ts'
 import { verifyPassword } from '../../../utils/password-hash.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../../utils/api-token.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
-import { sourceIp } from '../../../lib/request-ip.ts'
+import { sourceIp } from '../../../utils/request-ip.ts'
 import { JsonBody } from '../../../middleware/json-body.ts'
 import type { AppContext } from '../../../types/context.ts'
 

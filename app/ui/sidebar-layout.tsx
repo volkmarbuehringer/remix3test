@@ -1,7 +1,7 @@
 import type { RemixNode, Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 import { Layout } from './layout.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'

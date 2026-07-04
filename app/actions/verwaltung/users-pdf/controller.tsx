@@ -6,8 +6,8 @@ import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { pool } from '../../../data/setup.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { listUserSummaries } from '../../../data/users-pdf.ts'
 import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 
 function formatDate(date: string | number | null): string {
@@ -42,18 +42,7 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
         }
 
         try {
-          let result = await pool.query(
-            `SELECT u.id AS user_id, u.name, u.email,
-                    COUNT(a.id)::int AS appointment_count,
-                    COALESCE(SUM(a.end_min - a.start_min), 0)::int AS total_minutes,
-                    MIN(a.date) AS first_date,
-                    MAX(a.date) AS last_date
-             FROM users u
-             LEFT JOIN appointments a ON a.user_id = u.id
-             GROUP BY u.id, u.name, u.email
-             ORDER BY u.name ASC`,
-          )
-          let rows = result.rows as UserSummaryRow[]
+          let rows = await listUserSummaries(context.db)
 
           let now = Date.now()
 

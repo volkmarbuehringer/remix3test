@@ -2,8 +2,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
-import { pool } from '../../../data/setup.ts'
-import { deleteConversation, getAllConversations, getConversation } from '../../../lib/chatlog.ts'
+import { deleteConversation, getAllConversations, getConversation } from '../../../data/chatlog.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../../middleware/render.tsx'
@@ -39,7 +38,7 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
         let page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
         let offset = (page - 1) * effectivePageSize
 
-        let allConversations = await getAllConversations(filter, effectivePageSize + 1, offset, type)
+        let allConversations = await getAllConversations(context.db, filter, effectivePageSize + 1, offset, type)
 
         let hasMore = allConversations.length > effectivePageSize
         let conversations = hasMore ? allConversations.slice(0, effectivePageSize) : allConversations
@@ -53,11 +52,11 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
 
     async destroy(context) {
       let { params } = context
-      await deleteConversation(params.id)
+      await deleteConversation(context.db, params.id)
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',
@@ -89,7 +88,7 @@ export const adminChatlogFragments = createController<typeof routes.admin.chatlo
           )
         }
 
-        let chat = await getConversation(conversationId)
+        let chat = await getConversation(context.db, conversationId)
 
         if (!chat) {
           return context.render(

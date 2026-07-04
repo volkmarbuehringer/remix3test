@@ -4,7 +4,7 @@ import { CacheControl, ContentType } from 'remix/headers'
 
 import { db, initializeAppDatabase, pool } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 
@@ -212,7 +212,7 @@ describe('Admin Messages controller', () => {
   it('broadcastInvalidate does not throw when there are no active subscribers', async () => {
     // Directly call broadcastInvalidate with no active SSE subscribers.
     // This validates the new channel infra gracefully handles empty subscriber sets.
-    let { broadcastInvalidate } = await import('../../lib/messages-sse.ts')
+    let { broadcastInvalidate } = await import('../../utils/messages-sse.ts')
     broadcastInvalidate()
     // If we reach here without an exception, the broadcast was clean.
     assert.ok(true)

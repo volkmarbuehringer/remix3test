@@ -1,11 +1,11 @@
 import { createAction, createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
-import { theme } from '../../lib/theme.ts'
+import { theme } from '../../ui/theme/theme.ts'
 import { routes, uploadsDownload } from '../../routes.ts'
 import { requireAuth } from '../../middleware/auth.ts'
-import { pool } from '../../data/setup.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
+import { listUploads, claimUpload, getUploadDownload, type UploadRow } from '../../data/uploads.ts'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../utils/context.ts'
@@ -16,15 +16,10 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
   actions: {
     async index(context) {
       let user = getCurrentUser()
-      let result = user.role === 'admin'
-        ? await pool.query(
-            `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
-          )
-        : await pool.query(
-            `SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = $1 ORDER BY created_at DESC LIMIT 100`,
-            [user.id],
-          )
-      return renderAdminPage(context.render, 'uploads', <UploadsContent uploads={result.rows} uploadId={null} uploadError={null} />)
+      let rows: UploadRow[] = user.role === 'admin'
+        ? await listUploads(context.db)
+        : await listUploads(context.db, user.id)
+      return renderAdminPage(context.render, 'uploads', <UploadsContent uploads={rows} uploadId={null} uploadError={null} />)
     },
 
     async action(context) {
@@ -33,25 +28,17 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
       let uploadId = typeof fileField === 'string' ? Number(fileField) : null
 
       if (uploadId && !Number.isNaN(uploadId)) {
-        await pool.query(
-          `UPDATE uploads SET uploaded_by = $1 WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)`,
-          [user.id, uploadId],
-        )
+        await claimUpload(context.db, uploadId, user.id)
       }
 
-      let result = user.role === 'admin'
-        ? await pool.query(
-            `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
-          )
-        : await pool.query(
-            `SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = $1 ORDER BY created_at DESC LIMIT 100`,
-            [user.id],
-          )
+      let rows: UploadRow[] = user.role === 'admin'
+        ? await listUploads(context.db)
+        : await listUploads(context.db, user.id)
       return renderAdminPage(
         context.render,
         'uploads',
         <UploadsContent
-          uploads={result.rows}
+          uploads={rows}
           uploadId={uploadId && !Number.isNaN(uploadId) ? uploadId : null}
           uploadError={uploadId === null || Number.isNaN(uploadId) ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.' : null}
         />,
@@ -69,20 +56,14 @@ export const download = createAction(uploadsDownload, {
       return new Response('Invalid ID', { status: 400 })
     }
 
-    let result = user.role === 'admin'
-      ? await pool.query(
-          `SELECT filename, mime_type, data FROM uploads WHERE id = $1`,
-          [id],
-        )
-      : await pool.query(
-          `SELECT filename, mime_type, data FROM uploads WHERE id = $1 AND uploaded_by = $2`,
-          [id, user.id],
-        )
-    if (result.rows.length === 0) {
+    let row = user.role === 'admin'
+      ? await getUploadDownload(context.db, id)
+      : await getUploadDownload(context.db, id, user.id)
+    if (!row) {
       return new Response('Not found', { status: 404 })
     }
 
-    let { filename, mime_type, data } = result.rows[0]
+    let { filename, mime_type, data } = row
 
     let cleanFilename = filename.replace(/[\r\n"]/g, '')
 
@@ -94,7 +75,7 @@ export const download = createAction(uploadsDownload, {
 })
 
 type UploadsContentProps = {
-  uploads: { id: number; filename: string; mime_type: string; size: number; created_at: number }[]
+  uploads: UploadRow[]
   uploadId: number | null
   uploadError: string | null
 }

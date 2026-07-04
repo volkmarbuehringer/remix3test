@@ -1,7 +1,8 @@
 import { createAction } from 'remix/router'
-import { pool } from '../../data/setup.ts'
 import { webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute, webhookRequestsUpdateRoute } from '../../routes.ts'
-import { webhookChannel } from '../../lib/sse-events.ts'
+import type { WebhookRequestRow } from '../../data/webhook-requests.ts'
+import { listWebhookRequests, WEBHOOK_REQUESTS_PAGE_SIZE, getWebhookRequest, updateWebhookRequestPayload, getWebhookRequestPayload, resetWebhookRequestCallback, updateWebhookRequestHermesStatus } from '../../data/webhook-requests.ts'
+import { webhookChannel } from '../../utils/sse-events.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { WebhookRequestsPage } from '../../ui/webhook-requests-page.tsx'
@@ -10,26 +11,6 @@ import { requireAdmin } from '../../middleware/admin.ts'
 import { requireSseAuth } from '../../middleware/sse-auth.ts'
 import type { AppContext } from '../../types/context.ts'
 import { gridStateFromFormData, editingRedirect } from '../../utils/grid-state.ts'
-
-const PAGE_SIZE = 15
-
-const ORDER_BY_COLUMNS: Record<string, string> = {
-  created_at: 'created_at',
-  source_ip: 'source_ip',
-  hermes_status: 'hermes_status',
-  callback_received_at: 'callback_received_at',
-}
-
-export interface WebhookRequestRow {
-  id: string
-  payload: Record<string, unknown>
-  headers: Record<string, string>
-  source_ip: string
-  created_at: number
-  hermes_status: string | null
-  callback_response: Record<string, unknown> | string | null
-  callback_received_at: number | null
-}
 
 interface PageData {
   rows: WebhookRequestRow[]
@@ -51,43 +32,21 @@ async function loadPageData(
 
   let sortParam = context.url.searchParams.get('sort') || 'created_at'
   let orderParam = context.url.searchParams.get('order') || 'desc'
-  let column = ORDER_BY_COLUMNS[sortParam] || 'created_at'
+  let column = sortParam
   let direction: 'asc' | 'desc' = orderParam === 'asc' ? 'asc' : 'desc'
   if (overrides?.sortColumn) {
-    column = ORDER_BY_COLUMNS[overrides.sortColumn] || 'created_at'
+    column = overrides.sortColumn
     direction = overrides.sortDirection ?? 'desc'
   }
 
-  let query = `SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests`
-  let params: unknown[] = []
-  let paramIndex = 0
-
-  if (filter && filter.length <= 200) {
-    paramIndex++
-    query += ` WHERE payload::text ILIKE $${paramIndex}`
-    params.push(`%${filter}%`)
-  }
-
-  paramIndex++
-  query += ` ORDER BY ${column} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-  query += ` LIMIT $${paramIndex}`
-  params.push(PAGE_SIZE + 1)
-
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  params.push(offset)
-
-  let result = await pool.query(query, params)
-  let rows = result.rows as WebhookRequestRow[]
-  let hasMore = rows.length > PAGE_SIZE
-  if (hasMore) rows.pop()
+  let { rows, hasMore } = await listWebhookRequests(context.db, { offset, column, direction, filter })
 
   return {
     rows,
     offset,
     hasMore,
-    prevOffset: Math.max(0, offset - PAGE_SIZE),
-    nextOffset: offset + PAGE_SIZE,
+    prevOffset: Math.max(0, offset - WEBHOOK_REQUESTS_PAGE_SIZE),
+    nextOffset: offset + WEBHOOK_REQUESTS_PAGE_SIZE,
     sortColumn: sortParam,
     sortDirection: direction,
     filter,
@@ -104,13 +63,7 @@ export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, Ap
       let editingParam = context.url.searchParams.get('editing')
       let editRow: WebhookRequestRow | null = null
       if (editingParam && UUID_RE.test(editingParam)) {
-        let result = await pool.query(
-          `SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = $1`,
-          [editingParam],
-        )
-        if (result.rowCount && result.rowCount > 0) {
-          editRow = result.rows[0] as WebhookRequestRow
-        }
+        editRow = await getWebhookRequest(context.db, editingParam) ?? null
       }
 
       return context.render(
@@ -185,11 +138,8 @@ export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRo
       }
 
       try {
-        let result = await pool.query(
-          `UPDATE webhook_requests SET payload = $1 WHERE id = $2`,
-          [JSON.stringify(payload), id],
-        )
-        if (result.rowCount === 0) {
+        let updated = await updateWebhookRequestPayload(context.db, id, JSON.stringify(payload))
+        if (!updated) {
           return new Response('Not Found', { status: 404 })
         }
       } catch (err) {
@@ -220,20 +170,12 @@ export const webhookRequestsResend = createAction<typeof webhookRequestsResendRo
       let order = context.url.searchParams.get('order') || 'desc'
       let filter = context.url.searchParams.get('filter') || ''
 
-      let rowResult = await pool.query(
-        `SELECT payload FROM webhook_requests WHERE id = $1`,
-        [id],
-      )
-      if (rowResult.rowCount === 0) {
+      let row = await getWebhookRequestPayload(context.db, id)
+      if (!row) {
         return new Response('Not Found', { status: 404 })
       }
 
-      let row = rowResult.rows[0] as { payload: Record<string, unknown> }
-
-      await pool.query(
-        `UPDATE webhook_requests SET callback_response = NULL, callback_received_at = NULL WHERE id = $1`,
-        [id],
-      )
+      await resetWebhookRequestCallback(context.db, id)
 
       let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
       let hermesPayload = JSON.stringify({ id, callbackUrl, payload: row.payload })
@@ -252,10 +194,7 @@ export const webhookRequestsResend = createAction<typeof webhookRequestsResendRo
         hermesStatusText = 'error'
       }
 
-      await pool.query(
-        `UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2`,
-        [hermesStatusText, id],
-      )
+      await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)
 
       webhookChannel.broadcast('invalidate')
 

@@ -1,5 +1,5 @@
 import { clientEntry, Frame, css, on, type Handle, type SerializableProps } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 interface ChatlogRowDetailProps extends SerializableProps {
   conversationId: string

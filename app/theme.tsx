@@ -1,4 +1,4 @@
-import { createTheme } from './lib/theme.ts'
+import { createTheme } from './ui/theme/theme.ts'
 
 // ── Brand palette (standalone so theme values can reference it) ──
 

@@ -35,8 +35,7 @@ import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookReq
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
-// Side-effect: registers all workflow definitions
-import './workflows/definitions/index.ts'
+import { registerWorkflows } from './workflows/definitions/index.ts'
 
 declare module 'remix/router' {
   interface RouterTypes {
@@ -50,6 +49,8 @@ export interface NewappRouterOptions {
 }
 
 export function createNewappRouter(options?: NewappRouterOptions) {
+  registerWorkflows()
+
   let cookie = options?.sessionCookie ?? sessionCookie
   let storage = options?.sessionStorage ?? sessionStorage
 
@@ -135,5 +136,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   return router
 }
 
-// Default instance for backward compatibility
-export const router = createNewappRouter()
+// NOTE: Test consumers that need a shared router instance should import
+// from app/test-router.ts, not from this module. This keeps the production
+// composition root free of singleton side-effects while letting tests
+// share one middleware stack built once at module-eval time.

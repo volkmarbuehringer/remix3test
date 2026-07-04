@@ -2,13 +2,12 @@ import { generateText } from 'ai'
 import { ToolLoopAgent, stepCountIs } from 'ai'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import { sql } from 'remix/data-table'
 import { createController } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
 
-import { getConversation, createConversation, appendMessage } from '../../lib/chatlog.ts'
-import type { ChatMessage } from '../../lib/chatlog.ts'
+import { getConversation, createConversation, appendMessage } from '../../data/chatlog.ts'
+import type { ChatMessage } from '../../data/chatlog.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
 import { routes } from '../../routes.ts'
@@ -76,7 +75,7 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
 
       if (chatId) {
         try {
-          let chat = await getConversation(chatId, user.id)
+          let chat = await getConversation(context.db, chatId, user.id)
           if (chat) {
             messages = chat.conversation
             logger('loaded ' + messages.length + ' messages from conversation: ' + chatId)
@@ -130,7 +129,7 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
 
       let chatId: string
       if (!conversationId) {
-        chatId = await createConversation(user.id)
+        chatId = await createConversation(context.db, user.id)
         log('created new conversation: ' + chatId)
       } else {
         chatId = conversationId
@@ -140,7 +139,7 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
       try {
         log('calling LLM with generateText')
 
-        let existingChat = await getConversation(chatId, user.id)
+        let existingChat = await getConversation(context.db, chatId, user.id)
         let llmMessages: Array<{ role: 'user' | 'assistant'; content: Array<{ type: 'text'; text: string }> }> = []
 
         if (existingChat) {
@@ -185,13 +184,13 @@ export const aiChat = createController<typeof routes.ai.chat, AppContext>(routes
           return redirect(errorUrl.toString())
         }
 
-        await appendMessage(chatId, user.id, {
+        await appendMessage(context.db, chatId, user.id, {
           role: 'user',
           content: message,
           timestamp: Date.now(),
         })
 
-        await appendMessage(chatId, user.id, {
+        await appendMessage(context.db, chatId, user.id, {
           role: 'assistant',
           content: responseText,
           timestamp: Date.now(),
@@ -244,7 +243,7 @@ export const aiAgent = createController<typeof routes.ai.agent, AppContext>(rout
 
       if (agentId) {
         try {
-          let chat = await getConversation(agentId, user.id)
+          let chat = await getConversation(context.db, agentId, user.id)
           if (chat) {
             messages = chat.conversation
             logger('loaded ' + messages.length + ' messages from conversation: ' + agentId)
@@ -290,7 +289,7 @@ export const aiAgent = createController<typeof routes.ai.agent, AppContext>(rout
 
       let chatId: string
       if (!conversationId) {
-        chatId = await createConversation(user.id)
+        chatId = await createConversation(context.db, user.id)
         log('created new conversation: ' + chatId)
       } else {
         chatId = conversationId
@@ -298,7 +297,7 @@ export const aiAgent = createController<typeof routes.ai.agent, AppContext>(rout
       }
 
       try {
-        let existingChat = await getConversation(chatId, user.id)
+        let existingChat = await getConversation(context.db, chatId, user.id)
         let messages: Array<{ role: 'user' | 'assistant'; content: Array<{ type: 'text'; text: string }> }> = []
 
         if (existingChat) {
@@ -359,8 +358,8 @@ Use tools to provide accurate, real-time information.`,
 
         log('Tool calls captured: ' + capturedToolCalls.length)
 
-        await appendMessage(chatId, user.id, { role: 'user', content: message, timestamp: Date.now() })
-        await appendMessage(chatId, user.id, {
+        await appendMessage(context.db, chatId, user.id, { role: 'user', content: message, timestamp: Date.now() })
+        await appendMessage(context.db, chatId, user.id, {
           role: 'assistant',
           content: responseText,
           timestamp: Date.now(),
@@ -465,10 +464,6 @@ export const aiWorkflow = createController<typeof routes.ai.workflow, AppContext
         workflowId, params, db,
         user: auth?.ok ? (auth.identity as User) : null,
         logger: engineLog,
-      }).catch(async error => {
-        let errorMessage = error instanceof Error ? error.message : String(error)
-        log('execution failed: ' + errorMessage)
-        await db.exec(sql`UPDATE workflow_runs SET status = 'failed', error = ${errorMessage}, completed_at = ${Date.now()} WHERE id = ${runId}`)
       })
 
       let redirectUrl = routes.ai.workflow.index.href()

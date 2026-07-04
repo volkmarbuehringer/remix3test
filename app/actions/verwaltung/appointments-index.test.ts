@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { pool } from '../../data/setup.ts'
 import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
 import { routes } from '../../routes.ts'

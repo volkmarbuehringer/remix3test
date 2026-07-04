@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createServer } from 'node:http'
 
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { appWebhookRoute } from '../../routes.ts'
 import { pool, initializeAppDatabase, db } from '../../data/setup.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'

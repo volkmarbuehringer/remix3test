@@ -1,14 +1,14 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
-import { Glyph } from '../lib/glyph.ts'
-import button from '../lib/button.ts'
+import { theme } from '../ui/theme/theme.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
+import button from '../ui/theme/button.ts'
 import { routes } from '../routes.ts'
 import { ScrollToTop } from './scroll-to-top.tsx'
 import { FormLoadingState } from './form-loading-state.tsx'
 import { AiAgentResultToggle } from '../assets/ai-agent-result-toggle.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import type { ChatMessage } from '../lib/chatlog.ts'
+import type { ChatMessage } from '../data/chatlog.ts'
 
 interface AgentPageProps {
   messages: ChatMessage[]

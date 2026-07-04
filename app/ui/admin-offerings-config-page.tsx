@@ -1,13 +1,13 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
-import button from '../lib/button.ts'
+import { theme } from '../ui/theme/theme.ts'
+import button from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { routes } from '../routes.ts'
-import type { OfferingsResourceOption } from '../actions/verwaltung/offerings/controller.tsx'
+import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
 interface AdminOfferingsConfigPageProps {

@@ -12,7 +12,6 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
-import { pool } from '../../../data/setup.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import {
@@ -33,21 +32,8 @@ import { AdminOfferingConfigsPage } from '../../../ui/admin-offering-configs-pag
 // Offering Configs
 // ═══════════════════════════════════════════════════════════════════
 
-export interface OfferingConfigRow {
-  id: number
-  resource_id: number
-  resource_name: string | null
-  resource_description: string | null
-  rules: Record<string, [number, number]>
-  created_at: number
-  updated_at: number
-}
-
-export interface OfferingConfigResourceOption {
-  id: number
-  name: string
-  description: string
-}
+import type { OfferingConfigRow, OfferingConfigResourceOption, ListOfferingConfigsOpts } from '../../../data/offering-configs-queries.ts'
+import { countOfferingConfigs, listOfferingConfigs, getOfferingConfig, listOfferingConfigResources, toOfferingConfigRow } from '../../../data/offering-configs-queries.ts'
 
 const OFFERING_CONFIGS_PAGE_SIZE = 15
 
@@ -95,64 +81,30 @@ async function loadOfferingConfigPageData(
         defaultDirection: 'asc',
       })
 
-  let whereClause = ''
-  let sqlParams: unknown[] = []
-  if (filter && filter.length <= 200) {
-    whereClause = 'WHERE r.name ILIKE $1'
-    sqlParams.push(`%${filter}%`)
+  let totalRows = await countOfferingConfigs(context.db, { filter })
+
+  let listOpts: ListOfferingConfigsOpts = {
+    offset,
+    pageSize: effectivePageSize + 1,
+    column,
+    direction,
+    orderByColumns: OFFERING_CONFIGS_ORDER_BY_COLUMNS,
   }
+  if (filter) listOpts.filter = filter
 
-  let orderCol = OFFERING_CONFIGS_ORDER_BY_COLUMNS[column] || 'oc.id'
-  let orderDir = direction === 'desc' ? 'DESC' : 'ASC'
-
-  let countResult = await pool.query(
-    `SELECT COUNT(*) FROM offering_configs oc
-     JOIN resources r ON r.id = oc.resource_id
-     ${whereClause}`,
-    sqlParams,
-  )
-  let totalRows = Number(countResult.rows[0]?.count ?? 0)
+  let rows = await listOfferingConfigs(context.db, listOpts)
   let hasMore = offset + effectivePageSize < totalRows
-
-  let dataParams = [...sqlParams, effectivePageSize + 1, offset]
-  let dataResult = await pool.query(
-    `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
-     FROM offering_configs oc
-     JOIN resources r ON r.id = oc.resource_id
-     ${whereClause}
-     ORDER BY ${orderCol} ${orderDir}
-     LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`,
-    dataParams,
-  )
-
-  let rows: OfferingConfigRow[] = dataResult.rows.map(toOfferingConfigRow)
 
   let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let editingRowId = editingParam ? Number(editingParam) : null
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId && Number.isFinite(editingRowId)) {
-    let editResult = await pool.query(
-      `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
-       FROM offering_configs oc
-       JOIN resources r ON r.id = oc.resource_id
-       WHERE oc.id = $1`,
-      [editingRowId],
-    )
-    if (editResult.rows.length > 0) {
-      editRow = toOfferingConfigRow(editResult.rows[0] as Record<string, unknown>)
-    }
+    editRow = await getOfferingConfig(context.db, editingRowId) ?? null
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
-  let resourcesResult = await pool.query(
-    'SELECT id, name, description FROM resources ORDER BY name ASC',
-  )
-  let resourceOptions: OfferingConfigResourceOption[] = resourcesResult.rows.map((r: Record<string, unknown>) => ({
-    id: Number(r.id),
-    name: r.name as string,
-    description: r.description as string,
-  }))
+  let resourceOptions = await listOfferingConfigResources(context.db)
 
   return {
     rows,
@@ -242,18 +194,6 @@ function rulesFromParsed(parsed: Record<string, string>): Record<string, [number
     }
   }
   return rules
-}
-
-function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfigRow {
-  return {
-    id: Number(row.id),
-    resource_id: Number(row.resource_id),
-    resource_name: (row.resource_name as string) ?? null,
-    resource_description: (row.resource_description as string) ?? null,
-    rules: typeof row.rules === 'string' ? JSON.parse(row.rules as string) : (row.rules as Record<string, [number, number]>),
-    created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-    updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
-  }
 }
 
 export default createController<typeof routes.verwaltung.offeringConfigs, AppContext>(routes.verwaltung.offeringConfigs, {
@@ -378,7 +318,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'create',
@@ -514,7 +454,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'update',
@@ -565,7 +505,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

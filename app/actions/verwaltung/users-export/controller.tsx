@@ -7,8 +7,8 @@ import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { pool } from '../../../data/setup.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { listUserSummariesByDateRange } from '../../../data/users-export.ts'
 import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { UsersExportPage } from '../../../ui/users-export-page.tsx'
@@ -91,20 +91,7 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
         }
 
         try {
-          let result = await pool.query(
-            `SELECT u.id AS user_id, u.name, u.email,
-                    COUNT(a.id)::int AS appointment_count,
-                    COALESCE(SUM(a.end_min - a.start_min), 0)::int AS total_minutes,
-                    MIN(a.date) AS first_date,
-                    MAX(a.date) AS last_date
-             FROM users u
-             INNER JOIN appointments a ON a.user_id = u.id
-             WHERE a.date >= $1 AND a.date < $2
-             GROUP BY u.id, u.name, u.email
-             ORDER BY u.name ASC`,
-            [startMs, endMs],
-          )
-          let rows = result.rows as UserSummaryRow[]
+          let rows = await listUserSummariesByDateRange(context.db, startMs, endMs)
 
           if (rows.length === 0) {
             return renderVerwaltungPage(

@@ -1,10 +1,10 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
-import { pool } from '../../data/setup.ts'
 import { appWebhookRoute } from '../../routes.ts'
-import { webhookChannel } from '../../lib/sse-events.ts'
-import { sourceIp } from '../../lib/request-ip.ts'
-import { SENSITIVE_HEADERS } from '../../lib/sensitive-headers.ts'
+import { insertAppWebhookRequest, updateHermesStatus } from '../../data/app-webhook.ts'
+import { webhookChannel } from '../../utils/sse-events.ts'
+import { sourceIp } from '../../utils/request-ip.ts'
+import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
@@ -45,16 +45,13 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
         }
       })
 
-      let result = await pool.query<WebhookInsertResult>(
-        `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [serializedPayload, JSON.stringify(headers), sourceIp(context.request), now],
-      )
-
-      let row = result.rows[0]
-      if (!row?.id) throw new Error('INSERT did not return an id')
-      let id = row.id
+      let id = await insertAppWebhookRequest(context.db, {
+        serialized: serializedPayload,
+        headers: JSON.stringify(headers),
+        sourceIp: sourceIp(context.request),
+        now,
+      })
+      if (!id) throw new Error('INSERT did not return an id')
 
       webhookChannel.broadcast('invalidate')
 
@@ -76,10 +73,7 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
         hermesStatusText = 'error'
       }
 
-      await pool.query(
-        `UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2`,
-        [hermesStatusText, id],
-      )
+      await updateHermesStatus(context.db, id, hermesStatusText)
 
       let responseHeaders = new SuperHeaders()
       responseHeaders.contentType = { mediaType: 'application/json' }

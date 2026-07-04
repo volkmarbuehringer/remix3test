@@ -1,7 +1,7 @@
 import { createController } from 'remix/router'
-import { pool } from '../../../data/setup.ts'
 import { webhookCreateRoute } from '../../../routes.ts'
-import { sourceIp } from '../../../lib/request-ip.ts'
+import { insertWebhookRequest } from '../../../data/webhook-requests.ts'
+import { sourceIp } from '../../../utils/request-ip.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { Document } from '../../../ui/document.tsx'
@@ -54,11 +54,12 @@ export const webhookRequestsCreate = createController<typeof webhookCreateRoute,
 
         let now = Date.now()
         try {
-          await pool.query(
-            `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-             VALUES ($1, '{}', $2, $3)`,
-            [JSON.stringify(payload), sourceIp(context.request), now],
-          )
+          await insertWebhookRequest(context.db, {
+            payload: JSON.stringify(payload),
+            headers: '{}',
+            sourceIp: sourceIp(context.request),
+            now,
+          })
         } catch (err) {
           console.error('Failed to insert webhook request:', err)
           return new Response('Fehler beim Speichern', { status: 500 })

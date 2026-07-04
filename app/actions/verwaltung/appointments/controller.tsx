@@ -7,22 +7,31 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
-import { pool } from '../../../data/setup.ts'
 import { isDateInPast, getPeriodRange, getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import { isSlotBookable, listOfferingsByDayRange, parseDuring } from '../../../data/appointofferings.ts'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import Holidays from 'date-holidays'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
-import { appointmentChannel } from '../../../lib/appointments-sse.ts'
+import { appointmentChannel } from '../../../utils/appointments-sse.ts'
 import { appointmentSaveSchema, APPOINTMENT_FORM_KEYS } from '../../../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
-import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { gridStateFromForm, gridStateFromFormData, gridStateToParams, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, gridStateStatus } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { AdminAppointmentsPage } from '../../../ui/admin-appointments-page.tsx'
+
+import {
+  listAppointments,
+  fetchAppointmentEditRow,
+  listResourcesForAppointments,
+  listUsersForAppointments,
+  createAppointment,
+  updateAppointment,
+  deleteAppointment,
+} from '../../../data/appointments-queries.ts'
+import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../../../data/appointments-queries.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Appointments
@@ -56,36 +65,7 @@ const APPOINTMENTS_ORDER_BY_COLUMNS: Record<string, string> = {
   'a.updated_at': 'a.updated_at',
 }
 
-const APPOINTMENTS_SEARCH_COLUMNS = ['a.title', 'u.email', 'r.description', 'r.name'] as const
-
 const hd = new Holidays('DE', 'rp')
-
-export interface AppointmentRow {
-  id: string
-  title: string
-  user_id: string
-  user_email: string
-  resource_id: string
-  resource_name: string | null
-  resource_description: string | null
-  date: string
-  during: string
-  start_min: number
-  end_min: number
-  created_at: string
-  updated_at: string
-}
-
-export interface AppointmentResourceOption {
-  id: string
-  name: string
-  description: string
-}
-
-export interface AppointmentUserOption {
-  id: string
-  name: string
-}
 
 interface AppointmentPageData {
   rows: AppointmentRow[]
@@ -116,21 +96,6 @@ function errorRedirectDestroy(formData: FormData, error: string): Response {
   return redirect(routes.verwaltung.appointments.index.href() + '?' + params.toString())
 }
 
-async function fetchEditRow(id: string): Promise<AppointmentRow | undefined> {
-  let editResult = await pool.query(
-    `SELECT a.id, a.title, a.user_id, u.email AS user_email,
-            a.resource_id, r.name AS resource_name, r.description AS resource_description,
-            a.date, during::text AS during, a.start_min, a.end_min,
-            a.created_at, a.updated_at
-     FROM appointments a
-     INNER JOIN users u ON u.id = a.user_id
-     LEFT JOIN resources r ON r.id = a.resource_id
-     WHERE a.id = $1`,
-    [id],
-  )
-  return editResult.rows.length > 0 ? (editResult.rows[0] as AppointmentRow) : undefined
-}
-
 async function loadAppointmentPageData(
   context: AppContext,
   overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
@@ -147,119 +112,41 @@ async function loadAppointmentPageData(
     defaultDirection: 'asc',
   })
 
-  let query = `
-    SELECT a.id, a.title, a.user_id, u.email AS user_email,
-           a.resource_id, r.name AS resource_name, r.description AS resource_description,
-           a.date, during::text AS during, a.start_min, a.end_min,
-           a.created_at, a.updated_at
-    FROM appointments a
-    INNER JOIN users u ON u.id = a.user_id
-    LEFT JOIN resources r ON r.id = a.resource_id
-  `
-
-  let params: unknown[] = []
-  let paramIndex = 0
-  let hasWhere = false
-
-  function addWhere(clause: string) {
-    if (hasWhere) {
-      query += ` AND ${clause}`
-    } else {
-      query += ` WHERE ${clause}`
-      hasWhere = true
-    }
-  }
-
-  if (filter && filter.length <= 200) {
-    paramIndex++
-    let searchPattern = `%${filter}%`
-    let conditions = APPOINTMENTS_SEARCH_COLUMNS.map(
-      (col) => `${col} ILIKE $${paramIndex}`,
-    )
-    addWhere(`(${conditions.join(' OR ')})`)
-    params.push(searchPattern)
-  }
-
-  let periodRange = period ? getPeriodRange(period) : null
-  if (periodRange) {
-    paramIndex++
-    addWhere(`a.date >= $${paramIndex}`)
-    params.push(periodRange.startMs)
-
-    paramIndex++
-    query += ` AND a.date < $${paramIndex}`
-    params.push(periodRange.endMs)
-  }
-
-  let todayMidnight = getTodayUtcMidnight()
-  if (status === 'pending' || !status) {
-    paramIndex++
-    addWhere(`a.date >= $${paramIndex}`)
-    params.push(todayMidnight)
-  } else if (status === 'expired') {
-    paramIndex++
-    addWhere(`a.date < $${paramIndex}`)
-    params.push(todayMidnight)
-  }
-
-  paramIndex++
-  query += ` ORDER BY ${APPOINTMENTS_ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-  query += ` LIMIT $${paramIndex}`
-  params.push(effectivePageSize + 1)
-
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  params.push(offset)
-
-  let resultPromise = pool.query(query, params)
-
-  let resourcesPromise: Promise<{ rows: AppointmentResourceOption[] }>
-  if (appointmentsResourcesCache && Date.now() < appointmentsResourcesCache.expiresAt) {
-    resourcesPromise = Promise.resolve({ rows: appointmentsResourcesCache.data })
-  } else {
-    resourcesPromise = pool.query(
-      'SELECT id, name, description FROM resources ORDER BY name ASC',
-    ).then((r) => {
-      appointmentsResourcesCache = { data: r.rows as AppointmentResourceOption[], expiresAt: Date.now() + CACHE_TTL_MS }
-      return r
-    })
-  }
-
-  let usersPromise: Promise<{ rows: AppointmentUserOption[] }>
-  if (appointmentsUsersCache && Date.now() < appointmentsUsersCache.expiresAt) {
-    usersPromise = Promise.resolve({ rows: appointmentsUsersCache.data })
-  } else {
-    usersPromise = pool.query(
-      'SELECT id, name FROM users ORDER BY name ASC',
-    ).then((r) => {
-      appointmentsUsersCache = { data: r.rows as AppointmentUserOption[], expiresAt: Date.now() + CACHE_TTL_MS }
-      return r
-    })
-  }
-
-  let [result, resourcesResult, usersResult] = await Promise.all([
-    resultPromise, resourcesPromise, usersPromise,
+  let [{ rows, hasMore }, resourcesResult, usersResult] = await Promise.all([
+    listAppointments(context.db, { offset, pageSize: effectivePageSize, column, direction, filter, period, status }),
+    (() => {
+      if (appointmentsResourcesCache && Date.now() < appointmentsResourcesCache.expiresAt) {
+        return Promise.resolve(appointmentsResourcesCache.data)
+      }
+      return listResourcesForAppointments(context.db).then((data) => {
+        appointmentsResourcesCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+        return data
+      })
+    })(),
+    (() => {
+      if (appointmentsUsersCache && Date.now() < appointmentsUsersCache.expiresAt) {
+        return Promise.resolve(appointmentsUsersCache.data)
+      }
+      return listUsersForAppointments(context.db).then((data) => {
+        appointmentsUsersCache = { data, expiresAt: Date.now() + CACHE_TTL_MS }
+        return data
+      })
+    })(),
   ])
-  let rows = result.rows as AppointmentRow[]
-  let hasMore = rows.length > effectivePageSize
-  if (hasMore) rows.pop()
-
-  let resourceOptions = resourcesResult.rows as AppointmentResourceOption[]
-  let userOptions = usersResult.rows as AppointmentUserOption[]
 
   let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let editingRowId = editingParam || null
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId) {
-    editRow = await fetchEditRow(editingRowId) ?? null
+    editRow = await fetchAppointmentEditRow(context.db, editingRowId) ?? null
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
 
   let defaultStartMin = 480
   let defaultEndMin = 1020
-  if (creating && resourceOptions.length > 0) {
-    let firstResourceId = parseInt(resourceOptions[0].id, 10)
+  if (creating && resourcesResult.length > 0) {
+    let firstResourceId = parseInt(resourcesResult[0].id, 10)
     let today = new Date()
     let searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
     let searchEnd = searchStart + 14 * 86_400_000
@@ -289,8 +176,8 @@ async function loadAppointmentPageData(
     filter,
     period,
     status,
-    resources: resourceOptions,
-    users: userOptions,
+    resources: resourcesResult,
+    users: usersResult,
     editRow,
     creating,
     error,
@@ -472,21 +359,14 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         }
 
         let during = `[${start_min},${end_min})`
-        let now = Date.now()
         let newId: number
 
         try {
-          let insertResult = await pool.query(
-            `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id`,
-            [user_id, resource_id, trimmedTitle, dayMs, during, now, now],
-          )
-          newId = insertResult.rows[0].id
+          newId = await createAppointment(context.db, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'create',
@@ -532,7 +412,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
           let authUserId = (auth.identity as { id: number }).id
           if (process.env.NODE_ENV !== 'test' && !appointmentsUpdateLimiter.attempt(authUserId)) {
             let data = await loadAppointmentPageData(context, {
-              editRow: updateId ? await fetchEditRow(updateId) : undefined,
+              editRow: updateId ? await fetchAppointmentEditRow(context.db, updateId) : undefined,
               formValues,
               formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
               offset: gridStateOffset(gridValues),
@@ -564,7 +444,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
         let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
         if (!resourceIdRaw.trim()) {
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -580,7 +460,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         }
         let userIdRaw = (formData.get('user_id') as string) ?? ''
         if (!userIdRaw.trim()) {
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -599,7 +479,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
         if (!result.success) {
           let fieldErrors = issuesToFieldErrors(result.issues)
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -617,7 +497,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let { resource_id, user_id, title, date, start_min, end_min } = result.value
 
         if (end_min <= start_min) {
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -637,7 +517,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let dayMs = new Date(date + 'T00:00:00Z').getTime()
 
         if (isDateInPast(dayMs)) {
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -654,7 +534,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
         let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
         if (!bookable) {
-          let editRow = await fetchEditRow(id)
+          let editRow = await fetchAppointmentEditRow(context.db, id)
           let data = await loadAppointmentPageData(context, {
             editRow,
             formValues,
@@ -670,18 +550,12 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         }
 
         let during = `[${start_min},${end_min})`
-        let now = Date.now()
 
         try {
-          let updateResult = await pool.query(
-            `UPDATE appointments
-             SET user_id = $1, resource_id = $2, title = $3, date = $4, during = $5, updated_at = $6
-             WHERE id = $7`,
-            [user_id, resource_id, trimmedTitle, dayMs, during, now, id],
-          )
+          let updated = await updateAppointment(context.db, id, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
 
-          if (updateResult.rowCount === 0) {
-            let editRow = await fetchEditRow(id)
+          if (!updated) {
+            let editRow = await fetchAppointmentEditRow(context.db, id)
             let data = await loadAppointmentPageData(context, {
               editRow,
               formValues,
@@ -698,7 +572,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'update',
@@ -709,7 +583,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            let editRow = await fetchEditRow(id)
+            let editRow = await fetchAppointmentEditRow(context.db, id)
             let data = await loadAppointmentPageData(context, {
               editRow,
               formValues,
@@ -750,18 +624,15 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         }
 
         try {
-          let result = await pool.query(
-            'DELETE FROM appointments WHERE id = $1',
-            [id],
-          )
+          let deleted = await deleteAppointment(context.db, id)
 
-          if (result.rowCount === 0) {
+          if (!deleted) {
             return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
           }
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'destroy',
@@ -770,11 +641,8 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
             })
           }
         } catch (error: unknown) {
-          if (error && typeof error === 'object') {
-            let err = error as { code?: string }
-            if (err.code === '23503') {
-              return errorRedirectDestroy(formData, 'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.')
-            }
+          if (isConstraintViolation(error)) {
+            return errorRedirectDestroy(formData, 'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.')
           }
           throw error
         }

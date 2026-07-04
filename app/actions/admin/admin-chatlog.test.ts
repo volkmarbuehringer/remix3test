@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Chatlog Controller integration tests

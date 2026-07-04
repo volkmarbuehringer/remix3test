@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../router.ts'
+import { router } from '../test-router.ts'
 import { CsrfTokenInput, tryGetCsrfToken } from './csrf-token-input.tsx'
 import { routes } from '../routes.ts'
 

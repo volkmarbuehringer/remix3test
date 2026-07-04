@@ -9,10 +9,9 @@ import { JsonBody } from '../../middleware/json-body.ts'
 import { ListsClient } from '../../assets/lists-client.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
-import { pool, db } from '../../data/setup.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getListById, getAllLists, createList, patchList, deleteList } from '../../lib/lists-api.ts'
+import { getListById, getAllLists, createList, patchList, deleteList } from '../../data/lists.ts'
 import { renderListsPage, type ListsNavItem, type ListSidebarEntry, type ListInitialState } from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 import { getPageSize } from '../../utils/get-page-size.ts'
@@ -43,7 +42,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       let pageSize = getPageSize(context.session, 15)
       let filter = context.url.searchParams.get('filter') || undefined
 
-      let result = await getAllLists(db, pool, { limit: pageSize, offset, filter }, listUserId)
+      let result = await getAllLists(context.db, { limit: pageSize, offset, filter }, listUserId)
 
       let sidebarEntries: ListSidebarEntry[] = result.data.map((row) => ({
         id: `list:${row.id}` as ListsNavItem,
@@ -59,7 +58,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       if (loadParam) {
         let listId = Number(loadParam)
         if (Number.isFinite(listId)) {
-          let row = await getListById(db, listId, listUserId)
+          let row = await getListById(context.db, listId, listUserId)
           if (row) {
             activeItem = `list:${listId}` as ListsNavItem
             initialState = {
@@ -111,7 +110,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Items array must not be empty' }, { status: 400 })
       }
 
-      let row = await createList(db, { description, items }, user.id)
+      let row = await createList(context.db, { description, items }, user.id)
       return context.json({
         id: row.id,
         description: row.description,
@@ -168,7 +167,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       }
       let expectedUpdatedAt = ifMatch ? Number(ifMatch) : undefined
 
-      let result = await patchList(db, listId, partial, listUserId, { expectedUpdatedAt })
+      let result = await patchList(context.db, listId, partial, listUserId, { expectedUpdatedAt })
       if (!result.ok && result.reason === 'not_found') {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
@@ -208,7 +207,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let deleted = await deleteList(db, listId, listUserId)
+      let deleted = await deleteList(context.db, listId, listUserId)
       if (!deleted) {
         return context.json({ error: 'List not found' }, { status: 404 })
       }

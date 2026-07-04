@@ -8,7 +8,6 @@ import { createAction, createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../data/audit-log.ts'
-import { pool } from '../../data/setup.ts'
 import { users } from '../../data/schema.ts'
 import { passwordProvider } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
@@ -20,7 +19,7 @@ import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
-import { sourceIp } from '../../lib/request-ip.ts'
+import { sourceIp } from '../../utils/request-ip.ts'
 
 import { LoginPage, RegisterPage, RegisterSentPage, ForgotPage, ForgotSentPage, ResetFormPage, ResetErrorPage, VerifyErrorPage } from './pages.tsx'
 
@@ -357,17 +356,13 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
         password_reset_expires: null as unknown as number,
       })
 
-      try {
-        await logAdminAction(pool, {
-          admin_user_id: result.user.id,
-          admin_email: result.user.email,
-          action_type: 'password_reset_self',
-          target_type: 'user',
-          target_id: result.user.id,
-        })
-      } catch {
-        // audit log failure should not block the reset
-      }
+      await logAdminAction(context.db, {
+        admin_user_id: result.user.id,
+        admin_email: result.user.email,
+        action_type: 'password_reset_self',
+        target_type: 'user',
+        target_id: result.user.id,
+      })
 
       let session = context.session
       if (session) {

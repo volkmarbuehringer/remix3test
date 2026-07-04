@@ -1,5 +1,4 @@
-import { registerWorkflow } from '../registry.ts'
-import type { Workflow } from '../types.ts'
+import type { Workflow, WorkflowDefinition } from '../types.ts'
 
 const restockAnalysisWorkflow: Workflow = async function* (context, params) {
   let { tools, logger, llm } = context
@@ -96,11 +95,11 @@ const restockAnalysisWorkflow: Workflow = async function* (context, params) {
   }
 }
 
-registerWorkflow({
+export const restockAnalysisDefinition: WorkflowDefinition = {
   id: 'restock-analysis',
   name: 'Restock Analysis',
   description: 'Check weather in Pirmasens; if wind > 2 km/h, list out-of-stock books',
   parameters: [],
   tools: ['get_weather'],
   run: restockAnalysisWorkflow,
-})
+}

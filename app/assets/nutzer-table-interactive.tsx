@@ -2,9 +2,9 @@ import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
-import { Glyph } from '../lib/glyph.ts'
-import { Separator } from '../lib/separator.ts'
-import { theme } from '../lib/theme.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
+import { Separator } from '../ui/theme/separator.ts'
+import { theme } from '../ui/theme/theme.ts'
 import { showToast } from '../ui/toast.ts'
 
 interface NutzerRow {

@@ -42,7 +42,6 @@ export interface WorkflowRunResult {
 }
 
 
-
 async function callLlm(prompt: string, logger: ReturnType<typeof userLogger>): Promise<string> {
   logger.log('Calling LLM with prompt:', prompt.slice(0, 200) + (prompt.length > 200 ? '...' : ''))
 
@@ -78,29 +77,30 @@ export async function executeWorkflow(
 ): Promise<WorkflowRunResult> {
   let { workflowId, params, db, user, logger: providedLogger } = options
   let logger = providedLogger ?? userLogger('WorkflowEngine')
-  let workflow = getWorkflow(workflowId)
-
-  if (!workflow) {
-    throw new Error(`Workflow ${workflowId} not found`)
-  }
-
-  logger.log(`Starting workflow ${workflowId}, run ${runId}`)
-
-  await db.exec(sql`UPDATE workflow_runs SET status = 'running' WHERE id = ${runId}`)
-
-  let context: WorkflowContext = {
-    db,
-    tools: getWorkflowTools(workflowId),
-    llm: (prompt: string) => callLlm(prompt, logger),
-    user,
-    logger,
-  }
 
   let steps: WorkflowStep[] = []
   let finalResult: unknown
   let finalError: string | undefined
 
   try {
+    let workflow = getWorkflow(workflowId)
+
+    if (!workflow) {
+      throw new Error(`Workflow ${workflowId} not found`)
+    }
+
+    logger.log(`Starting workflow ${workflowId}, run ${runId}`)
+
+    await db.exec(sql`UPDATE workflow_runs SET status = 'running' WHERE id = ${runId}`)
+
+    let context: WorkflowContext = {
+      db,
+      tools: getWorkflowTools(workflowId),
+      llm: (prompt: string) => callLlm(prompt, logger),
+      user,
+      logger,
+    }
+
     let generator = workflow.run(context, params)
 
     while (true) {
@@ -181,6 +181,18 @@ export async function getWorkflowRun(
   return rowToWorkflowRun(rows[0] as Record<string, unknown>)
 }
 
+export async function markWorkflowRunFailed(
+  db: Database,
+  runId: string,
+  errorMessage: string,
+): Promise<void> {
+  await db.exec(sql`
+    UPDATE workflow_runs
+    SET status = 'failed', error = ${errorMessage}, completed_at = ${Date.now()}
+    WHERE id = ${runId}
+  `)
+}
+
 export async function listWorkflowRuns(
   db: Database,
   limit: number = 50,
@@ -190,5 +202,3 @@ export async function listWorkflowRuns(
   let result = await db.exec(sql`SELECT * FROM workflow_runs ${ownerFilter} ORDER BY created_at DESC LIMIT ${limit}`)
   return (result.rows ?? []).map(r => rowToWorkflowRun(r as Record<string, unknown>))
 }
-
-

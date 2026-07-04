@@ -1,5 +1,5 @@
 import { clientEntry, Frame, css, on, type Handle } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
 
 /**

@@ -1,4 +1,4 @@
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 const TOAST_DURATION = 3500
 

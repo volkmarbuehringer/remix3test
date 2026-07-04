@@ -1,5 +1,6 @@
 import type { FileUpload } from 'remix/form-data-parser'
-import { pool } from '../data/setup.ts'
+import { db } from '../data/setup.ts'
+import { insertUpload } from '../data/uploads.ts'
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
@@ -51,11 +52,11 @@ export async function uploadHandler(file: FileUpload): Promise<string | void> {
   }
   let data = Buffer.concat(chunks)
 
-  let result = await pool.query(
-    `INSERT INTO uploads (filename, mime_type, data, size, uploaded_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id`,
-    [file.name, file.type, data, data.length, null, Date.now()],
-  )
-  return String(result.rows[0].id)
+  return await insertUpload(db, {
+    filename: file.name,
+    mimeType: file.type,
+    buffer: data,
+    size: data.length,
+    now: Date.now(),
+  })
 }

@@ -2,7 +2,7 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { createSession } from 'remix/session'
 
-import { router } from '../router.ts'
+import { router } from '../test-router.ts'
 import { sessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase, pool } from '../data/setup.ts'
 

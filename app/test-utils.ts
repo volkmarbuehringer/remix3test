@@ -2,7 +2,10 @@ import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { pool } from './data/setup.ts'
-import { router } from './router.ts'
+// Direct pool.query is intentional here — test seeding/lookup needs raw SQL
+// access that doesn't route through repository modules (which would create
+// circular dependencies with the test router).
+import { router } from './test-router.ts'
 
 /**
  * Generate a CSRF token matching the format used by remix/csrf-middleware.

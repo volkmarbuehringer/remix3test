@@ -1,5 +1,4 @@
-import { registerWorkflow } from '../registry.ts'
-import type { Workflow } from '../types.ts'
+import type { Workflow, WorkflowDefinition } from '../types.ts'
 
 const createPurchaseOrderWorkflow: Workflow = async function* (context, params) {
   let { logger } = context
@@ -38,7 +37,7 @@ const createPurchaseOrderWorkflow: Workflow = async function* (context, params) 
   }
 }
 
-registerWorkflow({
+export const createPurchaseOrderDefinition: WorkflowDefinition = {
   id: 'create-purchase-order',
   name: 'Create Purchase Order',
   description: 'Create a purchase order for restocked books',
@@ -47,4 +46,4 @@ registerWorkflow({
     { name: 'analysis', type: 'string', required: false, description: 'LLM analysis' },
   ],
   run: createPurchaseOrderWorkflow,
-})
+}

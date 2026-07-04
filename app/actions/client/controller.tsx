@@ -17,6 +17,7 @@ import { ClientPage } from './page.tsx'
 import { paginate } from '../../utils/pagination.ts'
 import type { AppContext } from '../../types/context.ts'
 import { parseSort } from '../../utils/sort-params.ts'
+import { isConstraintViolation } from '../../utils/db-errors.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
 import {
   gridStateFromURL,
@@ -242,10 +243,7 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
         await db.delete(clients, { id })
       } catch (error) {
         let message = 'Delete failed. Please try again.'
-        if (error && typeof error === 'object' && 'code' in error) {
-          let pg = error as { code: string }
-          if (pg.code === '23503') message = 'Cannot delete: this client has related records.'
-        }
+        if (isConstraintViolation(error)) message = 'Cannot delete: this client has related records.'
         return context.json({ ok: false, error: message }, { status: 409 })
       }
 

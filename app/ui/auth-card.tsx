@@ -1,7 +1,7 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
-import button from '../lib/button.ts'
-import { theme } from '../lib/theme.ts'
+import button from '../ui/theme/button.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { PasswordToggle } from '../assets/password-toggle.tsx'

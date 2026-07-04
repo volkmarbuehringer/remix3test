@@ -1,12 +1,12 @@
 import { clientEntry, css, on, ref, type Handle, type SerializableProps } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
-import { Glyph } from '../lib/glyph.ts'
-import { Separator } from '../lib/separator.ts'
+import { theme } from '../ui/theme/theme.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
+import { Separator } from '../ui/theme/separator.ts'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
 
-import { getTypeDragState, setTypeDragState, getPanelDropActive } from '../lib/appointtype-drag.ts'
+import { getTypeDragState, setTypeDragState, getPanelDropActive } from '../utils/appointtype-drag.ts'
 import type { AppointType } from '../data/schema.ts'
 import { showToast } from './toast.ts'
 

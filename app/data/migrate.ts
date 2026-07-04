@@ -274,6 +274,32 @@ export async function migrate(): Promise<void> {
   `)
   await pool.query(`CREATE INDEX IF NOT EXISTS api_tokens_token_hash_idx ON api_tokens (token_hash)`)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS login (
+      l_id SERIAL PRIMARY KEY,
+      l_login TEXT NOT NULL,
+      l_aktiv BOOLEAN NOT NULL DEFAULT true,
+      l_gesperrt BOOLEAN NOT NULL DEFAULT false,
+      l_password TEXT,
+      l_tv INTEGER DEFAULT 0,
+      l_letzte_login BIGINT
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS login_l_login_idx ON login (l_login)`)
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nutzer (
+      n_id SERIAL PRIMARY KEY,
+      n_vorname TEXT,
+      n_name TEXT,
+      n_email TEXT,
+      n_verpflichtung BOOLEAN NOT NULL DEFAULT false,
+      n_lid INTEGER NOT NULL REFERENCES login(l_id) ON DELETE CASCADE
+    )
+  `)
+  await pool.query(`CREATE INDEX IF NOT EXISTS nutzer_n_email_idx ON nutzer (n_email)`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS nutzer_n_lid_idx ON nutzer (n_lid)`)
+
   console.log('[DB] Tables created/verified')
   } finally {
     await pool.query(`SELECT pg_advisory_unlock(287140921)`)

@@ -6,7 +6,7 @@ import type { AuthState } from 'remix/middleware/auth'
 
 import type { User } from '../data/schema.ts'
 import { requireAuth } from './auth.ts'
-import { router } from '../router.ts'
+import { router } from '../test-router.ts'
 import { createCsrfSession, extractCookie } from '../test-utils.ts'
 import { routes } from '../routes.ts'
 import { initializeAppDatabase, pool } from '../data/setup.ts'

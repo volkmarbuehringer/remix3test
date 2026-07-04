@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { webhookRoute } from '../../routes.ts'
 import { pool, initializeAppDatabase, db } from '../../data/setup.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'

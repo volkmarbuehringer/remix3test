@@ -1,5 +1,5 @@
 import { clientEntry, on, ref, type Handle } from 'remix/ui'
-import { Glyph } from '../lib/glyph.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
 
 import {
   previewMoveBlock,
@@ -7,10 +7,10 @@ import {
   type AppointmentLayoutBlock,
   type LayoutResult,
 } from './schedule-layout.ts'
-import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../lib/appointtype-drag.ts'
+import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../utils/appointtype-drag.ts'
 import { interactionState } from './appointment-interaction-state.ts'
 import { showToast } from './toast.ts'
-import { clamp } from '../lib/math.ts'
+import { clamp } from '../utils/math.ts'
 
 import {
   HOURS,

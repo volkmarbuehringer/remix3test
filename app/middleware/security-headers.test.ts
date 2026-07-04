@@ -1,7 +1,7 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../router.ts'
+import { router } from '../test-router.ts'
 import { routes } from '../routes.ts'
 
 const BASE = 'https://remix.run'

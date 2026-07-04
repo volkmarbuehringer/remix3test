@@ -7,10 +7,9 @@ import { JsonBody } from '../../../middleware/json-body.ts'
 import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
-import { pool } from '../../../data/setup.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
-import { getAllLists, getListById, createList, patchList, deleteList } from '../../../lib/lists-api.ts'
+import { getAllLists, getListById, createList, patchList, deleteList } from '../../../data/lists.ts'
 
 const apiListsLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 60 })
 
@@ -45,7 +44,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
 
       let apiUser = context.get(ApiUser)!
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
-      let result = await getAllLists(context.db, pool, { offset, limit, filter }, listUserId)
+      let result = await getAllLists(context.db, { offset, limit, filter }, listUserId)
       return context.json(result)
     },
     async show(context) {

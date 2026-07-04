@@ -1,6 +1,6 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 import { getContext } from 'remix/middleware/async-context'
 
 import { Document } from './document.tsx'

@@ -1,11 +1,11 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
-import { Glyph } from '../lib/glyph.ts'
+import { Glyph } from '../ui/theme/glyph.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
-import type { Report1Row } from '../actions/verwaltung/report1/controller.tsx'
+import type { Report1Row } from '../data/report1.ts'
 
 export interface Report1UserOption {
   id: string

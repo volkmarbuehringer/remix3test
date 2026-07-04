@@ -10,7 +10,6 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
-import { pool } from '../../../data/setup.ts'
 import { isDateInPast, getPeriodRange, getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import Holidays from 'date-holidays'
 import { offeringSaveSchema, OFFERING_FORM_KEYS } from '../../../utils/offering-schema.ts'
@@ -34,6 +33,18 @@ import { getConfig, upsertConfig, generateWeek } from '../../../data/offering-co
 import type { OfferingConfig } from '../../../data/offering-configs.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
+import {
+  listOfferings,
+  fetchOfferingEditRow,
+  listResources,
+  createOffering,
+  updateOffering,
+  deleteOffering,
+  listResourceIdsWithConfigs,
+  deletePastOfferings,
+} from '../../../data/offerings-queries.ts'
+import type { OfferingRow, OfferingsResourceOption } from '../../../data/offerings-queries.ts'
+
 const hd = new Holidays('DE', 'rp')
 
 // ═══════════════════════════════════════════════════════════════════
@@ -54,25 +65,6 @@ const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
   'ao.during': 'ao.during',
   'ao.created_at': 'ao.created_at',
   'ao.updated_at': 'ao.updated_at',
-}
-
-const OFFERINGS_SEARCH_COLUMNS = ['r.name', 'r.description'] as const
-
-export interface OfferingRow {
-  id: string
-  day: string
-  resource_id: string
-  resource_name: string | null
-  resource_description: string | null
-  during: string
-  created_at: string
-  updated_at: string
-}
-
-export interface OfferingsResourceOption {
-  id: string
-  name: string
-  description: string
 }
 
 interface OfferingPageData {
@@ -98,18 +90,6 @@ interface OfferingPageData {
   formError?: string
 }
 
-async function fetchOfferingEditRow(id: string): Promise<OfferingRow | null> {
-  let result = await pool.query(
-    `SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
-            ao.during, ao.created_at, ao.updated_at
-     FROM appointoffering ao
-     LEFT JOIN resources r ON r.id = ao.resource_id
-     WHERE ao.id = $1`,
-    [id],
-  )
-  return result.rows.length > 0 ? (result.rows[0] as OfferingRow) : null
-}
-
 async function loadOfferingPageData(
   context: AppContext,
   overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
@@ -128,88 +108,24 @@ async function loadOfferingPageData(
         defaultDirection: 'asc',
       })
 
-  let query = `
-    SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
-           ao.during, ao.created_at, ao.updated_at
-    FROM appointoffering ao
-    LEFT JOIN resources r ON r.id = ao.resource_id
-  `
-
-  let queryParams: unknown[] = []
-  let paramIndex = 0
-
-  let hasWhere = false
-
-  if (filter && filter.length <= 200) {
-    paramIndex++
-    let searchPattern = `%${filter}%`
-    let conditions = OFFERINGS_SEARCH_COLUMNS.map(
-      (col) => `${col} ILIKE $${paramIndex}`,
-    )
-    query += ` WHERE (${conditions.join(' OR ')})`
-    queryParams.push(searchPattern)
-    hasWhere = true
-  }
-
-  let periodRange = period ? getPeriodRange(period) : null
-  if (periodRange) {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day >= $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day >= $${paramIndex}`
-      hasWhere = true
-    }
-    queryParams.push(periodRange.startMs)
-
-    paramIndex++
-    query += ` AND ao.day < $${paramIndex}`
-    queryParams.push(periodRange.endMs)
-  }
-
-  let todayMidnight = getTodayUtcMidnight()
-  if (status === 'pending' || !status) {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day >= $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day >= $${paramIndex}`
-    }
-    queryParams.push(todayMidnight)
-  } else if (status === 'expired') {
-    paramIndex++
-    if (hasWhere) {
-      query += ` AND ao.day < $${paramIndex}`
-    } else {
-      query += ` WHERE ao.day < $${paramIndex}`
-    }
-    queryParams.push(todayMidnight)
-  }
-
-  paramIndex++
-  query += ` ORDER BY ${OFFERINGS_ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-  query += ` LIMIT $${paramIndex}`
-  queryParams.push(effectivePageSize + 1)
-
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  queryParams.push(offset)
-
-  let result = await pool.query(query, queryParams)
-  let rows = result.rows as OfferingRow[]
-  let hasMore = rows.length > effectivePageSize
-  if (hasMore) rows.pop()
-
-  let resourcesResult = await pool.query(
-    'SELECT id, name, description FROM resources ORDER BY name ASC',
-  )
-  let resourceOptions = resourcesResult.rows as OfferingsResourceOption[]
+  let [{ rows, hasMore }, resourceOptions] = await Promise.all([
+    listOfferings(context.db, {
+      offset,
+      pageSize: effectivePageSize,
+      column,
+      direction,
+      filter,
+      period,
+      status,
+    }),
+    listResources(context.db),
+  ])
 
   let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let editingRowId = editingParam || null
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId) {
-    editRow = await fetchOfferingEditRow(editingRowId)
+    editRow = await fetchOfferingEditRow(context.db, editingRowId)
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
@@ -368,21 +284,14 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         }
 
         let during = `[${start_min},${end_min})`
-        let now = Date.now()
         let newId: number
 
         try {
-          let insertResult = await pool.query(
-            `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id`,
-            [dayMs, resource_id, during, now, now],
-          )
-          newId = insertResult.rows[0].id
+          newId = await createOffering(context.db, { dayMs, resourceId: resource_id, during })
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'create',
@@ -431,7 +340,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         if (!result.success) {
           let fieldErrors = issuesToFieldErrors(result.issues)
-          let editRow = await fetchOfferingEditRow(id)
+          let editRow = await fetchOfferingEditRow(context.db, id)
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
@@ -449,7 +358,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let { resource_id, day, start_min, end_min } = result.value
 
         if (end_min <= start_min) {
-          let editRow = await fetchOfferingEditRow(id)
+          let editRow = await fetchOfferingEditRow(context.db, id)
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
@@ -466,7 +375,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         }
 
         if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
-          let editRow = await fetchOfferingEditRow(id)
+          let editRow = await fetchOfferingEditRow(context.db, id)
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
@@ -484,7 +393,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let dayMs = new Date(day + 'T00:00:00Z').getTime()
 
         if (isDateInPast(dayMs)) {
-          let editRow = await fetchOfferingEditRow(id)
+          let editRow = await fetchOfferingEditRow(context.db, id)
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
@@ -500,17 +409,11 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         }
 
         let during = `[${start_min},${end_min})`
-        let now = Date.now()
 
         try {
-          let updateResult = await pool.query(
-            `UPDATE appointoffering
-             SET day = $1, resource_id = $2, during = $3, updated_at = $4
-             WHERE id = $5`,
-            [dayMs, resource_id, during, now, id],
-          )
+          let updated = await updateOffering(context.db, id, { dayMs, resourceId: resource_id, during })
 
-          if (updateResult.rowCount === 0) {
+          if (!updated) {
             return context.json(
               { ok: false, error: 'Eintrag nicht gefunden.' },
               { status: 404 },
@@ -519,7 +422,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'update',
@@ -530,7 +433,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           }
         } catch (error: unknown) {
           if (isExclusionConstraintError(error)) {
-            let editRow = await fetchOfferingEditRow(id)
+            let editRow = await fetchOfferingEditRow(context.db, id)
             let data = await loadOfferingPageData(context, {
               editRow,
               formValues,
@@ -563,12 +466,9 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let formData = context.formData
 
         try {
-          let result = await pool.query(
-            'DELETE FROM appointoffering WHERE id = $1',
-            [id],
-          )
+          let deleted = await deleteOffering(context.db, id)
 
-          if (result.rowCount === 0) {
+          if (!deleted) {
             return context.json(
               { ok: false, error: 'Eintrag nicht gefunden.' },
               { status: 404 },
@@ -577,7 +477,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
-            logAdminAction(pool, {
+            logAdminAction(context.db, {
               admin_user_id: authIdentity.id,
               admin_email: authIdentity.email,
               action_type: 'destroy',
@@ -633,11 +533,11 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           }
         }
 
-        await upsertConfig(pool, resourceId, rules)
+        await upsertConfig(context.db, resourceId, rules)
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(pool, {
+          logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'config_save',
@@ -671,13 +571,13 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let year = parseInt(result.value.year, 10)
         let week = parseInt(result.value.week, 10)
 
-        let configsResult = await pool.query('SELECT resource_id FROM offering_configs')
+        let resourceIds = await listResourceIdsWithConfigs(context.db)
         let totalCreated = 0
         let totalSkipped = 0
         let allErrors: string[] = []
 
-        for (let row of configsResult.rows) {
-          let result = await generateWeek(pool, row.resource_id, year, week)
+        for (let resourceId of resourceIds) {
+          let result = await generateWeek(context.db, resourceId, year, week)
           totalCreated += result.created
           totalSkipped += result.skipped
           allErrors.push(...result.errors)
@@ -692,7 +592,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(pool, {
+          logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'week_generate',
@@ -709,24 +609,21 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let formData = context.formData
         let gridValues = gridStateFromFormData(formData)
 
-        let result = await pool.query(
-          'DELETE FROM appointoffering WHERE day < $1',
-          [getTodayUtcMidnight()],
-        )
+        let count = await deletePastOfferings(context.db)
 
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
-          logAdminAction(pool, {
+          logAdminAction(context.db, {
             admin_user_id: authIdentity.id,
             admin_email: authIdentity.email,
             action_type: 'delete_past',
             target_type: 'appointoffering',
-            details: { deletedCount: result.rowCount ?? 0 },
+            details: { deletedCount: count },
           })
         }
 
         let params = gridStateToParams(gridValues)
-        params.set('error', `${result.rowCount ?? 0} vergangene Angebote gelöscht.`)
+        params.set('error', `${count} vergangene Angebote gelöscht.`)
         let qs = params.toString()
         return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
       },

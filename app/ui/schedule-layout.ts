@@ -1,4 +1,4 @@
-import { clamp } from '../lib/math.ts'
+import { clamp } from '../utils/math.ts'
 
 export interface AppointmentLayoutBlock {
   date: number

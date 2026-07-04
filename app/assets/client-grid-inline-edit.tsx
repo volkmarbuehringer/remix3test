@@ -1,5 +1,5 @@
 import { clientEntry, css, type Handle } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 interface GridState {
   csrfToken: string

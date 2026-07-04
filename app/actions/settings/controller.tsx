@@ -3,8 +3,8 @@ import { minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../../lib/theme.ts'
-import { Glyph } from '../../lib/glyph.ts'
+import { theme } from '../../ui/theme/theme.ts'
+import { Glyph } from '../../ui/theme/glyph.ts'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
@@ -16,8 +16,8 @@ import { hashPassword, verifyPassword } from '../../utils/password-hash.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { getPageSize, VALID_PAGE_SIZES } from '../../utils/get-page-size.ts'
-import { pool } from '../../data/setup.ts'
 import { logAdminAction } from '../../data/audit-log.ts'
+import { deleteUser } from '../../data/settings.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { fieldLabelCss, fieldErrorCss, inputWrapperCss, inputHasToggleCss, toggleButtonCss } from '../../ui/auth-card.tsx'
@@ -88,20 +88,16 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
           )
         }
 
-        try {
-          await logAdminAction(pool, {
-            admin_user_id: user.id,
-            admin_email: user.email,
-            action_type: 'self-delete',
-            target_type: 'users',
-            target_id: user.id,
-          })
-        } catch {
-          // Non-blocking: audit log failure should not prevent account deletion
-        }
+        await logAdminAction(context.db, {
+          admin_user_id: user.id,
+          admin_email: user.email,
+          action_type: 'self-delete',
+          target_type: 'users',
+          target_id: user.id,
+        })
 
         try {
-          await pool.query('DELETE FROM users WHERE id = $1', [user.id])
+          await deleteUser(context.db, user.id)
         } catch (err) {
           deleteAccountLimiter.reset(user.id)
           return context.render(

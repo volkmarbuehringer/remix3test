@@ -4,9 +4,9 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
-import { pool } from '../../../data/setup.ts'
 import { messages } from '../../../data/schema.ts'
-import { adminChannel, messageRateLimiter, broadcastInvalidate } from '../../../lib/messages-sse.ts'
+import { listMessages } from '../../../data/admin-messages.ts'
+import { adminChannel, messageRateLimiter, broadcastInvalidate } from '../../../utils/messages-sse.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
@@ -39,23 +39,7 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
       let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
 
-      let result = await pool.query(
-        `SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
-         FROM messages m
-         JOIN users u ON m.sender_id = u.id
-         ORDER BY m.created_at DESC
-         LIMIT $1
-         OFFSET $2`,
-        [effectivePageSize + 1, offset],
-      )
-
-      let rows = result.rows.map((row: Record<string, unknown>) => ({
-        id: typeof row.id === 'string' ? Number(row.id) : (row.id as number),
-        sender_id: typeof row.sender_id === 'string' ? Number(row.sender_id) : (row.sender_id as number),
-        sender_name: row.sender_name as string,
-        content: row.content as string,
-        created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-      }))
+      let rows = await listMessages(context.db, effectivePageSize + 1, offset)
 
       let hasMore = rows.length > effectivePageSize
       if (hasMore) rows.pop()
@@ -105,7 +89,7 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
         { returnRow: true },
       )
 
-      logAdminAction(pool, {
+      logAdminAction(context.db, {
         admin_user_id: user.id,
         admin_email: user.email,
         action_type: 'create',
@@ -131,7 +115,7 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
       await db.delete(messages, { id: messageId })
 
       let user = getCurrentUser()
-      logAdminAction(pool, {
+      logAdminAction(context.db, {
         admin_user_id: user.id,
         admin_email: user.email,
         action_type: 'destroy',

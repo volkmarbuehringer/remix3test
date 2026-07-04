@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../../router.ts'
+import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
 import { db, initializeAppDatabase } from '../../data/setup.ts'
 import { sql } from 'remix/data-table'

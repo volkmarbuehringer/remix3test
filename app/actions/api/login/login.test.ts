@@ -1,7 +1,7 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { router } from '../../../router.ts'
+import { router } from '../../../test-router.ts'
 import { initializeAppDatabase } from '../../../data/setup.ts'
 import { db } from '../../../data/setup.ts'
 import { users } from '../../../data/schema.ts'

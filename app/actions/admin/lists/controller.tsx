@@ -2,8 +2,8 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
-import { pool } from '../../../data/setup.ts'
 import { lists } from '../../../data/schema.ts'
+import { searchLists } from '../../../data/admin-lists.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
@@ -29,30 +29,9 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
 
       if (filter) {
         if (filter.length > 200) filter = filter.slice(0, 200)
-        let searchPattern = `%${filter}%`
-        let result = await pool.query(
-          `SELECT * FROM lists
-           WHERE description ILIKE $1
-              OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements(list) item
-                WHERE item->>'label' ILIKE $1
-              )
-           ORDER BY created_at DESC
-           LIMIT $2 OFFSET $3`,
-          [searchPattern, effectivePageSize + 1, offset],
-        )
-        rows = result.rows.map((row: Record<string, unknown>) => {
-          let list = row.list
-          if (typeof list === 'string') {
-            try { list = JSON.parse(list as string) } catch { list = [] }
-          }
-          return {
-            ...row,
-            list,
-            created_at: typeof row.created_at === 'string' ? Number(row.created_at) : row.created_at,
-            updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : row.updated_at,
-          }
-        })
+        let esc = filter.replace(/[%_\\]/g, '\\$&')
+        let searchPattern = `%${esc}%`
+        rows = await searchLists(context.db, searchPattern, effectivePageSize + 1, offset)
         hasMore = rows.length > effectivePageSize
         if (hasMore) rows.pop()
       } else {
@@ -91,7 +70,7 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

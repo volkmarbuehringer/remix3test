@@ -3,7 +3,7 @@ import { Logger } from 'remix/middleware/logger'
 import { html } from 'remix/html-template'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
-import { sourceIp } from '../lib/request-ip.ts'
+import { sourceIp } from '../utils/request-ip.ts'
 
 export function globalRateLimit(options?: {
   maxPerWindow?: number

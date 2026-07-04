@@ -269,21 +269,20 @@ describe('Workflow Engine', () => {
     workflowRegistry.delete('test-exec-fail')
   })
 
-  it('executeWorkflow throws for an unknown workflow ID', async () => {
+  it('executeWorkflow returns failed status for an unknown workflow ID', async () => {
     let runId = await createWorkflowRun(db, 'test-exec-unknown', {}, null)
     testRunIds.push(runId)
 
-    await assert.rejects(
-      () =>
-        withAsyncContext(() =>
-          executeWorkflow(runId, {
-            workflowId: 'test-exec-unknown',
-            params: {},
-            db,
-            user: null,
-          }),
-        ),
-      { message: 'Workflow test-exec-unknown not found' },
+    let result = await withAsyncContext(() =>
+      executeWorkflow(runId, {
+        workflowId: 'test-exec-unknown',
+        params: {},
+        db,
+        user: null,
+      }),
     )
+
+    assert.equal(result.status, 'failed')
+    assert.ok(result.error?.includes('not found'))
   })
 })

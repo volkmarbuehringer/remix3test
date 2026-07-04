@@ -1,6 +1,6 @@
 import { type RemixNode, type Handle, css, Frame } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 import { Layout, tooltipAnchorStyle } from './layout.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'

@@ -15,7 +15,6 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { AdminResourcesPage } from '../../../ui/admin-resources-page.tsx'
 import { routes } from '../../../routes.ts'
-import { pool } from '../../../data/setup.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
@@ -188,7 +187,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'create',
@@ -238,7 +237,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'update',
@@ -288,7 +287,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        logAdminAction(pool, {
+        logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

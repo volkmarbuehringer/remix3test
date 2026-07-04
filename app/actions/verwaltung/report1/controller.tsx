@@ -5,44 +5,13 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
-import { pool } from '../../../data/setup.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
 import { AdminReport1Page } from '../../../ui/admin-report1-page.tsx'
 
-// ═══════════════════════════════════════════════════════════════════
-// Report 1 — Monthly appointment summary per user
-// ═══════════════════════════════════════════════════════════════════
-
-const REPORT1_PAGE_SIZE = 20
-
-const REPORT1_SORTABLE_FIELDS = ['u.name', 'u.email', 'total_appointments', 'total_offerings', 'first_appointment', 'last_appointment', 'percentage'] as const
-
-const REPORT1_ORDER_BY_COLUMNS: Record<string, string> = {
-  name: 'u.name',
-  count: 'appointment_count',
-  min_date: 'min_date',
-  max_date: 'max_date',
-  total_hours: 'appointment_count',
-  avg_hours: 'appointment_count',
-}
-
-interface Report1UserOption {
-  id: string
-  name: string
-}
-
-export interface Report1Row {
-  user_id: string
-  user_name: string
-  user_email: string
-  appointment_count: string
-  min_date: string | null
-  max_date: string | null
-  total_min: string | null
-  avg_min: string | null
-}
+import type { Report1Row, Report1UserOption, RunReport1Opts } from '../../../data/report1.ts'
+import { runReport1, listReport1Users, REPORT1_PAGE_SIZE, REPORT1_SORTABLE_FIELDS } from '../../../data/report1.ts'
 
 interface Report1PageData {
   rows: Report1Row[]
@@ -89,76 +58,26 @@ async function loadReport1PageData(
         defaultDirection: 'asc',
       })
 
-  let sortExpr = REPORT1_ORDER_BY_COLUMNS[column] || 'u.name'
-  if (column === 'count') sortExpr = `COUNT(*)::int`
-  if (column === 'min_date') sortExpr = `MIN(a.date)`
-  if (column === 'max_date') sortExpr = `MAX(a.date)`
-  if (column === 'total_hours') sortExpr = `SUM(a.end_min - a.start_min)`
-  if (column === 'avg_hours') sortExpr = `SUM(a.end_min - a.start_min)::numeric / NULLIF(COUNT(*), 0)`
-
-  let query = `SELECT u.id AS user_id, u.name AS user_name, u.email AS user_email,
-                      COUNT(*)::int AS appointment_count,
-                      MIN(a.date) AS min_date,
-                      MAX(a.date) AS max_date,
-                      SUM(a.end_min - a.start_min) AS total_min,
-                      ROUND(SUM(a.end_min - a.start_min)::numeric / NULLIF(COUNT(*), 0), 1) AS avg_min
-               FROM appointments a
-               INNER JOIN users u ON u.id = a.user_id`
-
-  let params: unknown[] = []
-  let paramIndex = 0
-  let conditions: string[] = []
-
-  paramIndex++
-  conditions.push(`a.date >= $${paramIndex}`)
-  params.push(monthStart)
-
-  paramIndex++
-  conditions.push(`a.date < $${paramIndex}`)
-  params.push(monthEnd)
-
-  if (selectedUserId !== undefined) {
-    paramIndex++
-    conditions.push(`a.user_id = $${paramIndex}`)
-    params.push(selectedUserId)
+  let opts: RunReport1Opts = {
+    monthStart,
+    monthEnd,
+    selectedUserId,
+    filter,
+    column,
+    direction,
+    effectivePageSize,
+    offset,
   }
 
-  if (filter && filter.length <= 200) {
-    paramIndex++
-    conditions.push(`u.name ILIKE $${paramIndex}`)
-    params.push(`%${filter}%`)
-  }
-
-  if (conditions.length > 0) {
-    query += ` WHERE ${conditions.join(' AND ')}`
-  }
-
-  query += ` GROUP BY u.id, u.name, u.email`
-
-  paramIndex++
-  query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}`
-  query += ` LIMIT $${paramIndex}`
-  params.push(effectivePageSize + 1)
-
-  paramIndex++
-  query += ` OFFSET $${paramIndex}`
-  params.push(offset)
-
-  let [result, usersResult] = await Promise.all([
-    pool.query(query, params),
-    pool.query('SELECT id, name FROM users ORDER BY name ASC'),
+  let [result, userOptions] = await Promise.all([
+    runReport1(context.db, opts),
+    listReport1Users(context.db),
   ])
 
-  let rows = result.rows as Report1Row[]
-  let hasMore = rows.length > effectivePageSize
-  if (hasMore) rows.pop()
-
-  let userOptions = usersResult.rows as Report1UserOption[]
-
   return {
-    rows,
+    rows: result.rows,
     offset,
-    hasMore,
+    hasMore: result.hasMore,
     prevOffset: Math.max(0, offset - effectivePageSize),
     nextOffset: offset + effectivePageSize,
     sortColumn: column,

@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
-import type { ResourceOption } from '../actions/appointments-new/controller.tsx'
+import type { ResourceOption } from '../data/appointments-new-queries.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import { routes } from '../routes.ts'
 

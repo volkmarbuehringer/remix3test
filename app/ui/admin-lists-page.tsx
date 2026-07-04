@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
-import button from '../lib/button.ts'
+import button from '../ui/theme/button.ts'
 import { routes, frames } from '../routes.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'

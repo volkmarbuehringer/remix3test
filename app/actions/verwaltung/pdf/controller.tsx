@@ -6,8 +6,8 @@ import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { pool } from '../../../data/setup.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { listAllAppointments } from '../../../data/pdf.ts'
 import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 
 function formatDate(date: string | number): string {
@@ -44,16 +44,7 @@ export default createController<typeof routes.verwaltung.pdf, AppContext>(
         }
 
         try {
-          let result = await pool.query(
-            `SELECT a.id, u.name AS user_name, u.email AS user_email,
-                    r.name AS resource_name, r.description AS resource_description,
-                    a.title, a.date, a.start_min, a.end_min
-             FROM appointments a
-             LEFT JOIN users u ON u.id = a.user_id
-             LEFT JOIN resources r ON r.id = a.resource_id
-             ORDER BY a.date ASC, a.start_min ASC`,
-          )
-          let rows = result.rows as AppointmentRow[]
+          let rows = await listAllAppointments(context.db)
 
           let now = Date.now()
 

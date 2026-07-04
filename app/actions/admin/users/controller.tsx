@@ -6,7 +6,6 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
-import { pool } from '../../../data/setup.ts'
 import { users } from '../../../data/schema.ts'
 import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
@@ -165,7 +164,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
-        await logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'create',
@@ -230,7 +229,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
         if ('password_hash' in safeChanges) {
           safeChanges.password_hash = '***REDACTED***'
         }
-        await logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'update',
@@ -288,7 +287,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       }
 
       if (authIdentity) {
-        await logAdminAction(pool, {
+        await logAdminAction(context.db, {
           admin_user_id: authIdentity.id,
           admin_email: authIdentity.email,
           action_type: 'destroy',

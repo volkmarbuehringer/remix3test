@@ -1,5 +1,5 @@
 import { css, Frame } from 'remix/ui'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 import { routes, frames } from '../routes.ts'
 

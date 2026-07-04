@@ -1,10 +1,10 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
-import { pool } from '../../data/setup.ts'
 import { webhookRoute } from '../../routes.ts'
-import { webhookChannel } from '../../lib/sse-events.ts'
-import { sourceIp } from '../../lib/request-ip.ts'
-import { SENSITIVE_HEADERS } from '../../lib/sensitive-headers.ts'
+import { insertWebhookRequest } from '../../data/webhook.ts'
+import { webhookChannel } from '../../utils/sse-events.ts'
+import { sourceIp } from '../../utils/request-ip.ts'
+import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
@@ -33,14 +33,12 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(
       })
 
       let serialized = JSON.stringify(body)
-      let result = await pool.query(
-        `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [serialized, JSON.stringify(headers), sourceIp(context.request), now],
-      )
-
-      let id = result.rows[0].id
+      let id = await insertWebhookRequest(context.db, {
+        serialized,
+        headers: JSON.stringify(headers),
+        sourceIp: sourceIp(context.request),
+        now,
+      })
       log('Gespeichert: id=' + id + ' size=' + serialized.length)
 
       webhookChannel.broadcast('invalidate')

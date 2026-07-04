@@ -2,7 +2,7 @@ import type { FrameContent, Handle, RemixNode } from 'remix/ui'
 import { createRoot, css, on, run } from 'remix/ui'
 import { animateEntrance, spring } from 'remix/ui/animation'
 import { Accept, SuperHeaders } from 'remix/headers'
-import { theme } from '../lib/theme.ts'
+import { theme } from '../ui/theme/theme.ts'
 
 import { routes } from '../routes.ts'
 

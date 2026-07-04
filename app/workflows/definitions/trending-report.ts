@@ -1,5 +1,4 @@
-import { registerWorkflow } from '../registry.ts'
-import type { Workflow } from '../types.ts'
+import type { Workflow, WorkflowDefinition } from '../types.ts'
 
 const trendingReportWorkflow: Workflow = async function* (context, params) {
   let genre = params.genre as string | undefined
@@ -24,7 +23,7 @@ const trendingReportWorkflow: Workflow = async function* (context, params) {
   }
 }
 
-registerWorkflow({
+export const trendingReportDefinition: WorkflowDefinition = {
   id: 'trending-report',
   name: 'Trending Report',
   description: 'Generate a report on trending books',
@@ -33,4 +32,4 @@ registerWorkflow({
   ],
   tools: ['search_wikipedia'],
   run: trendingReportWorkflow,
-})
+}
