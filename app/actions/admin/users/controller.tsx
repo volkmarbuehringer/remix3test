@@ -6,7 +6,7 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../../data/audit-log.ts'
-import { users } from '../../../data/schema.ts'
+import { apiTokens, users } from '../../../data/schema.ts'
 import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
@@ -222,6 +222,9 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       }
 
       await db.updateMany(users, changes, { where: { id } })
+      if (fields.password) {
+        await db.deleteMany(apiTokens, { where: { user_id: id } })
+      }
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
@@ -276,6 +279,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let deletedEmail = user.email
       let deletedName = user.name
 
+      await db.deleteMany(apiTokens, { where: { user_id: id } })
       await db.deleteMany(users, { where: { id } })
 
       if (process.env.NODE_ENV !== 'test') {

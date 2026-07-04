@@ -8,7 +8,7 @@ import { createAction, createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
 import { logAdminAction } from '../../data/audit-log.ts'
-import { users } from '../../data/schema.ts'
+import { apiTokens, users } from '../../data/schema.ts'
 import { passwordProvider } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
@@ -355,6 +355,7 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
         password_reset_token: null as unknown as string,
         password_reset_expires: null as unknown as number,
       })
+      await context.db.deleteMany(apiTokens, { where: { user_id: result.user.id } })
 
       await logAdminAction(context.db, {
         admin_user_id: result.user.id,
