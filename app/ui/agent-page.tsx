@@ -8,22 +8,12 @@ import { ScrollToTop } from './scroll-to-top.tsx'
 import { FormLoadingState } from './form-loading-state.tsx'
 import { AiAgentResultToggle } from '../assets/ai-agent-result-toggle.tsx'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { decodeHtml } from '../utils/decode-html-entities.ts'
 import type { ChatMessage } from '../data/chatlog.ts'
 
 interface AgentPageProps {
   messages: ChatMessage[]
   agentId?: string
-}
-
-function decode(text: string): string {
-  let result = text
-  result = result
-    .replace(/&#39;/g, "'")
-    .replace(/&#039;/g, "'")
-    .replace(/&#x27;/gi, "'")
-  result = result.replace(/&#34;/g, '"').replace(/&quot;/g, '"')
-  result = result.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-  return result
 }
 
 const chatWrapperStyle = css({
@@ -336,7 +326,7 @@ export function AgentPage(handle: Handle<AgentPageProps>) {
                           )}
                         </span>
                       </div>
-                      <div mix={messageContentStyle}>{decode(msg.content)}</div>
+                      <div mix={messageContentStyle}>{decodeHtml(msg.content)}</div>
                       {msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0 && (
                         <div mix={toolCallsStyle}>
                           <div mix={toolHeaderStyle}>Verwendete Werkzeuge</div>

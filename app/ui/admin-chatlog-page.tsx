@@ -7,6 +7,7 @@ import type { ChatMessage } from '../data/chatlog.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ChatlogRowDetail } from '../assets/chatlog-row-detail.tsx'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { decodeHtml } from '../utils/decode-html-entities.ts'
 
 interface ChatLogPageProps {
   conversations: Array<{
@@ -19,14 +20,6 @@ interface ChatLogPageProps {
   type?: 'chat' | 'agent'
   page: number
   hasMore: boolean
-}
-
-function decode(text: string): string {
-  let result = text
-  result = result.replace(/&#39;/g, "'").replace(/&#039;/g, "'").replace(/&#x27;/gi, "'")
-  result = result.replace(/&#34;/g, '"').replace(/&quot;/g, '"')
-  result = result.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-  return result
 }
 
 const pageStyle = css({ maxWidth: '900px', margin: '0 auto', padding: theme.space.lg })
@@ -166,7 +159,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                               {msg.tokens && <span mix={tokenBadgeStyle} title={`Eingabe: ${msg.tokens.input}, Ausgabe: ${msg.tokens.output}`}>{msg.tokens.total} Tokens</span>}
                               {msg.toolCalls && msg.toolCalls.length > 0 && <span mix={toolCallBadgeStyle}>{msg.toolCalls.map(tc => tc.name).join(', ')}</span>}
                             </p>
-                            <p mix={messageContentStyle}>{decode(msg.content)}</p>
+                            <p mix={messageContentStyle}>{decodeHtml(msg.content)}</p>
                             {msg.toolCalls && msg.toolCalls.length > 0 && (
                               <div mix={toolDetailsStyle}>
                                 {msg.toolCalls.map((tc, tidx) => (

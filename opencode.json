@@ -1,6 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
+  "agent": {
+    "code-reviewer": {
+      "model": "opencode-go/glm-5.2"
+    }
+  },
+
   "command": {
     "remember": {
       "description": "Save a successful fix or solution as project knowledge with auto-tagging and instinct creation",

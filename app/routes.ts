@@ -114,6 +114,8 @@ export const routes = route({
       destroy: post('/:id/delete'),
     }),
 
+    support: form('support'),
+
     users: resources('users', { exclude: ['new', 'show', 'edit'] }),
 
     fragments: route('fragments', {

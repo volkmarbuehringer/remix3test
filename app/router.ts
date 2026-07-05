@@ -8,7 +8,7 @@ import apiListsController from './actions/api/lists/controller.tsx'
 import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
 import { default as aiController, aiChat, aiAgent, aiWorkflow, aiFragments } from './actions/ai/controller.tsx'
 import clientController from './actions/client/controller.tsx'
-import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
+import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers, adminSupport } from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
 import verwaltungController from './actions/verwaltung/controller.tsx'
 import verwaltungOfferings from './actions/verwaltung/offerings/controller.tsx'
@@ -120,6 +120,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.admin.fragments, adminFragments)
   router.map(routes.admin.chatlog.fragments, adminChatlogFragments)
   router.map(routes.admin.lists, adminLists)
+  router.map(routes.admin.support, adminSupport)
   router.map(routes.admin.users, adminUsers)
 
   // Verwaltung routes

@@ -13,6 +13,7 @@ export type AdminNavItem =
   | 'agentonly'
   | 'messages'
   | 'lists'
+  | 'support'
   | 'client'
   | 'users'
   | 'nutzer'
@@ -33,6 +34,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'agentonly', label: 'Nur Agent', href: routes.admin.chatlog.index.href() + '?type=agent' },
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
+      { id: 'support', label: 'Support-Agent', route: routes.admin.support.index },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
@@ -58,6 +60,14 @@ function navIcon(id: AdminNavItem): RemixNode {
       return mailSvg()
     case 'lists':
       return <Glyph name="menu" width={16} height={16} />
+    case 'support':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      )
     case 'client':
       return usersSvg()
     case 'users':

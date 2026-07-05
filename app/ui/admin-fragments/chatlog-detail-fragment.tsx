@@ -2,19 +2,12 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import type { ChatMessage } from '../../data/chatlog.ts'
+import { decodeHtml } from '../../utils/decode-html-entities.ts'
 
 interface ChatlogDetailFragmentProps {
   conversationId: string
   messages: ChatMessage[]
   error?: string
-}
-
-function decode(text: string): string {
-  let result = text
-  result = result.replace(/&#39;/g, "'").replace(/&#039;/g, "'").replace(/&#x27;/gi, "'")
-  result = result.replace(/&#34;/g, '"').replace(/&quot;/g, '"')
-  result = result.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
-  return result
 }
 
 const detailStyle = css({
@@ -128,7 +121,7 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
                 <div mix={messageLabelStyle}>
                   {msg.role === 'user' ? 'User' : 'Assistant'}
                 </div>
-                <p mix={messageContentStyle}>{decode(msg.content)}</p>
+                <p mix={messageContentStyle}>{decodeHtml(msg.content)}</p>
                 <div mix={messageMetaStyle}>
                   {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : ''}
                   {msg.elapsed ? ` · ${msg.elapsed < 1000 ? `${msg.elapsed}ms` : `${(msg.elapsed / 1000).toFixed(1)}s`}` : ''}
