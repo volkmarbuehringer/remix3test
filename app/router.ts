@@ -7,8 +7,9 @@ import listsController from './actions/lists/controller.tsx'
 import apiListsController from './actions/api/lists/controller.tsx'
 import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
 import { default as aiController, aiChat, aiAgent, aiWorkflow, aiFragments } from './actions/ai/controller.tsx'
+import { mastraChat } from './actions/mastra/controller.tsx'
 import clientController from './actions/client/controller.tsx'
-import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers, adminSupport } from './actions/admin/controller.tsx'
+import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
 import verwaltungController from './actions/verwaltung/controller.tsx'
 import verwaltungOfferings from './actions/verwaltung/offerings/controller.tsx'
@@ -113,6 +114,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.ai.workflow, aiWorkflow)
   router.map(routes.ai.fragments, aiFragments)
 
+  // Mastra routes (pure Mastra, no custom AI code)
+  router.map(routes.mastra.chat, mastraChat)
+
   // Admin routes
   router.map(routes.admin, adminController)
   router.map(routes.admin.chatlog, adminChatlog)
@@ -120,7 +124,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.admin.fragments, adminFragments)
   router.map(routes.admin.chatlog.fragments, adminChatlogFragments)
   router.map(routes.admin.lists, adminLists)
-  router.map(routes.admin.support, adminSupport)
   router.map(routes.admin.users, adminUsers)
 
   // Verwaltung routes

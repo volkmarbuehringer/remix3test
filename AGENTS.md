@@ -9,6 +9,7 @@ npm i
 npm run start
 npm test
 npm run typecheck
+npm run dev:mastra
 ```
 
 This App uses Remix 3, no REACT

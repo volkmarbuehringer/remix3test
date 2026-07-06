@@ -2,6 +2,8 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { wrapLanguageModel } from 'ai'
 import { devToolsMiddleware } from '@ai-sdk/devtools'
 
+export const OPENCODE_API_URL = process.env.OPENCODE_API_URL || 'https://opencode.ai/zen/go/v1'
+
 let _provider: ReturnType<typeof createOpenAICompatible> | undefined
 let _model: ReturnType<typeof wrapLanguageModel> | undefined
 
@@ -12,7 +14,7 @@ function getProvider() {
       throw new Error('OPENCODE_API_KEY environment variable is not set')
     }
     _provider = createOpenAICompatible({
-      baseURL: 'https://opencode.ai/zen/go/v1',
+      baseURL: OPENCODE_API_URL,
       name: 'opencode-go',
       apiKey,
     })

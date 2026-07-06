@@ -114,8 +114,6 @@ export const routes = route({
       destroy: post('/:id/delete'),
     }),
 
-    support: form('support'),
-
     users: resources('users', { exclude: ['new', 'show', 'edit'] }),
 
     fragments: route('fragments', {
@@ -177,5 +175,9 @@ export const routes = route({
     fragments: route('fragments', {
       agentResult: get('/agent-result'),
     }),
+  }),
+
+  mastra: route('mastra', {
+    chat: form('chat'),
   }),
 })

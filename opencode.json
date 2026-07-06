@@ -1,6 +1,27 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
+  "provider": {
+    "opencode-go": {
+      "models": {
+        "deepseek-v4-flash": {
+          "variants": {
+            "medium-hot": { "temperature": 0.8 },
+            "medium":     { "temperature": 0.5 },
+            "medium-cool": { "temperature": 0.1 }
+          }
+        },
+        "glm-5.2": {
+          "variants": {
+            "medium-hot": { "temperature": 0.8 },
+            "medium":     { "temperature": 0.5 },
+            "medium-cool": { "temperature": 0.1 }
+          }
+        }
+      }
+    }
+  },
+
   "agent": {
     "code-reviewer": {
       "model": "opencode-go/glm-5.2"

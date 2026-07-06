@@ -80,6 +80,13 @@ export function AdminDashboardContent() {
           </a>
         </div>
         <div mix={cardStyle}>
+          <h2 mix={cardTitleStyle}>Support-Agent</h2>
+          <p mix={cardDescStyle}>Frage zu Benutzern, Terminen und Systemdaten.</p>
+          <a href={routes.mastra.chat.index.href()} mix={btnStyle}>
+            Support-Agent öffnen
+          </a>
+        </div>
+        <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Client-Test</h2>
           <p mix={cardDescStyle}>CRUD-Tabelle mit Paginierung, Sortierung und Filterung.</p>
           <a href={routes.admin.client.index.href()} mix={btnStyle}>
