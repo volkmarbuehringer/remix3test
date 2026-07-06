@@ -141,6 +141,7 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
         </div>
 
         <div id="chat-end" />
+        <script>{`(function(){var e=document.getElementById('chat-messages');if(e&&e.scrollHeight>e.clientHeight)e.scrollTop=e.scrollHeight})()`}</script>
 
         <form method="POST" action={routes.mastra.chat.action.href()} autocomplete="off" mix={formStyle}>
           <CsrfTokenInput />
