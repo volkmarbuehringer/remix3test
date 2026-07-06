@@ -78,7 +78,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           ) : (
             <ul mix={css({ listStyle: 'none', padding: 0, margin: 0 })}>
               {conversations.map(conv => {
-                let link = `${routes.mastra.chat.index.href()}?threadId=${conv.id}`
+                let link = `${routes.mastra.chat.index.href()}?threadId=${conv.id}#chat-end`
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
