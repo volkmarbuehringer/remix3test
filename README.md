@@ -17,10 +17,7 @@ A full-featured Remix 3 web application — no React, built with Remix UI compon
 
 **Admin Suite** — A full set of management tools behind the admin role. Admins can CRUD users (both system accounts and legacy "nutzer" records), resources, offerings (individually or bulk-generated for an entire week from config templates), messages on the public board (with SSE for live updates), appointments (any user, bypassing policies), chat logs, lists, and offering configurations. Essentially everything in the app is manageable from the admin panel.
 
-**AI Features** — A dedicated AI dashboard with three sub-features:
-- **Chat** — Multi-turn conversations with an LLM, with persisted history so you can pick up where you left off.
-- **Agent** — A tool-using LLM agent that can look up weather, search Wikipedia, and more, with a visible execution trace.
-- **Workflows** — Multi-step automated workflows (restock analysis, trending report, purchase order) that run asynchronously with step-by-step progress tracking.
+**AI Features** — Mastra-powered support agent with multi-turn chat, tool use (weather, user lookup), and persisted Mastra memory so you can pick up where you left off.
 
 **Lists** — User-created JSON-based lists with items, persisted on the server and accessible through REST-like CRUD endpoints. A flexible data store for simple structured content.
 
@@ -60,7 +57,7 @@ Routes are organized into named trees:
 - **Main routes** — `home`, `ui`, `client` (data lab)
 - **Auth routes** — `login`, `register`, `logout`
 - **Admin routes** — dashboard with stats/recent-activity/user-detail fragments, CRUD for users, resources, offering configs, lists, messages, appointments, offerings
-- **AI routes** — dashboard, chat, agent, workflow with fragment-based content
+- **Mastra routes** — Mastra chat with tool-using support agent
 - **Appointment routes** — appointment management with event sourcing
 - **Lists routes** — list CRUD with data views
 
@@ -74,17 +71,11 @@ app/
 ├── theme.tsx                  # Theme configuration
 ├── actions/                   # Route controllers by domain
 │   ├── controller.tsx         #   Top-level routes
-│   ├── admin-*.tsx            #   Admin CRUD controllers
-│   ├── auth-login-controller.tsx
-│   ├── auth-register-controller.tsx
-│   ├── auth-logout.tsx
-│   ├── ai-controller.tsx
-│   ├── chat-controller.tsx
-│   ├── agent-controller.tsx
-│   ├── workflow-controller.tsx
-│   ├── appointment-controller.tsx
-│   ├── appointtype-controller.tsx
-│   ├── lists-controller.tsx
+│   ├── admin/                 #   Admin route controllers
+│   ├── auth/                  #   Auth route controllers
+│   ├── mastra/                #   Mastra chat controller, agent, tools
+│   ├── appointment/           #   Appointment controllers
+│   ├── lists/                 #   List controllers
 │   └── client/controller.tsx
 ├── assets/                    # Browser-side entry point & components
 │   ├── entry.tsx              #   Browser entry point (Remix UI)
@@ -114,9 +105,7 @@ app/
 │   ├── nav.ts / nav-link.tsx  #   Navigation
 │   ├── admin-*.tsx            #   Admin page components
 │   ├── appointment-*.tsx      #   Appointment UI
-│   ├── agent-page.tsx
-│   ├── chat-page.tsx
-│   ├── workflow-*.tsx
+│   ├── admin-mastra-chat-page.tsx
 │   └── showcase-*             #   UI component showcase
 ├── lib/                       # Shared utilities
 │   ├── sse.ts                 #   Server-Sent Events
@@ -133,13 +122,11 @@ app/
 │   ├── date-utils.ts
 │   ├── ids.ts                 #   ID generation
 │   ├── error-handling.ts
+│   ├── message-content.ts     #   Mastra message content extraction
+│   ├── mastra-memory.ts       #   Mastra memory helpers
+│   ├── thread-id.ts           #   Thread ID validation
 │   └── ai-provider.ts         #   AI provider config
-├── types/context.ts            # Shared AppContext type
-└── workflows/                  # AI workflow definitions & engine
-    ├── engine.ts
-    ├── registry.ts
-    ├── tools.ts
-    └── definitions/
+└── types/context.ts            # Shared AppContext type
 tests/
 ├── e2e/                        # Playwright E2E tests
 │   ├── auth.test.ts

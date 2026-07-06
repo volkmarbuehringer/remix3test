@@ -1,15 +1,14 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { db, initializeAppDatabase } from '../../data/setup.ts'
-import { sql } from 'remix/data-table'
+import { initializeAppDatabase } from '../../data/setup.ts'
 import { createAuthCookieWithCsrf } from '../../test-utils.ts'
 import { router } from '../../test-router.ts'
 
 // ---------------------------------------------------------------------------
 // Admin Chatlog Controller integration tests
-// Tests the type query parameter filtering on /admin/chatlog.
-// Requires a running PostgreSQL database seeded with demo users.
+// The controller reads threads from Mastra memory. In the test environment
+// no Mastra agent is configured, so the index always returns an empty state.
 // ---------------------------------------------------------------------------
 
 const BASE = 'https://remix.run'
@@ -18,35 +17,6 @@ const ADMIN_CHATLOG_URL = `${BASE}/admin/chatlog`
 describe('Admin Chatlog controller', () => {
   before(async () => {
     await initializeAppDatabase()
-
-    let now = Date.now()
-
-    // Chat-only conversation: no toolCalls on any message
-    let chatId = `admin-chatlog-test-chat-${now}`
-    await db.exec(sql`
-      INSERT INTO chatlog (id, conversation, created_at, updated_at)
-      VALUES (${chatId}, ${JSON.stringify([
-        { role: 'user', content: 'Hello', timestamp: now },
-        { role: 'assistant', content: 'Hi there!', timestamp: now },
-      ])}::jsonb, ${now}, ${now})
-    `)
-
-    // Agent conversation: the assistant message has toolCalls
-    let agentId = `admin-chatlog-test-agent-${now}`
-    await db.exec(sql`
-      INSERT INTO chatlog (id, conversation, created_at, updated_at)
-      VALUES (${agentId}, ${JSON.stringify([
-        { role: 'user', content: 'Book a flight', timestamp: now },
-        {
-          role: 'assistant',
-          content: 'Let me search for flights',
-          timestamp: now,
-          toolCalls: [
-            { name: 'searchFlights', input: { from: 'NYC', to: 'LAX' }, timestamp: now },
-          ],
-        },
-      ])}::jsonb, ${now}, ${now})
-    `)
   })
 
   // -----------------------------------------------------------------------
@@ -69,87 +39,29 @@ describe('Admin Chatlog controller', () => {
   }
 
   // -----------------------------------------------------------------------
-  // GET /admin/chatlog — no type filter (existing behavior preserved)
+  // GET /admin/chatlog — basic rendering
   // -----------------------------------------------------------------------
 
-  it('GET /admin/chatlog returns all conversations when no type param', async () => {
+  it('GET /admin/chatlog returns page even when Mastra memory is unavailable', async () => {
     let response = await adminChatlogGet()
 
     assert.equal(response.status, 200)
     let html = await response.text()
 
-    // Both test conversations should be present
-    assert.ok(html.includes('admin-chatlog-test-chat-'), 'should include chat conversation')
-    assert.ok(html.includes('admin-chatlog-test-agent-'), 'should include agent conversation')
-
-    // No type indicator label should be rendered
-    assert.ok(!html.includes('Showing:'), 'should not display type filter label')
+    assert.ok(html.includes('Chat-Konversationen'), 'page title should render')
   })
 
   // -----------------------------------------------------------------------
-  // GET /admin/chatlog?type=chat — chat-only filter
+  // Auth — unauthenticated access redirects to login
   // -----------------------------------------------------------------------
 
-  it('GET /admin/chatlog?type=chat returns only conversations without toolCalls', async () => {
-    let response = await adminChatlogGet('type=chat')
-
-    assert.equal(response.status, 200)
-    let html = await response.text()
-
-    // Type indicator label should show "Chat conversations"
-    assert.ok(html.includes('Angezeigt:'), 'should display type filter label')
-    assert.ok(html.includes('Chat-Konversationen'), 'should indicate chat filter')
-
-    // Should include the chat conversation
-    assert.ok(html.includes('admin-chatlog-test-chat-'), 'should include chat conversation')
-
-    // Should NOT include the agent conversation
+  it('GET /admin/chatlog redirects to login when not authenticated', async () => {
+    let response = await router.fetch(ADMIN_CHATLOG_URL, { redirect: 'manual' })
+    assert.equal(response.status, 302)
     assert.ok(
-      !html.includes('admin-chatlog-test-agent-'),
-      'should NOT include agent conversation',
+      response.headers.get('Location')?.startsWith('/auth/login'),
+      'should redirect to login',
     )
-  })
-
-  // -----------------------------------------------------------------------
-  // GET /admin/chatlog?type=agent — agent-only filter
-  // -----------------------------------------------------------------------
-
-  it('GET /admin/chatlog?type=agent returns only conversations with toolCalls', async () => {
-    let response = await adminChatlogGet('type=agent')
-
-    assert.equal(response.status, 200)
-    let html = await response.text()
-
-    // Type indicator label should show "Agent conversations"
-    assert.ok(html.includes('Angezeigt:'), 'should display type filter label')
-    assert.ok(html.includes('Agent-Konversationen'), 'should indicate agent filter')
-
-    // Should include the agent conversation
-    assert.ok(html.includes('admin-chatlog-test-agent-'), 'should include agent conversation')
-
-    // Should NOT include the chat conversation
-    assert.ok(
-      !html.includes('admin-chatlog-test-chat-'),
-      'should NOT include chat conversation',
-    )
-  })
-
-  // -----------------------------------------------------------------------
-  // GET /admin/chatlog?type=invalid — invalid type ignored
-  // -----------------------------------------------------------------------
-
-  it('GET /admin/chatlog?type=invalid ignores invalid type and returns all conversations', async () => {
-    let response = await adminChatlogGet('type=invalid')
-
-    assert.equal(response.status, 200)
-    let html = await response.text()
-
-    // Both test conversations should be present (fallback to all)
-    assert.ok(html.includes('admin-chatlog-test-chat-'), 'should include chat conversation')
-    assert.ok(html.includes('admin-chatlog-test-agent-'), 'should include agent conversation')
-
-    // No type indicator label should be rendered
-    assert.ok(!html.includes('Showing:'), 'should not display type filter label')
   })
 
   // -----------------------------------------------------------------------
@@ -177,4 +89,91 @@ describe('Admin Chatlog controller', () => {
     // PersistentAdminCounter renders counter UI
     assert.ok(html.includes('Persist Counter'), 'should render Persist Counter label')
   })
+
+  // -----------------------------------------------------------------------
+  // Pagination
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/chatlog?page=2 renders the requested page number', async () => {
+    let response = await adminChatlogGet('page=2')
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Seite 2'), 'should render the requested page number')
+  })
+
+  it('GET /admin/chatlog?page=-1 falls back to page 1', async () => {
+    let response = await adminChatlogGet('page=-1')
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Seite 1'), 'should fall back to page 1 for negative input')
+  })
+
+  it('GET /admin/chatlog?page=abc falls back to page 1', async () => {
+    let response = await adminChatlogGet('page=abc')
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Seite 1'), 'should fall back to page 1 for non-numeric input')
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /admin/chatlog/:id/delete — destroy
+  // -----------------------------------------------------------------------
+
+  it('POST /admin/chatlog/:id/delete redirects after destroy attempt', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(`https://remix.run/admin/chatlog/test-thread-123/delete`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.ok(response.status === 302 || response.status === 303, 'should redirect after destroy')
+    let location = response.headers.get('Location')
+    assert.ok(location === '/admin/chatlog' || location?.startsWith('/admin/chatlog'), 'should redirect to chatlog index')
+  })
+
+  it('POST /admin/chatlog/:id/delete with invalid thread ID still redirects safely', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(`https://remix.run/admin/chatlog/%00null%00/delete`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.ok(response.status === 302 || response.status === 303, 'should redirect safely for invalid ID')
+  })
+
+  it('POST /admin/chatlog/:id/delete without auth returns 403 (CSRF triggers before auth)', async () => {
+    let response = await router.fetch('https://remix.run/admin/chatlog/some-thread/delete', {
+      method: 'POST',
+      redirect: 'manual',
+    })
+
+    // CSRF middleware fires before auth middleware for POST requests
+    assert.equal(response.status, 403)
+  })
+
+  // -----------------------------------------------------------------------
+  // hasMore — hidden when page is empty
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/chatlog does not render pagination controls when empty', async () => {
+    let response = await adminChatlogGet()
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(!html.includes('← Zurück'), 'should not show back link with empty state')
+    assert.ok(!html.includes('Weiter →'), 'should not show forward link with empty state')
+  })
 })
+

@@ -6,7 +6,6 @@ import controller from './actions/home/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
 import apiListsController from './actions/api/lists/controller.tsx'
 import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
-import { default as aiController, aiChat, aiAgent, aiWorkflow, aiFragments } from './actions/ai/controller.tsx'
 import { mastraChat } from './actions/mastra/controller.tsx'
 import clientController from './actions/client/controller.tsx'
 import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
@@ -36,8 +35,6 @@ import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookReq
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
-import { registerWorkflows } from './workflows/definitions/index.ts'
-
 declare module 'remix/router' {
   interface RouterTypes {
     context: AppContext
@@ -50,8 +47,6 @@ export interface NewappRouterOptions {
 }
 
 export function createNewappRouter(options?: NewappRouterOptions) {
-  registerWorkflows()
-
   let cookie = options?.sessionCookie ?? sessionCookie
   let storage = options?.sessionStorage ?? sessionStorage
 
@@ -107,14 +102,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.appointment.types, appointmentTypes)
   router.map(routes.appointmentsNew, appointmentsNewController)
 
-  // AI routes
-  router.map(routes.ai, aiController)
-  router.map(routes.ai.chat, aiChat)
-  router.map(routes.ai.agent, aiAgent)
-  router.map(routes.ai.workflow, aiWorkflow)
-  router.map(routes.ai.fragments, aiFragments)
-
-  // Mastra routes (pure Mastra, no custom AI code)
+  // Mastra Chat route (single AI entry point)
   router.map(routes.mastra.chat, mastraChat)
 
   // Admin routes

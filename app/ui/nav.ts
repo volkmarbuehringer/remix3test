@@ -28,9 +28,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Termine', href: '/appointments/new' },
       { label: 'TermineUI', href: '/appointment' },
       { label: 'Listen', href: '/lists' },
-      { label: 'KI', href: '/ai' },
       { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
       { label: 'Admin', href: '/admin', adminOnly: true },
+      { label: 'KI', href: '/mastra/chat', adminOnly: true },
     ],
   },
 ]

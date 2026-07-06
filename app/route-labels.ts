@@ -11,12 +11,8 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.auth.login.index.href()]: 'Login',
   [routes.auth.register.index.href()]: 'Register',
 
-  // AI
-  [routes.ai.index.href()]: 'AI Dashboard',
-  [routes.ai.chat.index.href()]: 'Chat',
-  [routes.ai.agent.index.href()]: 'Agent',
-  [routes.ai.workflow.index.href()]: 'Workflows',
-  [routes.ai.fragments.agentResult.href()]: 'Agent Result',
+  // Mastra Chat
+  [routes.mastra.chat.index.href()]: 'KI Chat',
 
   // Admin
   [routes.admin.index.href()]: 'Admin Dashboard',

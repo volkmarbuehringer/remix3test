@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
-import type { ChatMessage } from '../../data/chatlog.ts'
+import type { ChatMessage } from '../../types/chatlog.ts'
 import { decodeHtml } from '../../utils/decode-html-entities.ts'
 
 interface ChatlogDetailFragmentProps {
@@ -116,15 +116,20 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
             {[...messages].reverse().map((msg, idx) => (
               <div
                 key={idx}
-                mix={[messageItemStyle, msg.role === 'user' ? userMessageStyle : assistantMessageStyle]}
+                mix={[
+                  messageItemStyle,
+                  msg.role === 'user' ? userMessageStyle : assistantMessageStyle,
+                ]}
               >
-                <div mix={messageLabelStyle}>
-                  {msg.role === 'user' ? 'User' : 'Assistant'}
-                </div>
+                <div mix={messageLabelStyle}>{msg.role === 'user' ? 'User' : 'Assistant'}</div>
                 <p mix={messageContentStyle}>{decodeHtml(msg.content)}</p>
                 <div mix={messageMetaStyle}>
-                  {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : ''}
-                  {msg.elapsed ? ` · ${msg.elapsed < 1000 ? `${msg.elapsed}ms` : `${(msg.elapsed / 1000).toFixed(1)}s`}` : ''}
+                  {msg.timestamp
+                    ? new Date(msg.timestamp).toLocaleTimeString('de-DE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : ''}
                 </div>
               </div>
             ))}

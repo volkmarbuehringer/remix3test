@@ -12,8 +12,10 @@ import { initializeAppDatabase, pool } from '../data/setup.ts'
 // as colored banner bars by the Layout component.
 // ---------------------------------------------------------------------------
 
+import { routes } from '../routes.ts'
+
 const BASE = 'https://remix.run'
-const AI_URL = `${BASE}/ai`
+const TEST_URL = `${BASE}${routes.lists.index.href()}`
 
 describe('Layout — flash messages', () => {
   before(async () => {
@@ -81,7 +83,7 @@ describe('Layout — flash messages', () => {
     let cookie = await createAuthSessionWithData('error', 'Test error banner message')
 
     // Act
-    let response = await router.fetch(AI_URL, {
+    let response = await router.fetch(TEST_URL, {
       headers: { Cookie: cookie },
     })
 
@@ -103,7 +105,7 @@ describe('Layout — flash messages', () => {
     let cookie = await createAuthSessionWithData('success', 'Operation completed successfully')
 
     // Act
-    let response = await router.fetch(AI_URL, {
+    let response = await router.fetch(TEST_URL, {
       headers: { Cookie: cookie },
     })
 
@@ -125,13 +127,13 @@ describe('Layout — flash messages', () => {
     let cookie = await createCleanAuthSession()
 
     // Act
-    let response = await router.fetch(AI_URL, {
+    let response = await router.fetch(TEST_URL, {
       headers: { Cookie: cookie },
     })
 
     // Assert
     assert.equal(response.status, 200, 'should render the page')
     let html = await response.text()
-    assert.ok(html.includes('AI Dashboard'), 'normal page content should render')
+    assert.ok(html.includes('Listen'), 'normal page content should render')
   })
 })

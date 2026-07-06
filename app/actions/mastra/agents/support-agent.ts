@@ -15,6 +15,7 @@ Available tools:
 - lookup_user: Look up a user by ID or email
 - list_recent_appointments: List recent appointments, optionally filtered by user
 - count_users: Count users by role
+- get_weather: Get current weather for any city worldwide (use this for weather queries)
 
 Rules:
 - Only answer using the tools above.

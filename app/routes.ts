@@ -12,7 +12,6 @@ export const callbackRoute = post('/callback')
 
 export const frames = {
   adminContent: 'admin-content',
-  aiContent: 'ai-content',
   listsContent: 'lists-content',
 
   appointmentContent: 'appointment-content',
@@ -163,17 +162,6 @@ export const routes = route({
     usersExport: route('users-export', {
       index: get('/'),
       create: post('/'),
-    }),
-  }),
-
-  ai: route('ai', {
-    index: get('/'),
-    chat: form('chat'),
-    agent: form('agent'),
-    workflow: form('workflow'),
-
-    fragments: route('fragments', {
-      agentResult: get('/agent-result'),
     }),
   }),
 

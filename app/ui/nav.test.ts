@@ -15,7 +15,7 @@ describe('NAV_SECTIONS', () => {
     assert.ok(hrefs.includes('/appointments/new'), 'should link to Termine')
     assert.ok(hrefs.includes('/appointment'), 'should link to TermineUI')
     assert.ok(hrefs.includes('/lists'), 'should link to Listen')
-    assert.ok(hrefs.includes('/ai'), 'should link to KI')
+    assert.ok(hrefs.includes('/mastra/chat'), 'should link to KI Chat')
     assert.ok(hrefs.includes('/admin'), 'should link to admin')
   })
 

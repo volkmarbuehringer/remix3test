@@ -9,8 +9,6 @@ import { PersistentAdminCounter } from '../assets/persistent-admin-counter.tsx'
 export type AdminNavItem =
   | 'dashboard'
   | 'chatlog'
-  | 'chatonly'
-  | 'agentonly'
   | 'messages'
   | 'lists'
   | 'support'
@@ -30,8 +28,6 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
     label: 'Daten',
     items: [
       { id: 'chatlog', label: 'Chat-Protokolle', route: routes.admin.chatlog.index },
-      { id: 'chatonly', label: 'Nur Chat', href: routes.admin.chatlog.index.href() + '?type=chat' },
-      { id: 'agentonly', label: 'Nur Agent', href: routes.admin.chatlog.index.href() + '?type=agent' },
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
       { id: 'support', label: 'Support-Agent', route: routes.mastra.chat.index },
@@ -52,10 +48,6 @@ function navIcon(id: AdminNavItem): RemixNode {
       return <Glyph name="menu" width={16} height={16} />
     case 'chatlog':
       return chatSvg()
-    case 'chatonly':
-      return chatPlusSvg()
-    case 'agentonly':
-      return <Glyph name="info" width={16} height={16} />
     case 'messages':
       return mailSvg()
     case 'lists':
@@ -89,16 +81,6 @@ function sidebarHeaderIcon(): RemixNode {
 
 function chatSvg(): RemixNode {
   return <Glyph name="chat" width={16} height={16} />
-}
-
-function chatPlusSvg(): RemixNode {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <line x1="9" y1="10" x2="15" y2="10" />
-      <line x1="12" y1="7" x2="12" y2="13" />
-    </svg>
-  )
 }
 
 function mailSvg(): RemixNode {

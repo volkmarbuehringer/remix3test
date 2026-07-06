@@ -93,7 +93,6 @@ function HeroSection() {
             <span>30 Tage testen</span>
             <Glyph name="arrowRight" width={16} height={16} />
           </a>
-
         </div>
         <div mix={trustRowCss}>
           <div mix={trustAvatarsCss}>
@@ -240,10 +239,16 @@ function CapabilitiesSection() {
           <CapCard
             number="02"
             title="KI-Assistenz"
-            desc="Chat- und Agenten-Modus für schnelle Antworten und Aufgabenautomatisierung."
-            tags={['Chat', 'Agent', 'Workflows']}
+            desc="KI-Chat für schnelle Antworten, Datenabfragen und Support-Aufgaben."
+            tags={['Chat', 'Wetter', 'Datenabfragen']}
             accent={amber}
-            href={authHref(routes.ai.index.href())}
+            href={
+              !user
+                ? routes.auth.login.index.href()
+                : user.role === 'admin'
+                  ? routes.mastra.chat.index.href()
+                  : undefined
+            }
           />
           <CapCard
             number="03"

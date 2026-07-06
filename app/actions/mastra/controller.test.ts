@@ -1,15 +1,53 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { db, pool, initializeAppDatabase } from '../../data/setup.ts'
-import { sql } from 'remix/data-table'
+import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { createConversation } from '../../data/chatlog.ts'
 import { __setTestAgent, chatRateLimiter } from './controller.tsx'
 
 import { supportTools } from './tools/support-tools.ts'
+
+import { generateId } from 'ai'
+
+// ── Weather tool mock helpers ──
+
+function mockFetchSequence(...responses: Array<() => Promise<Response>>) {
+  let callCount = 0
+  return () => {
+    if (callCount >= responses.length) {
+      return Promise.reject(new Error('Unexpected fetch call'))
+    }
+    return responses[callCount++]()
+  }
+}
+
+function mockResponse(overrides: Partial<Record<string, unknown>>): Promise<Response> {
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    headers: new Headers(),
+    redirected: false,
+    statusText: 'OK',
+    type: 'basic' as ResponseType,
+    url: '',
+    clone() { return this as unknown as Response },
+    body: null,
+    bodyUsed: false,
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+    blob: () => Promise.resolve(new Blob()),
+    bytes: () => Promise.resolve(new Uint8Array()),
+    formData: () => Promise.reject(new Error('Not implemented')),
+    text: () => Promise.resolve(''),
+    json: () => Promise.resolve(null),
+    ...overrides,
+  } as unknown as Response)
+}
+
+function jsonResponse(data: unknown): Promise<Response> {
+  return mockResponse({ json: () => Promise.resolve(data) })
+}
 
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.mastra.chat.index.href()}`
@@ -24,8 +62,6 @@ describe('Mastra Chat controller', () => {
 
   before(async () => {
     await initializeAppDatabase()
-
-    await db.exec(sql`DELETE FROM chatlog WHERE user_id IN (SELECT id FROM users WHERE email IN ('admin@newapp.com', 'user@newapp.com'))`)
 
     let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     adminCookie = adminResult?.cookie ?? ''
@@ -144,8 +180,7 @@ describe('Mastra Chat controller', () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])).rows[0]?.id as number
     chatRateLimiter.reset(adminId)
 
-    let existingThreadId = await createConversation(db, adminId)
-    assert.ok(existingThreadId, 'should create a chatlog conversation')
+    let existingThreadId = generateId()
 
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
@@ -256,5 +291,50 @@ describe('Mastra Chat tools', () => {
         assert.ok(typeof appt.title === 'string', 'appointment should have a title')
       }
     }
+  })
+
+  it('getWeather returns shape with expected fields on success', async () => {
+    let originalFetch = globalThis.fetch
+    try {
+      globalThis.fetch = mockFetchSequence(
+        () => jsonResponse({ results: [{ name: 'Berlin', latitude: 52.52, longitude: 13.405, country: 'Germany' }] }),
+        () => jsonResponse({ current: { temperature_2m: 22.5, relative_humidity_2m: 65, weather_code: 2, wind_speed_10m: 12.3 } }),
+      )
+      let result = await execTool(supportTools.getWeather as unknown as Record<string, unknown>, { location: 'Berlin' }) as Record<string, unknown>
+      assert.ok(result, 'should return a result')
+      assert.equal(result.location, 'Berlin, Germany')
+      assert.equal(result.temperature, 23)
+      assert.equal(result.condition, 'Partly cloudy')
+      assert.equal(result.humidity, 65)
+      assert.equal(result.windSpeed, 12)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('getWeather throws on unknown location', async () => {
+    let originalFetch = globalThis.fetch
+    try {
+      globalThis.fetch = mockFetchSequence(
+        () => jsonResponse({ results: undefined }),
+      )
+      let threw = false
+      try {
+        await execTool(supportTools.getWeather as unknown as Record<string, unknown>, { location: 'Atlantis' })
+      } catch {
+        threw = true
+      }
+      assert.ok(threw, 'should throw when location is not found')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('getWeather has correct tool metadata', () => {
+    let tool = supportTools.getWeather as unknown as Record<string, unknown>
+    assert.equal(tool.id, 'get_weather')
+    assert.ok(typeof tool.description === 'string' && tool.description.length > 0, 'should have a description')
+    assert.ok(typeof tool.execute === 'function', 'should have an execute function')
+    assert.ok(tool.inputSchema, 'should have an inputSchema')
   })
 })

@@ -3,7 +3,6 @@ import * as assert from 'remix/assert'
 
 import { createSidebarLayout } from './sidebar-layout.tsx'
 import { renderAdminPage, AdminLayout } from './admin-layout.tsx'
-import { renderAiPage, AiLayout } from './ai-layout.tsx'
 
 // ---------------------------------------------------------------------------
 // Factory contract tests
@@ -112,17 +111,4 @@ describe('Admin layout exports', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// AI layout export consistency
-// Verifies that ai-layout.tsx still exports the expected API.
-// ---------------------------------------------------------------------------
 
-describe('AI layout exports', () => {
-  it('exports renderAiPage as a function', () => {
-    assert.equal(typeof renderAiPage, 'function')
-  })
-
-  it('exports AiLayout component', () => {
-    assert.ok(AiLayout, 'AiLayout should be defined')
-  })
-})

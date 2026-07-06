@@ -143,50 +143,6 @@ describe('Admin page — frame streaming', () => {
   })
 })
 
-// ── AI page streaming ──────────────────────────────────────────
-
-describe('AI page — frame streaming', () => {
-  let userCookie: string
-
-  before(async () => {
-    let result = await createAuthCookieWithCsrfForUser('user@newapp.com')
-    userCookie = result?.cookie ?? ''
-  })
-
-  it('streams AI sidebar content and resolves dashboard frame', async () => {
-    let response = await router.fetch(`${BASE}/ai`, {
-      headers: { Cookie: userCookie },
-    })
-
-    assert.equal(response.status, 200)
-    assert.ok(response.body)
-
-    let chunks = readChunks(response.body)
-
-    // Read until we see AI sidebar content (rendered inside the aiContent frame)
-    let html = await readUntil(chunks, (content) => content.includes('AI Dashboard'))
-    assert.ok(html.includes('AI Dashboard'), 'AI Dashboard heading should appear')
-    assert.ok(html.includes('Chat'), 'Chat card should render')
-    assert.ok(html.includes('Agent'), 'Agent card should render')
-  })
-
-  it('renders AI page content from stream', async () => {
-    let response = await router.fetch(`${BASE}/ai`, {
-      headers: { Cookie: userCookie },
-    })
-
-    assert.ok(response.body)
-    let html = ''
-    for await (let chunk of readChunks(response.body)) {
-      html += chunk
-    }
-
-    assert.ok(html.includes('AI Dashboard'), 'AI Dashboard should render')
-    assert.ok(html.includes('Chat öffnen'), 'Chat öffnen button should appear')
-    assert.ok(html.includes('Agent öffnen'), 'Agent öffnen button should appear')
-  })
-})
-
 // ── Fragment endpoint tests ────────────────────────────────────
 
 describe('Fragment endpoints — standalone rendering', () => {
@@ -231,19 +187,6 @@ describe('Fragment endpoints — standalone rendering', () => {
     assert.ok(html.includes('Created'), 'Activity fragment should show activity items')
   })
 
-  it('/ai/fragments/agent-result renders without Layout wrapper', async () => {
-    let response = await router.fetch(
-      `${BASE}/ai/fragments/agent-result?prompt=test+message`,
-      { headers: { Cookie: userCookie } },
-    )
-
-    assert.equal(response.status, 200)
-    let html = await response.text()
-
-    assert.ok(!html.includes('<html'), 'Agent result fragment should not contain <html>')
-    assert.ok(html.includes('test message'), 'Agent result should include the prompt text')
-  })
-
   it('fragment endpoints reject unauthenticated requests', async () => {
     let statsRes = await router.fetch(`${BASE}/admin/fragments/stats`, {
       redirect: 'manual',
@@ -254,11 +197,6 @@ describe('Fragment endpoints — standalone rendering', () => {
       redirect: 'manual',
     })
     assert.equal(activityRes.status, 302, 'Unauthenticated activity request should redirect')
-
-    let agentRes = await router.fetch(`${BASE}/ai/fragments/agent-result`, {
-      redirect: 'manual',
-    })
-    assert.equal(agentRes.status, 302, 'Unauthenticated agent result request should redirect')
   })
 })
 

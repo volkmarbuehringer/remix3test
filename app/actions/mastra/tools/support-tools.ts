@@ -132,4 +132,61 @@ export const supportTools = {
       }
     },
   }),
+
+  getWeather: createTool({
+    id: 'get_weather',
+    description: 'Get current weather for a location worldwide. Returns temperature, condition, humidity, and wind speed for any city.',
+    inputSchema: z.object({
+      location: z.string().min(1).max(30).describe('The city name (max 30 characters)'),
+    }),
+    execute: async ({ location }) => {
+      let controller = new AbortController()
+      let timeout = setTimeout(() => controller.abort(), 10000)
+
+      try {
+        let geoResponse = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`,
+          { signal: controller.signal },
+        )
+        if (!geoResponse.ok) throw new Error('Geocoding failed')
+
+        let geoData = await geoResponse.json() as {
+          results?: Array<{ name: string; latitude: number; longitude: number; country?: string }>
+        }
+        if (!geoData.results?.[0]) throw new Error(`Location "${location}" not found`)
+
+        let { latitude, longitude, name, country } = geoData.results[0]
+
+        let weatherResponse = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=auto`,
+          { signal: controller.signal },
+        )
+        if (!weatherResponse.ok) throw new Error('Weather fetch failed')
+
+        let weatherData = await weatherResponse.json() as {
+          current?: { temperature_2m: number; relative_humidity_2m: number; weather_code: number; wind_speed_10m: number }
+        }
+        if (!weatherData.current) throw new Error('Weather data unavailable')
+
+        let conditions: Record<number, string> = {
+          0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+          45: 'Foggy', 48: 'Depositing rime fog', 51: 'Light drizzle', 53: 'Moderate drizzle',
+          55: 'Dense drizzle', 61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+          71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
+          80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
+          95: 'Thunderstorm', 96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail',
+        }
+
+        return {
+          location: `${name}, ${country ?? 'Unknown'}`,
+          temperature: Math.round(weatherData.current.temperature_2m),
+          condition: conditions[weatherData.current.weather_code] ?? 'Unknown',
+          humidity: weatherData.current.relative_humidity_2m,
+          windSpeed: Math.round(weatherData.current.wind_speed_10m),
+        }
+      } finally {
+        clearTimeout(timeout)
+      }
+    },
+  }),
 }

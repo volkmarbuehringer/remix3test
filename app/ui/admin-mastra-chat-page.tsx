@@ -3,14 +3,15 @@ import { css } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
+import type { ChatMessage } from '../types/chatlog.ts'
 
 interface MastraChatPageProps {
-  response?: string
+  messages: ChatMessage[]
   threadId?: string
   error?: string
 }
 
-const pageStyle = css({ maxWidth: '800px', margin: '0 auto' })
+const pageStyle = css({ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 })
 
 const formStyle = css({
   background: theme.surface.lvl0,
@@ -18,6 +19,7 @@ const formStyle = css({
   padding: theme.space.xl,
   border: `1px solid ${theme.colors.border.default}`,
   boxShadow: theme.shadow.sm,
+  flexShrink: 0,
 })
 
 const labelStyle = css({
@@ -56,29 +58,45 @@ const btnStyle = css({
   '&:hover': { background: theme.colors.action.primary.backgroundHover },
 })
 
-const resultStyle = css({
-  marginTop: theme.space.xl,
-  background: theme.surface.lvl0,
+const conversationStyle = css({
+  flex: 1,
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.md,
+})
+
+const messageBubbleStyle = css({
+  padding: theme.space.md,
   borderRadius: theme.radius.lg,
-  padding: theme.space.xl,
-  border: `1px solid ${theme.colors.border.default}`,
-  boxShadow: theme.shadow.sm,
+  maxWidth: '75%',
 })
 
-const resultLabelStyle = css({
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.secondary,
-  marginBottom: theme.space.sm,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
+const userBubbleStyle = css({
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  alignSelf: 'flex-end',
+  borderBottomRightRadius: '4px',
 })
 
-const resultTextStyle = css({
+const assistantBubbleStyle = css({
+  background: theme.surface.lvl1,
+  border: `1px solid ${theme.colors.border.subtle}`,
+  alignSelf: 'flex-start',
+  borderBottomLeftRadius: '4px',
+})
+
+const messageContentStyle = css({
   whiteSpace: 'pre-wrap',
-  lineHeight: '1.6',
-  fontSize: theme.fontSize.lg,
-  color: theme.colors.text.primary,
+  lineHeight: '1.5',
+  fontSize: theme.fontSize.md,
+  margin: 0,
+})
+
+const messageMetaStyle = css({
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.text.muted,
+  marginTop: theme.space.xs,
 })
 
 const errorBoxStyle = css({
@@ -90,17 +108,38 @@ const errorBoxStyle = css({
   fontSize: theme.fontSize.sm,
 })
 
+const threadIdStyle = css({
+  marginTop: theme.space.md,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.muted,
+})
+
 export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
   return () => {
-    let { response, threadId, error } = handle.props
+    let { messages, threadId, error } = handle.props
     return (
       <div mix={pageStyle}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem', flexShrink: 0 }}>
           Support-Agent
         </h2>
-        <p style={{ color: theme.colors.text.secondary, marginBottom: '1.5rem' }}>
+        <p style={{ color: theme.colors.text.secondary, marginBottom: '1.5rem', flexShrink: 0 }}>
           Frage zu Benutzern, Terminen und Systemdaten.
         </p>
+
+        <div id="chat-messages" mix={conversationStyle}>
+          {messages.map((msg, idx) => (
+            <div
+              key={idx}
+              mix={[messageBubbleStyle, msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle]}
+            >
+              <p mix={messageContentStyle}>{msg.content}</p>
+              <div mix={messageMetaStyle}>
+                {msg.role === 'user' ? 'Du' : 'Assistent'}
+                {msg.timestamp ? ` · ${new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </div>
+            </div>
+          ))}
+        </div>
 
         <form method="POST" action={routes.mastra.chat.action.href()} autocomplete="off" mix={formStyle}>
           <CsrfTokenInput />
@@ -112,17 +151,7 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
           </div>
         </form>
 
-        {response && (
-          <div mix={resultStyle}>
-            <div mix={resultLabelStyle}>Antwort</div>
-            <div mix={resultTextStyle}>{response}</div>
-            {threadId && (
-              <p style={{ marginTop: '0.75rem', fontSize: theme.fontSize.sm, color: theme.colors.text.muted }}>
-                Konversation-ID: {threadId}
-              </p>
-            )}
-          </div>
-        )}
+        {threadId && <p mix={threadIdStyle}>Konversation-ID: {threadId}</p>}
 
         {error && <div mix={errorBoxStyle}>{error}</div>}
       </div>

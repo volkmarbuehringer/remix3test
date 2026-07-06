@@ -168,9 +168,6 @@ export const AppointmentSidebar = clientEntry(
             <a href={routes.lists.index.href()} mix={navLinkStyle}>
               Listen
             </a>
-            <a href={routes.ai.index.href()} mix={navLinkStyle}>
-              KI
-            </a>
             <form action={routes.auth.logout.href()} method="post" mix={logoutFormStyle} id="appt-logout-form">
               <button
                 type="submit"
