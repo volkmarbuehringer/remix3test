@@ -11,14 +11,12 @@ interface MastraChatPageProps {
   error?: string
 }
 
-const pageStyle = css({ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 })
+const pageStyle = css({ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 })
 
 const formStyle = css({
   background: theme.surface.lvl0,
   borderRadius: theme.radius.lg,
-  padding: theme.space.xl,
-  border: `1px solid ${theme.colors.border.default}`,
-  boxShadow: theme.shadow.sm,
+  padding: theme.space.md,
   flexShrink: 0,
 })
 
@@ -32,7 +30,7 @@ const labelStyle = css({
 
 const textareaStyle = css({
   width: '100%',
-  minHeight: '100px',
+  minHeight: '60px',
   padding: theme.space.md,
   border: `1px solid ${theme.colors.border.default}`,
   borderRadius: theme.radius.md,
@@ -60,6 +58,7 @@ const btnStyle = css({
 
 const conversationStyle = css({
   flex: 1,
+  minHeight: '50vh',
   overflowY: 'auto',
   display: 'flex',
   flexDirection: 'column',
@@ -140,6 +139,8 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
             </div>
           ))}
         </div>
+
+        <div id="chat-end" />
 
         <form method="POST" action={routes.mastra.chat.action.href()} autocomplete="off" mix={formStyle}>
           <CsrfTokenInput />

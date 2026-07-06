@@ -248,7 +248,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           if (wantsJson(context)) {
             return context.json({ response: responseText, threadId })
           }
-          let url = routes.mastra.chat.index.href() + '?threadId=' + encodeURIComponent(threadId)
+          let url = routes.mastra.chat.index.href() + '?threadId=' + encodeURIComponent(threadId) + '#chat-end'
           return redirect(url)
         } catch (error) {
           log('error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
