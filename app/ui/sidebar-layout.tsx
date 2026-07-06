@@ -242,4 +242,8 @@ export const groupLabelStyle = css({
 
 export const contentStyle = css({
   minWidth: 0,
+  alignSelf: 'stretch',
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
 })
