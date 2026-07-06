@@ -9,7 +9,7 @@ import { routes, frames } from '../../routes.ts'
 import { mastra } from './index.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { generateId } from 'ai'
+
 import { logAdminAction } from '../../data/audit-log.ts'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
 import { Layout } from '../../ui/layout.tsx'
@@ -173,7 +173,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         }
 
         if (!threadId) {
-          threadId = generateId()
+          threadId = crypto.randomUUID()
           log('new mastra thread created: ' + sanitizeLog(threadId))
         } else {
           log('continuing thread: ' + sanitizeLog(threadId))
@@ -248,7 +248,11 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           if (wantsJson(context)) {
             return context.json({ response: responseText, threadId })
           }
-          let url = routes.mastra.chat.index.href() + '?threadId=' + encodeURIComponent(threadId) + '#chat-end'
+          let url =
+            routes.mastra.chat.index.href() +
+            '?threadId=' +
+            encodeURIComponent(threadId) +
+            '#chat-end'
           return redirect(url)
         } catch (error) {
           log('error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))

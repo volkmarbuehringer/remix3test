@@ -38,12 +38,6 @@ export const panelCss = css({
   boxShadow: theme.shadow.xs,
 })
 
-export const pageStackCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.xxl,
-})
-
 export const bodyTextCss = css({
   margin: 0,
   fontSize: theme.fontSize.sm,

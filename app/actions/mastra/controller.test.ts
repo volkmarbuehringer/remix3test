@@ -9,8 +9,6 @@ import { __setTestAgent, chatRateLimiter } from './controller.tsx'
 
 import { supportTools } from './tools/support-tools.ts'
 
-import { generateId } from 'ai'
-
 // ── Weather tool mock helpers ──
 
 function mockFetchSequence(...responses: Array<() => Promise<Response>>) {
@@ -32,7 +30,9 @@ function mockResponse(overrides: Partial<Record<string, unknown>>): Promise<Resp
     statusText: 'OK',
     type: 'basic' as ResponseType,
     url: '',
-    clone() { return this as unknown as Response },
+    clone() {
+      return this as unknown as Response
+    },
     body: null,
     bodyUsed: false,
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
@@ -79,7 +79,10 @@ describe('Mastra Chat controller', () => {
     let response = await router.fetch(CHAT_INDEX_URL, { redirect: 'manual' })
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
+    assert.ok(
+      location?.startsWith(routes.auth.login.index.href()),
+      'should redirect to login with returnTo',
+    )
   })
 
   it('POST /mastra/chat returns 403 for non-admin user', async () => {
@@ -104,7 +107,7 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 400)
-    let json = await response.json() as { error?: string }
+    let json = (await response.json()) as { error?: string }
     assert.ok(json.error, 'response should include an error message')
   })
 
@@ -120,7 +123,7 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 400)
-    let json = await response.json() as { error?: string }
+    let json = (await response.json()) as { error?: string }
     assert.ok(json.error, 'response should include an error message')
   })
 
@@ -144,19 +147,22 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(second.status, 429)
-    let json = await second.json() as { error?: string }
+    let json = (await second.json()) as { error?: string }
     assert.ok(json.error, '429 response should include an error message')
   })
 
   it('POST /mastra/chat with valid message returns 200 and response text using mock agent', async () => {
-    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])).rows[0]?.id as number
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
 
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
     let mockAgent = {
-      generate: async (_message: string, _opts?: any) => ({ text: 'Here is the user data you requested.' }),
+      generate: async (_message: string, _opts?: any) => ({
+        text: 'Here is the user data you requested.',
+      }),
     }
     __setTestAgent(mockAgent)
 
@@ -168,7 +174,7 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 200)
-    let json = await response.json() as { response?: string; threadId?: string }
+    let json = (await response.json()) as { response?: string; threadId?: string }
     assert.equal(json.response, 'Here is the user data you requested.')
     assert.ok(json.threadId, 'response should include a threadId')
     assert.ok(json.threadId!.length > 0, 'threadId should be a non-empty string')
@@ -177,10 +183,11 @@ describe('Mastra Chat controller', () => {
   })
 
   it('POST /mastra/chat continues an existing thread when threadId is provided', async () => {
-    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])).rows[0]?.id as number
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
 
-    let existingThreadId = generateId()
+    let existingThreadId = crypto.randomUUID()
 
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
@@ -197,12 +204,16 @@ describe('Mastra Chat controller', () => {
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
       headers: { Cookie: session.cookie, ...JSON_HEADERS },
-      body: new URLSearchParams({ message: 'follow-up', _csrf: session.csrfToken, threadId: existingThreadId }),
+      body: new URLSearchParams({
+        message: 'follow-up',
+        _csrf: session.csrfToken,
+        threadId: existingThreadId,
+      }),
       redirect: 'manual',
     })
 
     assert.equal(response.status, 200)
-    let json = await response.json() as { response?: string; threadId?: string }
+    let json = (await response.json()) as { response?: string; threadId?: string }
     assert.equal(json.response, 'Continuing conversation.')
     assert.equal(json.threadId, existingThreadId, 'should echo back the provided threadId')
 
@@ -211,7 +222,10 @@ describe('Mastra Chat controller', () => {
 })
 
 function execTool(tool: Record<string, unknown>, input: Record<string, unknown>) {
-  let fn = tool.execute as ((input: Record<string, unknown>, opts: Record<string, unknown>) => Promise<Record<string, unknown>>)
+  let fn = tool.execute as (
+    input: Record<string, unknown>,
+    opts: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>
   return fn(input, {})
 }
 
@@ -221,7 +235,10 @@ describe('Mastra Chat tools', () => {
   })
 
   it('getCurrentDateTime returns shape with all fields', async () => {
-    let result = await execTool(supportTools.getCurrentDateTime as unknown as Record<string, unknown>, {}) as Record<string, unknown>
+    let result = (await execTool(
+      supportTools.getCurrentDateTime as unknown as Record<string, unknown>,
+      {},
+    )) as Record<string, unknown>
     assert.ok(result, 'should return a result')
     assert.ok(typeof result.iso === 'string', 'iso should be a string')
     assert.ok(typeof result.formatted === 'string', 'formatted should be a string')
@@ -235,7 +252,9 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupUser finds existing user by email', async () => {
-    let result = await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, { query: 'admin@newapp.com' }) as Record<string, unknown>
+    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+      query: 'admin@newapp.com',
+    })) as Record<string, unknown>
     assert.ok(result.found, 'should find the user')
     assert.ok(result.user, 'should return user data')
     assert.equal((result.user as Record<string, unknown>).email, 'admin@newapp.com')
@@ -243,35 +262,62 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupUser finds existing user by numeric id', async () => {
-    let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])).rows[0]
+    let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]
     assert.ok(idRow, 'admin user should exist')
-    let result = await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, { query: String(idRow.id) }) as Record<string, unknown>
+    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+      query: String(idRow.id),
+    })) as Record<string, unknown>
     assert.ok(result.found, 'should find the user')
     assert.equal((result.user as Record<string, unknown>).email, 'admin@newapp.com')
   })
 
   it('lookupUser returns not found for unknown email', async () => {
-    let result = await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, { query: 'nonexistent@example.com' }) as Record<string, unknown>
+    let result = (await execTool(supportTools.lookupUser as unknown as Record<string, unknown>, {
+      query: 'nonexistent@example.com',
+    })) as Record<string, unknown>
     assert.ok(!result.found, 'should not find the user')
     assert.ok(result.message, 'should include a message')
   })
 
   it('countUsers returns totals grouped by role', async () => {
-    let result = await execTool(supportTools.countUsers as unknown as Record<string, unknown>, {}) as Record<string, unknown>
+    let result = (await execTool(
+      supportTools.countUsers as unknown as Record<string, unknown>,
+      {},
+    )) as Record<string, unknown>
     assert.ok((result.total as number) > 1, 'should have at least 2 users')
     assert.ok(result.byRole, 'should have byRole breakdown')
-    assert.ok(typeof (result.byRole as Record<string, unknown>).admin === 'number', 'admin count should be a number')
-    assert.ok(typeof (result.byRole as Record<string, unknown>).customer === 'number', 'customer count should be a number')
+    assert.ok(
+      typeof (result.byRole as Record<string, unknown>).admin === 'number',
+      'admin count should be a number',
+    )
+    assert.ok(
+      typeof (result.byRole as Record<string, unknown>).customer === 'number',
+      'customer count should be a number',
+    )
   })
 
   it('countUsers filters by role', async () => {
-    let result = await execTool(supportTools.countUsers as unknown as Record<string, unknown>, { role: 'admin' }) as Record<string, unknown>
-    assert.equal(result.total, (result.byRole as Record<string, unknown>).admin, 'total should match admin count when filtered')
-    assert.equal(Object.keys(result.byRole as Record<string, unknown>).length, 1, 'only admin role should be present')
+    let result = (await execTool(supportTools.countUsers as unknown as Record<string, unknown>, {
+      role: 'admin',
+    })) as Record<string, unknown>
+    assert.equal(
+      result.total,
+      (result.byRole as Record<string, unknown>).admin,
+      'total should match admin count when filtered',
+    )
+    assert.equal(
+      Object.keys(result.byRole as Record<string, unknown>).length,
+      1,
+      'only admin role should be present',
+    )
   })
 
   it('listRecentAppointments returns appointments', async () => {
-    let result = await execTool(supportTools.listRecentAppointments as unknown as Record<string, unknown>, { limit: 5 }) as Record<string, unknown>
+    let result = (await execTool(
+      supportTools.listRecentAppointments as unknown as Record<string, unknown>,
+      { limit: 5 },
+    )) as Record<string, unknown>
     assert.ok(Array.isArray(result.appointments), 'appointments should be an array')
     assert.ok((result.count as number) >= 0, 'count should be non-negative')
     if ((result.count as number) > 0) {
@@ -282,12 +328,16 @@ describe('Mastra Chat tools', () => {
   })
 
   it('listRecentAppointments filters by userId', async () => {
-    let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com'])).rows[0]
+    let idRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com']))
+      .rows[0]
     assert.ok(idRow, 'user should exist')
-    let result = await execTool(supportTools.listRecentAppointments as unknown as Record<string, unknown>, { limit: 5, userId: idRow.id }) as Record<string, unknown>
+    let result = (await execTool(
+      supportTools.listRecentAppointments as unknown as Record<string, unknown>,
+      { limit: 5, userId: idRow.id },
+    )) as Record<string, unknown>
     assert.ok(Array.isArray(result.appointments), 'appointments should be an array')
     if ((result.count as number) > 0) {
-      for (let appt of (result.appointments as Record<string, unknown>[])) {
+      for (let appt of result.appointments as Record<string, unknown>[]) {
         assert.ok(typeof appt.title === 'string', 'appointment should have a title')
       }
     }
@@ -297,10 +347,23 @@ describe('Mastra Chat tools', () => {
     let originalFetch = globalThis.fetch
     try {
       globalThis.fetch = mockFetchSequence(
-        () => jsonResponse({ results: [{ name: 'Berlin', latitude: 52.52, longitude: 13.405, country: 'Germany' }] }),
-        () => jsonResponse({ current: { temperature_2m: 22.5, relative_humidity_2m: 65, weather_code: 2, wind_speed_10m: 12.3 } }),
+        () =>
+          jsonResponse({
+            results: [{ name: 'Berlin', latitude: 52.52, longitude: 13.405, country: 'Germany' }],
+          }),
+        () =>
+          jsonResponse({
+            current: {
+              temperature_2m: 22.5,
+              relative_humidity_2m: 65,
+              weather_code: 2,
+              wind_speed_10m: 12.3,
+            },
+          }),
       )
-      let result = await execTool(supportTools.getWeather as unknown as Record<string, unknown>, { location: 'Berlin' }) as Record<string, unknown>
+      let result = (await execTool(supportTools.getWeather as unknown as Record<string, unknown>, {
+        location: 'Berlin',
+      })) as Record<string, unknown>
       assert.ok(result, 'should return a result')
       assert.equal(result.location, 'Berlin, Germany')
       assert.equal(result.temperature, 23)
@@ -315,12 +378,12 @@ describe('Mastra Chat tools', () => {
   it('getWeather throws on unknown location', async () => {
     let originalFetch = globalThis.fetch
     try {
-      globalThis.fetch = mockFetchSequence(
-        () => jsonResponse({ results: undefined }),
-      )
+      globalThis.fetch = mockFetchSequence(() => jsonResponse({ results: undefined }))
       let threw = false
       try {
-        await execTool(supportTools.getWeather as unknown as Record<string, unknown>, { location: 'Atlantis' })
+        await execTool(supportTools.getWeather as unknown as Record<string, unknown>, {
+          location: 'Atlantis',
+        })
       } catch {
         threw = true
       }
@@ -333,7 +396,10 @@ describe('Mastra Chat tools', () => {
   it('getWeather has correct tool metadata', () => {
     let tool = supportTools.getWeather as unknown as Record<string, unknown>
     assert.equal(tool.id, 'get_weather')
-    assert.ok(typeof tool.description === 'string' && tool.description.length > 0, 'should have a description')
+    assert.ok(
+      typeof tool.description === 'string' && tool.description.length > 0,
+      'should have a description',
+    )
     assert.ok(typeof tool.execute === 'function', 'should have an execute function')
     assert.ok(tool.inputSchema, 'should have an inputSchema')
   })

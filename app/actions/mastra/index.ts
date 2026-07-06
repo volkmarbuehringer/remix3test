@@ -3,7 +3,6 @@ import { PinoLogger } from '@mastra/loggers'
 import { supportAgent } from './agents/support-agent.ts'
 import { completenessScorer } from './scorers/support-scorers.ts'
 import { mastraStorage } from './storage.ts'
-export { mastraStorage }
 
 export const mastra = new Mastra({
   agents: { supportAgent },

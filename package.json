@@ -20,14 +20,11 @@
     "node": ">=26.2.0"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^3.0.5",
     "@mastra/core": "^1.49.0",
     "@mastra/evals": "^1.5.1",
-    "@mastra/libsql": "^1.15.0",
     "@mastra/loggers": "^1.2.0",
     "@mastra/memory": "^1.22.1",
     "@mastra/pg": "^1.15.0",
-    "ai": "^7.0.15",
     "date-holidays": "^3.32.0",
     "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
@@ -36,9 +33,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@ai-sdk/devtools": "^1.0.2",
     "@fission-ai/openspec": "^1.5.0",
-    "@opencode-ai/plugin": "^1.17.13",
     "@oxlint/plugins": "^1.72.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "latest",
