@@ -81,9 +81,11 @@ describe('Admin Resources Controller', () => {
   describe('create (POST /verwaltung/resources)', () => {
     it('creates a new resource with valid data', async () => {
       let desc = `Test Resource ${Date.now()}`
+      let caps = 'Großer Raum für Gruppentherapie.\nGeeignet für bis zu 10 Personen.\nBarrierefrei.'
       let body = new URLSearchParams({
         name: 'Test Raum',
         description: desc,
+        capabilities: caps,
         _csrf: adminCsrfToken,
         _offset: '',
         _sort: '',
@@ -101,8 +103,28 @@ describe('Admin Resources Controller', () => {
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources?editing='))
+    })
 
-      let match = location.match(/editing=(\d+)/)
+    it('creates a resource with empty capabilities', async () => {
+      let body = new URLSearchParams({
+        name: 'No Caps Room',
+        description: 'Ein Testraum ohne besondere Fähigkeiten',
+        capabilities: '',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(RESOURCES_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 302)
     })
 
     it('rejects empty description', async () => {
@@ -157,10 +179,11 @@ describe('Admin Resources Controller', () => {
       testResourceId = result.rows[0].id as number
     })
 
-    it('updates a resource description', async () => {
+    it('updates a resource description and capabilities', async () => {
       let body = new URLSearchParams({
         name: 'Test Update',
         description: 'Updated Description',
+        capabilities: 'Erweiterte Capabilities für diesen Raum.\nNun mit neuer Ausstattung.',
         _csrf: adminCsrfToken,
         _offset: '',
         _sort: '',
@@ -180,9 +203,10 @@ describe('Admin Resources Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'))
 
-      // Verify the description was updated
-      let result = await pool.query('SELECT description FROM resources WHERE id = $1', [testResourceId])
+      // Verify the description and capabilities were updated
+      let result = await pool.query('SELECT description, capabilities FROM resources WHERE id = $1', [testResourceId])
       assert.equal(result.rows[0]?.description, 'Updated Description')
+      assert.ok(result.rows[0]?.capabilities.includes('Erweiterte Capabilities'))
     })
 
     it('rejects update with empty description', async () => {

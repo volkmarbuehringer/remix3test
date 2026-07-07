@@ -103,12 +103,14 @@ export async function seed(): Promise<void> {
       {
         name: 'Raum 1',
         description: 'Hauptraum mit Beamer und Whiteboard',
+        capabilities: 'Großer Behandlungsraum im Erdgeschoss.\nGeeignet für: Einzeltherapie, Paarberatung, Gruppensitzungen bis 10 Personen.\nAusstattung: Beamer, Whiteboard, WLAN, flexible Bestuhlung.\nBarrierefrei zugänglich über Rampe.',
         created_at: Date.now(),
         updated_at: Date.now(),
       },
       {
         name: 'Raum 2',
         description: 'Nebenraum für Kleingruppen',
+        capabilities: 'Ruhiger Behandlungsraum im Obergeschoss.\nGeeignet für: Einzelgespräche, Kleingruppen bis 4 Personen, Meditationssitzungen.\nAusstattung: Bequeme Sitzmöbel, dimmbare Beleuchtung, Schalldämmung.\nNicht barrierefrei (kein Aufzug).',
         created_at: Date.now(),
         updated_at: Date.now(),
       },

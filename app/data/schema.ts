@@ -369,6 +369,7 @@ export const resources = table({
     id: c.integer(),
     name: c.text(),
     description: c.text(),
+    capabilities: c.text(),
     created_at: bigint(),
     updated_at: bigint(),
   },

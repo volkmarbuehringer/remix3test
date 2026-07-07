@@ -141,6 +141,9 @@ export async function migrate(): Promise<void> {
     )
   `)
   await pool.query(`ALTER TABLE resources ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Unbenannt'`)
+  await pool.query(`ALTER TABLE resources ADD COLUMN IF NOT EXISTS capabilities TEXT DEFAULT ''`)
+  await pool.query(`DROP INDEX IF EXISTS idx_resources_capabilities_fts`)
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_resources_capabilities_trgm ON resources USING GIN (capabilities gin_trgm_ops)`)
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS appointments (

@@ -13,7 +13,7 @@ export interface ThreadListResult {
 }
 
 interface MemoryHandle {
-  recall: (opts: { threadId: string; perPage: false }) => Promise<{ messages?: unknown[] }>
+  recall: (opts: { threadId: string; resource?: string; perPage: false }) => Promise<{ messages?: unknown[] }>
   listThreads: (opts: {
     page: number
     perPage: number
@@ -35,9 +35,10 @@ async function getMemory(agent: AgentHandle): Promise<MemoryHandle> {
 export async function recallChatMessages(
   agent: AgentHandle,
   threadId: string,
+  resource?: string,
 ): Promise<ChatMessage[]> {
   let memory = await getMemory(agent)
-  let { messages } = await memory.recall({ threadId, perPage: false })
+  let { messages } = await memory.recall({ threadId, resource, perPage: false })
   let rawMessages = (messages ?? []) as Array<{
     role: string
     content: unknown

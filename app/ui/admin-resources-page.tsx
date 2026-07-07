@@ -283,7 +283,9 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
     let nameValue = formValues?.name ?? row.name ?? ''
     let nameError = fieldErrors?.name
     let descValue = formValues?.description ?? row.description ?? ''
-    let hasError = !!fieldErrors?.description
+    let descError = fieldErrors?.description
+    let capsValue = formValues?.capabilities ?? row.capabilities ?? ''
+    let capsError = fieldErrors?.capabilities
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="PUT" action={routes.verwaltung.resources.update.href({ id: row.id })}>
@@ -314,9 +316,21 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   name="description"
                   type="text"
                   value={descValue}
-                  mix={[input.base, input.focus, ...(hasError ? [input.error] : [])]}
+                  mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
-                {hasError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+                {descError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+              </div>
+
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ar-caps">Capabilities</label>
+                <textarea
+                  id="ar-caps"
+                  name="capabilities"
+                  rows={4}
+                  value={capsValue}
+                  mix={[input.base, input.focus, css({ resize: 'vertical', minHeight: '80px' }), ...(capsError ? [input.error] : [])]}
+                />
+                {capsError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{capsError}</div> : null}
               </div>
 
               <div mix={table.actions}>
@@ -352,7 +366,8 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     let nameError = fieldErrors?.name
-    let hasError = !!fieldErrors?.description
+    let descError = fieldErrors?.description
+    let capsError = fieldErrors?.capabilities
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
         <RestfulForm method="POST" action={routes.verwaltung.resources.create.href()}>
@@ -385,9 +400,21 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   type="text"
                   required
                   defaultValue={formValues?.description ?? ''}
-                  mix={[input.base, input.focus, ...(hasError ? [input.error] : [])]}
+                  mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
-                {hasError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+                {descError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+              </div>
+
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="ar-caps-c">Capabilities</label>
+                <textarea
+                  id="ar-caps-c"
+                  name="capabilities"
+                  rows={4}
+                  defaultValue={formValues?.capabilities ?? ''}
+                  mix={[input.base, input.focus, css({ resize: 'vertical', minHeight: '80px' }), ...(capsError ? [input.error] : [])]}
+                />
+                {capsError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{capsError}</div> : null}
               </div>
 
               <div mix={table.actions}>

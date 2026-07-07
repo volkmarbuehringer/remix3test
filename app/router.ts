@@ -7,6 +7,7 @@ import listsController from './actions/lists/controller.tsx'
 import apiListsController from './actions/api/lists/controller.tsx'
 import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
 import { mastraChat } from './actions/mastra/controller.tsx'
+import { customerChat } from './actions/chat/controller.tsx'
 import clientController from './actions/client/controller.tsx'
 import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
@@ -104,6 +105,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Mastra Chat route (single AI entry point)
   router.map(routes.mastra.chat, mastraChat)
+
+  // Customer Chat route (resource matching)
+  router.map(routes.chat, customerChat)
 
   // Admin routes
   router.map(routes.admin, adminController)

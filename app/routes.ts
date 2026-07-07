@@ -54,6 +54,7 @@ export const routes = route({
 
   settings: form('settings'),
   uploads: form('uploads'),
+  chat: form('chat'),
 
   appointment: route('appointment', {
     index: get('/'),

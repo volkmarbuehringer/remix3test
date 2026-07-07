@@ -1,7 +1,7 @@
 import { ilike } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import { minLength } from 'remix/data-schema/checks'
+import { minLength, maxLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 import { Logger } from 'remix/middleware/logger'
 import { redirect } from 'remix/response/redirect'
@@ -38,7 +38,7 @@ type ResourceRow = Resource
 
 const RESOURCES_PAGE_SIZE = 15
 
-const RESOURCE_FORM_KEYS = ['name', 'description'] as const
+const RESOURCE_FORM_KEYS = ['name', 'description', 'capabilities'] as const
 
 const RESOURCES_SORTABLE_FIELDS = ['id', 'name', 'description', 'created_at', 'updated_at'] as const
 
@@ -118,6 +118,7 @@ async function loadResourcePageData(
 const resourceSaveSchema = f.object({
   name: f.field(s.defaulted(s.string(), '').pipe(minLength(4))),
   description: f.field(s.defaulted(s.string(), '').refine((v) => v.length >= 8, 'Beschreibung muss mindestens 8 Zeichen lang sein')),
+  capabilities: f.field(s.defaulted(s.string(), '').pipe(maxLength(10000))),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
@@ -181,7 +182,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       let row = await db.create(
         resources,
-        { name: parsed.name.trim(), description: parsed.description.trim() },
+        { name: parsed.name.trim(), description: parsed.description.trim(), capabilities: parsed.capabilities.trim() },
         { returnRow: true },
       )
 
@@ -193,7 +194,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           action_type: 'create',
           target_type: 'resources',
           target_id: row.id as number,
-          details: { name: parsed.name.trim(), description: parsed.description.trim() },
+          details: { name: parsed.name.trim(), description: parsed.description.trim(), capabilities: parsed.capabilities.trim() },
         })
       }
 
@@ -233,7 +234,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
       let parsed = result.value as Record<string, string>
 
-      await db.updateMany(resources, { name: parsed.name.trim(), description: parsed.description.trim() }, { where: { id } })
+      await db.updateMany(resources, { name: parsed.name.trim(), description: parsed.description.trim(), capabilities: parsed.capabilities.trim() }, { where: { id } })
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
@@ -243,7 +244,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           action_type: 'update',
           target_type: 'resources',
           target_id: id,
-          details: { name: parsed.name.trim(), description: parsed.description.trim() },
+          details: { name: parsed.name.trim(), description: parsed.description.trim(), capabilities: parsed.capabilities.trim() },
         })
       }
 
