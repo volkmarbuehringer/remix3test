@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser, createAuthCookieWithPendingBooking } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import { __setTestCustomerAgent, customerChat, chatRateLimiter } from './controller.tsx'
 
@@ -93,6 +93,114 @@ describe('Customer Chat controller', () => {
     assert.ok(location?.includes('threadId='), 'response should redirect with threadId')
 
     __setTestCustomerAgent(undefined)
+  })
+
+  it('POST /chat with _action=confirm_booking triggers workflow', async () => {
+    let futureDate = Date.now() + 7 * 86_400_000
+    let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(futureDayMs) + ':600',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.includes('threadId='), 'should redirect with threadId')
+  })
+
+  it('POST /chat with _action=confirm_booking and missing params returns error', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.includes('error='), 'should redirect with error')
+  })
+
+  it('POST /chat with _action=confirm_booking and no pendingBooking returns error', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let futureDate = Date.now() + 7 * 86_400_000
+    let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(futureDayMs) + ':600',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.includes('error='), 'should redirect with error')
+  })
+
+  it('POST /chat with _action=confirm_booking and mismatched slot returns error', async () => {
+    let futureDate = Date.now() + 7 * 86_400_000
+    let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    // Submit a different slot (start_min: 720 instead of 600)
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(futureDayMs) + ':720',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.includes('error='), 'should redirect with error')
   })
 
   it('POST /chat continues an existing thread when threadId is provided', async () => {

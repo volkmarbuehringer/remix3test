@@ -695,16 +695,14 @@ export const supportTools = {
     id: 'get_location_context',
     description: 'Get the system default location context: Ransbach-Baumbach, Rhineland-Palatinate, Germany. Use this when you need the default location for weather queries, timezone information, or any location-based question.',
     inputSchema: z.object({}),
-    execute: async () => {
-      return {
-        city: 'Ransbach-Baumbach',
-        region: 'Rhineland-Palatinate',
-        country: 'Germany',
-        countryCode: 'DE',
-        timezone: 'Europe/Berlin',
-        latitude: 50.4667,
-        longitude: 7.7333,
-      }
-    },
+    execute: async () => ({
+      city: 'Ransbach-Baumbach',
+      region: 'Rhineland-Palatinate',
+      country: 'Germany',
+      countryCode: 'DE',
+      timezone: 'Europe/Berlin',
+      latitude: 50.4667,
+      longitude: 7.7333,
+    }),
   }),
 }

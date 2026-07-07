@@ -9,6 +9,7 @@ import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { recallChatMessages } from '../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
+import { formatMinOption } from '../../utils/date-utils.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
 import type { AppContext } from '../../types/context.ts'
@@ -21,8 +22,28 @@ const messageSchema = f.object({
 })
 
 const MAX_MESSAGE_LENGTH = 5000
+const MAX_TITLE_LENGTH = 200
 const AGENT_TIMEOUT_MS = 60_000
 export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
+export const bookingRateLimiter = createRateLimiter({ windowMs: 10000, perUser: true })
+
+export interface SlotItem {
+  date_epoch_ms: number
+  date_display: string
+  start_min: number
+  end_min: number
+}
+
+export interface PendingBookingData {
+  slots: SlotItem[]
+  resource_id: number
+  resource_name: string
+  title: string
+}
+
+function safeTitle(raw: string): string {
+  return raw.slice(0, MAX_TITLE_LENGTH).replace(/[\r\n]+/g, ' ')
+}
 
 // Test-only agent injection point — setter is a no-op outside test env
 let _testAgent:
@@ -64,15 +85,166 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           }
         }
 
+        let pendingBooking: PendingBookingData | undefined
+        let bookingResult: string | undefined
+        let session = context.session
+        if (session) {
+          let raw = session.get('pendingBooking') as string | undefined
+          if (raw) {
+            try {
+              pendingBooking = JSON.parse(raw) as PendingBookingData
+            } catch (e) {
+              if (process.env.NODE_ENV !== 'test') {
+                console.error('[CustomerChat] pendingBooking parse failed: ' + String(e))
+              }
+            }
+          }
+          bookingResult = session.get('bookingResult') as string | undefined
+          if (bookingResult) {
+            session.unset('bookingResult')
+          }
+        }
+
         return context.render(
           <Layout>
-            <CustomerChatPage messages={chatMessages} threadId={threadId} error={error} />
+            <CustomerChatPage
+              messages={chatMessages}
+              threadId={threadId}
+              error={error}
+              pendingBooking={pendingBooking}
+              bookingResult={bookingResult}
+            />
           </Layout>,
         )
       },
 
       async action(context) {
         let user = getCurrentUser()
+
+        let _action = (context.formData.get('_action') as string | undefined) ?? 'message'
+
+        if (_action === 'confirm_booking') {
+          if (!bookingRateLimiter.attempt(user.id)) {
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent(
+                  'Bitte warte einen Moment, bevor du eine weitere Buchung auslöst.',
+                ),
+            )
+          }
+          let formData = context.formData
+
+          let resourceIdRaw = formData.get('resource_id') as string | null
+          let dayStartRaw = (formData.get('day_start') as string) ?? ''
+          let title = safeTitle((formData.get('title') as string) ?? '')
+          let threadId = (formData.get('threadId') as string) || crypto.randomUUID()
+          if (!validateThreadId(threadId)) threadId = crypto.randomUUID()
+
+          if (!resourceIdRaw || !dayStartRaw) {
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent('Fehlende Buchungsdaten.'),
+            )
+          }
+
+          let parts = dayStartRaw.split(':')
+          if (parts.length !== 2) {
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent('Ungültige Buchungsdaten.'),
+            )
+          }
+          let date = Number(parts[0])
+          let startMin = Number(parts[1])
+          let resourceId = Number(resourceIdRaw)
+
+          if (!Number.isFinite(resourceId) || !Number.isFinite(date) || !Number.isFinite(startMin)) {
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent('Ungültige Buchungsdaten.'),
+            )
+          }
+
+          // Validate submitted slot matches what the agent offered
+          let session = context.session
+          let pending: PendingBookingData | undefined
+          if (session) {
+            let pendingRaw = session.get('pendingBooking') as string | undefined
+            if (pendingRaw) {
+              try {
+                pending = JSON.parse(pendingRaw) as PendingBookingData
+              } catch {
+                session.unset('pendingBooking')
+              }
+            }
+          }
+          if (!pending) {
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent('Bitte fordere zuerst freie Termine an.'),
+            )
+          }
+          let isValidSlot = pending.slots.some(
+            s => s.date_epoch_ms === date && s.start_min === startMin,
+          )
+          if (!isValidSlot || pending.resource_id !== resourceId) {
+            session?.unset('pendingBooking')
+            return redirect(
+              routes.chat.index.href() +
+                '?error=' +
+                encodeURIComponent('Diese Terminauswahl ist nicht mehr gültig.'),
+            )
+          }
+
+          let messageText: string
+          try {
+            let wf = mastra.getWorkflow('bookingWorkflow')
+            if (!wf) {
+              messageText = 'Buchung aktuell nicht verfügbar.'
+            } else {
+              let run = await wf.createRun()
+              let wfResult = await run.start({
+                inputData: { resourceId, date, startMin, title, userId: user.id },
+              })
+
+              if (wfResult.status === 'success' && wfResult.result?.success === true) {
+                let dateStr = new Date(date).toLocaleDateString('de-DE', {
+                  weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+                })
+                let timeStr = formatMinOption(startMin)
+                messageText = 'Termin #' + String(wfResult.result.id) + ' wurde für ' + dateStr + ' um ' + timeStr + ' Uhr gebucht.'
+              } else if (wfResult.status === 'success' && wfResult.result?.error === 'collision') {
+                messageText = 'Dieser Zeitraum ist leider nicht mehr frei. Bitte versuche es mit einem anderen Slot.'
+              } else {
+                messageText = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
+              }
+            }
+          } catch (err) {
+            if (process.env.NODE_ENV !== 'test') {
+              console.error('[booking] workflow failed:', err)
+            }
+            messageText = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
+          }
+
+          if (session) {
+            session.set('bookingResult', messageText)
+            if (messageText.includes('wurde für') || messageText.includes('#')) {
+              session.unset('pendingBooking')
+            }
+          }
+
+          return redirect(
+            routes.chat.index.href() +
+              '?threadId=' +
+              encodeURIComponent(threadId) +
+              '#chat-end',
+          )
+        }
 
         let parsed = s.parseSafe(messageSchema, context.formData)
         if (!parsed.success) {
@@ -99,15 +271,6 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           )
         }
 
-        let threadId = parsed.value.threadId
-        if (threadId && !validateThreadId(threadId)) {
-          return redirect(
-            routes.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Ungültiges Thread-ID-Format.'),
-          )
-        }
-
         if (!chatRateLimiter.attempt(user.id)) {
           return redirect(
             routes.chat.index.href() +
@@ -115,6 +278,15 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               encodeURIComponent(
                 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
               ),
+          )
+        }
+
+        let threadId = parsed.value.threadId
+        if (threadId && !validateThreadId(threadId)) {
+          return redirect(
+            routes.chat.index.href() +
+              '?error=' +
+              encodeURIComponent('Ungültiges Thread-ID-Format.'),
           )
         }
 
@@ -147,6 +319,32 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
                 '?error=' +
                 encodeURIComponent('Keine Antwort erhalten. Bitte versuche es erneut.'),
             )
+          }
+
+          // Check for slot data in tool results — use the LAST result
+          let session = context.session
+          let toolCasts = (result.toolCalls ?? []) as unknown[]
+          let toolRes = (result.toolResults ?? []) as unknown[]
+          let lastSlotResult: Record<string, unknown> | undefined
+          for (let i = 0; i < toolCasts.length; i++) {
+            let tc = toolCasts[i] as Record<string, unknown> | undefined
+            let tcPayload = (tc?.payload as Record<string, unknown> | undefined) ?? tc
+            if (tcPayload?.toolName === 'find_next_available_slots') {
+              let tr = toolRes[i] as Record<string, unknown> | undefined
+              let trPayload = (tr?.payload as Record<string, unknown> | undefined) ?? tr
+              let trResult = trPayload?.result as Record<string, unknown> | undefined
+              if (trResult?.slots && Array.isArray(trResult.slots) && (trResult.slots as unknown[]).length > 0) {
+                lastSlotResult = trResult
+              }
+            }
+          }
+          if (lastSlotResult && session) {
+            session.set('pendingBooking', JSON.stringify({
+              slots: lastSlotResult.slots,
+              resource_id: lastSlotResult.resource_id,
+              resource_name: lastSlotResult.resource_name,
+              title: lastSlotResult.title ?? '',
+            }))
           }
 
           let url =

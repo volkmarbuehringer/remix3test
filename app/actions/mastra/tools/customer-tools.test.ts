@@ -12,6 +12,10 @@ function execTool(tool: Record<string, unknown>, input: Record<string, unknown>)
   return fn(input, {})
 }
 
+function getFirstResourceId(): Promise<number> {
+  return pool.query('SELECT id FROM resources ORDER BY id ASC LIMIT 1').then(r => r.rows[0]?.id as number)
+}
+
 describe('Customer tools', () => {
   before(async () => {
     await initializeAppDatabase()
@@ -64,6 +68,58 @@ describe('Customer tools', () => {
   it('searchResourcesByCapability has correct metadata', () => {
     let tool = customerTools.searchResourcesByCapability as unknown as Record<string, unknown>
     assert.equal(tool.id, 'search_resources_by_capability')
+    assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
+    assert.ok(typeof tool.execute === 'function')
+    assert.ok(tool.inputSchema, 'should have an inputSchema')
+  })
+
+  it('findNextAvailableSlots returns slots for a resource with offerings', async () => {
+    let resourceId = await getFirstResourceId()
+    let result = (await execTool(
+      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
+      { resourceId, daysAhead: 14, title: 'Test Termin' },
+    )) as Record<string, unknown>
+    assert.ok(Array.isArray(result.slots), 'should return slots array')
+    assert.ok((result.slots as unknown[]).length > 0, 'should have at least one slot')
+    assert.equal(result.resource_id, resourceId)
+    assert.ok(typeof result.resource_name === 'string')
+    assert.equal(result.title, 'Test Termin')
+    let firstSlot = (result.slots as Array<Record<string, unknown>>)[0]
+    assert.ok(typeof firstSlot.date_epoch_ms === 'number')
+    assert.ok(typeof firstSlot.start_min === 'number')
+    assert.ok(typeof firstSlot.end_min === 'number')
+    assert.ok(typeof firstSlot.date_display === 'string')
+  })
+
+  it('findNextAvailableSlots limits to 3 results', async () => {
+    let resourceId = await getFirstResourceId()
+    let result = (await execTool(
+      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
+      { resourceId, daysAhead: 14 },
+    )) as Record<string, unknown>
+    let slots = result.slots as unknown[]
+    assert.ok(slots.length <= 3, 'should return at most 3 slots')
+  })
+
+  it('findNextAvailableSlots returns slots sorted chronologically', async () => {
+    let resourceId = await getFirstResourceId()
+    let result = (await execTool(
+      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
+      { resourceId, daysAhead: 14 },
+    )) as Record<string, unknown>
+    let slots = result.slots as Array<Record<string, unknown>>
+    for (let i = 1; i < slots.length; i++) {
+      let prev = slots[i - 1]
+      let curr = slots[i]
+      let prevSort = (prev.date_epoch_ms as number) * 10000 + (prev.start_min as number)
+      let currSort = (curr.date_epoch_ms as number) * 10000 + (curr.start_min as number)
+      assert.ok(currSort >= prevSort, 'slots should be sorted chronologically')
+    }
+  })
+
+  it('findNextAvailableSlots has correct metadata', () => {
+    let tool = customerTools.findNextAvailableSlots as unknown as Record<string, unknown>
+    assert.equal(tool.id, 'find_next_available_slots')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
     assert.ok(tool.inputSchema, 'should have an inputSchema')

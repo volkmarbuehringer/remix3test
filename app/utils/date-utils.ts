@@ -1,3 +1,5 @@
+export const MS_PER_DAY = 86_400_000
+
 /**
  * Check whether a UTC-midnight epoch ms value is strictly in the past
  * (before the start of today in UTC).
