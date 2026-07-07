@@ -1,6 +1,8 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
+import Holidays from 'date-holidays'
 import { pool } from '../../../data/connection.ts'
+import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 
 export const supportTools = {
   lookupUser: createTool({
@@ -186,6 +188,522 @@ export const supportTools = {
         }
       } finally {
         clearTimeout(timeout)
+      }
+    },
+  }),
+
+  getResourceDetails: createTool({
+    id: 'get_resource_details',
+    description: 'Look up a resource by ID or name. Returns id, name, description, and timestamps.',
+    inputSchema: z.object({
+      query: z.string().min(1).max(200).describe('Numeric resource ID or resource name'),
+    }),
+    execute: async ({ query }) => {
+      let client = await pool.connect()
+      try {
+        let isNumeric = /^\d+$/.test(query)
+        let result
+        if (isNumeric) {
+          result = await client.query(
+            'SELECT id, name, description, created_at, updated_at FROM resources WHERE id = $1 OR name = $2 LIMIT 1',
+            [Number(query), query],
+          )
+        } else {
+          result = await client.query(
+            'SELECT id, name, description, created_at, updated_at FROM resources WHERE name = $1 LIMIT 1',
+            [query],
+          )
+        }
+        let rows = result.rows
+        if (rows.length === 0) return { found: false, message: 'No resource found matching that query' }
+        let r = rows[0]
+        return {
+          found: true,
+          resource: {
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          },
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getOfferingsForDate: createTool({
+    id: 'get_offerings_for_date',
+    description: 'Get all offering slots for a specific date. Returns time ranges and resource names. Use this for availability queries like "what is available on [date]".',
+    inputSchema: z.object({
+      date: z.string().min(1).max(30).describe('Date in ISO format (YYYY-MM-DD) or unix millisecond timestamp string'),
+    }),
+    execute: async ({ date }) => {
+      let client = await pool.connect()
+      try {
+        let timestamp: number
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          timestamp = new Date(date + 'T00:00:00Z').getTime()
+        } else {
+          timestamp = Number(date)
+        }
+        if (Number.isNaN(timestamp)) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+
+        let result = await client.query(
+          `SELECT ao.id, ao.day, ao.resource_id, ao.during, ao.created_at, ao.updated_at,
+                  r.name AS resource_name, r.description AS resource_description
+           FROM appointoffering ao
+           LEFT JOIN resources r ON r.id = ao.resource_id
+           WHERE ao.day = $1
+           ORDER BY ao.during ASC`,
+          [timestamp],
+        )
+        return {
+          date,
+          count: result.rows.length,
+          offerings: result.rows.map(r => ({
+            id: r.id,
+            resourceId: r.resource_id,
+            resourceName: r.resource_name ?? 'Unknown',
+            timeRange: r.during,
+          })),
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  searchAppointmentsByDateRange: createTool({
+    id: 'search_appointments_by_date_range',
+    description: 'Search appointments within a date range. Requires both startDate and endDate in ISO format (YYYY-MM-DD). Max range is 90 days. Results limited to 50.',
+    inputSchema: z.object({
+      startDate: z.string().min(1).max(30).describe('Start date in ISO format (YYYY-MM-DD)'),
+      endDate: z.string().min(1).max(30).describe('End date in ISO format (YYYY-MM-DD)'),
+    }),
+    execute: async ({ startDate, endDate }) => {
+      let startTs = new Date(startDate + 'T00:00:00Z').getTime()
+      let endTs = new Date(endDate + 'T23:59:59Z').getTime()
+      if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+        return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+      }
+      let rangeDays = (endTs - startTs) / 86400000
+      if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
+      if (rangeDays < 0) return { error: 'startDate must be before endDate' }
+
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT a.id, a.title, a.date, a.during, a.user_id, u.name AS user_name,
+                  r.name AS resource_name
+           FROM appointments a
+           LEFT JOIN users u ON a.user_id = u.id
+           LEFT JOIN resources r ON r.id = a.resource_id
+           WHERE a.date >= $1 AND a.date <= $2
+           ORDER BY a.date ASC
+           LIMIT 50`,
+          [startTs, endTs],
+        )
+        return {
+          count: result.rows.length,
+          startDate,
+          endDate,
+          appointments: result.rows.map(r => ({
+            id: r.id,
+            title: r.title,
+            date: r.date,
+            timeRange: r.during,
+            userName: r.user_name ?? 'Unknown',
+            resourceName: r.resource_name ?? 'Unknown',
+          })),
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getUserAppointments: createTool({
+    id: 'get_user_appointments',
+    description: 'Get all appointments for a specific user by user ID. Returns most recent 50 appointments with dates and titles.',
+    inputSchema: z.object({
+      userId: z.number().int().describe('The numeric user ID'),
+    }),
+    execute: async ({ userId }) => {
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT a.id, a.title, a.date, a.during, r.name AS resource_name
+           FROM appointments a
+           LEFT JOIN resources r ON r.id = a.resource_id
+           WHERE a.user_id = $1
+           ORDER BY a.date DESC
+           LIMIT 50`,
+          [userId],
+        )
+        return {
+          count: result.rows.length,
+          appointments: result.rows.map(r => ({
+            id: r.id,
+            title: r.title,
+            date: r.date,
+            timeRange: r.during,
+            resourceName: r.resource_name ?? 'Unknown',
+          })),
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getAppointmentDetails: createTool({
+    id: 'get_appointment_details',
+    description: 'Get full details for a single appointment by ID. Returns title, date, time range, user name, resource name, and timestamps.',
+    inputSchema: z.object({
+      id: z.number().int().describe('The appointment ID'),
+    }),
+    execute: async ({ id }) => {
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT a.id, a.title, a.date, a.during, a.created_at, a.updated_at,
+                  u.name AS user_name, u.email AS user_email,
+                  r.name AS resource_name
+           FROM appointments a
+           LEFT JOIN users u ON a.user_id = u.id
+           LEFT JOIN resources r ON r.id = a.resource_id
+           WHERE a.id = $1
+           LIMIT 1`,
+          [id],
+        )
+        if (result.rows.length === 0) return { found: false, message: 'No appointment found with that ID' }
+        let r = result.rows[0]
+        return {
+          found: true,
+          appointment: {
+            id: r.id,
+            title: r.title,
+            date: r.date,
+            timeRange: r.during,
+            userName: r.user_name ?? 'Unknown',
+            userEmail: r.user_email ?? 'Unknown',
+            resourceName: r.resource_name ?? 'Unknown',
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          },
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getOfferingConfigForResource: createTool({
+    id: 'get_offering_config_for_resource',
+    description: 'Get the offering configuration (rules) for a resource by resource ID. Returns config id, resource id, and rules object.',
+    inputSchema: z.object({
+      resourceId: z.number().int().describe('The numeric resource ID'),
+    }),
+    execute: async ({ resourceId }) => {
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT id, resource_id, rules, created_at, updated_at
+           FROM offering_configs
+           WHERE resource_id = $1
+           LIMIT 1`,
+          [resourceId],
+        )
+        if (result.rows.length === 0) {
+          return { found: false, message: 'No offering config found for that resource' }
+        }
+        let r = result.rows[0]
+        let rules = r.rules
+        if (typeof rules === 'string') {
+          try { rules = JSON.parse(rules) } catch { rules = {} }
+        }
+        return {
+          found: true,
+          config: {
+            id: r.id,
+            resourceId: r.resource_id,
+            rules,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          },
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getAppointTypes: createTool({
+    id: 'get_appoint_types',
+    description: 'List all appointment types. Returns type IDs and titles.',
+    inputSchema: z.object({}),
+    execute: async () => {
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          'SELECT id, title, created_at FROM appointtypes ORDER BY title ASC',
+        )
+        return {
+          count: result.rows.length,
+          types: result.rows.map(r => ({
+            id: r.id,
+            title: r.title,
+          })),
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  searchMessages: createTool({
+    id: 'search_messages',
+    description: 'Search messages by content text or sender ID. Returns message content, sender name, and timestamp. Results limited to 50.',
+    inputSchema: z.object({
+      query: z.string().min(1).max(200).describe('Search term to find in message content'),
+      senderId: z.number().int().optional().describe('Optional sender user ID to filter by'),
+    }),
+    execute: async ({ query, senderId }) => {
+      let client = await pool.connect()
+      try {
+        let whereClause = 'm.content ILIKE $1'
+        let params: unknown[] = [`%${query.replace(/[%_\\]/g, '\\$&')}%`]
+        if (senderId !== undefined) {
+          whereClause += ' AND m.sender_id = $2'
+          params.push(senderId)
+        }
+        let result = await client.query(
+          `SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
+           FROM messages m
+           LEFT JOIN users u ON m.sender_id = u.id
+           WHERE ${whereClause}
+           ORDER BY m.created_at DESC
+           LIMIT 50`,
+          params,
+        )
+        return {
+          count: result.rows.length,
+          messages: result.rows.map(r => ({
+            id: r.id,
+            senderId: r.sender_id,
+            senderName: r.sender_name ?? 'Unknown',
+            content: r.content,
+            createdAt: r.created_at,
+          })),
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getAdminStats: createTool({
+    id: 'get_admin_stats',
+    description: 'Get aggregate dashboard statistics. Returns total users by role, total appointments (optionally filtered by date range), total resources, and total messages.',
+    inputSchema: z.object({
+      startDate: z.string().optional().describe('Optional start date (YYYY-MM-DD) to filter appointments'),
+      endDate: z.string().optional().describe('Optional end date (YYYY-MM-DD) to filter appointments'),
+    }),
+    execute: async ({ startDate, endDate }) => {
+      let client = await pool.connect()
+      try {
+        let userResult = await client.query(
+          'SELECT role, count(*)::int AS count FROM users GROUP BY role ORDER BY role',
+        )
+        let byRole: Record<string, number> = {}
+        for (let r of userResult.rows) {
+          byRole[r.role] = r.count
+        }
+        let totalUsers = Object.values(byRole).reduce((a, b) => a + b, 0)
+
+        let apptQuery = 'SELECT count(*)::int AS count FROM appointments'
+        let apptParams: unknown[] = []
+        let hasStart = startDate !== undefined
+        let hasEnd = endDate !== undefined
+        if (hasStart !== hasEnd) {
+          return { error: 'Both startDate and endDate are required to filter appointments' }
+        }
+        if (hasStart && hasEnd) {
+          let startTs = new Date(startDate + 'T00:00:00Z').getTime()
+          let endTs = new Date(endDate + 'T23:59:59Z').getTime()
+          if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+            return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+          }
+          apptQuery += ' WHERE date >= $1 AND date <= $2'
+          apptParams = [startTs, endTs]
+        }
+        let apptResult = await client.query(apptQuery, apptParams)
+
+        let resourceResult = await client.query('SELECT count(*)::int AS count FROM resources')
+        let messageResult = await client.query('SELECT count(*)::int AS count FROM messages')
+
+        return {
+          users: { total: totalUsers, byRole },
+          appointments: { total: apptResult.rows[0].count },
+          resources: { total: resourceResult.rows[0].count },
+          messages: { total: messageResult.rows[0].count },
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  lookupHoliday: createTool({
+    id: 'lookup_holiday',
+    description: 'Check if a given date is a public holiday in Rhineland-Palatinate, Germany. Returns the holiday name if applicable.',
+    inputSchema: z.object({
+      date: z.string().min(1).max(30).describe('Date in ISO format (YYYY-MM-DD)'),
+    }),
+    execute: async ({ date }) => {
+      let parsed = new Date(date + 'T00:00:00Z')
+      if (Number.isNaN(parsed.getTime())) return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+      let hd = new Holidays('DE', 'RP')
+      let holiday = hd.isHoliday(parsed)
+      if (holiday !== false) {
+        let h = (Array.isArray(holiday) ? holiday[0] : holiday) as { name: string; type: string }
+        return { isHoliday: true, name: h.name, type: h.type, date }
+      }
+      return { isHoliday: false, name: null, date }
+    },
+  }),
+
+  generatePdfReport: createTool({
+    id: 'generate_pdf_report',
+    description: 'Generate a PDF report for a predefined type. Supported types: "appointment-list" (appointments in a date range), "user-list" (all users with role). Returns base64-encoded PDF data.',
+    inputSchema: z.object({
+      reportType: z.enum(['appointment-list', 'user-list']).describe('Type of report to generate'),
+      startDate: z.string().optional().describe('Start date (YYYY-MM-DD) for appointment-list reports'),
+      endDate: z.string().optional().describe('End date (YYYY-MM-DD) for appointment-list reports'),
+    }),
+    execute: async ({ reportType, startDate, endDate }) => {
+      let client = await pool.connect()
+      try {
+        if (reportType === 'appointment-list') {
+          if (!startDate || !endDate) {
+            return { error: 'startDate and endDate are required for appointment-list reports' }
+          }
+          let startTs = new Date(startDate + 'T00:00:00Z').getTime()
+          let endTs = new Date(endDate + 'T23:59:59Z').getTime()
+          if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
+            return { error: 'Invalid date format. Use YYYY-MM-DD.' }
+          }
+          let rangeDays = (endTs - startTs) / 86400000
+          if (rangeDays > 90) return { error: 'Date range exceeds maximum of 90 days' }
+          if (rangeDays < 0) return { error: 'startDate must be before endDate' }
+          let result = await client.query(
+            `SELECT a.title, a.date, a.during, u.name AS user_name, r.name AS resource_name
+             FROM appointments a
+             LEFT JOIN users u ON a.user_id = u.id
+             LEFT JOIN resources r ON r.id = a.resource_id
+             WHERE a.date >= $1 AND a.date <= $2
+             ORDER BY a.date ASC
+             LIMIT 500`,
+            [startTs, endTs],
+          )
+          let docDef: any = {
+            content: [
+              { text: `Appointment Report: ${startDate} to ${endDate}`, style: 'header' },
+              { text: `Generated: ${new Date().toISOString().slice(0, 10)}`, style: 'subheader' },
+              { text: '', margin: [0, 10, 0, 0] },
+              {
+                table: {
+                  headerRows: 1,
+                  widths: ['*', 'auto', 'auto', '*', '*'],
+                  body: [
+                    ['Title', 'Date', 'Time', 'User', 'Resource'],
+                    ...result.rows.map(r => [
+                      r.title,
+                      new Date(r.date).toISOString().slice(0, 10),
+                      r.during,
+                      r.user_name ?? 'Unknown',
+                      r.resource_name ?? 'Unknown',
+                    ]),
+                  ],
+                },
+              },
+            ],
+            styles: {
+              header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+              subheader: { fontSize: 12, color: '#666', margin: [0, 0, 0, 20] },
+            },
+          }
+          let buf = await generatePdfBuffer(docDef)
+          return {
+            filename: `appointments-${startDate}-to-${endDate}.pdf`,
+            data: buf.toString('base64'),
+            size: buf.length,
+            reportType: 'appointment-list',
+          }
+        }
+
+        if (reportType === 'user-list') {
+          let result = await client.query(
+            'SELECT id, email, name, role, email_verified, created_at FROM users ORDER BY name ASC LIMIT 500',
+          )
+          let docDef: any = {
+            content: [
+              { text: 'User Report', style: 'header' },
+              { text: `Generated: ${new Date().toISOString().slice(0, 10)}`, style: 'subheader' },
+              { text: '', margin: [0, 10, 0, 0] },
+              {
+                table: {
+                  headerRows: 1,
+                  widths: ['auto', '*', '*', 'auto', 'auto'],
+                  body: [
+                    ['ID', 'Name', 'Email', 'Role', 'Verified'],
+                    ...result.rows.map(r => [
+                      String(r.id),
+                      r.name,
+                      r.email,
+                      r.role,
+                      r.email_verified === 1 ? 'Yes' : 'No',
+                    ]),
+                  ],
+                },
+              },
+            ],
+            styles: {
+              header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+              subheader: { fontSize: 12, color: '#666', margin: [0, 0, 0, 20] },
+            },
+          }
+          let buf = await generatePdfBuffer(docDef)
+          return {
+            filename: `users-${new Date().toISOString().slice(0, 10)}.pdf`,
+            data: buf.toString('base64'),
+            size: buf.length,
+            reportType: 'user-list',
+          }
+        }
+
+        return { error: 'Unknown report type. Supported types: appointment-list, user-list' }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  getLocationContext: createTool({
+    id: 'get_location_context',
+    description: 'Get the system default location context: Ransbach-Baumbach, Rhineland-Palatinate, Germany. Use this when you need the default location for weather queries, timezone information, or any location-based question.',
+    inputSchema: z.object({}),
+    execute: async () => {
+      return {
+        city: 'Ransbach-Baumbach',
+        region: 'Rhineland-Palatinate',
+        country: 'Germany',
+        countryCode: 'DE',
+        timezone: 'Europe/Berlin',
+        latitude: 50.4667,
+        longitude: 7.7333,
       }
     },
   }),
