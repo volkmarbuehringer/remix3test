@@ -95,6 +95,123 @@ describe('Customer Chat controller', () => {
     __setTestCustomerAgent(undefined)
   })
 
+  describe('slot detection from tool results', () => {
+    async function postChatAndFollow(
+      mockAgent: unknown,
+      message: string,
+    ): Promise<{ html: string; session: { cookie: string } }> {
+      let session = await createAuthCookieWithCsrf()
+      assert.ok(session?.cookie, 'Failed to create auth session')
+
+      let adminResult = await pool.query(
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'],
+      )
+      if (adminResult.rows.length > 0) {
+        chatRateLimiter.reset(adminResult.rows[0].id as number)
+      }
+
+      __setTestCustomerAgent(mockAgent)
+      try {
+        let postResponse = await router.fetch(CHAT_ACTION_URL, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({ message, _csrf: session.csrfToken }),
+          redirect: 'manual',
+        })
+        assert.equal(postResponse.status, 302)
+        let location = postResponse.headers.get('Location')
+        assert.ok(location, 'response should have Location header')
+        if (location!.includes('error=')) {
+          assert.ok(false, 'redirect contains error: ' + location)
+        }
+        let getUrl = location!.startsWith('http') ? location! : `${BASE}${location!}`
+        let getResponse = await router.fetch(getUrl, {
+          headers: { Cookie: session.cookie },
+        })
+        let html = await getResponse.text()
+        return { html, session }
+      } finally {
+        __setTestCustomerAgent(undefined)
+      }
+    }
+
+    it('POST /chat saves pendingBooking when agent returns slots', async () => {
+      let futureDate = Date.now() + 7 * 86_400_000
+      let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Hier sind die verfügbaren Termine.',
+          toolCalls: [{
+            type: 'tool-call',
+            payload: {
+              toolCallId: 'call-1',
+              toolName: 'findNextAvailableSlots',
+              args: { resourceId: 1, daysAhead: 7, title: 'Test Termin' },
+            },
+          }],
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolCallId: 'call-1',
+              toolName: 'findNextAvailableSlots',
+              args: { resourceId: 1, daysAhead: 7, title: 'Test Termin' },
+              result: {
+                slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+                resource_id: 1,
+                resource_name: 'Test Ressource',
+                title: 'Test Termin',
+              },
+            },
+          }],
+        }),
+      }, 'Zeig mir Termine')
+
+      assert.ok(html.includes('Termin buchen'), 'form button should be rendered')
+      assert.ok(html.includes('Test Ressource'), 'resource name should appear in form')
+      assert.ok(html.includes('600'), 'slot start time should appear in form')
+    })
+
+    it('POST /chat does not save pendingBooking when agent returns empty slots', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Aktuell sind leider keine Termine verfügbar.',
+          toolCalls: [{
+            type: 'tool-call',
+            payload: {
+              toolCallId: 'call-1',
+              toolName: 'findNextAvailableSlots',
+              args: { resourceId: 1, daysAhead: 7, title: '' },
+            },
+          }],
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolCallId: 'call-1',
+              toolName: 'findNextAvailableSlots',
+              args: { resourceId: 1, daysAhead: 7, title: '' },
+              result: { slots: [], resource_id: 1, resource_name: 'Test', title: '' },
+            },
+          }],
+        }),
+      }, 'Termine anzeigen')
+
+      assert.ok(html.includes('Beratung'), 'chat page should still render')
+      assert.ok(!html.includes('Termin buchen'), 'should NOT include booking form when slots empty')
+    })
+
+    it('POST /chat does not save pendingBooking when agent makes no tool calls', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Ich kann Ihnen helfen. Bitte beschreiben Sie Ihr Anliegen genauer.',
+        }),
+      }, 'Ich brauche Hilfe')
+
+      assert.ok(html.includes('Beratung'), 'chat page should still render')
+      assert.ok(!html.includes('Termin buchen'), 'should NOT include booking form when no tool calls')
+    })
+  })
+
   it('POST /chat with _action=confirm_booking triggers workflow', async () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)

@@ -321,18 +321,17 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             )
           }
 
-          // Check for slot data in tool results — use the LAST result
+          // Among multiple find_next_available_slots calls, take the last one that
+          // returned non-empty slots — handles the multi-step "search then book" path
           let session = context.session
-          let toolCasts = (result.toolCalls ?? []) as unknown[]
           let toolRes = (result.toolResults ?? []) as unknown[]
           let lastSlotResult: Record<string, unknown> | undefined
-          for (let i = 0; i < toolCasts.length; i++) {
-            let tc = toolCasts[i] as Record<string, unknown> | undefined
-            let tcPayload = (tc?.payload as Record<string, unknown> | undefined) ?? tc
-            if (tcPayload?.toolName === 'find_next_available_slots') {
-              let tr = toolRes[i] as Record<string, unknown> | undefined
-              let trPayload = (tr?.payload as Record<string, unknown> | undefined) ?? tr
-              let trResult = trPayload?.result as Record<string, unknown> | undefined
+          for (let tr of toolRes) {
+            let entry = tr as Record<string, unknown> | undefined
+            // Mastra wraps tool metadata in a payload key — unwrap it
+            let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
+            if (payload?.toolName === 'find_next_available_slots' || payload?.toolName === 'findNextAvailableSlots') {
+              let trResult = payload?.result as Record<string, unknown> | undefined
               if (trResult?.slots && Array.isArray(trResult.slots) && (trResult.slots as unknown[]).length > 0) {
                 lastSlotResult = trResult
               }

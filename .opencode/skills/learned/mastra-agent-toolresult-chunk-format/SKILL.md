@@ -27,64 +27,78 @@ for (let tr of (result.toolResults ?? [])) {
 
 ## Solution
 
-Always check BOTH formats by using a payload-first fallback pattern:
+Always check BOTH formats by using a payload-first fallback pattern. **Iterate `toolResults` directly by `toolName`** instead of relying on same-index pairing with `toolCalls` — with multi-step agent responses (`maxSteps > 1`), the arrays may not align.
 
 ```typescript
 let result = await agent.generate(message, opts)
 
 // Handle both chunk format ({ payload: { toolName, ... } }) and flat format ({ toolName, ... })
-let toolCalls = (result.toolCalls ?? []) as unknown[]
+// Iterate toolResults directly — more robust than index-based pairing with toolCalls
 let toolResults = (result.toolResults ?? []) as unknown[]
 
-for (let i = 0; i < toolCalls.length; i++) {
-  let tc = toolCalls[i] as Record<string, unknown> | undefined
+for (let tr of toolResults) {
+  let entry = tr as Record<string, unknown> | undefined
   // Prefer payload.toolName, fall back to direct toolName
-  let tcPayload = (tc?.payload as Record<string, unknown> | undefined) ?? tc
-  if (tcPayload?.toolName === 'my_tool_id') {
-    let tr = toolResults[i] as Record<string, unknown> | undefined
+  let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
+  if (payload?.toolName === 'my_tool' || payload?.toolName === 'my_tool_id') {
     // Prefer payload.result, fall back to direct result
-    let trPayload = (tr?.payload as Record<string, unknown> | undefined) ?? tr
-    let toolResult = trPayload?.result as Record<string, unknown> | undefined
+    let toolResult = payload?.result as Record<string, unknown> | undefined
     // Use toolResult here
     console.log(toolResult)
   }
 }
 ```
 
-### Tool names are the `id` you passed to `createTool()`
+### Tool names: runtime uses the JavaScript property key, not `id`
 
-When checking `toolName`, use the value of the `id` field from `createTool({ id: 'my_tool_id' })`, not the camelCase JavaScript object key.
+At runtime in `@mastra/core@^1.49.0`, `toolName` is the **JavaScript object property key** (camelCase), NOT the `id` field you passed to `createTool()`.
 
 ```typescript
-// Tool definition
+// Tool definition — property key is 'myTool', id is 'my_tool_id'
 export const myTools = {
-  myTool: createTool({ id: 'my_tool_id', ... })  // toolName will be 'my_tool_id'
+  myTool: createTool({ id: 'my_tool_id', ... })
 }
 
-// In the agent response
-if (tcPayload?.toolName === 'my_tool_id') { ... }  // correct
-if (tcPayload?.toolName === 'myTool') { ... }       // wrong
+// Runtime toolName is the property key, NOT the id
+// result.toolResults[i].payload.toolName === 'myTool'  ← actual
+// result.toolResults[i].payload.toolName === 'my_tool_id'  ← NOT this
 ```
 
-### Exhaustive check pattern with type narrowing
+This varies between Mastra versions. When in doubt, add a one-shot debug log to see the actual value:
 
-If you need the LAST matching tool result (useful when the agent makes multiple calls):
+```typescript
+let result = await agent.generate(message, opts)
+console.log(JSON.stringify(result.toolResults ?? []).slice(0, 1000))
+// Look for "toolName": "..." in the output
+```
+
+Then use the exact string you see. A safe fallback checks both:
+
+```typescript
+if (payload?.toolName === 'find_next_available_slots' || payload?.toolName === 'findNextAvailableSlots') {
+  // either format works
+}
+```
+
+### Exhaustive check — iterate toolResults directly
+
+If you need the LAST matching tool result (useful when the agent makes multiple calls across steps), iterate `toolResults` directly:
 
 ```typescript
 let lastResult: Record<string, unknown> | undefined
-for (let i = 0; i < toolCalls.length; i++) {
-  let tc = toolCalls[i] as Record<string, unknown> | undefined
-  let tcPayload = (tc?.payload as Record<string, unknown> | undefined) ?? tc
-  if (tcPayload?.toolName === 'my_tool_id') {
-    let tr = toolResults[i] as Record<string, unknown> | undefined
-    let trPayload = (tr?.payload as Record<string, unknown> | undefined) ?? tr
-    let trResult = trPayload?.result as Record<string, unknown> | undefined
+for (let tr of (result.toolResults ?? [])) {
+  let entry = tr as Record<string, unknown> | undefined
+  let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
+  if (payload?.toolName === 'myTool' || payload?.toolName === 'my_tool_id') {
+    let trResult = payload?.result as Record<string, unknown> | undefined
     if (trResult != null) {
       lastResult = trResult  // keep overwriting to get the most recent
     }
   }
 }
 ```
+
+This avoids index-based pairing fragility and handles multi-step agent responses correctly.
 
 ## When to Use
 
