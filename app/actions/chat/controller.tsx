@@ -141,32 +141,25 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           let threadId = (formData.get('threadId') as string) || crypto.randomUUID()
           if (!validateThreadId(threadId)) threadId = crypto.randomUUID()
 
+          let errorUrl = (msg: string): string =>
+            routes.chat.index.href() +
+              '?threadId=' + encodeURIComponent(threadId) +
+              '&error=' + encodeURIComponent(msg)
+
           if (!resourceIdRaw || !dayStartRaw) {
-            return redirect(
-              routes.chat.index.href() +
-                '?error=' +
-                encodeURIComponent('Fehlende Buchungsdaten.'),
-            )
+            return redirect(errorUrl('Fehlende Buchungsdaten.'))
           }
 
           let parts = dayStartRaw.split(':')
           if (parts.length !== 2) {
-            return redirect(
-              routes.chat.index.href() +
-                '?error=' +
-                encodeURIComponent('Ungültige Buchungsdaten.'),
-            )
+            return redirect(errorUrl('Ungültige Buchungsdaten.'))
           }
           let date = Number(parts[0])
           let startMin = Number(parts[1])
           let resourceId = Number(resourceIdRaw)
 
           if (!Number.isFinite(resourceId) || !Number.isFinite(date) || !Number.isFinite(startMin)) {
-            return redirect(
-              routes.chat.index.href() +
-                '?error=' +
-                encodeURIComponent('Ungültige Buchungsdaten.'),
-            )
+            return redirect(errorUrl('Ungültige Buchungsdaten.'))
           }
 
           // Validate submitted slot matches what the agent offered
@@ -183,25 +176,18 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             }
           }
           if (!pending) {
-            return redirect(
-              routes.chat.index.href() +
-                '?error=' +
-                encodeURIComponent('Bitte fordere zuerst freie Termine an.'),
-            )
+            return redirect(errorUrl('Bitte fordere zuerst freie Termine an.'))
           }
           let isValidSlot = pending.slots.some(
             s => s.date_epoch_ms === date && s.start_min === startMin,
           )
           if (!isValidSlot || pending.resource_id !== resourceId) {
             session?.unset('pendingBooking')
-            return redirect(
-              routes.chat.index.href() +
-                '?error=' +
-                encodeURIComponent('Diese Terminauswahl ist nicht mehr gültig.'),
-            )
+            return redirect(errorUrl('Diese Terminauswahl ist nicht mehr gültig.'))
           }
 
           let messageText: string
+          let bookingSucceeded = false
           try {
             let wf = mastra.getWorkflow('bookingWorkflow')
             if (!wf) {
@@ -213,6 +199,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               })
 
               if (wfResult.status === 'success' && wfResult.result?.success === true) {
+                bookingSucceeded = true
                 let dateStr = new Date(date).toLocaleDateString('de-DE', {
                   weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
                 })
@@ -233,7 +220,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
 
           if (session) {
             session.set('bookingResult', messageText)
-            if (messageText.includes('wurde für') || messageText.includes('#')) {
+            if (bookingSucceeded) {
               session.unset('pendingBooking')
             }
           }
@@ -294,6 +281,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           threadId = crypto.randomUUID()
         }
 
+        // Clear stale booking data from previous turns — agent will re-set it if it finds slots
+        let session = context.session
+        if (session) {
+          session.unset('pendingBooking')
+        }
+
         let abortController = new AbortController()
         let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
 
@@ -323,7 +316,6 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
 
           // Among multiple find_next_available_slots calls, take the last one that
           // returned non-empty slots — handles the multi-step "search then book" path
-          let session = context.session
           let toolRes = (result.toolResults ?? []) as unknown[]
           let lastSlotResult: Record<string, unknown> | undefined
           for (let tr of toolRes) {

@@ -4,7 +4,8 @@ import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import type { ChatMessage } from '../types/chatlog.ts'
-import type { PendingBookingData } from '../actions/chat/controller.tsx'
+import type { PendingBookingData, SlotItem } from '../actions/chat/controller.tsx'
+import { formatMinOption } from '../utils/date-utils.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 
@@ -107,6 +108,8 @@ const bookingCardStyle = css({
   border: `1px solid ${theme.colors.border.default}`,
   borderRadius: theme.radius.lg,
   marginBottom: '1rem',
+  maxHeight: '40vh',
+  overflowY: 'auto',
 })
 
 const bookingCardTitle = css({
@@ -116,14 +119,26 @@ const bookingCardTitle = css({
   color: theme.colors.text.primary,
 })
 
+const dayGroupStyle = css({
+  marginBottom: '0.75rem',
+})
+
+const dayHeaderStyle = css({
+  fontSize: '0.9rem',
+  fontWeight: 600,
+  marginBottom: '0.25rem',
+  color: theme.colors.text.primary,
+})
+
 const slotLabelStyle = css({
   display: 'flex',
   alignItems: 'center',
   gap: '0.5rem',
-  padding: '0.5rem',
-  marginBottom: '0.25rem',
+  padding: '0.25rem 0.5rem 0.25rem 1.25rem',
+  marginBottom: '0.15rem',
   borderRadius: theme.radius.md,
   cursor: 'pointer',
+  fontSize: '0.9rem',
 })
 
 const bookButtonStyle = css({
@@ -147,12 +162,6 @@ const bookingResultStyle = css({
   lineHeight: 1.5,
   whiteSpace: 'pre-wrap',
 })
-
-function formatTime(minutes: number): string {
-  let h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  let m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
-}
 
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
@@ -212,7 +221,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           <div id="chat-end" />
         </div>
 
-        {pendingBooking && (
+        {pendingBooking && pendingBooking.slots.length > 0 && (
           <form method="POST" action={routes.chat.action.href()} mix={bookingCardStyle}>
             <CsrfTokenInput />
             <input type="hidden" name="_action" value="confirm_booking" />
@@ -220,18 +229,43 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
             <input type="hidden" name="resource_id" value={String(pendingBooking.resource_id)} />
             {threadId && <input type="hidden" name="threadId" value={threadId} />}
             <p mix={bookingCardTitle}>{pendingBooking.resource_name}</p>
-            {pendingBooking.slots.map((slot, idx) => (
-              <label key={idx} mix={slotLabelStyle}>
-                <input
-                  type="radio"
-                  name="day_start"
-                  value={`${slot.date_epoch_ms}:${slot.start_min}`}
-                  defaultChecked={idx === 0}
-                  required
-                />
-                {slot.date_display} · {formatTime(slot.start_min)}–{formatTime(slot.end_min)} Uhr
-              </label>
-            ))}
+            {(() => {
+              let sorted = [...pendingBooking.slots].sort(
+                (a, b) => a.date_epoch_ms - b.date_epoch_ms || a.start_min - b.start_min,
+              )
+              let groups = new Map<number, SlotItem[]>()
+              for (let slot of sorted) {
+                let day = slot.date_epoch_ms
+                if (!groups.has(day)) groups.set(day, [])
+                groups.get(day)!.push(slot)
+              }
+              let dayKeys = [...groups.keys()]
+              let globalIdx = 0
+              return dayKeys.map((dayMs) => {
+                let daySlots = groups.get(dayMs)!
+                return (
+                  <fieldset key={dayMs} mix={dayGroupStyle} style={{ border: 'none', padding: 0, margin: 0 }}>
+                    <legend mix={dayHeaderStyle}>{daySlots[0].date_display}</legend>
+                    {daySlots.map((slot) => {
+                      let idx = globalIdx++
+                      return (
+                        <label key={`${dayMs}-${slot.start_min}`} mix={slotLabelStyle}>
+                          <input
+                            type="radio"
+                            name="day_start"
+                            value={`${slot.date_epoch_ms}:${slot.start_min}`}
+                            defaultChecked={idx === 0}
+                            required
+                            aria-label={`${daySlots[0].date_display}, ${formatMinOption(slot.start_min)}–${formatMinOption(slot.end_min)} Uhr`}
+                          />
+                          {formatMinOption(slot.start_min)}–{formatMinOption(slot.end_min)} Uhr
+                        </label>
+                      )
+                    })}
+                  </fieldset>
+                )
+              })
+            })()}
             <button type="submit" mix={bookButtonStyle}>
               Termin buchen
             </button>

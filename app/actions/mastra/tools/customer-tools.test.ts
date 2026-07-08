@@ -91,14 +91,21 @@ describe('Customer tools', () => {
     assert.ok(typeof firstSlot.date_display === 'string')
   })
 
-  it('findNextAvailableSlots limits to 3 results', async () => {
+  it('findNextAvailableSlots limits to 3 slots per day', async () => {
     let resourceId = await getFirstResourceId()
     let result = (await execTool(
       customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
-      { resourceId, daysAhead: 14 },
+      { resourceId, daysAhead: 30 },
     )) as Record<string, unknown>
-    let slots = result.slots as unknown[]
-    assert.ok(slots.length <= 3, 'should return at most 3 slots')
+    let slots = result.slots as Array<Record<string, unknown>>
+    let byDay = new Map<number, number>()
+    for (let s of slots) {
+      let day = s.date_epoch_ms as number
+      byDay.set(day, (byDay.get(day) ?? 0) + 1)
+    }
+    for (let count of byDay.values()) {
+      assert.ok(count <= 3, 'each day should have at most 3 slots')
+    }
   })
 
   it('findNextAvailableSlots returns slots sorted chronologically', async () => {
@@ -115,6 +122,27 @@ describe('Customer tools', () => {
       let currSort = (curr.date_epoch_ms as number) * 10000 + (curr.start_min as number)
       assert.ok(currSort >= prevSort, 'slots should be sorted chronologically')
     }
+  })
+
+  it('findNextAvailableSlots with offsetDays skips to later date range', async () => {
+    let resourceId = await getFirstResourceId()
+    let defaultResult = (await execTool(
+      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
+      { resourceId, daysAhead: 30 },
+    )) as Record<string, unknown>
+    let offsetResult = (await execTool(
+      customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
+      { resourceId, daysAhead: 30, offsetDays: 30 },
+    )) as Record<string, unknown>
+
+    let defaultSlots = defaultResult.slots as Array<Record<string, unknown>>
+    let offsetSlots = offsetResult.slots as Array<Record<string, unknown>>
+
+    // Seed data has offerings for current week only — default finds them
+    assert.ok(defaultSlots.length > 0, 'default call should find slots in current week')
+
+    // 30 days out there are no offerings in seed data — offset returns empty
+    assert.equal(offsetSlots.length, 0, 'offsetDays=30 should find no slots in seed data')
   })
 
   it('findNextAvailableSlots has correct metadata', () => {

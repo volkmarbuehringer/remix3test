@@ -20,12 +20,12 @@
     "node": ">=26.2.0"
   },
   "dependencies": {
-    "@mastra/core": "^1.49.0",
+    "@mastra/core": "^1.50.0",
     "@mastra/evals": "^1.5.1",
     "@mastra/loggers": "^1.2.0",
     "@mastra/memory": "^1.22.1",
-    "@mastra/observability": "^1.15.2",
-    "@mastra/pg": "^1.15.0",
+    "@mastra/observability": "^1.16.0",
+    "@mastra/pg": "^1.15.1",
     "date-holidays": "^3.32.0",
     "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
@@ -35,19 +35,20 @@
   },
   "devDependencies": {
     "@fission-ai/openspec": "^1.5.0",
-    "@oxlint/plugins": "^1.72.0",
+    "@oxlint/plugins": "^1.73.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.20.0",
-    "@typescript/native-preview": "7.0.0-dev.20260704.1",
+    "@typescript/native-preview": "7.0.0-dev.20260706.1",
     "ecc-universal": "2.0.0",
-    "mastra": "^1.18.0",
-    "oxlint": "^1.72.0",
+    "mastra": "^1.18.1",
+    "oxlint": "^1.73.0",
     "oxlint-tsgolint": "^0.24.0",
     "playwright": "^1.61.1",
     "prettier": "^3.9.4",
     "typescript": "6.0.3"
   }
 }
+

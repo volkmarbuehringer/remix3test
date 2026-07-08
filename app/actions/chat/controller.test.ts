@@ -96,8 +96,10 @@ describe('Customer Chat controller', () => {
   })
 
   describe('slot detection from tool results', () => {
+    type MockAgent = Parameters<typeof __setTestCustomerAgent>[0]
+
     async function postChatAndFollow(
-      mockAgent: unknown,
+      mockAgent: MockAgent,
       message: string,
     ): Promise<{ html: string; session: { cookie: string } }> {
       let session = await createAuthCookieWithCsrf()
@@ -135,9 +137,20 @@ describe('Customer Chat controller', () => {
       }
     }
 
-    it('POST /chat saves pendingBooking when agent returns slots', async () => {
+    it('POST /chat saves pendingBooking when agent returns slots across multiple days', async () => {
       let futureDate = Date.now() + 7 * 86_400_000
-      let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+      let day1 = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+      let day2 = day1 + 86_400_000
+      let day3 = day1 + 2 * 86_400_000
+      let slots = [
+        { date_epoch_ms: day1, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 },
+        { date_epoch_ms: day1, date_display: 'Di, 14.07.', start_min: 660, end_min: 720 },
+        { date_epoch_ms: day2, date_display: 'Mi, 15.07.', start_min: 540, end_min: 600 },
+        { date_epoch_ms: day2, date_display: 'Mi, 15.07.', start_min: 600, end_min: 660 },
+        { date_epoch_ms: day3, date_display: 'Do, 16.07.', start_min: 480, end_min: 540 },
+        { date_epoch_ms: day3, date_display: 'Do, 16.07.', start_min: 540, end_min: 600 },
+        { date_epoch_ms: day3, date_display: 'Do, 16.07.', start_min: 600, end_min: 660 },
+      ]
 
       let { html } = await postChatAndFollow({
         generate: async (_message: string, _opts?: any) => ({
@@ -147,7 +160,7 @@ describe('Customer Chat controller', () => {
             payload: {
               toolCallId: 'call-1',
               toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 7, title: 'Test Termin' },
+              args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
             },
           }],
           toolResults: [{
@@ -155,9 +168,9 @@ describe('Customer Chat controller', () => {
             payload: {
               toolCallId: 'call-1',
               toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 7, title: 'Test Termin' },
+              args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
               result: {
-                slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+                slots,
                 resource_id: 1,
                 resource_name: 'Test Ressource',
                 title: 'Test Termin',
@@ -169,7 +182,10 @@ describe('Customer Chat controller', () => {
 
       assert.ok(html.includes('Termin buchen'), 'form button should be rendered')
       assert.ok(html.includes('Test Ressource'), 'resource name should appear in form')
-      assert.ok(html.includes('600'), 'slot start time should appear in form')
+      assert.ok(html.includes('10:00'), 'first slot start time should appear in form')
+      assert.ok(html.includes('Di, 14.07.'), 'first day header should appear')
+      assert.ok(html.includes('Mi, 15.07.'), 'second day header should appear')
+      assert.ok(html.includes('Do, 16.07.'), 'third day header should appear')
     })
 
     it('POST /chat does not save pendingBooking when agent returns empty slots', async () => {
@@ -181,7 +197,7 @@ describe('Customer Chat controller', () => {
             payload: {
               toolCallId: 'call-1',
               toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 7, title: '' },
+              args: { resourceId: 1, daysAhead: 30, title: '' },
             },
           }],
           toolResults: [{
@@ -189,7 +205,7 @@ describe('Customer Chat controller', () => {
             payload: {
               toolCallId: 'call-1',
               toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 7, title: '' },
+              args: { resourceId: 1, daysAhead: 30, title: '' },
               result: { slots: [], resource_id: 1, resource_name: 'Test', title: '' },
             },
           }],
@@ -318,6 +334,40 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
     assert.ok(location?.includes('error='), 'should redirect with error')
+  })
+
+  it('POST /chat clears stale pendingBooking when agent returns no slots', async () => {
+    let futureDateMs = new Date(Date.now() + 7 * 86_400_000).setUTCHours(0, 0, 0, 0)
+    let staleBooking = JSON.stringify({
+      slots: [{ date_epoch_ms: futureDateMs, date_display: 'Test', start_min: 600, end_min: 660 }],
+      resource_id: 1, resource_name: 'Test', title: 'Test',
+    })
+    let session = await createAuthCookieWithPendingBooking(staleBooking)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let adminResult = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    if (adminResult.rows.length > 0) chatRateLimiter.reset(adminResult.rows[0].id as number)
+
+    let mockAgent = {
+      generate: async () => ({ text: 'Ich verstehe. Kannst du dein Anliegen genauer beschreiben?' }),
+    }
+    __setTestCustomerAgent(mockAgent)
+    try {
+      let postResponse = await router.fetch(CHAT_ACTION_URL, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({ message: 'etwas anderes', _csrf: session.csrfToken }),
+        redirect: 'manual',
+      })
+      assert.equal(postResponse.status, 302)
+      let location = postResponse.headers.get('Location')!
+      let getUrl = location.startsWith('http') ? location : `${BASE}${location}`
+      let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
+      let html = await getResponse.text()
+      assert.ok(!html.includes('Termin buchen'), 'stale booking form should be cleared')
+    } finally {
+      __setTestCustomerAgent(undefined)
+    }
   })
 
   it('POST /chat continues an existing thread when threadId is provided', async () => {
