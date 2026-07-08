@@ -206,7 +206,10 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             if (pendingRaw) {
               try {
                 pending = JSON.parse(pendingRaw) as PendingBookingData
-              } catch {
+              } catch (e) {
+                if (process.env.NODE_ENV !== 'test') {
+                  console.error('[CustomerChat] pendingBooking parse failed in confirm_booking: ' + String(e))
+                }
                 session.unset('pendingBooking')
               }
             }
@@ -215,7 +218,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             return redirect(errorUrl('Bitte fordere zuerst freie Termine an.'))
           }
           let isValidSlot = pending.slots.some(
-            s => s.date_epoch_ms === date && s.start_min === startMin,
+            slot => slot.date_epoch_ms === date && slot.start_min === startMin,
           )
           if (!isValidSlot || pending.resource_id !== resourceId) {
             session?.unset('pendingBooking')
@@ -224,6 +227,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
 
           let messageText: string
           let bookingSucceeded = false
+          let slotToRemove: { date: number; startMin: number } | undefined
           try {
             let wf = mastra.getWorkflow('bookingWorkflow')
             if (!wf) {
@@ -236,12 +240,14 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
 
               if (wfResult.status === 'success' && wfResult.result?.success === true) {
                 bookingSucceeded = true
+                slotToRemove = { date, startMin }
                 let dateStr = new Date(date).toLocaleDateString('de-DE', {
                   weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
                 })
                 let timeStr = formatMinOption(startMin)
                 messageText = 'Termin #' + String(wfResult.result.id) + ' wurde für ' + dateStr + ' um ' + timeStr + ' Uhr gebucht.'
               } else if (wfResult.status === 'success' && wfResult.result?.error === 'collision') {
+                slotToRemove = { date, startMin }
                 messageText = 'Dieser Zeitraum ist leider nicht mehr frei. Bitte versuche es mit einem anderen Slot.'
               } else {
                 messageText = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
@@ -256,8 +262,15 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
 
           if (session) {
             session.set('bookingResult', messageText)
-            if (bookingSucceeded) {
-              session.unset('pendingBooking')
+            if (slotToRemove) {
+              let remaining = pending.slots.filter(
+                slot => !(slot.date_epoch_ms === slotToRemove.date && slot.start_min === slotToRemove.startMin),
+              )
+              if (remaining.length > 0) {
+                session.set('pendingBooking', JSON.stringify({ ...pending, slots: remaining }))
+              } else {
+                session.unset('pendingBooking')
+              }
             }
           }
 

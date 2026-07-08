@@ -5,7 +5,7 @@ import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser, createAuthCookieWithPendingBooking } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestCustomerAgent, customerChat, chatRateLimiter } from './controller.tsx'
+import { __setTestCustomerAgent, customerChat, chatRateLimiter, bookingRateLimiter } from './controller.tsx'
 
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.chat.index.href()}`
@@ -260,6 +260,191 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
     assert.ok(location?.includes('threadId='), 'should redirect with threadId')
+  })
+
+  async function seedOffering(dayMs: number) {
+    try {
+      await pool.query(
+        `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+         VALUES ($1::bigint, 1, int4range(480, 1080, '[)'), $2, $2)`,
+        [dayMs, Date.now()],
+      )
+    } catch {
+      // offering may already exist from another test
+    }
+  }
+
+  it('confirm_booking keeps form open with remaining slots on success', async () => {
+    let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
+    await seedOffering(testDayMs)
+    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    if (rateLimiterAdmin.rows.length > 0) {
+      bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
+    }
+    let pendingBookingJson = JSON.stringify({
+      slots: [
+        { date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 600, end_min: 660 },
+        { date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 660, end_min: 720 },
+      ],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(testDayMs) + ':600',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+
+    let location = response.headers.get('Location')!
+    assert.ok(!location.includes('error='), 'redirect should not contain error, got: ' + location)
+
+    let getUrl = location.startsWith('http') ? location : `${BASE}${location}`
+    let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
+    let html = await getResponse.text()
+
+    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible')
+    assert.ok(html.includes('11:00'), 'remaining slot should be shown in form')
+    assert.ok(!html.includes('day_start" value="' + String(testDayMs) + ':600'), 'booked slot should not be in form')
+  })
+
+  it('confirm_booking clears pendingBooking on last slot', async () => {
+    let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
+    await seedOffering(testDayMs)
+    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    if (rateLimiterAdmin.rows.length > 0) {
+      bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
+    }
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 720, end_min: 780 }],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(testDayMs) + ':720',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+
+    let location = response.headers.get('Location')!
+    assert.ok(!location.includes('error='), 'redirect should not contain error, got: ' + location)
+
+    let getUrl = location.startsWith('http') ? location : `${BASE}${location}`
+    let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
+    let html = await getResponse.text()
+
+    assert.ok(!html.includes('Termin buchen'), 'booking form should be gone after last slot')
+    assert.ok(html.includes('Termin #'), 'booking confirmation should be visible')
+  })
+
+  it('confirm_booking preserves pendingBooking on non-collision error', async () => {
+    let pastEpochMs = 0
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: pastEpochMs, date_display: 'Do, 01.01.', start_min: 600, end_min: 660 }],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(pastEpochMs) + ':600',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+
+    let location = response.headers.get('Location')!
+    let getUrl = location.startsWith('http') ? location : `${BASE}${location}`
+    let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
+    let html = await getResponse.text()
+
+    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible on non-collision error')
+  })
+
+  it('confirm_booking removes colliding slot on exclusion constraint', async () => {
+    let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
+    await seedOffering(testDayMs)
+    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    if (rateLimiterAdmin.rows.length > 0) {
+      bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
+    }
+    let pendingBookingJson = JSON.stringify({
+      slots: [
+        { date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 480, end_min: 540 },
+        { date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 540, end_min: 600 },
+      ],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let now = Date.now()
+    await pool.query(
+      `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+       VALUES (1, 1, 'conflict', $1::bigint, int4range(480, 540, '[)'), $2, $2)`,
+      [testDayMs, now],
+    )
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'confirm_booking',
+        resource_id: '1',
+        day_start: String(testDayMs) + ':480',
+        title: 'Test Termin',
+        threadId: crypto.randomUUID(),
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+
+    let location = response.headers.get('Location')!
+    let getUrl = location.startsWith('http') ? location : `${BASE}${location}`
+    let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
+    let html = await getResponse.text()
+
+    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible after collision')
+    assert.ok(!html.includes('day_start" value="' + String(testDayMs) + ':480'), 'collided slot should be removed from form')
+    assert.ok(html.includes('day_start" value="' + String(testDayMs) + ':540'), 'other slot should still be in form')
   })
 
   it('POST /chat with _action=confirm_booking and missing params returns error', async () => {
