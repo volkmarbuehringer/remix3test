@@ -91,7 +91,7 @@ describe('Customer tools', () => {
     assert.ok(typeof firstSlot.date_display === 'string')
   })
 
-  it('findNextAvailableSlots limits to 3 slots per day', async () => {
+  it('findNextAvailableSlots returns all slots per day (no 3-slot cap)', async () => {
     let resourceId = await getFirstResourceId()
     let result = (await execTool(
       customerTools.findNextAvailableSlots as unknown as Record<string, unknown>,
@@ -103,9 +103,9 @@ describe('Customer tools', () => {
       let day = s.date_epoch_ms as number
       byDay.set(day, (byDay.get(day) ?? 0) + 1)
     }
-    for (let count of byDay.values()) {
-      assert.ok(count <= 3, 'each day should have at most 3 slots')
-    }
+    assert.ok(byDay.size > 0, 'should have at least one day with slots')
+    let maxPerDay = Math.max(...byDay.values())
+    assert.ok(maxPerDay > 3, 'should return more than 3 slots per day (old cap removed)')
   })
 
   it('findNextAvailableSlots returns slots sorted chronologically', async () => {

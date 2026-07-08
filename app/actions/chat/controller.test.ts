@@ -184,8 +184,11 @@ describe('Customer Chat controller', () => {
       assert.ok(html.includes('Test Ressource'), 'resource name should appear in form')
       assert.ok(html.includes('10:00'), 'first slot start time should appear in form')
       assert.ok(html.includes('Di, 14.07.'), 'first day header should appear')
-      assert.ok(html.includes('Mi, 15.07.'), 'second day header should appear')
-      assert.ok(html.includes('Do, 16.07.'), 'third day header should appear')
+      assert.ok(!html.includes('Mi, 15.07.'), 'second day should be paginated away')
+      assert.ok(!html.includes('Do, 16.07.'), 'third day should be paginated away')
+      assert.ok(html.includes('1/3'), 'page indicator should show 1 of 3')
+      assert.ok(html.includes('aria-label="Nächster Tag"'), 'next arrow should appear')
+      assert.ok(!html.includes('aria-label="Vorheriger Tag"'), 'prev arrow should not appear on first page')
     })
 
     it('POST /chat does not save pendingBooking when agent returns empty slots', async () => {
@@ -368,6 +371,56 @@ describe('Customer Chat controller', () => {
     } finally {
       __setTestCustomerAgent(undefined)
     }
+  })
+
+  it('GET /chat with ?cancel=1 clears pendingBooking and redirects', async () => {
+    let futureDate = Date.now() + 7 * 86_400_000
+    let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      resource_id: 1,
+      resource_name: 'Test Ressource',
+      title: 'Test Termin',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_INDEX_URL + '?cancel=1', {
+      headers: { Cookie: session.cookie },
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    assert.ok(!response.headers.get('Location')?.includes('cancel'), 'redirect should not contain cancel param')
+
+    // Follow redirect — booking form should be gone
+    let followUrl = response.headers.get('Location')!
+    let followResponse = await router.fetch(followUrl.startsWith('http') ? followUrl : `${BASE}${followUrl}`, {
+      headers: { Cookie: session.cookie },
+    })
+    let html = await followResponse.text()
+    assert.ok(!html.includes('Termin buchen'), 'booking form should be gone after cancel')
+  })
+
+  it('GET /chat with ?cancel=1&threadId=X preserves threadId', async () => {
+    let threadId = crypto.randomUUID()
+    let futureDate = Date.now() + 7 * 86_400_000
+    let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+    let pendingBookingJson = JSON.stringify({
+      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      resource_id: 1,
+      resource_name: 'Test',
+      title: 'Test',
+    })
+    let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_INDEX_URL + '?cancel=1&threadId=' + encodeURIComponent(threadId), {
+      headers: { Cookie: session.cookie },
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') || ''
+    assert.ok(location.includes(threadId), 'redirect should preserve threadId')
   })
 
   it('POST /chat continues an existing thread when threadId is provided', async () => {

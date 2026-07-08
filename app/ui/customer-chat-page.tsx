@@ -4,7 +4,7 @@ import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import type { ChatMessage } from '../types/chatlog.ts'
-import type { PendingBookingData, SlotItem } from '../actions/chat/controller.tsx'
+import type { PendingBookingData, SlotItem, BookingPageInfo } from '../actions/chat/controller.tsx'
 import { formatMinOption } from '../utils/date-utils.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
@@ -15,6 +15,7 @@ interface CustomerChatPageProps {
   error?: string
   pendingBooking?: PendingBookingData
   bookingResult?: string
+  bookingPage: BookingPageInfo
 }
 
 const containerStyle = css({
@@ -163,9 +164,64 @@ const bookingResultStyle = css({
   whiteSpace: 'pre-wrap',
 })
 
+const navRowStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '0.75rem',
+  marginTop: '0.5rem',
+})
+
+const navLinkStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '32px',
+  height: '32px',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl1,
+  color: theme.colors.text.primary,
+  fontSize: '1rem',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': {
+    background: theme.surface.lvl2,
+  },
+})
+
+const pageLabelStyle = css({
+  fontSize: '0.85rem',
+  color: theme.colors.text.secondary,
+  fontWeight: 600,
+})
+
+const actionRowStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginTop: '0.75rem',
+})
+
+const cancelLinkStyle = css({
+  padding: '0.6rem 1.5rem',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl1,
+  color: theme.colors.text.secondary,
+  fontSize: '1rem',
+  cursor: 'pointer',
+  textDecoration: 'none',
+  textAlign: 'center',
+  '&:hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+})
+
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
-    let { messages, threadId, error, pendingBooking, bookingResult } = handle.props
+    let { messages, threadId, error, pendingBooking, bookingResult, bookingPage } = handle.props
     return (
       <div mix={containerStyle}>
         <h2 mix={headingStyle}>Beratung</h2>
@@ -240,35 +296,63 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
                 groups.get(day)!.push(slot)
               }
               let dayKeys = [...groups.keys()]
-              let globalIdx = 0
-              return dayKeys.map((dayMs) => {
-                let daySlots = groups.get(dayMs)!
-                return (
-                  <fieldset key={dayMs} mix={dayGroupStyle} style={{ border: 'none', padding: 0, margin: 0 }}>
-                    <legend mix={dayHeaderStyle}>{daySlots[0].date_display}</legend>
-                    {daySlots.map((slot) => {
-                      let idx = globalIdx++
-                      return (
-                        <label key={`${dayMs}-${slot.start_min}`} mix={slotLabelStyle}>
-                          <input
-                            type="radio"
-                            name="day_start"
-                            value={`${slot.date_epoch_ms}:${slot.start_min}`}
-                            defaultChecked={idx === 0}
-                            required
-                            aria-label={`${daySlots[0].date_display}, ${formatMinOption(slot.start_min)}–${formatMinOption(slot.end_min)} Uhr`}
-                          />
-                          {formatMinOption(slot.start_min)}–{formatMinOption(slot.end_min)} Uhr
-                        </label>
-                      )
-                    })}
-                  </fieldset>
-                )
-              })
+              let dayMs = dayKeys[bookingPage.currentPage]
+              let daySlots = groups.get(dayMs)!
+              return (
+                <fieldset key={dayMs} mix={dayGroupStyle} style={{ border: 'none', padding: 0, margin: 0 }}>
+                  <legend mix={dayHeaderStyle}>{daySlots[0].date_display}</legend>
+                  {daySlots.map((slot, idx) => (
+                    <label key={`${dayMs}-${slot.start_min}`} mix={slotLabelStyle}>
+                      <input
+                        type="radio"
+                        name="day_start"
+                        value={`${slot.date_epoch_ms}:${slot.start_min}`}
+                        defaultChecked={idx === 0}
+                        required
+                        aria-label={`${daySlots[0].date_display}, ${formatMinOption(slot.start_min)}–${formatMinOption(slot.end_min)} Uhr`}
+                      />
+                      {formatMinOption(slot.start_min)}–{formatMinOption(slot.end_min)} Uhr
+                    </label>
+                  ))}
+                </fieldset>
+              )
             })()}
-            <button type="submit" mix={bookButtonStyle}>
-              Termin buchen
-            </button>
+            {bookingPage.totalDays > 1 && (
+              <nav aria-label="Verfügbare Tage" mix={navRowStyle}>
+                {bookingPage.currentPage > 0 && (
+                  <a
+                    href={`?page=${bookingPage.currentPage - 1}${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
+                    mix={navLinkStyle}
+                    aria-label="Vorheriger Tag"
+                  >
+                    ←
+                  </a>
+                )}
+                <span mix={pageLabelStyle} aria-current="page">
+                  {bookingPage.currentPage + 1}/{bookingPage.totalDays}
+                </span>
+                {bookingPage.currentPage < bookingPage.totalDays - 1 && (
+                  <a
+                    href={`?page=${bookingPage.currentPage + 1}${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
+                    mix={navLinkStyle}
+                    aria-label="Nächster Tag"
+                  >
+                    →
+                  </a>
+                )}
+              </nav>
+            )}
+            <div mix={actionRowStyle}>
+              <button type="submit" mix={bookButtonStyle}>
+                Termin buchen
+              </button>
+              <a
+                href={`?cancel=1${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
+                mix={cancelLinkStyle}
+              >
+                Abbrechen
+              </a>
+            </div>
           </form>
         )}
 

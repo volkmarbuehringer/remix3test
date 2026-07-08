@@ -41,6 +41,11 @@ export interface PendingBookingData {
   title: string
 }
 
+export interface BookingPageInfo {
+  currentPage: number
+  totalDays: number
+}
+
 function safeTitle(raw: string): string {
   return raw.slice(0, MAX_TITLE_LENGTH).replace(/[\r\n]+/g, ' ')
 }
@@ -105,6 +110,36 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           }
         }
 
+        // Handle cancel — clear pendingBooking and redirect
+        if (context.url.searchParams.get('cancel') === '1') {
+          session?.unset('pendingBooking')
+          let cancelUrl = routes.chat.index.href()
+          if (threadId) {
+            cancelUrl += '?threadId=' + encodeURIComponent(threadId)
+          }
+          return redirect(cancelUrl)
+        }
+
+        // Compute pagination state from available slots
+        let bookingPage: BookingPageInfo = { currentPage: 0, totalDays: 0 }
+        if (pendingBooking && pendingBooking.slots.length > 0) {
+          let sorted = [...pendingBooking.slots].sort(
+            (a, b) => a.date_epoch_ms - b.date_epoch_ms || a.start_min - b.start_min,
+          )
+          let groups = new Map<number, SlotItem[]>()
+          for (let slot of sorted) {
+            let day = slot.date_epoch_ms
+            if (!groups.has(day)) groups.set(day, [])
+            groups.get(day)!.push(slot)
+          }
+          let dayKeys = [...groups.keys()]
+          bookingPage.totalDays = dayKeys.length
+          let rawPage = parseInt(context.url.searchParams.get('page') ?? '', 10)
+          if (!Number.isFinite(rawPage) || rawPage < 0) rawPage = 0
+          if (rawPage >= bookingPage.totalDays) rawPage = bookingPage.totalDays - 1
+          bookingPage.currentPage = rawPage
+        }
+
         return context.render(
           <Layout>
             <CustomerChatPage
@@ -113,6 +148,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               error={error}
               pendingBooking={pendingBooking}
               bookingResult={bookingResult}
+              bookingPage={bookingPage}
             />
           </Layout>,
         )
@@ -330,8 +366,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             }
           }
           if (lastSlotResult && session) {
+            let slots = lastSlotResult.slots as unknown[]
+            if (slots.length > 60) {
+              slots = slots.slice(0, 60)
+            }
             session.set('pendingBooking', JSON.stringify({
-              slots: lastSlotResult.slots,
+              slots,
               resource_id: lastSlotResult.resource_id,
               resource_name: lastSlotResult.resource_name,
               title: lastSlotResult.title ?? '',

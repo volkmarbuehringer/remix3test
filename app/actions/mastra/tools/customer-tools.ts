@@ -41,10 +41,10 @@ function formatDateDisplay(epochMs: number): string {
 export const customerTools = {
   findNextAvailableSlots: createTool({
     id: 'find_next_available_slots',
-    description: 'Findet die nächsten verfügbaren Terminslots für eine Ressource. Parameter: resourceId (Pflicht), daysAhead (optional, Standard 30, maximal 60), offsetDays (optional, Standard 0, maximal 365), title (optional, vom Gespräch abgeleiteter Titel). offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen (z.B. offsetDays=30 für Termine ab Tag 31). Gibt bis zu 10 Tage mit je bis zu 3 Slots + resource_id + resource_name + title zurück.',
+    description: 'Findet die nächsten verfügbaren Terminslots für eine Ressource. Parameter: resourceId (Pflicht), daysAhead (optional, Standard 180, maximal 180), offsetDays (optional, Standard 0, maximal 365), title (optional, vom Gespräch abgeleiteter Titel). offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen (z.B. offsetDays=30 für Termine ab Tag 31). Gibt bis zu 10 Tage mit allen verfügbaren Slots + resource_id + resource_name + title zurück.',
     inputSchema: z.object({
       resourceId: z.number().int().positive().describe('Die ID der Ressource, für die freie Slots gesucht werden sollen'),
-      daysAhead: z.number().int().min(1).max(60).default(30).describe('Wie viele Tage im Voraus gesucht werden soll (maximal 60)'),
+      daysAhead: z.number().int().min(1).max(180).default(180).describe('Wie viele Tage im Voraus gesucht werden soll (maximal 180)'),
       offsetDays: z.number().int().min(0).max(365).default(0).describe('Wie viele Tage ab heute übersprungen werden sollen (für später liegende Termine)'),
       title: z.string().max(200).default('').describe('Vom Gesprächskontext abgeleiteter Titel für den Termin'),
     }),
@@ -124,7 +124,6 @@ export const customerTools = {
           if (byDay.size >= 10) break
           let arr = byDay.get(s.date_epoch_ms)
           if (!arr) { arr = []; byDay.set(s.date_epoch_ms, arr) }
-          if (arr.length >= 3) continue
           arr.push(s)
         }
         let top = [...byDay.values()].flat()

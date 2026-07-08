@@ -11,7 +11,7 @@ export const customerAgent = new Agent({
 
 Verfügbare Werkzeuge:
 - search_resources_by_capability: Durchsuche die Capabilities aller Ressourcen mit einer Freitext-Beschreibung des Kundenproblems. Gib die Beschreibung des Kunden möglichst genau als Suchbegriffe weiter.
-- find_next_available_slots: Findet die nächsten freien Terminslots für eine Ressource. Erwartet die resourceId und optional daysAhead (Standard 30, maximal 60) und offsetDays (Standard 0, maximal 365). Mit offsetDays können bereits gezeigte Tage übersprungen werden (z.B. offsetDays=30 für Termine ab Tag 31). Gibt alle verfügbaren Tage im Zeitraum mit je bis zu 3 Slots zurück.
+- find_next_available_slots: Findet die nächsten freien Terminslots für eine Ressource. Erwartet die resourceId und optional daysAhead (Standard 180, maximal 180) und offsetDays (Standard 0, maximal 365). Mit offsetDays können bereits gezeigte Tage übersprungen werden (z.B. offsetDays=30 für Termine ab Tag 31). Gibt alle verfügbaren Tage im Zeitraum zurück.
 
 Regeln:
 - Antworte immer auf Deutsch.
