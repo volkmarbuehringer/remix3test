@@ -8,6 +8,7 @@ import { mastra } from '../mastra/index.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { recallChatMessages } from '../../utils/mastra-memory.ts'
+import { runWithUserId } from '../mastra/tools/customer-tools.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
 import { formatMinOption } from '../../utils/date-utils.ts'
 import { Layout } from '../../ui/layout.tsx'
@@ -104,10 +105,6 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               }
             }
           }
-          bookingResult = session.get('bookingResult') as string | undefined
-          if (bookingResult) {
-            session.unset('bookingResult')
-          }
         }
 
         // Handle cancel — clear pendingBooking and redirect
@@ -118,6 +115,14 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             cancelUrl += '?threadId=' + encodeURIComponent(threadId)
           }
           return redirect(cancelUrl)
+        }
+
+        // Read bookingResult after cancel check to avoid consuming it on cancel redirect
+        if (session) {
+          bookingResult = session.get('bookingResult') as string | undefined
+          if (bookingResult) {
+            session.unset('bookingResult')
+          }
         }
 
         // Compute pagination state from available slots
@@ -345,14 +350,14 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               ? _testAgent
               : mastra.getAgent('customerAgent')
 
-          let result = await agent.generate(message, {
+          let result = await runWithUserId(user.id, () => agent.generate(message, {
             maxSteps: 5,
             abortSignal: abortController.signal,
             memory: {
               thread: threadId,
               resource: String(user.id),
             },
-          })
+          }))
 
           let responseText = result.text ?? ''
           if (!responseText.trim()) {
@@ -363,21 +368,35 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             )
           }
 
-          // Among multiple find_next_available_slots calls, take the last one that
-          // returned non-empty slots — handles the multi-step "search then book" path
+          // Process tool results from the agent run
           let toolRes = (result.toolResults ?? []) as unknown[]
           let lastSlotResult: Record<string, unknown> | undefined
+          let workflowResult: Record<string, unknown> | undefined
+          let workflowToolName: string | undefined
+
           for (let tr of toolRes) {
             let entry = tr as Record<string, unknown> | undefined
-            // Mastra wraps tool metadata in a payload key — unwrap it
             let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
-            if (payload?.toolName === 'find_next_available_slots' || payload?.toolName === 'findNextAvailableSlots') {
+            let toolName = payload?.toolName as string | undefined
+
+            if (toolName === 'find_next_available_slots' || toolName === 'findNextAvailableSlots') {
               let trResult = payload?.result as Record<string, unknown> | undefined
               if (trResult?.slots && Array.isArray(trResult.slots) && (trResult.slots as unknown[]).length > 0) {
                 lastSlotResult = trResult
               }
             }
+
+            if (toolName === 'trigger_booking_workflow' || toolName === 'triggerBookingWorkflow' ||
+                toolName === 'cancel_booking' || toolName === 'cancelBooking') {
+              let trResult = payload?.result as Record<string, unknown> | undefined
+              if (trResult) {
+                workflowResult = trResult
+                workflowToolName = toolName
+              }
+            }
           }
+
+          // Store pending booking slots in session for the old booking form
           if (lastSlotResult && session) {
             let slots = lastSlotResult.slots as unknown[]
             if (slots.length > 60) {
@@ -389,6 +408,32 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
               resource_name: lastSlotResult.resource_name,
               title: lastSlotResult.title ?? '',
             }))
+          }
+
+          // Store workflow trigger result in session for display
+          if (workflowResult && session) {
+            let msg: string
+            if (workflowToolName === 'cancel_booking' || workflowToolName === 'cancelBooking') {
+              if (workflowResult.success) {
+                msg = 'Termin #' + String(workflowResult.appointmentId ?? '') + ' wurde storniert.'
+              } else {
+                let err = String(workflowResult.error ?? 'unknown')
+                if (err === 'not_owner') msg = 'Dieser Termin gehört Ihnen nicht und kann nicht storniert werden.'
+                else if (err === 'already_cancelled') msg = 'Dieser Termin wurde bereits storniert.'
+                else msg = 'Bei der Stornierung ist ein Fehler aufgetreten.'
+              }
+            } else {
+              if (workflowResult.success) {
+                msg = 'Termin #' + String(workflowResult.appointmentId ?? '') + ' wurde erfolgreich gebucht.'
+                // Booking succeeded via workflow — clear the pending slot form
+                session.unset('pendingBooking')
+              } else {
+                let err = String(workflowResult.error ?? 'unknown')
+                if (err === 'collision') msg = 'Dieser Zeitraum ist leider nicht mehr frei. Bitte versuche es mit einem anderen Slot.'
+                else msg = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
+              }
+            }
+            session.set('bookingResult', msg)
           }
 
           let url =

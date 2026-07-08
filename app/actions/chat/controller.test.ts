@@ -231,6 +231,141 @@ describe('Customer Chat controller', () => {
     })
   })
 
+  describe('workflow trigger results from tool results', () => {
+    type MockAgent = Parameters<typeof __setTestCustomerAgent>[0]
+    let futureDayMs: number
+
+    before(() => {
+      let futureDate = Date.now() + 7 * 86_400_000
+      futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
+    })
+
+    async function postChatAndFollow(
+      mockAgent: MockAgent,
+      message: string,
+    ): Promise<{ html: string; session: { cookie: string } }> {
+      let session = await createAuthCookieWithCsrf()
+      assert.ok(session?.cookie, 'Failed to create auth session')
+
+      let adminResult = await pool.query(
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'],
+      )
+      if (adminResult.rows.length > 0) {
+        chatRateLimiter.reset(adminResult.rows[0].id as number)
+      }
+
+      __setTestCustomerAgent(mockAgent)
+      try {
+        let postResponse = await router.fetch(CHAT_ACTION_URL, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({ message, _csrf: session.csrfToken }),
+          redirect: 'manual',
+        })
+        assert.equal(postResponse.status, 302)
+        let location = postResponse.headers.get('Location')
+        assert.ok(location, 'response should have Location header')
+        if (location!.includes('error=')) {
+          assert.ok(false, 'redirect contains error: ' + location)
+        }
+        let getUrl = location!.startsWith('http') ? location! : `${BASE}${location!}`
+        let getResponse = await router.fetch(getUrl, {
+          headers: { Cookie: session.cookie },
+        })
+        let html = await getResponse.text()
+        return { html, session }
+      } finally {
+        __setTestCustomerAgent(undefined)
+      }
+    }
+
+    it('shows bookingResult success when triggerBookingWorkflow succeeds', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Termin wurde gebucht!',
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolName: 'triggerBookingWorkflow',
+              result: { success: true, appointmentId: 123, workflowRunId: 'r-1' },
+            },
+          }],
+        }),
+      }, 'Buch den Termin')
+
+      assert.ok(html.includes('Termin #123'), 'should show booking success with id')
+      assert.ok(html.includes('erfolgreich gebucht'), 'should show success message')
+    })
+
+    it('shows collision message when triggerBookingWorkflow returns collision', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Der Termin ist leider nicht mehr frei.',
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolName: 'triggerBookingWorkflow',
+              result: { success: false, error: 'collision' },
+            },
+          }],
+        }),
+      }, 'Buch den Termin')
+
+      assert.ok(html.includes('nicht mehr frei'), 'should show collision message')
+    })
+
+    it('shows cancellation success when cancelBooking succeeds', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Termin wurde storniert!',
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolName: 'cancelBooking',
+              result: { success: true, workflowRunId: 'r-2' },
+            },
+          }],
+        }),
+      }, 'Storniere meinen Termin')
+
+      assert.ok(html.includes('wurde storniert'), 'should show cancellation success')
+    })
+
+    it('shows not_owner message when cancelBooking returns not_owner', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Stornierung fehlgeschlagen.',
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolName: 'cancelBooking',
+              result: { success: false, error: 'not_owner' },
+            },
+          }],
+        }),
+      }, 'Storniere Termin 42')
+
+      assert.ok(html.includes('gehört Ihnen nicht'), 'should show not_owner message')
+    })
+
+    it('shows already_cancelled message when cancelBooking returns already_cancelled', async () => {
+      let { html } = await postChatAndFollow({
+        generate: async (_message: string, _opts?: any) => ({
+          text: 'Bereits storniert.',
+          toolResults: [{
+            type: 'tool-result',
+            payload: {
+              toolName: 'cancelBooking',
+              result: { success: false, error: 'already_cancelled' },
+            },
+          }],
+        }),
+      }, 'Storniere Termin 42')
+
+      assert.ok(html.includes('bereits storniert'), 'should show already_cancelled message')
+    })
+  })
+
   it('POST /chat with _action=confirm_booking triggers workflow', async () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)

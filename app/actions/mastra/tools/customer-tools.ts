@@ -1,8 +1,22 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import { pool } from '../../../data/connection.ts'
 import { computeFullHourSlots, filterAvailableSlots, parseDuring } from '../../../data/appointofferings.ts'
 import { getTodayUtcMidnight, MS_PER_DAY } from '../../../utils/date-utils.ts'
+import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
+
+const currentUserIdStorage = new AsyncLocalStorage<number>()
+
+export function runWithUserId<T>(id: number, fn: () => T): T {
+  return currentUserIdStorage.run(id, fn)
+}
+
+function requireCurrentUserId(): number {
+  let id = currentUserIdStorage.getStore()
+  if (id === undefined) throw new Error('No authenticated user in context')
+  return id
+}
 
 // German stop words that add no search value
 const STOP_WORDS = new Set([
@@ -195,6 +209,33 @@ export const customerTools = {
       } finally {
         client.release()
       }
+    },
+  }),
+
+  triggerBookingWorkflow: createTool({
+    id: 'trigger_booking_workflow',
+    description: 'Startet den Buchungs-Workflow für einen Kunden. Parameter: resourceId (Pflicht), title (optional), date (Pflicht, epoch ms), startMin (Pflicht, Minuten seit Mitternacht). Die Buchung wird im Workflow validiert und erstellt. Gibt den Workflow-Status und ggf. die Buchungs-ID zurück.',
+    inputSchema: z.object({
+      resourceId: z.number().int().positive().describe('Die ID der Ressource, die gebucht werden soll'),
+      title: z.string().max(200).default('').describe('Titel oder Beschreibung des Termins'),
+      date: z.number().describe('Gewünschter Tag als epoch ms'),
+      startMin: z.number().int().min(0).max(1380).describe('Gewünschte Startzeit in Minuten seit Mitternacht'),
+    }),
+    execute: async ({ resourceId, title, date, startMin }) => {
+      let customerId = requireCurrentUserId()
+      return executeBookingWorkflow({ resourceId, customerId, title, date, startMin })
+    },
+  }),
+
+  cancelBooking: createTool({
+    id: 'cancel_booking',
+    description: 'Bricht einen bestehenden Termin ab. Parameter: appointmentId (Pflicht). Stellt sicher, dass der Termin dem aktuell eingeloggten Kunden gehört, löscht ihn und sendet eine Benachrichtigung.',
+    inputSchema: z.object({
+      appointmentId: z.number().int().positive().describe('Die ID des zu stornierenden Termins'),
+    }),
+    execute: async ({ appointmentId }) => {
+      let requestingUserId = requireCurrentUserId()
+      return executeCancellationWorkflow({ appointmentId, requestingUserId })
     },
   }),
 }
