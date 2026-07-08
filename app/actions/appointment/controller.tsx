@@ -21,6 +21,7 @@ import {
   AppointTypeError,
 } from '../../data/appointtypes.ts'
 import { listOfferingsByWeek, isSlotBookable } from '../../data/appointofferings.ts'
+import { parseId } from '../../utils/ids.ts'
 import { isDateInPast, isoWeeksInYear } from '../../utils/date-utils.ts'
 import { listResources } from '../../data/resources.ts'
 import { appointments } from '../../data/schema.ts'
@@ -275,7 +276,10 @@ export const appointment = createController<typeof routes.appointment, AppContex
         return context.json({ error: 'Too many requests. Please wait before updating.' }, { status: 429 })
       }
 
-      let appointmentId = Number(context.params.id)
+      let appointmentId = parseId(context.params.id)
+      if (appointmentId === undefined) {
+        return context.json({ error: 'Invalid appointment ID.' }, { status: 400 })
+      }
 
       let body = context.get(JsonBody)
 
@@ -346,7 +350,10 @@ export const appointment = createController<typeof routes.appointment, AppContex
         return context.json({ error: 'Too many requests. Please wait before deleting.' }, { status: 429 })
       }
 
-      let appointmentId = Number(context.params.id)
+      let appointmentId = parseId(context.params.id)
+      if (appointmentId === undefined) {
+        return context.json({ error: 'Invalid appointment ID.' }, { status: 400 })
+      }
 
       try {
         await deleteAppointment(
@@ -436,7 +443,10 @@ export const appointmentTypes = createController<typeof routes.appointment.types
           return context.json({ error: 'Authentication required.' }, { status: 401 })
         }
         let userId = (auth.identity as User).id
-        let typeId = Number(context.params.id)
+        let typeId = parseId(context.params.id)
+        if (typeId === undefined) {
+          return context.json({ error: 'Invalid type ID.' }, { status: 400 })
+        }
 
         let body = context.get(JsonBody)
 
@@ -466,7 +476,10 @@ export const appointmentTypes = createController<typeof routes.appointment.types
           return context.json({ error: 'Authentication required.' }, { status: 401 })
         }
         let userId = (auth.identity as User).id
-        let typeId = Number(context.params.id)
+        let typeId = parseId(context.params.id)
+        if (typeId === undefined) {
+          return context.json({ error: 'Invalid type ID.' }, { status: 400 })
+        }
 
         try {
           await deleteAppointType(context.db, userId, typeId)

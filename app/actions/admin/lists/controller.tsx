@@ -11,6 +11,7 @@ import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
+import { parseId } from '../../../utils/ids.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const LISTS_PAGE_LIMIT = 10
@@ -60,9 +61,9 @@ export const adminLists = createController<typeof routes.admin.lists, AppContext
 
     async destroy(context) {
       let db = context.db
-      let listId = Number(context.params.id)
+      let listId = parseId(context.params.id)
 
-      if (!Number.isFinite(listId) || !Number.isInteger(listId) || listId < 1) {
+      if (listId === undefined || listId < 1) {
         return new Response('Invalid list ID', { status: 400 })
       }
 

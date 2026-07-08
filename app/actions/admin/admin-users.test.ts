@@ -144,7 +144,7 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 400)
       let json = await response.json()
-      assert.ok(json.error.includes('Name'))
+      assert.equal(json.error, 'Invalid form data')
     })
 
     it('rejects invalid email', async () => {
@@ -165,7 +165,7 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 400)
       let json = await response.json()
-      assert.ok(json.error.includes('email'))
+      assert.equal(json.error, 'Invalid form data')
     })
 
     it('rejects short password', async () => {

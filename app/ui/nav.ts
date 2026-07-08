@@ -30,7 +30,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Listen', href: '/lists' },
       { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
       { label: 'Admin', href: '/admin', adminOnly: true },
-      { label: 'KI', href: '/mastra/chat', adminOnly: true },
       { label: 'Beratung', href: '/chat' },
     ],
   },

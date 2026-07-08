@@ -1,10 +1,11 @@
 import { ilike, or } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
-import { minLength } from 'remix/data-schema/checks'
+import { email, minLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
+import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { apiTokens, users } from '../../../data/schema.ts'
 import type { User } from '../../../data/schema.ts'
@@ -31,11 +32,9 @@ const USERS_PAGE_SIZE = 15
 
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'created_at'] as const
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 const userCreateSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '')),
-  email: f.field(s.defaulted(s.string(), '')),
+  name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
+  email: f.field(s.defaulted(s.string(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   password: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
@@ -45,8 +44,8 @@ const userCreateSchema = f.object({
 })
 
 const userUpdateSchema = f.object({
-  name: f.field(s.defaulted(s.string(), '')),
-  email: f.field(s.defaulted(s.string(), '')),
+  name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
+  email: f.field(s.defaulted(s.string(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   password: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
@@ -128,12 +127,6 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       }
       let fields = parseResult.value
 
-      if (!fields.name || !fields.name.trim()) {
-        return context.json({ ok: false, error: 'Name is required' }, { status: 400 })
-      }
-      if (!fields.email || !EMAIL_RE.test(fields.email)) {
-        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
-      }
       if (!fields.password) {
         return context.json({ ok: false, error: 'Password is required' }, { status: 400 })
       }
@@ -185,8 +178,8 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let db = context.db
       let formData = context.formData
 
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
@@ -195,10 +188,6 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
         return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
       }
       let fields = parseResult.value
-
-      if (fields.email && !EMAIL_RE.test(fields.email)) {
-        return context.json({ ok: false, error: 'Invalid email format' }, { status: 400 })
-      }
 
       if (fields.email) {
         let existing = await db.findOne(users, { where: { email: fields.email.trim().toLowerCase() } })
@@ -253,8 +242,8 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
       let db = context.db
       let formData = context.formData
 
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 

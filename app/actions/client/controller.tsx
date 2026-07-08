@@ -6,6 +6,7 @@ import { minLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { redirect } from 'remix/response/redirect'
 
+import { parseId } from '../../utils/ids.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
@@ -133,8 +134,8 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
 
     // ── GET /admin/client/edit/:rowId — Redirect to inline edit via ?editing= ──
     async edit(context) {
-      let rowId = Number(context.params.rowId)
-      if (!Number.isFinite(rowId) || rowId < 1) {
+      let rowId = parseId(context.params.rowId)
+      if (rowId === undefined || rowId < 1) {
         return new Response('Invalid row ID', { status: 400 })
       }
 
@@ -144,8 +145,8 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
     // ── PUT /admin/client/:id — Update a client row ──
     async update(context) {
       let db = context.db
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
@@ -234,8 +235,8 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
       let db = context.db
       let formData = context.formData
 
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 

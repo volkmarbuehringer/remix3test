@@ -6,6 +6,7 @@ import { createController } from 'remix/router'
 import { Logger } from 'remix/middleware/logger'
 import { redirect } from 'remix/response/redirect'
 
+import { parseId } from '../../../utils/ids.ts'
 import { isConstraintViolation } from '../../../utils/db-errors.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { resources, type Resource } from '../../../data/schema.ts'
@@ -209,8 +210,8 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
       let formData = context.formData
       let gridValues = gridStateFromFormData(formData)
 
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
@@ -258,8 +259,8 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
       let db = context.db
       let formData = context.formData
 
-      let id = Number(context.params.id)
-      if (!Number.isFinite(id) || id < 1) {
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 

@@ -3,6 +3,7 @@ import { css } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
 import { theme } from '../../ui/theme/theme.ts'
 import { routes, uploadsDownload } from '../../routes.ts'
+import { parseId } from '../../utils/ids.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { listUploads, claimUpload, getUploadDownload, type UploadRow } from '../../data/uploads.ts'
@@ -51,8 +52,8 @@ export const download = createAction(uploadsDownload, {
   middleware: [requireAuth()],
   handler: async (context) => {
     let user = getCurrentUser()
-    let id = Number(context.params.id)
-    if (Number.isNaN(id)) {
+    let id = parseId(context.params.id)
+    if (id === undefined) {
       return new Response('Invalid ID', { status: 400 })
     }
 

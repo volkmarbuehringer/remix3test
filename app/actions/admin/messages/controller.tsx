@@ -15,6 +15,7 @@ import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
 import type { AppContext } from '../../../types/context.ts'
+import { parseId } from '../../../utils/ids.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const messageSchema = f.object({
@@ -106,9 +107,9 @@ export default createController<typeof routes.admin.messages, AppContext>(routes
     async destroy(context) {
       let db = context.db
       let { params } = context
-      let messageId = Number(params.id)
+      let messageId = parseId(params.id)
 
-      if (!Number.isFinite(messageId) || messageId < 1) {
+      if (messageId === undefined || messageId < 1) {
         return new Response('Invalid message ID', { status: 400 })
       }
 
