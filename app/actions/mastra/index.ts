@@ -11,6 +11,7 @@ import { bookingWorkflow } from './workflows/booking-workflow.ts'
 import { customerBookingWorkflow } from './workflows/customer-booking-workflow.ts'
 import { bookingCancellationWorkflow } from './workflows/booking-cancellation-workflow.ts'
 import { bookingReminderWorkflow } from './workflows/booking-reminder-workflow.ts'
+import { cancelUserWorkflow } from './workflows/cancel-user-workflow.ts'
 import { completenessScorer } from './scorers/support-scorers.ts'
 import { mastraStorage } from './storage.ts'
 import { consoleNotificationSender } from './notifications/sender.ts'
@@ -18,7 +19,7 @@ import { setMastra } from './workflow-executor.ts'
 
 export const mastra = new Mastra({
   agents: { supportAgent, customerAgent },
-  workflows: { bookingWorkflow, customerBookingWorkflow, bookingCancellationWorkflow, bookingReminderWorkflow },
+  workflows: { bookingWorkflow, customerBookingWorkflow, bookingCancellationWorkflow, bookingReminderWorkflow, cancelUserWorkflow },
   scorers: {
     completeness: completenessScorer,
   },

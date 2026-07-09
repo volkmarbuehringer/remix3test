@@ -34,6 +34,9 @@ export function apiTokenAuth(): Middleware {
     if (apiToken) {
       let user = await db.findOne(users, { where: { id: apiToken.user_id } })
       if (user) {
+        if (user.disabled_at != null) {
+          return Response.json({ error: 'Account disabled' }, { status: 401 })
+        }
         if (user.role !== 'admin' && user.email_verified !== 1) {
           return Response.json({ error: 'Account not verified' }, { status: 401 })
         }

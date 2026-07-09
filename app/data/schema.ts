@@ -59,6 +59,7 @@ export const users = table({
     password_reset_token: c.text(),
     password_reset_expires: bigint(),
     token_version: c.integer(),
+    disabled_at: bigint(),
     created_at: bigint(),
     updated_at: bigint(),
   },
@@ -133,7 +134,7 @@ export const users = table({
     return issues.length > 0 ? { issues } : { value }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
+    parseIntFields(value, 'created_at', 'updated_at', 'disabled_at')
     return { value }
   },
 })

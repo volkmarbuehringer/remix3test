@@ -9,6 +9,7 @@ import { routes, frames } from '../../routes.ts'
 import { mastra } from './index.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import { runWithAdminId } from './tools/admin-context.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
@@ -191,14 +192,14 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           log('agent ready')
 
           log('calling agent.generate')
-          let result = await agent.generate(message, {
+          let result = await runWithAdminId(user.id, () => agent.generate(message, {
             maxSteps: 10,
             abortSignal: abortController.signal,
             memory: {
               thread: threadId,
               resource: String(user.id),
             },
-          })
+          }))
 
           let llmElapsed = Date.now() - llmStartTime
           let responseText = result.text ?? ''

@@ -3,6 +3,8 @@ import { z } from 'zod/v4'
 import Holidays from 'date-holidays'
 import { pool } from '../../../data/connection.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import { requireAdminId } from './admin-context.ts'
+import { executeCancelUserWorkflow } from '../workflow-executor.ts'
 
 export const supportTools = {
   lookupUser: createTool({
@@ -704,5 +706,27 @@ export const supportTools = {
       latitude: 50.4667,
       longitude: 7.7333,
     }),
+  }),
+
+  cancelUserAccount: createTool({
+    id: 'cancel_user_account',
+    description: 'Cancel a user account by ID: deletes all future appointments, disables login, and prevents re-registration with the same email. The user account stays in the database but is marked as disabled.',
+    inputSchema: z.object({
+      targetUserId: z.number().int().positive().describe('The user ID to cancel'),
+    }),
+    execute: async ({ targetUserId }) => {
+      let adminUserId = requireAdminId()
+      if (adminUserId === targetUserId) {
+        return { success: false, error: 'Cannot cancel your own account' }
+      }
+      let client = await pool.connect()
+      try {
+        let result = await client.query('SELECT email FROM users WHERE id = $1', [adminUserId])
+        let adminEmail = result.rows[0]?.email ?? 'unknown'
+        return executeCancelUserWorkflow({ targetUserId, adminUserId, adminEmail })
+      } finally {
+        client.release()
+      }
+    },
   }),
 }

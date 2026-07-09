@@ -35,6 +35,7 @@ export function loadAuth() {
           }
           let user = await db.find(users, value.userId)
           if (!user) return null
+          if (user.disabled_at != null) return null
 
           if (user.token_version !== value.tv) return null
 
@@ -74,6 +75,8 @@ export const passwordProvider = createCredentialsAuthProvider({
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       return null
     }
+
+    if (user.disabled_at != null) return null
 
     if (user.role !== 'admin' && user.email_verified !== 1) {
       return null

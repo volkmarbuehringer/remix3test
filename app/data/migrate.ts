@@ -30,6 +30,7 @@ export async function migrate(): Promise<void> {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires BIGINT`)
   await pool.query(`CREATE INDEX IF NOT EXISTS users_password_reset_token_idx ON users (password_reset_token)`)
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1`)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_at BIGINT`)
 
   if (emailVerifiedColumn.rows.length === 0) {
     await pool.query(`UPDATE users SET email_verified = 1`)
