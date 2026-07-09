@@ -3,7 +3,7 @@ import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import { pool } from '../../../data/connection.ts'
 import { computeFullHourSlots, filterAvailableSlots, parseDuring } from '../../../data/appointofferings.ts'
-import { getTodayUtcMidnight, MS_PER_DAY } from '../../../utils/date-utils.ts'
+import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils/date-utils.ts'
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
 
 const currentUserIdStorage = new AsyncLocalStorage<number>()
@@ -236,6 +236,100 @@ export const customerTools = {
     execute: async ({ appointmentId }) => {
       let requestingUserId = requireCurrentUserId()
       return executeCancellationWorkflow({ appointmentId, requestingUserId })
+    },
+  }),
+
+  listMyAppointments: createTool({
+    id: 'list_my_appointments',
+    description: 'Zeigt die eigenen bevorstehenden Termine des Kunden an. Parameter: keine. Gibt eine Liste aller zukünftigen Termine des aktuell eingeloggten Kunden zurück mit ID, Datum, Uhrzeit, Ressourcenname und Titel.',
+    inputSchema: z.object({}),
+    execute: async () => {
+      let userId = requireCurrentUserId()
+      let todayMidnight = getTodayUtcMidnight()
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
+           FROM appointments a
+           JOIN resources r ON r.id = a.resource_id
+           WHERE a.user_id = $1 AND a.date >= $2
+           ORDER BY a.date ASC`,
+          [userId, todayMidnight],
+        )
+        return {
+          appointments: result.rows.map(r => {
+            let parsed = parseDuring(r.during)
+            return {
+              id: r.id,
+              date_epoch_ms: Number(r.date),
+              start_min: parsed?.startMin ?? 0,
+              end_min: parsed?.endMin ?? 60,
+              time_display: parsed
+                ? `${formatMinOption(parsed.startMin)}–${formatMinOption(parsed.endMin)}`
+                : '',
+              title: r.title,
+              resource_name: r.resource_name,
+            }
+          }),
+          count: result.rows.length,
+        }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  cancelAllAppointments: createTool({
+    id: 'cancel_all_appointments',
+    description: 'Bricht ALLE eigenen bevorstehenden Termine des Kunden ab. Parameter: keine. Vor dem Aufruf MÜSSEN dem Kunden die betroffenen Termine gezeigt werden (list_my_appointments) und der Kunde muss explizit zustimmen. Gibt eine Zusammenfassung mit Anzahl stornierter, fehlgeschlagener und bereits stornierter Termine zurück.',
+    inputSchema: z.object({}),
+    execute: async () => {
+      let userId = requireCurrentUserId()
+      let todayMidnight = getTodayUtcMidnight()
+      let appointmentIds: number[]
+      let client = await pool.connect()
+      try {
+        let result = await client.query(
+          `SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
+           FROM appointments a
+           JOIN resources r ON r.id = a.resource_id
+           WHERE a.user_id = $1 AND a.date >= $2
+           ORDER BY a.date ASC`,
+          [userId, todayMidnight],
+        )
+        appointmentIds = result.rows.map(r => r.id as number)
+      } finally {
+        client.release()
+      }
+      if (appointmentIds.length === 0) {
+        return { cancelled: 0, failed: 0, skipped: 0, details: [] }
+      }
+      let cancelled = 0
+      let failed = 0
+      let skipped = 0
+      let details: { id: number; status: string; error?: string }[] = []
+      for (let id of appointmentIds) {
+        try {
+          let wfResult = await executeCancellationWorkflow({
+            appointmentId: id,
+            requestingUserId: userId,
+          })
+          if (wfResult.success) {
+            cancelled++
+            details.push({ id, status: 'cancelled' })
+          } else if (wfResult.error === 'already_cancelled') {
+            skipped++
+            details.push({ id, status: 'already_cancelled' })
+          } else {
+            failed++
+            details.push({ id, status: 'failed', error: wfResult.error })
+          }
+        } catch (e) {
+          failed++
+          details.push({ id, status: 'failed', error: e instanceof Error ? e.message : String(e) })
+        }
+      }
+      return { cancelled, failed, skipped, details }
     },
   }),
 }

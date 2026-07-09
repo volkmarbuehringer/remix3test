@@ -20,10 +20,10 @@
     "node": ">=26.2.0"
   },
   "dependencies": {
-    "@mastra/core": "^1.50.0",
+    "@mastra/core": "^1.50.1",
     "@mastra/evals": "^1.5.1",
     "@mastra/loggers": "^1.2.0",
-    "@mastra/memory": "^1.22.1",
+    "@mastra/memory": "^1.22.2",
     "@mastra/observability": "^1.16.0",
     "@mastra/pg": "^1.15.1",
     "date-holidays": "^3.32.0",
@@ -43,7 +43,7 @@
     "@types/pg": "^8.20.0",
     "@typescript/native-preview": "7.0.0-dev.20260706.1",
     "ecc-universal": "2.0.0",
-    "mastra": "^1.18.1",
+    "mastra": "^1.18.2",
     "oxlint": "^1.73.0",
     "oxlint-tsgolint": "^0.24.0",
     "playwright": "^1.61.1",
@@ -51,4 +51,3 @@
     "typescript": "6.0.3"
   }
 }
-
