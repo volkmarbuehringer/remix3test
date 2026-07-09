@@ -1,12 +1,26 @@
-import { PostgresStore } from '@mastra/pg'
+import { PostgresStoreVNext } from '@mastra/pg'
 import { pool } from '../../data/connection.ts'
 
 // Shared storage instance used by both Mastra and Memory.
-// PostgresStore.init() auto-creates mastra_* tables (CREATE TABLE IF NOT EXISTS)
-// on first storage access. To control this, set disableInit: true and run
-// the DDL via a migration script (exportSchemas()). The DB user needs
-// CREATE TABLE permission on the schema being used.
-export const mastraStorage = new PostgresStore({
+// PostgresStoreVNext composes PostgresStore with the v-next observability
+// domain that supports log listing. The observability connection reuses
+// the same pool (safe for local dev — switch to a dedicated connection
+// in production if throughput exceeds ~1,500 spans/sec).
+export const mastraStorage = new PostgresStoreVNext({
   id: 'mastra',
   pool,
+  disableInit: true,
+  observability: { pool },
 })
+
+// The bundled class uses internal name _ObservabilityStoragePostgresVNext but
+// the Studio frontend checks for the public name. Fix the constructor name
+// so metrics detection passes.
+{
+  const obs = mastraStorage.stores?.observability
+  if (obs && obs.constructor?.name?.startsWith('_ObservabilityStorage')) {
+    Object.defineProperty(obs.constructor, 'name', {
+      value: 'ObservabilityStoragePostgresVNext',
+    })
+  }
+}
