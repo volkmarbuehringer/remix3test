@@ -17,6 +17,8 @@ Mastra message `content` can be:
 - **Object with `.text`:** `{ text: "Hello" }`
 - **Array of mixed formats:** `["Hello", { text: "world" }]`
 
+This happens silently when rendered directly: `String(content)` produces `[object Object]` instead of the actual text.
+
 Without normalization, every consumer (chat UI, admin log viewer, audit export) must duplicate the extraction logic — and miss edge cases.
 
 ## Solution
@@ -60,6 +62,28 @@ let chatMessages = (messages ?? [])
 
 ## When to Use
 
+### What's happening inside Mastra
+
+Mastra's internal `MastraDBMessage.content` uses the `MastraMessageContentV2` type:
+
+```typescript
+type MastraMessageContentV2 = {
+  format: 2
+  parts: Array<{
+    type: 'text' | 'tool-call' | 'reasoning' | ...
+    text?: string        // only on text parts
+    args?: unknown       // on tool-call parts
+    ...
+  }>
+  toolInvocations?: ...
+  reasoning?: ...
+}
+```
+
+The utility above extracts only `type: 'text'` parts — tool calls, reasoning blocks, and metadata are stripped, giving you clean conversation text.
+
 - Any consumer of Mastra `memory.recall()` or `agent.generate()` output
 - When building a chat UI, admin log viewer, or export tool that shows message content
 - When the controller has duplicated content-extraction logic
+
+> _Consolidated from: mastra-message-content-extract_

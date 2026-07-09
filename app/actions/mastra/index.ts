@@ -34,6 +34,7 @@ export const mastra = new Mastra({
         serviceName: 'mastra',
         exporters: [new MastraStorageExporter()],
         spanOutputProcessors: [new SensitiveDataFilter()],
+        logging: { enabled: true },
       },
     },
   }),

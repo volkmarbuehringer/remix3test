@@ -1,41 +1,31 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import type { Handle } from 'remix/ui'
+import { getCspNonce } from '../middleware/security-headers.ts'
 
-export const PasswordToggle = clientEntry(
-  import.meta.url + '#PasswordToggle',
-  function PasswordToggleEntry(_handle: Handle) {
-    let initialized = false
+export function PasswordToggle(_handle: Handle) {
+  let nonce = getCspNonce()
+  return () => (
+    <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
+  )
+}
 
-    return () => {
-      if (!initialized && typeof document !== 'undefined') {
-        initialized = true
-
-        document.addEventListener('click', (e) => {
-          let btn = (e.target as HTMLElement).closest('[data-toggle-pw]') as HTMLElement | null
-          if (!btn) return
-
-          let fieldName = btn.getAttribute('data-toggle-pw')
-          if (!fieldName) return
-
-          let form = btn.closest('form')
-          if (!form) return
-
-          let input = form.querySelector<HTMLInputElement>(`[name="${fieldName}"]`)
-          if (!input) return
-
-          let isPassword = input.type === 'password'
-          input.type = isPassword ? 'text' : 'password'
-
-          let useEl = btn.querySelector('use')
-          if (useEl) {
-            useEl.setAttribute('href', isPassword ? '#rmx-glyph-eyeOff' : '#rmx-glyph-eye')
-            useEl.setAttribute('xlink:href', isPassword ? '#rmx-glyph-eyeOff' : '#rmx-glyph-eye')
-          }
-
-          btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password')
-        })
-      }
-
-      return null
-    }
-  },
-)
+const PASSWORD_TOGGLE_SCRIPT = `
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-toggle-pw]');
+  if (!btn) return;
+  var fieldName = btn.getAttribute('data-toggle-pw');
+  if (!fieldName) return;
+  var form = btn.closest('form');
+  if (!form) return;
+  var input = form.querySelector('[name="' + fieldName + '"]');
+  if (!input) return;
+  var isPassword = input.type === 'password';
+  input.type = isPassword ? 'text' : 'password';
+  var useEl = btn.querySelector('use');
+  if (useEl) {
+    var ref = isPassword ? '#rmx-glyph-eyeOff' : '#rmx-glyph-eye';
+    useEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', ref);
+    useEl.setAttribute('href', ref);
+  }
+  btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+});
+`

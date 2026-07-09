@@ -84,6 +84,17 @@ export function isExclusionViolation(error: unknown): boolean {
 }
 ```
 
+### DataTableAdapterError: Additional API differences
+
+When using `Database.exec()` from `remix/data-table` (via `createPostgresDatabaseAdapter`), the `DataManipulationResult` returned differs from raw `PoolQueryResult`:
+
+- **`result.rows` is nullable** — always use `result.rows ?? []`
+- **`result.affectedRows`** replaces `PoolQueryResult.rowCount` — use `result.affectedRows ?? 0`
+- **No `.rowCount`** — use `.affectedRows` instead
+- **TypeScript strict casting**: cast `Record<string, unknown>[]` through `unknown`: `(result.rows ?? []) as unknown as MyType[]`
+
+> _Consolidated from: remix-data-table-adapter-error-unwrapping_
+
 ## Structured Logging
 
 Use structured logging instead of raw `console.error(error)`:
