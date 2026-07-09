@@ -272,7 +272,7 @@ describe('Customer tools — self-service appointments', () => {
       )
       assert.fail('should have thrown')
     } catch (e) {
-      assert.ok(String(e).includes('No authenticated user'))
+      assert.ok(String(e).includes('Not authenticated as customer'))
     }
   })
 
@@ -378,7 +378,7 @@ describe('Customer tools — self-service appointments', () => {
       )
       assert.fail('should have thrown')
     } catch (e) {
-      assert.ok(String(e).includes('No authenticated user'))
+      assert.ok(String(e).includes('Not authenticated as customer'))
     }
   })
 

@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
-import { Glyph } from '../ui/theme/glyph.ts'
+import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, formatTimestamp } from './mixins/admin-urls.ts'
@@ -19,7 +19,7 @@ import type {
   AppointmentRow,
   AppointmentResourceOption,
   AppointmentUserOption,
-} from '../data/appointments-queries.ts'
+} from '../data/appointments.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()

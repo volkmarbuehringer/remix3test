@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
-import type { ResourceOption, DayWithSlots } from '../data/appointments-new-queries.ts'
+import type { ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
 import { Step2 } from './appointments-new-step2.tsx'
 

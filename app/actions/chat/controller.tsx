@@ -1,5 +1,3 @@
-import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -13,18 +11,20 @@ import { validateThreadId } from '../../utils/thread-id.ts'
 import { formatMinOption } from '../../utils/date-utils.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
+import {
+  MAX_MESSAGE_LENGTH,
+  AGENT_TIMEOUT_MS,
+  validateMessage,
+  isAbortError,
+  callAgentWithTimeout,
+} from '../mastra/shared-agent.ts'
 import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
+import type { TestAgent } from '../mastra/shared-agent.ts'
 
-const messageField = f.field(s.string())
-const messageSchema = f.object({
-  message: messageField,
-  threadId: f.field(s.optional(s.string())),
-})
+const CHAT_INDEX = routes.chat.index.href()
 
-const MAX_MESSAGE_LENGTH = 5000
 const MAX_TITLE_LENGTH = 200
-const AGENT_TIMEOUT_MS = 60_000
 export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
 export const bookingRateLimiter = createRateLimiter({ windowMs: 10000, perUser: true })
 
@@ -52,14 +52,7 @@ function safeTitle(raw: string): string {
 }
 
 // Test-only agent injection point — setter is a no-op outside test env
-let _testAgent:
-  | {
-      generate: (
-        message: string,
-        opts?: Record<string, unknown>,
-      ) => Promise<{ text: string; toolCalls?: unknown[]; toolResults?: unknown[] }>
-    }
-  | undefined
+let _testAgent: TestAgent | undefined
 export function __setTestCustomerAgent(agent: typeof _testAgent) {
   if (process.env.NODE_ENV === 'test') {
     _testAgent = agent
@@ -110,7 +103,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
         // Handle cancel — clear pendingBooking and redirect
         if (context.url.searchParams.get('cancel') === '1') {
           session?.unset('pendingBooking')
-          let cancelUrl = routes.chat.index.href()
+          let cancelUrl = CHAT_INDEX
           if (threadId) {
             cancelUrl += '?threadId=' + encodeURIComponent(threadId)
           }
@@ -167,7 +160,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
         if (_action === 'confirm_booking') {
           if (!bookingRateLimiter.attempt(user.id)) {
             return redirect(
-              routes.chat.index.href() +
+              CHAT_INDEX +
                 '?error=' +
                 encodeURIComponent(
                   'Bitte warte einen Moment, bevor du eine weitere Buchung auslöst.',
@@ -183,7 +176,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           if (!validateThreadId(threadId)) threadId = crypto.randomUUID()
 
           let errorUrl = (msg: string): string =>
-            routes.chat.index.href() +
+            CHAT_INDEX +
               '?threadId=' + encodeURIComponent(threadId) +
               '&error=' + encodeURIComponent(msg)
 
@@ -280,54 +273,36 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           }
 
           return redirect(
-            routes.chat.index.href() +
+            CHAT_INDEX +
               '?threadId=' +
               encodeURIComponent(threadId) +
               '#chat-end',
           )
         }
 
-        let parsed = s.parseSafe(messageSchema, context.formData)
-        if (!parsed.success) {
-          return redirect(
-            routes.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Bitte gib eine Nachricht ein.'),
-          )
+        let validation = validateMessage(context.formData)
+        if (!validation.ok) {
+          let msg: string
+          if (validation.error === 'too_long') {
+            msg = `Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`
+          } else if (validation.error === 'bad_thread_id') {
+            msg = 'Ungültiges Thread-ID-Format.'
+          } else {
+            msg = 'Bitte gib eine Nachricht ein.'
+          }
+          return redirect(CHAT_INDEX + '?error=' + encodeURIComponent(msg))
         }
 
-        let message = parsed.value.message
-        if (!message || message.trim().length === 0) {
-          return redirect(
-            routes.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Bitte gib eine Nachricht ein.'),
-          )
-        }
-        if (message.length > MAX_MESSAGE_LENGTH) {
-          return redirect(
-            routes.chat.index.href() +
-              '?error=' +
-              encodeURIComponent(`Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`),
-          )
-        }
+        let message = validation.message
+        let threadId = validation.threadId
 
         if (!chatRateLimiter.attempt(user.id)) {
           return redirect(
-            routes.chat.index.href() +
+            CHAT_INDEX +
               '?error=' +
               encodeURIComponent(
                 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
               ),
-          )
-        }
-
-        let threadId = parsed.value.threadId
-        if (threadId && !validateThreadId(threadId)) {
-          return redirect(
-            routes.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Ungültiges Thread-ID-Format.'),
           )
         }
 
@@ -341,35 +316,34 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
           session.unset('pendingBooking')
         }
 
-        let abortController = new AbortController()
-        let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
-
         try {
-          let agent =
+          let agent: TestAgent | typeof _testAgent =
             process.env.NODE_ENV === 'test' && _testAgent
               ? _testAgent
               : mastra.getAgent('customerAgent')
 
-          let result = await runWithUserId(user.id, () => agent.generate(message, {
-            maxSteps: 5,
-            abortSignal: abortController.signal,
-            memory: {
-              thread: threadId,
-              resource: String(user.id),
-            },
-          }))
+          let result = await runWithUserId(user.id, () =>
+            callAgentWithTimeout({
+              agent,
+              message,
+              threadId: threadId!,
+              userId: user.id,
+              maxSteps: 5,
+              timeoutMs: AGENT_TIMEOUT_MS,
+            }),
+          )
 
-          let responseText = result.text ?? ''
+          let responseText = result.text
           if (!responseText.trim()) {
             return redirect(
-              routes.chat.index.href() +
+              CHAT_INDEX +
                 '?error=' +
                 encodeURIComponent('Keine Antwort erhalten. Bitte versuche es erneut.'),
             )
           }
 
           // Process tool results from the agent run
-          let toolRes = (result.toolResults ?? []) as unknown[]
+          let toolRes = result.rawToolResults
           let lastSlotResult: Record<string, unknown> | undefined
           let workflowResult: Record<string, unknown> | undefined
           let workflowToolName: string | undefined
@@ -436,21 +410,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             session.set('bookingResult', msg)
           }
 
-          let url =
-            routes.chat.index.href() +
-            '?threadId=' +
-            encodeURIComponent(threadId) +
-            '#chat-end'
+          let url = CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end'
           return redirect(url)
         } catch (error) {
-          if (
-            error instanceof Error &&
-            (error.name === 'AbortError' ||
-              error.name === 'TimeoutError' ||
-              /abort/i.test(error.message))
-          ) {
+          if (isAbortError(error)) {
             return redirect(
-              routes.chat.index.href() +
+              CHAT_INDEX +
                 '?error=' +
                 encodeURIComponent(
                   'Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.',
@@ -458,14 +423,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(
             )
           }
           return redirect(
-            routes.chat.index.href() +
+            CHAT_INDEX +
               '?error=' +
               encodeURIComponent(
                 'Bei der Verarbeitung ist ein Fehler aufgetreten. Bitte versuche es erneut.',
               ),
           )
-        } finally {
-          clearTimeout(timeout)
         }
       },
     },

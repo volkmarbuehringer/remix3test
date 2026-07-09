@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../data/connection.ts'
-import { deleteAppointmentRecord } from '../../../data/appointments-new-queries.ts'
+import { deleteAppointmentRecord } from '../../../data/appointments.ts'
 import { consoleNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 

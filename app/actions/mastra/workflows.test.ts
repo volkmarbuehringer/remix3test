@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { consoleNotificationSender } from './notifications/sender.ts'
 import { clearFailedNotifications, enqueueFailedNotification, getFailedNotifications } from './notifications/queue.ts'
-import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments-new-queries.ts'
+import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments.ts'
 import { db } from '../../data/connection.ts'
 
 async function getAdminId(): Promise<number> {

@@ -6,10 +6,10 @@ import {
   listAppointments,
   listResourcesForAppointments,
   listUsersForAppointments,
-  createAppointment,
-  updateAppointment,
-  deleteAppointment,
-} from './appointments-queries.ts'
+  adminCreateAppointment as createAppointment,
+  adminUpdateAppointment as updateAppointment,
+  adminDeleteAppointment as deleteAppointment,
+} from './appointments.ts'
 
 describe('appointments-queries', () => {
   let testUserId: number

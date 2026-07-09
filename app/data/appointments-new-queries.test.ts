@@ -9,7 +9,7 @@ import {
   createAppointmentRecord,
   getAppointmentRow,
   deleteAppointmentRecord,
-} from './appointments-new-queries.ts'
+} from './appointments.ts'
 
 describe('appointments-new-queries', () => {
   let testUserId: number

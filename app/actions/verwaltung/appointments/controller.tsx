@@ -27,11 +27,11 @@ import {
   fetchAppointmentEditRow,
   listResourcesForAppointments,
   listUsersForAppointments,
-  createAppointment,
-  updateAppointment,
-  deleteAppointment,
-} from '../../../data/appointments-queries.ts'
-import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../../../data/appointments-queries.ts'
+  adminCreateAppointment,
+  adminUpdateAppointment,
+  adminDeleteAppointment,
+} from '../../../data/appointments.ts'
+import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../../../data/appointments.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Appointments
@@ -362,7 +362,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let newId: number
 
         try {
-          newId = await createAppointment(context.db, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
+          newId = await adminCreateAppointment(context.db, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
@@ -552,7 +552,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let during = `[${start_min},${end_min})`
 
         try {
-          let updated = await updateAppointment(context.db, id, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
+          let updated = await adminUpdateAppointment(context.db, id, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
 
           if (!updated) {
             let editRow = await fetchAppointmentEditRow(context.db, id)
@@ -624,7 +624,7 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         }
 
         try {
-          let deleted = await deleteAppointment(context.db, id)
+          let deleted = await adminDeleteAppointment(context.db, id)
 
           if (!deleted) {
             return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')

@@ -1,5 +1,3 @@
-import * as s from 'remix/data-schema'
-import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import { Logger } from 'remix/middleware/logger'
@@ -10,6 +8,15 @@ import { mastra } from './index.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { runWithAdminId } from './tools/admin-context.ts'
+import {
+  MAX_MESSAGE_LENGTH,
+  AGENT_TIMEOUT_MS,
+  wantsJson,
+  sanitizeLog,
+  isAbortError,
+  callAgentWithTimeout,
+  validateMessage,
+} from './shared-agent.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
@@ -19,36 +26,16 @@ import { recallChatMessages } from '../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
 import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
+import type { TestAgent } from './shared-agent.ts'
 
-const messageField = f.field(s.string())
-const messageSchema = f.object({
-  message: messageField,
-  threadId: f.field(s.optional(s.string())),
-})
+const CHAT_INDEX = routes.mastra.chat.index.href()
 
-const MAX_MESSAGE_LENGTH = 5000
-const AGENT_TIMEOUT_MS = 60_000
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
-
-function sanitizeLog(s: string): string {
-  return s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\r\n]/g, ' ').slice(0, 128)
-}
-
-function wantsJson(context: AppContext): boolean {
-  return context.request.headers.get('Accept')?.includes('application/json') ?? false
-}
 
 export { chatRateLimiter }
 
 // Test-only agent injection point — setter is a no-op outside test env
-let _testAgent:
-  | {
-      generate: (
-        message: string,
-        opts?: Record<string, unknown>,
-      ) => Promise<{ text: string; toolCalls?: unknown[]; toolResults?: unknown[] }>
-    }
-  | undefined
+let _testAgent: TestAgent | undefined
 export function __setTestAgent(agent: typeof _testAgent) {
   if (process.env.NODE_ENV === 'test') {
     _testAgent = agent
@@ -103,69 +90,44 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
         log('POST action start')
 
-        let parsed = s.parseSafe(messageSchema, context.formData)
-        if (!parsed.success) {
-          log('validation failed: missing message')
-          if (wantsJson(context)) {
-            return context.json({ error: 'Please enter a message' }, { status: 400 })
+        let validation = validateMessage(context.formData)
+        if (!validation.ok) {
+          log('validation failed: ' + validation.error)
+          if (wantsJson(context.request.headers)) {
+            let jsonMsg: string
+            if (validation.error === 'too_long') {
+              jsonMsg = `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`
+            } else if (validation.error === 'bad_thread_id') {
+              jsonMsg = 'Invalid thread ID format'
+            } else {
+              jsonMsg = 'Please enter a message'
+            }
+            return context.json({ error: jsonMsg }, { status: 400 })
           }
-          return redirect(
-            routes.mastra.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Bitte gib eine Nachricht ein.'),
-          )
+          let errorMsg: string
+          if (validation.error === 'too_long') {
+            errorMsg = `Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`
+          } else if (validation.error === 'bad_thread_id') {
+            errorMsg = 'Ungültiges Thread-ID-Format.'
+          } else {
+            errorMsg = 'Bitte gib eine Nachricht ein.'
+          }
+          return redirect(CHAT_INDEX + '?error=' + encodeURIComponent(errorMsg))
         }
 
-        let message = parsed.value.message
-        if (!message || message.trim().length === 0) {
-          log('validation failed: empty message')
-          if (wantsJson(context)) {
-            return context.json({ error: 'Please enter a message' }, { status: 400 })
-          }
-          return redirect(
-            routes.mastra.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Bitte gib eine Nachricht ein.'),
-          )
-        }
-        if (message.length > MAX_MESSAGE_LENGTH) {
-          log('validation failed: message too long: ' + message.length)
-          if (wantsJson(context)) {
-            return context.json(
-              { error: `Message too long (max ${MAX_MESSAGE_LENGTH} characters)` },
-              { status: 400 },
-            )
-          }
-          return redirect(
-            routes.mastra.chat.index.href() +
-              '?error=' +
-              encodeURIComponent(`Nachricht zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen).`),
-          )
-        }
-
-        let threadId = parsed.value.threadId
-        if (threadId && !validateThreadId(threadId)) {
-          log('invalid threadId format: ' + sanitizeLog(threadId))
-          if (wantsJson(context)) {
-            return context.json({ error: 'Invalid thread ID format' }, { status: 400 })
-          }
-          return redirect(
-            routes.mastra.chat.index.href() +
-              '?error=' +
-              encodeURIComponent('Ungültiges Thread-ID-Format.'),
-          )
-        }
+        let message = validation.message
+        let threadId = validation.threadId
 
         if (!chatRateLimiter.attempt(user.id)) {
           log('rate limited')
-          if (wantsJson(context)) {
+          if (wantsJson(context.request.headers)) {
             return context.json(
               { error: 'Please wait before sending another message' },
               { status: 429 },
             )
           }
           return redirect(
-            routes.mastra.chat.index.href() +
+            CHAT_INDEX +
               '?error=' +
               encodeURIComponent(
                 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
@@ -180,58 +142,41 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           log('continuing thread: ' + sanitizeLog(threadId))
         }
 
-        let llmStartTime = Date.now()
-        let abortController = new AbortController()
-        let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
-
         try {
-          let agent =
+          log('calling agent.generate')
+          let agent: TestAgent | typeof _testAgent =
             process.env.NODE_ENV === 'test' && _testAgent
               ? _testAgent
               : mastra.getAgent('supportAgent')
-          log('agent ready')
 
-          log('calling agent.generate')
-          let result = await runWithAdminId(user.id, () => agent.generate(message, {
-            maxSteps: 10,
-            abortSignal: abortController.signal,
-            memory: {
-              thread: threadId,
-              resource: String(user.id),
-            },
-          }))
+          let result = await runWithAdminId(user.id, () =>
+            callAgentWithTimeout({
+              agent,
+              message,
+              threadId: threadId!,
+              userId: user.id,
+              maxSteps: 10,
+              timeoutMs: AGENT_TIMEOUT_MS,
+            }),
+          )
 
-          let llmElapsed = Date.now() - llmStartTime
-          let responseText = result.text ?? ''
+          let responseText = result.text
           if (!responseText.trim()) {
             log('agent returned empty response')
-            if (wantsJson(context)) {
+            if (wantsJson(context.request.headers)) {
               return context.json(
                 { error: 'No response from assistant. Please try again.' },
                 { status: 500 },
               )
             }
             return redirect(
-              routes.mastra.chat.index.href() +
+              CHAT_INDEX +
                 '?error=' +
                 encodeURIComponent('Keine Antwort erhalten. Bitte versuche es erneut.'),
             )
           }
 
-          let capturedToolCalls = (result.toolCalls ?? []).map((tc: unknown, i: number) => {
-            let tcObj = tc as Record<string, unknown> | undefined
-            let tr = (
-              (result.toolResults ?? []) as unknown as Array<Record<string, unknown>> | undefined
-            )?.[i]
-            return {
-              name: typeof tcObj?.toolName === 'string' ? tcObj.toolName : '',
-              input: (typeof tcObj?.args === 'object' && tcObj.args != null
-                ? tcObj.args
-                : {}) as Record<string, unknown>,
-              result: tr?.result,
-              timestamp: Date.now(),
-            }
-          })
+          let capturedToolCalls = result.toolCalls
           log('tool calls captured: ' + capturedToolCalls.length)
 
           let authIdentity = getAdminIdentity(context.auth)
@@ -246,50 +191,39 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           }
 
           log('success, response length: ' + responseText.length)
-          if (wantsJson(context)) {
+          if (wantsJson(context.request.headers)) {
             return context.json({ response: responseText, threadId })
           }
-          let url =
-            routes.mastra.chat.index.href() +
-            '?threadId=' +
-            encodeURIComponent(threadId) +
-            '#chat-end'
+          let url = CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end'
           return redirect(url)
         } catch (error) {
           log('error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
-          if (
-            error instanceof Error &&
-            (error.name === 'AbortError' ||
-              error.name === 'TimeoutError' ||
-              /abort/i.test(error.message))
-          ) {
-            if (wantsJson(context)) {
+          if (isAbortError(error)) {
+            if (wantsJson(context.request.headers)) {
               return context.json(
                 { error: 'Request timed out. Please try again.' },
                 { status: 504 },
               )
             }
             return redirect(
-              routes.mastra.chat.index.href() +
+              CHAT_INDEX +
                 '?error=' +
                 encodeURIComponent('Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.'),
             )
           }
-          if (wantsJson(context)) {
+          if (wantsJson(context.request.headers)) {
             return context.json(
               { error: 'An error occurred while processing your message.' },
               { status: 500 },
             )
           }
           return redirect(
-            routes.mastra.chat.index.href() +
+            CHAT_INDEX +
               '?error=' +
               encodeURIComponent(
                 'Bei der Verarbeitung ist ein Fehler aufgetreten. Bitte versuche es erneut.',
               ),
           )
-        } finally {
-          clearTimeout(timeout)
         }
       },
     },

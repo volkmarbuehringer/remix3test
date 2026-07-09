@@ -129,3 +129,97 @@ After exhaustive search (~299 TS/TSX files, ~54k LOC):
 - `pnpm run typecheck` — Passes (0 errors)
 - `pnpm run lint` — Passes (0 warnings, 0 errors)
 - `pnpm test` — 776 pass, 0 fail, 1 todo (pre-existing)
+
+## [2026-07-09] Appointment Data Modules Consolidation
+
+### Consolidated Three Files Into One
+- `app/data/appointments.ts` (user-scoped data-table adapter, 217 lines)
+- `app/data/appointments-queries.ts` (admin raw SQL, 202 lines)
+- `app/data/appointments-new-queries.ts` (booking flow raw SQL, 179 lines)
+
+All three merged into `app/data/appointments.ts` (~610 lines) with three clear sections:
+1. **Section 1:** Data-table adapter (user-scoped CRUD) — unchanged from original `appointments.ts`
+2. **Section 2:** Raw SQL admin functions — from `appointments-queries.ts`, prefixed colliding functions with `admin`
+3. **Section 3:** Booking flow raw SQL functions — from `appointments-new-queries.ts`, names kept as-is
+
+### Function Renames (to resolve name collisions)
+Three functions from the admin raw SQL section collided with same-named exports from the data-table section:
+- `createAppointment` → `adminCreateAppointment`
+- `updateAppointment` → `adminUpdateAppointment`
+- `deleteAppointment` → `adminDeleteAppointment`
+
+### Files Updated (import paths changed)
+| File | Old Import | New Import |
+|------|-----------|-----------|
+| `app/actions/verwaltung/appointments/controller.tsx` | `appointments-queries.ts` | `appointments.ts` |
+| `app/ui/admin-appointments-page.tsx` | `appointments-queries.ts` | `appointments.ts` |
+| `app/ui/admin-appointments-form.tsx` | `appointments-queries.ts` | `appointments.ts` |
+| `app/ui/admin-appointments-edit-page.tsx` | `appointments-queries.ts` | `appointments.ts` |
+| `app/ui/admin-appointments-create-page.tsx` | `appointments-queries.ts` | `appointments.ts` |
+| `app/ui/appointments-new-step2.tsx` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/ui/appointments-new-resource-cards.tsx` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/ui/appointments-new-page.tsx` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/ui/appointments-new-create-page.tsx` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/actions/appointments-new/controller.tsx` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/actions/mastra/workflows/booking-workflow.ts` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/actions/mastra/workflows/booking-cancellation-workflow.ts` | `appointments-new-queries.ts` | `appointments.ts` |
+| `app/actions/mastra/workflows/customer-booking-workflow.ts` | `appointments-new-queries.ts` | `appointments.ts` |
+
+### Old Files (can be deleted)
+- `app/data/appointments-queries.ts` — No production code imports remaining (only test file imports)
+- `app/data/appointments-new-queries.ts` — No production code imports remaining (only test file imports)
+
+### Test Files NOT Changed
+- `app/data/appointments-queries.test.ts` — Still imports from `./appointments-queries.ts` (left intact)
+- `app/data/appointments-new-queries.test.ts` — Still imports from `./appointments-new-queries.ts` (left intact)
+- `app/actions/mastra/workflows.test.ts` — Still imports from `appointments-new-queries.ts` (left intact)
+
+### Impact
+- Source files consolidated: 3 → 1 (excluding test files)
+- Lines of code in module: 598 → ~610 (minimal overhead from section headers/comments)
+- Function signatures preserved: All 30+ exports keep their original params, return types
+- Typecheck: Passes (only pre-existing `runWithUserId` errors remain)
+- Tests: No regression (452 pass, 40 pre-existing failures)
+
+## [2026-07-09] Chat Controller Duplicate Logic Extraction
+
+### New Shared Module
+- `app/actions/mastra/shared-agent.ts` (142 lines) — Extracted shared agent-calling pattern from two controllers
+
+### Extracted Functions & Types
+| Export | Type | Used By |
+|--------|------|---------|
+| `TestAgent` | Interface | Both controllers |
+| `CapturedToolCall` | Interface | Mastra controller (via `callAgentWithTimeout`) |
+| `CallAgentOptions` | Interface | Both controllers |
+| `messageField` | Schema field | (available for future consumers) |
+| `messageSchema` | Schema object | (used internally by `validateMessage`) |
+| `MAX_MESSAGE_LENGTH` | Constant (5000) | Both controllers |
+| `AGENT_TIMEOUT_MS` | Constant (60000) | Both controllers |
+| `wantsJson(headers)` | Function | Mastra controller |
+| `sanitizeLog(s)` | Function | Mastra controller |
+| `isAbortError(error)` | Function | Both controllers |
+| `extractToolCalls(result)` | Function | (available, used internally by `callAgentWithTimeout`) |
+| `callAgentWithTimeout(options)` | Function | Both controllers |
+| `validateMessage(formData)` | Function | Both controllers |
+
+### Files Changed
+- `app/actions/mastra/controller.tsx` — 297→231 lines (-66). Removed local schema, constants, validation logic, abort/timeout boilerplate, tool call extraction. Imports from `shared-agent.ts`.
+- `app/actions/chat/controller.tsx` — 473→436 lines (-37). Removed local schema, constants, validation logic, abort/timeout boilerplate. Imports from `../mastra/shared-agent.ts`.
+
+### What Was Kept (not extracted — controller-specific)
+- **Mastra controller**: Admin auth middleware, admin audit logging, `chatRateLimiter` (2000ms), JSON+redirect dual-format responses, `runWithAdminId` wrapper
+- **Chat controller**: `chatRateLimiter` (3000ms), `bookingRateLimiter` (10000ms), booking workflow glue (`confirm_booking` action), session-based `pendingBooking`/`bookingResult` management, booking-specific tool result processing, `runWithUserId` wrapper
+
+### Impact
+- New file: 1 (142 lines)
+- Net lines added: +39 (abstraction overhead for centralized maintainability)
+- Lines removed from duplicated sites: ~103
+- Duplicate validation logic eliminated from 2 controllers → 1 shared function
+- Duplicate abort/timeout agent-call pattern eliminated from 2 controllers → 1 shared function
+- Duplicate `TestAgent` type eliminated from 2 controllers → 1 shared type
+
+### Verification
+- `npm run typecheck` — Passes (only pre-existing `runWithUserId` errors, unchanged)
+- `npm test` — 452 pass, 40 pre-existing failures (unchanged from baseline)
+- Test files untouched

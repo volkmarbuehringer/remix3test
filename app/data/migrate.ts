@@ -304,6 +304,22 @@ export async function migrate(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS nutzer_n_email_idx ON nutzer (n_email)`)
   await pool.query(`CREATE INDEX IF NOT EXISTS nutzer_n_lid_idx ON nutzer (n_lid)`)
 
+  // Mastra workflow snapshot table — required by @mastra/pg WorkflowsPG
+  // when disableInit:true is set on PostgresStoreVNext.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mastra_workflow_snapshot (
+      workflow_name TEXT NOT NULL,
+      run_id TEXT NOT NULL,
+      "resourceId" TEXT,
+      snapshot JSONB NOT NULL,
+      "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+      "createdAtZ" TIMESTAMPTZ DEFAULT NOW(),
+      "updatedAtZ" TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (workflow_name, run_id)
+    )
+  `)
+
   console.log('[DB] Tables created/verified')
   } finally {
     await pool.query(`SELECT pg_advisory_unlock(287140921)`)

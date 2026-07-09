@@ -18,8 +18,8 @@ import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-uti
 import { isExclusionConstraintError, isConstraintViolation } from '../../utils/db-errors.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
-import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../../data/appointments-new-queries.ts'
-import { listResources, listAppointmentsNew, APPOINTMENTS_NEW_PAGE_SIZE, APPOINTMENTS_NEW_ORDER_BY_COLUMNS, checkResourceExists, getAppointmentForDelete, createAppointmentRecord, getAppointmentRow, deleteAppointmentRecord } from '../../data/appointments-new-queries.ts'
+import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../../data/appointments.ts'
+import { listResources, listAppointmentsNew, APPOINTMENTS_NEW_PAGE_SIZE, APPOINTMENTS_NEW_ORDER_BY_COLUMNS, checkResourceExists, getAppointmentForDelete, createAppointmentRecord, getAppointmentRow, deleteAppointmentRecord } from '../../data/appointments.ts'
 
 function redirectToLogin(context: AppContext): Response {
   let returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? context.url.pathname

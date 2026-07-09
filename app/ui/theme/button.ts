@@ -2,17 +2,17 @@ import { css } from 'remix/ui'
 import type { CSSMixinDescriptor, MixinDescriptor, ElementProps } from 'remix/ui'
 import upstreamButton from 'remix/ui/button'
 
-export type ButtonSize = 'md' | 'lg'
-export type ButtonTone = 'neutral' | 'primary' | 'ghost' | 'secondary' | 'danger'
+type ButtonSize = 'md' | 'lg'
+type ButtonTone = 'neutral' | 'primary' | 'ghost' | 'secondary' | 'danger'
 
-export interface ButtonOptions {
+interface ButtonOptions {
   size?: ButtonSize
   tone?: ButtonTone
 }
 
 type ButtonMixin = readonly [...ReturnType<typeof upstreamButton>] | readonly [...ReturnType<typeof upstreamButton>, CSSMixinDescriptor]
 
-export function button(options: ButtonOptions = {}): ButtonMixin {
+function button(options: ButtonOptions = {}): ButtonMixin {
   let { size = 'md', tone = 'neutral' } = options
 
   if (tone === 'secondary') {

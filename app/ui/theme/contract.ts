@@ -158,7 +158,7 @@ type MapLeaves<source, leaf> = source extends string
       [key in keyof source]: MapLeaves<source[key], leaf>
     }
 
-export type ThemeValue = string | number
+type ThemeValue = string | number
 export type ThemeContract = MapLeaves<ThemeVariableNames, string>
 export type ThemeValues = MapLeaves<typeof themeVariableNames, ThemeValue>
 export type ThemeVars = Readonly<Record<string, string>>
@@ -182,7 +182,7 @@ export type ThemeComponent = ThemeRenderer & {
 
 export const theme: ThemeContract = createThemeContract(themeVariableNames)
 
-export type ThemeUtility = ReturnType<typeof css>
+type ThemeUtility = ReturnType<typeof css>
 
 type ThemeMixLeaf = MixinDescriptor<any, any, any>
 type PreviousThemeMixDepth = [0, 0, 1, 2, 3, 4]
@@ -190,7 +190,7 @@ type NestedThemeMix<value, depth extends number = 4> = depth extends 0
   ? value | ReadonlyArray<value>
   : value | ReadonlyArray<NestedThemeMix<value, PreviousThemeMixDepth[depth]>>
 
-export type ThemeMix = NestedThemeMix<ThemeMixLeaf>
+type ThemeMix = NestedThemeMix<ThemeMixLeaf>
 
 function createThemeContract<tree extends ThemeVariableTree>(tree: tree): MapLeaves<tree, string> {
   return mapTreeLeaves(tree, (variableName) => `var(${variableName})`) as MapLeaves<tree, string>

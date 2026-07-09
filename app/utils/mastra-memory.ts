@@ -1,7 +1,7 @@
 import type { ChatMessage } from '../types/chatlog.ts'
 import { messageContentToText } from './message-content.ts'
 
-export interface ChatThreadRow {
+interface ChatThreadRow {
   id: string
   createdAt: number
   updatedAt: number

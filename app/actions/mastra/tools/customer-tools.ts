@@ -1,22 +1,12 @@
-import { AsyncLocalStorage } from 'node:async_hooks'
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import { pool } from '../../../data/connection.ts'
 import { computeFullHourSlots, filterAvailableSlots, parseDuring } from '../../../data/appointofferings.ts'
 import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils/date-utils.ts'
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
+import { createAsyncStorage } from '../../../utils/async-storage.ts'
 
-const currentUserIdStorage = new AsyncLocalStorage<number>()
-
-export function runWithUserId<T>(id: number, fn: () => T): T {
-  return currentUserIdStorage.run(id, fn)
-}
-
-function requireCurrentUserId(): number {
-  let id = currentUserIdStorage.getStore()
-  if (id === undefined) throw new Error('No authenticated user in context')
-  return id
-}
+export const { runWithId: runWithUserId, requireId: requireCurrentUserId } = createAsyncStorage('customer')
 
 // German stop words that add no search value
 const STOP_WORDS = new Set([

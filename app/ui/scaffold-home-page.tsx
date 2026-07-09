@@ -1,7 +1,7 @@
 import { css } from 'remix/ui'
 import type { Handle } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { Glyph } from '../ui/theme/glyph.ts'
+import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
 import { MainNav } from './main-nav.tsx'

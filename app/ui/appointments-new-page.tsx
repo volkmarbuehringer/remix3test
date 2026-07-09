@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
-import { Glyph } from '../ui/theme/glyph.ts'
+import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { table } from './mixins/admin-table.ts'
 import {
@@ -20,7 +20,7 @@ import type {
   AppointmentsNewRow,
   ResourceOption,
   DayWithSlots,
-} from '../data/appointments-new-queries.ts'
+} from '../data/appointments.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 import { AppointmentsScrollLock } from '../assets/appointments-scroll-lock.tsx'
 

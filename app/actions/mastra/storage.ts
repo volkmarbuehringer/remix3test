@@ -17,7 +17,7 @@ export const mastraStorage = new PostgresStoreVNext({
 // the Studio frontend checks for the public name. Fix the constructor name
 // so metrics detection passes.
 {
-  const obs = mastraStorage.stores?.observability
+  let obs = mastraStorage.stores?.observability
   if (obs && obs.constructor?.name?.startsWith('_ObservabilityStorage')) {
     Object.defineProperty(obs.constructor, 'name', {
       value: 'ObservabilityStoragePostgresVNext',

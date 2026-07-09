@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../data/connection.ts'
-import { createAppointmentRecord } from '../../../data/appointments-new-queries.ts'
+import { createAppointmentRecord } from '../../../data/appointments.ts'
 import { isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable } from '../../../data/appointofferings.ts'

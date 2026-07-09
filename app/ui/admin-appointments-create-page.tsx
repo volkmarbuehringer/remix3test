@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/ui'
-import type { AppointmentResourceOption, AppointmentUserOption } from '../data/appointments-queries.ts'
+import type { AppointmentResourceOption, AppointmentUserOption } from '../data/appointments.ts'
 import { AdminAppointmentsForm } from './admin-appointments-form.tsx'
 
 export interface AdminAppointmentsCreatePageProps {

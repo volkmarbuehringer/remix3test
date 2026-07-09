@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
-import type { ResourceOption } from '../data/appointments-new-queries.ts'
+import type { ResourceOption } from '../data/appointments.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import { routes } from '../routes.ts'
 

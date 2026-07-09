@@ -8,7 +8,7 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { formatMinOption, getCurrentWeekMonday, formatWeekLabel, formatDateDE } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import type { DayWithSlots } from '../data/appointments-new-queries.ts'
+import type { DayWithSlots } from '../data/appointments.ts'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 
