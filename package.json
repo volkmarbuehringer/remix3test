@@ -9,7 +9,7 @@
     "test": "NODE_ENV=test remix test",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --max-warnings=0 --ignore-pattern=.mastra",
-    "dev:mastra": "mastra dev",
+    "dev:mastra": "mastra dev -d app/actions/mastra",
     "lint:fix": "oxlint --fix --max-warnings=0",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
