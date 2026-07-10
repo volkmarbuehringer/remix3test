@@ -79,7 +79,6 @@ export interface CallAgentOptions {
   userId: string | number
   maxSteps?: number
   timeoutMs?: number
-  requireToolApproval?: boolean
 }
 
 export interface AgentCallResult {
@@ -102,25 +101,20 @@ export async function callAgentWithTimeout(
     userId,
     maxSteps = 10,
     timeoutMs = AGENT_TIMEOUT_MS,
-    requireToolApproval,
   } = options
 
   let startTime = Date.now()
   let abortController = new AbortController()
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  if (!requireToolApproval) {
-    timeout = setTimeout(() => abortController.abort(), timeoutMs)
-  }
+  let timeout = setTimeout(() => abortController.abort(), timeoutMs)
 
   try {
     let result = await agent.generate(message, {
       maxSteps,
-      abortSignal: requireToolApproval ? undefined : abortController.signal,
+      abortSignal: abortController.signal,
       memory: {
         thread: threadId,
         resource: String(userId),
       },
-      ...(requireToolApproval ? { requireToolApproval: true } : {}),
     }) as Record<string, unknown>
 
     let elapsed = Date.now() - startTime
@@ -138,7 +132,7 @@ export async function callAgentWithTimeout(
       suspendPayload: result.suspendPayload as unknown | undefined,
     }
   } finally {
-    if (timeout) clearTimeout(timeout)
+    clearTimeout(timeout)
   }
 }
 

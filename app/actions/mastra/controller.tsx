@@ -1,4 +1,4 @@
-import { createController, createAction } from 'remix/router'
+import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import { Logger } from 'remix/middleware/logger'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -26,7 +26,7 @@ import { recallChatMessages } from '../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
 import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
-import type { TestAgent, AgentCallResult } from './shared-agent.ts'
+import type { TestAgent } from './shared-agent.ts'
 
 const CHAT_INDEX = routes.mastra.chat.index.href()
 
@@ -263,21 +263,32 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           return redirect(CHAT_INDEX + '?error=' + encodeURIComponent('Ungültige Anfrage.'))
         }
 
+        let user = getCurrentUser()
         let log = (...args: unknown[]) =>
           context.get(Logger)?.(
-            `[MastraChat] [approve] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+            `[MastraChat] [approve] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 
         log('approving tool call: ' + sanitizeLog(runId))
 
         try {
-          let user = getCurrentUser()
           let agent = mastra.getAgent('supportAgent')
-          let result = await runWithAdminId(user.id, () =>
+          await runWithAdminId(user.id, () =>
             agent.approveToolCallGenerate({ runId, toolCallId }),
           )
-          let resultObj = result as unknown as Record<string, unknown>
-          log('approval complete, response length: ' + String((resultObj.text as string)?.length ?? 0))
+
+          let authIdentity = getAdminIdentity(context.auth)
+          if (authIdentity) {
+            logAdminAction(context.db, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'support_tool_approval',
+              target_type: 'mastra_tool_call',
+              target_id: runId,
+            })
+          }
+
+          log('approval complete')
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
           log('approval error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
@@ -290,23 +301,26 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
       },
       async decline(context) {
         let runId = context.formData.get('runId')?.toString()
+        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
         let threadId = context.formData.get('threadId')?.toString()
         if (!runId || !threadId) {
           return redirect(CHAT_INDEX + '?error=' + encodeURIComponent('Ungültige Anfrage.'))
         }
 
+        let user = getCurrentUser()
         let log = (...args: unknown[]) =>
           context.get(Logger)?.(
-            `[MastraChat] [decline] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+            `[MastraChat] [decline] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 
         log('declining tool call: ' + sanitizeLog(runId))
 
         try {
           let agent = mastra.getAgent('supportAgent')
-          let result = await agent.declineToolCall({ runId })
-          let responseText = (result as unknown as { text?: string }).text ?? ''
-          log('decline complete, response length: ' + responseText.length)
+          await runWithAdminId(user.id, () =>
+            agent.declineToolCallGenerate({ runId, toolCallId }),
+          )
+          log('decline complete')
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
           log('decline error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
