@@ -8,7 +8,7 @@ export interface TestAgent {
   generate: (
     message: string,
     opts?: Record<string, unknown>,
-  ) => Promise<{ text: string; toolCalls?: unknown[]; toolResults?: unknown[] }>
+  ) => Promise<{ text: string; toolCalls?: unknown[]; toolResults?: unknown[]; finishReason?: string; runId?: string; suspendPayload?: unknown }>
 }
 
 export interface CapturedToolCall {
@@ -79,16 +79,22 @@ export interface CallAgentOptions {
   userId: string | number
   maxSteps?: number
   timeoutMs?: number
+  requireToolApproval?: boolean
 }
 
-export async function callAgentWithTimeout(
-  options: CallAgentOptions,
-): Promise<{
+export interface AgentCallResult {
   text: string
   toolCalls: CapturedToolCall[]
   elapsed: number
   rawToolResults: unknown[]
-}> {
+  finishReason?: string
+  runId?: string
+  suspendPayload?: unknown
+}
+
+export async function callAgentWithTimeout(
+  options: CallAgentOptions,
+): Promise<AgentCallResult> {
   let {
     agent,
     message,
@@ -96,30 +102,43 @@ export async function callAgentWithTimeout(
     userId,
     maxSteps = 10,
     timeoutMs = AGENT_TIMEOUT_MS,
+    requireToolApproval,
   } = options
 
   let startTime = Date.now()
   let abortController = new AbortController()
-  let timeout = setTimeout(() => abortController.abort(), timeoutMs)
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  if (!requireToolApproval) {
+    timeout = setTimeout(() => abortController.abort(), timeoutMs)
+  }
 
   try {
     let result = await agent.generate(message, {
       maxSteps,
-      abortSignal: abortController.signal,
+      abortSignal: requireToolApproval ? undefined : abortController.signal,
       memory: {
         thread: threadId,
         resource: String(userId),
       },
-    })
+      ...(requireToolApproval ? { requireToolApproval: true } : {}),
+    }) as Record<string, unknown>
 
     let elapsed = Date.now() - startTime
-    let responseText = result.text ?? ''
-    let capturedToolCalls = extractToolCalls(result)
-    let rawToolResults = result.toolResults ?? []
+    let responseText = (result.text as string) ?? ''
+    let capturedToolCalls = extractToolCalls(result as { toolCalls?: unknown[]; toolResults?: unknown[] })
+    let rawToolResults = (result.toolResults as unknown[]) ?? []
 
-    return { text: responseText, toolCalls: capturedToolCalls, elapsed, rawToolResults }
+    return {
+      text: responseText,
+      toolCalls: capturedToolCalls,
+      elapsed,
+      rawToolResults,
+      finishReason: result.finishReason as string | undefined,
+      runId: result.runId as string | undefined,
+      suspendPayload: result.suspendPayload as unknown | undefined,
+    }
   } finally {
-    clearTimeout(timeout)
+    if (timeout) clearTimeout(timeout)
   }
 }
 

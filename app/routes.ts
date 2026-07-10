@@ -167,6 +167,11 @@ export const routes = route({
   }),
 
   mastra: route('mastra', {
-    chat: form('chat'),
+    chat: route('chat', {
+      index: get('/'),
+      action: post('/'),
+      approve: post('/approve'),
+      decline: post('/decline'),
+    }),
   }),
 })

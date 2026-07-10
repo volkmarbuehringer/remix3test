@@ -711,6 +711,7 @@ export const supportTools = {
   cancelUserAccount: createTool({
     id: 'cancel_user_account',
     description: 'Cancel a user account by ID: deletes all future appointments, disables login, and prevents re-registration with the same email. The user account stays in the database but is marked as disabled.',
+    requireApproval: true,
     inputSchema: z.object({
       targetUserId: z.number().int().positive().describe('The user ID to cancel'),
     }),

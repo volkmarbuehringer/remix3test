@@ -5,6 +5,7 @@ import { createAppointmentRecord } from '../../../data/appointments.ts'
 import { isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable } from '../../../data/appointofferings.ts'
+import { appointmentCreatedScorer } from '../scorers/booking-scorers.ts'
 
 const validateBookingStep = createStep({
   id: 'validate-booking',
@@ -55,7 +56,13 @@ const createAppointmentStep = createStep({
     id: z.number().optional(),
     error: z.string().optional(),
   }),
-  execute: async ({ inputData }) => {
+  scorers: {
+    appointmentCreated: {
+      scorer: appointmentCreatedScorer,
+      sampling: { type: 'ratio', rate: 1 },
+    },
+  },
+  execute: async ({ inputData, loggerVNext }) => {
     if (!inputData.valid) {
       return { success: false, error: 'invalid_params' }
     }
@@ -72,6 +79,7 @@ const createAppointmentStep = createStep({
         during,
         now,
       })
+      loggerVNext?.info('Appointment created', { appointmentId: id, resourceId: inputData.resourceId, userId: inputData.userId })
       return { success: true, id }
     } catch (error: unknown) {
       if (isExclusionConstraintError(error)) {

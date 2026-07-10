@@ -1,4 +1,4 @@
-import { createController } from 'remix/router'
+import { createController, createAction } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import { Logger } from 'remix/middleware/logger'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -26,7 +26,7 @@ import { recallChatMessages } from '../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
 import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
-import type { TestAgent } from './shared-agent.ts'
+import type { TestAgent, AgentCallResult } from './shared-agent.ts'
 
 const CHAT_INDEX = routes.mastra.chat.index.href()
 
@@ -54,6 +54,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         let threadId = context.url.searchParams.get('threadId') ?? undefined
         if (threadId && !validateThreadId(threadId)) threadId = undefined
         let error = context.url.searchParams.get('error') ?? undefined
+        let pending = context.url.searchParams.get('pending') === 'true'
         let chatMessages: ChatMessage[] = []
         if (threadId) {
           try {
@@ -65,18 +66,23 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             }
           }
         }
+        let approvalData: { runId?: string; toolCallId?: string; threadId?: string; responseText?: string } | undefined
+        let session = context.session
+        if (session) {
+          approvalData = session.get('toolApproval') as typeof approvalData | undefined
+        }
         let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
         if (isFrameRequest) {
           return renderAdminPage(
             context.render,
             'support',
-            <MastraChatPage messages={chatMessages} threadId={threadId} error={error} />,
+            <MastraChatPage messages={chatMessages} threadId={threadId} error={error} pending={pending} approvalData={approvalData} />,
           )
         }
         return context.render(
           <Layout>
             <AdminLayout activeItem="support">
-              <MastraChatPage messages={chatMessages} threadId={threadId} error={error} />
+              <MastraChatPage messages={chatMessages} threadId={threadId} error={error} pending={pending} approvalData={approvalData} />
             </AdminLayout>
           </Layout>,
         )
@@ -157,8 +163,32 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               userId: user.id,
               maxSteps: 10,
               timeoutMs: AGENT_TIMEOUT_MS,
+              requireToolApproval: true,
             }),
           )
+
+          if (result.finishReason === 'suspended') {
+            log('tool call suspended, waiting for approval')
+            let suspendPayload = result.suspendPayload as { toolCallId?: string } | undefined
+            let toolCallId = suspendPayload?.toolCallId
+            let session = context.session
+            if (session) {
+              session.flash('toolApproval', {
+                runId: result.runId,
+                toolCallId,
+                threadId,
+                responseText: result.text,
+              })
+            }
+            if (wantsJson(context.request.headers)) {
+              return context.json({
+                requiresApproval: true,
+                message: result.text,
+                threadId,
+              })
+            }
+            return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end')
+          }
 
           let responseText = result.text
           if (!responseText.trim()) {
@@ -223,6 +253,68 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               encodeURIComponent(
                 'Bei der Verarbeitung ist ein Fehler aufgetreten. Bitte versuche es erneut.',
               ),
+          )
+        }
+      },
+      async approve(context) {
+        let runId = context.formData.get('runId')?.toString()
+        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
+        let threadId = context.formData.get('threadId')?.toString()
+        if (!runId || !threadId) {
+          return redirect(CHAT_INDEX + '?error=' + encodeURIComponent('Ungültige Anfrage.'))
+        }
+
+        let log = (...args: unknown[]) =>
+          context.get(Logger)?.(
+            `[MastraChat] [approve] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+          )
+
+        log('approving tool call: ' + sanitizeLog(runId))
+
+        try {
+          let user = getCurrentUser()
+          let agent = mastra.getAgent('supportAgent')
+          let result = await runWithAdminId(user.id, () =>
+            agent.approveToolCallGenerate({ runId, toolCallId }),
+          )
+          let responseText = (result as unknown as { text?: string }).text ?? ''
+          log('approval complete, response length: ' + responseText.length)
+          return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
+        } catch (error) {
+          log('approval error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
+          return redirect(
+            CHAT_INDEX +
+              '?threadId=' + encodeURIComponent(threadId) +
+              '&error=' + encodeURIComponent('Fehler bei der Bestätigung.'),
+          )
+        }
+      },
+      async decline(context) {
+        let runId = context.formData.get('runId')?.toString()
+        let threadId = context.formData.get('threadId')?.toString()
+        if (!runId || !threadId) {
+          return redirect(CHAT_INDEX + '?error=' + encodeURIComponent('Ungültige Anfrage.'))
+        }
+
+        let log = (...args: unknown[]) =>
+          context.get(Logger)?.(
+            `[MastraChat] [decline] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+          )
+
+        log('declining tool call: ' + sanitizeLog(runId))
+
+        try {
+          let agent = mastra.getAgent('supportAgent')
+          let result = await agent.declineToolCall({ runId })
+          let responseText = (result as unknown as { text?: string }).text ?? ''
+          log('decline complete, response length: ' + responseText.length)
+          return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
+        } catch (error) {
+          log('decline error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
+          return redirect(
+            CHAT_INDEX +
+              '?threadId=' + encodeURIComponent(threadId) +
+              '&error=' + encodeURIComponent('Fehler beim Ablehnen.'),
           )
         }
       },
