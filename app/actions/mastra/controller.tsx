@@ -163,7 +163,6 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               userId: user.id,
               maxSteps: 10,
               timeoutMs: AGENT_TIMEOUT_MS,
-              requireToolApproval: true,
             }),
           )
 
@@ -278,8 +277,8 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             agent.approveToolCallGenerate({ runId, toolCallId }),
           )
           let resultObj = result as unknown as Record<string, unknown>
+          log('approval complete, finishReason=' + String(resultObj.finishReason) + ', text.length=' + String((resultObj.text as string)?.length ?? 0))
           let responseText = (resultObj.text as string) ?? ''
-          log('approval complete, response length: ' + responseText.length + ', keys=' + Object.keys(resultObj).join(','))
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
           log('approval error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
