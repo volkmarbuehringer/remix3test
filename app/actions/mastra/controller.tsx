@@ -167,7 +167,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           )
 
           if (result.finishReason === 'suspended') {
-            log('tool call suspended, suspendPayload=' + JSON.stringify(result.suspendPayload))
+            log('tool call suspended')
             let suspendPayload = result.suspendPayload as { toolCallId?: string } | undefined
             let toolCallId = suspendPayload?.toolCallId
             let session = context.session
@@ -268,7 +268,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             `[MastraChat] [approve] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 
-        log('approving tool call: ' + sanitizeLog(runId) + ' toolCallId=' + (toolCallId ?? 'none'))
+        log('approving tool call: ' + sanitizeLog(runId))
 
         try {
           let user = getCurrentUser()
@@ -277,8 +277,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             agent.approveToolCallGenerate({ runId, toolCallId }),
           )
           let resultObj = result as unknown as Record<string, unknown>
-          log('approval complete, finishReason=' + String(resultObj.finishReason) + ', text.length=' + String((resultObj.text as string)?.length ?? 0))
-          let responseText = (resultObj.text as string) ?? ''
+          log('approval complete, response length: ' + String((resultObj.text as string)?.length ?? 0))
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
           log('approval error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
