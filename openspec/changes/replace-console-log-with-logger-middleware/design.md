@@ -7,12 +7,14 @@ Six server-side files use raw `console.*` calls. A standalone `userLogger` utili
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every server-side log/warn/error call uses `context.logger` from the middleware
 - Remove the `userLogger` utility and its imports from `ai/controller.tsx`
 - Clean up raw `console.warn` in `middleware/root.ts` and `middleware/global-rate-limit.ts`
 - Tests in `middleware/root.test.ts` adapt to the cleaned-up middleware
 
 **Non-Goals:**
+
 - Client-side `console.*` calls in `app/ui/` or `app/assets/` (browser-only)
 - Changes to the `skipAssetsLogger` middleware's asset-skipping logic
 - Adding structured error reporting or external log shipping

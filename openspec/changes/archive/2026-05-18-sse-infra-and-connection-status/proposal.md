@@ -15,11 +15,13 @@ We need a generalized SSE infrastructure so every feature can opt into real-time
 ## Capabilities
 
 ### New Capabilities
+
 - `sse-infrastructure`: Typed SSE channel creation, subscriber management, heartbeat, subscription endpoint helper, and a client-side connection status component.
 - `sse-connection-status`: Client-side connection indicator showing live/disconnected/reconnecting states via a pulsing dot.
 
 ### Modified Capabilities
-- *(None — existing specs are about frames and env loading, not SSE)*
+
+- _(None — existing specs are about frames and env loading, not SSE)_
 
 ## Impact
 

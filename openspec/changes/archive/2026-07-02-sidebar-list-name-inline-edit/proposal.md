@@ -1,6 +1,7 @@
 ## Why
 
 The lists sidebar (`/lists`) displays each list's name from the `description` database column. Currently, renaming a list requires the user to:
+
 1. Navigate to the admin area
 2. Find the list in a table
 3. Edit it there

@@ -14,17 +14,17 @@ The grid display is unaffected because it renders from the `int4range` `during` 
 
 ### New Capabilities
 
-*(None — this is a bug fix, not a new capability.)*
+_(None — this is a bug fix, not a new capability.)_
 
 ### Modified Capabilities
 
-*(No existing specs require changes — this is purely an implementation-level fix to the admin form UI and validation.)*
+_(No existing specs require changes — this is purely an implementation-level fix to the admin form UI and validation.)_
 
 ## Impact
 
-| File | Change |
-|------|--------|
-| `app/ui/admin-appointments-edit-page.tsx` | Change `START_MIN_OPTIONS` and `END_MIN_OPTIONS` from hourly to 15-min intervals |
-| `app/ui/admin-appointments-create-page.tsx` | Same dropdown change if it uses similar constants (check if shared) |
+| File                                            | Change                                                                            |
+| ----------------------------------------------- | --------------------------------------------------------------------------------- |
+| `app/ui/admin-appointments-edit-page.tsx`       | Change `START_MIN_OPTIONS` and `END_MIN_OPTIONS` from hourly to 15-min intervals  |
+| `app/ui/admin-appointments-create-page.tsx`     | Same dropdown change if it uses similar constants (check if shared)               |
 | `app/actions/admin-appointments-controller.tsx` | Update `validateAppointmentForm()` to accept `% 15 === 0` instead of `% 60 === 0` |
-| `app/ui/admin-appointments-page.tsx` | None — display uses `formatDuring()` which already handles any granularity |
+| `app/ui/admin-appointments-page.tsx`            | None — display uses `formatDuring()` which already handles any granularity        |

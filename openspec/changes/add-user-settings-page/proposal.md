@@ -12,10 +12,12 @@ Users currently have no way to change their password while logged in — the onl
 ## Capabilities
 
 ### New Capabilities
+
 - `user-settings`: User settings page with password change functionality, including complexity validation and navigation entry
 
 ### Modified Capabilities
-- *(none — no existing specs change)*
+
+- _(none — no existing specs change)_
 
 ## Impact
 

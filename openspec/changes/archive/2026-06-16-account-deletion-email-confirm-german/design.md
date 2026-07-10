@@ -7,12 +7,14 @@ The existing email infrastructure uses nodemailer via `app/middleware/mailer.ts`
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Translate all existing email templates (verification, password reset) to German
 - Send a confirmation email when a user deletes their own account
 - Send a confirmation email when an admin deletes a user's account
 - Keep template content maintainable without introducing a full i18n framework
 
 **Non-Goals:**
+
 - No full i18n / locale framework (avoid scope creep)
 - No multi-language support beyond German (not requested)
 - No changes to email sending infrastructure (SMTP, middleware)

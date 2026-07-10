@@ -60,7 +60,10 @@ describe('Security headers middleware', () => {
 
   it('sets Permissions-Policy header', async () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
-    assert.ok(response.headers.get('Permissions-Policy'), 'Permissions-Policy header should be present')
+    assert.ok(
+      response.headers.get('Permissions-Policy'),
+      'Permissions-Policy header should be present',
+    )
   })
 
   it('does not set HSTS in development', async () => {
@@ -73,8 +76,11 @@ describe('Security headers middleware', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
     let csp = response.headers.get('Content-Security-Policy')!
     assert.ok(csp.includes("'nonce-"), 'CSP should include a nonce for scripts')
-    let scriptSrc = csp.split(';').find(p => p.trim().startsWith('script-src'))
-    assert.ok(scriptSrc && !scriptSrc.includes("'unsafe-inline'"), 'script-src should not allow unsafe-inline')
+    let scriptSrc = csp.split(';').find((p) => p.trim().startsWith('script-src'))
+    assert.ok(
+      scriptSrc && !scriptSrc.includes("'unsafe-inline'"),
+      'script-src should not allow unsafe-inline',
+    )
   })
 
   it('all 6 headers present on a non-auth route too', async () => {

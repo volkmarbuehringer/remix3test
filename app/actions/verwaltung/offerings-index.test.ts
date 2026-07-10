@@ -60,13 +60,20 @@ describe('Admin Offerings Controller', () => {
       let html = await response.text()
 
       let futureDayStr = new Date(futureDayMs).toLocaleDateString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
       })
       let pastDayStr = new Date(pastDayMs).toLocaleDateString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
       })
       assert.ok(html.includes(futureDayStr), 'default view should show future offering date')
-      assert.ok(!html.includes(`title="${pastDayStr}"`), 'default view should NOT show past offering date in day column')
+      assert.ok(
+        !html.includes(`title="${pastDayStr}"`),
+        'default view should NOT show past offering date in day column',
+      )
     })
 
     it('status=expired shows only expired offerings', async () => {
@@ -92,19 +99,29 @@ describe('Admin Offerings Controller', () => {
       let html = await response.text()
 
       let pastDayStr = new Date(pastDayMs).toLocaleDateString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
       })
       let futureDayStr = new Date(futureDayMs).toLocaleDateString('de-DE', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
       })
       assert.ok(html.includes(pastDayStr), 'expired view should show past offering date')
-      assert.ok(!html.includes(`title="${futureDayStr}"`), 'expired view should NOT show future offering date in day column')
+      assert.ok(
+        !html.includes(`title="${futureDayStr}"`),
+        'expired view should NOT show future offering date in day column',
+      )
     })
 
     it('preserves status parameter in sort URLs', async () => {
-      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}?status=expired&sort=ao.day&order=desc`, {
-        headers: { Cookie: adminCookie },
-      })
+      let response = await router.fetch(
+        `${ADMIN_OFFERINGS_URL}?status=expired&sort=ao.day&order=desc`,
+        {
+          headers: { Cookie: adminCookie },
+        },
+      )
       let html = await response.text()
       assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })

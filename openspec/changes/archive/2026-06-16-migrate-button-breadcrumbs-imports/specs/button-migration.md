@@ -3,15 +3,18 @@
 ## Files (29 total)
 
 **Actions:**
+
 - `app/actions/client/create-page.tsx`
 - `app/actions/client/edit-page.tsx`
 - `app/actions/client/grid-page.tsx`
 
 **Assets:**
+
 - `app/assets/admin-delete-past-button.tsx`
 - `app/assets/lists-client.tsx`
 
 **UI pages:**
+
 - `app/ui/admin-appointments-form.tsx`
 - `app/ui/admin-appointments-page.tsx`
 - `app/ui/admin-chatlog-page.tsx`

@@ -5,11 +5,13 @@ The `/verwaltung` admin section has 4 interactive data grids (offerings, appoint
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Remove the `id` `th`/`td` pair from each of the 4 grid tables
 - Add `parseSafe` validation to the 3 endpoints missing it
 - Keep all existing sorting, filtering, and pagination working
 
 **Non-Goals:**
+
 - No DB schema changes (IDs remain PKs and are still fetched in queries)
 - No CSS/layout restructuring (grids keep existing column spacing)
 - No changes to PDF grids or report1 (already have no id column)

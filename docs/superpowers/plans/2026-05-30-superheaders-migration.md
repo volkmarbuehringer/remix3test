@@ -17,6 +17,7 @@
 - [ ] **Replace Content-Type and Cache-Control with SuperHeaders**
 
 Current:
+
 ```ts
 let headers = new Headers()
 headers.set('Content-Type', 'text/event-stream')
@@ -26,6 +27,7 @@ headers.set('X-Accel-Buffering', 'no')
 ```
 
 Replace with:
+
 ```ts
 let headers = new Headers()
 headers.contentType = { mediaType: 'text/event-stream' }
@@ -57,6 +59,7 @@ git commit -m "refactor: use SuperHeaders for SSE Content-Type and Cache-Control
 - [ ] **Add imports**
 
 Add to top of file:
+
 ```ts
 import { Accept, AcceptEncoding } from 'remix/headers'
 ```
@@ -64,6 +67,7 @@ import { Accept, AcceptEncoding } from 'remix/headers'
 - [ ] **Replace Accept and Accept-Encoding with SuperHeaders**
 
 Current:
+
 ```ts
 let headers = new Headers()
 headers.set('Accept', 'text/html')
@@ -72,6 +76,7 @@ headers.set('X-Remix-Frame', 'true')
 ```
 
 Replace with:
+
 ```ts
 let headers = new Headers()
 headers.accept = new Accept('text/html')
@@ -100,6 +105,7 @@ git commit -m "refactor: use SuperHeaders for Accept and Accept-Encoding headers
 - [ ] **Replace Cache-Control set with SuperHeaders**
 
 Current:
+
 ```ts
 export function fragmentResponseInit(init?: ResponseInit): ResponseInit {
   let headers = new Headers(init?.headers)
@@ -111,6 +117,7 @@ export function fragmentResponseInit(init?: ResponseInit): ResponseInit {
 ```
 
 Replace with:
+
 ```ts
 export function fragmentResponseInit(init?: ResponseInit): ResponseInit {
   let headers = new Headers(init?.headers)
@@ -144,6 +151,7 @@ git commit -m "refactor: use SuperHeaders for fragment Cache-Control"
 - [ ] **Add import**
 
 Add to top of file:
+
 ```ts
 import { SetCookie } from 'remix/headers'
 ```
@@ -151,6 +159,7 @@ import { SetCookie } from 'remix/headers'
 - [ ] **Replace manual Set-Cookie parsing**
 
 Current:
+
 ```ts
 export function extractCookie(response: Response): string {
   let setCookie = response.headers.get('Set-Cookie')
@@ -160,6 +169,7 @@ export function extractCookie(response: Response): string {
 ```
 
 Replace with:
+
 ```ts
 export function extractCookie(response: Response): string {
   let parsed = SetCookie.from(response.headers.get('Set-Cookie'))

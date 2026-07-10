@@ -20,7 +20,13 @@ import { logAdminAction } from '../../data/audit-log.ts'
 import { deleteUser } from '../../data/settings.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
-import { fieldLabelCss, fieldErrorCss, inputWrapperCss, inputHasToggleCss, toggleButtonCss } from '../../ui/auth-card.tsx'
+import {
+  fieldLabelCss,
+  fieldErrorCss,
+  inputWrapperCss,
+  inputHasToggleCss,
+  toggleButtonCss,
+} from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
@@ -62,14 +68,22 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
       if (_action === 'delete-account') {
         if (user.role === 'admin') {
           return context.render(
-            <SettingsPage user={user} pageSize={pageSize} deleteError="Administratoren können ihr Konto nicht selbst löschen." />,
+            <SettingsPage
+              user={user}
+              pageSize={pageSize}
+              deleteError="Administratoren können ihr Konto nicht selbst löschen."
+            />,
             { status: 403 },
           )
         }
 
         if (!deleteAccountLimiter.attempt(user.id)) {
           return context.render(
-            <SettingsPage user={user} pageSize={pageSize} deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage
+              user={user}
+              pageSize={pageSize}
+              deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut."
+            />,
             { status: 429 },
           )
         }
@@ -81,7 +95,9 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
         let passwordValid = await verifyPassword(inputPassword, user.password_hash)
         if (!passwordValid) {
           return context.render(
-            <SettingsPage user={user} pageSize={pageSize}
+            <SettingsPage
+              user={user}
+              pageSize={pageSize}
               deleteError="Aktuelles Passwort ist falsch."
             />,
             { status: 400 },
@@ -101,7 +117,11 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
         } catch (err) {
           deleteAccountLimiter.reset(user.id)
           return context.render(
-            <SettingsPage user={user} pageSize={pageSize} deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut." />,
+            <SettingsPage
+              user={user}
+              pageSize={pageSize}
+              deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut."
+            />,
             { status: 500 },
           )
         }
@@ -113,7 +133,11 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
 
         if (process.env.NODE_ENV !== 'test') {
           try {
-            await sendAccountDeletionEmail(context.mailer, { name: user.name, email: user.email }, 'self')
+            await sendAccountDeletionEmail(
+              context.mailer,
+              { name: user.name, email: user.email },
+              'self',
+            )
           } catch (err) {
             context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
           }
@@ -136,7 +160,11 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
 
       if (!changePasswordLimiter.attempt(user.id)) {
         return context.render(
-          <SettingsPage user={user} pageSize={pageSize} passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+          <SettingsPage
+            user={user}
+            pageSize={pageSize}
+            passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut."
+          />,
           { status: 429 },
         )
       }
@@ -144,7 +172,12 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
       let parsed = s.parseSafe(changePasswordSchema, context.formData)
       if (!parsed.success) {
         return context.render(
-          <SettingsPage user={user} pageSize={pageSize} passwordError="Bitte überprüfen Sie Ihre Eingabe." passwordErrors={issuesToFieldErrors(parsed.issues)} />,
+          <SettingsPage
+            user={user}
+            pageSize={pageSize}
+            passwordError="Bitte überprüfen Sie Ihre Eingabe."
+            passwordErrors={issuesToFieldErrors(parsed.issues)}
+          />,
           { status: 400 },
         )
       }
@@ -154,14 +187,24 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
       let valid = await verifyPassword(currentPassword, user.password_hash)
       if (!valid) {
         return context.render(
-          <SettingsPage user={user} pageSize={pageSize} passwordError="Aktuelles Passwort ist falsch." passwordErrors={{ currentPassword: 'Falsches Passwort' }} />,
+          <SettingsPage
+            user={user}
+            pageSize={pageSize}
+            passwordError="Aktuelles Passwort ist falsch."
+            passwordErrors={{ currentPassword: 'Falsches Passwort' }}
+          />,
           { status: 400 },
         )
       }
 
       if (newPassword !== confirmPassword) {
         return context.render(
-          <SettingsPage user={user} pageSize={pageSize} passwordError="Passwörter stimmen nicht überein." passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }} />,
+          <SettingsPage
+            user={user}
+            pageSize={pageSize}
+            passwordError="Passwörter stimmen nicht überein."
+            passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }}
+          />,
           { status: 400 },
         )
       }
@@ -169,7 +212,12 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
       let complexityError = validatePasswordComplexity(newPassword)
       if (complexityError) {
         return context.render(
-          <SettingsPage user={user} pageSize={pageSize} passwordError={complexityError} passwordErrors={{ newPassword: complexityError }} />,
+          <SettingsPage
+            user={user}
+            pageSize={pageSize}
+            passwordError={complexityError}
+            passwordErrors={{ newPassword: complexityError }}
+          />,
           { status: 400 },
         )
       }
@@ -189,7 +237,13 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
 
       changePasswordLimiter.reset(user.id)
 
-      return context.render(<SettingsPage user={user} pageSize={pageSize} passwordSuccess="Passwort erfolgreich aktualisiert." />)
+      return context.render(
+        <SettingsPage
+          user={user}
+          pageSize={pageSize}
+          passwordSuccess="Passwort erfolgreich aktualisiert."
+        />,
+      )
     },
   },
 })
@@ -206,7 +260,15 @@ type SettingsPageProps = {
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
-    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError, deleteSuccess } = handle.props
+    let {
+      user,
+      pageSize,
+      passwordError,
+      passwordErrors,
+      passwordSuccess,
+      deleteError,
+      deleteSuccess,
+    } = handle.props
 
     return (
       <Layout title="Einstellungen">
@@ -234,97 +296,180 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 <label mix={fieldLabelCss}>
                   <span>Einträge pro Seite</span>
                   <select name="pageSize" mix={selectCss}>
-                    <option value={10} selected={pageSize === 10}>10</option>
-                    <option value={15} selected={pageSize === 15}>15</option>
-                    <option value={20} selected={pageSize === 20}>20</option>
-                    <option value={25} selected={pageSize === 25}>25</option>
-                    <option value={50} selected={pageSize === 50}>50</option>
-                    <option value={100} selected={pageSize === 100}>100</option>
+                    <option value={10} selected={pageSize === 10}>
+                      10
+                    </option>
+                    <option value={15} selected={pageSize === 15}>
+                      15
+                    </option>
+                    <option value={20} selected={pageSize === 20}>
+                      20
+                    </option>
+                    <option value={25} selected={pageSize === 25}>
+                      25
+                    </option>
+                    <option value={50} selected={pageSize === 50}>
+                      50
+                    </option>
+                    <option value={100} selected={pageSize === 100}>
+                      100
+                    </option>
                   </select>
                 </label>
-                <button type="submit" mix={submitButton}>Speichern</button>
+                <button type="submit" mix={submitButton}>
+                  Speichern
+                </button>
               </div>
             </form>
           </div>
 
           <div mix={panelCss}>
             <h2 mix={sectionTitleCss}>Passwort ändern</h2>
-            {passwordError ? <p role="alert" mix={errorBanner}>{passwordError}</p> : null}
-            {passwordSuccess ? <p role="status" mix={successBanner}>{passwordSuccess}</p> : null}
+            {passwordError ? (
+              <p role="alert" mix={errorBanner}>
+                {passwordError}
+              </p>
+            ) : null}
+            {passwordSuccess ? (
+              <p role="status" mix={successBanner}>
+                {passwordSuccess}
+              </p>
+            ) : null}
             <form action={routes.settings.action.href()} method="POST">
               <CsrfTokenInput />
               <PasswordToggle />
               <div mix={formContainer}>
                 <label mix={fieldLabelCss}>
                   <span>Aktuelles Passwort</span>
-                <div mix={inputWrapperCss}>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    required
-                    autoComplete="current-password"
-                    aria-invalid={passwordErrors?.currentPassword ? true : undefined}
-                    aria-describedby={passwordErrors?.currentPassword ? 'current-password-error' : undefined}
-                    mix={[input.base, input.focus, passwordErrors?.currentPassword ? input.error : undefined, inputHasToggleCss]}
-                  />
-                  <button type="button" data-toggle-pw="currentPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <Glyph name="eye" width={18} height={18} />
-                  </button>
-                </div>
-                {passwordErrors?.currentPassword ? <span id="current-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.currentPassword}</span> : null}
-              </label>
+                  <div mix={inputWrapperCss}>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      required
+                      autoComplete="current-password"
+                      aria-invalid={passwordErrors?.currentPassword ? true : undefined}
+                      aria-describedby={
+                        passwordErrors?.currentPassword ? 'current-password-error' : undefined
+                      }
+                      mix={[
+                        input.base,
+                        input.focus,
+                        passwordErrors?.currentPassword ? input.error : undefined,
+                        inputHasToggleCss,
+                      ]}
+                    />
+                    <button
+                      type="button"
+                      data-toggle-pw="currentPassword"
+                      aria-label="Passwort anzeigen"
+                      mix={toggleButtonCss}
+                    >
+                      <Glyph name="eye" width={18} height={18} />
+                    </button>
+                  </div>
+                  {passwordErrors?.currentPassword ? (
+                    <span id="current-password-error" role="alert" mix={fieldErrorCss}>
+                      {passwordErrors.currentPassword}
+                    </span>
+                  ) : null}
+                </label>
 
-              <label mix={fieldLabelCss}>
-                <span>Neues Passwort</span>
-                <div mix={inputWrapperCss}>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    required
-                    autoComplete="new-password"
-                    minLength={PASSWORD_MIN_LENGTH}
-                    aria-invalid={passwordErrors?.newPassword ? true : undefined}
-                    aria-describedby={passwordErrors?.newPassword ? 'new-password-error' : undefined}
-                    mix={[input.base, input.focus, passwordErrors?.newPassword ? input.error : undefined, inputHasToggleCss]}
-                  />
-                  <button type="button" data-toggle-pw="newPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <Glyph name="eye" width={18} height={18} />
-                  </button>
-                </div>
-                {passwordErrors?.newPassword ? <span id="new-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.newPassword}</span> : null}
-                <div data-pw-complexity mix={complexityFeedbackCss}></div>
-                <script>{passwordComplexityScript('newPassword')}</script>
-              </label>
+                <label mix={fieldLabelCss}>
+                  <span>Neues Passwort</span>
+                  <div mix={inputWrapperCss}>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      required
+                      autoComplete="new-password"
+                      minLength={PASSWORD_MIN_LENGTH}
+                      aria-invalid={passwordErrors?.newPassword ? true : undefined}
+                      aria-describedby={
+                        passwordErrors?.newPassword ? 'new-password-error' : undefined
+                      }
+                      mix={[
+                        input.base,
+                        input.focus,
+                        passwordErrors?.newPassword ? input.error : undefined,
+                        inputHasToggleCss,
+                      ]}
+                    />
+                    <button
+                      type="button"
+                      data-toggle-pw="newPassword"
+                      aria-label="Passwort anzeigen"
+                      mix={toggleButtonCss}
+                    >
+                      <Glyph name="eye" width={18} height={18} />
+                    </button>
+                  </div>
+                  {passwordErrors?.newPassword ? (
+                    <span id="new-password-error" role="alert" mix={fieldErrorCss}>
+                      {passwordErrors.newPassword}
+                    </span>
+                  ) : null}
+                  <div data-pw-complexity mix={complexityFeedbackCss}></div>
+                  <script>{passwordComplexityScript('newPassword')}</script>
+                </label>
 
-              <label mix={fieldLabelCss}>
-                <span>Neues Passwort bestätigen</span>
-                <div mix={inputWrapperCss}>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    required
-                    autoComplete="new-password"
-                    aria-invalid={passwordErrors?.confirmPassword ? true : undefined}
-                    aria-describedby={passwordErrors?.confirmPassword ? 'confirm-password-error' : undefined}
-                    mix={[input.base, input.focus, passwordErrors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
-                  />
-                  <button type="button" data-toggle-pw="confirmPassword" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
-                    <Glyph name="eye" width={18} height={18} />
-                  </button>
-                </div>
-                {passwordErrors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{passwordErrors.confirmPassword}</span> : null}
-              </label>
+                <label mix={fieldLabelCss}>
+                  <span>Neues Passwort bestätigen</span>
+                  <div mix={inputWrapperCss}>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      required
+                      autoComplete="new-password"
+                      aria-invalid={passwordErrors?.confirmPassword ? true : undefined}
+                      aria-describedby={
+                        passwordErrors?.confirmPassword ? 'confirm-password-error' : undefined
+                      }
+                      mix={[
+                        input.base,
+                        input.focus,
+                        passwordErrors?.confirmPassword ? input.error : undefined,
+                        inputHasToggleCss,
+                      ]}
+                    />
+                    <button
+                      type="button"
+                      data-toggle-pw="confirmPassword"
+                      aria-label="Passwort anzeigen"
+                      mix={toggleButtonCss}
+                    >
+                      <Glyph name="eye" width={18} height={18} />
+                    </button>
+                  </div>
+                  {passwordErrors?.confirmPassword ? (
+                    <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
+                      {passwordErrors.confirmPassword}
+                    </span>
+                  ) : null}
+                </label>
 
-              <button type="submit" mix={submitButton}>Speichern</button>
+                <button type="submit" mix={submitButton}>
+                  Speichern
+                </button>
               </div>
             </form>
           </div>
 
           <div mix={panelCss}>
             <h2 mix={sectionTitleCss}>Konto löschen</h2>
-            <p mix={warningTextCss}>Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht rückgängig gemacht werden.</p>
-            {deleteError ? <p role="alert" mix={errorBanner}>{deleteError}</p> : null}
-            {deleteSuccess ? <p role="status" mix={successBanner}>{deleteSuccess}</p> : null}
+            <p mix={warningTextCss}>
+              Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht
+              rückgängig gemacht werden.
+            </p>
+            {deleteError ? (
+              <p role="alert" mix={errorBanner}>
+                {deleteError}
+              </p>
+            ) : null}
+            {deleteSuccess ? (
+              <p role="status" mix={successBanner}>
+                {deleteSuccess}
+              </p>
+            ) : null}
             <form action={routes.settings.action.href()} method="POST">
               <input type="hidden" name="_action" value="delete-account" />
               <CsrfTokenInput />
@@ -345,7 +490,9 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                   <input type="checkbox" name="confirmDelete" required />
                   <span>Wollen Sie wirklich löschen?</span>
                 </label>
-                <button type="submit" mix={deleteButtonCss}>Konto löschen</button>
+                <button type="submit" mix={deleteButtonCss}>
+                  Konto löschen
+                </button>
               </div>
             </form>
           </div>

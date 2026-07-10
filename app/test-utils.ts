@@ -28,14 +28,18 @@ export function generateCsrfToken(): string {
  *
  * @returns The session cookie string (e.g. `session=xxx`) and the CSRF token value.
  */
-export async function createCsrfSession(url: string): Promise<{ cookie: string; csrfToken: string }> {
+export async function createCsrfSession(
+  url: string,
+): Promise<{ cookie: string; csrfToken: string }> {
   let response = await router.fetch(url)
   let cookie = extractCookie(response)
   let html = await response.text()
   // Extract CSRF token from <input type="hidden" name="_csrf" value="...">
   let match = html.match(/<input[^>]*name="_csrf"[^>]*value="([^"]+)"/)
   if (!match) {
-    throw new Error('Could not extract CSRF token from response. Ensure csrf() middleware is active and the page renders a form with _csrf input.')
+    throw new Error(
+      'Could not extract CSRF token from response. Ensure csrf() middleware is active and the page renders a form with _csrf input.',
+    )
   }
   return { cookie, csrfToken: match[1] }
 }
@@ -47,9 +51,15 @@ export async function createCsrfSession(url: string): Promise<{ cookie: string; 
  *
  * @returns The session cookie string and the CSRF token value.
  */
-export async function createAuthCookieWithCsrf(): Promise<{ cookie: string; csrfToken: string } | null> {
+export async function createAuthCookieWithCsrf(): Promise<{
+  cookie: string
+  csrfToken: string
+} | null> {
   try {
-    let result = await pool.query('SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let result = await pool.query(
+      'SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+      ['admin'],
+    )
     if (result.rows.length === 0) return null
 
     let userId = result.rows[0].id as number
@@ -73,9 +83,13 @@ export async function createAuthCookieWithCsrf(): Promise<{ cookie: string; csrf
   }
 }
 
-export async function createAuthCookieWithCsrfForUser(email: string): Promise<{ cookie: string; csrfToken: string } | null> {
+export async function createAuthCookieWithCsrfForUser(
+  email: string,
+): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id, role, token_version FROM users WHERE email = $1', [email])
+    let result = await pool.query('SELECT id, role, token_version FROM users WHERE email = $1', [
+      email,
+    ])
     if (result.rows.length === 0) return null
 
     let user = result.rows[0] as { id: number; role: string; token_version: number }
@@ -109,7 +123,10 @@ export async function createAuthCookieWithPendingBooking(
   pendingBooking: string,
 ): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let result = await pool.query(
+      'SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+      ['admin'],
+    )
     if (result.rows.length === 0) return null
 
     let userId = result.rows[0].id as number

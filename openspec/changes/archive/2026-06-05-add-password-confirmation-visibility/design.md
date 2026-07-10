@@ -7,12 +7,14 @@ Remix 3 client-side interactivity uses `clientEntry(import.meta.url, ...)` wrapp
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a "Confirm password" field to the register form that visually and programmatically validates matching passwords before submission
 - Add a visibility toggle button (eye/eye-off icon) to all password fields: register password, register confirm password, reset password form
 - Use a reusable `PasswordField` component to avoid duplicating toggle logic
 - No new external dependencies — use inline SVG for icons, existing theme tokens for styling
 
 **Non-Goals:**
+
 - Password strength meter or requirements indicator
 - Changing the login page's password field (no confirmation needed there and visibility is less critical)
 - Changing the admin user creation password field in `admin-users-page.tsx`
@@ -25,6 +27,7 @@ Remix 3 client-side interactivity uses `clientEntry(import.meta.url, ...)` wrapp
 Create a `PasswordField` clientEntry component that encapsulates the password input + visibility toggle button. This avoids copy-pasting toggle logic across register and reset pages.
 
 **Alternatives considered:**
+
 - Inline toggle button in each page — rejected to avoid duplication
 - Pure CSS/JS approach without clientEntry — rejected because Remix 3 requires clientEntry for DOM manipulation
 
@@ -43,6 +46,7 @@ Use two simple inline SVG paths for the eye and eye-off icons rather than import
 The confirm password field validates matching on the client side via a `handle.onsubmit` interceptor or by disabling the submit button when passwords don't match. The server only receives and validates the primary `password` field. This avoids unnecessary server round-trips.
 
 **Alternatives considered:**
+
 - Server-side confirmation — rejected because it adds no security benefit (the server never needs to see the confirmation value)
 - `confirmPassword` schema field — rejected to keep the schema simple and avoid sending redundant data
 

@@ -20,7 +20,21 @@ export interface AdminAppointmentsCreatePageProps {
 
 export function AdminAppointmentsCreatePage(handle: Handle<AdminAppointmentsCreatePageProps>) {
   return () => {
-    let { resources, users, offset = '', sort = '', order = '', filter = '', period = '', status = '', defaultStartMin, defaultEndMin, formValues, fieldErrors, formError } = handle.props
+    let {
+      resources,
+      users,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      period = '',
+      status = '',
+      defaultStartMin,
+      defaultEndMin,
+      formValues,
+      fieldErrors,
+      formError,
+    } = handle.props
     return (
       <AdminAppointmentsForm
         mode="create"

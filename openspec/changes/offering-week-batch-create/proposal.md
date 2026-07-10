@@ -15,6 +15,7 @@ Creating offerings manually one day at a time is tedious for recurring weekly sc
 ## Capabilities
 
 ### New Capabilities
+
 - `offering-configs`: Weekly pattern configuration per resource with JSON storage and structured editing UI
 - `offering-week-generator`: One-click generation of a full week of offerings from config, with automatic holiday skipping
 

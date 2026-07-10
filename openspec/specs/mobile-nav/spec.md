@@ -11,6 +11,7 @@ Responsive mobile navigation that replaces the desktop horizontal nav bar with a
 The "Termine" entry in `NAV_SECTIONS` SHALL point to `/appointments/new` instead of `/appointment`.
 
 #### Scenario: Termine links to new wizard
+
 - **WHEN** a user clicks "Termine" in the desktop nav
 - **THEN** they SHALL be navigated to `/appointments/new`
 
@@ -19,27 +20,30 @@ The "Termine" entry in `NAV_SECTIONS` SHALL point to `/appointments/new` instead
 `NAV_SECTIONS` SHALL contain a "TermineUI" entry pointing to `/appointment` in the same section as other nav items.
 
 #### Scenario: TermineUI entry in desktop nav
+
 - **WHEN** inspecting `NAV_SECTIONS` items
 - **THEN** it SHALL contain an entry with `label: "TermineUI"` and `href: "/appointment"`
 
 ## Routes
 
-| Route | Path | Auth | Mobile Label | Style |
-|-------|------|------|-------------|-------|
-| New Appointment | `/appointments/new` | required | "Neuer Termin" | Indigo CTA button |
-| Settings | `/settings` | required | "Einstellungen" | Plain nav link |
-| Login | `/auth/login` | when logged out | "Anmelden" | Plain nav link |
-| Logout | `POST /auth/logout` | when logged in | "Abmelden" | Plain nav link + CSRF form |
+| Route           | Path                | Auth            | Mobile Label    | Style                      |
+| --------------- | ------------------- | --------------- | --------------- | -------------------------- |
+| New Appointment | `/appointments/new` | required        | "Neuer Termin"  | Indigo CTA button          |
+| Settings        | `/settings`         | required        | "Einstellungen" | Plain nav link             |
+| Login           | `/auth/login`       | when logged out | "Anmelden"      | Plain nav link             |
+| Logout          | `POST /auth/logout` | when logged in  | "Abmelden"      | Plain nav link + CSRF form |
 
 ## Auth States
 
 ### Logged In
+
 - Neuer Termin → shown (CTA)
 - Einstellungen → shown
 - Abmelden → shown (form post with CSRF)
 - Anmelden → hidden
 
 ### Logged Out
+
 - Neuer Termin → hidden
 - Einstellungen → hidden
 - Abmelden → hidden

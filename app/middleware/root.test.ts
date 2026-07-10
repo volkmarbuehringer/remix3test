@@ -23,7 +23,9 @@ describe('skipAssetsLogger', () => {
   it('logs non-asset requests', async () => {
     let lines: string[] = []
     let origLog = console.log
-    console.log = (msg: unknown) => { lines.push(String(msg)) }
+    console.log = (msg: unknown) => {
+      lines.push(String(msg))
+    }
 
     let mw = skipAssetsLogger()
     await mw(context('https://test/admin/users'), async () => new Response('ok', { status: 200 }))
@@ -36,10 +38,15 @@ describe('skipAssetsLogger', () => {
   it('skips logging for successful asset requests', async () => {
     let lines: string[] = []
     let origLog = console.log
-    console.log = (msg: unknown) => { lines.push(String(msg)) }
+    console.log = (msg: unknown) => {
+      lines.push(String(msg))
+    }
 
     let mw = skipAssetsLogger()
-    await mw(context('https://test/assets/app/ui/main.js'), async () => new Response('ok', { status: 200 }))
+    await mw(
+      context('https://test/assets/app/ui/main.js'),
+      async () => new Response('ok', { status: 200 }),
+    )
 
     console.log = origLog
     assert.equal(lines.length, 0)
@@ -48,7 +55,9 @@ describe('skipAssetsLogger', () => {
   it('warns for failing asset requests', async () => {
     let logs: string[] = []
     let origLog = console.log
-    console.log = (msg: unknown) => { logs.push(String(msg)) }
+    console.log = (msg: unknown) => {
+      logs.push(String(msg))
+    }
 
     let mw = skipAssetsLogger()
     let ctx = context('https://test/assets/missing.js')

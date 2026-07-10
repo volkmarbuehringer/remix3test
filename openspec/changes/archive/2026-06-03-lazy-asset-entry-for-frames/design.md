@@ -5,10 +5,12 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Skip `assetServer.getHref()` + `assetServer.getPreloads()` for frame requests
 - Preserve identical behavior for full-page requests
 
 **Non-Goals:**
+
 - Skip for any other request type (SSE, API, auth POSTs)
 - Refactor the consumer (`document.tsx`) — it already handles missing asset entry
 - Lazy-load on first access (over-engineered for this use case)
@@ -25,8 +27,8 @@
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| A frame route unexpectedly renders a full document that needs the script entry | Frame routes always render content inline inside `<frame>` — the runtime never navigates a frame to a full page without the parent shell |
-| The `X-Remix-Frame` header could be absent in some frame scenarios | All frame fetches from `followFrameRedirects()` and the client-side frame runtime set this header. It's a framework contract |
-| The fallback `routes.assets.href(...)` path in document.tsx might behave differently | The fallback was already the pre-existing default before `loadAssetEntry` was added — it's the safe path |
+| Risk                                                                                 | Mitigation                                                                                                                               |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| A frame route unexpectedly renders a full document that needs the script entry       | Frame routes always render content inline inside `<frame>` — the runtime never navigates a frame to a full page without the parent shell |
+| The `X-Remix-Frame` header could be absent in some frame scenarios                   | All frame fetches from `followFrameRedirects()` and the client-side frame runtime set this header. It's a framework contract             |
+| The fallback `routes.assets.href(...)` path in document.tsx might behave differently | The fallback was already the pre-existing default before `loadAssetEntry` was added — it's the safe path                                 |

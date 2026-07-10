@@ -13,9 +13,11 @@ The newapp project needs a Client Lab route (`/client`) that demonstrates the fu
 ## Capabilities
 
 ### New Capabilities
+
 - `client-lab`: Server-rendered Frame-based grid with pagination, column sorting, text filtering, inline delete forms, and edit links. Full-page edit form with theme-compliant inputs and form-based save/redirect. All interactions use Frame navigation, form submissions, or link clicks — no custom client JS.
 
 ### Modified Capabilities
+
 - (none — existing capabilities unchanged)
 
 ## Impact

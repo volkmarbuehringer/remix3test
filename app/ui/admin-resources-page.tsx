@@ -6,7 +6,15 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildEditUrl,
+  buildCancelUrl,
+  formatTimestamp,
+} from './mixins/admin-urls.ts'
 
 import { frames, routes } from '../routes.ts'
 import type { Resource } from '../data/schema.ts'
@@ -41,10 +49,19 @@ const ADMIN_BASE = routes.verwaltung.resources.index.href()
 export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
   return () => {
     let {
-      rows, offset, hasMore, prevOffset, nextOffset,
-      sortColumn, sortDirection, filter,
-      editRow = null, creating = false,
-      formValues, fieldErrors, formError,
+      rows,
+      offset,
+      hasMore,
+      prevOffset,
+      nextOffset,
+      sortColumn,
+      sortDirection,
+      filter,
+      editRow = null,
+      creating = false,
+      formValues,
+      fieldErrors,
+      formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -67,7 +84,9 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
+          <button type="submit" mix={table.searchBtn}>
+            <Glyph name="search" width={14} height={14} /> Suchen
+          </button>
           {filter && (
             <a
               href={routes.verwaltung.resources.index.href()}
@@ -83,7 +102,9 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
+            <button mix={[button({ tone: 'primary' })]}>
+              <Glyph name="add" width={14} height={14} /> Neu anlegen
+            </button>
           </a>
         </form>
 
@@ -106,8 +127,18 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               <thead>
                 <tr>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'name', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'name',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Name
                       <span mix={'name' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('name', sortColumn, sortDirection)}
@@ -115,28 +146,64 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'description', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'description',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Beschreibung
-                      <span mix={'description' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'description' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('description', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'created_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'created_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Erstellt
-                      <span mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'updated_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'updated_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Aktualisiert
-                      <span mix={'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('updated_at', sortColumn, sortDirection)}
                       </span>
                     </a>
@@ -145,11 +212,23 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={row.name ?? ''}>{row.name ?? '\u2014'}</td>
-                    <td mix={table.td} title={row.description}>{row.description}</td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at as number)}>{formatTimestamp(row.created_at as number)}</td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>{formatTimestamp(row.updated_at as number)}</td>
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    data-row-id={row.id}
+                  >
+                    <td mix={table.td} title={row.name ?? ''}>
+                      {row.name ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.description}>
+                      {row.description}
+                    </td>
+                    <td mix={table.td} title={formatTimestamp(row.created_at as number)}>
+                      {formatTimestamp(row.created_at as number)}
+                    </td>
+                    <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>
+                      {formatTimestamp(row.updated_at as number)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -195,26 +274,60 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
+              <span mix={table.paginationInfo}>
+                Zeige {pageStart}–{pageEnd}
+              </span>
             )}
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
+                >
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
+                >
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
+                <span mix={table.pageLinkDisabled}>
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </span>
               )}
             </div>
           </div>
@@ -279,7 +392,15 @@ interface EditPanelProps {
 
 function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      row,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     let nameValue = formValues?.name ?? row.name ?? ''
     let nameError = fieldErrors?.name
     let descValue = formValues?.description ?? row.description ?? ''
@@ -298,7 +419,9 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-name">Name</label>
+                <label mix={table.label} htmlFor="ar-name">
+                  Name
+                </label>
                 <input
                   id="ar-name"
                   name="name"
@@ -306,11 +429,23 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   value={nameValue}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
-                {nameError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{nameError}</div> : null}
+                {nameError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {nameError}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-desc">Beschreibung</label>
+                <label mix={table.label} htmlFor="ar-desc">
+                  Beschreibung
+                </label>
                 <input
                   id="ar-desc"
                   name="description"
@@ -318,27 +453,66 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
                   value={descValue}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
-                {descError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+                {descError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {fieldErrors!.description}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-caps">Capabilities</label>
+                <label mix={table.label} htmlFor="ar-caps">
+                  Capabilities
+                </label>
                 <textarea
                   id="ar-caps"
                   name="capabilities"
                   rows={4}
                   value={capsValue}
-                  mix={[input.base, input.focus, css({ resize: 'vertical', minHeight: '80px' }), ...(capsError ? [input.error] : [])]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    css({ resize: 'vertical', minHeight: '80px' }),
+                    ...(capsError ? [input.error] : []),
+                  ]}
                 />
-                {capsError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{capsError}</div> : null}
+                {capsError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {capsError}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.resources.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.resources.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>
@@ -380,7 +554,9 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-name-c">Name</label>
+                <label mix={table.label} htmlFor="ar-name-c">
+                  Name
+                </label>
                 <input
                   id="ar-name-c"
                   name="name"
@@ -389,11 +565,23 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   defaultValue={formValues?.name ?? ''}
                   mix={[input.base, input.focus, ...(nameError ? [input.error] : [])]}
                 />
-                {nameError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{nameError}</div> : null}
+                {nameError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {nameError}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-desc-c">Beschreibung</label>
+                <label mix={table.label} htmlFor="ar-desc-c">
+                  Beschreibung
+                </label>
                 <input
                   id="ar-desc-c"
                   name="description"
@@ -402,27 +590,66 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
                   defaultValue={formValues?.description ?? ''}
                   mix={[input.base, input.focus, ...(descError ? [input.error] : [])]}
                 />
-                {descError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.description}</div> : null}
+                {descError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {fieldErrors!.description}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ar-caps-c">Capabilities</label>
+                <label mix={table.label} htmlFor="ar-caps-c">
+                  Capabilities
+                </label>
                 <textarea
                   id="ar-caps-c"
                   name="capabilities"
                   rows={4}
                   defaultValue={formValues?.capabilities ?? ''}
-                  mix={[input.base, input.focus, css({ resize: 'vertical', minHeight: '80px' }), ...(capsError ? [input.error] : [])]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    css({ resize: 'vertical', minHeight: '80px' }),
+                    ...(capsError ? [input.error] : []),
+                  ]}
                 />
-                {capsError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{capsError}</div> : null}
+                {capsError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {capsError}
+                  </div>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.resources.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.resources.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

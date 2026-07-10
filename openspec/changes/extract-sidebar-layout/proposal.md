@@ -16,21 +16,26 @@ The Admin and AI section layouts (`admin-layout.tsx` and `ai-layout.tsx`) are ~8
 ## Capabilities
 
 ### New Capabilities
+
 - `sidebar-layout`: Shared sidebar layout component used by section-based UIs (admin, AI). Provides the grid shell, sticky sidebar with navigation, and the ShellOrFragment pattern for frame-based vs. full-page rendering.
 
 ### Modified Capabilities
-*(None — this is a pure refactoring with no requirement changes.)*
+
+_(None — this is a pure refactoring with no requirement changes.)_
 
 ## Impact
 
 **Files modified:**
+
 - `app/ui/admin-layout.tsx` — Remove duplicated styles, delegate to `sidebar-layout`
 - `app/ui/ai-layout.tsx` — Remove duplicated styles, delegate to `sidebar-layout`
 
 **Files created:**
+
 - `app/ui/sidebar-layout.tsx` — Shared layout abstraction
 
 **Files affected (indirectly — imports remain stable):**
+
 - `app/actions/admin-controller.tsx`
 - `app/actions/admin-chatlog-controller.tsx`
 - `app/actions/admin-lists-controller.tsx`

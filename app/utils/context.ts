@@ -7,7 +7,9 @@ export function getCurrentUser(): User {
   let auth = getCurrentAuth()
 
   if (!auth.ok) {
-    throw new Error('Expected an authenticated user. Make sure requireAuth() runs before this code.')
+    throw new Error(
+      'Expected an authenticated user. Make sure requireAuth() runs before this code.',
+    )
   }
 
   return auth.identity
@@ -22,7 +24,9 @@ export function getCurrentUserSafely(): User | null {
  * Extract the admin user identity from an AuthState for audit logging.
  * Returns undefined if auth is not OK (unauthenticated).
  */
-export function getAdminIdentity(auth: AuthState<User> | undefined): { id: number; email: string } | undefined {
+export function getAdminIdentity(
+  auth: AuthState<User> | undefined,
+): { id: number; email: string } | undefined {
   return auth?.ok ? (auth.identity as unknown as { id: number; email: string }) : undefined
 }
 

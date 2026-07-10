@@ -5,11 +5,13 @@ MastraChatPage renders as a flex column inside the admin layout grid. Messages u
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Auto-scroll conversation to bottom on page load
 - Compact input form (minimal padding, smaller textarea, no card wrapper)
 - Remove unused space below form
 
 **Non-Goals:**
+
 - No data/logic changes
 - No restructuring of the remix controller or route
 

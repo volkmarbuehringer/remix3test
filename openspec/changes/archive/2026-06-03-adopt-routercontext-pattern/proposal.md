@@ -8,6 +8,7 @@ Recent Remix 3 updates (Jun 1–2, 2026) introduced two changes that make this o
 2. **`RouterContext<typeof router>`** — derives the app context type directly from the router, so the router becomes the single source of truth for request context types.
 
 All Remix demos have migrated away from the manual tuple pattern:
+
 - `unpkg` and `timeboxer` use `RouterContext<typeof router>` — the fullest modernization
 - `frame-navigation`, `frames`, and `sse` use `createMiddleware()` + `MiddlewareContext<typeof ...>`
 - `social-auth` wraps `createMiddleware()` in a factory function (same structure as `createNewappRouter`)

@@ -11,10 +11,10 @@ The `/client` grid uses per-row `DelButton` components wrapped in `clientEntry`,
 ## Capabilities
 
 ### New Capabilities
+
 - `server-render-del-button`: Replace per-row clientEntry delete buttons with server-rendered forms using frame navigation
 
 ### Modified Capabilities
-
 
 ## Impact
 

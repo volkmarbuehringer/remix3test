@@ -5,11 +5,27 @@ import type { SessionStorage } from 'remix/session'
 import controller from './actions/home/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
 import apiListsController from './actions/api/lists/controller.tsx'
-import { authLogin, authRegister, registerSent, verify, authForgotten, authForgottenReset, authLogout } from './actions/auth/controller.tsx'
+import {
+  authLogin,
+  authRegister,
+  registerSent,
+  verify,
+  authForgotten,
+  authForgottenReset,
+  authLogout,
+} from './actions/auth/controller.tsx'
 import { mastraChat } from './actions/mastra/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
 import clientController from './actions/client/controller.tsx'
-import { adminController, adminChatlog, adminChatlogFragments, adminMessages, adminFragments, adminLists, adminUsers } from './actions/admin/controller.tsx'
+import {
+  adminController,
+  adminChatlog,
+  adminChatlogFragments,
+  adminMessages,
+  adminFragments,
+  adminLists,
+  adminUsers,
+} from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
 import verwaltungController from './actions/verwaltung/controller.tsx'
 import verwaltungOfferings from './actions/verwaltung/offerings/controller.tsx'
@@ -23,16 +39,34 @@ import verwaltungUsersExport from './actions/verwaltung/users-export/controller.
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
-import uploadsController, { download as uploadsDownloadHandler } from './actions/uploads/controller.tsx'
+import uploadsController, {
+  download as uploadsDownloadHandler,
+} from './actions/uploads/controller.tsx'
 import { webhookReceive } from './actions/webhook/controller.tsx'
 import { apiLogin } from './actions/api/login/controller.tsx'
 import { apiLogout } from './actions/api/logout/controller.tsx'
 import { appWebhookReceive } from './actions/app-webhook/controller.tsx'
-import { webhookRequestsIndex, webhookRequestsEvents, webhookRequestsResend, webhookRequestsUpdate } from './actions/webhook-requests/controller.tsx'
+import {
+  webhookRequestsIndex,
+  webhookRequestsEvents,
+  webhookRequestsResend,
+  webhookRequestsUpdate,
+} from './actions/webhook-requests/controller.tsx'
 import { webhookRequestsCreate } from './actions/webhook-requests/create/controller.tsx'
 import { callbackReceive } from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes, uploadsDownload, webhookRoute, webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute, webhookRequestsUpdateRoute, webhookCreateRoute, appWebhookRoute, callbackRoute } from './routes.ts'
+import {
+  routes,
+  uploadsDownload,
+  webhookRoute,
+  webhookRequestsRoute,
+  webhookRequestsEventsRoute,
+  webhookRequestsResendRoute,
+  webhookRequestsUpdateRoute,
+  webhookCreateRoute,
+  appWebhookRoute,
+  callbackRoute,
+} from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 

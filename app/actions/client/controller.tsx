@@ -31,7 +31,17 @@ import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-uti
 type Row = Client
 
 const PAGE_SIZE = 20
-const CLIENT_FORM_KEYS = ['name', 'email', 'role', 'status', 'registered', '_offset', '_sort', '_order', '_filter'] as const
+const CLIENT_FORM_KEYS = [
+  'name',
+  'email',
+  'role',
+  'status',
+  'registered',
+  '_offset',
+  '_sort',
+  '_order',
+  '_filter',
+] as const
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
 const VALID_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
 const FIELD_OPTIONS: Record<string, string[]> = {
@@ -45,14 +55,11 @@ const clientSaveSchema = f.object({
   role: f.field(s.defaulted(s.string(), '')),
   status: f.field(s.defaulted(s.string(), '')),
   registered: f.field(
-    s.defaulted(s.string(), '0').refine(
-      (value) => {
-        if (!value || value === '0') return true
-        let year = Number(value.split('-')[0])
-        return !isNaN(year) && year === 2026
-      },
-      'Year must be 2026',
-    ),
+    s.defaulted(s.string(), '0').refine((value) => {
+      if (!value || value === '0') return true
+      let year = Number(value.split('-')[0])
+      return !isNaN(year) && year === 2026
+    }, 'Year must be 2026'),
   ),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
@@ -65,7 +72,16 @@ function parseDate(value: string): number {
   return Number.isFinite(ts) ? ts : Date.now()
 }
 
-async function fetchGridData(db: Database, opts: { offset: number; column: string; direction: 'asc' | 'desc'; filter?: string; pageSize?: number }) {
+async function fetchGridData(
+  db: Database,
+  opts: {
+    offset: number
+    column: string
+    direction: 'asc' | 'desc'
+    filter?: string
+    pageSize?: number
+  },
+) {
   let effectivePageSize = opts.pageSize ?? getPageSize(undefined, PAGE_SIZE)
   let pageNum = Math.floor(opts.offset / effectivePageSize) + 1
   let filter = opts.filter
@@ -99,8 +115,16 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
         defaultDirection: 'asc',
       })
 
-      let { rows: page, hasMore, effectivePageSize } = await fetchGridData(db, {
-        offset, column, direction: direction as 'asc' | 'desc', filter, pageSize: getPageSize(context.session, PAGE_SIZE),
+      let {
+        rows: page,
+        hasMore,
+        effectivePageSize,
+      } = await fetchGridData(db, {
+        offset,
+        column,
+        direction: direction as 'asc' | 'desc',
+        filter,
+        pageSize: getPageSize(context.session, PAGE_SIZE),
       })
 
       let editingParam = context.url.searchParams.get('editing')
@@ -113,7 +137,9 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
       // Check if create form was requested
       let creating = context.url.searchParams.get('creating') === 'true'
 
-      return renderAdminPage(context.render, 'client',
+      return renderAdminPage(
+        context.render,
+        'client',
         <ClientPage
           rows={page}
           offset={offset}
@@ -163,7 +189,10 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
         let parsed = s.parseSafe(s.string().pipe(email()), emailVal)
         if (!parsed.success) {
           let firstIssue = parsed.issues[0]
-          return context.json({ ok: false, error: firstIssue?.message || 'Invalid email' }, { status: 400 })
+          return context.json(
+            { ok: false, error: firstIssue?.message || 'Invalid email' },
+            { status: 400 },
+          )
         }
         await db.updateMany(clients, { email: emailVal }, { where: { id } })
         return context.json({ ok: true })
@@ -184,13 +213,19 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
           status: (rawValues.status || 'Active') as Row['status'],
           registered: rawValues.registered ? parseDate(rawValues.registered) : Date.now(),
         }
-        let { rows: gridRows, hasMore, effectivePageSize } = await fetchGridData(db, {
+        let {
+          rows: gridRows,
+          hasMore,
+          effectivePageSize,
+        } = await fetchGridData(db, {
           offset: Number(rawValues._offset) || 0,
           column: rawValues._sort || 'id',
           direction: (rawValues._order as 'asc' | 'desc') || 'asc',
           filter: rawValues._filter,
         })
-        return renderAdminPage(context.render, 'client',
+        return renderAdminPage(
+          context.render,
+          'client',
           <ClientPage
             rows={gridRows}
             offset={Number(rawValues._offset) || 0}
@@ -244,7 +279,8 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
         await db.delete(clients, { id })
       } catch (error) {
         let message = 'Delete failed. Please try again.'
-        if (isConstraintViolation(error)) message = 'Cannot delete: this client has related records.'
+        if (isConstraintViolation(error))
+          message = 'Cannot delete: this client has related records.'
         return context.json({ ok: false, error: message }, { status: 409 })
       }
 
@@ -263,13 +299,19 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
 
       if (!parsed.success) {
         let fieldErrors = issuesToFieldErrors(parsed.issues)
-        let { rows: gridRows, hasMore, effectivePageSize } = await fetchGridData(db, {
+        let {
+          rows: gridRows,
+          hasMore,
+          effectivePageSize,
+        } = await fetchGridData(db, {
           offset: Number(rawValues._offset) || 0,
           column: rawValues._sort || 'id',
           direction: (rawValues._order as 'asc' | 'desc') || 'asc',
           filter: rawValues._filter,
         })
-        return renderAdminPage(context.render, 'client',
+        return renderAdminPage(
+          context.render,
+          'client',
           <ClientPage
             rows={gridRows}
             offset={Number(rawValues._offset) || 0}

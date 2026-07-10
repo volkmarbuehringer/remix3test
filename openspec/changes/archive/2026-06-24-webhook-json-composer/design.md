@@ -3,6 +3,7 @@
 The app has a working webhook pipeline: external services POST to `/app-webhook`, which inserts into `webhook_requests` and forwards to Hermes. Admins can resend rows via a button. Missing: a way to create rows from the admin UI itself.
 
 Existing patterns used:
+
 - `ListsClient` at `app/assets/lists-client.tsx`: clientEntry managing an array of items with add/remove/edit, submit via fetch POST
 - Admin messages page: textarea + send on same view as list
 - Admin sidebar layout with nav items under "Daten"
@@ -10,6 +11,7 @@ Existing patterns used:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Key-value grid (clientEntry) for composing a flat JSON payload
 - Form POST with hidden input for the serialized JSON
 - Insert row into `webhook_requests` with empty token and empty headers
@@ -17,6 +19,7 @@ Existing patterns used:
 - "Compose" button in the header of the existing webhook-requests page
 
 **Non-Goals:**
+
 - No Hermes forwarding on insert (uses existing "Resenden" button)
 - No nested JSON or type coercion (all values are strings)
 - No editing or deleting composed rows from the grid (use existing list view)

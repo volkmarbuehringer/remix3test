@@ -7,6 +7,7 @@ The existing component manages items as a reactive array (`items: ListItem[]`). 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace ↑↓ arrow buttons with drag-and-drop reordering using the HTML5 Drag and Drop API
 - Add a visual drag handle (grip icon ⠿) as the activation zone on each item
 - Show a drop indicator line between items while dragging
@@ -15,6 +16,7 @@ The existing component manages items as a reactive array (`items: ListItem[]`). 
 - Use zero external dependencies (native browser API)
 
 **Non-Goals:**
+
 - Cross-list drag and drop (moving items between different lists)
 - Touch-based drag and drop (HTML5 DnD has poor mobile support; defer to a future enhancement)
 - Dragging from outside the list (e.g., from a palette or external source)

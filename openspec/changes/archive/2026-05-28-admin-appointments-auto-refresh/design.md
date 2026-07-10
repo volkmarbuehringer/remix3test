@@ -7,12 +7,14 @@ The admin page is server-rendered with frame-based navigation (`rmx-target`), us
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Admin appointments page auto-refreshes when appointments change (same invalidation event as `/appointments`)
 - Admin-initiated mutations (create/update/delete) broadcast invalidation to other sessions
 - No auto-refresh while the admin is actively editing or creating an appointment
 - Reuse existing `appointmentChannel` and SSE infrastructure — no new channels or dependencies
 
 **Non-Goals:**
+
 - Not changing the `/appointments` page behavior
 - Not adding SSE to other admin pages (scope is limited to appointments)
 - Not changing the admin page's UI or form behavior
@@ -21,6 +23,7 @@ The admin page is server-rendered with frame-based navigation (`rmx-target`), us
 ## Decisions
 
 **Decision 1: Reuse existing `appointmentChannel`**
+
 - **Chosen:** Use the same `appointmentChannel` that `/appointments` uses
 - **Rationale:** The channel already broadcasts `invalidate` events on mutations. Both pages need the same event (reload when any appointment changes). A single channel means all browsers (user-facing and admin) receive the invalidation simultaneously.
 - **Alternatives considered:**
@@ -28,6 +31,7 @@ The admin page is server-rendered with frame-based navigation (`rmx-target`), us
   - Use the channel with `{ source: 'admin' }` payload — adds complexity without value
 
 **Decision 2: Client-side SSE via embedded `<script>`**
+
 - **Chosen:** Add a small `<script>` block in `AdminAppointmentsPage` that creates an `EventSource`
 - **Rationale:** Unlike `/appointments` which has a full client entry (`AppointmentGrid`), the admin page is primarily server-rendered. Adding SSE via a lightweight script avoids promoting the context menu `clientEntry` to handle concerns outside its scope (grid state → SSE). The script is <20 lines and easy to understand.
 - **Alternatives considered:**
@@ -35,6 +39,7 @@ The admin page is server-rendered with frame-based navigation (`rmx-target`), us
   - Create a new `clientEntry` for the admin appointments page — heavier than needed
 
 **Decision 3: Interaction guard via URL check (no shared state module)**
+
 - **Chosen:** Check `URLSearchParams` for `editing` or `creating` params before reloading
 - **Rationale:** The admin page uses URL params (`?editing=123`, `?creating=true`) to persist editing state across page loads. This is inherently reliable — as long as these params are present, the user is in an edit/create flow. When they save/cancel, the server redirects without these params, making SSE invalidations effective again.
 - **Alternatives considered:**
@@ -42,6 +47,7 @@ The admin page is server-rendered with frame-based navigation (`rmx-target`), us
   - DOM check for active forms — more fragile, race conditions with frame navigation
 
 **Decision 4: Broadcast invalidation after admin mutations**
+
 - **Chosen:** Add `appointmentChannel.broadcast('invalidate')` after each create/update/destroy action
 - **Rationale:** The admin controller does direct SQL (bypassing `data/appointments.ts` helpers), so mutations don't automatically trigger the existing `broadcast` calls in the appointment controller. Adding explicit broadcasts keeps both pages in sync regardless of where the change originated.
 

@@ -35,7 +35,20 @@ import {
 
 const PAGE_SIZE = 15
 
-const NUTZER_FORM_KEYS = ['vorname', 'name', 'email', 'verpflichtung', 'login', 'aktiv', 'gesperrt', '_l_id', '_offset', '_sort', '_order', '_filter'] as const
+const NUTZER_FORM_KEYS = [
+  'vorname',
+  'name',
+  'email',
+  'verpflichtung',
+  'login',
+  'aktiv',
+  'gesperrt',
+  '_l_id',
+  '_offset',
+  '_sort',
+  '_order',
+  '_filter',
+] as const
 
 const nutzerSaveSchema = f.object({
   vorname: f.field(s.defaulted(s.string(), '')),
@@ -76,12 +89,27 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
       let filter = context.url.searchParams.get('filter') || undefined
 
       let { column, direction } = parseSort(context.url, {
-        allowedColumns: ['n_vorname', 'n_name', 'n_email', 'n_verpflichtung', 'l_login', 'l_aktiv', 'l_gesperrt', 'l_letzte_login'],
+        allowedColumns: [
+          'n_vorname',
+          'n_name',
+          'n_email',
+          'n_verpflichtung',
+          'l_login',
+          'l_aktiv',
+          'l_gesperrt',
+          'l_letzte_login',
+        ],
         defaultColumn: 'n_name',
         defaultDirection: 'asc',
       })
 
-      let { rows, hasMore } = await listNutzerGrid(context.db, { offset, column, direction, filter, pageSize: effectivePageSize })
+      let { rows, hasMore } = await listNutzerGrid(context.db, {
+        offset,
+        column,
+        direction,
+        filter,
+        pageSize: effectivePageSize,
+      })
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam || null
@@ -89,7 +117,9 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
 
       let creating = context.url.searchParams.get('creating') === 'true'
 
-      return renderAdminPage(context.render, 'nutzer',
+      return renderAdminPage(
+        context.render,
+        'nutzer',
         <AdminNutzerPage
           rows={rows}
           offset={offset}
@@ -196,7 +226,8 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
           })
         }
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer update: ' + String(error))
+        if (process.env.NODE_ENV !== 'test')
+          context.get(Logger)?.('DB error in nutzer update: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'
@@ -333,7 +364,8 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         qp.set('editing', String(nId))
         return redirect(routes.admin.nutzer.index.href() + '?' + qp.toString())
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') context.get(Logger)?.('DB error in nutzer create: ' + String(error))
+        if (process.env.NODE_ENV !== 'test')
+          context.get(Logger)?.('DB error in nutzer create: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'
@@ -382,7 +414,14 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         deleteResult = await deleteNutzer(context.db, id)
       } catch (error) {
         if (isConstraintViolation(error)) {
-          return context.json({ ok: false, error: 'Dieser Benutzer kann nicht gelöscht werden, da noch Verweise darauf bestehen.' }, { status: 409 })
+          return context.json(
+            {
+              ok: false,
+              error:
+                'Dieser Benutzer kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
+            },
+            { status: 409 },
+          )
         }
         throw error
       }

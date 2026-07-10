@@ -15,10 +15,12 @@ The app lacks a Content-Security-Policy header, leaving it vulnerable to XSS att
 ## Capabilities
 
 ### New Capabilities
+
 - `security-headers`: Complete set of security response headers — CSP, HSTS, Permissions-Policy — with configurable policy and test coverage
 - `rate-limiting`: Shared rate limiter utility used consistently across registration and login endpoints
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

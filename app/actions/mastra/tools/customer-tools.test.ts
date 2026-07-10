@@ -15,7 +15,9 @@ function execTool(tool: Record<string, unknown>, input: Record<string, unknown>)
 }
 
 function getFirstResourceId(): Promise<number> {
-  return pool.query('SELECT id FROM resources ORDER BY id ASC LIMIT 1').then(r => r.rows[0]?.id as number)
+  return pool
+    .query('SELECT id FROM resources ORDER BY id ASC LIMIT 1')
+    .then((r) => r.rows[0]?.id as number)
 }
 
 describe('Customer tools', () => {
@@ -31,7 +33,10 @@ describe('Customer tools', () => {
     )) as Record<string, unknown>
     assert.ok((result.count as number) >= 1, 'should find at least one resource')
     let resources = result.resources as Array<Record<string, unknown>>
-    assert.ok(resources.some(r => String(r.name).includes('Raum')), 'should include Raum resources')
+    assert.ok(
+      resources.some((r) => String(r.name).includes('Raum')),
+      'should include Raum resources',
+    )
   })
 
   it('searchResourcesByCapability returns empty for no match', async () => {
@@ -163,9 +168,7 @@ describe('Customer tools — self-service appointments', () => {
 
   before(async () => {
     await initializeAppDatabase()
-    let userResult = await pool.query(
-      "SELECT id FROM users WHERE email = 'user@newapp.com'",
-    )
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'user@newapp.com'")
     customerId = userResult.rows[0].id
     let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
     resourceId = resourceResult.rows[0].id
@@ -181,12 +184,9 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] list 1', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE, Date.now()],
     )
-    let result = await runWithUserId(customerId, () =>
-      execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-      ),
-    ) as Record<string, unknown>
+    let result = (await runWithUserId(customerId, () =>
+      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    )) as Record<string, unknown>
     assert.ok(Array.isArray(result.appointments))
     assert.ok((result.appointments as unknown[]).length >= 1)
     assert.equal(result.count, (result.appointments as unknown[]).length)
@@ -209,12 +209,9 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] today', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, todayMs, Date.now()],
     )
-    let result = await runWithUserId(customerId, () =>
-      execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-      ),
-    ) as Record<string, unknown>
+    let result = (await runWithUserId(customerId, () =>
+      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    )) as Record<string, unknown>
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
     )
@@ -230,12 +227,9 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = await runWithUserId(tempUserId, () =>
-        execTool(
-          customerTools.listMyAppointments as unknown as Record<string, unknown>,
-          {},
-        ),
-      ) as Record<string, unknown>
+      let result = (await runWithUserId(tempUserId, () =>
+        execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+      )) as Record<string, unknown>
       assert.ok(Array.isArray(result.appointments))
       assert.equal((result.appointments as unknown[]).length, 0)
       assert.equal(result.count, 0)
@@ -251,12 +245,9 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] past', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, pastDate, Date.now()],
     )
-    let result = await runWithUserId(customerId, () =>
-      execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-      ),
-    ) as Record<string, unknown>
+    let result = (await runWithUserId(customerId, () =>
+      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    )) as Record<string, unknown>
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
     )
@@ -266,10 +257,7 @@ describe('Customer tools — self-service appointments', () => {
   // MED-3: auth-bypass throws
   it('listMyAppointments throws without authenticated user context', async () => {
     try {
-      await execTool(
-        customerTools.listMyAppointments as unknown as Record<string, unknown>,
-        {},
-      )
+      await execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {})
       assert.fail('should have thrown')
     } catch (e) {
       assert.ok(String(e).includes('Not authenticated as customer'))
@@ -291,16 +279,16 @@ describe('Customer tools — self-service appointments', () => {
     )
     let otherUserId = r2.rows[0].id
     try {
-      let result = await runWithUserId(otherUserId, () =>
-        execTool(
-          customerTools.listMyAppointments as unknown as Record<string, unknown>,
-          {},
-        ),
-      ) as Record<string, unknown>
+      let result = (await runWithUserId(otherUserId, () =>
+        execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+      )) as Record<string, unknown>
       let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
         (a: Record<string, unknown>) => a.title,
       )
-      assert.ok(!titles.includes('[TEST SELF] other-user-appt'), 'should not see other user appointments')
+      assert.ok(
+        !titles.includes('[TEST SELF] other-user-appt'),
+        'should not see other user appointments',
+      )
     } finally {
       await pool.query('DELETE FROM users WHERE id = $1', [otherUserId])
     }
@@ -325,12 +313,9 @@ describe('Customer tools — self-service appointments', () => {
        VALUES ($1, $2, '[TEST SELF] cancel-2', $3, '[720,780)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE + 86_400_000, Date.now()],
     )
-    let result = await runWithUserId(customerId, () =>
-      execTool(
-        customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-        {},
-      ),
-    ) as Record<string, unknown>
+    let result = (await runWithUserId(customerId, () =>
+      execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+    )) as Record<string, unknown>
     // MED-6: use >= instead of === to tolerate any pre-existing appointments for this user
     assert.ok((result.cancelled as number) >= 2)
     assert.equal(result.failed, 0)
@@ -353,12 +338,9 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = await runWithUserId(tempUserId, () =>
-        execTool(
-          customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-          {},
-        ),
-      ) as Record<string, unknown>
+      let result = (await runWithUserId(tempUserId, () =>
+        execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+      )) as Record<string, unknown>
       assert.equal(result.cancelled, 0)
       assert.equal(result.failed, 0)
       assert.equal(result.skipped, 0)
@@ -372,10 +354,7 @@ describe('Customer tools — self-service appointments', () => {
   // MED-3: auth-bypass throws
   it('cancelAllAppointments throws without authenticated user context', async () => {
     try {
-      await execTool(
-        customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-        {},
-      )
+      await execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {})
       assert.fail('should have thrown')
     } catch (e) {
       assert.ok(String(e).includes('Not authenticated as customer'))
@@ -400,12 +379,9 @@ describe('Customer tools — self-service appointments', () => {
     // Delete one appointment directly (simulates concurrent cancellation)
     await pool.query('DELETE FROM appointments WHERE id = $1', [race2Id])
     // Run cancelAll — should cancel race-1 (1 remaining) and handle race-2 gracefully
-    let result = await runWithUserId(customerId, () =>
-      execTool(
-        customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
-        {},
-      ),
-    ) as Record<string, unknown>
+    let result = (await runWithUserId(customerId, () =>
+      execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+    )) as Record<string, unknown>
     assert.ok((result.cancelled as number) >= 1)
     assert.ok((result.failed as number) === 0)
     // Verify both test appointments are gone

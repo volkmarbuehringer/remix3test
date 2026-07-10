@@ -11,9 +11,11 @@ The top navbar has two icon-only buttons (logout and theme toggle) that lack vis
 ## Capabilities
 
 ### New Capabilities
+
 - `navbar-tooltips`: Visual tooltip labels for icon-only buttons in the top navigation bar
 
 ### Modified Capabilities
+
 - (none — this is a new visual behavior, not a spec-level change to existing capabilities)
 
 ## Impact

@@ -18,9 +18,7 @@ describe('appointments-new-queries', () => {
 
   before(async () => {
     await initializeAppDatabase()
-    let userResult = await pool.query(
-      "SELECT id FROM users WHERE email = 'admin@newapp.com'",
-    )
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
     testUserId = userResult.rows[0].id
     let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
     testResourceId = resourceResult.rows[0].id

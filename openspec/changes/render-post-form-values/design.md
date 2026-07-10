@@ -1,6 +1,7 @@
 ## Context
 
 newapp uses two rendering patterns:
+
 - **Direct `Layout`**: Auth pages (`auth-register-controller.tsx`, `auth-login-controller.tsx`) render via `context.render(<Layout><Page /></Layout>)`. This supports re-render-from-POST — `context.render(<Page error={...} />, { status: 400 })` works because the full HTML is rendered and returned directly.
 - **Frame-based `ShellOrFragment`**: Admin pages use `createSidebarLayout` → `renderAdminPage` → `ShellOrFragment`. On non-frame POST requests, `ShellOrFragment` renders `<Layout><Frame src={...}/></Layout>` and discards the children prop, making re-render-from-POST impossible.
 
@@ -11,12 +12,14 @@ A test route is needed that demonstrates the full pattern: re-render-from-POST w
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a standalone `/test-form` route using the direct `Layout` rendering pattern
 - Demonstrate `parseSafe` with field-level validation errors
 - Preserve submitted form values on validation failure (DOM re-render with `value` props)
 - Serve as a reference implementation for the canonical Remix 3 form pattern
 
 **Non-Goals:**
+
 - Does NOT modify `ShellOrFragment` or `createSidebarLayout`
 - Does NOT change any existing route or controller
 - Does NOT add client-side JavaScript or `clientEntry`

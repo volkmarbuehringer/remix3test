@@ -3,6 +3,7 @@
 newapp now has `/chat` and `/agent` routes (from the previous port) that persist conversations in a `chatlog` table. It lacks admin oversight — there's no way to view, search, or delete conversations. The my_app project has a full admin section with a sidebar layout, dashboard cards, and a paginated chatlog browser with tool-call metadata display, built on Remix frames for client-side navigation within the admin section.
 
 The admin routes need:
+
 - Role-based access control (`user.role === 'admin'`)
 - A frame-based architecture for in-page navigation (to avoid full page reloads when navigating between admin sections)
 - A sidebar nav with icon-linked navigation groups
@@ -11,6 +12,7 @@ The admin routes need:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Port the `/admin` dashboard route with cards linking to admin sub-sections
 - Port the `/admin/chatlog` route with pagination, filtering, delete, and message detail expansion
 - Port the `requireAdmin` middleware for role-based admin access
@@ -19,6 +21,7 @@ The admin routes need:
 - Adapt all admin UI to newapp's theme system
 
 **Non-Goals:**
+
 - No `/admin/lists` or `/admin/messages` routes (not requested)
 - No changes to `package.json`
 - No changes to existing auth, database, or middleware infrastructure (except adding `requireAdmin`)

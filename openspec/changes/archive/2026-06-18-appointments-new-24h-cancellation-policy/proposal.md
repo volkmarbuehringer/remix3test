@@ -13,9 +13,11 @@ Users can currently edit or delete appointments at `/appointments/new` even when
 ## Capabilities
 
 ### New Capabilities
+
 - `24h-cancellation-policy`: Rules that prevent non-admin users from editing or deleting appointments at `/appointments/new` when the start time is less than 24 hours from now.
 
 ### Modified Capabilities
+
 - `past-date-validation`: The existing past-date restriction on updates is superseded by the more nuanced 24h-window check for the `/appointments/new` route.
 - `appointments-new-page`: The action buttons row must respect the 24h policy (hide/disable buttons when within window).
 

@@ -13,9 +13,11 @@ The client lab grid supports editing and deleting records but has no way to crea
 ## Capabilities
 
 ### New Capabilities
+
 - `client-create`: POST route, create action, blank form component, "Add New" button, and `?creating=true` flow
 
 ### Modified Capabilities
+
 - `restful-forms`: Add `POST` to the client route set (was only PUT/DELETE, now includes create)
 
 ## Impact

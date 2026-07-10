@@ -11,10 +11,12 @@ Every page load triggers dozens of `/assets/` requests (JS modules, CSS, source 
 ## Capabilities
 
 ### New Capabilities
+
 - `asset-logger-filter`: Suppress successful asset request logs while preserving error logging
 
 ### Modified Capabilities
-*(none — purely an infrastructure change)*
+
+_(none — purely an infrastructure change)_
 
 ## Impact
 

@@ -11,10 +11,12 @@ Mastra 1.49.0 stores message content in `{ parts: [{ type: "text", text: "..." }
 ## Capabilities
 
 ### New Capabilities
+
 - `mastra-message-content-extraction`: Reliable text extraction from Mastra message content formats, including the current `{ parts: [...] }` format, the legacy `{ format: 2, parts: [...] }` format, and plain text.
 
 ### Modified Capabilities
-- *(none — no spec-level requirement changes)*
+
+- _(none — no spec-level requirement changes)_
 
 ## Impact
 

@@ -25,5 +25,3 @@ export const sessionCookie = createCookie('session', {
 })
 
 export const sessionStorage = createFsSessionStorage(sessionDirectoryPath)
-
-

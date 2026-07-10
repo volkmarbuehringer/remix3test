@@ -19,7 +19,11 @@ export interface OfferingConfigResourceOption {
 function parseRules(raw: unknown): Record<string, [number, number]> {
   let obj: Record<string, unknown>
   if (typeof raw === 'string') {
-    try { obj = JSON.parse(raw) } catch { return {} }
+    try {
+      obj = JSON.parse(raw)
+    } catch {
+      return {}
+    }
   } else if (typeof raw === 'object' && raw !== null) {
     obj = raw as Record<string, unknown>
   } else {
@@ -27,7 +31,12 @@ function parseRules(raw: unknown): Record<string, [number, number]> {
   }
   let result: Record<string, [number, number]> = {}
   for (let [k, v] of Object.entries(obj)) {
-    if (Array.isArray(v) && v.length === 2 && typeof v[0] === 'number' && typeof v[1] === 'number') {
+    if (
+      Array.isArray(v) &&
+      v.length === 2 &&
+      typeof v[0] === 'number' &&
+      typeof v[1] === 'number'
+    ) {
       result[k] = v as [number, number]
     }
   }
@@ -41,8 +50,10 @@ export function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfi
     resource_name: (row.resource_name as string) ?? null,
     resource_description: (row.resource_description as string) ?? null,
     rules: parseRules(row.rules),
-    created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
-    updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
+    created_at:
+      typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
+    updated_at:
+      typeof row.updated_at === 'string' ? Number(row.updated_at) : (row.updated_at as number),
   }
 }
 
@@ -121,9 +132,7 @@ export async function getOfferingConfig(
 export async function listOfferingConfigResources(
   db: Database,
 ): Promise<OfferingConfigResourceOption[]> {
-  let result = await db.exec(
-    'SELECT id, name, description FROM resources ORDER BY name ASC',
-  )
+  let result = await db.exec('SELECT id, name, description FROM resources ORDER BY name ASC')
   return ((result.rows ?? []) as Record<string, unknown>[]).map((r) => ({
     id: Number(r.id),
     name: r.name as string,

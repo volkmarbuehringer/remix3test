@@ -1,6 +1,6 @@
 ---
 name: mastra-agent-toolresult-chunk-format
-description: "Extract tool results and tool calls from Mastra Agent generate() output — handle both chunk and flat formats"
+description: 'Extract tool results and tool calls from Mastra Agent generate() output — handle both chunk and flat formats'
 origin: auto-extracted
 ---
 
@@ -20,7 +20,7 @@ Accessing `result.toolResults[i].result` directly fails silently (returns undefi
 ```typescript
 // BROKEN: silently returns undefined when Mastra returns chunk format
 let result = await agent.generate(message, opts)
-for (let tr of (result.toolResults ?? [])) {
+for (let tr of result.toolResults ?? []) {
   console.log(tr.result) // undefined if structure is { payload: { result } }
 }
 ```
@@ -75,7 +75,10 @@ console.log(JSON.stringify(result.toolResults ?? []).slice(0, 1000))
 Then use the exact string you see. A safe fallback checks both:
 
 ```typescript
-if (payload?.toolName === 'find_next_available_slots' || payload?.toolName === 'findNextAvailableSlots') {
+if (
+  payload?.toolName === 'find_next_available_slots' ||
+  payload?.toolName === 'findNextAvailableSlots'
+) {
   // either format works
 }
 ```
@@ -86,13 +89,13 @@ If you need the LAST matching tool result (useful when the agent makes multiple 
 
 ```typescript
 let lastResult: Record<string, unknown> | undefined
-for (let tr of (result.toolResults ?? [])) {
+for (let tr of result.toolResults ?? []) {
   let entry = tr as Record<string, unknown> | undefined
   let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
   if (payload?.toolName === 'myTool' || payload?.toolName === 'my_tool_id') {
     let trResult = payload?.result as Record<string, unknown> | undefined
     if (trResult != null) {
-      lastResult = trResult  // keep overwriting to get the most recent
+      lastResult = trResult // keep overwriting to get the most recent
     }
   }
 }

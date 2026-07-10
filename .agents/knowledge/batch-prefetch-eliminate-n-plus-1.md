@@ -1,5 +1,5 @@
 ---
-title: "Batch Pre-Fetch to Eliminate N+1 Queries"
+title: 'Batch Pre-Fetch to Eliminate N+1 Queries'
 tags: [database, postgres, performance, optimization]
 created: 2026-06-03
 status: active
@@ -34,7 +34,10 @@ async function listExistingOfferingKeys(pool, resourceId, mondayMs) {
 let existingKeys = await listExistingOfferingKeys(pool, resourceId, mondayMs)
 for (let i = 0; i < 7; i++) {
   // ...
-  if (existingKeys.has(`${dayMs}:${startMin}:${endMin}`)) { skipped++; continue }
+  if (existingKeys.has(`${dayMs}:${startMin}:${endMin}`)) {
+    skipped++
+    continue
+  }
   // ...
 }
 ```

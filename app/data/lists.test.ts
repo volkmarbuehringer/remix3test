@@ -91,9 +91,15 @@ describe('lists-api lib', () => {
       description: 'Items only',
       items: [{ id: '1', label: 'Old' }],
     })
-    let result = await patchList(db, created.id, { items: [{ id: '1', label: 'New' }, { label: 'Fresh' }] }, undefined, {
-      expectedUpdatedAt: created.updated_at,
-    })
+    let result = await patchList(
+      db,
+      created.id,
+      { items: [{ id: '1', label: 'New' }, { label: 'Fresh' }] },
+      undefined,
+      {
+        expectedUpdatedAt: created.updated_at,
+      },
+    )
     assert.ok(result.ok)
     if (result.ok) {
       assert.equal(result.row.description, 'Items only')
@@ -114,9 +120,15 @@ describe('lists-api lib', () => {
       description: 'Both before',
       items: [{ id: '1', label: 'A' }],
     })
-    let result = await patchList(db, created.id, { description: 'Both after', items: [{ id: '1', label: 'B' }] }, undefined, {
-      expectedUpdatedAt: created.updated_at,
-    })
+    let result = await patchList(
+      db,
+      created.id,
+      { description: 'Both after', items: [{ id: '1', label: 'B' }] },
+      undefined,
+      {
+        expectedUpdatedAt: created.updated_at,
+      },
+    )
     assert.ok(result.ok)
     if (result.ok) {
       assert.equal(result.row.description, 'Both after')
@@ -186,10 +198,14 @@ describe('lists-api lib', () => {
 
   it('patchList scopes by userId', async () => {
     let ownerId = 1
-    let created = await createList(db, {
-      description: 'Owned by user 1',
-      items: [{ id: '1', label: 'Mine' }],
-    }, ownerId)
+    let created = await createList(
+      db,
+      {
+        description: 'Owned by user 1',
+        items: [{ id: '1', label: 'Mine' }],
+      },
+      ownerId,
+    )
     // Try to patch as wrong user
     let result = await patchList(db, created.id, { description: 'Hack attempt' }, 999, {
       expectedUpdatedAt: created.updated_at,

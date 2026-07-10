@@ -11,6 +11,7 @@ There is no traceability from initial intent to completed booking. If the slot i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - A single `CustomerBookingWorkflow` that owns the full lifecycle: intent → resource match → slot selection → booking → confirmation
 - Saga compensation: if any step fails, preceding steps roll back (e.g., if notification fails, the booking is released)
 - A standalone `BookingCancellationWorkflow` that releases slots and notifies
@@ -19,6 +20,7 @@ There is no traceability from initial intent to completed booking. If the slot i
 - Update the customer agent to trigger workflows via a simple tool call, keeping the agent as the conversational interface but delegating mutations to workflows
 
 **Non-Goals:**
+
 - Real-time slot negotiation (waiting for payment, multi-party scheduling)
 - Calendar integration (Google/Outlook sync) — that's a future change
 - SMS/email delivery infrastructure beyond a pluggable notification interface
@@ -70,7 +72,11 @@ Instead of hardcoding email/SMS in the workflow step, define a `NotificationSend
 
 ```typescript
 interface NotificationSender {
-  send(recipient: string, type: 'confirmation' | 'reminder' | 'cancellation', data: NotificationData): Promise<{ sent: boolean; provider: string }>
+  send(
+    recipient: string,
+    type: 'confirmation' | 'reminder' | 'cancellation',
+    data: NotificationData,
+  ): Promise<{ sent: boolean; provider: string }>
 }
 ```
 
@@ -83,19 +89,20 @@ The main `CustomerBookingWorkflow` terminates after confirmation. Cancellation i
 ### Decision 5: Observability via Mastra's built-in telemetry + custom metrics
 
 Mastra already has observability configured (`MastraStorageExporter` with `SensitiveDataFilter`). We'll add:
+
 - Custom span attributes per step: `workflow.id`, `customer.id`, `resource.id`, `step.outcome`
 - A workflow run status record in the DB (separate from Mastra's internal state) for admin dashboard queries
 - Logging at each step boundary (already done in controller, extend to steps)
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|---|---|
-| Workflow step timeout causes partial booking | Saga compensation in each step; `releaseAppointment` runs if any downstream step fails |
-| Agent hallucinates the workflow trigger | New `triggerBookingWorkflow` tool has strict input schema validation (Zod); agent instructions explicitly limit tool to resource-match context |
-| Notification failure blocks booking completion | Notification step is non-critical — if it fails, booking is confirmed but a dead-letter queue stores the failed notification for retry |
-| Workflow state in PostgresStore becomes a bottleneck | Mastra's PostgresStore manages its own connection pool; keep workflow state queries separate from business data queries |
-| Cron-triggered reminder overlaps with manual cancellation | Reminder workflow checks appointment status as its first step — if cancelled, it exits silently |
+| Risk                                                      | Mitigation                                                                                                                                     |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workflow step timeout causes partial booking              | Saga compensation in each step; `releaseAppointment` runs if any downstream step fails                                                         |
+| Agent hallucinates the workflow trigger                   | New `triggerBookingWorkflow` tool has strict input schema validation (Zod); agent instructions explicitly limit tool to resource-match context |
+| Notification failure blocks booking completion            | Notification step is non-critical — if it fails, booking is confirmed but a dead-letter queue stores the failed notification for retry         |
+| Workflow state in PostgresStore becomes a bottleneck      | Mastra's PostgresStore manages its own connection pool; keep workflow state queries separate from business data queries                        |
+| Cron-triggered reminder overlaps with manual cancellation | Reminder workflow checks appointment status as its first step — if cancelled, it exits silently                                                |
 
 ## Open Questions
 

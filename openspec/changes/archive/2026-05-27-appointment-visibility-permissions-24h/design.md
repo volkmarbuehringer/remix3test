@@ -11,6 +11,7 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Non-admin users see only a colored area (no title, no tooltip) for other users' appointment blocks on the grid
 - Admin users see all appointment details and can interact with any block (edit, delete, resize, drag) directly from the user-facing `/appointments` page
 - Relax the past-date creation/update boundary from "today at midnight" to "24 hours before current time"
@@ -18,6 +19,7 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 - SSE invalidation triggered for admin mutations on the user-facing page
 
 **Non-Goals:**
+
 - Not changing the admin panel (`/admin/appointments`) — admins already have full access there
 - Not adding a separate "read-only" permission level beyond what exists
 - Not modifying the offerings past-date guard for non-admin paths (admin-only for offerings anyway)
@@ -34,6 +36,7 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 - **UPDATE/DELETE**: Computes the appointment's scheduled start time as `appointmentStartMs = date + start_min * 60000` (all UTC). Then checks `isWithinHours(appointmentStartMs, 24)`. If the appointment is fewer than 24 hours away (or already started), the update/delete is rejected for non-admin users. This enforces the booking cancellation policy.
 
 **Rationale**:
+
 - **Booking policy**: The rule is "you can cancel up to 24h before the appointment". This is naturally expressed as a forward-looking check: `appointmentStartMs - Date.now() >= 24h`.
 - **Not about past dates**: The 24h window is not about how old the appointment is — it's about how much time remains before it starts. An appointment created 5 minutes ago for next week is 100% editable. An appointment created 3 days ago for 1 hour from now is locked.
 - **Admin bypass**: Admins can always update/delete regardless of the 24h window. This is enforced by passing `adminBypass: true` in the DAL options, which skips the check entirely.
@@ -45,11 +48,13 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 **Decision**: Pass `isAdmin: boolean` in the embedded JSON alongside `currentUserId`. The appointment controller detects admin role from `auth.identity.role`.
 
 **Rationale**:
+
 - The client already has the `currentUserId` for distinguishing own vs. foreign — adding a single boolean is minimal
 - Avoids a separate API call or permission endpoint
 - The decision of what to show is a client concern based on role + ownership
 
 **Client behavior**:
+
 - Non-admin viewing foreign block: render as solid colored area (no title text, no hover tooltip, cursor default)
 - Admin viewing any block: render full details (title, hover, all interaction)
 
@@ -58,6 +63,7 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 **Decision**: Add `{ adminBypass?: boolean }` option to `updateAppointment()` in `data/appointments.ts`, mirroring the existing pattern in `deleteAppointment()`. The user-facing controller detects admin role and passes `adminBypass: true`.
 
 **Rationale**:
+
 - The existing `deleteAppointment()` already has the `adminBypass` pattern — extending to `updateAppointment()` is consistent
 - The DAL functions handle ownership scoping: `updateAppointment` currently queries `{ id: appointmentId, user_id: userId }`. With `adminBypass`, it skips the `user_id` filter.
 - The controller already has access to `auth.identity.role` — no new middleware needed
@@ -77,6 +83,7 @@ The appointment calendar at `/appointments` shows a weekly grid with appointment
 **Decision**: Use server UTC time (`Date.now()`) for the 24h comparison. Appointment start time is computed as `date + start_min * 60000` (both in UTC). The check is `appointmentStartMs - Date.now() >= 24 * 3600000`.
 
 **Edge cases**:
+
 - Appointment at 4:00 PM tomorrow, it's now 10:00 AM today → 30 hours away → editable
 - Appointment at 9:00 AM tomorrow, it's now 10:00 AM today → 23 hours away → locked
 - Appointment at 2:00 PM today, it's now 1:00 PM today → 1 hour away → locked

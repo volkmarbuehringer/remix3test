@@ -15,6 +15,7 @@ The `destroy` action in the client controller SHALL redirect to `/client/grid?<g
 After a successful delete and redirect, the grid SHALL display the same page, sort, and filter as before the delete. The offset SHALL adjust if the deleted row was the last item on the page.
 
 #### Scenario: Delete a row triggers Frame navigation
+
 - **WHEN** user clicks "Del" on a client row
 - **THEN** a browser confirm dialog SHALL appear
 - **WHEN** user confirms deletion
@@ -23,5 +24,6 @@ After a successful delete and redirect, the grid SHALL display the same page, so
 - **THEN** the Frame SHALL navigate to the redirect URL and display the updated grid
 
 #### Scenario: Delete fails (row not found)
+
 - **WHEN** the delete action receives an invalid or missing id parameter
 - **THEN** the server SHALL return a 400 JSON response with `{ ok: false, error: 'Invalid id' }`

@@ -1,6 +1,6 @@
 ---
 name: remix-data-confirm-delete-event-delegation
-description: "Use data-confirm + capture-phase click delegation for delete confirmations on server-rendered Remix 3 forms"
+description: 'Use data-confirm + capture-phase click delegation for delete confirmations on server-rendered Remix 3 forms'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -25,7 +25,7 @@ Remix 3's frame navigation (`rmx-target`) intercepts form submissions at the cli
 
 ## Solution
 
-Use a **single shared `clientEntry`** with a **capture-phase `click` listener** that intercepts clicks on submit buttons inside `[data-confirm]` forms *before* Remix's router intercepts them.
+Use a **single shared `clientEntry`** with a **capture-phase `click` listener** that intercepts clicks on submit buttons inside `[data-confirm]` forms _before_ Remix's router intercepts them.
 
 ### 1. Create the shared component
 
@@ -41,23 +41,22 @@ export const ConfirmDelete = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((el) => {
-            document.addEventListener('click', (e) => {
-              let target = e.target as HTMLElement
-              let btn = target.closest(
-                'button[type="submit"]',
-              ) as HTMLButtonElement | null
-              if (!btn) return
-              let form = btn.closest(
-                'form[data-confirm]',
-              ) as HTMLFormElement | null
-              if (!form) return
-              let message =
-                form.getAttribute('data-confirm') || 'Wirklich löschen?'
-              if (!confirm(message)) {
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            }, { capture: true, signal: handle.signal })
+            document.addEventListener(
+              'click',
+              (e) => {
+                let target = e.target as HTMLElement
+                let btn = target.closest('button[type="submit"]') as HTMLButtonElement | null
+                if (!btn) return
+                let form = btn.closest('form[data-confirm]') as HTMLFormElement | null
+                if (!form) return
+                let message = form.getAttribute('data-confirm') || 'Wirklich löschen?'
+                if (!confirm(message)) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              },
+              { capture: true, signal: handle.signal },
+            )
           }),
         ]}
       />
@@ -103,20 +102,24 @@ Rendering `<ConfirmDelete />` inside a loop (e.g., inside `.map()`) creates **N 
 
 ```tsx
 // ❌ WRONG — N instances, N listeners, N dialogs on one click
-{items.map((item) => (
-  <div key={item.id}>
-    <form data-confirm="Löschen?">...</form>
-    <ConfirmDelete />
-  </div>
-))}
+{
+  items.map((item) => (
+    <div key={item.id}>
+      <form data-confirm="Löschen?">...</form>
+      <ConfirmDelete />
+    </div>
+  ))
+}
 
 // ✅ CORRECT — single instance handles all forms
-{items.map((item) => (
-  <div key={item.id}>
-    <form data-confirm="Löschen?">...</form>
-  </div>
-))}
-<ConfirmDelete />
+{
+  items.map((item) => (
+    <div key={item.id}>
+      <form data-confirm="Löschen?">...</form>
+    </div>
+  ))
+}
+;<ConfirmDelete />
 ```
 
 **Root cause:** `clientEntry`'s `ref()` callback runs once per rendered instance during hydration. Unlike React's synthetic event delegation (which deduplicates at the root), each `clientEntry` instance independently calls `document.addEventListener(...)`. Since all listeners share `capture: true` and the same selector logic, they all match the same click target and all fire.
@@ -125,11 +128,11 @@ Rendering `<ConfirmDelete />` inside a loop (e.g., inside `.map()`) creates **N 
 
 ## Comparison
 
-| Approach | Boilerplate | Reliability | Scalability |
-|----------|-------------|-------------|-------------|
-| Per-component clientEntry (`on` mixin) | High — each form needs its own component with serialized props | Medium — works only if `on` fires before Remix intercepts | Low — N components for N forms |
-| `submit` event listener (bubble phase) | Low — one listener | Low — may not fire in frame navigation | High — one listener handles all |
-| **Capture-phase click delegation** (this pattern) | Low — one component + `data-confirm` attribute | High — fires before Remix intercepts | High — one component handles all |
+| Approach                                          | Boilerplate                                                    | Reliability                                               | Scalability                      |
+| ------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------- |
+| Per-component clientEntry (`on` mixin)            | High — each form needs its own component with serialized props | Medium — works only if `on` fires before Remix intercepts | Low — N components for N forms   |
+| `submit` event listener (bubble phase)            | Low — one listener                                             | Low — may not fire in frame navigation                    | High — one listener handles all  |
+| **Capture-phase click delegation** (this pattern) | Low — one component + `data-confirm` attribute                 | High — fires before Remix intercepts                      | High — one component handles all |
 
 ## When to Use
 

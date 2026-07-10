@@ -9,6 +9,7 @@ Since the route is not frame-wrapped, `context.render(...)` in a POST action wil
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `minLength(8)` to the `name` field schema so validation can fail for testing
 - Use `parseSafe` instead of `s.parse` + try/catch for cleaner validation flow
 - On validation failure, re-render the page with `context.render()` passing `formValues` and `fieldErrors`
@@ -17,6 +18,7 @@ Since the route is not frame-wrapped, `context.render(...)` in a POST action wil
 - Grid Frame continues to work independently (untouched)
 
 **Non-Goals:**
+
 - Does NOT remove or modify the Frame-based grid
 - Does NOT change the route structure, middleware, or URL
 - Does NOT add `clientEntry` or browser-only JavaScript

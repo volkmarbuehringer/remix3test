@@ -13,9 +13,11 @@ The top navbar's Showcase section (Overview, Button, Form, Theme Tokens) current
 ## Capabilities
 
 ### New Capabilities
+
 - `showcase-dropdown`: Dropdown menu for the Showcase section in the top navigation bar
 
 ### Modified Capabilities
+
 - (none — this changes rendering only, not behavioral requirements of existing specs)
 
 ## Impact

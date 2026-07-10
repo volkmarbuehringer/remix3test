@@ -14,9 +14,11 @@ Users currently guess which time slots are bookable — the start time dropdown 
 ## Capabilities
 
 ### New Capabilities
+
 - `appointment-booking-wizard`: 3-step wizard for creating appointments with offering-aware day and time selection, full-hour granularity
 
 ### Modified Capabilities
+
 - `appointments-new-page`: Create form changes from flat layout to 3-step wizard; edit form filters time dropdown by offerings
 
 ## Impact

@@ -1,6 +1,7 @@
 # server-logger-migration Specification
 
 ## Purpose
+
 Replace all server-side raw `console.log`/`console.warn`/`console.error` calls with `context.get(Logger)` from `remix/middleware/logger`, and remove the deprecated `userLogger` utility.
 
 ## ADDED Requirements

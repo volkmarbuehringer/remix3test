@@ -44,6 +44,7 @@ Admin sends "cancel user 5"
 Current: `form('chat')` → index (GET) + action (POST)
 
 New routes in `routes.ts`:
+
 ```
 mastra: route('mastra', {
   chat: route('chat', {
@@ -62,6 +63,7 @@ The `form()` helper is replaced with explicit `route()` to allow sub-routes.
 Three action handlers in `app/actions/mastra/controller.tsx`:
 
 ### `action` (POST /mastra/chat)
+
 - Same validation, rate limiting, auth as today
 - Passes `requireToolApproval: true` to `agent.generate()`
 - On `finishReason === 'suspended'`:
@@ -71,11 +73,13 @@ Three action handlers in `app/actions/mastra/controller.tsx`:
 - On normal completion: same redirect/JSON as today
 
 ### `approve` (POST /mastra/chat/approve)
+
 - Validates `runId` + `toolCallId` from form data
 - Calls `agent.approveToolCallGenerate({ runId, toolCallId })`
 - Redirects to `/mastra/chat` with final response text
 
 ### `decline` (POST /mastra/chat/decline)
+
 - Validates `runId` + `toolCallId` from form data
 - Calls `agent.declineToolCall({ runId, toolCallId })`
 - Redirects to `/mastra/chat` with decline confirmation
@@ -103,6 +107,7 @@ New component added to `MastraChatPage` (or as a sub-component) rendered when:
 2. Session flash has `{ runId, toolCallId, prompt }`
 
 The card shows:
+
 - Warning text about the destructive action
 - Target user info (from `suspendPayload.args`)
 - Approve button → POSTs to `/mastra/chat/approve`

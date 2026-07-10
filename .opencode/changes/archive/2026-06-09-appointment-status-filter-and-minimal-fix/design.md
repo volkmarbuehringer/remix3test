@@ -92,12 +92,14 @@ Destructure `status` from handle props, pass it to URL builders, and include it 
 ### Current problem
 
 The filter bar has 3 groups in a `flexWrap: 'wrap'` container:
+
 1. Inner span of 5 period buttons (wraps to 2 rows on narrow)
 2. Spacer
 3. "Neu" button
-→ Total: 3 rows
+   → Total: 3 rows
 
 ### After adding status buttons, we'd have:
+
 1. Inner span of 5 period buttons
 2. Status buttons span (2 buttons)
 3. Spacer
@@ -111,17 +113,20 @@ Restructure the filter bar into exactly 2 rows:
 **Row 2**: Status buttons + spacer + "Neu" button
 
 Implementation:
+
 - Remove `flexWrap: 'wrap'` from the outer filter bar container (use a column layout instead with a fixed gap)
 - Actually simpler: keep flexWrap and use grouping. Wrap the period buttons + first spacer in one group, and status buttons + second spacer + Neu in another group.
 - Better approach: remove `flexWrap: 'wrap'` from the period button inner span so the 5 period buttons stay on one line (even if they overflow/scroll minimally). The spacer + Neu sit on the same row as the period buttons on wide screens.
 - On narrow screens, the spacer pushes everything: remove spacer on narrow, or change approach.
 
 Simpler and more robust approach:
+
 - Remove `flexWrap: 'wrap'` from the inner period button container
 - Wrap the status buttons + Neu button together in a separate row container
 - Use a column-reverse or two-row structure
 
 **Actually cleanest approach**: Change the outer container to a column layout with two rows:
+
 - Row 1: period buttons + spacer (period buttons don't wrap)
 - Row 2: status buttons + spacer + Neu
 
@@ -131,7 +136,7 @@ This guarantees exactly 2 rows max regardless of viewport width.
 
 ## 4. Files Changed
 
-| File | Change |
-|------|--------|
-| `app/actions/appointments-new/controller.tsx` | Add `status` param, SQL filter, thread through |
-| `app/ui/appointments-new-page.tsx` | Add status buttons, fix layout, update URL builders |
+| File                                          | Change                                              |
+| --------------------------------------------- | --------------------------------------------------- |
+| `app/actions/appointments-new/controller.tsx` | Add `status` param, SQL filter, thread through      |
+| `app/ui/appointments-new-page.tsx`            | Add status buttons, fix layout, update URL builders |

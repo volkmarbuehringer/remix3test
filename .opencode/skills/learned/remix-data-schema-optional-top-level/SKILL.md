@@ -1,6 +1,6 @@
 ---
 name: remix-data-schema-optional-top-level
-description: "Use s.optional(s.string()) not s.string().optional() in remix/data-schema"
+description: 'Use s.optional(s.string()) not s.string().optional() in remix/data-schema'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -18,7 +18,7 @@ When writing a schema with optional fields:
 import * as s from 'remix/data-schema'
 
 const mySchema = s.object({
-  name: s.string().optional(),       // ❌ TS error
+  name: s.string().optional(), // ❌ TS error
 })
 ```
 
@@ -40,8 +40,8 @@ Use `s.optional(...)` wrapping the schema expression, not `.optional()` as a met
 import * as s from 'remix/data-schema'
 
 const mySchema = s.object({
-  name: s.optional(s.string()),       // ✅ Correct
-  age: s.optional(s.number()),        // ✅
+  name: s.optional(s.string()), // ✅ Correct
+  age: s.optional(s.number()), // ✅
   tags: s.optional(s.array(s.string())),
 })
 ```

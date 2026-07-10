@@ -1,6 +1,7 @@
 ## Context
 
 `AdminActionButton` is a `clientEntry` component used per-row in 3 admin pages. It wraps a `<button type="button">` that:
+
 1. Shows a confirmation dialog (`confirmMsg`)
 2. Fetches the action URL with form data
 3. Calls `handle.frame.reload()` to refresh the `adminContent` Frame

@@ -16,22 +16,29 @@ export interface NotificationResult {
 }
 
 export interface NotificationSender {
-  send(recipient: string, type: NotificationData['type'], data: NotificationData): Promise<NotificationResult>
+  send(
+    recipient: string,
+    type: NotificationData['type'],
+    data: NotificationData,
+  ): Promise<NotificationResult>
 }
 
 export const consoleNotificationSender: NotificationSender = {
   async send(recipient, type, data) {
-    console.log('[Notification]', JSON.stringify({
-      recipient,
-      type,
-      appointmentId: data.appointmentId,
-      resourceName: data.resourceName,
-      date: data.date,
-      timeRange: data.timeRange,
-      customerName: data.customerName,
-      title: data.title,
-      timestamp: new Date().toISOString(),
-    }))
+    console.log(
+      '[Notification]',
+      JSON.stringify({
+        recipient,
+        type,
+        appointmentId: data.appointmentId,
+        resourceName: data.resourceName,
+        date: data.date,
+        timeRange: data.timeRange,
+        customerName: data.customerName,
+        title: data.title,
+        timestamp: new Date().toISOString(),
+      }),
+    )
     return { sent: true, provider: 'console' }
   },
 }

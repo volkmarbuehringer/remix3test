@@ -7,10 +7,12 @@ Bare `catch {}` blocks exist in the lists controller where expected errors (JSON
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace `any` with `KeyboardEvent` / `PointerEvent` in event handlers
 - Add `context.logger` calls to bare catch blocks
 
 **Non-Goals:**
+
 - Changing behavior or response format of the catch blocks
 - Refactoring event handling logic
 

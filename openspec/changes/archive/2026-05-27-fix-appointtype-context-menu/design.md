@@ -3,11 +3,13 @@
 Two context menus use the same fragile pattern:
 
 ### appointtype-panel.tsx
+
 1. A hidden `<div>` with `menu.contextTrigger()` and `display:none` is placed below the type list
 2. Each type item handles `contextmenu` via `on('contextmenu', ...)`, manually positions the hidden trigger, dispatches a synthetic event, then re-hides it with `setTimeout(..., 100)`
 3. The `100ms` timeout is a race condition
 
 ### nutzer-table-interactive.tsx
+
 1. Same hidden trigger with `display:none` and `setTimeout(..., 100)` race condition
 2. Extra `setTimeout(() => { ... }, 0)` wrapping the listener attachment — a timing hack suggesting mount issues
 3. Uses `dataset.nutzerMenu` flag to guard against duplicate listeners on re-render
@@ -17,16 +19,19 @@ The admin appointments context menu (`admin-appointments-context-menu.tsx`) rece
 ## Goals / Non-Goals
 
 **Goals (appointtype-panel):**
+
 - Move `<menu.Context>` to wrap the type item list
 - Apply `menu.contextTrigger()` directly on each type item (canonical API)
 - Remove `handleContextMenu()` and hidden trigger entirely
 
 **Goals (nutzer-table-interactive):**
+
 - Replace `display:none` toggling with `opacity:0;pointer-events:none`
 - Remove both `setTimeout`s (mount wrapper and hide-trigger race condition)
 - Replace `dataset.nutzerMenu` guard with a `mounted` guard
 
 **Non-Goals:**
+
 - No visual or behavioral changes to either context menu
 - Not changing action handlers (Edit, Delete, Lock, Activate, etc.)
 - Not changing the appointtype drag-and-drop logic
@@ -55,8 +60,8 @@ The admin appointments context menu (`admin-appointments-context-menu.tsx`) rece
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| `menu.contextTrigger()` on type items conflicts with drag events | `handlePointerDown` checks `event.button !== 0` to ignore right-clicks; `contextmenu` fires after `pointerdown` so the drag path is already resolved |
-| Moving `<menu.Context>` in appointtype changes layout | The `<menu.Context>` component renders no visible DOM — it's a React context provider. No layout impact. |
+| Risk                                                                 | Mitigation                                                                                                                                                                                 |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `menu.contextTrigger()` on type items conflicts with drag events     | `handlePointerDown` checks `event.button !== 0` to ignore right-clicks; `contextmenu` fires after `pointerdown` so the drag path is already resolved                                       |
+| Moving `<menu.Context>` in appointtype changes layout                | The `<menu.Context>` component renders no visible DOM — it's a React context provider. No layout impact.                                                                                   |
 | Removing `setTimeout(0)` from nutzer could cause mount timing issues | The `mounted` guard in the render cycle runs after the DOM is committed, so `document.getElementById('nutzer-table')` will find the element. The original `setTimeout(0)` was unnecessary. |

@@ -26,7 +26,10 @@ import { Logger } from 'remix/middleware/logger'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
-type SafeUser = Pick<User, 'id' | 'email' | 'name' | 'role' | 'email_verified' | 'created_at' | 'updated_at'>
+type SafeUser = Pick<
+  User,
+  'id' | 'email' | 'name' | 'role' | 'email_verified' | 'created_at' | 'updated_at'
+>
 
 const USERS_PAGE_SIZE = 15
 
@@ -54,247 +57,289 @@ const userUpdateSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-export const adminUsers = createController<typeof routes.admin.users, AppContext>(routes.admin.users, {
-  middleware: [requireAuth(), requireAdmin()],
+export const adminUsers = createController<typeof routes.admin.users, AppContext>(
+  routes.admin.users,
+  {
+    middleware: [requireAuth(), requireAdmin()],
 
-  actions: {
-    async index(context) {
-      let db = context.db
-      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let pageNum = Math.floor(offset / effectivePageSize) + 1
-      let filter = context.url.searchParams.get('filter') || undefined
+    actions: {
+      async index(context) {
+        let db = context.db
+        let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
+        let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+        let pageNum = Math.floor(offset / effectivePageSize) + 1
+        let filter = context.url.searchParams.get('filter') || undefined
 
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'name',
-        defaultDirection: 'asc',
-      })
-
-      let filterPredicate = filter
-        ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-        : undefined
-
-      let { items: page, hasMore } = await paginate(db, users, {
-        pageSize: effectivePageSize,
-        page: pageNum,
-        orderBy: [[column, direction]],
-        where: filterPredicate as Record<string, unknown>,
-      })
-
-      let rows: SafeUser[] = (page as User[]).map(
-        (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified, created_at: u.created_at, updated_at: u.updated_at }),
-      )
-
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: SafeUser | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        let found = await db.findOne(users, { where: { id: editingRowId } })
-        if (found) {
-          let u = found as User
-          editRow = { id: u.id!, email: u.email, name: u.name, role: u.role, email_verified: u.email_verified, created_at: u.created_at!, updated_at: u.updated_at! }
-        }
-      }
-
-      let creating = context.url.searchParams.get('creating') === 'true'
-
-      return renderAdminPage(
-        context.render,
-        'users',
-        <AdminUsersPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - effectivePageSize)}
-          nextOffset={offset + effectivePageSize}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-        />,
-      )
-    },
-
-    async create(context) {
-      let db = context.db
-      let formData = context.formData
-
-      let parseResult = s.parseSafe(userCreateSchema, formData)
-      if (!parseResult.success) {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
-      }
-      let fields = parseResult.value
-
-      if (!fields.password) {
-        return context.json({ ok: false, error: 'Password is required' }, { status: 400 })
-      }
-      let complexityError = validatePasswordComplexity(fields.password)
-      if (complexityError) {
-        return context.json({ ok: false, error: complexityError }, { status: 400 })
-      }
-
-      let existing = await db.findOne(users, { where: { email: fields.email.trim().toLowerCase() } })
-      if (existing) {
-        return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
-      }
-
-      let passwordHash = await hashPassword(fields.password)
-      let role = fields.role === 'admin' ? 'admin' : 'customer'
-
-      let row = await db.create(
-        users,
-        {
-          name: fields.name.trim(),
-          email: fields.email.trim().toLowerCase(),
-          password_hash: passwordHash,
-          role,
-          token_version: 1,
-        },
-        { returnRow: true },
-      )
-
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'create',
-          target_type: 'users',
-          target_id: row.id as number,
-          details: { name: fields.name.trim(), email: fields.email.trim().toLowerCase(), role },
+        let { column, direction } = parseSort(context.url, {
+          allowedColumns: SORTABLE_FIELDS,
+          defaultColumn: 'name',
+          defaultDirection: 'asc',
         })
-      }
 
-      let redirectState = gridStateFromForm(fields)
-      let params = gridStateToParams(redirectState)
-      params.set('editing', String(row.id))
-      let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + '?' + params.toString())
-    },
+        let filterPredicate = filter
+          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+          : undefined
 
-    async update(context) {
-      let db = context.db
-      let formData = context.formData
+        let { items: page, hasMore } = await paginate(db, users, {
+          pageSize: effectivePageSize,
+          page: pageNum,
+          orderBy: [[column, direction]],
+          where: filterPredicate as Record<string, unknown>,
+        })
 
-      let id = parseId(context.params.id)
-      if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-      }
+        let rows: SafeUser[] = (page as User[]).map((u) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          email_verified: u.email_verified,
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+        }))
 
-      let parseResult = s.parseSafe(userUpdateSchema, formData)
-      if (!parseResult.success) {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
-      }
-      let fields = parseResult.value
-
-      if (fields.email) {
-        let existing = await db.findOne(users, { where: { email: fields.email.trim().toLowerCase() } })
-        if (existing && existing.id !== id) {
-          return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
+        let editingParam = context.url.searchParams.get('editing')
+        let editingRowId = editingParam ? Number(editingParam) : null
+        let editRow: SafeUser | null = null
+        if (editingRowId && Number.isFinite(editingRowId)) {
+          let found = await db.findOne(users, { where: { id: editingRowId } })
+          if (found) {
+            let u = found as User
+            editRow = {
+              id: u.id!,
+              email: u.email,
+              name: u.name,
+              role: u.role,
+              email_verified: u.email_verified,
+              created_at: u.created_at!,
+              updated_at: u.updated_at!,
+            }
+          }
         }
-      }
 
-      let changes: Record<string, unknown> = {}
-      if (fields.name?.trim()) changes.name = fields.name.trim()
-      if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
-      if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role
-      if (fields.password) {
+        let creating = context.url.searchParams.get('creating') === 'true'
+
+        return renderAdminPage(
+          context.render,
+          'users',
+          <AdminUsersPage
+            rows={rows}
+            offset={offset}
+            hasMore={hasMore}
+            prevOffset={Math.max(0, offset - effectivePageSize)}
+            nextOffset={offset + effectivePageSize}
+            sortColumn={column}
+            sortDirection={direction}
+            filter={filter}
+            editRow={editRow}
+            creating={creating}
+          />,
+        )
+      },
+
+      async create(context) {
+        let db = context.db
+        let formData = context.formData
+
+        let parseResult = s.parseSafe(userCreateSchema, formData)
+        if (!parseResult.success) {
+          return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        }
+        let fields = parseResult.value
+
+        if (!fields.password) {
+          return context.json({ ok: false, error: 'Password is required' }, { status: 400 })
+        }
         let complexityError = validatePasswordComplexity(fields.password)
         if (complexityError) {
           return context.json({ ok: false, error: complexityError }, { status: 400 })
         }
-        changes.password_hash = await hashPassword(fields.password)
-        let currentUser = await db.find(users, id) as { token_version: number } | undefined
-        changes.token_version = (currentUser?.token_version ?? 0) + 1
-      }
 
-      await db.updateMany(users, changes, { where: { id } })
-      if (fields.password) {
+        let existing = await db.findOne(users, {
+          where: { email: fields.email.trim().toLowerCase() },
+        })
+        if (existing) {
+          return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
+        }
+
+        let passwordHash = await hashPassword(fields.password)
+        let role = fields.role === 'admin' ? 'admin' : 'customer'
+
+        let row = await db.create(
+          users,
+          {
+            name: fields.name.trim(),
+            email: fields.email.trim().toLowerCase(),
+            password_hash: passwordHash,
+            role,
+            token_version: 1,
+          },
+          { returnRow: true },
+        )
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'create',
+            target_type: 'users',
+            target_id: row.id as number,
+            details: { name: fields.name.trim(), email: fields.email.trim().toLowerCase(), role },
+          })
+        }
+
+        let redirectState = gridStateFromForm(fields)
+        let params = gridStateToParams(redirectState)
+        params.set('editing', String(row.id))
+        let baseUrl = routes.admin.users.index.href()
+        return redirect(baseUrl + '?' + params.toString())
+      },
+
+      async update(context) {
+        let db = context.db
+        let formData = context.formData
+
+        let id = parseId(context.params.id)
+        if (id === undefined || id < 1) {
+          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        }
+
+        let parseResult = s.parseSafe(userUpdateSchema, formData)
+        if (!parseResult.success) {
+          return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        }
+        let fields = parseResult.value
+
+        if (fields.email) {
+          let existing = await db.findOne(users, {
+            where: { email: fields.email.trim().toLowerCase() },
+          })
+          if (existing && existing.id !== id) {
+            return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
+          }
+        }
+
+        let changes: Record<string, unknown> = {}
+        if (fields.name?.trim()) changes.name = fields.name.trim()
+        if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
+        if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role
+        if (fields.password) {
+          let complexityError = validatePasswordComplexity(fields.password)
+          if (complexityError) {
+            return context.json({ ok: false, error: complexityError }, { status: 400 })
+          }
+          changes.password_hash = await hashPassword(fields.password)
+          let currentUser = (await db.find(users, id)) as { token_version: number } | undefined
+          changes.token_version = (currentUser?.token_version ?? 0) + 1
+        }
+
+        await db.updateMany(users, changes, { where: { id } })
+        if (fields.password) {
+          await db.deleteMany(apiTokens, { where: { user_id: id } })
+        }
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          let safeChanges = { ...changes }
+          if ('password_hash' in safeChanges) {
+            safeChanges.password_hash = '***REDACTED***'
+          }
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'users',
+            target_id: id,
+            details: { changes: safeChanges },
+          })
+        }
+
+        let redirectState = gridStateFromForm(fields)
+        let params = gridStateToParams(redirectState)
+        let qs = params.toString()
+        let baseUrl = routes.admin.users.index.href()
+        return redirect(baseUrl + (qs ? '?' + qs : ''))
+      },
+
+      async destroy(context) {
+        let db = context.db
+        let formData = context.formData
+
+        let id = parseId(context.params.id)
+        if (id === undefined || id < 1) {
+          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        }
+
+        let existing = await db.findOne(users, { where: { id } })
+        if (!existing) {
+          return context.json({ ok: false, error: 'User not found' }, { status: 404 })
+        }
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity && id === authIdentity.id) {
+          return context.json(
+            { ok: false, error: 'Cannot delete your own account' },
+            { status: 403 },
+          )
+        }
+
+        let user = existing as User
+        if (user.role === 'admin') {
+          let adminCount = await db.count(users, { where: { role: 'admin' } })
+          if (adminCount <= 1) {
+            return context.json(
+              { ok: false, error: 'Cannot delete the last admin account' },
+              { status: 403 },
+            )
+          }
+        }
+
+        let deletedEmail = user.email
+        let deletedName = user.name
+
         await db.deleteMany(apiTokens, { where: { user_id: id } })
-      }
+        await db.deleteMany(users, { where: { id } })
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        let safeChanges = { ...changes }
-        if ('password_hash' in safeChanges) {
-          safeChanges.password_hash = '***REDACTED***'
+        if (process.env.NODE_ENV !== 'test') {
+          try {
+            await sendAccountDeletionEmail(
+              context.mailer,
+              { name: deletedName, email: deletedEmail },
+              'admin',
+            )
+          } catch (err) {
+            context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
+          }
         }
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'update',
-          target_type: 'users',
-          target_id: id,
-          details: { changes: safeChanges },
-        })
-      }
 
-      let redirectState = gridStateFromForm(fields)
-      let params = gridStateToParams(redirectState)
-      let qs = params.toString()
-      let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
-    },
-
-    async destroy(context) {
-      let db = context.db
-      let formData = context.formData
-
-      let id = parseId(context.params.id)
-      if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-      }
-
-      let existing = await db.findOne(users, { where: { id } })
-      if (!existing) {
-        return context.json({ ok: false, error: 'User not found' }, { status: 404 })
-      }
-
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity && id === authIdentity.id) {
-        return context.json({ ok: false, error: 'Cannot delete your own account' }, { status: 403 })
-      }
-
-      let user = existing as User
-      if (user.role === 'admin') {
-        let adminCount = await db.count(users, { where: { role: 'admin' } })
-        if (adminCount <= 1) {
-          return context.json({ ok: false, error: 'Cannot delete the last admin account' }, { status: 403 })
+        if (authIdentity) {
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'destroy',
+            target_type: 'users',
+            target_id: id,
+          })
         }
-      }
 
-      let deletedEmail = user.email
-      let deletedName = user.name
-
-      await db.deleteMany(apiTokens, { where: { user_id: id } })
-      await db.deleteMany(users, { where: { id } })
-
-      if (process.env.NODE_ENV !== 'test') {
-        try {
-          await sendAccountDeletionEmail(context.mailer, { name: deletedName, email: deletedEmail }, 'admin')
-        } catch (err) {
-          context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
-        }
-      }
-
-      if (authIdentity) {
-        await logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'destroy',
-          target_type: 'users',
-          target_id: id,
-        })
-      }
-
-      let parseResult = s.parseSafe(userUpdateSchema, formData)
-      let fields = parseResult.success ? parseResult.value : { name: '', email: '', role: '', password: '', _offset: '', _sort: '', _order: '', _filter: '' }
-      let params = gridStateToParams(gridStateFromForm(fields))
-      let qs = params.toString()
-      let baseUrl = routes.admin.users.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+        let parseResult = s.parseSafe(userUpdateSchema, formData)
+        let fields = parseResult.success
+          ? parseResult.value
+          : {
+              name: '',
+              email: '',
+              role: '',
+              password: '',
+              _offset: '',
+              _sort: '',
+              _order: '',
+              _filter: '',
+            }
+        let params = gridStateToParams(gridStateFromForm(fields))
+        let qs = params.toString()
+        let baseUrl = routes.admin.users.index.href()
+        return redirect(baseUrl + (qs ? '?' + qs : ''))
+      },
     },
   },
-})
+)

@@ -16,7 +16,7 @@ async function findCliPackage(): Promise<string | null> {
     let commitPrefix = commitMatch.slice(0, 9)
 
     let entries = await fs.readdir(pnpmDir)
-    let cliDir = entries.find(e => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
+    let cliDir = entries.find((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
     if (cliDir) {
       let p = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli')
       let s = await fs.stat(p)

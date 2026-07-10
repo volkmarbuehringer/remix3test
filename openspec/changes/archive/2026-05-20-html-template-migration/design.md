@@ -13,11 +13,13 @@ All three currently use plain template literals. Values are interpolated directl
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace raw HTML template literals with `html` tagged templates in all three middleware files
 - Ensure all HTML generated outside the component pipeline is auto-escaped
 - Keep the refactor purely mechanical — no behavioral changes to HTTP responses
 
 **Non-Goals:**
+
 - Migrating error pages to use Remix's JSX component system (they're intentionally outside the render pipeline because they fire before or independent of page rendering)
 - Changing CSS, layout, or content of the error responses
 - Adding the `remix` dependency (already present)
@@ -26,13 +28,14 @@ All three currently use plain template literals. Values are interpolated directl
 
 ## Decisions
 
-### Decision 1: Use `String(html\`...\`)` instead of passing `html\`...\`` directly
+### Decision 1: Use `String(html\`...\`)`instead of passing`html\`...\`` directly
 
 **Chosen:** Explicitly convert `SafeHtml` to string via `String()` in the `Response` constructor.
 
-**Rationale:** Both `new Response(String(html\`...\`), ...)` and `new Response(html\`...\`, ...)` work — `SafeHtml` has a `toString()` that returns the escaped string. Using `String()` explicitly is clearer for readers who may not know `SafeHtml` is a `Stringifiable` type, and it avoids any ambiguity about what `Response` does with the value.
+**Rationale:** Both `new Response(String(html\`...\`), ...)`and`new Response(html\`...\`, ...)`work —`SafeHtml`has a`toString()`that returns the escaped string. Using`String()`explicitly is clearer for readers who may not know`SafeHtml`is a`Stringifiable`type, and it avoids any ambiguity about what`Response` does with the value.
 
 **Alternatives considered:**
+
 - Passing `SafeHtml` directly to `Response` — works but relies on implicit `toString()`, making the code harder to follow at a glance.
 
 ### Decision 2: Keep the 403 page as a literal template instead of extracting to a component

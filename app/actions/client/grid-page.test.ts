@@ -24,9 +24,7 @@ function treeContainsText(node: unknown, text: string): boolean {
   if (typeof node === 'object' && node !== null) {
     let el = node as RemixElement
     if (el.props?.children) {
-      let children = Array.isArray(el.props.children)
-        ? el.props.children
-        : [el.props.children]
+      let children = Array.isArray(el.props.children) ? el.props.children : [el.props.children]
       for (let child of children) {
         if (treeContainsText(child, text)) return true
       }
@@ -76,12 +74,16 @@ function makeHandle<P>(props: P): Handle<P> {
 
 describe('ClientGridPage', () => {
   it('returns a render function', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: [], offset: 0, hasPrev: false, hasNext: false }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: [], offset: 0, hasPrev: false, hasNext: false }),
+    )
     assert.equal(typeof renderFn, 'function')
   })
 
   it('renders rows with data', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
     let tree = renderFn()
 
     assert.ok(tree, 'should produce a tree')
@@ -93,7 +95,9 @@ describe('ClientGridPage', () => {
   })
 
   it('renders sortable column headers', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
     let tree = renderFn()
 
     assert.ok(tree, 'should produce a tree')
@@ -104,7 +108,9 @@ describe('ClientGridPage', () => {
   })
 
   it('shows pagination info with correct range', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, '1'), 'page start should be 1')
@@ -112,21 +118,27 @@ describe('ClientGridPage', () => {
   })
 
   it('renders edit links for each row', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Edit'), 'should have Edit buttons')
   })
 
   it('shows empty state when no rows', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: [], offset: 0, hasPrev: false, hasNext: false }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: [], offset: 0, hasPrev: false, hasNext: false }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'No client records'), 'should show empty state')
   })
 
   it('renders a search button for filtering', () => {
-    let renderFn = ClientGridPage(makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }))
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Search'), 'should have Search button')

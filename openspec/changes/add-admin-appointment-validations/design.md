@@ -1,6 +1,7 @@
 ## Context
 
 The admin appointments controller (`admin-appointments-controller.tsx`) handles CRUD at `/admin/appointments`. Currently, when creating or updating an appointment, it validates:
+
 - Form fields (resource_id, user_id, title, date, start/end minutes)
 - Past dates (via `isDateInPast()`)
 - Overlapping appointments (via PostgreSQL exclusion constraint `23P01`)
@@ -12,11 +13,13 @@ The `appointoffering` table stores concrete day/time slots generated from `offer
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `isSlotBookable()` check to the admin create action — reject if no offering exists for the time range
 - Add `isSlotBookable()` check to the admin update action — reject if the changed slot has no offering (only check when date/resource/time changes)
 - Add integration tests for offering-availability and collision scenarios
 
 **Non-Goals:**
+
 - No changes to the admin delete action (already handled correctly)
 - No changes to the user-facing controller
 - No changes to offering data model or `isSlotBookable()` function

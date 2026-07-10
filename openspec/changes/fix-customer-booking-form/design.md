@@ -15,11 +15,13 @@ Secondary possibility: the agent isn't calling the tool at all (text-only respon
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make the booking form appear when `find_next_available_slots` returns non-empty slots
 - Add a test that verifies the full parsing pipeline with mock agent returning real tool result shapes
 - Handle the case where the agent calls tools across multiple steps
 
 **Non-Goals:**
+
 - No UI changes to the booking form itself
 - No changes to the agent's prompt or tool definitions
 - No changes to the booking workflow or appointment creation

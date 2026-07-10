@@ -16,10 +16,12 @@ Adopting `resources()` for pure CRUD routes reduces code, improves consistency, 
 ## Capabilities
 
 ### New Capabilities
-*(none — pure refactoring, no new capabilities)*
+
+_(none — pure refactoring, no new capabilities)_
 
 ### Modified Capabilities
-*(none — behavior is unchanged)*
+
+_(none — behavior is unchanged)_
 
 ## Impact
 

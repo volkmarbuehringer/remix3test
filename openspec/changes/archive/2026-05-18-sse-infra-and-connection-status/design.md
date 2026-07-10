@@ -3,6 +3,7 @@
 **Current state:** Newapp has exactly one SSE feature — the admin messages page. Its infrastructure lives in `app/lib/messages-sse.ts` which exports a bare `Set<ReadableStreamDefaultController>` and a `broadcastInvalidate()` function. The subscription endpoint (`/admin/messages/subscribe`) duplicates the full `ReadableStream` boilerplate: manual header setup, heartbeat timer, abort listener, and cleanup. Any new feature wanting SSE (chat token streaming, agent step progress, workflow status) would copy this same pattern, creating scattered `Set` instances with inconsistent error handling.
 
 **Constraints:**
+
 - Must work with Remix 3's `fetch-router` pattern (no React, no Express)
 - SSE endpoints are controller actions returning `Response` with a `ReadableStream` body
 - Client-side interactivity uses `clientEntry` assets, not React components
@@ -12,6 +13,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a typed, reusable `createChannel<EventMap>()` factory that manages SSE subscriber sets, typed event broadcast, and lifecycle cleanup
 - Provide a `createSubscriptionEndpoint()` helper that produces a standards-compliant SSE `Response` reusing a channel — eliminating boilerplate from controller actions
 - Create a reusable `ConnectionIndicator` client asset showing connected/disconnected/reconnecting states
@@ -19,6 +21,7 @@
 - Cover the channel system with unit tests
 
 **Non-Goals:**
+
 - Chat token streaming or agent step streaming (those are separate features that will use this infrastructure)
 - Automatic reconnection with last-event-ID recovery (future enhancement)
 - Multiplexing multiple event types over a single connection (each channel = one connection)
@@ -31,6 +34,7 @@
 **Chosen:** A `createChannel<EventMap>()` factory function returning a lightweight channel object.
 
 Contrasted with:
+
 - **Class-based manager** (`class SSEManager { createChannel() {} }`) — more ceremony, no real benefit since channels are independent singletons
 - **Global registry** with string keys — loses type safety for event payloads across modules
 
@@ -75,6 +79,7 @@ Heartbeat is critical for SSE connections behind proxies that timeout idle conne
 The connection indicator uses `clientEntry` / `EventSource` — no `window.EventSource` polyfill needed. The component receives a subscription URL, creates an `EventSource`, listens for `open`, `error`, and a custom `connected` event, and renders a pulsing dot + status text.
 
 We mount it in two ways:
+
 - **As a page element**: Added to a specific page template (like admin messages page) near the content area
 - **As a persistent element**: Could be added to the global layout for site-wide SSE features
 
@@ -86,9 +91,9 @@ Rather than refactoring `messages-sse.ts` immediately, we create the new infrast
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Channel holds references to disconnected clients (memory leak) | Every `subscribe()` call attaches to `request.signal`'s `abort` event and a `cancel()` handler on the `ReadableStream` — both remove the subscriber. Heartbeat failures also trigger cleanup. |
-| Heartbeat interferes with compression middleware | Compression middleware operates on response bytes; the 30-second `: heartbeat` comment is small enough (< 10 bytes) that it won't cause frame-flushing issues. The SSE demo confirms compression and SSE work together. |
-| `FormData`/`methodOverride` middleware interferes with GET subscription endpoints | The subscribe route is a `get('/subscribe')` route, so no form data parsing or method override runs. The route is registered before those middlewares in the controller. |
-| Multiple simultaneous subscribers cause broadcast ordering issues | Each `ReadableStreamDefaultController.enqueue()` is synchronous — no ordering concern. The `for...of` loop does sequential broadcast per subscriber. |
+| Risk                                                                              | Mitigation                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Channel holds references to disconnected clients (memory leak)                    | Every `subscribe()` call attaches to `request.signal`'s `abort` event and a `cancel()` handler on the `ReadableStream` — both remove the subscriber. Heartbeat failures also trigger cleanup.                           |
+| Heartbeat interferes with compression middleware                                  | Compression middleware operates on response bytes; the 30-second `: heartbeat` comment is small enough (< 10 bytes) that it won't cause frame-flushing issues. The SSE demo confirms compression and SSE work together. |
+| `FormData`/`methodOverride` middleware interferes with GET subscription endpoints | The subscribe route is a `get('/subscribe')` route, so no form data parsing or method override runs. The route is registered before those middlewares in the controller.                                                |
+| Multiple simultaneous subscribers cause broadcast ordering issues                 | Each `ReadableStreamDefaultController.enqueue()` is synchronous — no ordering concern. The `for...of` loop does sequential broadcast per subscriber.                                                                    |

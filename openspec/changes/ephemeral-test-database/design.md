@@ -7,6 +7,7 @@ The testing infrastructure uses `test/setup.ts` for global setup/teardown and `a
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Each `remix test` invocation gets a clean PostgreSQL database with migrated schema and seeded data
 - Zero modifications to existing test files
 - Database name is unique per run to support concurrent CI jobs
@@ -14,6 +15,7 @@ The testing infrastructure uses `test/setup.ts` for global setup/teardown and `a
 - Startup overhead is minimal (migrate + seed)
 
 **Non-Goals:**
+
 - Within-run parallel test isolation (workers still share the temp DB — existing uniqueness conventions apply)
 - Transaction-based isolation per test
 - Schema-per-worker isolation
@@ -26,6 +28,7 @@ The testing infrastructure uses `test/setup.ts` for global setup/teardown and `a
 **Approach:** `globalSetup()` creates a temp DB, runs migration + seed, updates `DATABASE_URL`. `globalTeardown()` drops it.
 
 **Alternatives considered:**
+
 - **Transaction-per-test rollback:** Requires pinning each test to a single DB connection and wrapping every test body. Breaks if tests explicitly commit. Complex with `pg.Pool` where queries may hit different connections.
 - **Schema-per-worker:** Each worker gets its own Postgres schema with identical tables. Requires search_path manipulation per worker process and N× migration runs. Test helpers that assume default `public` schema would need updates.
 - **`.env.test` + manual cleanup:** Simpler but doesn't guarantee clean state — still relies on best-effort cleanup.
@@ -51,6 +54,7 @@ newapp_test_1740000000123_12345
 ### Decision 4: Run migration + seed via `initializeAppDatabase()` in `globalSetup()`
 
 Rather than calling `migrate()` and `seed()` directly, the setup imports `app/data/setup.ts` and calls `initializeAppDatabase()`. This triggers the module-level promise, which:
+
 1. Imports `connection.ts` — creating the `Pool` with the updated `DATABASE_URL` connected to the temp DB
 2. Runs migration once
 3. Runs seed once
@@ -93,10 +97,10 @@ globalSetup()                             globalTeardown()
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| `CREATEDB` privilege missing on Postgres user | Current `postgres` superuser has it. Document as requirement for CI. |
-| Orphan databases from SIGKILL | Name pattern `newapp_test_%` enables identification. Add cleanup script separately. |
-| Startup latency from migrate + seed | ~1-2s. Acceptable for test correctness. Could cache a template database in CI. |
-| `CREATE DATABASE` fails if `template1` is busy | Unlikely in local dev. Rare in CI. Retry or fail with clear message. |
-| Migration assumes empty database | Already true for fresh DB. Existing idempotent guards (`IF NOT EXISTS`) are still correct but unnecessary. |
+| Risk                                           | Mitigation                                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `CREATEDB` privilege missing on Postgres user  | Current `postgres` superuser has it. Document as requirement for CI.                                       |
+| Orphan databases from SIGKILL                  | Name pattern `newapp_test_%` enables identification. Add cleanup script separately.                        |
+| Startup latency from migrate + seed            | ~1-2s. Acceptable for test correctness. Could cache a template database in CI.                             |
+| `CREATE DATABASE` fails if `template1` is busy | Unlikely in local dev. Rare in CI. Retry or fail with clear message.                                       |
+| Migration assumes empty database               | Already true for fresh DB. Existing idempotent guards (`IF NOT EXISTS`) are still correct but unnecessary. |

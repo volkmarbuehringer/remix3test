@@ -14,9 +14,11 @@ The support agent (admin) has `get_user_appointments` and `get_appointment_detai
 ## Capabilities
 
 ### New Capabilities
+
 - `customer-appointment-self-service`: The customer agent gains two new tools — `list_my_appointments` and `cancel_all_appointments`. The agent can show the customer their upcoming appointments on request and, with explicit confirmation, cancel them all.
 
 ### Modified Capabilities
+
 - `customer-resource-chat`: Customer agent instructions updated to describe the new self-service tools. The existing `cancel_booking` tool continues to work for single-appointment cancellation.
 
 ## Impact

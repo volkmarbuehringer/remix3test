@@ -1,6 +1,7 @@
 ## Context
 
 The app already has a working breadcrumb system:
+
 - `app/ui/breadcrumbs.tsx` — `Breadcrumbs` component + `getBreadcrumbs()` function
 - `app/route-labels.ts` — `ROUTE_LABELS` map from pathname → human-readable label
 - The standard `Layout` component renders breadcrumbs for all paths except `/admin` and `/ai`
@@ -10,11 +11,13 @@ Currently the ROUTE_LABELS map is missing entries for several Verwaltung sub-rou
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every navigable Verwaltung sub-page shows a complete breadcrumb trail
 - All missing ROUTE_LABELS entries are added for Verwaltung routes
 - No visual or functional regressions to existing breadcrumbs
 
 **Non-Goals:**
+
 - No changes to the breadcrumb component (`getBreadcrumbs`) or rendering logic
 - No changes to route structure, controllers, or UI components
 - No new breadcrumb styles or layout changes

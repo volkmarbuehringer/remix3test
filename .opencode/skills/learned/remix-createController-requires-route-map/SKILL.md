@@ -1,6 +1,6 @@
 ---
 name: remix-createController-requires-route-map
-description: "Use createAction for single routes, createController for form() routes in Remix 3"
+description: 'Use createAction for single routes, createController for form() routes in Remix 3'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -96,10 +96,10 @@ router.map(myFormRoute, myFormController)
 
 ### Quick reference
 
-| Route type | Controller | Router call |
-|---|---|---|
-| `get()` / `post()` / `put()` / `del()` | `createAction` (single handler) | `router.get()` / `router.post()` / etc. |
-| `form()` | `createController` (`actions.index` + `actions.action`) | `router.map()` |
+| Route type                             | Controller                                              | Router call                             |
+| -------------------------------------- | ------------------------------------------------------- | --------------------------------------- |
+| `get()` / `post()` / `put()` / `del()` | `createAction` (single handler)                         | `router.get()` / `router.post()` / etc. |
+| `form()`                               | `createController` (`actions.index` + `actions.action`) | `router.map()`                          |
 
 ## When to Use
 

@@ -61,9 +61,10 @@ describe('Callback controller', () => {
       [id],
     )
     assert.ok(rows[0].callback_received_at, 'callback_received_at should be set')
-    let stored = typeof rows[0].callback_response === 'string'
-      ? JSON.parse(rows[0].callback_response)
-      : rows[0].callback_response
+    let stored =
+      typeof rows[0].callback_response === 'string'
+        ? JSON.parse(rows[0].callback_response)
+        : rows[0].callback_response
     assert.deepEqual(stored, body)
   })
 

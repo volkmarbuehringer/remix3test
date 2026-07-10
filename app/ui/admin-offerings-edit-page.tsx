@@ -71,8 +71,23 @@ const formErrorBanner = css({
 
 export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProps>) {
   return () => {
-    let { row, resources, offset, sort, order, filter = '', period = '', status = '', formValues, fieldErrors, formError } = handle.props
-    let { startMin: rowStartMin, endMin: rowEndMin } = parseDuringRange(row.during) ?? { startMin: 0, endMin: 60 }
+    let {
+      row,
+      resources,
+      offset,
+      sort,
+      order,
+      filter = '',
+      period = '',
+      status = '',
+      formValues,
+      fieldErrors,
+      formError,
+    } = handle.props
+    let { startMin: rowStartMin, endMin: rowEndMin } = parseDuringRange(row.during) ?? {
+      startMin: 0,
+      endMin: 60,
+    }
     let dateValue = dayToInputDate(row.day)
 
     let resolvedResourceId = formValues?.resource_id ?? row.resource_id
@@ -82,7 +97,11 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={routes.verwaltung.offerings.update.href({ id: row.id })} novalidate>
+        <RestfulForm
+          method="PUT"
+          action={routes.verwaltung.offerings.update.href({ id: row.id })}
+          novalidate
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 
           <div mix={table.panel}>
@@ -96,12 +115,18 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oe-resource">Ressource</label>
+                <label mix={table.label} htmlFor="oe-resource">
+                  Ressource
+                </label>
                 <select
                   id="oe-resource"
                   name="resource_id"
                   required
-                  mix={fieldErrors?.resource_id ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.resource_id
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
                   {resources.map((res) => (
                     <option
@@ -113,18 +138,26 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.resource_id ? <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span> : null}
+                {fieldErrors?.resource_id ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span>
+                ) : null}
               </div>
 
               {/* Date input */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oe-day">Tag</label>
+                <label mix={table.label} htmlFor="oe-day">
+                  Tag
+                </label>
                 <input
                   id="oe-day"
                   name="day"
                   type="date"
                   required
-                  mix={fieldErrors?.day ? [input.base, input.error, input.focus] : [input.base, input.focus]}
+                  mix={
+                    fieldErrors?.day
+                      ? [input.base, input.error, input.focus]
+                      : [input.base, input.focus]
+                  }
                   value={resolvedDay}
                 />
                 {fieldErrors?.day ? <span mix={inlineErrorStyle}>{fieldErrors.day}</span> : null}
@@ -132,12 +165,18 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
 
               {/* Start time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oe-start">Startzeit</label>
+                <label mix={table.label} htmlFor="oe-start">
+                  Startzeit
+                </label>
                 <select
                   id="oe-start"
                   name="start_min"
                   required
-                  mix={fieldErrors?.start_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.start_min
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
                   {START_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedStartMin}>
@@ -145,17 +184,25 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.start_min ? <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span> : null}
+                {fieldErrors?.start_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span>
+                ) : null}
               </div>
 
               {/* End time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oe-end">Endzeit</label>
+                <label mix={table.label} htmlFor="oe-end">
+                  Endzeit
+                </label>
                 <select
                   id="oe-end"
                   name="end_min"
                   required
-                  mix={fieldErrors?.end_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.end_min
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
                   {END_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedEndMin}>
@@ -163,15 +210,31 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.end_min ? <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span> : null}
+                {fieldErrors?.end_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.offerings.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                    period,
+                    status,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

@@ -13,9 +13,7 @@ describe('audit-log', () => {
   })
 
   it('logAdminAction inserts audit log entry', async () => {
-    let userResult = await pool.query(
-      "SELECT id FROM users WHERE email = 'admin@newapp.com'",
-    )
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
     let adminId = userResult.rows[0].id
 
     await logAdminAction(db, {
@@ -27,18 +25,14 @@ describe('audit-log', () => {
       details: { reason: 'testing' },
     })
 
-    let rows = await pool.query(
-      "SELECT * FROM audit_logs WHERE action_type = 'test-create'",
-    )
+    let rows = await pool.query("SELECT * FROM audit_logs WHERE action_type = 'test-create'")
     assert.equal(rows.rows.length, 1)
     assert.equal(rows.rows[0].admin_email, 'admin@newapp.com')
     assert.equal(rows.rows[0].target_id, '42')
   })
 
   it('logAdminAction handles null target_id and details', async () => {
-    let userResult = await pool.query(
-      "SELECT id FROM users WHERE email = 'admin@newapp.com'",
-    )
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
     let adminId = userResult.rows[0].id
 
     await logAdminAction(db, {
@@ -48,16 +42,12 @@ describe('audit-log', () => {
       target_type: 'system',
     })
 
-    let rows = await pool.query(
-      "SELECT * FROM audit_logs WHERE action_type = 'test-null-fields'",
-    )
+    let rows = await pool.query("SELECT * FROM audit_logs WHERE action_type = 'test-null-fields'")
     assert.equal(rows.rows.length, 1)
   })
 
   it('logAdminAction handles string target_id', async () => {
-    let userResult = await pool.query(
-      "SELECT id FROM users WHERE email = 'admin@newapp.com'",
-    )
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
     let adminId = userResult.rows[0].id
 
     await logAdminAction(db, {
@@ -68,9 +58,7 @@ describe('audit-log', () => {
       target_id: 'abc-123',
     })
 
-    let rows = await pool.query(
-      "SELECT * FROM audit_logs WHERE action_type = 'test-string-target'",
-    )
+    let rows = await pool.query("SELECT * FROM audit_logs WHERE action_type = 'test-string-target'")
     assert.equal(rows.rows.length, 1)
     assert.equal(rows.rows[0].target_id, 'abc-123')
   })

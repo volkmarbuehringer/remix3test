@@ -12,9 +12,11 @@ Admins need a compact printable overview of all user accounts with their appoint
 ## Capabilities
 
 ### New Capabilities
+
 - `users-pdf-export`: Generate a PDF report listing all user accounts with a per-user appointment summary row. The report is scoped to admin users, uses pdfmake for rendering, and is available as a download endpoint at `/verwaltung/users-pdf`.
 
 ### Modified Capabilities
+
 - `verwaltung-dashboard`: The dashboard page gains a new card linking to `/verwaltung/users-pdf` for admin users.
 
 ## Impact

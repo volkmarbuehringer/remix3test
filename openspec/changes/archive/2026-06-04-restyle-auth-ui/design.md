@@ -54,6 +54,7 @@ Both already use `Layout` wrappers and render within the main app shell — no f
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create a shared `AuthShell` component providing the centered-card layout with eyebrow/title/description
 - Create a shared `AuthForm` component providing form boilerplate (error banner, CSRF, submit button, footer)
 - Restyle login page to use the new components with timeboxer-inspired visual design
@@ -62,6 +63,7 @@ Both already use `Layout` wrappers and render within the main app shell — no f
 - Reuse newapp's `CsrfTokenInput`, `Button`, and `input` mixins
 
 **Non-Goals:**
+
 - Does NOT add field-level validation errors (newapp controllers use single `error` string; AuthForm can accept `errors` prop for future use but it won't be wired yet)
 - Does NOT change any auth middleware, session handling, or route definitions
 - Does NOT change rate limiting behavior
@@ -104,7 +106,7 @@ type AuthFormProps = {
   action: string
   children: RemixNode
   error?: string
-  errors?: AuthFormErrors   // future: field-level errors
+  errors?: AuthFormErrors // future: field-level errors
   footer?: RemixNode
   submitLabel: string
 }
@@ -116,20 +118,20 @@ The `errors` prop is included for forward compatibility (timeboxer supports it) 
 
 Timeboxer uses `RMX_01` tokens. newapp has a custom `Theme` in `app/theme.tsx` with equivalent tokens. The card design maps to:
 
-| Visual element | Timeboxer token | newapp equivalent |
-|---|---|---|
-| Card background | `theme.surface.lvl1` (#f8f8f8) | `theme.surface.lvl1` |
-| Card border | `theme.colors.border.subtle` | `theme.colors.border.subtle` |
-| Card shadow | `theme.shadow.lg` | `theme.shadow.lg` |
-| Card radius | `theme.radius.xl` (16px) | `theme.radius.xl` |
-| Eyebrow color | `theme.colors.text.muted` | `theme.colors.text.muted` |
-| Title color | `theme.colors.text.primary` | `theme.colors.text.primary` |
-| Body color | `theme.colors.text.secondary` | `theme.colors.text.secondary` |
-| Input border | `theme.colors.border.default` | `theme.colors.border.default` |
-| Focus ring | `theme.colors.focus.ring` | `theme.colors.focus.ring` |
-| Error banner bg | `theme.colors.action.danger.background` | `theme.colors.action.danger.background` |
-| Error banner border | `theme.colors.action.danger.border` | `theme.colors.action.danger.border` |
-| Error banner text | `theme.colors.action.danger.foreground` | `theme.colors.action.danger.foreground` |
+| Visual element      | Timeboxer token                         | newapp equivalent                       |
+| ------------------- | --------------------------------------- | --------------------------------------- |
+| Card background     | `theme.surface.lvl1` (#f8f8f8)          | `theme.surface.lvl1`                    |
+| Card border         | `theme.colors.border.subtle`            | `theme.colors.border.subtle`            |
+| Card shadow         | `theme.shadow.lg`                       | `theme.shadow.lg`                       |
+| Card radius         | `theme.radius.xl` (16px)                | `theme.radius.xl`                       |
+| Eyebrow color       | `theme.colors.text.muted`               | `theme.colors.text.muted`               |
+| Title color         | `theme.colors.text.primary`             | `theme.colors.text.primary`             |
+| Body color          | `theme.colors.text.secondary`           | `theme.colors.text.secondary`           |
+| Input border        | `theme.colors.border.default`           | `theme.colors.border.default`           |
+| Focus ring          | `theme.colors.focus.ring`               | `theme.colors.focus.ring`               |
+| Error banner bg     | `theme.colors.action.danger.background` | `theme.colors.action.danger.background` |
+| Error banner border | `theme.colors.action.danger.border`     | `theme.colors.action.danger.border`     |
+| Error banner text   | `theme.colors.action.danger.foreground` | `theme.colors.action.danger.foreground` |
 
 All token paths match 1:1 between RMX_01 and newapp's theme. No translation needed.
 

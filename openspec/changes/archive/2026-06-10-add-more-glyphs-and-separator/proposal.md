@@ -26,10 +26,12 @@ The app uses ~30 inline SVGs (Feather/Lucide-style) for icons that have no match
 ## Capabilities
 
 ### New Capabilities
+
 - `glyph-expansion`: Extends the RMX_01 glyph set with ~11 new named icons and replaces all matching inline SVGs app-wide.
 - `separator-adoption`: Adopt the library `Separator` component across all context menus.
 
 ### Modified Capabilities
+
 - `glyph-adoption` (from `fix-theme-surfaces-add-glyphs`): Extends the existing glyph adoption work from 17 glyphs to ~28.
 
 ## Impact

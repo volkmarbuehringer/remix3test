@@ -38,7 +38,8 @@ export function jsonBody(options?: { maxSize?: number }): Middleware<{
     if (contentType.includes('application/json')) {
       if (options?.maxSize) {
         let contentLength = Number(context.request.headers.get('Content-Length')) || 0
-        let isChunked = context.request.headers.get('Transfer-Encoding')?.toLowerCase() === 'chunked'
+        let isChunked =
+          context.request.headers.get('Transfer-Encoding')?.toLowerCase() === 'chunked'
 
         if (isChunked || !contentLength) {
           let text = await readBodyWithLimit(context.request, options.maxSize)

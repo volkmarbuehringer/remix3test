@@ -39,11 +39,8 @@ export type SidebarLayoutConfig<ID extends string> = {
 
 // ── Factory ─────────────────────────────────────────────────────
 
-export function createSidebarLayout<ID extends string>(
-  config: SidebarLayoutConfig<ID>,
-) {
-  let { frameTarget, navGroups, navIcon, headerIcon, headerLabel, sidebarExtras } =
-    config
+export function createSidebarLayout<ID extends string>(config: SidebarLayoutConfig<ID>) {
+  let { frameTarget, navGroups, navIcon, headerIcon, headerLabel, sidebarExtras } = config
 
   function isFrameRequest(): boolean {
     return getContext().request.headers.get('X-Remix-Target') === frameTarget
@@ -95,14 +92,9 @@ export function createSidebarLayout<ID extends string>(
                       key={item.id}
                       href={item.href}
                       route={item.route}
-                      {...(item.iframeNav === false
-                        ? { document: true }
-                        : { target: frameTarget })}
+                      {...(item.iframeNav === false ? { document: true } : { target: frameTarget })}
                       active={activeItem === item.id}
-                      mix={[
-                        navLinkStyle,
-                        activeItem === item.id && navActiveStyle,
-                      ].filter(Boolean)}
+                      mix={[navLinkStyle, activeItem === item.id && navActiveStyle].filter(Boolean)}
                     >
                       <span mix={navIconStyle}>{navIcon(item.id)}</span>
                       {item.label}
@@ -119,11 +111,7 @@ export function createSidebarLayout<ID extends string>(
             )}
           </aside>
           <section mix={contentStyle}>
-            <Breadcrumbs
-              items={getBreadcrumbs(
-                new URL(getContext().request.url).pathname,
-              )}
-            />
+            <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>
         </div>
@@ -137,10 +125,7 @@ export function createSidebarLayout<ID extends string>(
     content: RemixNode,
     init?: ResponseInit,
   ) {
-    return render(
-      <ShellOrFragment activeItem={activeItem}>{content}</ShellOrFragment>,
-      init,
-    )
+    return render(<ShellOrFragment activeItem={activeItem}>{content}</ShellOrFragment>, init)
   }
 
   return { renderPage, Layout: LayoutComponent, isFrameRequest }
@@ -207,8 +192,7 @@ export const navLinkStyle = css({
   padding: `${theme.space.sm} ${theme.space.md}`,
   borderRadius: theme.radius.md,
   borderLeft: '3px solid transparent',
-  transition:
-    'background-color 150ms ease, color 150ms ease, border-left-color 150ms ease',
+  transition: 'background-color 150ms ease, color 150ms ease, border-left-color 150ms ease',
   '&:hover': {
     background: theme.surface.lvl3,
     color: theme.colors.text.primary,

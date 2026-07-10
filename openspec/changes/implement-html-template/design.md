@@ -5,11 +5,12 @@ Two files return plain-text error responses that users see in the browser:
 - `server.ts:22` — catch-all 500 when an unhandled error escapes the router
 - `app/middleware/global-rate-limit.ts:44` — 429 when an IP exceeds the rate limit
 
-Both run before or outside the React component/render pipeline, so `context.render()` is unavailable. The app already uses `remix/html-template` with the `String(html\`...\`)` coercion pattern in `auth.ts`, `render.tsx`, and `send-email.ts` for the same kind of server-side HTML generation.
+Both run before or outside the React component/render pipeline, so `context.render()` is unavailable. The app already uses `remix/html-template` with the `String(html\`...\`)`coercion pattern in`auth.ts`, `render.tsx`, and `send-email.ts` for the same kind of server-side HTML generation.
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace plain-text 500 and 429 responses with styled HTML pages
 - Match the app's visual identity (JetBrains Mono font, cool gray palette, rounded card, German language)
 - Use the same `import { html } from 'remix/html-template'` pattern already established
@@ -17,6 +18,7 @@ Both run before or outside the React component/render pipeline, so `context.rend
 - Include `retryAfter` in the 429 page body for user visibility
 
 **Non-Goals:**
+
 - Not adding dark mode support to these pages (they're server-level, no theme context)
 - Not converting the 12+ controller-level plain-text error responses (low ROI, edge-case paths)
 - Not adding new dependencies
@@ -47,10 +49,18 @@ Both run before or outside the React component/render pipeline, so `context.rend
 ### 4. Patterns established in auth.ts
 
 **Decision:** Follow the existing pattern:
+
 ```ts
 import { html } from 'remix/html-template'
 // ...
-return new Response(String(html`<html lang="de">...</html>`), { status: 500, headers })
+return new Response(
+  String(
+    html`<html lang="de">
+      ...
+    </html>`,
+  ),
+  { status: 500, headers },
+)
 ```
 
 **Rationale:** Three files already use this exact pattern. No need to invent a new approach.

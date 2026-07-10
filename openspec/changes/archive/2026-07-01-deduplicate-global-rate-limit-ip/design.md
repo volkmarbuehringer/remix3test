@@ -5,11 +5,13 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace inline fallback chain with `sourceIp(context.request) || 'unknown'`
 - Remove the `trustProxy` option from the middleware
 - Remove unused option plumbing
 
 **Non-Goals:**
+
 - No changes to `sourceIp()` or `connectionIp()` in `app/lib/request-ip.ts`
 - No behavioral changes in production
 - No rate-limiting logic changes

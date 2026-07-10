@@ -13,7 +13,6 @@ import type { SessionStorage } from 'remix/session'
 import { globalRateLimit } from './global-rate-limit.ts'
 import { skipCsrf } from './skip-csrf.ts'
 
-
 import { json } from './json-render.ts'
 import { jsonBody } from './json-body.ts'
 import { render } from './render.tsx'
@@ -33,7 +32,9 @@ export function skipAssetsLogger(): Middleware {
       context.set(Logger, console.log, { property: 'logger' })
       let response = await next()
       if (response.status >= 400) {
-        context.get(Logger)?.(`${context.request.method} ${context.url.pathname} → ${response.status}`)
+        context.get(Logger)?.(
+          `${context.request.method} ${context.url.pathname} → ${response.status}`,
+        )
       }
       return response
     }

@@ -1,5 +1,5 @@
 ---
-title: "Remix 3 clientEntry global behaviors must mount in Document"
+title: 'Remix 3 clientEntry global behaviors must mount in Document'
 tags: [remix3, clientEntry, theme, layout, Document, client-side]
 created: 2026-06-01
 status: active
@@ -27,7 +27,7 @@ export function Document(handle: Handle<DocumentProps>) {
         <body>
           <RMX_01_GLYPHS />
           {children}
-          <ThemeToggle />          {/* ← global: mounted on every page */}
+          <ThemeToggle /> {/* ← global: mounted on every page */}
         </body>
       </html>
     )

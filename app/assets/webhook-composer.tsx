@@ -51,9 +51,12 @@ export const WebhookComposer = clientEntry(
     let isEdit = !!props.editId
     let initialPayload: Record<string, unknown> = {}
     if (props.initialPayload) {
-      try { initialPayload = JSON.parse(props.initialPayload) } catch {}
+      try {
+        initialPayload = JSON.parse(props.initialPayload)
+      } catch {}
     }
-    let rows: Row[] = Object.keys(initialPayload).length > 0 ? payloadToRows(initialPayload) : [newRow()]
+    let rows: Row[] =
+      Object.keys(initialPayload).length > 0 ? payloadToRows(initialPayload) : [newRow()]
 
     function assembledPayload(): Record<string, string> {
       let obj: Record<string, string> = {}
@@ -141,7 +144,9 @@ export const WebhookComposer = clientEntry(
                           placeholder="key"
                           mix={[
                             inputStyle,
-                            on('input', (e) => updateKey(row.id, (e.target as HTMLInputElement).value)),
+                            on('input', (e) =>
+                              updateKey(row.id, (e.target as HTMLInputElement).value),
+                            ),
                           ]}
                         />
                       </td>
@@ -152,7 +157,9 @@ export const WebhookComposer = clientEntry(
                           placeholder="value"
                           mix={[
                             inputStyle,
-                            on('input', (e) => updateValue(row.id, (e.target as HTMLInputElement).value)),
+                            on('input', (e) =>
+                              updateValue(row.id, (e.target as HTMLInputElement).value),
+                            ),
                           ]}
                         />
                       </td>
@@ -180,8 +187,12 @@ export const WebhookComposer = clientEntry(
             </div>
 
             <div mix={actionsStyle}>
-              <a href={cancelUrl} mix={cancelLinkStyle}>Abbrechen</a>
-              <button type="submit" mix={submitBtnStyle}>{isEdit ? 'Speichern' : 'In Tabelle speichern'}</button>
+              <a href={cancelUrl} mix={cancelLinkStyle}>
+                Abbrechen
+              </a>
+              <button type="submit" mix={submitBtnStyle}>
+                {isEdit ? 'Speichern' : 'In Tabelle speichern'}
+              </button>
             </div>
           </form>
         </div>

@@ -13,9 +13,11 @@ The settings page stacks four panels vertically with uniform desktop spacing. On
 ## Capabilities
 
 ### New Capabilities
+
 - `settings-mobile-layout`: Responsive spacing rules for the settings page — compact panels, tighter gaps, and proportional height for the delete account section on viewports ≤768px
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

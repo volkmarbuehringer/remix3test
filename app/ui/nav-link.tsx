@@ -15,7 +15,18 @@ type NavLinkProps = {
 
 export function NavLink(handle: Handle<NavLinkProps>) {
   return () => {
-    let { href, route, frameSrc, target: frameTarget, active, document: isDocument, mix, style, dataTooltip, children } = handle.props
+    let {
+      href,
+      route,
+      frameSrc,
+      target: frameTarget,
+      active,
+      document: isDocument,
+      mix,
+      style,
+      dataTooltip,
+      children,
+    } = handle.props
     let resolvedHref = href ?? route?.href() ?? '#'
 
     let extra: Record<string, string | undefined> = {}

@@ -21,7 +21,7 @@ Place the edit form inline alongside the grid, on the same page. The user sees b
 
 ### Modified Capabilities
 
-*(none — no existing specs to modify)*
+_(none — no existing specs to modify)_
 
 ## Impact
 

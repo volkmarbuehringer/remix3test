@@ -139,14 +139,20 @@ describe('AppointmentsScrollLock', () => {
     let popstateHandler = capturedEvents.find((c) => c.event === 'popstate')!
     popstateHandler.handler()
 
-    assert.equal(documentElementStyle.overflow, 'hidden',
-      'should lock scroll on popstate with panel param')
+    assert.equal(
+      documentElementStyle.overflow,
+      'hidden',
+      'should lock scroll on popstate with panel param',
+    )
 
     ;(globalThis as any).location = { search: '' }
     popstateHandler.handler()
 
-    assert.equal(documentElementStyle.overflow, '',
-      'should unlock scroll on popstate without panel param')
+    assert.equal(
+      documentElementStyle.overflow,
+      '',
+      'should unlock scroll on popstate without panel param',
+    )
   })
 
   it('initializes only once', () => {
@@ -169,12 +175,10 @@ describe('AppointmentsScrollLock', () => {
     let initFn = (AppointmentsScrollLock as any)(handle)
     initFn()
 
-    assert.equal(documentElementStyle.overflow, 'hidden',
-      'should be locked after init')
+    assert.equal(documentElementStyle.overflow, 'hidden', 'should be locked after init')
 
     triggerAbort()
 
-    assert.equal(documentElementStyle.overflow, '',
-      'should unlock scroll on abort')
+    assert.equal(documentElementStyle.overflow, '', 'should unlock scroll on abort')
   })
 })

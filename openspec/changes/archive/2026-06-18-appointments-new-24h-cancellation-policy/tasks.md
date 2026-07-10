@@ -15,7 +15,6 @@
 - [x] 3.2 Add test for `DELETE /appointments/new/:id` rejection when appointment starts within 24h
 - [x] 3.3 Verify existing tests still pass with the new restriction
 
-
 ## 4. Verification
 
 - [x] 4.1 Run `npm test` — all 33 tests pass

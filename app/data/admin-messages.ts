@@ -24,9 +24,11 @@ export async function listMessages(
   )
   return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     id: typeof row.id === 'string' ? Number(row.id) : (row.id as number),
-    sender_id: typeof row.sender_id === 'string' ? Number(row.sender_id) : (row.sender_id as number),
+    sender_id:
+      typeof row.sender_id === 'string' ? Number(row.sender_id) : (row.sender_id as number),
     sender_name: row.sender_name as string,
     content: row.content as string,
-    created_at: typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
+    created_at:
+      typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
   }))
 }

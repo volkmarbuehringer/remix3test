@@ -14,7 +14,7 @@ The appointments exclusion constraint (`no_overlapping_seats`) rejects concurren
 
 ### New Capabilities
 
-- *(none — leverages existing SSE infrastructure)*
+- _(none — leverages existing SSE infrastructure)_
 
 ### Modified Capabilities
 

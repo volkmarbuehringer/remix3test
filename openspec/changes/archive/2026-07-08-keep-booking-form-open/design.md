@@ -14,12 +14,14 @@ The session stores `{ slots: SlotItem[], resource_id, resource_name, title }`. S
 ## Goals / Non-Goals
 
 **Goals:**
+
 - After a successful booking, the form stays open with the remaining slots (minus the just-booked one)
 - The Cancel link still dismisses the form entirely
 - Sending a new chat message still clears stale booking data (existing behavior at line 323)
 - Booking the last available slot clears `pendingBooking` (form disappears naturally)
 
 **Non-Goals:**
+
 - No changes to the booking workflow, agent instructions, or tool definitions
 - No UI changes
 - No chat-thread message injection for booking results (existing flash `bookingResult` is sufficient)
@@ -34,9 +36,7 @@ The session stores `{ slots: SlotItem[], resource_id, resource_name, title }`. S
 
 ```typescript
 if (bookingSucceeded) {
-  let updated = pending.slots.filter(
-    s => !(s.date_epoch_ms === date && s.start_min === startMin)
-  )
+  let updated = pending.slots.filter((s) => !(s.date_epoch_ms === date && s.start_min === startMin))
   if (updated.length > 0) {
     session.set('pendingBooking', JSON.stringify({ ...pending, slots: updated }))
   } else {

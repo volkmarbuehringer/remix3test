@@ -14,23 +14,25 @@ The `user` object is already passed in `RunWorkflowOptions` from the controller 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Ensure `executeWorkflow` can log without depending on request-scoped async context
 - Eliminate the silent workflow-execution failure caused by the context teardown
 - Keep backward compatibility — existing callers unaffected
 
 **Non-Goals:**
+
 - Not fixing the same pattern in `tools.ts` (the tool `execute` functions also call `userLogger`, but fixing those requires deeper changes to how the AI SDK is integrated)
 - Not renaming or changing `getCurrentUserSafely` (that's a separate documentation concern)
 - Not changing the fire-and-forget execution model itself
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| How to pass the logger | Add optional `logger` field to `RunWorkflowOptions` | Backward-compatible, caller can opt in without changing the function signature for existing callers |
-| Where to create the logger | In the controller's `action` handler, before the `executeWorkflow` call | The controller has access to request context — the logger is created while context is alive |
-| Fallback in executeWorkflow | Only create logger via `userLogger()` when `options.logger` is not provided | Preserves backward compatibility for any hypothetical non-request-context callers |
-| Tools.ts | Leave unchanged | Tool execute functions are called by the AI SDK and don't receive workflow context. Fixing them would require either module-level state or dynamic tool creation. |
+| Decision                    | Choice                                                                      | Rationale                                                                                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| How to pass the logger      | Add optional `logger` field to `RunWorkflowOptions`                         | Backward-compatible, caller can opt in without changing the function signature for existing callers                                                               |
+| Where to create the logger  | In the controller's `action` handler, before the `executeWorkflow` call     | The controller has access to request context — the logger is created while context is alive                                                                       |
+| Fallback in executeWorkflow | Only create logger via `userLogger()` when `options.logger` is not provided | Preserves backward compatibility for any hypothetical non-request-context callers                                                                                 |
+| Tools.ts                    | Leave unchanged                                                             | Tool execute functions are called by the AI SDK and don't receive workflow context. Fixing them would require either module-level state or dynamic tool creation. |
 
 No alternatives were seriously considered — this is a minimal targeted fix.
 

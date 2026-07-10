@@ -11,9 +11,11 @@ The project requires `node >= 24.3.0` which ships with `process.loadEnvFile()` �
 ## Capabilities
 
 ### New Capabilities
+
 - `env-loading`: Specification for how environment variables are loaded at startup — file location, timing, and path resolution
 
 ### Modified Capabilities
+
 - _(No existing specs are affected — this is an implementation detail change only)_
 
 ## Impact

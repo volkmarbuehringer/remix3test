@@ -3,7 +3,12 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/setup.ts'
-import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
+import {
+  BASE,
+  ADMIN_APPT_URL,
+  setupTestEnvironment,
+  teardownTestEnvironment,
+} from './controller.test-utils.ts'
 
 // Track IDs created during tests for cleanup
 const createdAppointmentIds: number[] = []
@@ -21,7 +26,9 @@ function nextSlot(): { startMin: number; endMin: number } {
   let startMin = offeringBoundsStart + 60 + _slotCounter * slotWidth
   let maxStart = offeringBoundsEnd - slotWidth
   if (startMin >= maxStart) {
-    throw new Error(`nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`)
+    throw new Error(
+      `nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`,
+    )
   }
   _slotCounter++
   return { startMin, endMin: startMin + slotWidth }
@@ -157,7 +164,7 @@ describe('Admin Appointments Controller', () => {
       // Use compact overlapping slots within the allocated 30-min window
       let slotAStart = sm
       let slotAEnd = em
-      let slotBStart = sm + 15  // overlaps with A by 15 min
+      let slotBStart = sm + 15 // overlaps with A by 15 min
 
       let bodyA = new URLSearchParams({
         resource_id: String(resourceId),
@@ -243,8 +250,14 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful create should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
-      assert.ok(location.includes('editing='), 'should redirect with editing param pointing to new appointment')
+      assert.ok(
+        location.startsWith('/verwaltung/appointments'),
+        'should redirect to /verwaltung/appointments',
+      )
+      assert.ok(
+        location.includes('editing='),
+        'should redirect with editing param pointing to new appointment',
+      )
 
       // Verify appointment exists in database
       let match = location.match(/editing=(\d+)/)
@@ -291,7 +304,7 @@ describe('Admin Appointments Controller', () => {
     it('returns error redirect for missing resource_id', async () => {
       // Arrange
       let body = new URLSearchParams({
-        resource_id: '0',  // invalid — parseInt returns NaN or 0
+        resource_id: '0', // invalid — parseInt returns NaN or 0
         user_id: String(userId),
         title: 'Test',
         date: '2026-06-15',
@@ -319,7 +332,7 @@ describe('Admin Appointments Controller', () => {
       // Arrange
       let body = new URLSearchParams({
         resource_id: String(resourceId),
-        user_id: '0',  // invalid
+        user_id: '0', // invalid
         title: 'Test',
         date: '2026-06-15',
         start_min: '480',
@@ -348,7 +361,7 @@ describe('Admin Appointments Controller', () => {
         resource_id: String(resourceId),
         user_id: String(userId),
         title: 'Test',
-        date: '15-06-2026',  // wrong format
+        date: '15-06-2026', // wrong format
         start_min: '480',
         end_min: '540',
       })
@@ -376,8 +389,8 @@ describe('Admin Appointments Controller', () => {
         user_id: String(userId),
         title: 'Test',
         date: '2026-06-15',
-        start_min: '540',  // 09:00
-        end_min: '480',    // 08:00 — before start
+        start_min: '540', // 09:00
+        end_min: '480', // 08:00 — before start
       })
 
       // Act
@@ -404,7 +417,7 @@ describe('Admin Appointments Controller', () => {
         title: 'Test',
         date: '2026-06-15',
         start_min: '480',
-        end_min: '480',  // same as start
+        end_min: '480', // same as start
       })
 
       // Act
@@ -430,7 +443,7 @@ describe('Admin Appointments Controller', () => {
         user_id: String(userId),
         title: 'Test',
         date: '2026-06-15',
-        start_min: '125',  // not divisible by 60, not hourly
+        start_min: '125', // not divisible by 60, not hourly
         end_min: '540',
       })
 
@@ -483,7 +496,7 @@ describe('Admin Appointments Controller', () => {
       let dayDate = offeringDateStr
       let slotAstart = sm
       let slotAend = em
-      let slotBstart = sm + 15  // overlaps with A by 15 min
+      let slotBstart = sm + 15 // overlaps with A by 15 min
       let slotBend = em
 
       let bodyA = new URLSearchParams({
@@ -543,7 +556,7 @@ describe('Admin Appointments Controller', () => {
         resource_id: String(resourceId),
         user_id: String(userId),
         title: 'Past Date Test',
-        date: '2024-01-01',  // definitely in the past
+        date: '2024-01-01', // definitely in the past
         start_min: '480',
         end_min: '540',
       })

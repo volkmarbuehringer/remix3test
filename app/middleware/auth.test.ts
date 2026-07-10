@@ -62,7 +62,7 @@ describe('requireAuth middleware', () => {
       assert.fail('Expected error to be thrown')
     } catch (error) {
       assert.ok(error instanceof Error, 'should throw an Error')
-    assert.equal(
+      assert.equal(
         (error as Error).message,
         'Auth state not found. Make sure auth() middleware runs before requireAuth().',
         'should have correct error message',
@@ -176,11 +176,7 @@ describe('Auth + CSRF integration', () => {
     assert.equal(response.status, 302)
     let newCookie = extractCookie(response)
     assert.ok(newCookie, 'should return a new session cookie')
-    assert.notEqual(
-      newCookie,
-      cookie,
-      'session ID should change after regenerateId()',
-    )
+    assert.notEqual(newCookie, cookie, 'session ID should change after regenerateId()')
   })
 
   it('CSRF token is stored in session after a GET request', async () => {
@@ -190,10 +186,7 @@ describe('Auth + CSRF integration', () => {
     // Assert: session cookie and CSRF token are created
     assert.ok(cookie.startsWith('session='), 'should have a session cookie')
     assert.equal(csrfToken.length, 64, 'CSRF token should be 64 characters')
-    assert.ok(
-      /^[0-9a-f]{64}$/.test(csrfToken),
-      'CSRF token should be a hex string',
-    )
+    assert.ok(/^[0-9a-f]{64}$/.test(csrfToken), 'CSRF token should be a hex string')
   })
 
   it('CSRF token from GET can be used for subsequent POST requests', async () => {
@@ -213,11 +206,7 @@ describe('Auth + CSRF integration', () => {
     })
 
     // Assert: token was valid, login succeeds
-    assert.equal(
-      response.status,
-      302,
-      'POST with valid CSRF token should succeed',
-    )
+    assert.equal(response.status, 302, 'POST with valid CSRF token should succeed')
   })
 })
 

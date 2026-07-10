@@ -94,13 +94,20 @@ export const ConnectionIndicator = clientEntry(
       let { stateText, dotColor, pulse } = getStateStyles(state)
 
       return (
-        <div mix={indicatorContainerStyle} aria-live="polite" aria-label={`SSE connection: ${stateText}`}>
+        <div
+          mix={indicatorContainerStyle}
+          aria-live="polite"
+          aria-label={`SSE connection: ${stateText}`}
+        >
           <style>{`@keyframes sse-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }`}</style>
           <span
-            mix={[dotStyle, css({
-              background: dotColor,
-              animation: pulse ? `sse-pulse 1.5s ease-in-out infinite` : 'none',
-            })]}
+            mix={[
+              dotStyle,
+              css({
+                background: dotColor,
+                animation: pulse ? `sse-pulse 1.5s ease-in-out infinite` : 'none',
+              }),
+            ]}
           />
           <span mix={stateTextStyle}>{stateText}</span>
         </div>
@@ -109,9 +116,11 @@ export const ConnectionIndicator = clientEntry(
   },
 )
 
-function getStateStyles(
-  state: ConnectionState,
-): { stateText: string; dotColor: string; pulse: boolean } {
+function getStateStyles(state: ConnectionState): {
+  stateText: string
+  dotColor: string
+  pulse: boolean
+} {
   switch (state) {
     case 'connected':
       return { stateText: 'Connected', dotColor: '#22c55e', pulse: true }

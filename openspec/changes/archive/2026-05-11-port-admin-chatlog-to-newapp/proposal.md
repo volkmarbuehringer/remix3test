@@ -13,6 +13,7 @@ newapp needs an admin section to manage chat/agent conversations. The my_app pro
 - Wire admin routes into newapp's router with `aiRoutes` pattern
 
 **No changes to**:
+
 - `package.json` (dependencies already installed)
 - Existing routes, auth, database, or middleware infrastructure
 
@@ -32,6 +33,7 @@ newapp needs an admin section to manage chat/agent conversations. The my_app pro
 ## Impact
 
 **New files** (ported from my_app, adapted to newapp conventions):
+
 - `app/middleware/admin.ts` — Admin authorization middleware (requireAdmin)
 - `app/actions/admin-controller.tsx` — Admin dashboard controller
 - `app/actions/admin-chatlog-controller.tsx` — Chatlog browser controller
@@ -41,6 +43,7 @@ newapp needs an admin section to manage chat/agent conversations. The my_app pro
 - `app/ui/admin-chatlog-page.tsx` — Chatlog browser page component
 
 **Modified files**:
+
 - `app/routes.ts` — Add `admin` and `admin.chatlog` route definitions under an `adminRoutes` export
 - `app/router.ts` — Wire admin and admin-chatlog controllers
 

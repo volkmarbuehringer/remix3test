@@ -31,14 +31,15 @@ This file re-exports both, so consumers are transparently updated.
 Each file has a **dual import** pattern:
 
 ```tsx
-import * as menu from 'remix/ui/menu'                          // primitives — keep
-import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu'  // styled — move
+import * as menu from 'remix/ui/menu' // primitives — keep
+import { MenuItem, MenuList, onMenuSelect } from 'remix/ui/menu' // styled — move
 ```
 
 Split into:
+
 ```tsx
-import * as menu from 'remix/ui/menu'                              // unchanged
-import { MenuItem, MenuList, onMenuSelect } from 'remix/components/menu'  // new path
+import * as menu from 'remix/ui/menu' // unchanged
+import { MenuItem, MenuList, onMenuSelect } from 'remix/components/menu' // new path
 ```
 
 `onMenuSelect` is re-exported from both paths (primitive → component), so no further changes needed.

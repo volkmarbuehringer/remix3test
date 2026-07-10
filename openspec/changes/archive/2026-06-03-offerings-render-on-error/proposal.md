@@ -12,10 +12,12 @@ The offerings, resources, and offering-configs admin forms currently use a redir
 ## Capabilities
 
 ### New Capabilities
+
 - `resources-form-validation`: Resources form SHALL preserve field values on validation failure and SHALL display inline per-field errors. Currently only returns JSON `{ ok: false, error: ... }` with no field preservation.
 - `offering-configs-form-validation`: Offering-configs form SHALL preserve field values on validation failure and SHALL display inline per-field errors. Currently only returns JSON `{ ok: false, error: ... }` with no field preservation.
 
 ### Modified Capabilities
+
 - `admin-offerings-form-validation`: Requirements change from redirect-based error handling (302 → GET decodes URL params) to render-based error handling (POST re-renders page with status 400, passing formValues/fieldErrors as props). Field preservation, inline error display, and error message placement remain the same.
 
 ## Impact

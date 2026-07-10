@@ -5,6 +5,7 @@ The app currently has email verification on registration and session-based login
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a self-service password reset flow: email entry → reset link email → new password form
 - Prevent user enumeration (same response whether email exists or not)
 - Rate-limit the forgot-password endpoint to prevent abuse
@@ -12,6 +13,7 @@ The app currently has email verification on registration and session-based login
 - Reuse existing patterns: `createController`, `remix/html-template` for email templates, `createRateLimiter`, `hashPassword`, `generateToken`
 
 **Non-Goals:**
+
 - No multi-factor authentication
 - No SMS or alternative recovery channels
 - No account lockout or security question flows

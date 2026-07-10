@@ -15,7 +15,7 @@
     {
       "trigger": "writing a controller action that validates and uses FormData",
       "action": "Call extractFormValues(formData) BEFORE parseSafe to capture the raw strings. Even if validation fails, you have the original values to re-render. On the happy path, use parsed.value for the typed, validated output.",
-      "confidence": 0.90,
+      "confidence": 0.9,
       "source": "git-history-analysis—commits: c4d77ee (controller.tsx:216-217)"
     },
     {
@@ -33,7 +33,7 @@
     {
       "trigger": "rendering error state on an input after validation failure in Remix 3",
       "action": "Conditionally apply an error style mixin: mix={fieldErrors?.name ? inputErrorStyle : null}. Render the error message text below the input: {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}. Use theme.colors.action.danger.background for error border and text colors.",
-      "confidence": 0.90,
+      "confidence": 0.9,
       "source": "git-history-analysis—commits: c4d77ee (create-page.tsx, edit-page.tsx)"
     },
     {

@@ -12,7 +12,11 @@ Covers `remix/multipart-parser`, `remix/form-data-parser`, `remix/file-storage`,
 Parse file uploads without buffering entire payloads:
 
 ```ts
-import { parseMultipartRequest, MultipartParseError, MaxFileSizeExceededError } from 'remix/multipart-parser'
+import {
+  parseMultipartRequest,
+  MultipartParseError,
+  MaxFileSizeExceededError,
+} from 'remix/multipart-parser'
 
 for await (let part of parseMultipartRequest(request)) {
   if (part.isFile) {
@@ -28,9 +32,9 @@ for await (let part of parseMultipartRequest(request)) {
 
 ```ts
 let parts = parseMultipartRequest(request, {
-  maxFileSize: 10 * 1024 * 1024,    // per file
-  maxParts: 100,                     // max parts
-  maxTotalSize: 25 * 1024 * 1024,   // total body
+  maxFileSize: 10 * 1024 * 1024, // per file
+  maxParts: 100, // max parts
+  maxTotalSize: 25 * 1024 * 1024, // total body
 })
 ```
 
@@ -43,7 +47,7 @@ import { createFsFileStorage } from 'remix/file-storage/fs'
 let storage = createFsFileStorage('./uploads')
 
 await storage.set('avatar', file)
-let saved = await storage.get('avatar')  // returns File | null
+let saved = await storage.get('avatar') // returns File | null
 await storage.remove('avatar')
 ```
 
@@ -131,9 +135,7 @@ export const uploadsDownload = get('/uploads/:id/download')
 router.get(uploadsDownload, uploadsDownloadHandler)
 
 // Handler
-let result = await pool.query(
-  `SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id],
-)
+let result = await pool.query(`SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id])
 // Return data as Response with Content-Type + Content-Disposition
 return new Response(result.rows[0].data, {
   headers: {

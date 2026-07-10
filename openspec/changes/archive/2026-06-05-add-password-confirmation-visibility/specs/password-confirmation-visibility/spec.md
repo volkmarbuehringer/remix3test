@@ -48,6 +48,7 @@ Every password input field on the register page and reset password page SHALL ha
 The system SHALL provide a `PasswordField` component that encapsulates a password input with a visibility toggle button.
 
 `PasswordField` SHALL accept:
+
 - `name: string` — the input name attribute
 - `autoComplete?: string` — optional autocomplete hint
 - `minLength?: number` — optional minimum length attribute
@@ -55,6 +56,7 @@ The system SHALL provide a `PasswordField` component that encapsulates a passwor
 - `label: string` — the label text above the input
 
 `PasswordField` SHALL render:
+
 - A `<label>` element with `fieldLabelCss` mixin
 - A `<span>` with the label text
 - An input wrapper containing the `<input>` field and a `<button>` toggle

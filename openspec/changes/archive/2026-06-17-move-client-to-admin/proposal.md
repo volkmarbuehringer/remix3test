@@ -15,10 +15,12 @@ The `/client` route exists at the top level but is admin-oriented functionality 
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-client`: Admin client management under `/admin/client` with admin sidebar layout, frame navigation, and admin-only access control
 
 ### Modified Capabilities
-*(none — this is a relocation, not a behavior change)*
+
+_(none — this is a relocation, not a behavior change)_
 
 ## Impact
 

@@ -12,6 +12,7 @@ origin: auto-extracted
 ## Problem
 
 Mastra message `content` can be:
+
 - **Plain string:** `"Hello world"`
 - **Structured format v2:** `{ format: 2, parts: [{ type: 'text', text: 'Hello' }] }`
 - **Object with `.text`:** `{ text: "Hello" }`
@@ -26,6 +27,7 @@ Without normalization, every consumer (chat UI, admin log viewer, audit export) 
 Extract a shared `messageContentToText()` utility and apply it at the memory boundary so all consumers receive clean `content: string`.
 
 **The utility** (`app/utils/message-content.ts`):
+
 ```ts
 export function messageContentToText(content: unknown): string {
   if (typeof content === 'string') return content
@@ -33,30 +35,33 @@ export function messageContentToText(content: unknown): string {
     let obj = content as Record<string, unknown>
     if (obj.format === 2 && Array.isArray(obj.parts)) {
       return obj.parts
-        .filter(p => (p as Record<string, unknown>).type === 'text')
-        .map(p => (p as Record<string, unknown>).text as string)
+        .filter((p) => (p as Record<string, unknown>).type === 'text')
+        .map((p) => (p as Record<string, unknown>).text as string)
         .join('\n')
     }
     if (typeof obj.text === 'string') return obj.text
   }
   if (Array.isArray(content)) {
-    return content.map(c => messageContentToText(c)).filter(Boolean).join('\n')
+    return content
+      .map((c) => messageContentToText(c))
+      .filter(Boolean)
+      .join('\n')
   }
   return String(content ?? '')
 }
 ```
 
 **At the memory boundary** (e.g., `recall` wrapper):
+
 ```ts
 let { messages } = await memory.recall({ threadId, perPage: false })
 let chatMessages = (messages ?? [])
-  .filter(m => m.role === 'user' || m.role === 'assistant')
-  .map(m => ({
+  .filter((m) => m.role === 'user' || m.role === 'assistant')
+  .map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: messageContentToText(m.content),
-    timestamp: typeof m.createdAt === 'string'
-      ? new Date(m.createdAt).getTime()
-      : Number(m.createdAt),
+    timestamp:
+      typeof m.createdAt === 'string' ? new Date(m.createdAt).getTime() : Number(m.createdAt),
   }))
 ```
 

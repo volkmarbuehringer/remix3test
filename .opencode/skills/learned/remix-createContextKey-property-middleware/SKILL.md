@@ -1,6 +1,6 @@
 ---
 name: remix-createContextKey-property-middleware
-description: "Use createContextKey not Symbol for Remix 3 middleware that exposes typed context properties"
+description: 'Use createContextKey not Symbol for Remix 3 middleware that exposes typed context properties'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -37,7 +37,7 @@ const MailerContext = createContextKey<SendEmailFn>()
 export function mailer(): Middleware<{
   key: typeof MailerContext
   value: SendEmailFn
-  property: 'mailer'       // ← becomes accessible as context.mailer
+  property: 'mailer' // ← becomes accessible as context.mailer
 }> {
   let sendEmail = createSendEmail(transport)
   return async (context, next) => {
@@ -50,6 +50,7 @@ export function mailer(): Middleware<{
 The `property` name automatically becomes a typed property on the context. No `declare module` augmentation needed.
 
 ## Reference: app/middleware/json-render.ts
+
 ```ts
 const JsonRenderer = createContextKey<(data: unknown, init?: ResponseInit) => Response>()
 
@@ -89,6 +90,7 @@ app/router.ts                  ← imports from both
 ```
 
 Dependency flow:
+
 ```
 router.ts → middleware/root.ts + types/context.ts → middleware/*.ts
 ```

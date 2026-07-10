@@ -24,11 +24,13 @@ Desktop localhost is exempt from this restriction per browser spec, which is why
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Session cookies work over HTTP in development
 - Session cookies remain Secure-only in production
 - Zero behavioral change for production users
 
 **Non-Goals:**
+
 - Changing the session secret rotation or cookie name
 - Adding full HTTPS support for development (that's a separate concern)
 - Any other cookie flag changes

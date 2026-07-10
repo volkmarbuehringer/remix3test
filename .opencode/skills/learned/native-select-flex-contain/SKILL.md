@@ -1,6 +1,6 @@
 ---
 name: native-select-flex-contain
-description: "Contain native HTML select elements in flex layouts to prevent overflow from long option text"
+description: 'Contain native HTML select elements in flex layouts to prevent overflow from long option text'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -34,9 +34,9 @@ The `<select>` element needs **four** properties working together to override it
 
 ```css
 .select {
-  flex: 1;         /* allow growing, but also allow shrinking */
-  min-width: 0;    /* override flex item auto min-size (key fix) */
-  width: 100%;     /* set explicit width for the browser to respect */
+  flex: 1; /* allow growing, but also allow shrinking */
+  min-width: 0; /* override flex item auto min-size (key fix) */
+  width: 100%; /* set explicit width for the browser to respect */
   overflow: hidden; /* clip any content that still overflows */
 }
 ```

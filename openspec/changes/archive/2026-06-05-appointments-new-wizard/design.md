@@ -7,6 +7,7 @@ The `appointofferings` table defines per-resource-per-day available time ranges 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 3-step wizard for creating appointments: (1) resource, (2) day, (3) time + title
 - Full-hour granularity only (drop 15-min increments)
 - Pure server-rendered HTML — no client JS required for wizard flow
@@ -17,6 +18,7 @@ The `appointofferings` table defines per-resource-per-day available time ranges 
 - Existing appointment table, pagination, sort, and period filter remain unchanged
 
 **Non-Goals:**
+
 - No client JS for cascading dropdowns (server-rendered POST cycle)
 - No change to appointment duration (still fixed 1 hour)
 - No change to schema or routes

@@ -11,12 +11,14 @@ In both cases, the exclusion constraint `no_overlapping_seats` on the `appointme
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Filter out booked 15-min sub-slots from the graphical grid's `bookableByDay` map
 - Filter out booked full-hour slots from the wizard's step 3 dropdown
 - Exclude the appointment being edited from the "booked" set (self-exclusion)
 - Keep the DB exclusion constraint as the sole hard guarantee
 
 **Non-Goals:**
+
 - No schema changes, no new tables, no new columns
 - No changes to offering management or resource management
 - No changes to step 2 day picker (days with all slots filled still appear)

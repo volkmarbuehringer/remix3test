@@ -9,6 +9,7 @@ The `appointments` table will be dropped and recreated — `setup.ts` already cr
 ## Goals / Non-Goals
 
 **Goals:**
+
 - All authenticated users can see all appointments on the calendar.
 - Foreign appointments are visually distinct (different color/opacity/border).
 - Foreign appointments are read-only: no drag, resize, inline edit, or delete.
@@ -18,6 +19,7 @@ The `appointments` table will be dropped and recreated — `setup.ts` already cr
 - The layout solver treats foreign blocks as fixed obstacles — dragging/resizing an own block into a foreign block results in `unresolved` (snap back).
 
 **Non-Goals:**
+
 - No ability to edit or manage other users' appointments.
 - No user-filtering or user-select UI in this change.
 - No permission roles (admin vs regular) differentiation.
@@ -64,6 +66,7 @@ The `appointments` table will be dropped and recreated — `setup.ts` already cr
 **Rationale**: The existing solver shifts all blocks to resolve overlaps. With a global DB constraint, an overlap with a foreign block would be rejected by the server anyway. Preventing it on the client avoids a failed save and provides immediate UX feedback.
 
 **Alternatives considered**:
+
 - Filter foreign blocks out of the solver entirely — loses obstacle detection, solver could produce a layout that conflicts with a foreign block.
 - Server-only enforcement — UX is worse (save fails, user reloads confused).
 

@@ -3,6 +3,7 @@
 The remix monorepo upstream recently enabled `"erasableSyntaxOnly": true` across all 91+ `tsconfig.json` files as part of a TypeScript configuration modernization (commit `870e8ea6a`). Newapp's `tsconfig.json` currently lacks this option.
 
 `erasableSyntaxOnly` is a TypeScript 5.8+ compiler option that disallows syntax requiring runtime transformation:
+
 - `enum` declarations (use `const enum` or union types instead)
 - `namespace` / `module` (use ES modules instead)
 - Parameter properties (`constructor(public x: number)`)
@@ -13,11 +14,13 @@ Since newapp uses none of these patterns, adding this option is purely a forward
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Align newapp's TypeScript configuration with upstream remix conventions
 - Prevent accidental introduction of syntax that requires runtime transformation
 - No behavioral changes to the application
 
 **Non-Goals:**
+
 - No changes to existing source code
 - No changes to other tsconfig files (demos, tools, etc.)
 - No linting rule additions or dependency updates
@@ -31,8 +34,9 @@ Since newapp uses none of these patterns, adding this option is purely a forward
 - Placed alongside `verbatimModuleSyntax` in the compilerOptions block for logical grouping of TypeScript strictness settings.
 
 **Alternatives considered:**
-- *Adding `noImplicitOverride` or other strictness flags* — Out of scope; this change is specifically about upstream alignment
-- *Using ESLint rules instead* — Redundant; `erasableSyntaxOnly` is a compiler-level check with zero configuration overhead
+
+- _Adding `noImplicitOverride` or other strictness flags_ — Out of scope; this change is specifically about upstream alignment
+- _Using ESLint rules instead_ — Redundant; `erasableSyntaxOnly` is a compiler-level check with zero configuration overhead
 
 ## Risks / Trade-offs
 

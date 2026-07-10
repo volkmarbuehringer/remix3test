@@ -1,12 +1,5 @@
 import { db, pool } from './connection.ts'
-import {
-  appointofferings,
-  clients,
-  messages,
-  offeringConfigs,
-  resources,
-  users,
-} from './schema.ts'
+import { appointofferings, clients, messages, offeringConfigs, resources, users } from './schema.ts'
 import { hashPassword } from '../utils/password-hash.ts'
 
 export async function seed(): Promise<void> {
@@ -17,14 +10,14 @@ export async function seed(): Promise<void> {
     if (!adminPassword) {
       throw new Error(
         'SEED_ADMIN_PASSWORD environment variable is required for seeding. ' +
-        'Set it in .env to a strong password (min 12 chars).'
+          'Set it in .env to a strong password (min 12 chars).',
       )
     }
     let userPassword = process.env.SEED_USER_PASSWORD
     if (!userPassword) {
       throw new Error(
         'SEED_USER_PASSWORD environment variable is required for seeding. ' +
-        'Set it in .env to a strong password (min 12 chars).'
+          'Set it in .env to a strong password (min 12 chars).',
       )
     }
     await db.createMany(users, [
@@ -103,14 +96,16 @@ export async function seed(): Promise<void> {
       {
         name: 'Raum 1',
         description: 'Hauptraum mit Beamer und Whiteboard',
-        capabilities: 'Großer Behandlungsraum im Erdgeschoss.\nGeeignet für: Einzeltherapie, Paarberatung, Gruppensitzungen bis 10 Personen.\nAusstattung: Beamer, Whiteboard, WLAN, flexible Bestuhlung.\nBarrierefrei zugänglich über Rampe.',
+        capabilities:
+          'Großer Behandlungsraum im Erdgeschoss.\nGeeignet für: Einzeltherapie, Paarberatung, Gruppensitzungen bis 10 Personen.\nAusstattung: Beamer, Whiteboard, WLAN, flexible Bestuhlung.\nBarrierefrei zugänglich über Rampe.',
         created_at: Date.now(),
         updated_at: Date.now(),
       },
       {
         name: 'Raum 2',
         description: 'Nebenraum für Kleingruppen',
-        capabilities: 'Ruhiger Behandlungsraum im Obergeschoss.\nGeeignet für: Einzelgespräche, Kleingruppen bis 4 Personen, Meditationssitzungen.\nAusstattung: Bequeme Sitzmöbel, dimmbare Beleuchtung, Schalldämmung.\nNicht barrierefrei (kein Aufzug).',
+        capabilities:
+          'Ruhiger Behandlungsraum im Obergeschoss.\nGeeignet für: Einzelgespräche, Kleingruppen bis 4 Personen, Meditationssitzungen.\nAusstattung: Bequeme Sitzmöbel, dimmbare Beleuchtung, Schalldämmung.\nNicht barrierefrei (kein Aufzug).',
         created_at: Date.now(),
         updated_at: Date.now(),
       },
@@ -148,7 +143,9 @@ export async function seed(): Promise<void> {
       // Seed offering for each day of the current week: 8:00–18:00 Mon–Fri
       let now = new Date()
       let dayOfWeek = now.getUTCDay() || 7 // Mon=1 .. Sun=7
-      let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek + 1))
+      let monday = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOfWeek + 1),
+      )
       let mondayMs = monday.getTime()
 
       for (let i = 0; i < 5; i++) {

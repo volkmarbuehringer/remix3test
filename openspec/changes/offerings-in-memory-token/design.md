@@ -1,6 +1,7 @@
 ## Context
 
 The `admin-offerings-controller.tsx` handles CRUD at `/admin/offerings`. Form actions currently use inconsistent error handling:
+
 - Schema parse errors → `context.json({ error }, 400)`
 - Validation errors (`validateOfferingForm`) → `context.json({ error }, 400)`
 - Business rule failures (holiday, past-date, exclusion constraint) → 302 redirect with `?error=...`
@@ -26,11 +27,13 @@ if (!parsed.success) {
 
 ```tsx
 // timeboxer auth demo — per-field error rendering (pages.tsx:148-185)
-{errors?.username ? (
-  <small aria-describedby="username-error" mix={fieldErrorStyle}>
-    {errors.username}
-  </small>
-) : null}
+{
+  errors?.username ? (
+    <small aria-describedby="username-error" mix={fieldErrorStyle}>
+      {errors.username}
+    </small>
+  ) : null
+}
 ```
 
 The page component receives `errors: AuthFormErrors` (a typed `Record<string, string>`), renders per-field `<small>` elements with `aria-invalid`/`aria-describedby`, and preserves form values using `defaultValue={values?.name}`.
@@ -44,6 +47,7 @@ The `admin-appointments-controller.tsx` already has `validateAppointmentForm` re
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Establish a shared `form-errors.ts` utility with `ValidationResult` type and `fieldErrorsFromResult()` helper
 - Apply the pattern to `admin-offerings`: change `validateOfferingForm` return type, re-render from POST on validation failure
 - Preserve submitted form values via `formValues` prop (read from `context.formData`)
@@ -52,6 +56,7 @@ The `admin-appointments-controller.tsx` already has `validateAppointmentForm` re
 - Remove manual grid state reconstruction from error paths
 
 **Non-Goals:**
+
 - No changes to `destroy`, `configSave`, or `weekGenerate` actions
 - No switching to `remix/data-schema` `parseSafe` — the existing `validateOfferingForm` has custom business logic (day range checks, minute divisibility) that doesn't map cleanly to schema-based validation
 - No client-side validation
@@ -65,6 +70,7 @@ The `admin-appointments-controller.tsx` already has `validateAppointmentForm` re
 This is Remix 3's recommended pattern (confirmed in `timeboxer` and `social-auth` demos). The controller calls `renderOfferingsPage(context, data)` directly — the browser shows the form with errors and preserved values without any URL change, redirect, or state encoding.
 
 Alternatives considered:
+
 - **302 redirect + URL params** (`fv_`/`fe_`): Current appointments approach. Rejected here because: URL bloat, visible field values, type-coercion bugs with PostgreSQL integers vs URL strings. Remix 3 demos don't use this.
 - **In-memory token store**: Custom pattern not found in any Remix 3 demo or README. Adds stateful server-side dependency.
 - **Session flash**: Remix 3's recommended approach for cross-request messages (used in `bookstore` demo). But for form value preservation, file-based session storage has race conditions.
@@ -75,11 +81,18 @@ Following Remix 3 conventions: utility modules in `app/utils/` should be pure, t
 
 ```typescript
 // app/utils/form-errors.ts
-export interface ValidationOk { ok: true }
-export interface ValidationFail { ok: false; fieldErrors: Record<string, string> }
+export interface ValidationOk {
+  ok: true
+}
+export interface ValidationFail {
+  ok: false
+  fieldErrors: Record<string, string>
+}
 export type ValidationResult = ValidationOk | ValidationFail
 
-export function fieldErrorsFromResult(result: ValidationResult): Record<string, string> | undefined {
+export function fieldErrorsFromResult(
+  result: ValidationResult,
+): Record<string, string> | undefined {
   return result.ok ? undefined : result.fieldErrors
 }
 ```

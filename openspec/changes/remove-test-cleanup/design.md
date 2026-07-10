@@ -11,11 +11,13 @@ All three patterns are now unnecessary and can be safely removed.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Remove all test cleanup code that only existed for cross-run debris management
 - Leave within-test setup code untouched (tests still create their data)
 - Reduce cognitive load when reading test files
 
 **Non-Goals:**
+
 - No restructuring or refactoring of test logic
 - No removal of `before()` setup code (tests still need test data)
 - No removal of within-run collision avoidance (e.g., `nextSlot()` in appointments-create tests)

@@ -13,9 +13,11 @@ List items can currently only be reordered via ↑↓ arrow buttons. Drag and dr
 ## Capabilities
 
 ### New Capabilities
+
 - `list-item-reorder`: drag-and-drop reordering of items within the lists client, with visual drag feedback and drop target indicators
 
 ### Modified Capabilities
+
 - None — no spec-level requirement changes; this is a UX enhancement within existing capabilities
 
 ## Impact

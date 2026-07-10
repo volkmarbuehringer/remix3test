@@ -15,11 +15,13 @@ The app ships a textbook repository pattern at `app/data/appointments.ts` but on
 ## Capabilities
 
 ### New Capabilities
+
 - `data-access-repositories`: A single typed repository layer in `app/data/` that owns all SQL and business-rule validation; controllers and middleware consume it via `context.db` only and never touch `Pool` directly.
 - `layer-ownership-boundaries`: Enforced disk layout where `app/ui/` imports types only from `app/data/` (or `app/types/`), `app/lib/` does not exist, and `app/assets.ts:12`'s allow list excludes `app/lib/**`.
 - `router-composition-root`: The `app/router.ts` composition root is side-effect-free and dependency-injected: workflow registration is an explicit call, and the router instance is constructed by the entry point, not by the module.
 
 ### Modified Capabilities
+
 <!-- No existing spec-level behavior changes; this is an internal refactor preserving all user-facing and HTTP behavior. -->
 
 ## Impact

@@ -17,7 +17,7 @@ import { openLazyFile } from 'remix/fs'
 
 let response = await createFileResponse(openLazyFile('./public/image.jpg'), request, {
   cacheControl: 'public, max-age=3600',
-  etag: 'weak',       // 'weak' | 'strong' | false
+  etag: 'weak', // 'weak' | 'strong' | false
   lastModified: true,
   acceptRanges: true,
 })
@@ -41,8 +41,8 @@ Works with strings, `SafeHtml` (from `remix/html-template`), Blobs, Streams.
 ```ts
 import { createRedirectResponse } from 'remix/response/redirect'
 
-createRedirectResponse('/login')           // 302
-createRedirectResponse('/new-page', 301)   // custom status
+createRedirectResponse('/login') // 302
+createRedirectResponse('/new-page', 301) // custom status
 createRedirectResponse('/dashboard', { status: 303, headers: { 'X-Reason': 'auth' } })
 ```
 

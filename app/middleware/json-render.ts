@@ -19,11 +19,9 @@ export function json(): Middleware<{
   property: 'json'
 }> {
   return (context, next) => {
-    context.set(
-      JsonRenderer,
-      (data: unknown, init?: ResponseInit) => Response.json(data, init),
-      { property: 'json' },
-    )
+    context.set(JsonRenderer, (data: unknown, init?: ResponseInit) => Response.json(data, init), {
+      property: 'json',
+    })
     return next()
   }
 }

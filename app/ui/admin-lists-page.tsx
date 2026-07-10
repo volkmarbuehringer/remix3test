@@ -256,7 +256,12 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         </p>
 
         {/* Filter bar */}
-        <form method="GET" action={routes.admin.lists.index.href()} rmx-target={frames.adminContent} mix={filterBarStyle}>
+        <form
+          method="GET"
+          action={routes.admin.lists.index.href()}
+          rmx-target={frames.adminContent}
+          mix={filterBarStyle}
+        >
           <input
             type="text"
             name="filter"
@@ -268,7 +273,11 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             Suchen
           </button>
           {filter && (
-            <a href={routes.admin.lists.index.href()} rmx-target={frames.adminContent} mix={clearLinkStyle}>
+            <a
+              href={routes.admin.lists.index.href()}
+              rmx-target={frames.adminContent}
+              mix={clearLinkStyle}
+            >
               Zurücksetzen
             </a>
           )}
@@ -277,9 +286,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         <div mix={tableWrapStyle}>
           {lists.length === 0 ? (
             <div mix={emptyStateStyle}>
-              {filter
-                ? 'Keine Listen für diese Suche gefunden.'
-                : 'Noch keine Listen gespeichert.'}
+              {filter ? 'Keine Listen für diese Suche gefunden.' : 'Noch keine Listen gespeichert.'}
             </div>
           ) : (
             <table mix={tableStyle}>
@@ -304,11 +311,20 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         <div mix={previewTextStyle}>{formatPreview(items)}</div>
                         {items.length > 0 && (
                           <details>
-                            <summary mix={summaryStyle}>Alle {items.length} Elemente anzeigen</summary>
+                            <summary mix={summaryStyle}>
+                              Alle {items.length} Elemente anzeigen
+                            </summary>
                             <div mix={detailsStyle}>
                               {items.map((item, idx) => (
                                 <div key={item.id}>
-                                  <span mix={css({ color: theme.colors.text.muted, marginRight: '4px' })}>{idx + 1}.</span>
+                                  <span
+                                    mix={css({
+                                      color: theme.colors.text.muted,
+                                      marginRight: '4px',
+                                    })}
+                                  >
+                                    {idx + 1}.
+                                  </span>
                                   {item.label}
                                 </div>
                               ))}
@@ -317,14 +333,25 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         )}
                       </td>
                       <td mix={[tdStyle, colDescWidth]}>
-                        {row.description
-                          ? <a href={`/lists?load=${row.id}`} target="_top" rmx-document mix={descLinkStyle} title={row.description}>{row.description}</a>
-                          : <span mix={descEmptyStyle}>(keine Beschreibung)</span>
-                        }
+                        {row.description ? (
+                          <a
+                            href={`/lists?load=${row.id}`}
+                            target="_top"
+                            rmx-document
+                            mix={descLinkStyle}
+                            title={row.description}
+                          >
+                            {row.description}
+                          </a>
+                        ) : (
+                          <span mix={descEmptyStyle}>(keine Beschreibung)</span>
+                        )}
                       </td>
                       <td mix={[tdStyle, colUpdatedWidth]}>{formatTimestamp(row.updated_at)}</td>
                       <td mix={[tdStyle, colActionsWidth]}>
-                        <div mix={css({ display: 'flex', gap: theme.space.xs, alignItems: 'center' })}>
+                        <div
+                          mix={css({ display: 'flex', gap: theme.space.xs, alignItems: 'center' })}
+                        >
                           <form
                             method="POST"
                             action={routes.admin.lists.destroy.href({ id: row.id })}
@@ -333,7 +360,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             mix={css({ margin: 0, padding: 0 })}
                           >
                             <CsrfTokenInput />
-                            <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>Löschen</button>
+                            <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>
+                              Löschen
+                            </button>
                           </form>
                         </div>
                       </td>
@@ -356,7 +385,13 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             <div mix={css({ display: 'flex', gap: '0.5rem' })}>
               {offset > 0 && (
                 <a
-                  href={buildPaginationUrl(routes.admin.lists.index.href(), prevOffset, 'id', 'asc', filter)}
+                  href={buildPaginationUrl(
+                    routes.admin.lists.index.href(),
+                    prevOffset,
+                    'id',
+                    'asc',
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
@@ -365,7 +400,13 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               )}
               {hasMore && (
                 <a
-                  href={buildPaginationUrl(routes.admin.lists.index.href(), nextOffset, 'id', 'asc', filter)}
+                  href={buildPaginationUrl(
+                    routes.admin.lists.index.href(),
+                    nextOffset,
+                    'id',
+                    'asc',
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >

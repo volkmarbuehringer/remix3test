@@ -17,10 +17,7 @@ interface AuditLogEntry {
  * error is rethrown to surface schema/db issues; in production only a
  * console.error is emitted.
  */
-export async function logAdminAction(
-  db: Database,
-  entry: AuditLogEntry,
-): Promise<void> {
+export async function logAdminAction(db: Database, entry: AuditLogEntry): Promise<void> {
   try {
     await db.exec(
       `INSERT INTO audit_logs (admin_user_id, admin_email, action_type, target_type, target_id, details, created_at)

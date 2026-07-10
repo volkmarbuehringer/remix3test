@@ -18,9 +18,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `auth-controller-consolidation`: Controller colocation pattern for auth routes — single directory, multiple named exports from one controller file, pages extracted to co-located module
 
 ### Modified Capabilities
+
 <!-- No requirement-level changes — pure structural refactor -->
 
 ## Impact

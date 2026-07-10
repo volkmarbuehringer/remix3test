@@ -1,5 +1,5 @@
 ---
-title: "PostgreSQL Row-Level Security for multi-tenant data isolation"
+title: 'PostgreSQL Row-Level Security for multi-tenant data isolation'
 tags: [postgres, security, rls, multi-tenant, auth, data-isolation, defense-in-depth]
 created: 2026-05-31
 status: active
@@ -40,17 +40,14 @@ In a database middleware, set the parameter before any queries run on that conne
 // app/middleware/database.ts — after auth is resolved
 if (context.auth?.ok) {
   let userId = (context.auth.identity as User).id
-  await pool.query(
-    "SET SESSION app.current_user_id = $1",
-    [userId]
-  )
+  await pool.query('SET SESSION app.current_user_id = $1', [userId])
 }
 ```
 
 Use `SET SESSION` or `SET LOCAL` depending on whether you want it scoped to the transaction or the whole session. `SET LOCAL` is safer — it's scoped to the current transaction and auto-resets on COMMIT/ROLLBACK:
 
 ```typescript
-await client.query("SET LOCAL app.current_user_id = $1", [userId])
+await client.query('SET LOCAL app.current_user_id = $1', [userId])
 ```
 
 ### Step 4: Create admin bypass

@@ -55,10 +55,7 @@ describe('computeVisibleDays', () => {
 
 describe('computeOfferingTimeRange', () => {
   it('returns min/max of offering start_min/end_min snapped to 15-min boundaries', () => {
-    let result = computeOfferingTimeRange([
-      offering(MON, 480, 540),
-      offering(TUE, 600, 720),
-    ])
+    let result = computeOfferingTimeRange([offering(MON, 480, 540), offering(TUE, 600, 720)])
     assert.equal(result.startMin, 480)
     assert.equal(result.endMin, 720)
   })
@@ -111,8 +108,13 @@ describe('computeBookableSlots', () => {
     let visibleDays = [day(MON)]
     let appointments: AppointmentLayoutBlock[] = [
       {
-        id: 1, title: 'Test', user_id: 1, resource_id: 1,
-        date: MON, start_min: 490, end_min: 510,
+        id: 1,
+        title: 'Test',
+        user_id: 1,
+        resource_id: 1,
+        date: MON,
+        start_min: 490,
+        end_min: 510,
       },
     ]
     let result = computeBookableSlots(offerings, visibleDays, appointments)
@@ -144,8 +146,13 @@ describe('computeBookableSlots', () => {
 describe('copyAppt', () => {
   it('returns a shallow copy of the block', () => {
     let block: AppointmentLayoutBlock = {
-      id: 1, title: 'Test', user_id: 1, resource_id: 1,
-      date: MON, start_min: 480, end_min: 540,
+      id: 1,
+      title: 'Test',
+      user_id: 1,
+      resource_id: 1,
+      date: MON,
+      start_min: 480,
+      end_min: 540,
     }
     let copy = copyAppt(block)
     assert.notEqual(copy, block)
@@ -162,13 +169,21 @@ function setupWindowMock() {
 }
 
 function setupDomMock() {
-  let el = { style: {} as Record<string, string>, remove: () => {}, textContent: '', appendChild: () => {} }
+  let el = {
+    style: {} as Record<string, string>,
+    remove: () => {},
+    textContent: '',
+    appendChild: () => {},
+  }
   globalThis.document = {
     getElementById: () => null as HTMLElement | null,
     createElement: () => el,
     body: { appendChild: () => {} },
   } as unknown as Document
-  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => { cb(0); return 0 }
+  globalThis.requestAnimationFrame = (cb: FrameRequestCallback) => {
+    cb(0)
+    return 0
+  }
 }
 
 function cleanupGlobals() {

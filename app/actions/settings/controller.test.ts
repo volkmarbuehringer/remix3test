@@ -64,7 +64,13 @@ describe('Settings controller', () => {
       await pool.query(
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
          VALUES ($1, $2, $3, $4, 1, $5)`,
-        [testUserEmail, await hashPassword(INITIAL_PASSWORD), 'Settings Test User', 'customer', Date.now()],
+        [
+          testUserEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Settings Test User',
+          'customer',
+          Date.now(),
+        ],
       )
     })
 
@@ -240,7 +246,13 @@ describe('Settings controller', () => {
       await pool.query(
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
          VALUES ($1, $2, $3, $4, 1, $5)`,
-        [deleteUserEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Wrong PW', 'customer', Date.now()],
+        [
+          deleteUserEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Delete Wrong PW',
+          'customer',
+          Date.now(),
+        ],
       )
 
       let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
@@ -267,7 +279,13 @@ describe('Settings controller', () => {
       await pool.query(
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
          VALUES ($1, $2, $3, $4, 1, $5)`,
-        [deleteUserEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Success', 'customer', Date.now()],
+        [
+          deleteUserEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Delete Success',
+          'customer',
+          Date.now(),
+        ],
       )
 
       let session = await createAuthCookieWithCsrfForUser(deleteUserEmail)
@@ -297,7 +315,13 @@ describe('Settings controller', () => {
       await pool.query(
         `INSERT INTO users (email, password_hash, name, role, email_verified, created_at)
          VALUES ($1, $2, $3, $4, 1, $5)`,
-        [rateLimitEmail, await hashPassword(INITIAL_PASSWORD), 'Delete Rate Limit', 'customer', Date.now()],
+        [
+          rateLimitEmail,
+          await hashPassword(INITIAL_PASSWORD),
+          'Delete Rate Limit',
+          'customer',
+          Date.now(),
+        ],
       )
 
       let session = await createAuthCookieWithCsrfForUser(rateLimitEmail)
@@ -322,6 +346,10 @@ describe('Settings controller', () => {
       }
     })
 
-    it('cleans up related records on deletion (messages sender_id set to NULL)', { todo: true }, () => {})
+    it(
+      'cleans up related records on deletion (messages sender_id set to NULL)',
+      { todo: true },
+      () => {},
+    )
   })
 })

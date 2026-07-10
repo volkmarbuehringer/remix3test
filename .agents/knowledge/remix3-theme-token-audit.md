@@ -1,5 +1,5 @@
 ---
-title: "Remix 3 Theme Token Audit When Changing Colors"
+title: 'Remix 3 Theme Token Audit When Changing Colors'
 tags: [remix3, theme, css, ui, colors, brand, action]
 created: 2026-06-03
 status: active
@@ -22,12 +22,14 @@ is requested.
 After editing `app/theme.tsx` to change `action.primary.*`:
 
 1. **Grep for all `brand` references** across the entire `app/` directory:
+
    ```bash
    rg "brand\.light\.accent|brand\.dark\.accent|import.*brand.*from.*theme" app/
    ```
 
 2. **Replace brand references that are functional** (not purely decorative
    identity) with `theme.colors.action.primary.background`:
+
    ```tsx
    // Before (still red after theme change)
    background: brand.light.accent,
@@ -40,6 +42,7 @@ After editing `app/theme.tsx` to change `action.primary.*`:
 3. **Verify no unused `brand` imports remain** after replacements.
 
 Files that commonly need this audit:
+
 - `app/ui/admin-nutzer-page.tsx` — `boolBadgeYes` status badges
 - `app/actions/auth-login-controller.tsx` — brand dot, demo box accent, register link
 - `app/ui/appointtype-panel.tsx` — context menu items, add button border
@@ -47,6 +50,7 @@ Files that commonly need this audit:
 ## Why
 
 The Remix 3 `createTheme` contract exposes two separate color systems:
+
 - `theme.colors.action.*` — for interactive elements (primary/secondary/danger button tones)
 - `brand.light.accent` / `brand.dark.accent` — standalone brand palette constants, used as raw CSS values outside the theme contract
 

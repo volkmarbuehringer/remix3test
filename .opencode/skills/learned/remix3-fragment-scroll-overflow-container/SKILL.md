@@ -1,6 +1,6 @@
 ---
 name: remix3-fragment-scroll-overflow-container
-description: "Browser-native #hash fragment scrolling inside overflow-y:auto containers for Remix 3 frame scroll-to-bottom"
+description: 'Browser-native #hash fragment scrolling inside overflow-y:auto containers for Remix 3 frame scroll-to-bottom'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -15,7 +15,9 @@ origin: auto-extracted
 Remix 3 frame navigation fetches HTML via `router.fetch()` and injects it into the DOM. Inline `<script>` tags in frame responses **do not execute**. This blocks client-side scroll-to-bottom patterns like:
 
 ```html
-<script>document.getElementById('chat-messages').scrollTop = ...</script>
+<script>
+  document.getElementById('chat-messages').scrollTop = ...
+</script>
 ```
 
 Using `clientEntry` from `remix/ui` works but adds complexity — a separate file, async hydration, and lifecycle management with `requestAnimationFrame`.
@@ -64,9 +66,9 @@ let link = routes.chat.index.href() + '?threadId=' + id + '#chat-end'
 ### Required CSS on the container
 
 ```css
-overflow-y: auto;   /* makes the div a scroll container */
+overflow-y: auto; /* makes the div a scroll container */
 /* or */
-overflow-y: scroll;  /* always shows scrollbar */
+overflow-y: scroll; /* always shows scrollbar */
 ```
 
 ### When to Use

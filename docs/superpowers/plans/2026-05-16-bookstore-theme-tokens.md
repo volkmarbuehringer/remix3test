@@ -13,6 +13,7 @@
 ### Task 1: Create app/theme.tsx
 
 **Files:**
+
 - Create: `app/theme.tsx`
 
 - [ ] **Step 1: Write app/theme.tsx**
@@ -152,6 +153,7 @@ Expected: No errors (the new file should compile cleanly since all `createTheme`
 ### Task 2: Update document.tsx to render Theme
 
 **Files:**
+
 - Modify: `app/ui/document.tsx`
 
 - [ ] **Step 1: Add Theme import and rendering**
@@ -238,6 +240,7 @@ Expected: No errors
 ### Task 3: Migrate app.css to use theme variables
 
 **Files:**
+
 - Modify: `app/assets/app.css`
 
 This task replaces all hardcoded color values in `app.css` with `var(--rmx-*)` references. Structural CSS (layout, grid, reset) stays unchanged.
@@ -248,61 +251,62 @@ This task replaces all hardcoded color values in `app.css` with `var(--rmx-*)` r
 
 Apply these edits:
 
-| Location | Find | Replace With |
-|----------|------|-------------|
-| `body color` | `#333` | `var(--rmx-color-text-primary)` |
-| `body background` | `#f5f5f5` | `var(--rmx-surface-lvl0)` |
-| `header box-shadow` | `rgba(0, 0, 0, 0.1)` | `rgb(0 0 0 / 0.1)` (keep, no var) |
-| `main min-height` | `calc(100vh - 200px)` | keep unchanged |
-| `footer margin-top` | `4rem` | keep unchanged |
+| Location            | Find                  | Replace With                      |
+| ------------------- | --------------------- | --------------------------------- |
+| `body color`        | `#333`                | `var(--rmx-color-text-primary)`   |
+| `body background`   | `#f5f5f5`             | `var(--rmx-surface-lvl0)`         |
+| `header box-shadow` | `rgba(0, 0, 0, 0.1)`  | `rgb(0 0 0 / 0.1)` (keep, no var) |
+| `main min-height`   | `calc(100vh - 200px)` | keep unchanged                    |
+| `footer margin-top` | `4rem`                | keep unchanged                    |
 
 - [ ] **Step 2: Replace .card colors**
 
-| Find | Replace With |
-|------|-------------|
-| `.card { background: white;` | `.card { background: var(--rmx-surface-lvl1);` |
-| `.card { box-shadow: 0 2px 4px rgba(0,0,0,0.1);` | keep unchanged (shadow values stay) |
+| Find                                             | Replace With                                   |
+| ------------------------------------------------ | ---------------------------------------------- |
+| `.card { background: white;`                     | `.card { background: var(--rmx-surface-lvl1);` |
+| `.card { box-shadow: 0 2px 4px rgba(0,0,0,0.1);` | keep unchanged (shadow values stay)            |
 
 - [ ] **Step 3: Replace .btn colors**
 
-| Find | Replace With |
-|------|-------------|
-| `.btn { background: #3498db;` | `.btn { background: var(--rmx-color-action-primary-background);` |
-| `.btn { color: white;` | `.btn { color: var(--rmx-color-action-primary-foreground);` |
-| `.btn:hover { background: #2980b9;` | `.btn:hover { background: var(--rmx-color-action-primary-background-hover);` |
-| `.btn-secondary { background: #95a5a6;` | `.btn-secondary { background: var(--rmx-color-action-secondary-background);` |
+| Find                                          | Replace With                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `.btn { background: #3498db;`                 | `.btn { background: var(--rmx-color-action-primary-background);`                         |
+| `.btn { color: white;`                        | `.btn { color: var(--rmx-color-action-primary-foreground);`                              |
+| `.btn:hover { background: #2980b9;`           | `.btn:hover { background: var(--rmx-color-action-primary-background-hover);`             |
+| `.btn-secondary { background: #95a5a6;`       | `.btn-secondary { background: var(--rmx-color-action-secondary-background);`             |
 | `.btn-secondary:hover { background: #7f8c8d;` | `.btn-secondary:hover { background: var(--rmx-color-action-secondary-background-hover);` |
-| `.btn-danger { background: #e74c3c;` | `.btn-danger { background: var(--rmx-color-action-danger-background);` |
-| `.btn-danger:hover { background: #c0392b;` | `.btn-danger:hover { background: var(--rmx-color-action-danger-background-hover);` |
+| `.btn-danger { background: #e74c3c;`          | `.btn-danger { background: var(--rmx-color-action-danger-background);`                   |
+| `.btn-danger:hover { background: #c0392b;`    | `.btn-danger:hover { background: var(--rmx-color-action-danger-background-hover);`       |
 
 - [ ] **Step 4: Replace .form-group input/textarea/select colors**
 
-| Find | Replace With |
-|------|-------------|
+| Find                      | Replace With                                         |
+| ------------------------- | ---------------------------------------------------- |
 | `border: 1px solid #ddd;` | `border: 1px solid var(--rmx-color-border-default);` |
 
 Note: There is one `.form-group input` rule and one `.form-group textarea` rule. Both have `border: 1px solid #ddd`. They may need separate edits or a `replaceAll`.
 
 - [ ] **Step 5: Replace table colors**
 
-| Find | Replace With |
-|------|-------------|
-| `table { background: white;` | `table { background: var(--rmx-surface-lvl1);` |
-| `th { background: #f8f9fa;` | `th { background: var(--rmx-surface-lvl2);` |
+| Find                                      | Replace With                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| `table { background: white;`              | `table { background: var(--rmx-surface-lvl1);`                       |
+| `th { background: #f8f9fa;`               | `th { background: var(--rmx-surface-lvl2);`                          |
 | `th, td { border-bottom: 1px solid #ddd;` | `th, td { border-bottom: 1px solid var(--rmx-color-border-default);` |
 
 - [ ] **Step 6: Replace .book-card colors**
 
-| Find | Replace With |
-|------|-------------|
-| `.book-card { background: white;` | `.book-card { background: var(--rmx-surface-lvl1);` |
-| `.book-card img { background: #ecf0f1;` | `.book-card img { background: var(--rmx-surface-lvl3);` |
-| `.book-card .author { color: #7f8c8d;` | `.book-card .author { color: var(--rmx-color-text-muted);` |
-| `.book-card .price { color: #27ae60;` | keep unchanged (element-specific) |
+| Find                                    | Replace With                                               |
+| --------------------------------------- | ---------------------------------------------------------- |
+| `.book-card { background: white;`       | `.book-card { background: var(--rmx-surface-lvl1);`        |
+| `.book-card img { background: #ecf0f1;` | `.book-card img { background: var(--rmx-surface-lvl3);`    |
+| `.book-card .author { color: #7f8c8d;`  | `.book-card .author { color: var(--rmx-color-text-muted);` |
+| `.book-card .price { color: #27ae60;`   | keep unchanged (element-specific)                          |
 
 - [ ] **Step 7: Replace alert and badge colors**
 
 These are element-specific and don't have matching contract tokens. **Keep all values unchanged:**
+
 - `.alert-success` (background, border, color)
 - `.alert-error` (background, border, color)
 - `.badge-success`, `.badge-warning`, `.badge-info`
@@ -317,6 +321,7 @@ Expected: No errors (CSS changes don't affect typecheck)
 ### Task 4: Update inline css() mixins to use theme tokens
 
 **Files:**
+
 - Modify: `app/assets/cart-items.tsx`
 - Modify: `app/assets/image-carousel.tsx`
 - Modify: `app/actions/admin/books/form.tsx`
@@ -327,12 +332,14 @@ Expected: No errors (CSS changes don't affect typecheck)
 - [ ] **Step 1: Update app/assets/cart-items.tsx**
 
 Add `theme` import (alongside existing `css` import):
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change line with `color: '#666'`:
+
 ```tsx
 // Before:
 <p mix={css({ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' })}>
@@ -343,12 +350,14 @@ Change line with `color: '#666'`:
 - [ ] **Step 2: Update app/assets/image-carousel.tsx**
 
 Add `theme` import:
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change:
+
 ```tsx
 // Before:
 backgroundColor: '#f5f5f5',
@@ -359,12 +368,14 @@ backgroundColor: theme.surface.lvl0,
 - [ ] **Step 3: Update app/actions/admin/books/form.tsx**
 
 Add `theme` import:
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change both `color: '#666'` instances:
+
 ```tsx
 // Before (line ~102):
 <p mix={css({ fontSize: '0.875rem', color: '#666' })}>Current cover image</p>
@@ -380,12 +391,14 @@ Change both `color: '#666'` instances:
 - [ ] **Step 4: Update app/actions/books/show-page.tsx**
 
 Add `theme` import:
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change:
+
 ```tsx
 // Before (around line 54):
 background: '#f8f9fa',
@@ -398,12 +411,14 @@ Leave the `color: '#e74c3c'` (out-of-stock warning) unchanged — it's element-s
 - [ ] **Step 5: Update app/actions/auth/login/page.tsx**
 
 Add `theme` import:
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change:
+
 ```tsx
 // Before (around line 57):
 background: '#f8f9fa',
@@ -414,12 +429,14 @@ background: theme.surface.lvl2,
 - [ ] **Step 6: Update app/actions/auth/forgot-password/page.tsx**
 
 Add `theme` import:
+
 ```tsx
 import { css } from 'remix/ui'
 import { theme } from 'remix/ui/theme'
 ```
 
 Change:
+
 ```tsx
 // Before (around line 44):
 background: '#f8f9fa',

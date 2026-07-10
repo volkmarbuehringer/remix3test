@@ -16,10 +16,10 @@ Use Remix 3's `getContext()` from `remix/async-context-middleware` to access the
 
 ### File Changes
 
-| File | Change |
-|------|--------|
+| File                | Change                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `app/ui/layout.tsx` | Add `import { getContext }`; add path tracking + `isActive()` helper; apply `nav-active` class to active link |
-| `public/app.css` | Add `.nav-active` styles |
+| `public/app.css`    | Add `.nav-active` styles                                                                                      |
 
 ### Active Route Logic
 
@@ -29,7 +29,9 @@ let currentPath = ''
 try {
   let context = getContext()
   currentPath = new URL(context.request.url).pathname
-} catch { /* SSR-only */ }
+} catch {
+  /* SSR-only */
+}
 
 let isActive = (path: string) => {
   if (!currentPath) return false
@@ -43,6 +45,7 @@ The `try/catch` handles environments where `getContext()` may not be available (
 ### Prefix Matching for Sub-routes
 
 `currentPath.startsWith(path + '/')` ensures that:
+
 - `/books/genre/fiction` → highlights "Books"
 - `/account/settings` → highlights "Account"
 - `/admin/books/new` → highlights "Admin"
@@ -63,6 +66,7 @@ Matches the existing dark header (`#2c3e50`). The semi-transparent highlight wor
 ### Link Application
 
 Each `<a>` in the `<nav>` gets:
+
 ```typescript
 <a href={routes.<section>.href()} class={isActive(routes.<section>.href()) ? 'nav-active' : undefined}>
 ```

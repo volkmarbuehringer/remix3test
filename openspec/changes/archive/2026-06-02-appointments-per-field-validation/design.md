@@ -9,6 +9,7 @@ The form has 6 fields: 4 `<select>` elements (resource, user, start_min, end_min
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace redirect-on-validation-failure with re-render in `create` and `update` actions
 - Change `validateAppointmentForm()` to return `{ ok: true } | { ok: false, fieldErrors?: Record<string, string>, formError?: string }`
 - Thread `formErrors` and `formValues` through AdminAppointmentsPage → AdminAppointmentsForm
@@ -17,6 +18,7 @@ The form has 6 fields: 4 `<select>` elements (resource, user, start_min, end_min
 - Preserve submitted values on re-render (including `<select>` selection state)
 
 **Non-Goals:**
+
 - No changes to the `destroy` action (no form to validate)
 - No changes to the `index` action beyond reading new query params
 - No client-side validation (remains server-only, can be added separately)

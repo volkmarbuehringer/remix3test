@@ -11,7 +11,9 @@ export function parseIntFields(value: Record<string, unknown>, ...fields: string
   }
 }
 
-export function issuesToFieldErrors(issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>): Record<string, string> {
+export function issuesToFieldErrors(
+  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>,
+): Record<string, string> {
   let errors: Record<string, string> = {}
   for (let issue of issues) {
     let field = issue.path?.[0]
@@ -22,7 +24,10 @@ export function issuesToFieldErrors(issues: ReadonlyArray<{ message: string; pat
   return errors
 }
 
-export function readFormFieldValues(keys: readonly string[], formData: FormData): Record<string, string> {
+export function readFormFieldValues(
+  keys: readonly string[],
+  formData: FormData,
+): Record<string, string> {
   let values: Record<string, string> = {}
   for (let key of keys) {
     let v = formData.get(key)

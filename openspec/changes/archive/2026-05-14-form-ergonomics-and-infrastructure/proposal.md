@@ -15,6 +15,7 @@ Newapp's form handling lacks RESTful method support (PUT/DELETE), server-side va
 ## Capabilities
 
 ### New Capabilities
+
 - `restful-forms`: Method override middleware and RestfulForm component enabling PUT/DELETE/PATCH from HTML forms with clean route contracts
 - `data-validation`: Enhanced form validation schemas using data-schema with minLength, email, coerce, and defaulted for consistent server-side input checking
 - `server-compression`: Compression middleware for smaller response payloads over the wire
@@ -22,6 +23,7 @@ Newapp's form handling lacks RESTful method support (PUT/DELETE), server-side va
 - `router-factory`: Factory function pattern for creating configurable, testable router instances with dependency injection
 
 ### Modified Capabilities
+
 <!-- No existing capability specs are changing — this is purely additive infrastructure -->
 
 ## Impact

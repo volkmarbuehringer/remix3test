@@ -15,10 +15,12 @@ The admin appointments grid currently displays the user's name in the "Benutzer"
 ## Capabilities
 
 ### New Capabilities
-*(none — this is an incremental UI refinement to an existing capability)*
+
+_(none — this is an incremental UI refinement to an existing capability)_
 
 ### Modified Capabilities
-*(none — no spec-level requirement changes; this is an implementation-level change to the admin appointments grid)*
+
+_(none — no spec-level requirement changes; this is an implementation-level change to the admin appointments grid)_
 
 ## Impact
 

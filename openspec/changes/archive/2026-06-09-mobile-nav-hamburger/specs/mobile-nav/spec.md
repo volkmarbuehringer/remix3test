@@ -6,22 +6,24 @@ Responsive mobile navigation that replaces the desktop horizontal nav bar with a
 
 ## Routes
 
-| Route | Path | Auth | Mobile Label | Style |
-|-------|------|------|-------------|-------|
-| New Appointment | `/appointments/new` | required | "Neuer Termin" | Indigo CTA button |
-| Settings | `/settings` | required | "Einstellungen" | Plain nav link |
-| Login | `/auth/login` | when logged out | "Anmelden" | Plain nav link |
-| Logout | `POST /auth/logout` | when logged in | "Abmelden" | Plain nav link + CSRF form |
+| Route           | Path                | Auth            | Mobile Label    | Style                      |
+| --------------- | ------------------- | --------------- | --------------- | -------------------------- |
+| New Appointment | `/appointments/new` | required        | "Neuer Termin"  | Indigo CTA button          |
+| Settings        | `/settings`         | required        | "Einstellungen" | Plain nav link             |
+| Login           | `/auth/login`       | when logged out | "Anmelden"      | Plain nav link             |
+| Logout          | `POST /auth/logout` | when logged in  | "Abmelden"      | Plain nav link + CSRF form |
 
 ## Auth States
 
 ### Logged In
+
 - Neuer Termin → shown (CTA)
 - Einstellungen → shown
 - Abmelden → shown (form post with CSRF)
 - Anmelden → hidden
 
 ### Logged Out
+
 - Neuer Termin → hidden
 - Einstellungen → hidden
 - Abmelden → hidden

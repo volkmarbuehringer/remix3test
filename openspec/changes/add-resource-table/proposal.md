@@ -14,9 +14,11 @@ Appointments currently have no concept of a "resource" (e.g., room, equipment, s
 ## Capabilities
 
 ### New Capabilities
+
 - `resource-management`: Create, list, and select resources for appointment scheduling. Resources are simple descriptors (rooms, equipment, staff) that scope the overlap constraint. Initially seeded with a single resource.
 
 ### Modified Capabilities
+
 - `appointment-calendar`: The exclusion constraint changes from global (`date`, `during`) to per-resource (`resource_id`, `date`, `during`). The appointment sidebar gains a resource dropdown for filtering. The appointments table gains `resource_id` FK column.
 
 ## Impact

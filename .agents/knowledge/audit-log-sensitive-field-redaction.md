@@ -1,5 +1,5 @@
 ---
-title: "Audit Log Sensitive Field Redaction"
+title: 'Audit Log Sensitive Field Redaction'
 tags: [auth, audit, security, admin]
 created: 2026-06-03
 status: active
@@ -24,10 +24,10 @@ logAdminAction(pool, {
 })
 ```
 
-This keeps the audit log useful (you can see *that* a password was changed) without exposing the hash itself.
+This keeps the audit log useful (you can see _that_ a password was changed) without exposing the hash itself.
 
 ## Why
 
-- **Least privilege**: Audit log readers don't need password hashes — they need to know *what* changed, not the hash value.
+- **Least privilege**: Audit log readers don't need password hashes — they need to know _what_ changed, not the hash value.
 - **Blast radius reduction**: If the audit log table is compromised, hashes aren't leakable.
 - **General pattern**: Any sensitive field (tokens, API keys, secrets, PII) passed through a `details`/`changes` JSON payload should be redacted before logging.

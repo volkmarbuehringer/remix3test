@@ -108,9 +108,7 @@ export function AdminDashboardContent() {
           <Frame
             name="admin-stats"
             src={routes.admin.fragments.stats.href()}
-            fallback={
-              <div mix={fallbackStyle}>Server-Statistiken werden geladen…</div>
-            }
+            fallback={<div mix={fallbackStyle}>Server-Statistiken werden geladen…</div>}
           />
         </div>
 
@@ -118,9 +116,7 @@ export function AdminDashboardContent() {
           <Frame
             name="admin-recent-activity"
             src={routes.admin.fragments.recentActivity.href()}
-            fallback={
-              <div mix={fallbackStyle}>Letzte Aktivitäten werden geladen…</div>
-            }
+            fallback={<div mix={fallbackStyle}>Letzte Aktivitäten werden geladen…</div>}
           />
         </div>
       </div>

@@ -15,7 +15,6 @@
 - [x] 3.2 Verify admin can always delete regardless of grace period
 - [x] 3.3 Verify existing delete tests still pass
 
-
 ## 4. Verification
 
 - [x] 4.1 Run `npm test` — all 27 tests pass

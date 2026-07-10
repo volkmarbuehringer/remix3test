@@ -24,7 +24,8 @@ export async function setupTestEnvironment() {
 
   // ── Create a test offering for resourceId: tomorrow 08:00–18:00 ──
   let today = new Date()
-  let tomorrow = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
+  let tomorrow =
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
   await pool.query(
     `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
      VALUES ($1, $2, '[480,1080)', $3, $3)`,
@@ -72,11 +73,16 @@ export async function teardownTestEnvironment(
   }
   // delete offerings before the resource that owns them
   try {
-    await pool.query('DELETE FROM appointoffering WHERE resource_id = $1 OR resource_id = $2', [resourceId, resource2Id])
-  } catch { /* ignore */ }
+    await pool.query('DELETE FROM appointoffering WHERE resource_id = $1 OR resource_id = $2', [
+      resourceId,
+      resource2Id,
+    ])
+  } catch {
+    /* ignore */
+  }
   try {
     await pool.query('DELETE FROM resources WHERE id = $1 OR id = $2', [resourceId, resource2Id])
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
-
-

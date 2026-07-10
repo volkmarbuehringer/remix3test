@@ -42,7 +42,7 @@ export function getCurrentWeekMonday(): number {
  */
 export function formatWeekLabel(weekStart: number): string {
   let d = new Date(weekStart)
-  let dayNum = (d.getUTCDay() || 7)
+  let dayNum = d.getUTCDay() || 7
   let thursday = new Date(d)
   thursday.setUTCDate(d.getUTCDate() - dayNum + 4)
   let year = thursday.getUTCFullYear()
@@ -79,7 +79,9 @@ export function getPeriodRange(period: string): { startMs: number; endMs: number
 
   if (period === 'this-week') {
     let day = now.getUTCDay() || 7
-    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)))
+    let monday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1)),
+    )
     let nextMonday = new Date(monday)
     nextMonday.setUTCDate(monday.getUTCDate() + 7)
     return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
@@ -87,7 +89,9 @@ export function getPeriodRange(period: string): { startMs: number; endMs: number
 
   if (period === 'next-week') {
     let day = now.getUTCDay() || 7
-    let monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1) + 7))
+    let monday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (day - 1) + 7),
+    )
     let nextMonday = new Date(monday)
     nextMonday.setUTCDate(monday.getUTCDate() + 7)
     return { startMs: monday.getTime(), endMs: nextMonday.getTime() }
@@ -118,5 +122,3 @@ export function isoWeeksInYear(year: number): number {
   let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   return day === 4 || (isLeap && day === 3) ? 53 : 52
 }
-
-

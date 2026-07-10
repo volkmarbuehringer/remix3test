@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-cliententry
-description: "Consolidated patterns for Remix 3 Frame navigation and clientEntry lifecycle management"
+description: 'Consolidated patterns for Remix 3 Frame navigation and clientEntry lifecycle management'
 user-invocable: false
 origin: consolidated
 ---
@@ -10,6 +10,7 @@ origin: consolidated
 Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: POST submissions bypass Frame interception entirely, `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, binary downloads, and mobile hamburger navigation.
 
 ## Table of Contents
+
 - [Frame Direct Render — Avoid Double-Load Crash](#frame-direct-render--avoid-double-load-crash)
 - [Post Form Submissions in Frames](#post-form-submissions-in-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
@@ -89,6 +90,7 @@ GET  /admin/resource/:id → 404
 ```
 
 The root cause chain:
+
 1. `rmx-target` on `<form method="POST">` is **never read** by the Frame Navigation API
 2. The browser Navigation API blocks `event.canIntercept` for all non-GET navigations
 3. POST form submissions always do a **full-page navigation**, never intercepted
@@ -105,7 +107,9 @@ On POST form error paths, **render the sidebar directly** instead of going throu
 
 ```tsx
 // ❌ Broken: Creates Frame → GETs POST URL → 404
-return renderAdminPage(context.render, 'resource',
+return renderAdminPage(
+  context.render,
+  'resource',
   <Page formValues={rawValues} fieldErrors={fieldErrors} />,
   { status: 400 },
 )
@@ -162,13 +166,16 @@ This way **every controller** can use `renderAdminPage()` uniformly — even on 
 
 ```tsx
 // ✅ All controllers — works on GET, POST, PUT, DELETE
-return renderAdminPage(context.render, 'resource',
+return renderAdminPage(
+  context.render,
+  'resource',
   <Page formValues={rawValues} fieldErrors={fieldErrors} />,
   { status: 400 },
 )
 ```
 
 **Why this is better:**
+
 - One fix applies to all admin routes — no per-controller `Layout + AdminLayout` duplication
 - Controllers stay consistent (always `renderAdminPage`)
 - The outer `<Layout>` provides `<Document>` (html/head/body), `<MainNav>` (top nav), `<main>`, and `<footer>` — without it, browsers receive a bare `<div>` fragment with no page structure, causing a "layout crash"
@@ -195,6 +202,7 @@ return renderAdminPage(context.render, 'resource',
 A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
 
 **Root cause chain:**
+
 1. All `clientEntry` hydrations within a single Frame share that Frame's scheduler (`scheduler.ts`)
 2. The scheduler's `cascadingUpdateCount` increments on every `flush()` call
 3. On the **first load**, modules aren't cached yet — hydrations happen asynchronously in separate microtasks, giving `setTimeout(0)` a chance to reset the counter
@@ -210,6 +218,7 @@ Reduce the number of `clientEntry` components within the Frame to stay below the
 3. **Embed row data as JSON** in a `<script id="...-table-data" type="application/json">` tag for the delegated handler to read
 
 Server-rendered forms inside a Frame need:
+
 - `<CsrfTokenInput />` for the CSRF token
 - `<input type="hidden" name="_method" value="DELETE" />` for method override (DELETE from POST form)
 - Hidden inputs for offset/sort/order/filter state
@@ -360,6 +369,7 @@ ref((el) => {
 ```
 
 The `mounted` guard is unnecessary for `ref()` callbacks because:
+
 - `ref()` fires only on DOM insertion (not on `handle.update()`)
 - On Frame navigation, the old element is removed and a new one is inserted → `ref()` fires again
 - `handle.signal` cleanup ensures no listener leaks when the component is disposed
@@ -463,7 +473,7 @@ When you need to programmatically navigate the frame (e.g., after saving data), 
 ```typescript
 function navigateFrame(href: string) {
   handle.frame.src = href
-  handle.frame.reload().catch(() => {})  // returns Promise — suppress unhandled rejection
+  handle.frame.reload().catch(() => {}) // returns Promise — suppress unhandled rejection
 }
 ```
 
@@ -484,7 +494,7 @@ function reloadFromFrame() {
   let id = url.searchParams.get('id')
   if (id === expectedItemId) return
   expectedItemId = id
-  loadController?.abort()           // cancel previous in-flight fetch
+  loadController?.abort() // cancel previous in-flight fetch
   loadController = new AbortController()
   if (id) {
     loadFromServer(id, loadController.signal)
@@ -561,6 +571,7 @@ const actionBtnGroup = css({
 ```
 
 The CSS targets the known DOM structure:
+
 - Edit button is inside `<a><button/></a>` → `& > a > button`
 - Del button is inside `<form><button/></a>` (from DelButton) → `& > form > button`
 
@@ -637,7 +648,10 @@ export const InlineEdit = clientEntry(
       if (saving) return
       let cell = (e.target as HTMLElement).closest<HTMLTableCellElement>('[data-inline-edit]')
       if (!cell) return
-      if (activeCell) { commitEdit(); return }  // save current, don't open new
+      if (activeCell) {
+        commitEdit()
+        return
+      } // save current, don't open new
       startEdit(cell)
     }
 
@@ -649,7 +663,7 @@ export const InlineEdit = clientEntry(
         table.addEventListener('click', onCellClick)
 
         handle.signal.addEventListener('abort', () => {
-          table.removeEventListener('click', onCellClick)  // same ref
+          table.removeEventListener('click', onCellClick) // same ref
         })
       }
       return <div mix={css({ display: 'none' })} />
@@ -678,8 +692,13 @@ export const InlineEdit = clientEntry(
     }
 
     function onInputKeydown(e: KeyboardEvent) {
-      if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
-      else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        commitEdit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelEdit()
+      }
     }
 
     function onInputBlur() {
@@ -689,7 +708,10 @@ export const InlineEdit = clientEntry(
     function commitEdit() {
       if (!activeInput || !activeCell || !activeRowId) return
       let newValue = activeInput.value.trim()
-      if (!newValue || newValue === originalValue) { revertCell(); return }
+      if (!newValue || newValue === originalValue) {
+        revertCell()
+        return
+      }
 
       saving = true
       let csrfToken = readCsrfToken()
@@ -706,17 +728,22 @@ export const InlineEdit = clientEntry(
         .then(async (res) => {
           if (res.ok) {
             cleanup()
-            handle.frame.reload().catch(() => {})  // ⚠️ frame.reload() returns a Promise
+            handle.frame.reload().catch(() => {}) // ⚠️ frame.reload() returns a Promise
           } else {
             let data = await res.json().catch(() => ({ error: 'Save failed' }))
             saving = false
             showError(data.error || 'Save failed')
           }
         })
-        .catch(() => { saving = false; showError('Network error') })
+        .catch(() => {
+          saving = false
+          showError('Network error')
+        })
     }
 
-    function cancelEdit() { revertCell() }
+    function cancelEdit() {
+      revertCell()
+    }
 
     function revertCell() {
       if (activeCell && activeInput) {
@@ -749,12 +776,9 @@ The server-rendered table needs:
 
 ```tsx
 // Grid page (server component)
-<td
-  data-inline-edit="email"
-  tabindex={0}
-  role="button"
-  aria-label={`Edit email: ${row.email}`}
->{row.email}</td>
+<td data-inline-edit="email" tabindex={0} role="button" aria-label={`Edit email: ${row.email}`}>
+  {row.email}
+</td>
 ```
 
 ```typescript
@@ -769,12 +793,12 @@ if (contentType.includes('application/json')) {
 
 #### Pitfalls
 
-| Pitfall | Symptom | Fix |
-|---------|---------|-----|
-| Anonymous arrow in addEventListener | removeEventListener silently fails → memory leak | Store handler in named variable |
-| Not guarding `saving` flag | Race condition: two saves fire simultaneously | `if (saving) return` at top of click handler |
-| Not catching `handle.frame.reload()` | Unhandled promise rejection on network error | `.catch(() => {})` |
-| InnerHTML instead of textContent | XSS vulnerability if cell contains user data | Always use `.textContent` |
+| Pitfall                              | Symptom                                          | Fix                                          |
+| ------------------------------------ | ------------------------------------------------ | -------------------------------------------- |
+| Anonymous arrow in addEventListener  | removeEventListener silently fails → memory leak | Store handler in named variable              |
+| Not guarding `saving` flag           | Race condition: two saves fire simultaneously    | `if (saving) return` at top of click handler |
+| Not catching `handle.frame.reload()` | Unhandled promise rejection on network error     | `.catch(() => {})`                           |
+| InnerHTML instead of textContent     | XSS vulnerability if cell contains user data     | Always use `.textContent`                    |
 
 ### When to Use
 
@@ -848,7 +872,11 @@ export const DeletePastButton = clientEntry(
         form.remove()
       })
 
-      return <Button type="button" tone="danger" mix={clickHandler}>Löschen</Button>
+      return (
+        <Button type="button" tone="danger" mix={clickHandler}>
+          Löschen
+        </Button>
+      )
     }
   },
 )
@@ -868,7 +896,7 @@ export function Document(handle: Handle<DocumentProps>) {
       <head>...</head>
       <body>
         {children}
-        <ThemeToggle />   {/* ← mounted on every page */}
+        <ThemeToggle /> {/* ← mounted on every page */}
       </body>
     </html>
   )
@@ -878,6 +906,7 @@ export function Document(handle: Handle<DocumentProps>) {
 Remove duplicate mounts from `<Layout>` — `<Document>` is the single root wrapper for all routes, and `clientEntry` components use an `initialized` flag to prevent duplicate hydration.
 
 **Key points:**
+
 - Props must extend `SerializableProps` (strings, numbers, booleans, null — no functions)
 - Use `import.meta.url + '#ComponentName'` as the entry ID
 - The `on` handler is written in setup scope (inside the `return () => {` closure) so it has stable references
@@ -1007,6 +1036,7 @@ Plain `<a>` tags inside Frame contexts that navigate to a different Frame-relay 
 ```
 
 **Symptoms:**
+
 - Server returns 200 for all requests (server is fine)
 - Browser tab pegs at 100% CPU, completely unresponsive
 - Console: `[AdminViewToggle] Cleaned up, total cleanups: 1`
@@ -1041,12 +1071,7 @@ let isCrossSection = (href: string) => {
 ```
 
 ```tsx
-<a
-  href={item.href}
-  {...(item.href && isCrossSection(item.href)
-    ? { 'rmx-document': '' }
-    : {})}
->
+<a href={item.href} {...(item.href && isCrossSection(item.href) ? { 'rmx-document': '' } : {})}>
   {item.label}
 </a>
 ```
@@ -1069,6 +1094,7 @@ let isCrossSection = (href: string) => {
 ### Problem
 
 A desktop horizontal nav bar with 6-8 items overflows on mobile screens. You need a hamburger menu that:
+
 - Replaces the desktop nav links on mobile with a curated set of action-oriented items
 - Uses a full-screen overlay (not a slide drawer or dropdown)
 - Manages focus correctly (keyboard trap prevention)
@@ -1088,7 +1114,7 @@ export type MobileNavItem = {
   label: string
   href: string
   requireAuth: boolean
-  cta?: boolean  // true = styled as primary CTA button
+  cta?: boolean // true = styled as primary CTA button
 }
 
 export const MOBILE_ITEMS: MobileNavItem[] = [
@@ -1151,6 +1177,7 @@ export const NavToggle = clientEntry(
 ```
 
 Key design decisions:
+
 - **Close on any drawer click**: simplifies the handler — no need to check `el.closest('a')` etc., because navigation already handles link clicks; tapping padding/gaps should also close
 - **Escape listener on the drawer element**, not `document` — prevents cross-page listener leaks
 - **Focus management**: store `document.activeElement` before opening, restore it on close
@@ -1236,14 +1263,18 @@ let user = getCurrentUserSafely()
 let csrfToken: string | undefined
 try {
   csrfToken = getCsrfToken(getContext())
-} catch { /* CSRF may not be active */ }
+} catch {
+  /* CSRF may not be active */
+}
 ```
 
 Render mobile items based on auth state:
+
 - **Logged in**: show items where `requireAuth: true`, plus logout form with CSRF
 - **Logged out**: show only login link
 
 Style the primary CTA as an indigo button matching the desktop login button pattern:
+
 ```typescript
 const drawerCtaCss = css({
   display: 'inline-flex',
@@ -1270,6 +1301,7 @@ Use this pattern when:
 - You're working in a Remix 3 codebase that uses `remix/ui`'s `css()` and `clientEntry` patterns
 
 Do NOT use when:
+
 - You need a slide-in drawer or bottom tab bar (this pattern is specifically a full-screen overlay)
 - The app isn't using Remix 3's `remix/ui` component model
 - You need animation/transition on the overlay (this pattern uses instant pop)

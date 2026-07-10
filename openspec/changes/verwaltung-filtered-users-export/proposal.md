@@ -13,9 +13,11 @@ The current `/verwaltung/users-pdf` route exports ALL users regardless of appoin
 ## Capabilities
 
 ### New Capabilities
+
 - `filtered-user-export`: Export users filtered by appointment date range as PDF
 
 ### Modified Capabilities
+
 <!-- No existing specs are being modified -->
 
 ## Impact

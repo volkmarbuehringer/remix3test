@@ -6,7 +6,8 @@ The `remix/async-context-middleware` package's `getContext()` function returns t
 // In async-context-middleware:
 type AsyncRequestContext = RouterTypes extends {
   context: infer context extends RequestContext<any, any>
-} ? ContextWithEntries<RequestContext<AnyParams>, entries>
+}
+  ? ContextWithEntries<RequestContext<AnyParams>, entries>
   : RequestContext<AnyParams>
 ```
 
@@ -27,12 +28,14 @@ This is a global type augmentation — it works via TypeScript's interface mergi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add the `declare module` type augmentation to `app/router.ts`
 - Re-convert the 3 reverted files to use direct properties through `getContext()`
 - Remove unnecessary `Session` and `Auth` imports from those files
 - Zero behavioral changes
 
 **Non-Goals:**
+
 - Not changing `middleware/admin.ts` or `middleware/auth.ts` — standalone middleware contexts still can't use direct properties (their `context` parameter has an anonymous type regardless of `RouterTypes`)
 - Not changing controller destructuring patterns — that's a separate style concern
 
@@ -55,6 +58,7 @@ This must go in `router.ts` because that's where `AppContext` is defined and `cr
 **Decision 2: Re-convert 3 files to direct properties**
 
 Once the type augmentation is in place:
+
 - `actions/auth-logout.tsx`: `getContext().get(Session)` → `getContext().session`, remove `Session` import
 - `utils/context.ts`: `getContext().get(Auth)` → `getContext().auth`, remove `Auth` import
 - `utils/error-handling.ts`: `getContext().get(Session)` → `getContext().session`, remove `Session` import

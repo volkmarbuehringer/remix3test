@@ -143,10 +143,7 @@ describe('nutzer', () => {
     })
     await updateNutzerPassword(db, lId, 'new-hashed-password')
 
-    let loginResult = await pool.query(
-      'SELECT l_password FROM login WHERE l_id = $1',
-      [lId],
-    )
+    let loginResult = await pool.query('SELECT l_password FROM login WHERE l_id = $1', [lId])
     assert.equal(loginResult.rows[0].l_password, 'new-hashed-password')
   })
 

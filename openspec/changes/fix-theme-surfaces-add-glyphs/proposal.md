@@ -9,17 +9,19 @@ The app's theme surface levels (lvl0–lvl4) are inverted relative to the RMX_01
 2. **Adopt `Glyph` component** — Replace strategic hardcoded SVGs and emoji icons with `<Glyph name="..." />` from `remix/ui/glyph`. Target the most visible, frequently used icons first:
    - Layout: logout icon, theme toggle emoji (🌓 → sun/moon glyphs)
    - AI sidebar nav icons
-   - Admin sidebar nav icons  
+   - Admin sidebar nav icons
    - Lists client CRUD buttons (✓/✕)
    - AI/agent/workflow page action icons
 
 ## Capabilities
 
 ### New Capabilities
+
 - `glyph-adoption`: Adopt the library's `Glyph` component across the app's UI, replacing hardcoded inline SVGs and emoji icons.
 - `semantic-surface-tokens`: Define surface level token semantics (lvl0 = elevated, lvl4 = deepest) and apply them consistently throughout the codebase.
 
 ### Modified Capabilities
+
 _N/A — no existing specs to modify._
 
 ## Impact

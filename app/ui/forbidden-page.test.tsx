@@ -82,14 +82,8 @@ describe('ForbiddenPage', () => {
     let html = await response.text()
 
     // Assert
-    assert.ok(
-      html.includes('Back to Home'),
-      'should include a link with "Back to Home" text',
-    )
-    assert.ok(
-      html.includes('href="/"'),
-      'should include a link pointing to "/"',
-    )
+    assert.ok(html.includes('Back to Home'), 'should include a link with "Back to Home" text')
+    assert.ok(html.includes('href="/"'), 'should include a link pointing to "/"')
   })
 
   // -----------------------------------------------------------------------

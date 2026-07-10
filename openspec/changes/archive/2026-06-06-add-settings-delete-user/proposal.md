@@ -13,6 +13,7 @@ Users need the ability to permanently delete their own account from the settings
 ## Capabilities
 
 ### New Capabilities
+
 - `settings-self-deletion`: Self-service account deletion from the settings page with confirmation and cascading cleanup of related records
 
 ### Modified Capabilities

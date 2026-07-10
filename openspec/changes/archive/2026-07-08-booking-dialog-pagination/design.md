@@ -7,6 +7,7 @@ All slot data is already available in `pendingBooking.slots` (up to 10 days × 3
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Show 1 day of slots at a time in the booking card
 - Prev/next links to navigate through available days
 - Cancel link to dismiss the booking card and clear session
@@ -15,6 +16,7 @@ All slot data is already available in `pendingBooking.slots` (up to 10 days × 3
 - Minimal changes to the controller
 
 **Non-Goals:**
+
 - No changes to agent instructions, tools, booking workflow, or data layer
 - No overlay/modal — stays as inline card in chat
 - No lazy loading of additional days (agent already returns up to 10 days)
@@ -27,6 +29,7 @@ All slot data is already available in `pendingBooking.slots` (up to 10 days × 3
 Page is tracked via `?page=N` on the chat index URL. This survives page refreshes and is trivially read in the index handler. Hidden form inputs would require a wrapping form or JS to update.
 
 **Alternatives considered:**
+
 - Hidden input in a wrapping `<form>` with onchange submit → requires JS
 - Session-based page index → more complex, survives page turns but adds session management
 
@@ -35,6 +38,7 @@ Page is tracked via `?page=N` on the chat index URL. This survives page refreshe
 Clicking "Abbrechen" navigates to `?cancel=1`. The index handler detects this, calls `session.unset('pendingBooking')`, and redirects to the clean chat URL. The user must ask the agent again to see slots.
 
 **Alternatives considered:**
+
 - Just hide the card without clearing session → card would reappear on next page load
 
 ### Decision: Navigation is prev/next links (GET), not a form submit

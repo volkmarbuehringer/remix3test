@@ -1,7 +1,20 @@
 import { createAction } from 'remix/router'
-import { webhookRequestsRoute, webhookRequestsEventsRoute, webhookRequestsResendRoute, webhookRequestsUpdateRoute } from '../../routes.ts'
+import {
+  webhookRequestsRoute,
+  webhookRequestsEventsRoute,
+  webhookRequestsResendRoute,
+  webhookRequestsUpdateRoute,
+} from '../../routes.ts'
 import type { WebhookRequestRow } from '../../data/webhook-requests.ts'
-import { listWebhookRequests, WEBHOOK_REQUESTS_PAGE_SIZE, getWebhookRequest, updateWebhookRequestPayload, getWebhookRequestPayload, resetWebhookRequestCallback, updateWebhookRequestHermesStatus } from '../../data/webhook-requests.ts'
+import {
+  listWebhookRequests,
+  WEBHOOK_REQUESTS_PAGE_SIZE,
+  getWebhookRequest,
+  updateWebhookRequestPayload,
+  getWebhookRequestPayload,
+  resetWebhookRequestCallback,
+  updateWebhookRequestHermesStatus,
+} from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
@@ -39,7 +52,12 @@ async function loadPageData(
     direction = overrides.sortDirection ?? 'desc'
   }
 
-  let { rows, hasMore } = await listWebhookRequests(context.db, { offset, column, direction, filter })
+  let { rows, hasMore } = await listWebhookRequests(context.db, {
+    offset,
+    column,
+    direction,
+    filter,
+  })
 
   return {
     rows,
@@ -63,7 +81,7 @@ export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, Ap
       let editingParam = context.url.searchParams.get('editing')
       let editRow: WebhookRequestRow | null = null
       if (editingParam && UUID_RE.test(editingParam)) {
-        editRow = await getWebhookRequest(context.db, editingParam) ?? null
+        editRow = (await getWebhookRequest(context.db, editingParam)) ?? null
       }
 
       return context.render(

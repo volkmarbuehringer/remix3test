@@ -13,6 +13,7 @@
 ### Task 1: Add nutzer route definition
 
 **Files:**
+
 - Modify: `app/routes.ts`
 
 - [ ] **Step 1: Add nutzer route under adminRoutes**
@@ -90,9 +91,11 @@ git commit -m "feat: add /admin/nutzer route definition"
 ### Task 2: Create the controller
 
 **Files:**
+
 - Create: `app/actions/admin-nutzer-controller.tsx`
 
 This controller handles the `GET /admin/nutzer` request with:
+
 - Parse `sort`, `order`, `offset`, `filter` from URL params
 - Build a parameterized SQL join query with `WHERE ILIKE`, `ORDER BY`, `LIMIT/OFFSET`
 - Pagination: fetch `PAGE_SIZE + 1` rows to detect `hasMore`
@@ -208,6 +211,7 @@ git commit -m "feat: add admin-nutzer controller with SQL join, sort, filter, pa
 ### Task 3: Create the page component
 
 **Files:**
+
 - Create: `app/ui/admin-nutzer-page.tsx`
 
 - [ ] **Step 1: Create the page component file**
@@ -665,10 +669,13 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
 Note on the `boolBadgeYes` issue: The `l_aktiv` badge uses a potentially incorrect ternary. Fix this by always rendering aktiv without the conditional:
 
 For the Aktiv column, replace this:
+
 ```tsx
 <span mix={boolBadgeYes ? boolBadgeYes : boolBadgeNo}>
 ```
+
 with:
+
 ```tsx
 <span mix={row.l_aktiv ? boolBadgeYes : boolBadgeNo}>
 ```
@@ -690,17 +697,20 @@ git commit -m "feat: add admin-nutzer page component with sortable grid, filter,
 ### Task 4: Wire router and add nav item
 
 **Files:**
+
 - Modify: `app/router.ts` — import and map the new controller
 - Modify: `app/ui/admin-layout.tsx` — add nav item
 
 - [ ] **Step 1: Wire controller in router.ts**
 
 Add import after the existing admin imports (around line 29):
+
 ```typescript
 import adminNutzerController from './actions/admin-nutzer-controller.tsx'
 ```
 
 Add route map after the admin lists line (around line 109):
+
 ```typescript
 // Admin nutzer route
 router.map(adminRoutes.admin.nutzer, adminNutzerController)
@@ -709,24 +719,20 @@ router.map(adminRoutes.admin.nutzer, adminNutzerController)
 - [ ] **Step 2: Add nav item in admin-layout.tsx**
 
 Update the `AdminNavItem` type to include `'nutzer'`:
+
 ```typescript
 export type AdminNavItem =
-  | 'dashboard'
-  | 'chatlog'
-  | 'chatonly'
-  | 'agentonly'
-  | 'messages'
-  | 'lists'
-  | 'client'
-  | 'nutzer'
+  'dashboard' | 'chatlog' | 'chatonly' | 'agentonly' | 'messages' | 'lists' | 'client' | 'nutzer'
 ```
 
 Add the nav item in the "Data" section of `NAV_GROUPS`:
+
 ```typescript
 { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
 ```
 
 Add an icon case in the `navIcon` function:
+
 ```typescript
 case 'nutzer':
   return usersSvg()

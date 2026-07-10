@@ -1,6 +1,6 @@
 ---
 name: mastra-tool-approval-generate-pattern
-description: "Hard-gate destructive Mastra tools via requireApproval + approveToolCallGenerate without switching to streaming"
+description: 'Hard-gate destructive Mastra tools via requireApproval + approveToolCallGenerate without switching to streaming'
 origin: auto-extracted
 ---
 
@@ -26,7 +26,7 @@ You have a Mastra agent with a destructive tool (delete user, cancel account, et
 const destructiveTool = createTool({
   id: 'delete_record',
   description: 'Delete a record by ID.',
-  requireApproval: true,        // ← THIS is all you need
+  requireApproval: true, // ← THIS is all you need
   inputSchema: z.object({ id: z.string() }),
   execute: async ({ id }) => {
     // tool never runs without explicit approval
@@ -78,8 +78,8 @@ await agent.approveToolCallGenerate({ runId, toolCallId })
 await agent.declineToolCallGenerate({ runId, toolCallId })
 
 // ❌ WRONG — these are for stream()-suspended runs, not generate()-suspended
-await agent.approveToolCall({ runId })   // returns MastraModelOutput (stream)
-await agent.declineToolCall({ runId })   // returns MastraModelOutput (stream)
+await agent.approveToolCall({ runId }) // returns MastraModelOutput (stream)
+await agent.declineToolCall({ runId }) // returns MastraModelOutput (stream)
 ```
 
 Both `approveToolCallGenerate` and `declineToolCallGenerate` return `FullOutput` with `.text`, matching the `generate()` calling pattern.
@@ -125,12 +125,12 @@ The `_csrf` token is critical — server-rendered POST forms in Mastra-powered a
 
 ## Key Insights
 
-| Concept | Correct |
-|---------|---------|
-| Tool gating | `requireApproval: true` on `createTool` — sufficient by itself |
-| Generate option | Omit `requireToolApproval` — let tool-level setting control |
-| Resume stream-variant | `approveToolCallGenerate` / `declineToolCallGenerate` |
-| Run ID | From `result.runId` |
-| Tool call ID | From `result.suspendPayload.toolCallId` |
-| Async context | Restore before calling resume (if tool reads ALS) |
-| Abort timeout | Skip/suspend the abort timer while waiting for approval |
+| Concept               | Correct                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| Tool gating           | `requireApproval: true` on `createTool` — sufficient by itself |
+| Generate option       | Omit `requireToolApproval` — let tool-level setting control    |
+| Resume stream-variant | `approveToolCallGenerate` / `declineToolCallGenerate`          |
+| Run ID                | From `result.runId`                                            |
+| Tool call ID          | From `result.suspendPayload.toolCallId`                        |
+| Async context         | Restore before calling resume (if tool reads ALS)              |
+| Abort timeout         | Skip/suspend the abort timer while waiting for approval        |

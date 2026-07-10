@@ -2,6 +2,7 @@
 
 - [x] 1.1 Restructure `aiRoutes` in `routes.ts` — nest chat and agent under `route('ai', ...)`, add `frames.aiContent`
 - [x] 1.2 Update `router.ts` — map `aiRoutes.ai` (dashboard), `aiRoutes.ai.chat`, and `aiRoutes.ai.agent`
+
 ## 2. AI Layout and Dashboard (new files)
 
 - [x] 2.1 Create `app/ui/ai-layout.tsx` — sidebar layout with nav groups (mirrors admin-layout.tsx)

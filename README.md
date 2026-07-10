@@ -54,6 +54,7 @@ app/workflows/         → AI workflow definitions and engine
 4. **`app/middleware/render.tsx`** — Renders Remix UI nodes into HTML streams, resolving client entries and frame content.
 
 Routes are organized into named trees:
+
 - **Main routes** — `home`, `ui`, `client` (data lab)
 - **Auth routes** — `login`, `register`, `logout`
 - **Admin routes** — dashboard with stats/recent-activity/user-detail fragments, CRUD for users, resources, offering configs, lists, messages, appointments, offerings
@@ -151,15 +152,15 @@ npm test
 npm run typecheck
 ```
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server with file watching |
-| `npm run start` | Start production server on port 44100 |
-| `npm run test` | Run Playwright E2E and server integration tests |
-| `npm run typecheck` | Type-check the project (`tsc --noEmit`) |
-| `npm run lint` | Lint with oxlint |
-| `npm run format` | Check formatting with Prettier |
-| `npm run format:fix` | Auto-format with Prettier |
+| Command              | Description                                     |
+| -------------------- | ----------------------------------------------- |
+| `npm run dev`        | Start dev server with file watching             |
+| `npm run start`      | Start production server on port 44100           |
+| `npm run test`       | Run Playwright E2E and server integration tests |
+| `npm run typecheck`  | Type-check the project (`tsc --noEmit`)         |
+| `npm run lint`       | Lint with oxlint                                |
+| `npm run format`     | Check formatting with Prettier                  |
+| `npm run format:fix` | Auto-format with Prettier                       |
 
 ## Database Setup
 
@@ -193,20 +194,20 @@ Adjust the username, password, host, and port to match your PostgreSQL setup.
 
 When the server starts, [`initializeAppDatabase()`](app/data/setup.ts) runs [`migrate()`](app/data/migrate.ts), which creates all tables using `CREATE TABLE IF NOT EXISTS`. No manual migration steps are needed. Tables include:
 
-| Table | Purpose |
-|-------|---------|
-| `users` | User accounts with roles (admin, customer) |
-| `messages` | Public message board |
-| `clients` | Client data lab records (200 demo rows) |
-| `resources` | Bookable resources |
-| `appointments` | Scheduled appointments with overlap protection via exclusion constraints |
-| `appointoffering` | Appointment offering time slots |
-| `appointtypes` | Appointment type categories |
-| `offering_configs` | Resource offering rules (JSONB) |
-| `chatlog` | AI chat conversation history |
-| `workflow_runs` | AI workflow execution records |
-| `lists` | Generic list data (JSONB) |
-| `audit_logs` | Admin audit trail |
+| Table              | Purpose                                                                  |
+| ------------------ | ------------------------------------------------------------------------ |
+| `users`            | User accounts with roles (admin, customer)                               |
+| `messages`         | Public message board                                                     |
+| `clients`          | Client data lab records (200 demo rows)                                  |
+| `resources`        | Bookable resources                                                       |
+| `appointments`     | Scheduled appointments with overlap protection via exclusion constraints |
+| `appointoffering`  | Appointment offering time slots                                          |
+| `appointtypes`     | Appointment type categories                                              |
+| `offering_configs` | Resource offering rules (JSONB)                                          |
+| `chatlog`          | AI chat conversation history                                             |
+| `workflow_runs`    | AI workflow execution records                                            |
+| `lists`            | Generic list data (JSONB)                                                |
+| `audit_logs`       | Admin audit trail                                                        |
 
 The migration also enables the `pg_trgm` and `btree_gist` PostgreSQL extensions.
 
@@ -225,10 +226,10 @@ After migration, [`seed()`](app/data/seed.ts) checks whether the `users` table i
 
 ### Demo Accounts
 
-| Role     | Email              | Password    |
-|----------|--------------------|-------------|
-| Admin    | admin@newapp.com   | admin123    |
-| Customer | user@newapp.com    | password123 |
+| Role     | Email            | Password    |
+| -------- | ---------------- | ----------- |
+| Admin    | admin@newapp.com | admin123    |
+| Customer | user@newapp.com  | password123 |
 
 ## Environment
 
@@ -248,5 +249,6 @@ npm test              # Run all tests
 ```
 
 Tests cover:
+
 - **E2E:** authentication flow, navigation, home page, showcase, theme toggle
 - **Server integration:** admin controllers (users, resources, offerings, appointments, chat logs, messages, fragments), auth (login, register, logout), AI (chat, agent, fragments), appointments, lists, client controller

@@ -7,6 +7,7 @@ Current nav at `< 768px`: the horizontal bar shrinks but items overflow or wrap 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace the desktop nav links with a hamburger on screens < 768px
 - Full-screen overlay on hamburger tap showing curated mobile items only
 - "Neuer Termin" CTA button styled with indigo background + white text (same as `navBtnCss` in `main-nav.tsx`)
@@ -17,6 +18,7 @@ Current nav at `< 768px`: the horizontal bar shrinks but items overflow or wrap 
 - Close overlay on: tapping ✕, tapping backdrop, tapping any nav link, pressing Escape
 
 **Non-Goals:**
+
 - Bottom tab bar or slide-out drawer
 - Showing desktop nav items (Home, Termine, Listen, KI, Admin, etc.) on mobile
 - Animations or transitions on the overlay
@@ -80,14 +82,15 @@ nav.ts                       main-nav.tsx                    nav-toggle.tsx
 
 ## CSS Strategy
 
-| Element | Desktop (≥ 768px) | Mobile (< 768px) |
-|---------|-------------------|-------------------|
-| `nav-links` (desktop items + login/logout) | `display: flex` | `display: none` |
-| `hamburger-btn` | `display: none` | `display: flex` |
-| `nav-overlay` | `display: none` | `display: none` → `.is-open: block` |
-| overlay backdrop | none | fixed full-screen, semi-transparent bg |
+| Element                                    | Desktop (≥ 768px) | Mobile (< 768px)                       |
+| ------------------------------------------ | ----------------- | -------------------------------------- |
+| `nav-links` (desktop items + login/logout) | `display: flex`   | `display: none`                        |
+| `hamburger-btn`                            | `display: none`   | `display: flex`                        |
+| `nav-overlay`                              | `display: none`   | `display: none` → `.is-open: block`    |
+| overlay backdrop                           | none              | fixed full-screen, semi-transparent bg |
 
 Overlay CSS:
+
 - Position: fixed, inset: 0, z-index: 200
 - `transform-origin: top right`
 - Background: `theme.surface.lvl0` (or a semi-transparent overlay)

@@ -5,6 +5,7 @@ Newapp's middleware stack and router are a singleton module — `app/router.ts` 
 The Remix demos (`bookstore`, `social-auth`) demonstrate proven patterns for compression, method override, asset entry middleware, and factory-based router construction. This design adapts those patterns for newapp's architecture.
 
 Current middleware stack order:
+
 ```
 logger → formData → session → asyncContext → loadDatabase → loadAuth → render
 ```
@@ -12,6 +13,7 @@ logger → formData → session → asyncContext → loadDatabase → loadAuth �
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Enable PUT/DELETE from HTML forms via `methodOverride` middleware and `RestfulForm` component
 - Upgrade server-side validation schemas to use `minLength`, `email()`, `coerce`, `defaulted` across login, register, and client CRUD
 - Add response compression for smaller payloads
@@ -20,6 +22,7 @@ logger → formData → session → asyncContext → loadDatabase → loadAuth �
 - Export session cookie/storage for use by factory callers
 
 **Non-Goals:**
+
 - No CSS stylesheet bundling (newapp uses `remix/ui` for all styling — no CSS files to inject)
 - No OAuth/social login (saved for a separate change)
 - No file upload support (out of scope)
@@ -47,6 +50,7 @@ Compression should run early in the stack, before any response body is generated
 `RestfulForm` is a thin wrapper around `<form>`. It's a server-side-only component (no client JS). It intercepts the `method` prop and conditionally renders a hidden `_method` input.
 
 **Pattern:**
+
 ```tsx
 <RestfulForm method="PUT" action="/resource/42">
   → <form method="POST" action="/resource/42">
@@ -77,7 +81,7 @@ The middleware resolves asset URLs at request time and stores them in context:
 
 ```ts
 interface AssetEntry {
-  scriptSrc: string       // Main entry module URL
+  scriptSrc: string // Main entry module URL
   scriptPreloads: string[] // Module preload URLs (from static analysis)
 }
 ```

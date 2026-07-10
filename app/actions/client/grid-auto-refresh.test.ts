@@ -65,10 +65,7 @@ describe('Client Grid', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
 
-    assert.ok(
-      html.includes('client-grid-content'),
-      'grid page should contain the grid content',
-    )
+    assert.ok(html.includes('client-grid-content'), 'grid page should contain the grid content')
   })
 
   it('GET /admin/client renders the client admin page', async () => {
@@ -80,10 +77,7 @@ describe('Client Grid', () => {
     let html = await response.text()
 
     // Page should contain the client-grid frame reference
-    assert.ok(
-      html.includes('client-grid-section'),
-      'client page should contain the grid section',
-    )
+    assert.ok(html.includes('client-grid-section'), 'client page should contain the grid section')
   })
 
   // -----------------------------------------------------------------------

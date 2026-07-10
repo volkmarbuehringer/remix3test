@@ -5,11 +5,13 @@ Current `app/middleware/mailer.ts` creates a nodemailer transport with `secure: 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Support SMTP_USER / SMTP_PASSWORD from `.env` for authenticated transport
 - Empty credentials = no auth (backward compatible)
 - Set `secure: true` when port is 465 and auth is provided
 
 **Non-Goals:**
+
 - OAuth2 or XOAUTH2 support
 - Multiple transport selection logic
 - Email sending logic changes

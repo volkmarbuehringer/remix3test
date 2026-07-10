@@ -7,11 +7,13 @@ The `users` table already has an `email` column (UNIQUE TEXT, normalized to lowe
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Display user email in the admin appointments grid instead of user name
 - Update SQL queries, types, and column renderings accordingly
 - Update sort/search to work with email instead of name
 
 **Non-Goals:**
+
 - No changes to the users table schema
 - No changes to create/edit forms (they still use user_id dropdown with names)
 - No changes to the non-admin appointment views

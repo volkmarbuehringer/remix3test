@@ -109,9 +109,10 @@ export const ListsClient = clientEntry(
     }
 
     let getCsrfHeaders = (): Record<string, string> => {
-      let csrfToken = typeof document !== 'undefined'
-        ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        : undefined
+      let csrfToken =
+        typeof document !== 'undefined'
+          ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+          : undefined
       let headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (csrfToken) headers['X-Csrf-Token'] = csrfToken
       if (loadedUpdatedAt !== null) headers['If-Match'] = String(loadedUpdatedAt)
@@ -234,13 +235,16 @@ export const ListsClient = clientEntry(
     let scheduleAutosave = (fast = false) => {
       if (conflictState.show) return
       if (autosaveTimer) clearTimeout(autosaveTimer)
-      autosaveTimer = setTimeout(async () => {
-        autosaveTimer = null
-        if (!isDirty()) return
-        // Re-check conflict before saving
-        if (conflictState.show) return
-        await saveNow()
-      }, fast ? 300 : 1500)
+      autosaveTimer = setTimeout(
+        async () => {
+          autosaveTimer = null
+          if (!isDirty()) return
+          // Re-check conflict before saving
+          if (conflictState.show) return
+          await saveNow()
+        },
+        fast ? 300 : 1500,
+      )
     }
 
     let flushNow = async () => {
@@ -256,10 +260,11 @@ export const ListsClient = clientEntry(
       description = state.description
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
-      nextId = items.reduce((max, item) => {
-        let n = parseInt(item.id, 10)
-        return Number.isFinite(n) && n > max ? n : max
-      }, 0) + 1
+      nextId =
+        items.reduce((max, item) => {
+          let n = parseInt(item.id, 10)
+          return Number.isFinite(n) && n > max ? n : max
+        }, 0) + 1
       snapshotClean()
       saveStatus = 'saved'
       loadError = ''
@@ -320,8 +325,15 @@ export const ListsClient = clientEntry(
 
     // Drag-and-drop handlers (unchanged logic, just no id rewriting)
     let clearDragOver = () => {
-      if (draggedEl) { draggedEl.style.opacity = ''; draggedEl = null }
-      if (indicatorEl) { indicatorEl.style.borderTop = ''; indicatorEl.style.borderBottom = ''; indicatorEl = null }
+      if (draggedEl) {
+        draggedEl.style.opacity = ''
+        draggedEl = null
+      }
+      if (indicatorEl) {
+        indicatorEl.style.borderTop = ''
+        indicatorEl.style.borderBottom = ''
+        indicatorEl = null
+      }
     }
 
     let handleDragStart = (e: DragEvent, index: number) => {
@@ -355,10 +367,16 @@ export const ListsClient = clientEntry(
       if (isNoop) return
       if (dropIndex < items.length) {
         let el = elByIndex(dropIndex)
-        if (el) { el.style.borderTop = `2px solid ${theme.colors.focus.ring}`; indicatorEl = el }
+        if (el) {
+          el.style.borderTop = `2px solid ${theme.colors.focus.ring}`
+          indicatorEl = el
+        }
       } else if (dropIndex === items.length && items.length > 0) {
         let el = elByIndex(items.length - 1)
-        if (el) { el.style.borderBottom = `2px solid ${theme.colors.focus.ring}`; indicatorEl = el }
+        if (el) {
+          el.style.borderBottom = `2px solid ${theme.colors.focus.ring}`
+          indicatorEl = el
+        }
       }
     }
 
@@ -398,10 +416,14 @@ export const ListsClient = clientEntry(
       e.preventDefault()
       clearDragOver()
       if (dragIndex === null || dropIndex === null) {
-        dragIndex = null; dropIndex = null; return
+        dragIndex = null
+        dropIndex = null
+        return
       }
       if (dropIndex === dragIndex || dropIndex === dragIndex + 1) {
-        dragIndex = null; dropIndex = null; return
+        dragIndex = null
+        dropIndex = null
+        return
       }
       let newItems = [...items]
       let [removed] = newItems.splice(dragIndex, 1)
@@ -542,7 +564,8 @@ export const ListsClient = clientEntry(
       if (JSON.stringify(items) !== cleanItemsJSON) partial.items = items
       if (Object.keys(partial).length === 0) return
       partial._if_match = loadedUpdatedAt
-      let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
+      let csrfToken =
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
       let url = `/lists/${loadedListId}?_csrf=${encodeURIComponent(csrfToken)}`
       let blob = new Blob([JSON.stringify(partial)], { type: 'application/json' })
       navigator.sendBeacon(url, blob)
@@ -554,19 +577,27 @@ export const ListsClient = clientEntry(
     // Status pill display
     let statusLabel = (): string => {
       switch (saveStatus) {
-        case 'saved': return 'Gespeichert'
-        case 'saving': return 'Speichern…'
-        case 'dirty': return 'Ungespeichert'
-        case 'error': return 'Fehler'
+        case 'saved':
+          return 'Gespeichert'
+        case 'saving':
+          return 'Speichern…'
+        case 'dirty':
+          return 'Ungespeichert'
+        case 'error':
+          return 'Fehler'
       }
     }
 
     let statusColor = (): string => {
       switch (saveStatus) {
-        case 'saved': return theme.colors.text.muted
-        case 'saving': return theme.colors.text.secondary
-        case 'dirty': return '#d69e2e'
-        case 'error': return theme.colors.action.danger.background
+        case 'saved':
+          return theme.colors.text.muted
+        case 'saving':
+          return theme.colors.text.secondary
+        case 'dirty':
+          return '#d69e2e'
+        case 'error':
+          return theme.colors.action.danger.background
       }
     }
 
@@ -627,12 +658,20 @@ export const ListsClient = clientEntry(
             >
               <span mix={css({ flex: 1 })}>Die Liste wurde in einem anderen Tab geändert.</span>
               <button
-                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', reloadFromServer)]}
+                mix={[
+                  button({ tone: 'secondary' }),
+                  css({ fontSize: theme.fontSize.xs }),
+                  on('click', reloadFromServer),
+                ]}
               >
                 Neu laden
               </button>
               <button
-                mix={[button({ tone: 'danger' }), css({ fontSize: theme.fontSize.xs }), on('click', forceOverwrite)]}
+                mix={[
+                  button({ tone: 'danger' }),
+                  css({ fontSize: theme.fontSize.xs }),
+                  on('click', forceOverwrite),
+                ]}
               >
                 Trotzdem speichern
               </button>
@@ -649,12 +688,8 @@ export const ListsClient = clientEntry(
               alignItems: 'center',
             })}
           >
-            <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>
-              ↺ Umkehren
-            </button>
-            <button mix={[button({ tone: 'primary' }), on('click', shuffle)]}>
-              ⇄ Mischen
-            </button>
+            <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>↺ Umkehren</button>
+            <button mix={[button({ tone: 'primary' }), on('click', shuffle)]}>⇄ Mischen</button>
             <button
               mix={[button({ tone: 'danger' }), on('click', clearAll)]}
               disabled={items.length === 0}
@@ -680,7 +715,13 @@ export const ListsClient = clientEntry(
             {/* Demoted manual flush buttons — escape hatch */}
             {loadedListId !== null && (
               <button
-                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', () => { flushNow() })]}
+                mix={[
+                  button({ tone: 'secondary' }),
+                  css({ fontSize: theme.fontSize.xs }),
+                  on('click', () => {
+                    flushNow()
+                  }),
+                ]}
                 disabled={!isDirty() || saving}
               >
                 Aktualisieren
@@ -688,7 +729,13 @@ export const ListsClient = clientEntry(
             )}
             {loadedListId === null && (
               <button
-                mix={[button({ tone: 'secondary' }), css({ fontSize: theme.fontSize.xs }), on('click', () => { saveNow() })]}
+                mix={[
+                  button({ tone: 'secondary' }),
+                  css({ fontSize: theme.fontSize.xs }),
+                  on('click', () => {
+                    saveNow()
+                  }),
+                ]}
                 disabled={!description.trim() || items.length === 0 || saving}
               >
                 Hinzufügen
@@ -778,7 +825,9 @@ export const ListsClient = clientEntry(
                     addItem()
                   }
                 }),
-                ref((el) => { newItemRef = el }),
+                ref((el) => {
+                  newItemRef = el
+                }),
               ]}
               placeholder="Neues Element eingeben…"
               rows={3}
@@ -854,13 +903,23 @@ export const ListsClient = clientEntry(
                       backgroundColor: theme.colors.border.strong,
                       borderRadius: '4px',
                     },
-                    '&::-webkit-scrollbar-thumb:hover': { backgroundColor: theme.colors.text.muted },
+                    '&::-webkit-scrollbar-thumb:hover': {
+                      backgroundColor: theme.colors.text.muted,
+                    },
                   }),
-                  ref((el) => { listRef = el }),
+                  ref((el) => {
+                    listRef = el
+                  }),
                   ref((el) => {
                     let ac = new AbortController()
-                    el.addEventListener('dragover', (e) => handleContainerDragOver(e as DragEvent), { signal: ac.signal })
-                    el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
+                    el.addEventListener(
+                      'dragover',
+                      (e) => handleContainerDragOver(e as DragEvent),
+                      { signal: ac.signal },
+                    )
+                    el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
+                      signal: ac.signal,
+                    })
                     return () => ac.abort()
                   }),
                 ]}
@@ -878,20 +937,35 @@ export const ListsClient = clientEntry(
                           index < items.length - 1
                             ? `1px solid ${theme.colors.border.subtle}`
                             : 'none',
-                        backgroundColor:
-                          index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                        backgroundColor: index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
                       }),
                       ref((el) => {
                         let ac = new AbortController()
-                        el.addEventListener('dragstart', (e) => {
-                          let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
-                          handleDragStart(e as DragEvent, idx)
-                        }, { signal: ac.signal })
-                        el.addEventListener('dragover', (e) => {
-                          let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
-                          handleDragOver(e as DragEvent, idx)
-                        }, { signal: ac.signal })
-                        el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
+                        el.addEventListener(
+                          'dragstart',
+                          (e) => {
+                            let idx = parseInt(
+                              (e.currentTarget as HTMLElement).dataset.index || '0',
+                              10,
+                            )
+                            handleDragStart(e as DragEvent, idx)
+                          },
+                          { signal: ac.signal },
+                        )
+                        el.addEventListener(
+                          'dragover',
+                          (e) => {
+                            let idx = parseInt(
+                              (e.currentTarget as HTMLElement).dataset.index || '0',
+                              10,
+                            )
+                            handleDragOver(e as DragEvent, idx)
+                          },
+                          { signal: ac.signal },
+                        )
+                        el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
+                          signal: ac.signal,
+                        })
                         el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
                         return () => ac.abort()
                       }),
@@ -899,7 +973,9 @@ export const ListsClient = clientEntry(
                     draggable="true"
                     data-index={index}
                   >
-                    <span mix={gripStyle} data-grip="" aria-hidden="true">⠿</span>
+                    <span mix={gripStyle} data-grip="" aria-hidden="true">
+                      ⠿
+                    </span>
                     <span
                       mix={css({
                         width: '28px',
@@ -954,15 +1030,53 @@ export const ListsClient = clientEntry(
                     <div draggable="false" mix={css({ display: 'flex', gap: theme.space.xs })}>
                       {editingIndex === index ? (
                         <>
-                          <button mix={[button({ tone: 'primary' }), on('click', saveEdit)]} title="Speichern"><Glyph name="check" width={16} height={16} /></button>
-                          <button mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]} title="Abbrechen"><Glyph name="close" width={16} height={16} /></button>
+                          <button
+                            mix={[button({ tone: 'primary' }), on('click', saveEdit)]}
+                            title="Speichern"
+                          >
+                            <Glyph name="check" width={16} height={16} />
+                          </button>
+                          <button
+                            mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]}
+                            title="Abbrechen"
+                          >
+                            <Glyph name="close" width={16} height={16} />
+                          </button>
                         </>
                       ) : (
                         <>
-                          <button mix={[button({ tone: 'secondary' }), on('click', () => startEditing(index))]} title="Bearbeiten"><Glyph name="edit" width={16} height={16} /></button>
-                          <button mix={[button({ tone: 'danger' }), on('click', () => deleteItem(index))]} title="Löschen"><Glyph name="close" width={16} height={16} /></button>
-                          <button mix={[button({ tone: 'secondary' }), on('click', () => moveUp(index))]} disabled={index === 0} title="Nach oben">↑</button>
-                          <button mix={[button({ tone: 'secondary' }), on('click', () => moveDown(index))]} disabled={index === items.length - 1} title="Nach unten">↓</button>
+                          <button
+                            mix={[
+                              button({ tone: 'secondary' }),
+                              on('click', () => startEditing(index)),
+                            ]}
+                            title="Bearbeiten"
+                          >
+                            <Glyph name="edit" width={16} height={16} />
+                          </button>
+                          <button
+                            mix={[button({ tone: 'danger' }), on('click', () => deleteItem(index))]}
+                            title="Löschen"
+                          >
+                            <Glyph name="close" width={16} height={16} />
+                          </button>
+                          <button
+                            mix={[button({ tone: 'secondary' }), on('click', () => moveUp(index))]}
+                            disabled={index === 0}
+                            title="Nach oben"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            mix={[
+                              button({ tone: 'secondary' }),
+                              on('click', () => moveDown(index)),
+                            ]}
+                            disabled={index === items.length - 1}
+                            title="Nach unten"
+                          >
+                            ↓
+                          </button>
                         </>
                       )}
                     </div>

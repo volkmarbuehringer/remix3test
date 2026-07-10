@@ -1,6 +1,6 @@
 ---
 name: postgres-idempotent-fk-alteration
-description: "Idempotent ON DELETE SET NULL FK migration for PostgreSQL"
+description: 'Idempotent ON DELETE SET NULL FK migration for PostgreSQL'
 user-invocable: false
 origin: auto-extracted
 ---

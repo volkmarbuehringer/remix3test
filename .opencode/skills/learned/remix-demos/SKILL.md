@@ -9,16 +9,16 @@ Full working apps in `~/remix/demos/`. Each demonstrates a complete Remix patter
 
 ## Available Demos
 
-| Demo | Pattern | Reference Path |
-|------|---------|---------------|
-| **bookstore** | CRUD with forms, search, data layer | `~/remix/demos/bookstore/` |
+| Demo                 | Pattern                                    | Reference Path                    |
+| -------------------- | ------------------------------------------ | --------------------------------- |
+| **bookstore**        | CRUD with forms, search, data layer        | `~/remix/demos/bookstore/`        |
 | **frame-navigation** | Frame-based navigation and content loading | `~/remix/demos/frame-navigation/` |
-| **frames** | Component frames, layout composition | `~/remix/demos/frames/` |
-| **social-auth** | OAuth/OIDC login flow | `~/remix/demos/social-auth/` |
-| **sse** | Server-Sent Events streaming | `~/remix/demos/sse/` |
-| **timeboxer** | Timer and scheduling UI | `~/remix/demos/timeboxer/` |
-| **unpkg** | Asset proxying and serving | `~/remix/demos/unpkg/` |
-| **assets** | Asset pipeline and browser module serving | `~/remix/demos/assets/` |
+| **frames**           | Component frames, layout composition       | `~/remix/demos/frames/`           |
+| **social-auth**      | OAuth/OIDC login flow                      | `~/remix/demos/social-auth/`      |
+| **sse**              | Server-Sent Events streaming               | `~/remix/demos/sse/`              |
+| **timeboxer**        | Timer and scheduling UI                    | `~/remix/demos/timeboxer/`        |
+| **unpkg**            | Asset proxying and serving                 | `~/remix/demos/unpkg/`            |
+| **assets**           | Asset pipeline and browser module serving  | `~/remix/demos/assets/`           |
 
 ## How to Use
 

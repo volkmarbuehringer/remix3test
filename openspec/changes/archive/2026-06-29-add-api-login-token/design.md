@@ -7,6 +7,7 @@ External API consumers (third-party services, CLI tools, mobile apps) need a way
 ## Goals / Non-Goals
 
 **Goals:**
+
 - New `POST /api/login` endpoint accepting `{ email, password }` JSON body, returning `{ token }` on success
 - New `POST /api/logout` endpoint to revoke the current token
 - New `api_tokens` database table storing issued tokens with `user_id`, `token_hash`, `expires_at`, `created_at`, `revoked_at`
@@ -15,6 +16,7 @@ External API consumers (third-party services, CLI tools, mobile apps) need a way
 - Rate limiting on `POST /api/login` to prevent brute-force attacks
 
 **Non-Goals:**
+
 - JWT or any signed token format (tokens are opaque random strings stored hashed in the DB, enabling immediate revocation)
 - Token scopes or fine-grained permissions per token (future concern)
 - Refresh tokens or automatic token rotation
@@ -23,14 +25,14 @@ External API consumers (third-party services, CLI tools, mobile apps) need a way
 
 ## Decisions
 
-| Decision | Choice | Alternatives Considered | Rationale |
-|----------|--------|------------------------|-----------|
-| Token format | Opaque random 32-byte token (base64url), stored as SHA-256 hash | JWT, PASETO, signed cookies | Opaque tokens are revocable immediately (no key rotation). Hashing prevents token leakage from DB. Matches existing `verification-token.ts` pattern. |
-| Storage | New `api_tokens` table in PostgreSQL | Redis, in-memory map | Persistent, survives restarts, natural fit with existing DB pattern, enables audit. |
-| Token expiry | 30-day expiry, checked on each request | No expiry, 7-day, 90-day | Balances usability with security. Users can re-login to get a new token. |
-| Rate limiting | Reuse existing in-memory `rate-limiter.ts` (per-email + per-IP tiers) | Redis-based, new rate limiter | Consistent with existing auth rate limiting pattern. Simple in-memory bucket works for single-process deployment. |
-| Auth middleware | New `app/middleware/api-token-auth.ts` composition function | Extend existing `authenticateWebhook()` | Clean separation of concerns. Can compose with `json()` middleware context key. |
-| Backward compatibility | Fallback: check `WEBHOOK_TOKEN` if no valid per-user token found | Breaking change, feature flag | Zero-impact migration. Existing API clients continue working. Can be deprecated later. |
+| Decision               | Choice                                                                | Alternatives Considered                 | Rationale                                                                                                                                            |
+| ---------------------- | --------------------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Token format           | Opaque random 32-byte token (base64url), stored as SHA-256 hash       | JWT, PASETO, signed cookies             | Opaque tokens are revocable immediately (no key rotation). Hashing prevents token leakage from DB. Matches existing `verification-token.ts` pattern. |
+| Storage                | New `api_tokens` table in PostgreSQL                                  | Redis, in-memory map                    | Persistent, survives restarts, natural fit with existing DB pattern, enables audit.                                                                  |
+| Token expiry           | 30-day expiry, checked on each request                                | No expiry, 7-day, 90-day                | Balances usability with security. Users can re-login to get a new token.                                                                             |
+| Rate limiting          | Reuse existing in-memory `rate-limiter.ts` (per-email + per-IP tiers) | Redis-based, new rate limiter           | Consistent with existing auth rate limiting pattern. Simple in-memory bucket works for single-process deployment.                                    |
+| Auth middleware        | New `app/middleware/api-token-auth.ts` composition function           | Extend existing `authenticateWebhook()` | Clean separation of concerns. Can compose with `json()` middleware context key.                                                                      |
+| Backward compatibility | Fallback: check `WEBHOOK_TOKEN` if no valid per-user token found      | Breaking change, feature flag           | Zero-impact migration. Existing API clients continue working. Can be deprecated later.                                                               |
 
 ## Risks / Trade-offs
 

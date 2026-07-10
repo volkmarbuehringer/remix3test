@@ -3,6 +3,7 @@
 The webhook-requests page at `/webhook-requests` is a standalone SSR page (not inside the admin Frame). It uses an inline `<script type="module">` to create an `EventSource` to `/webhook-requests/events`. When `new_request` or `callback_received` events arrive, it waits 2 seconds then navigates to `window.location.href` with a `_t` cache-busting param.
 
 Every other SSE-using page (admin messages, appointments, verwaltung appointments) uses the `ConnectionIndicator` clientEntry component from `app/assets/connection-indicator.tsx`. This component:
+
 - Creates the EventSource via `handle.queueTask()` after hydration
 - Listens for `invalidate` events to trigger reload
 - Uses `handle.frame.reload()` or `window.location.reload()` depending on `reloadMode`
@@ -14,6 +15,7 @@ The `webhookChannel` in `app/lib/sse-events.ts` currently emits `new_request` an
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace the inline `<script>` in `WebhookRequestsPage` with `ConnectionIndicator`
 - Add `invalidate` event broadcasts alongside existing `new_request`/`callback_received` broadcasts
 - Remove the `_t` cache-busting URL parameter accumulation
@@ -21,6 +23,7 @@ The `webhookChannel` in `app/lib/sse-events.ts` currently emits `new_request` an
 - All four broadcast sites stay in sync: webhook, app-webhook, callback, resend
 
 **Non-Goals:**
+
 - Not changing the webhook channel's existing events (they stay for backward compat)
 - Not moving the webhook-requests page inside the admin Frame sidebar
 - Not changing the SSE channel infrastructure (`createChannel`, heartbeat, etc.)

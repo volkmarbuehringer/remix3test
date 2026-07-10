@@ -17,9 +17,11 @@ The Chat and Agent features are currently top-level routes at `/chat` and `/agen
 ## Capabilities
 
 ### New Capabilities
+
 - `ai-route-dashboard`: AI section under `/ai/` with a dashboard index page and sidebar layout for organizing AI features
 
 ### Modified Capabilities
+
 _(None — no existing specs are changing)_
 
 ## Impact

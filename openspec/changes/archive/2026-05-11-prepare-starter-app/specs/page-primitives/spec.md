@@ -21,6 +21,7 @@ The app SHALL export a `ShowcaseLinkCard` component from `app/ui/page-primitives
 ### Requirement: Shared CSS primitives
 
 The `app/ui/page-primitives.tsx` module SHALL export the following CSS values for use across pages:
+
 - `panelCss` — consistent card surface with border, border-radius, background, padding, box-shadow
 - `panelInsetCss` — variant with inset/lower background level
 - `panelElevatedCss` — variant with elevated shadow

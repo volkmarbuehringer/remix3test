@@ -34,9 +34,7 @@ async function readAllFromStream(
  * reading so the test doesn't leak resources. Only useful when you know
  * the first chunk contains everything you need.
  */
-async function readOneChunk(
-  stream: ReadableStream,
-): Promise<string> {
+async function readOneChunk(stream: ReadableStream): Promise<string> {
   let reader = stream.getReader()
   try {
     let { value, done } = await reader.read()
@@ -65,7 +63,10 @@ describe('createChannel', () => {
     controller.abort()
 
     assert.equal(response.status, 200)
-    assert.equal(ContentType.from(response.headers.get('Content-Type')).mediaType, 'text/event-stream')
+    assert.equal(
+      ContentType.from(response.headers.get('Content-Type')).mediaType,
+      'text/event-stream',
+    )
     assert.ok(CacheControl.from(response.headers.get('Cache-Control')).noCache)
     assert.equal(response.headers.get('Connection'), 'keep-alive')
     assert.equal(response.headers.get('X-Accel-Buffering'), 'no')
@@ -126,12 +127,8 @@ describe('createChannel', () => {
     let channel = createChannel<{ e: string }>({ heartbeatMs: null })
     let ac1 = new AbortController()
     let ac2 = new AbortController()
-    let res1 = channel.subscribe(
-      new Request('http://localhost/1', { signal: ac1.signal }),
-    )
-    let res2 = channel.subscribe(
-      new Request('http://localhost/2', { signal: ac2.signal }),
-    )
+    let res1 = channel.subscribe(new Request('http://localhost/1', { signal: ac1.signal }))
+    let res2 = channel.subscribe(new Request('http://localhost/2', { signal: ac2.signal }))
 
     channel.broadcast('e', 'data')
 
@@ -147,12 +144,8 @@ describe('createChannel', () => {
     let ac1 = new AbortController()
     let ac2 = new AbortController()
 
-    channel.subscribe(
-      new Request('http://localhost/1', { signal: ac1.signal }),
-    )
-    let res2 = channel.subscribe(
-      new Request('http://localhost/2', { signal: ac2.signal }),
-    )
+    channel.subscribe(new Request('http://localhost/1', { signal: ac1.signal }))
+    let res2 = channel.subscribe(new Request('http://localhost/2', { signal: ac2.signal }))
 
     // Abort first subscriber
     ac1.abort()

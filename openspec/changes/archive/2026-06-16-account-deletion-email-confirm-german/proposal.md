@@ -12,9 +12,11 @@ All transactional emails (verification, password reset) are currently in English
 ## Capabilities
 
 ### New Capabilities
+
 - `account-deletion-notification`: Email notification sent to users when their account is deleted, including reason/context and support contact info
 
 ### Modified Capabilities
+
 - `transactional-email`: All email templates translated to German; new deletion confirmation template added to the send-email utilities
 
 ## Impact

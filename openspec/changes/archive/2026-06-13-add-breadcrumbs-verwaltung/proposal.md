@@ -11,9 +11,11 @@ The Verwaltung area has several sub-routes (`/report1`, `/pdf`, `/users-export`)
 ## Capabilities
 
 ### New Capabilities
+
 - `verwaltung-breadcrumbs`: Complete breadcrumb coverage for all Verwaltung sub-routes, ensuring every navigable page shows a proper hierarchical trail (e.g., "Verwaltung > Monatsauswertung")
 
 ### Modified Capabilities
+
 - (none — only adding labels, not changing existing route requirements)
 
 ## Impact

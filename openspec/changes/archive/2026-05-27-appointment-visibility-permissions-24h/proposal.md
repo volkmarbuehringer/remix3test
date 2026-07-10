@@ -14,9 +14,11 @@ The appointment calendar currently exposes full appointment titles for all users
 ## Capabilities
 
 ### New Capabilities
+
 - `appointment-privacy`: Privacy rules for the shared appointment grid — what non-admin users see of others' appointments.
 
 ### Modified Capabilities
+
 - `past-date-validation`: Change past-date comparison from "today at midnight" to "24 hours before current time" for both appointments and offerings.
 - `appointment-calendar`: Add admin permissions for update/delete on the user-facing page; modify foreign block rendering to hide title/tooltip for non-admins.
 

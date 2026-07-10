@@ -14,9 +14,11 @@ The `/admin/appointments` form currently shows all validation errors as a single
 ## Capabilities
 
 ### New Capabilities
-- *(none — this enhances an existing capability)*
+
+- _(none — this enhances an existing capability)_
 
 ### Modified Capabilities
+
 - `admin-appointments`: New requirement — appointment form MUST render per-field validation errors inline and preserve submitted values on validation failure instead of resetting all inputs. Field errors are rendered adjacent to the corresponding input. Form-level errors (overlap, past date, outside offering hours) remain as a top banner.
 
 ## Impact

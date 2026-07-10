@@ -5,6 +5,7 @@ The appointment calendar at `/appointment` currently has a weekly CSS grid (7 da
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Users can drag appointment blocks to different days and times with visual ghost feedback
 - Users can drag top/bottom block edges to change duration (minimum 15 minutes)
 - Collision resolution via cost-based layout solver (no overlapping blocks after drop/resize)
@@ -13,6 +14,7 @@ The appointment calendar at `/appointment` currently has a weekly CSS grid (7 da
 - Follow existing Remix 3 patterns: `clientEntry()`, `on()` mixin, `handle.update()`, `window.location.reload()` on success
 
 **Non-Goals:**
+
 - No horizontal resize (expand across days)
 - No multi-block selection or group drag
 - No animation (beyond basic CSS transitions)
@@ -21,17 +23,17 @@ The appointment calendar at `/appointment` currently has a weekly CSS grid (7 da
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Layout solver integration** | Adapted `schedule-layout.ts` from Timeboxer — replaces `dayOfWeek` (0-6) with `date` (epoch ms) | Matches appointment data model. Pure function, no DOM deps. Already battle-tested in Timeboxer. |
-| **Drag implementation** | Window-level pointer events (`pointerdown`/`pointermove`/`pointerup` on window) | Pointer capture handles cases where cursor leaves the block. Same pattern as Timeboxer. |
-| **Grid measurement** | On drag start, measure grid container's bounding rect with `getBoundingClientRect()`. Compute day width and row height from measured values | Snaps pointer position to grid cells. Accommodates variable-width layouts. |
-| **Visual feedback during drag** | Ghost block rendered inline with dashed border + opacity; dragged block gets `translate` CSS transform for smooth visual offset | No layout reflow during drag. Ghost shows target position; transform handles sub-cell offset snapping. |
-| **Resize handles** | Thin horizontal bars at top/bottom of each block (12px tall, `ns-resize` cursor). Only visible on hover or during active resize | Matches Timeboxer pattern. Small enough to not obscure content, large enough to grab. |
-| **Minimum duration** | 15 minutes, enforced by layout solver policy | Matches existing slot granularity. Consistent with Timeboxer default. |
-| **Collision resolution** | Cost-based algorithm: minimize moved blocks → minimize total distance → minimize natural index distance | Preserves existing block positions as much as possible. Same algorithm as Timeboxer. |
-| **Mutation strategy** | PUT with `{ date, start_min, end_min }` partial update. Same `X-Csrf-Token` header. `window.location.reload()` on success. | No changes to existing mutation pattern. `updateAppointment` in data layer already accepts these fields. |
-| **File structure** | New `app/ui/schedule-layout.ts` for the pure layout solver. Extend `app/ui/appointment-grid.tsx` for drag/resize UI. | Layout solver is a pure function — keeps it testable and separate from UI concerns. |
+| Decision                        | Choice                                                                                                                                      | Rationale                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Layout solver integration**   | Adapted `schedule-layout.ts` from Timeboxer — replaces `dayOfWeek` (0-6) with `date` (epoch ms)                                             | Matches appointment data model. Pure function, no DOM deps. Already battle-tested in Timeboxer.          |
+| **Drag implementation**         | Window-level pointer events (`pointerdown`/`pointermove`/`pointerup` on window)                                                             | Pointer capture handles cases where cursor leaves the block. Same pattern as Timeboxer.                  |
+| **Grid measurement**            | On drag start, measure grid container's bounding rect with `getBoundingClientRect()`. Compute day width and row height from measured values | Snaps pointer position to grid cells. Accommodates variable-width layouts.                               |
+| **Visual feedback during drag** | Ghost block rendered inline with dashed border + opacity; dragged block gets `translate` CSS transform for smooth visual offset             | No layout reflow during drag. Ghost shows target position; transform handles sub-cell offset snapping.   |
+| **Resize handles**              | Thin horizontal bars at top/bottom of each block (12px tall, `ns-resize` cursor). Only visible on hover or during active resize             | Matches Timeboxer pattern. Small enough to not obscure content, large enough to grab.                    |
+| **Minimum duration**            | 15 minutes, enforced by layout solver policy                                                                                                | Matches existing slot granularity. Consistent with Timeboxer default.                                    |
+| **Collision resolution**        | Cost-based algorithm: minimize moved blocks → minimize total distance → minimize natural index distance                                     | Preserves existing block positions as much as possible. Same algorithm as Timeboxer.                     |
+| **Mutation strategy**           | PUT with `{ date, start_min, end_min }` partial update. Same `X-Csrf-Token` header. `window.location.reload()` on success.                  | No changes to existing mutation pattern. `updateAppointment` in data layer already accepts these fields. |
+| **File structure**              | New `app/ui/schedule-layout.ts` for the pure layout solver. Extend `app/ui/appointment-grid.tsx` for drag/resize UI.                        | Layout solver is a pure function — keeps it testable and separate from UI concerns.                      |
 
 ## Risks / Trade-offs
 

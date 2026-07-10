@@ -19,10 +19,23 @@ interface ChatLogPageProps {
 }
 
 const pageStyle = css({ maxWidth: '900px', margin: '0 auto', padding: theme.space.lg })
-const pageTitleStyle = css({ fontSize: theme.fontSize.xxl, fontWeight: 600, margin: `0 0 ${theme.space.lg}`, color: theme.colors.text.primary })
+const pageTitleStyle = css({
+  fontSize: theme.fontSize.xxl,
+  fontWeight: 600,
+  margin: `0 0 ${theme.space.lg}`,
+  color: theme.colors.text.primary,
+})
 
-const resultCountStyle = css({ fontSize: theme.fontSize.md, color: theme.colors.text.secondary, margin: `0 0 ${theme.space.md}` })
-const emptyStateStyle = css({ color: theme.colors.text.secondary, padding: theme.space.xl, textAlign: 'center' })
+const resultCountStyle = css({
+  fontSize: theme.fontSize.md,
+  color: theme.colors.text.secondary,
+  margin: `0 0 ${theme.space.md}`,
+})
+const emptyStateStyle = css({
+  color: theme.colors.text.secondary,
+  padding: theme.space.xl,
+  textAlign: 'center',
+})
 
 const paginationStyle = css({
   display: 'flex',
@@ -52,10 +65,29 @@ const pageLabelStyle = css({
   color: theme.colors.text.secondary,
 })
 
-const conversationItemStyle = css({ marginBottom: theme.space.lg, padding: theme.space.lg, border: `1px solid ${theme.colors.border.default}`, borderRadius: theme.radius.sm })
-const conversationHeaderStyle = css({ fontSize: theme.fontSize.lg, margin: `0 0 ${theme.space.sm}`, display: 'flex', alignItems: 'center', gap: theme.space.sm })
-const conversationLinkStyle = css({ color: theme.colors.action.primary.background, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } })
-const conversationMetaStyle = css({ fontSize: theme.fontSize.md, color: theme.colors.text.secondary, margin: `0 0 ${theme.space.sm}` })
+const conversationItemStyle = css({
+  marginBottom: theme.space.lg,
+  padding: theme.space.lg,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.sm,
+})
+const conversationHeaderStyle = css({
+  fontSize: theme.fontSize.lg,
+  margin: `0 0 ${theme.space.sm}`,
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+})
+const conversationLinkStyle = css({
+  color: theme.colors.action.primary.background,
+  textDecoration: 'none',
+  '&:hover': { textDecoration: 'underline' },
+})
+const conversationMetaStyle = css({
+  fontSize: theme.fontSize.md,
+  color: theme.colors.text.secondary,
+  margin: `0 0 ${theme.space.sm}`,
+})
 
 function ChatLogPage(handle: Handle<ChatLogPageProps>) {
   return () => {
@@ -77,15 +109,18 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
             <p mix={emptyStateStyle}>Noch keine Konversationen.</p>
           ) : (
             <ul mix={css({ listStyle: 'none', padding: 0, margin: 0 })}>
-              {conversations.map(conv => {
+              {conversations.map((conv) => {
                 let link = `${routes.mastra.chat.index.href()}?threadId=${conv.id}#chat-end`
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
-                      <a href={link} mix={conversationLinkStyle}>Konversation #{conv.id}</a>
+                      <a href={link} mix={conversationLinkStyle}>
+                        Konversation #{conv.id}
+                      </a>
                     </div>
                     <p mix={conversationMetaStyle}>
-                      Erstellt: {new Date(conv.created_at).toLocaleString('de-DE')} &bull; Aktualisiert: {new Date(conv.updated_at).toLocaleString('de-DE')}
+                      Erstellt: {new Date(conv.created_at).toLocaleString('de-DE')} &bull;
+                      Aktualisiert: {new Date(conv.updated_at).toLocaleString('de-DE')}
                     </p>
                     <div mix={css({ display: 'flex', gap: '0.5rem', alignItems: 'center' })}>
                       <form
@@ -95,7 +130,9 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                         data-confirm={`Konversation #${conv.id} löschen?`}
                       >
                         <CsrfTokenInput />
-                        <button type="submit" mix={[button({ tone: 'danger' })]}>Löschen</button>
+                        <button type="submit" mix={[button({ tone: 'danger' })]}>
+                          Löschen
+                        </button>
                       </form>
                       <ChatlogRowDetail conversationId={conv.id} />
                     </div>
@@ -108,20 +145,20 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           {(hasMore || page > 1) && (
             <div mix={paginationStyle}>
               {page > 1 ? (
-                  <a href={pageHref(page - 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
-                    ← Zurück
-                  </a>
-                ) : (
-                  <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>← Zurück</span>
-                )}
-                <span mix={pageLabelStyle}>Seite {page}</span>
-                {hasMore ? (
-                  <a href={pageHref(page + 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
-                    Weiter →
-                  </a>
-                ) : (
-                  <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>Weiter →</span>
-                )}
+                <a href={pageHref(page - 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                  ← Zurück
+                </a>
+              ) : (
+                <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>← Zurück</span>
+              )}
+              <span mix={pageLabelStyle}>Seite {page}</span>
+              {hasMore ? (
+                <a href={pageHref(page + 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                  Weiter →
+                </a>
+              ) : (
+                <span mix={[pageLinkStyle, pageLinkDisabledStyle]}>Weiter →</span>
+              )}
             </div>
           )}
         </div>

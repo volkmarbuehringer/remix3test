@@ -15,10 +15,12 @@ The Nutzer (user management) page is the most frequently used admin page but it'
 ## Capabilities
 
 ### New Capabilities
+
 - `top-level-nutzer-route`: The Nutzer page accessible at `/nutzer` with a direct main-nav link, rendered in the standard `Layout` (not admin frame layout), requiring auth + admin middleware.
 - `nutzer-form-render-validation`: Nutzer create and update forms that use `parseSafe` validation with `context.render()` on failure, preserving submitted field values and showing per-field error messages — matching the `/client` form behavior.
 
 ### Modified Capabilities
+
 - `form-validation`: The "Validation failure re-renders form page" and "Form inputs render error styling on validation failure" requirements now apply to nutzer forms in addition to client forms.
 - `nutzer-context-menu`: All internal URLs referencing `/admin/nutzer` in the context menu handlers and route definitions must be updated to `/nutzer`.
 

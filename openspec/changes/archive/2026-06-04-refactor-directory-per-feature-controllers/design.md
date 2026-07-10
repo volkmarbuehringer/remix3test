@@ -7,6 +7,7 @@ The timeboxer demo project at `~/remix/demos/timeboxer/app/controllers/auth/` de
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Move every flat controller into a feature directory named after the controller (stripping `-controller` suffix)
 - Rename each moved controller file to `controller.tsx`
 - Move associated test files and page components into the same feature directory
@@ -15,6 +16,7 @@ The timeboxer demo project at `~/remix/demos/timeboxer/app/controllers/auth/` de
 - All tests pass and typecheck succeeds after migration
 
 **Non-Goals:**
+
 - Refactoring controller internals, route definitions, or test logic
 - Changing the `client/` or `nutzer/` directories (already feature-dir)
 - Adding new features or capabilities
@@ -28,6 +30,7 @@ The timeboxer demo project at `~/remix/demos/timeboxer/app/controllers/auth/` de
 **Rationale:** Matches the established `client/` and `nutzer/` patterns. Predictable — every feature directory has the same entry point name. Eliminates the need for the `-controller` suffix in filenames since the directory provides namespacing.
 
 **Alternatives considered:**
+
 - Keep hyphenated names inside feature dirs (e.g., `admin-appointments/controller.tsx` — already the chosen approach, just stripping the hyphenated suffix)
 - Use index.ts exports (creates barrel file overhead and import ambiguity)
 
@@ -36,6 +39,7 @@ The timeboxer demo project at `~/remix/demos/timeboxer/app/controllers/auth/` de
 **Rationale:** Preserves `git blame` continuity and file history. Standard practice for pure-rename refactors.
 
 **Alternatives considered:**
+
 - Copy-then-delete (loses history, no benefit)
 
 ### Decision 3: Batch migration by controller group
@@ -43,6 +47,7 @@ The timeboxer demo project at `~/remix/demos/timeboxer/app/controllers/auth/` de
 **Rationale:** Reduces risk by keeping each batch independently verifiable (typecheck + tests pass). Order: simplest first (few files, few tests) → admin group (largest) → auth → AI → standalone.
 
 **Batch order:**
+
 1. **Simple standalone**: `controller.tsx` (home/UI showcase), `lists-controller` + `lists-show-page`, `verwaltung-controller`
 2. **Admin controllers**: admin-appointments, admin-chatlog, admin-chatlog-fragments, admin-fragments, admin-lists, admin-messages, admin-offering-configs, admin-offerings, admin-resources, admin-users, admin-controller
 3. **Auth controllers**: auth-login, auth-register, auth-logout

@@ -2,15 +2,15 @@
 
 The app currently uses 7 separate route export objects defined in `app/routes.ts`:
 
-| Export | Contains |
-|--------|----------|
-| `routes` | Main routes: home, assets, ui, client, nutzer |
-| `listsRoutes` | Flat route leaves: lists, listsSave, listsUpdate, listsShow, listsData |
-| `authRoutes` | Flat route leaves: authLogin, authRegister, authLogout |
-| `appointmentRoutes` | Nested: appointment (index, create, update, destroy, events, types) |
-| `adminRoutes` | Deeply nested: admin (chatlog, messages, lists, users, fragments) |
-| `verwaltungRoutes` | Nested: verwaltung (offerings, appointments, resources, offeringConfigs) |
-| `aiRoutes` | Nested: ai (chat, agent, workflow, fragments) |
+| Export              | Contains                                                                 |
+| ------------------- | ------------------------------------------------------------------------ |
+| `routes`            | Main routes: home, assets, ui, client, nutzer                            |
+| `listsRoutes`       | Flat route leaves: lists, listsSave, listsUpdate, listsShow, listsData   |
+| `authRoutes`        | Flat route leaves: authLogin, authRegister, authLogout                   |
+| `appointmentRoutes` | Nested: appointment (index, create, update, destroy, events, types)      |
+| `adminRoutes`       | Deeply nested: admin (chatlog, messages, lists, users, fragments)        |
+| `verwaltungRoutes`  | Nested: verwaltung (offerings, appointments, resources, offeringConfigs) |
+| `aiRoutes`          | Nested: ai (chat, agent, workflow, fragments)                            |
 
 Each controller imports the specific export it needs. The auth logout handler bypasses the route system entirely via `router.post('/logout', ...)`. Multiple UI components and controllers use hardcoded `/login`, `/register`, `/logout` strings instead of typed `href()` calls.
 
@@ -19,6 +19,7 @@ The timeboxer demo (`~/remix/demos/timeboxer`) demonstrates the target pattern: 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Single `routes` export from `app/routes.ts` covering all application URLs
 - Auth routes namespaced under `/auth/login`, `/auth/register`, `/auth/logout`
 - Lists routes nested under `route('lists', {...})` preserving existing URLs
@@ -27,6 +28,7 @@ The timeboxer demo (`~/remix/demos/timeboxer`) demonstrates the target pattern: 
 - Every controller imports from the same `routes` object
 
 **Non-Goals:**
+
 - Changing any non-auth URL paths
 - Restructuring controller logic or middleware
 - Extracting a domain/data layer

@@ -7,6 +7,7 @@ This change adopts that same pattern for AI features. The `admin-layout.tsx` pat
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Nest Chat and Agent under `/ai/` prefix: `/ai/chat` and `/ai/agent`
 - Add an AI dashboard index page at `/ai` with overview cards (like admin dashboard)
 - Create an `ai-layout.tsx` with sidebar navigation (same pattern as admin)
@@ -15,6 +16,7 @@ This change adopts that same pattern for AI features. The `admin-layout.tsx` pat
 - Keep existing Chat and Agent controllers functional (same logic, new URL space)
 
 **Non-Goals:**
+
 - No changes to chat/agent controller logic, data storage, or middleware
 - No new AI features (settings, prompt library, etc.) — just restructuring
 - No auth changes (chat/agent remain unprotected, admin auth remains separate)
@@ -24,6 +26,7 @@ This change adopts that same pattern for AI features. The `admin-layout.tsx` pat
 ## Decisions
 
 **Decision 1: Mirror admin layout pattern exactly**
+
 - The admin layout (`admin-layout.tsx`) is a proven pattern: sticky sidebar, `AdminShellOrFragment` component that detects frame requests, nav groups with icons, active state highlighting. The AI layout will follow the same structure.
 - File naming: `ai-layout.tsx`, `ai-page.tsx`, `ai-controller.tsx` (mirrors `admin-layout.tsx`, `admin-page.tsx`, `admin-controller.tsx`)
 
@@ -46,15 +49,18 @@ export const aiRoutes = route({
 ```
 
 This maps to:
+
 - `/ai` — dashboard
 - `/ai/chat` — chat interface
 - `/ai/agent` — agent interface
 
 **Decision 3: Use a `frames` object for AI frame navigation**
+
 - Define `aiContent: 'ai-content'` alongside existing `adminContent` in `routes.ts`
 - AI layout uses `<Frame name={frames.aiContent} src={...}>` same as admin
 
 **Decision 4: Router maps aiRoutes differently**
+
 - Currently `router.map(aiRoutes.chat, chatController)` and `router.map(aiRoutes.agent, agentController)` — these map top-level routes
 - After the change: `router.map(aiRoutes.ai, aiController)` for the dashboard, and `router.map(aiRoutes.ai.chat, chatController)` and `router.map(aiRoutes.ai.agent, agentController)` for nested routes
 

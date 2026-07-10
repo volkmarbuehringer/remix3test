@@ -7,12 +7,14 @@ Both tables use the `remix/data-table` primitives (db.create, db.update, db.dele
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide full admin CRUD (list, create, update, delete) for the `users` table at `/admin/users`
 - Provide full admin CRUD (list, create, update, delete) for the `resources` table at `/admin/resources`
 - Follow existing admin UI patterns: paginated table with sort, filter/search, inline edit/create panels via grid state (offset, sort, order, filter)
 - Respect security: routes protected by `requireAuth()` and `requireAdmin()` middleware
 
 **Non-Goals:**
+
 - Password management for users (password_hash is written on create, not re-displayed on read — same pattern as current registration)
 - Role editing beyond what the `users.role` column supports (enum: customer/admin)
 - Any changes to the existing `nutzer` or `login` tables

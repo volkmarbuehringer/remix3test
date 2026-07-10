@@ -23,7 +23,10 @@ describe('admin-lists', () => {
     )
     let rows = await searchLists(db, '%urgent%', 10, 0)
     assert.ok(rows.length >= 1)
-    assert.ok(rows[0].description === 'test-admin-urgent-items' || rows.some(r => r.description === 'test-admin-urgent-items'))
+    assert.ok(
+      rows[0].description === 'test-admin-urgent-items' ||
+        rows.some((r) => r.description === 'test-admin-urgent-items'),
+    )
   })
 
   it('searchLists matches against item labels in JSONB list', async () => {

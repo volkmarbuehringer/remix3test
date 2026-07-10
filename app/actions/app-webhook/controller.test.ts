@@ -74,7 +74,9 @@ describe('App-Webhook controller', () => {
     assert.equal(json.callbackUrl, 'http://127.0.0.1:44100/callback')
     assert.deepEqual(json.payload, { event: 'test', data: { foo: 'bar' } })
 
-    let { rows } = await pool.query('SELECT hermes_status FROM webhook_requests WHERE id = $1', [json.id])
+    let { rows } = await pool.query('SELECT hermes_status FROM webhook_requests WHERE id = $1', [
+      json.id,
+    ])
     assert.equal(rows[0].hermes_status, '202', 'hermes_status should store the HTTP response code')
     cleanupIds.push(json.id)
   })

@@ -12,7 +12,12 @@ import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { getListById, getAllLists, createList, patchList, deleteList } from '../../data/lists.ts'
-import { renderListsPage, type ListsNavItem, type ListSidebarEntry, type ListInitialState } from '../../ui/lists-layout.tsx'
+import {
+  renderListsPage,
+  type ListsNavItem,
+  type ListSidebarEntry,
+  type ListInitialState,
+} from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 import { getPageSize } from '../../utils/get-page-size.ts'
 
@@ -96,7 +101,10 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
 
       let parseResult = s.parseSafe(listsCreateSchema, body)
       if (!parseResult.success) {
-        let message = parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Description and non-empty items array are required'
+        let message =
+          parseResult.issues.length > 0
+            ? parseResult.issues[0].message
+            : 'Description and non-empty items array are required'
         return context.json({ error: message }, { status: 400 })
       }
 
@@ -142,7 +150,8 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
 
       let parseResult = s.parseSafe(listsPatchSchema, body)
       if (!parseResult.success) {
-        let message = parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Invalid fields'
+        let message =
+          parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Invalid fields'
         return context.json({ error: message }, { status: 400 })
       }
 

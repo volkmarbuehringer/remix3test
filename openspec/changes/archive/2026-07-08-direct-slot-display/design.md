@@ -7,12 +7,14 @@ The `find_next_available_slots` tool currently returns only the top 3 slots glob
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Agent immediately calls `find_next_available_slots` after recommending a resource (no "ask permission" step)
 - `find_next_available_slots` returns enough slots to show up to 3 days with up to 3 timeslots each (= up to 9 slots)
 - Booking form displays slots grouped by day, with day headers and timeslots listed under each day
 - Tests are updated to reflect the new agent behavior
 
 **Non-Goals:**
+
 - No changes to the booking workflow, booking agent, or booking confirmation logic
 - No changes to the search resources tool
 - No changes to the session/thread handling

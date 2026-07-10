@@ -61,28 +61,48 @@ export function renderListsPage(
   init?: ResponseInit,
 ) {
   return render(
-    <ShellOrFragment activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>
+    <ShellOrFragment
+      activeItem={activeItem}
+      sidebarEntries={sidebarEntries}
+      pagination={pagination}
+    >
       {content}
     </ShellOrFragment>,
     init,
   )
 }
 
-function ShellOrFragment(handle: Handle<{
-  activeItem: ListsNavItem
-  sidebarEntries: ListSidebarEntry[]
-  pagination?: PaginationState
-  children?: RemixNode
-}>) {
+function ShellOrFragment(
+  handle: Handle<{
+    activeItem: ListsNavItem
+    sidebarEntries: ListSidebarEntry[]
+    pagination?: PaginationState
+    children?: RemixNode
+  }>,
+) {
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     if (isFrameRequest()) {
-      return <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>{children}</ListsLayout>
+      return (
+        <ListsLayout
+          activeItem={activeItem}
+          sidebarEntries={sidebarEntries}
+          pagination={pagination}
+        >
+          {children}
+        </ListsLayout>
+      )
     }
     if (getContext().request.method !== 'GET') {
       return (
         <Layout>
-          <ListsLayout activeItem={activeItem} sidebarEntries={sidebarEntries} pagination={pagination}>{children}</ListsLayout>
+          <ListsLayout
+            activeItem={activeItem}
+            sidebarEntries={sidebarEntries}
+            pagination={pagination}
+          >
+            {children}
+          </ListsLayout>
         </Layout>
       )
     }
@@ -113,20 +133,31 @@ function buildPageHref(offset: number, pagination: PaginationState): string {
   return routes.lists.index.href() + '?' + params.toString()
 }
 
-function ListsLayout(handle: Handle<{
-  activeItem: ListsNavItem
-  sidebarEntries: ListSidebarEntry[]
-  pagination?: PaginationState
-  children?: RemixNode
-}>) {
+function ListsLayout(
+  handle: Handle<{
+    activeItem: ListsNavItem
+    sidebarEntries: ListSidebarEntry[]
+    pagination?: PaginationState
+    children?: RemixNode
+  }>,
+) {
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
-          <div mix={shellStyle}>
+      <div mix={shellStyle}>
         <aside mix={sidebarStyle}>
           <div mix={sidebarHeaderStyle}>
             <span mix={headerIconWrapStyle}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
                 <rect x="9" y="3" width="6" height="4" rx="1" />
                 <line x1="9" y1="12" x2="15" y2="12" />
@@ -172,7 +203,16 @@ function ListsLayout(handle: Handle<{
               mix={[navLinkStyle, activeItem === 'new' && navActiveStyle].filter(Boolean)}
             >
               <span mix={navIconStyle}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
@@ -180,33 +220,62 @@ function ListsLayout(handle: Handle<{
               Neue Liste
             </NavLink>
             {sidebarEntries.map((entry) => {
-              let listId = typeof entry.id === 'string' && entry.id.startsWith('list:')
-                ? Number(entry.id.slice(5))
-                : null
-              let href = listId !== null ? buildListHref(listId, pagination) : routes.lists.index.href()
+              let listId =
+                typeof entry.id === 'string' && entry.id.startsWith('list:')
+                  ? Number(entry.id.slice(5))
+                  : null
+              let href =
+                listId !== null ? buildListHref(listId, pagination) : routes.lists.index.href()
               let noDescription = !entry.label.trim()
               let displayName = noDescription ? `Liste #${listId}` : entry.label
               return (
-                <div key={entry.id} mix={entryRowStyle} data-list-id={listId ?? undefined} data-updated-at={entry.updatedAt ?? undefined}>
+                <div
+                  key={entry.id}
+                  mix={entryRowStyle}
+                  data-list-id={listId ?? undefined}
+                  data-updated-at={entry.updatedAt ?? undefined}
+                >
                   <NavLink
                     href={href}
                     target={frameTarget}
                     active={activeItem === entry.id}
-                    mix={[navLinkStyle, entryNavLinkStyle, tooltipAnchorStyle, activeItem === entry.id && navActiveStyle].filter(Boolean)}
+                    mix={[
+                      navLinkStyle,
+                      entryNavLinkStyle,
+                      tooltipAnchorStyle,
+                      activeItem === entry.id && navActiveStyle,
+                    ].filter(Boolean)}
                     dataTooltip={displayName}
                   >
                     <span mix={navIconStyle}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
                         <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
                         <rect x="9" y="3" width="6" height="4" rx="1" />
                         <line x1="9" y1="12" x2="15" y2="12" />
                         <line x1="9" y1="16" x2="13" y2="16" />
                       </svg>
                     </span>
-                    <span mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(Boolean)} data-list-name>
+                    <span
+                      mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(
+                        Boolean,
+                      )}
+                      data-list-name
+                    >
                       {displayName}
                     </span>
-                    <span mix={countBadgeStyle} aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}>
+                    <span
+                      mix={countBadgeStyle}
+                      aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}
+                    >
                       {entry.count}
                     </span>
                   </NavLink>
@@ -219,8 +288,21 @@ function ListsLayout(handle: Handle<{
                       mix={deleteFormStyle}
                     >
                       <CsrfTokenInput />
-                      <button type="submit" mix={deleteBtnStyle} aria-label={`Liste "${displayName}" löschen`}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <button
+                        type="submit"
+                        mix={deleteBtnStyle}
+                        aria-label={`Liste "${displayName}" löschen`}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                         </svg>
@@ -232,9 +314,7 @@ function ListsLayout(handle: Handle<{
             })}
             <ListNameEdit />
             <ConfirmDelete />
-            {sidebarEntries.length === 0 && (
-              <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>
-            )}
+            {sidebarEntries.length === 0 && <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>}
             {pagination && sidebarEntries.length > 0 && (
               <div mix={paginationStyle}>
                 {pagination.offset > 0 ? (
@@ -267,11 +347,7 @@ function ListsLayout(handle: Handle<{
           </nav>
         </aside>
         <section mix={contentStyle}>
-          <Breadcrumbs
-            items={getBreadcrumbs(
-              new URL(getContext().request.url).pathname,
-            )}
-          />
+          <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
           {children}
         </section>
       </div>

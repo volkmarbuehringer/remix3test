@@ -15,13 +15,6 @@ export async function insertAppWebhookRequest(
   return String(row.id)
 }
 
-export async function updateHermesStatus(
-  db: Database,
-  id: string,
-  status: string,
-): Promise<void> {
-  await db.exec(
-    'UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2',
-    [status, id],
-  )
+export async function updateHermesStatus(db: Database, id: string, status: string): Promise<void> {
+  await db.exec('UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2', [status, id])
 }

@@ -17,9 +17,11 @@ Additionally, the database already has a **global** overlap constraint (`EXCLUDE
 ## Capabilities
 
 ### New Capabilities
+
 - `cross-user-visibility`: View appointments of all users in the weekly grid, with visual distinction of ownership and read-only interaction for foreign appointments.
 
 ### Modified Capabilities
+
 - `appointment-calendar`: The `listAppointmentsByWeek` query removes the `user_id` filter (for listing only). The frontend `AppointmentGrid` component gains the ability to differentiate blocks by user identity and restrict interactions accordingly. The layout solver treats foreign blocks as fixed obstacles.
 
 ## Impact

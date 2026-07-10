@@ -63,7 +63,7 @@ describe('webhook-requests', () => {
     })
     assert.ok(result.rows.length >= 1)
     assert.ok(typeof result.hasMore === 'boolean')
-    assert.ok(result.rows.some(r => r.id === testId))
+    assert.ok(result.rows.some((r) => r.id === testId))
   })
 
   it('listWebhookRequests returns empty rows for beyond-range offset', async () => {
@@ -89,7 +89,11 @@ describe('webhook-requests', () => {
   })
 
   it('updateWebhookRequestPayload returns false for non-existent id', async () => {
-    let updated = await updateWebhookRequestPayload(db, '00000000-0000-0000-0000-000000009999', '{}')
+    let updated = await updateWebhookRequestPayload(
+      db,
+      '00000000-0000-0000-0000-000000009999',
+      '{}',
+    )
     assert.equal(updated, false)
   })
 

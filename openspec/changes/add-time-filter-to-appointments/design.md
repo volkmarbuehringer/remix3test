@@ -5,6 +5,7 @@ The admin appointments page (`/verwaltung/appointments`) currently supports sort
 The goal is to port this exact pattern to admin appointments, reusing the existing infrastructure where possible. The `GridState` type and `grid-state.ts` utilities already support a `period` field — no schema changes needed there.
 
 **Current state of admin appointments:**
+
 - Controller: `app/actions/admin-appointments/controller.tsx`
 - Page UI: `app/ui/admin-appointments-page.tsx`
 - Form: `app/ui/admin-appointments-form.tsx`
@@ -12,6 +13,7 @@ The goal is to port this exact pattern to admin appointments, reusing the existi
 - The admin appointments table is sorted/filtered by `offset`, `sort`, `order`, `filter` query params — `period` is not yet read or applied
 
 **Current state of admin offerings (reference pattern):**
+
 - `getPeriodRange()` in `app/actions/admin-offerings/controller.tsx` (lines 94–126) — converts period string to `{ startMs, endMs }`
 - SQL filtering: `AND ao.day >= $X AND ao.day < $Y` (lines 192–205)
 - UI buttons in `app/ui/admin-offerings-page.tsx` (lines 170–202) with `buildPeriodUrl()` helper
@@ -20,12 +22,14 @@ The goal is to port this exact pattern to admin appointments, reusing the existi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add five period filter buttons to the admin appointments page toolbar: Alle (all), Diese Woche, Nächste Woche, Diesen Monat, Nächsten Monat
 - Filter appointments by `day` column in SQL when a period is selected
 - Preserve period in URL across sorting, pagination, and form submissions
 - Reuse the existing `getPeriodRange()` pattern and `GridState.period` field
 
 **Non-Goals:**
+
 - Changing the user-facing `/appointment` calendar page (this is a different UI paradigm with week-based navigation)
 - Adding new period types beyond the five already used in offerings
 - Modifying the admin offerings implementation

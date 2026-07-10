@@ -43,7 +43,9 @@ export const NutzerTableInteractive = clientEntry(
 
                 function onContextMenu(event: Event) {
                   let mouseEvent = event as MouseEvent
-                  let tr = (mouseEvent.target as Element)?.closest?.('tr[data-row-id]') as HTMLElement | null
+                  let tr = (mouseEvent.target as Element)?.closest?.(
+                    'tr[data-row-id]',
+                  ) as HTMLElement | null
                   if (!tr) return
 
                   mouseEvent.preventDefault()
@@ -80,22 +82,41 @@ export const NutzerTableInteractive = clientEntry(
           <MenuList
             mix={onMenuSelect((event) => {
               if (lastRightClickedRow) {
-                handleRowAction(lastRightClickedRow, event, offset, sortColumn, sortDirection, filter)
+                handleRowAction(
+                  lastRightClickedRow,
+                  event,
+                  offset,
+                  sortColumn,
+                  sortDirection,
+                  filter,
+                )
               }
             })}
           >
-            <MenuItem name="edit"><Glyph name="edit" width={14} height={14} /> Bearbeiten</MenuItem>
-            <MenuItem name="reset-password"><Glyph name="chevronRight" width={14} height={14} /> Passwort zurücksetzen</MenuItem>
+            <MenuItem name="edit">
+              <Glyph name="edit" width={14} height={14} /> Bearbeiten
+            </MenuItem>
+            <MenuItem name="reset-password">
+              <Glyph name="chevronRight" width={14} height={14} /> Passwort zurücksetzen
+            </MenuItem>
             <Separator />
-            {isLocked
-              ? <MenuItem name="unlock">Entsperren</MenuItem>
-              : <MenuItem name="lock">Sperren</MenuItem>}
-            {isActive
-              ? <MenuItem name="deactivate">Deaktivieren</MenuItem>
-              : <MenuItem name="activate">Aktivieren</MenuItem>}
-            <MenuItem name="copy-email" disabled={!currentRow?.n_email}><Glyph name="copy" width={14} height={14} /> E-Mail kopieren</MenuItem>
+            {isLocked ? (
+              <MenuItem name="unlock">Entsperren</MenuItem>
+            ) : (
+              <MenuItem name="lock">Sperren</MenuItem>
+            )}
+            {isActive ? (
+              <MenuItem name="deactivate">Deaktivieren</MenuItem>
+            ) : (
+              <MenuItem name="activate">Aktivieren</MenuItem>
+            )}
+            <MenuItem name="copy-email" disabled={!currentRow?.n_email}>
+              <Glyph name="copy" width={14} height={14} /> E-Mail kopieren
+            </MenuItem>
             <Separator />
-            <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}><Glyph name="trash" width={14} height={14} /> Löschen</MenuItem>
+            <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
+              <Glyph name="trash" width={14} height={14} /> Löschen
+            </MenuItem>
           </MenuList>
         </menu.Context>
       )
@@ -111,8 +132,7 @@ function handleRowAction(
   sortDirection: 'asc' | 'desc',
   filter: string | undefined,
 ) {
-  let csrfToken =
-    document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+  let csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 
   switch (event.item.name) {
     case 'edit': {
@@ -122,7 +142,7 @@ function handleRowAction(
       params.set('sort', sortColumn)
       params.set('order', sortDirection)
       if (filter) params.set('filter', filter)
-       window.location.href = '/admin/nutzer?' + params.toString()
+      window.location.href = '/admin/nutzer?' + params.toString()
       break
     }
     case 'reset-password': {
@@ -180,7 +200,9 @@ function handleRowAction(
     }
     case 'copy-email': {
       if (!row.n_email) return
-      navigator.clipboard.writeText(row.n_email).catch((err) => console.warn('Failed to copy email:', err))
+      navigator.clipboard
+        .writeText(row.n_email)
+        .catch((err) => console.warn('Failed to copy email:', err))
       break
     }
     case 'delete': {

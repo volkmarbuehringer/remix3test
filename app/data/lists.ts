@@ -24,7 +24,11 @@ export type PatchResult =
 function parseRow(row: Record<string, unknown>): ListRow {
   let list = row.list
   if (typeof list === 'string') {
-    try { list = JSON.parse(list) } catch { list = [] }
+    try {
+      list = JSON.parse(list)
+    } catch {
+      list = []
+    }
   }
   return {
     id: Number(row.id),
@@ -40,9 +44,8 @@ function assignStableIds(
   items: Array<{ id?: string; label: string }>,
 ): Array<{ id: string; label: string }> {
   return items.map((item) => ({
-    id: item.id && typeof item.id === 'string' && item.id.length > 0
-      ? item.id
-      : crypto.randomUUID(),
+    id:
+      item.id && typeof item.id === 'string' && item.id.length > 0 ? item.id : crypto.randomUUID(),
     label: item.label,
   }))
 }
@@ -149,7 +152,7 @@ export async function patchList(
     if (parsed.updated_at !== options.expectedUpdatedAt) {
       return { ok: false, reason: 'conflict', current: parsed }
     }
-    (updateWhere as Record<string, unknown>).updated_at = options.expectedUpdatedAt
+    ;(updateWhere as Record<string, unknown>).updated_at = options.expectedUpdatedAt
   }
 
   let updateFields: Record<string, unknown> = { updated_at: Date.now() }
@@ -162,19 +165,15 @@ export async function patchList(
 
   let writeResult = await db.updateMany(lists, updateFields, { where: updateWhere })
   if (options?.expectedUpdatedAt != null && (writeResult.affectedRows ?? 0) === 0) {
-    let current = await db.findOne(lists, { where }) as Record<string, unknown>
+    let current = (await db.findOne(lists, { where })) as Record<string, unknown>
     return { ok: false, reason: 'conflict', current: parseRow(current) }
   }
 
-  let updated = await db.findOne(lists, { where }) as Record<string, unknown>
+  let updated = (await db.findOne(lists, { where })) as Record<string, unknown>
   return { ok: true, row: parseRow(updated) }
 }
 
-export async function deleteList(
-  db: Database,
-  id: number,
-  userId?: number,
-): Promise<boolean> {
+export async function deleteList(db: Database, id: number, userId?: number): Promise<boolean> {
   let where = userId != null ? { id, user_id: userId } : { id }
   let existing = await db.findOne(lists, { where })
   if (!existing) return false

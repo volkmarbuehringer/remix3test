@@ -12,11 +12,11 @@ Every response produced by any route — HTML pages, JSON API responses, SSE eve
 
 ### R1 — Baseline headers (always present)
 
-| Header | Value | Purpose |
-|--------|-------|---------|
-| `X-Content-Type-Options` | `nosniff` | Prevent MIME type sniffing |
-| `X-Frame-Options` | `DENY` | Prevent clickjacking in frames |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Control referrer leakage |
+| Header                   | Value                             | Purpose                        |
+| ------------------------ | --------------------------------- | ------------------------------ |
+| `X-Content-Type-Options` | `nosniff`                         | Prevent MIME type sniffing     |
+| `X-Frame-Options`        | `DENY`                            | Prevent clickjacking in frames |
+| `Referrer-Policy`        | `strict-origin-when-cross-origin` | Control referrer leakage       |
 
 These three headers are already implemented. They must continue to be set on every response.
 
@@ -24,35 +24,35 @@ These three headers are already implemented. They must continue to be set on eve
 
 A `Content-Security-Policy` header must be set on every response with the following directives:
 
-| Directive | Value | Rationale |
-|-----------|-------|-----------|
-| `default-src` | `'self'` | Restrict all resource loading to same origin by default |
-| `script-src` | `'self'` | Only scripts from same origin (Remix bundles are external) |
-| `style-src` | `'self' 'unsafe-inline'` | Remix 3 `css()` mixins generate inline `<style>` elements |
-| `connect-src` | `'self' ws://localhost:44100 wss: https://opencode.ai` | SSE connections + AI provider API |
-| `frame-ancestors` | `'none'` | Matches existing X-Frame-Options DENY |
-| `form-action` | `'self'` | Only allow form submissions to same origin |
-| `img-src` | `'self' data:` | Allow inline data URIs for simple images |
-| `base-uri` | `'self'` | Prevent `<base>` injection |
+| Directive         | Value                                                  | Rationale                                                  |
+| ----------------- | ------------------------------------------------------ | ---------------------------------------------------------- |
+| `default-src`     | `'self'`                                               | Restrict all resource loading to same origin by default    |
+| `script-src`      | `'self'`                                               | Only scripts from same origin (Remix bundles are external) |
+| `style-src`       | `'self' 'unsafe-inline'`                               | Remix 3 `css()` mixins generate inline `<style>` elements  |
+| `connect-src`     | `'self' ws://localhost:44100 wss: https://opencode.ai` | SSE connections + AI provider API                          |
+| `frame-ancestors` | `'none'`                                               | Matches existing X-Frame-Options DENY                      |
+| `form-action`     | `'self'`                                               | Only allow form submissions to same origin                 |
+| `img-src`         | `'self' data:`                                         | Allow inline data URIs for simple images                   |
+| `base-uri`        | `'self'`                                               | Prevent `<base>` injection                                 |
 
 The policy string must be constructed once at module initialization and reused across requests (no per-request string building).
 
 ### R3 — Strict-Transport-Security
 
-| Condition | Value |
-|-----------|-------|
+| Condition                                | Value                                 |
+| ---------------------------------------- | ------------------------------------- |
 | Production (`NODE_ENV === 'production'`) | `max-age=31536000; includeSubDomains` |
-| Development | Not set (allows HTTP local dev) |
+| Development                              | Not set (allows HTTP local dev)       |
 
 ### R4 — Permissions-Policy
 
-| Directive | Value |
-|-----------|-------|
-| `camera` | `()` |
-| `microphone` | `()` |
-| `geolocation` | `()` |
-| `payment` | `()` |
-| `usb` | `()` |
+| Directive     | Value |
+| ------------- | ----- |
+| `camera`      | `()`  |
+| `microphone`  | `()`  |
+| `geolocation` | `()`  |
+| `payment`     | `()`  |
+| `usb`         | `()`  |
 
 ### R5 — Existing header preservation
 

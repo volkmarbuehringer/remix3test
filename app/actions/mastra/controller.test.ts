@@ -3,7 +3,11 @@ import * as assert from 'remix/assert'
 
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser, createTestUser } from '../../test-utils.ts'
+import {
+  createAuthCookieWithCsrf,
+  createAuthCookieWithCsrfForUser,
+  createTestUser,
+} from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import { __setTestAgent, chatRateLimiter } from './controller.tsx'
 
@@ -515,19 +519,17 @@ describe('Mastra Chat tools', () => {
   })
 
   it('lookupHoliday returns known holiday for Christmas', async () => {
-    let result = (await execTool(
-      supportTools.lookupHoliday as unknown as Record<string, unknown>,
-      { date: '2026-12-25' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.lookupHoliday as unknown as Record<string, unknown>, {
+      date: '2026-12-25',
+    })) as Record<string, unknown>
     assert.ok(result.isHoliday, 'Christmas should be a holiday')
     assert.ok(typeof result.name === 'string' && (result.name as string).length > 0)
   })
 
   it('lookupHoliday returns false for non-holiday', async () => {
-    let result = (await execTool(
-      supportTools.lookupHoliday as unknown as Record<string, unknown>,
-      { date: '2026-07-15' },
-    )) as Record<string, unknown>
+    let result = (await execTool(supportTools.lookupHoliday as unknown as Record<string, unknown>, {
+      date: '2026-07-15',
+    })) as Record<string, unknown>
     assert.ok(!result.isHoliday, 'July 15 should not be a holiday')
   })
 
@@ -551,12 +553,14 @@ describe('Mastra Chat tools', () => {
   })
 
   it('cancelUserAccount returns error when canceling own account', async () => {
-    let adminRow = (await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com']))
-      .rows[0] as { id: number; email: string }
+    let adminRow = (
+      await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com'])
+    ).rows[0] as { id: number; email: string }
     let adminId = adminRow.id as number
-    let result = await runWithAdminId(adminId, () => execTool(
-      supportTools.cancelUserAccount as unknown as Record<string, unknown>,
-      { targetUserId: adminId },
+    let result = (await runWithAdminId(adminId, () =>
+      execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
+        targetUserId: adminId,
+      }),
     )) as Record<string, unknown>
     assert.ok(!result.success, 'should fail')
     assert.equal(result.error, 'Cannot cancel your own account')
@@ -570,10 +574,9 @@ describe('Mastra Chat tools', () => {
     // Calling without runWithAdminId should throw
     let threw = false
     try {
-      await execTool(
-        supportTools.cancelUserAccount as unknown as Record<string, unknown>,
-        { targetUserId: userRow?.id ?? 9999 },
-      )
+      await execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
+        targetUserId: userRow?.id ?? 9999,
+      })
     } catch {
       threw = true
     }
@@ -581,8 +584,9 @@ describe('Mastra Chat tools', () => {
   })
 
   it('cancelUserAccount calls workflow with admin context', async () => {
-    let adminRow = (await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com']))
-      .rows[0] as { id: number; email: string }
+    let adminRow = (
+      await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com'])
+    ).rows[0] as { id: number; email: string }
 
     let targetId = await createTestUser(`cancel-workflow-target-${Date.now()}@example.com`)
     if (!targetId) throw new Error('Failed to create test user')
@@ -590,10 +594,11 @@ describe('Mastra Chat tools', () => {
 
     let result: Record<string, unknown>
     try {
-      result = (await runWithAdminId(adminRow.id, () => execTool(
-        supportTools.cancelUserAccount as unknown as Record<string, unknown>,
-        { targetUserId: targetId },
-      ))) as Record<string, unknown>
+      result = (await runWithAdminId(adminRow.id, () =>
+        execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
+          targetUserId: targetId,
+        }),
+      )) as Record<string, unknown>
 
       assert.equal(result.success, true)
       assert.equal(result.targetUserId, targetId)

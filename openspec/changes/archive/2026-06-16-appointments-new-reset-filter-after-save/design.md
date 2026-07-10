@@ -7,6 +7,7 @@ This is correct for validation errors (the user stays in the same filtered conte
 ## Goals / Non-Goals
 
 **Goals:**
+
 - On successful create, update, or destroy, clear `period`, `filter`, and `offset` in the redirect URL
 - Preserve `sort` and `order` (keep the user's sort preference)
 - Preserve `status` behavior (defaults to `pending` which shows future appointments)
@@ -14,6 +15,7 @@ This is correct for validation errors (the user stays in the same filtered conte
 - Leave validation-error re-render paths unchanged (preserve all filters during errors)
 
 **Non-Goals:**
+
 - No changes to the URL builder helpers (`buildSortUrl`, `buildPaginationUrl`, `buildCreateUrl`, etc.) — those are for navigation, not post-mutation redirects
 - No changes to the `grid-state-hidden.tsx` component — the form still needs to carry filter state for validation error handling
 - No UI changes — the filter toolbar buttons continue working as before

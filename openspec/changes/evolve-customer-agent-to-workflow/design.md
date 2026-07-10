@@ -9,6 +9,7 @@ The chat controller at `app/actions/chat/controller.tsx` currently handles GET (
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a `findNextAvailableSlots` tool to the customer agent that returns available full-hour slots for a resource across the next 7 days
 - Present up to 3 slot options as radio buttons in an inline form within the chat UI
 - Derive the appointment title from conversation context (customer agent sets it)
@@ -17,6 +18,7 @@ The chat controller at `app/actions/chat/controller.tsx` currently handles GET (
 - Handle slot-gone errors: if the selected slot is no longer available, suggest an alternative
 
 **Non-Goals:**
+
 - No changes to the existing `/appointments/new` wizard or its controller
 - No Mastra workflow step (agents direct call, no `createStep` orchestration)
 - No cancellation policy UI in the chat flow
@@ -159,13 +161,13 @@ user clicks "Termin buchen" (radio: Do 10.07. 10:00)
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Slot logic duplicated in agent tool diverges from wizard logic | Acceptable — both can evolve independently. If they diverge too much, extract later |
-| Booking agent hallucinates the `createAppointment` tool input | Tool schema enforces required fields with Zod validation; agent cannot skip them |
-| Slot becomes unavailable between agent response and user confirmation | Booking agent catches exclusion violation and suggests next available; no silent failure |
-| Title derived from context is low quality | Title defaults to `""` which is acceptable (wizard allows it). Agent can do better with clear instructions |
-| Customer agent response lacks structured slot data format | Define a clear interface between agent response and UI rendering |
+| Risk                                                                  | Mitigation                                                                                                 |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Slot logic duplicated in agent tool diverges from wizard logic        | Acceptable — both can evolve independently. If they diverge too much, extract later                        |
+| Booking agent hallucinates the `createAppointment` tool input         | Tool schema enforces required fields with Zod validation; agent cannot skip them                           |
+| Slot becomes unavailable between agent response and user confirmation | Booking agent catches exclusion violation and suggests next available; no silent failure                   |
+| Title derived from context is low quality                             | Title defaults to `""` which is acceptable (wizard allows it). Agent can do better with clear instructions |
+| Customer agent response lacks structured slot data format             | Define a clear interface between agent response and UI rendering                                           |
 
 ## Open Questions
 

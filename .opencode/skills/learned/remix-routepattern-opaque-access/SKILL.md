@@ -1,6 +1,6 @@
 ---
 name: remix-routepattern-opaque-access
-description: "Use .source/.toJSON() not .pathname.tokens after RoutePattern becomes opaque in Remix 3"
+description: 'Use .source/.toJSON() not .pathname.tokens after RoutePattern becomes opaque in Remix 3'
 origin: auto-extracted
 ---
 
@@ -22,13 +22,14 @@ let tokens = route.pattern.pathname.tokens
 
 Use the public API — `source`, `toString()`, or `toJSON()` — with string manipulation instead of token-level access.
 
-| Public API | Returns | Example |
-|---|---|---|
-| `route.pattern.source` | Normalized pattern string | `/admin/fragments/user-detail/:userId` |
-| `route.pattern.toString()` | Same as `.source` | `/admin/fragments/user-detail/:userId` |
-| `route.pattern.toJSON().pathname` | Pathname without leading `/` | `admin/fragments/user-detail/:userId` |
+| Public API                        | Returns                      | Example                                |
+| --------------------------------- | ---------------------------- | -------------------------------------- |
+| `route.pattern.source`            | Normalized pattern string    | `/admin/fragments/user-detail/:userId` |
+| `route.pattern.toString()`        | Same as `.source`            | `/admin/fragments/user-detail/:userId` |
+| `route.pattern.toJSON().pathname` | Pathname without leading `/` | `admin/fragments/user-detail/:userId`  |
 
 **Before** (token walking):
+
 ```ts
 function routeParentPath(route) {
   let tokens = route.pattern.pathname.tokens
@@ -47,6 +48,7 @@ function routeParentPath(route) {
 ```
 
 **After** (string-based):
+
 ```ts
 function routeParentPath(route) {
   return route.pattern.source.replace(/\/[:*][^/]*$/, '/')

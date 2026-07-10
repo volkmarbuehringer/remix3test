@@ -7,6 +7,7 @@ The previous postinstall (oxlint bindings + node-tsx patch) has been removed as 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Automatically install Playwright browsers (chromium, firefox) on `pnpm install`
 - Use `--only-shell` flag to minimize download size (enough for test runner, no GUI needed)
 - Include retry logic: if installation fails, clean up partial installs and retry once
@@ -15,6 +16,7 @@ The previous postinstall (oxlint bindings + node-tsx patch) has been removed as 
 - Skip installation entirely when `CI` environment variable is set (CI manages browsers separately)
 
 **Non-Goals:**
+
 - Not adding Playwright to dependencies (already present)
 - Not modifying test configuration or adding new test infrastructure
 - Not installing webkit or other browsers not needed by the project

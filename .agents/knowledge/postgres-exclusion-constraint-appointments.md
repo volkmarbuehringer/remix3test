@@ -1,5 +1,5 @@
 ---
-title: "PostgreSQL exclusion constraints for double-booking prevention"
+title: 'PostgreSQL exclusion constraints for double-booking prevention'
 tags: [postgres, appointments, scheduling, exclusion-constraint, gist, double-booking, migration]
 created: 2026-05-31
 status: active
@@ -34,6 +34,7 @@ CREATE TABLE appointments (
 ```
 
 **Key pieces:**
+
 - `int4range` stores the time range as minutes since midnight (e.g. `[480,1020)` = 08:00-17:00)
 - `GENERATED ALWAYS AS (lower(during)) STORED` keeps `start_min`/`end_min` in sync without application logic
 - `EXCLUDE USING GIST` prevents any two rows where `resource_id`, `date`, and `during` overlap (`&&`)

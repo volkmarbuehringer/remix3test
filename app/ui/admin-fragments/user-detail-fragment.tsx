@@ -37,20 +37,20 @@ export function UserDetailFragment(handle: Handle<UserDetailFragmentProps>) {
   return () => {
     let { userId, name, role } = handle.props
     return (
-    <div mix={detailStyle}>
-      <div mix={rowStyle}>
-        <span mix={labelStyle}>Benutzer-ID</span>
-        <span mix={valueStyle}>{userId}</span>
+      <div mix={detailStyle}>
+        <div mix={rowStyle}>
+          <span mix={labelStyle}>Benutzer-ID</span>
+          <span mix={valueStyle}>{userId}</span>
+        </div>
+        <div mix={rowStyle}>
+          <span mix={labelStyle}>Name</span>
+          <span mix={valueStyle}>{name}</span>
+        </div>
+        <div mix={rowStyle}>
+          <span mix={labelStyle}>Rolle</span>
+          <span mix={valueStyle}>{role}</span>
+        </div>
       </div>
-      <div mix={rowStyle}>
-        <span mix={labelStyle}>Name</span>
-        <span mix={valueStyle}>{name}</span>
-      </div>
-      <div mix={rowStyle}>
-        <span mix={labelStyle}>Rolle</span>
-        <span mix={valueStyle}>{role}</span>
-      </div>
-    </div>
-  )
+    )
   }
 }

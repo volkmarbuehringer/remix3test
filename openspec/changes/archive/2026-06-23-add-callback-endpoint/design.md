@@ -7,6 +7,7 @@ The app uses Remix 3 with raw PostgreSQL via the `pg` pool. Existing POST-only r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a `POST /callback` endpoint that Hermes can POST results to
 - Accept JSON body: `{ "id": "<uuid>", "status": "completed|failed", "result": { ... } }`
 - Only accept requests from localhost (127.0.0.1, ::1)
@@ -15,6 +16,7 @@ The app uses Remix 3 with raw PostgreSQL via the `pg` pool. Existing POST-only r
 - Return 200 on success, 404 if UUID not found, 403 if not localhost
 
 **Non-Goals:**
+
 - Adding callback display to the webhook-requests viewer page (future work)
 - Retry or queue logic for callbacks
 - Authentication beyond localhost restriction (Hermes runs on the same machine)
@@ -22,13 +24,13 @@ The app uses Remix 3 with raw PostgreSQL via the `pg` pool. Existing POST-only r
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Localhost check | Check `X-Forwarded-For`, `X-Real-Ip`, then `REMOTE_ADDR` (via request headers) | Hermes runs on same host; no shared secret needed |
-| Controller pattern | `createAction` in `app/actions/callback/controller.tsx` | Consistent with existing `webhookReceive` and `appWebhookReceive` patterns |
-| Store raw JSONB result | Store exactly what Hermes sends in `callback_response` | Schema-agnostic; works with any Hermes result shape |
-| Migration strategy | `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `migrate.ts` | Consistent with existing `hermes_status` pattern; idempotent |
-| No schema.ts entry | Keep raw SQL for `webhook_requests` | Already not in schema.ts; raw SQL is the existing pattern for this table |
+| Decision               | Choice                                                                         | Rationale                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Localhost check        | Check `X-Forwarded-For`, `X-Real-Ip`, then `REMOTE_ADDR` (via request headers) | Hermes runs on same host; no shared secret needed                          |
+| Controller pattern     | `createAction` in `app/actions/callback/controller.tsx`                        | Consistent with existing `webhookReceive` and `appWebhookReceive` patterns |
+| Store raw JSONB result | Store exactly what Hermes sends in `callback_response`                         | Schema-agnostic; works with any Hermes result shape                        |
+| Migration strategy     | `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` in `migrate.ts`                     | Consistent with existing `hermes_status` pattern; idempotent               |
+| No schema.ts entry     | Keep raw SQL for `webhook_requests`                                            | Already not in schema.ts; raw SQL is the existing pattern for this table   |
 
 ## Risks / Trade-offs
 

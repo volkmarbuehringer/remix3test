@@ -7,12 +7,14 @@ The sidebar uses the `Frame` navigation pattern with `target={frames.listsConten
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add "Vorherige" (Previous) and "Nächste" (Next) controls below the sidebar list entries
 - Allow users to browse through all their lists, 15 at a time
 - Preserve the active list highlight across page boundaries
 - Maintain the existing frame-based navigation pattern
 
 **Non-Goals:**
+
 - Changing the page size (stays at 15)
 - Adding search/filter to the sidebar (separate concern)
 - Changing the data fetching layer (`getAllLists` already supports this)

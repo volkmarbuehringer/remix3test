@@ -1,6 +1,6 @@
 ---
 name: idor-scope-write-bypass
-description: "When adding user_id ownership scoping to fix an IDOR, check for unscoped write paths that SET the owner column — they create a bypass"
+description: 'When adding user_id ownership scoping to fix an IDOR, check for unscoped write paths that SET the owner column — they create a bypass'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -15,6 +15,7 @@ origin: auto-extracted
 You add ownership scoping to READ queries to fix an IDOR — e.g. changing `SELECT ... WHERE id = $1` to `SELECT ... WHERE id = $1 AND user_id = $2`. But a pre-existing unscoped WRITE query that **sets the owner column** (`UPDATE ... SET user_id = $1 WHERE id = $2`) lets any authenticated user claim ownership of any row by id, then read it through the newly-scoped path.
 
 The two-request exploit:
+
 1. `POST /resource file=42` → unscoped UPDATE sets `uploaded_by = attacker.id WHERE id = 42`
 2. `GET /resource/42/download` → scoped SELECT returns the file (`WHERE id = 42 AND uploaded_by = attacker.id`)
 

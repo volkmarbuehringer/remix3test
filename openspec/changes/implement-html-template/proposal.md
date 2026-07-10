@@ -11,6 +11,7 @@ Two server-level error responses (`server.ts` catch-all 500 and `global-rate-lim
 ## Capabilities
 
 ### New Capabilities
+
 - `error-page-styling`: Styled HTML error pages for server-level error responses (500, 429) generated via `remix/html-template`, providing a consistent branded experience even when the React render pipeline is unavailable.
 
 ### Modified Capabilities

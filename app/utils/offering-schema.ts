@@ -9,7 +9,9 @@ export const offeringSaveSchema = f.object({
     coerce.number().refine((n) => n > 0 && Number.isFinite(n), 'ist erforderlich.'),
   ),
   day: f.field(
-    s.string().refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
+    s
+      .string()
+      .refine((v) => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Datum erforderlich (YYYY-MM-DD).'),
   ),
   start_min: f.field(
     coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 60 === 0, 'ist ungültig.'),

@@ -7,6 +7,7 @@ The lists page uses Remix Frames for SPA-like navigation with `X-Remix-Target: l
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Users can delete their own lists via a delete button in the sidebar
 - Delete is scoped to the authenticated user (admins can delete any)
 - Confirmation dialog shown before deletion
@@ -14,6 +15,7 @@ The lists page uses Remix Frames for SPA-like navigation with `X-Remix-Target: l
 - Route and action follow existing Remix patterns in this codebase
 
 **Non-Goals:**
+
 - Admin audit logging (already handled by admin delete path)
 - Bulk delete or undo functionality
 - Deleting list items within a list (existing client-side remove is sufficient)

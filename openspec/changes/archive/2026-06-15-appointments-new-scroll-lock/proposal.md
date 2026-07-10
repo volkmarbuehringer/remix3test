@@ -13,9 +13,11 @@ The `/appointments/new` page opens a sticky side panel for create/edit/delete op
 ## Capabilities
 
 ### New Capabilities
+
 - `appointments-page-scroll-lock`: Lock document scroll while the side panel (create/edit/delete) is open on `/appointments/new`, with proper scrollbar-gutter compensation and position restoration
 
 ### Modified Capabilities
+
 - `mobile-nav`: Replace the naive `document.body.style.overflow = 'hidden'` in the nav toggle clientEntry with `lockScroll()` / `lockScrollOnToggle()` from `remix/ui/scroll-lock`
 
 ## Impact

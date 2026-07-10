@@ -13,6 +13,7 @@ Node.js 24.3.0+ (which the project requires via `engines`) ships the `--env-file
 ## Capabilities
 
 ### New Capabilities
+
 - `env-loading`: How `.env` files are loaded into `process.env` — moved from inline `process.loadEnvFile()` calls to Node.js's built-in `--env-file-if-exists` CLI flag, managed centrally in `package.json`
 
 ### Modified Capabilities

@@ -15,10 +15,12 @@ On mobile screens, the current horizontal nav bar overflows and shows a cramped,
 ## Capabilities
 
 ### New Capabilities
+
 - `mobile-nav`: Responsive mobile navigation with hamburger toggle and curated overlay
 
 ### Modified Capabilities
-- *(none — existing specs unchanged)*
+
+- _(none — existing specs unchanged)_
 
 ## Impact
 

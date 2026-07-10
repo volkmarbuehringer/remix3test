@@ -7,12 +7,14 @@ The app also has 42 hardcoded inline SVGs and 5 emoji/text characters used as ic
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Correct the surface level value ordering so `lvl0` = lightest/elevated and `lvl4` = darkest/deepest, matching RMX_01 semantics
 - Replace hardcoded SVGs and emoji icons with `Glyph` components in the most visible, high-traffic areas
 - Maintain identical dark mode behavior (just with corrected values)
 - Keep all existing component structure — this is purely value and markup changes
 
 **Non-Goals:**
+
 - Replacing every single inline SVG in one pass — scoped to ~15 most impactful files
 - Changing the base font (JetBrains Mono stays)
 - Adding new glyphs to the library — only using what already exists
@@ -23,9 +25,10 @@ The app also has 42 hardcoded inline SVGs and 5 emoji/text characters used as ic
 ### Decision 1: Surface level values — invert with careful mapping
 
 Current → Target (light mode):
+
 ```
 lvl0: #dee2e6  →  #f7fbff  (lightest, elevated)
-lvl1: #e8ecf0  →  #f0f4f7  
+lvl1: #e8ecf0  →  #f0f4f7
 lvl2: #eef2f6  →  #eef2f6  (stays same — middle value)
 lvl3: #f0f4f7  →  #e8ecf0
 lvl4: #f7fbff  →  #dee2e6  (darkest, deepest)
@@ -41,19 +44,19 @@ The RMX_01 preset includes 17 glyphs that cover the vast majority of the icons u
 
 **Mapping of current icons to glyph names:**
 
-| Current Icon | Location | Glyph Name |
-|---|---|---|
-| Logout arrow (door) | `layout.tsx` nav | `close` (or keep inline — no direct match) |
-| 🌓 emoji | `layout.tsx` theme toggle | Use sun/moon: leave as emoji toggle or add basic CSS toggle |
-| Chat bubble | `chat-page.tsx` | `menu` (generic) or keep inline |
-| Sparkle/send | `chat-page.tsx` | Inline (no match) |
-| Admin nav icons | `admin-layout.tsx` | Replace with glyph equivalents |
-| AI nav icons | `ai-layout.tsx` | Replace with glyph equivalents |
-| ✓ / ✕ buttons | `lists-client.tsx` | `check` / `close` |
-| Select arrows | `workflow-page.tsx` | `chevronDown`, `chevronUp` |
-| Copy icon | `prompt-button.tsx` | `copy` |
-| Edit/pencil | `workflow-page.tsx` | `edit` |
-| Trash | `workflow-page.tsx` | `trash` |
+| Current Icon        | Location                  | Glyph Name                                                  |
+| ------------------- | ------------------------- | ----------------------------------------------------------- |
+| Logout arrow (door) | `layout.tsx` nav          | `close` (or keep inline — no direct match)                  |
+| 🌓 emoji            | `layout.tsx` theme toggle | Use sun/moon: leave as emoji toggle or add basic CSS toggle |
+| Chat bubble         | `chat-page.tsx`           | `menu` (generic) or keep inline                             |
+| Sparkle/send        | `chat-page.tsx`           | Inline (no match)                                           |
+| Admin nav icons     | `admin-layout.tsx`        | Replace with glyph equivalents                              |
+| AI nav icons        | `ai-layout.tsx`           | Replace with glyph equivalents                              |
+| ✓ / ✕ buttons       | `lists-client.tsx`        | `check` / `close`                                           |
+| Select arrows       | `workflow-page.tsx`       | `chevronDown`, `chevronUp`                                  |
+| Copy icon           | `prompt-button.tsx`       | `copy`                                                      |
+| Edit/pencil         | `workflow-page.tsx`       | `edit`                                                      |
+| Trash               | `workflow-page.tsx`       | `trash`                                                     |
 
 ### Decision 3: Add `RMX_01_GLYPHS` to document shell
 

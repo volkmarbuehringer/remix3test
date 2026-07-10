@@ -6,7 +6,9 @@ import { isDateInPast, isWithinHours, generateMinOptions } from './date-utils.ts
 describe('isDateInPast', () => {
   it('returns true for a date in the past (yesterday)', () => {
     let now = new Date()
-    let yesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
+    let yesterday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1),
+    )
     assert.ok(isDateInPast(yesterday.getTime()), 'yesterday should be in the past')
   })
 

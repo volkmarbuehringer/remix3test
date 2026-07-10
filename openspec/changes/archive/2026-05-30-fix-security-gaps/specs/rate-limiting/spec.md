@@ -44,11 +44,11 @@ interface RateLimiter {
 
 Exactly one of `perUser` or `perKey` must be set. If neither is set, the limiter is global (single key).
 
-| Mode | `options` | Key type | Example |
-|------|-----------|----------|---------|
-| Global | `{}` | (internal sentinel) | Global IP-based (future use) |
-| Per-user | `{ perUser: true }` | `number` (userId) | Login rate limiter |
-| Per-key | `{ perKey: true }` | `string` (email) | Register rate limiter |
+| Mode     | `options`           | Key type            | Example                      |
+| -------- | ------------------- | ------------------- | ---------------------------- |
+| Global   | `{}`                | (internal sentinel) | Global IP-based (future use) |
+| Per-user | `{ perUser: true }` | `number` (userId)   | Login rate limiter           |
+| Per-key  | `{ perKey: true }`  | `string` (email)    | Register rate limiter        |
 
 If both `perUser` and `perKey` are set, throw on construction.
 

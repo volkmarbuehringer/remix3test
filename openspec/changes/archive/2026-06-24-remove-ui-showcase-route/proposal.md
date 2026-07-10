@@ -14,10 +14,12 @@ The `/ui` and `/ui/:component` routes serve a development-only UI component show
 ## Capabilities
 
 ### New Capabilities
-*(none — this is pure removal)*
+
+_(none — this is pure removal)_
 
 ### Modified Capabilities
-*(none — no spec-level behavior changes)*
+
+_(none — no spec-level behavior changes)_
 
 ## Impact
 

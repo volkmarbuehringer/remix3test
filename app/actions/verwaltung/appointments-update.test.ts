@@ -3,7 +3,12 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/setup.ts'
-import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
+import {
+  BASE,
+  ADMIN_APPT_URL,
+  setupTestEnvironment,
+  teardownTestEnvironment,
+} from './controller.test-utils.ts'
 
 // Track IDs created during tests for cleanup
 const createdAppointmentIds: number[] = []
@@ -21,7 +26,9 @@ function nextSlot(): { startMin: number; endMin: number } {
   let startMin = offeringBoundsStart + 60 + _slotCounter * slotWidth
   let maxStart = offeringBoundsEnd - slotWidth
   if (startMin >= maxStart) {
-    throw new Error(`nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`)
+    throw new Error(
+      `nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`,
+    )
   }
   _slotCounter++
   return { startMin, endMin: startMin + slotWidth }
@@ -301,10 +308,15 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful update should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
+      assert.ok(
+        location.startsWith('/verwaltung/appointments'),
+        'should redirect to /verwaltung/appointments',
+      )
 
       // Verify the appointment was actually updated in the database
-      let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [appointmentId])
+      let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [
+        appointmentId,
+      ])
       assert.equal(checkResult.rows.length, 1, 'appointment should exist')
       assert.equal(
         (checkResult.rows[0] as { title: string }).title,
@@ -319,7 +331,7 @@ describe('Admin Appointments Controller', () => {
         resource_id: String(resourceId),
         user_id: String(userId),
         title: 'Past Date Update Test',
-        date: '2024-02-01',  // definitely in the past
+        date: '2024-02-01', // definitely in the past
         start_min: '480',
         end_min: '540',
       })

@@ -8,10 +8,7 @@ export async function listOfferingsByWeek(
   weekEnd: number,
   resourceId?: number,
 ): Promise<AppointOffering[]> {
-  let query = db
-    .query(appointofferings)
-    .where(gte('day', weekStart))
-    .where(lt('day', weekEnd))
+  let query = db.query(appointofferings).where(gte('day', weekStart)).where(lt('day', weekEnd))
 
   if (resourceId !== undefined) {
     query = query.where({ resource_id: resourceId })
@@ -110,9 +107,7 @@ export async function listDaysWithOfferings(
  * full-hour `start_min` values (multiples of 60) that fit within at least
  * one offering.
  */
-export function computeFullHourSlots(
-  ranges: { startMin: number; endMin: number }[],
-): number[] {
+export function computeFullHourSlots(ranges: { startMin: number; endMin: number }[]): number[] {
   let slots = new Set<number>()
   for (let { startMin, endMin } of ranges) {
     let firstHour = Math.ceil(startMin / 60) * 60

@@ -45,7 +45,8 @@ export function securityHeaders(): Middleware {
       headers.contentSecurityPolicy = csp
     }
     if (!headers.has('Permissions-Policy')) {
-      headers.permissionsPolicy = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()'
+      headers.permissionsPolicy =
+        'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), midi=(), sync-xhr=(), display-capture=()'
     }
 
     if (process.env.NODE_ENV === 'production' && !headers.has('Strict-Transport-Security')) {

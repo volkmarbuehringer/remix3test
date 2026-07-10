@@ -66,7 +66,16 @@ function ClientPage(handle: Handle<ClientPageProps>) {
 
     if (hasSidebar) {
       return (
-        <div mix={css({ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '24px', alignItems: 'start', maxWidth: '1100px', margin: '0 auto' })}>
+        <div
+          mix={css({
+            display: 'grid',
+            gridTemplateColumns: '1fr 380px',
+            gap: '24px',
+            alignItems: 'start',
+            maxWidth: '1100px',
+            margin: '0 auto',
+          })}
+        >
           {gridSection}
           <div mix={css({ position: 'sticky', top: '1.5rem' })}>
             {editRow ? (
@@ -94,11 +103,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       )
     }
 
-    return (
-      <div mix={css({ maxWidth: '960px', margin: '0 auto' })}>
-        {gridSection}
-      </div>
-    )
+    return <div mix={css({ maxWidth: '960px', margin: '0 auto' })}>{gridSection}</div>
   }
 }
 

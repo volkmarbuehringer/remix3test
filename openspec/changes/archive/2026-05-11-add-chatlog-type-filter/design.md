@@ -7,6 +7,7 @@ The existing admin sidebar has a "Chat Logs" link that shows all conversations. 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Support `?type=chat` filter showing only conversations where NO messages have toolCalls
 - Support `?type=agent` filter showing only conversations where SOME messages have toolCalls
 - Add "Chat Only" and "Agent Only" nav items in the admin sidebar Data section
@@ -14,6 +15,7 @@ The existing admin sidebar has a "Chat Logs" link that shows all conversations. 
 - Preserve the `type` parameter in pagination URLs
 
 **Non-Goals:**
+
 - No changes to routes, middleware, database, or package.json
 - No back-end query filtering (filtering is done in-memory after fetch — the chatlog table doesn't have a type column)
 - No changes to the text search filter behavior (it works alongside the type filter)

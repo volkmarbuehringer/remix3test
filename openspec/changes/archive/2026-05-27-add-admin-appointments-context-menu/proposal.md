@@ -14,9 +14,11 @@ The admin appointments page has visible Edit/Delete action buttons per row that 
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-appointments-context-menu`: Right-click context menu for admin appointments table rows with Edit and Delete actions
 
 ### Modified Capabilities
+
 <!-- No existing specs are modified -->
 
 ## Impact

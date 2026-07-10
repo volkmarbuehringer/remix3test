@@ -1,6 +1,6 @@
 ---
 name: remix3-two-tier-ip-trust-model
-description: "Two-tier IP source model for Remix 3: trusted TCP socket IP for auth, header fallback chain for logging"
+description: 'Two-tier IP source model for Remix 3: trusted TCP socket IP for auth, header fallback chain for logging'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -47,6 +47,7 @@ const handler = createRequestListener(
 ```
 
 Use `connectionIp()` for security decisions:
+
 - Localhost guard on `/callback` endpoints
 - IP-based rate limiting on login
 - Admin IP allowlists
@@ -67,18 +68,19 @@ export function sourceIp(request: Request): string {
 ```
 
 Use `sourceIp()` for non-security purposes:
+
 - Storing `source_ip` in database audit columns
 - Logging client addresses
 - Analytics and metrics
 
 ### Why Not `X-Forwarded-For`?
 
-| Source | Spoofable | Use Case |
-|--------|-----------|----------|
-| `client.address` (TCP socket) | No | Security decisions |
-| `X-Client-Ip` (set by server.ts) | No | Security decisions |
-| `X-Forwarded-For` | Yes | Audit logging only |
-| `X-Real-Ip` | Yes | Audit logging only |
+| Source                           | Spoofable | Use Case           |
+| -------------------------------- | --------- | ------------------ |
+| `client.address` (TCP socket)    | No        | Security decisions |
+| `X-Client-Ip` (set by server.ts) | No        | Security decisions |
+| `X-Forwarded-For`                | Yes       | Audit logging only |
+| `X-Real-Ip`                      | Yes       | Audit logging only |
 
 ## When to Use
 

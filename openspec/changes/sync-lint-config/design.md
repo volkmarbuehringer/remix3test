@@ -5,10 +5,12 @@ This app's lint config was scaffolded from the Remix template and has drifted sl
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Match the lint behavior of the upstream Remix repo
 - Clean up stale ignorePatterns from the Remix template that don't apply here
 
 **Non-Goals:**
+
 - Adding new lint rules beyond what upstream has
 - Changing formatter config (Prettier)
 

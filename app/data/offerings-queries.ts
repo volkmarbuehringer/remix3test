@@ -61,9 +61,7 @@ export async function listOfferings(
     paramIndex++
     let escaped = filter.slice(0, 200).replace(/[%_\\]/g, '\\$&')
     let searchPattern = `%${escaped}%`
-    let conditions = OFFERINGS_SEARCH_COLUMNS.map(
-      (col) => `${col} ILIKE $${paramIndex}`,
-    )
+    let conditions = OFFERINGS_SEARCH_COLUMNS.map((col) => `${col} ILIKE $${paramIndex}`)
     query += ` WHERE (${conditions.join(' OR ')})`
     queryParams.push(searchPattern)
     hasWhere = true

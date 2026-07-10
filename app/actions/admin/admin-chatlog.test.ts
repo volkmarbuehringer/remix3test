@@ -135,7 +135,10 @@ describe('Admin Chatlog controller', () => {
 
     assert.ok(response.status === 302 || response.status === 303, 'should redirect after destroy')
     let location = response.headers.get('Location')
-    assert.ok(location === '/admin/chatlog' || location?.startsWith('/admin/chatlog'), 'should redirect to chatlog index')
+    assert.ok(
+      location === '/admin/chatlog' || location?.startsWith('/admin/chatlog'),
+      'should redirect to chatlog index',
+    )
   })
 
   it('POST /admin/chatlog/:id/delete with invalid thread ID still redirects safely', async () => {
@@ -149,7 +152,10 @@ describe('Admin Chatlog controller', () => {
       redirect: 'manual',
     })
 
-    assert.ok(response.status === 302 || response.status === 303, 'should redirect safely for invalid ID')
+    assert.ok(
+      response.status === 302 || response.status === 303,
+      'should redirect safely for invalid ID',
+    )
   })
 
   it('POST /admin/chatlog/:id/delete without auth returns 403 (CSRF triggers before auth)', async () => {
@@ -176,4 +182,3 @@ describe('Admin Chatlog controller', () => {
     assert.ok(!html.includes('Weiter →'), 'should not show forward link with empty state')
   })
 })
-

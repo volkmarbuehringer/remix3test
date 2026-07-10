@@ -9,6 +9,7 @@ The `users` table has `token_version` (session invalidation) and `email` (UNIQUE
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a `disabled_at BIGINT` column to the `users` table
 - Add `runWithAdminId` / `requireAdminId` ALS helpers mirroring the existing `runWithUserId` pattern
 - Add a `cancel_user_account` tool to `support-tools.ts`
@@ -18,6 +19,7 @@ The `users` table has `token_version` (session invalidation) and `email` (UNIQUE
 - Wire `runWithAdminId` in the mastra chat controller
 
 **Non-Goals:**
+
 - No changes to the customer agent, customer chat, or customer booking workflows
 - No admin UI changes or new routes
 - No soft-delete for appointments (they are actually deleted)
@@ -29,9 +31,10 @@ The `users` table has `token_version` (session invalidation) and `email` (UNIQUE
 
 ### Decision 1: `disabled_at` timestamp instead of boolean or status enum
 
-A nullable `disabled_at BIGINT` column tells you not just *that* the account is disabled, but *when* it happened. NULL = active. A timestamp also enables future queries like "how many accounts were disabled last month?" A boolean `disabled` flag would need a separate `disabled_at` column anyway for audit purposes.
+A nullable `disabled_at BIGINT` column tells you not just _that_ the account is disabled, but _when_ it happened. NULL = active. A timestamp also enables future queries like "how many accounts were disabled last month?" A boolean `disabled` flag would need a separate `disabled_at` column anyway for audit purposes.
 
 **Alternatives considered:**
+
 - `status TEXT DEFAULT 'active'` — more expressive but unnecessary for this use case; adds string comparison overhead and possible invalid values
 - Reusing `token_version = -1` as a sentinel — fragile, not self-documenting
 - No migration, just randomize `password_hash` — indistinguishable from a bug, no audit trail
@@ -41,6 +44,7 @@ A nullable `disabled_at BIGINT` column tells you not just *that* the account is 
 The customer agent's tools use `runWithUserId` + `requireCurrentUserId()` to get the authenticated user. The support agent will use the identical pattern with `runWithAdminId` + `requireAdminId()`. The storage is set before `agent.generate()` in the controller and propagates through tool executions via Node.js AsyncLocalStorage.
 
 **Alternatives considered:**
+
 - Passing admin ID through memory `resource` field — fragile, requires parsing from agent runtime state
 - Looking up admin identity from the Mastra thread — no reliable API for this mid-tool-execution
 - A separate middleware that injects into the tool's `context` — would require changing every tool signature
@@ -50,6 +54,7 @@ The customer agent's tools use `runWithUserId` + `requireCurrentUserId()` to get
 Even though a simple `UPDATE users SET disabled_at = now()` could be a one-liner, using a workflow establishes the pattern for all future admin mutations. The 5-step workflow provides validation, audit logging, notification, and idempotency guarantees that a direct tool would need to reimplement.
 
 **Alternatives considered:**
+
 - Direct tool with inline DB writes — simpler but every future admin mutation would reimplement the same patterns
 - Tool→workflow with a generic `executeAdminWorkflow` helper — adds abstraction before we know the common patterns
 
@@ -58,12 +63,14 @@ Even though a simple `UPDATE users SET disabled_at = now()` could be a one-liner
 `DELETE FROM appointments WHERE user_id = $1 AND date > $now` keeps historical data for reports, audit trails, and billing. Past appointments remain in the system with the user's ID for join purposes.
 
 **Alternatives considered:**
+
 - Cascade-delete all — loses historical data
 - Soft-delete appointments (status = 'cancelled_by_admin') — more complex, the FK cascade already handles cleanup
 
 ### Decision 5: Login gate checks `disabled_at` in three places
 
 Three code paths need the check:
+
 1. `verifyCredentials` (password login) — `if (user.disabled_at) return null`
 2. Session `verify` (auth scheme) — `if (user.disabled_at) return null`
 3. `apiTokenAuth` (API token middleware) — `if (user.disabled_at) return 401`
@@ -169,18 +176,21 @@ Admin: "Cancel user Klaus Müller"
 ### Login Gate Changes
 
 **`app/middleware/auth.ts` — `verify` (session):**
+
 ```typescript
-if (user.disabled_at != null) return null   // NEW
+if (user.disabled_at != null) return null // NEW
 if (user.token_version !== value.tv) return null
 ```
 
 **`app/middleware/auth.ts` — `verifyCredentials` (password):**
+
 ```typescript
-if (user.disabled_at != null) return null   // NEW
+if (user.disabled_at != null) return null // NEW
 if (user.role !== 'admin' && user.email_verified !== 1) return null
 ```
 
 **`app/middleware/api-token-auth.ts` — `apiTokenAuth`:**
+
 ```typescript
 if (user.disabled_at != null) {
   return Response.json({ error: 'Account disabled' }, { status: 401 })
@@ -199,18 +209,20 @@ Idempotent. No data migration needed (existing rows stay NULL).
 ### API Token Revocation
 
 The `disable-account` step also revokes all outstanding API tokens for the target user:
+
 ```sql
 UPDATE api_tokens SET revoked_at = now WHERE user_id = $targetUserId AND revoked_at IS NULL
 ```
+
 This prevents a disabled user from authenticating via any existing API tokens.
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Admin accidentally cancels wrong user | Agent looks up user first (read tool), confirms with admin before firing mutation tool |
-| Workflow fails mid-step (e.g., appointments deleted but account not disabled) | Each step has idempotent guards; re-running the workflow on the same user is safe (disabled_at IS NULL check in step 3) |
-| Notification send fails and user doesn't know their account was cancelled | Notification is best-effort; audit log always captures the action; admin can see the result in the agent's response |
-| Past appointments reference a now-disabled user in UI | Appointments keep the user_id FK; the user row still exists, just with disabled_at set — queries that check disabled_at before showing user info would need separate handling |
-| `disabled_at` adds a column that every auth query must check | One nullable BIGINT column with an index; the check is a single `IS NULL` comparison — negligibly performance impact |
-| ALS does not propagate through agent.generate() internally | Already proven by the existing customer agent pattern (runWithUserId works) |
+| Risk                                                                          | Mitigation                                                                                                                                                                    |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin accidentally cancels wrong user                                         | Agent looks up user first (read tool), confirms with admin before firing mutation tool                                                                                        |
+| Workflow fails mid-step (e.g., appointments deleted but account not disabled) | Each step has idempotent guards; re-running the workflow on the same user is safe (disabled_at IS NULL check in step 3)                                                       |
+| Notification send fails and user doesn't know their account was cancelled     | Notification is best-effort; audit log always captures the action; admin can see the result in the agent's response                                                           |
+| Past appointments reference a now-disabled user in UI                         | Appointments keep the user_id FK; the user row still exists, just with disabled_at set — queries that check disabled_at before showing user info would need separate handling |
+| `disabled_at` adds a column that every auth query must check                  | One nullable BIGINT column with an index; the check is a single `IS NULL` comparison — negligibly performance impact                                                          |
+| ALS does not propagate through agent.generate() internally                    | Already proven by the existing customer agent pattern (runWithUserId works)                                                                                                   |

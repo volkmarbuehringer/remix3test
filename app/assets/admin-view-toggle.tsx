@@ -59,7 +59,10 @@ export const AdminViewToggle = clientEntry(
               padding: '0.25rem 0.5rem',
               borderRadius: '0.375rem',
               border: `1px solid ${theme.colors.border.default}`,
-              background: pendingHref === routes.admin.index.href() ? theme.colors.action.secondary.backgroundHover : theme.colors.action.secondary.background,
+              background:
+                pendingHref === routes.admin.index.href()
+                  ? theme.colors.action.secondary.backgroundHover
+                  : theme.colors.action.secondary.background,
               color: theme.colors.action.secondary.foreground,
               cursor: 'pointer',
               fontSize: '0.75rem',
@@ -84,17 +87,12 @@ export const AdminViewToggle = clientEntry(
               fontSize: '0.75rem',
               '&:hover': { background: theme.colors.action.secondary.backgroundHover },
             }),
-            on('click', () =>
-              reloadTopFrame(routes.admin.chatlog.index.href()),
-            ),
+            on('click', () => reloadTopFrame(routes.admin.chatlog.index.href())),
           ]}
           disabled={pendingHref !== null}
         >
-          {pendingHref === routes.admin.chatlog.index.href()
-            ? 'Loading Chatlog…'
-            : 'Chatlog'}
+          {pendingHref === routes.admin.chatlog.index.href() ? 'Loading Chatlog…' : 'Chatlog'}
         </button>
-        
       </div>
     )
   },

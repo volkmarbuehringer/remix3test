@@ -315,16 +315,9 @@ describe('Button click handling (pointerdown prevents blur race)', () => {
     input.dispatchEvent(new FocusEvent('blur', { bubbles: true }))
 
     // Assert: pointerdown fires before blur
-    assert.ok(
-      pointerdownFired,
-      'pointerdown on button should have fired',
-    )
+    assert.ok(pointerdownFired, 'pointerdown on button should have fired')
     assert.ok(blurFired, 'blur on textarea should have fired')
-    assert.equal(
-      order[0],
-      'pointerdown',
-      'pointerdown should fire BEFORE blur on button click',
-    )
+    assert.equal(order[0], 'pointerdown', 'pointerdown should fire BEFORE blur on button click')
 
     // Cleanup
     input.remove()
@@ -373,11 +366,7 @@ describe('Draft/Edit focus and blur behavior', () => {
     ta.focus()
 
     // Assert
-    assert.equal(
-      document.activeElement,
-      ta,
-      'textarea should be the active element after focus()',
-    )
+    assert.equal(document.activeElement, ta, 'textarea should be the active element after focus()')
 
     ta.remove()
   })
@@ -393,11 +382,7 @@ describe('Draft/Edit focus and blur behavior', () => {
     ta.blur()
 
     // Assert
-    assert.notEqual(
-      document.activeElement,
-      ta,
-      'textarea should NOT be active after blur()',
-    )
+    assert.notEqual(document.activeElement, ta, 'textarea should NOT be active after blur()')
 
     ta.remove()
   })
@@ -421,16 +406,11 @@ describe('Draft/Edit focus and blur behavior', () => {
       // Assert: after a microtask, rAF should have fired and focus set
       setTimeout(() => {
         assert.ok(rafFired, 'requestAnimationFrame callback should have fired')
-        assert.equal(
-          document.activeElement,
-          ta,
-          'textarea should be focused after rAF callback',
-        )
+        assert.equal(document.activeElement, ta, 'textarea should be focused after rAF callback')
         ta.remove()
         resolve()
       }, 50)
-    })
-  )
+    }))
 })
 
 // -----------------------------------------------------------------------
@@ -569,11 +549,7 @@ describe('Conditional rendering patterns', () => {
       container.append(span)
     }
 
-    assert.equal(
-      container.children.length,
-      1,
-      'when not editing, title span should be in DOM',
-    )
+    assert.equal(container.children.length, 1, 'when not editing, title span should be in DOM')
     assert.equal(
       container.querySelector('span')?.textContent,
       'Appointment Title',
@@ -589,11 +565,7 @@ describe('Conditional rendering patterns', () => {
       container.append(span)
     }
 
-    assert.equal(
-      container.children.length,
-      0,
-      'when editing, title span should NOT be in DOM',
-    )
+    assert.equal(container.children.length, 0, 'when editing, title span should NOT be in DOM')
   })
 
   it('buttons are added to DOM when editing is active', () => {
@@ -639,11 +611,7 @@ describe('Resize handle visibility during editing', () => {
       container.append(endHandle)
     }
 
-    assert.equal(
-      container.children.length,
-      0,
-      'resize handles should NOT render during editing',
-    )
+    assert.equal(container.children.length, 0, 'resize handles should NOT render during editing')
   })
 
   it('resize handles render when not dragging and not editing', () => {

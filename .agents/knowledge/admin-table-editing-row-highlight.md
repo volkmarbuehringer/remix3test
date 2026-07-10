@@ -1,5 +1,5 @@
 ---
-title: "Admin table editing row highlight with context menus"
+title: 'Admin table editing row highlight with context menus'
 tags: [admin, table, editing, context-menu, ui, remix3]
 created: 2026-06-01
 status: active
@@ -8,6 +8,7 @@ status: active
 ## Problem
 
 Admin table pages used per-row action buttons (Edit/Delete) cluttering each row. The goal was to:
+
 - Remove inline action buttons from table rows
 - Replace them with a right-click context menu (Bearbeiten/Löschen)
 - Highlight the row being edited with a brand-colored outline
@@ -50,6 +51,7 @@ export const AdminXxxContextMenu = clientEntry(
 ```
 
 Key elements:
+
 - `menu.Context` wrapper with `menu.contextTrigger()` on a hidden positioned div
 - Event delegation on `[data-xxx-table]` for `contextmenu` events
 - `data-row-id` attributes on `<tr>` elements for row identification

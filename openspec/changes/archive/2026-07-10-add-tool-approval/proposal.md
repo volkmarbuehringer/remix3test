@@ -15,9 +15,11 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `tool-approval`: Hard gate on `cancel_user_account` requiring explicit admin Approve/Decline in the chat UI
 
 ### Modified Capabilities
+
 - `mastra-chat`: Controller and UI updated to handle the suspended state and approval flow
 
 ## Impact

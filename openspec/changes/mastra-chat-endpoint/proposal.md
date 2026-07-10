@@ -17,11 +17,13 @@ The existing `/admin/support` route uses Mastra but with known issues: in-memory
 ## Capabilities
 
 ### New Capabilities
+
 - `mastra-chat`: Pure Mastra chat endpoint at `/mastra/chat` with Agent, Memory (PostgresStore), and scorers. No workflow orchestration (deferred). No custom AI framework code.
 - `mastra-support-tools`: Database query tools (`lookup_user`, `list_recent_appointments`, `count_users`) usable by any Mastra agent or workflow step.
 
 ### Modified Capabilities
-- *(none — existing specs are unchanged)*
+
+- _(none — existing specs are unchanged)_
 
 ## Impact
 

@@ -12,9 +12,11 @@ The customer chat agent currently asks the user "Möchten Sie verfügbare Termin
 ## Capabilities
 
 ### New Capabilities
+
 - `direct-slot-display`: After resource recommendation, the agent directly retrieves and displays available appointment slots without asking the customer for permission. Slots are shown in a 2-tier layout: available days first, then timeslots per day.
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

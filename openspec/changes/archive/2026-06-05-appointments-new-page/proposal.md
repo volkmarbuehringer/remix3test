@@ -14,11 +14,12 @@ Administrators need a quick self-service appointment view where they can manage 
 ## Capabilities
 
 ### New Capabilities
+
 - `appointments-new-page`: Simplified self-service appointments page at `/appointments/new` with reduced columns, inline action buttons, and no user selection in form
 
 ### Modified Capabilities
 
-*(None — the existing admin appointments page is unchanged)*
+_(None — the existing admin appointments page is unchanged)_
 
 ## Impact
 

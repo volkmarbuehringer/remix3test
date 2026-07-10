@@ -13,9 +13,11 @@ The offerings admin page currently shows all offerings regardless of their date.
 ## Capabilities
 
 ### New Capabilities
+
 - `offering-status-filter`: Server-side status filter (pending/expired) for the offering admin list, with URL-preserved state across navigation actions
 
 ### Modified Capabilities
+
 <!-- No existing spec-level capabilities are changing -- this is purely additive -->
 
 ## Impact

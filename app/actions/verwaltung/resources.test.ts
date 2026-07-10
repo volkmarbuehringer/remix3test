@@ -204,7 +204,10 @@ describe('Admin Resources Controller', () => {
       assert.ok(location.startsWith('/verwaltung/resources'))
 
       // Verify the description and capabilities were updated
-      let result = await pool.query('SELECT description, capabilities FROM resources WHERE id = $1', [testResourceId])
+      let result = await pool.query(
+        'SELECT description, capabilities FROM resources WHERE id = $1',
+        [testResourceId],
+      )
       assert.equal(result.rows[0]?.description, 'Updated Description')
       assert.ok(result.rows[0]?.capabilities.includes('Erweiterte Capabilities'))
     })

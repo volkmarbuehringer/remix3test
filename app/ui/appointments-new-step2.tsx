@@ -6,7 +6,12 @@ import button from '../ui/theme/button.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
-import { formatMinOption, getCurrentWeekMonday, formatWeekLabel, formatDateDE } from '../utils/date-utils.ts'
+import {
+  formatMinOption,
+  getCurrentWeekMonday,
+  formatWeekLabel,
+  formatDateDE,
+} from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
 import type { DayWithSlots } from '../data/appointments.ts'
 import { routes } from '../routes.ts'
@@ -94,7 +99,7 @@ const emptyStyle = css({
 })
 
 function formatRangeLabel(ranges: { startMin: number; endMin: number }[]): string {
-  return ranges.map(r => `${formatMinOption(r.startMin)}–${formatMinOption(r.endMin)}`).join(', ')
+  return ranges.map((r) => `${formatMinOption(r.startMin)}–${formatMinOption(r.endMin)}`).join(', ')
 }
 
 interface Step2Props {
@@ -109,7 +114,8 @@ interface Step2Props {
 
 export function Step2(handle: Handle<Step2Props>) {
   return () => {
-    let { resourceId, weekStart, daysWithSlots, gridState, formValues, fieldErrors, formError } = handle.props
+    let { resourceId, weekStart, daysWithSlots, gridState, formValues, fieldErrors, formError } =
+      handle.props
     let base = routes.appointmentsNew.index.href()
     let currentWeekMonday = getCurrentWeekMonday()
     let isCurrentWeek = weekStart === currentWeekMonday
@@ -163,33 +169,56 @@ export function Step2(handle: Handle<Step2Props>) {
             <div mix={table.panelBody}>
               {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
 
-              <div mix={css({
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: theme.space.sm,
-              })}>
+              <div
+                mix={css({
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: theme.space.sm,
+                })}
+              >
                 {isCurrentWeek ? (
-                  <span mix={css({ opacity: 0.4, fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>
+                  <span
+                    mix={css({
+                      opacity: 0.4,
+                      fontSize: theme.fontSize.sm,
+                      color: theme.colors.text.muted,
+                    })}
+                  >
                     ◀ Vorherige
                   </span>
                 ) : (
                   <a href={buildWeekUrl(prevWeekStart)} mix={css({ textDecoration: 'none' })}>
-                    <button type="button" mix={[button({ tone: 'secondary' })]}>◀ Vorherige</button>
+                    <button type="button" mix={[button({ tone: 'secondary' })]}>
+                      ◀ Vorherige
+                    </button>
                   </a>
                 )}
-                <span mix={css({ fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.sm })}>
+                <span
+                  mix={css({ fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.sm })}
+                >
                   {formatWeekLabel(weekStart)}
                 </span>
                 <a href={buildWeekUrl(nextWeekStart)} mix={css({ textDecoration: 'none' })}>
-                  <button type="button" mix={[button({ tone: 'secondary' })]}>Nächste ▶</button>
+                  <button type="button" mix={[button({ tone: 'secondary' })]}>
+                    Nächste ▶
+                  </button>
                 </a>
               </div>
 
               {daysWithSlots.length === 0 ? (
                 <div mix={emptyStyle}>Keine verfügbaren Tage in dieser Woche</div>
               ) : (
-                <ul mix={css({ listStyle: 'none', padding: 0, margin: 0, border: `1px solid ${theme.colors.border.subtle}`, borderRadius: theme.radius.md, overflow: 'hidden' })}>
+                <ul
+                  mix={css({
+                    listStyle: 'none',
+                    padding: 0,
+                    margin: 0,
+                    border: `1px solid ${theme.colors.border.subtle}`,
+                    borderRadius: theme.radius.md,
+                    overflow: 'hidden',
+                  })}
+                >
                   {daysWithSlots.map((dws) => (
                     <li key={dws.day} mix={dayCard}>
                       <div mix={dayHeader}>
@@ -216,10 +245,14 @@ export function Step2(handle: Handle<Step2Props>) {
                   ))}
                 </ul>
               )}
-              {fieldErrors?.day_start ? <span mix={inlineErrorStyle}>{fieldErrors.day_start}</span> : null}
+              {fieldErrors?.day_start ? (
+                <span mix={inlineErrorStyle}>{fieldErrors.day_start}</span>
+              ) : null}
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="wiz-title">Titel (optional)</label>
+                <label mix={table.label} htmlFor="wiz-title">
+                  Titel (optional)
+                </label>
                 <input
                   id="wiz-title"
                   name="title"
@@ -228,20 +261,43 @@ export function Step2(handle: Handle<Step2Props>) {
                   mix={[input.base, input.focus, fieldErrors?.title ? input.error : undefined]}
                   value={formValues?.title ?? ''}
                 />
-                {fieldErrors?.title ? <span mix={inlineErrorStyle}>{fieldErrors.title}</span> : null}
+                {fieldErrors?.title ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.title}</span>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" disabled={daysWithSlots.length === 0} mix={[button({ tone: 'primary' }), table.spacer]}>
+                <button
+                  type="submit"
+                  disabled={daysWithSlots.length === 0}
+                  mix={[button({ tone: 'primary' }), table.spacer]}
+                >
                   Anlegen
                 </button>
                 <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Zurück
                   </button>
                 </a>
-                <a href={buildCancelUrl(base, gridState.offset, gridState.sort, gridState.order, gridState.filter, gridState.period, gridState.status)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    base,
+                    gridState.offset,
+                    gridState.sort,
+                    gridState.order,
+                    gridState.filter,
+                    gridState.period,
+                    gridState.status,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

@@ -52,17 +52,18 @@ When migrating from raw `headers.set('Name', value)` to typed classes, don't pre
 // ❌ Unnecessary — typed class handles quoting
 headers.contentDisposition = {
   type: 'attachment',
-  filename: filename.replace(/"/g, '\\"')  // don't pre-escape
+  filename: filename.replace(/"/g, '\\"'), // don't pre-escape
 }
 
 // ✅ Correct — pass clean values, ContentDisposition quotes when needed
 headers.contentDisposition = {
   type: 'attachment',
-  filename: filename.replace(/[\r\n"]/g, '')  // strip only truly invalid chars
+  filename: filename.replace(/[\r\n"]/g, ''), // strip only truly invalid chars
 }
 ```
 
 The `toString()` → `quote()` chain:
+
 - Only escapes `"` → `\"` when the value contains `"`, `;`, or space
 - Does not escape backslashes
 - Only wraps in quotes when necessary
@@ -70,7 +71,7 @@ The `toString()` → `quote()` chain:
 Similarly, `Content-Length` accepts `number` directly — no `String()` wrapping needed:
 
 ```ts
-headers.contentLength = buffer.length  // ✅ not String(buffer.length)
+headers.contentLength = buffer.length // ✅ not String(buffer.length)
 ```
 
 ## References

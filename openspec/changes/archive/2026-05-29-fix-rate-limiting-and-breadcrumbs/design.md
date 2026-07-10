@@ -7,12 +7,14 @@ Breadcrumbs use a centralized `ROUTE_LABELS` map at `app/ui/route-labels.ts`. Th
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add per-email rate limiting to the POST `/register` endpoint using the existing `createRateLimiter()` utility
 - Add complete `ROUTE_LABELS` entries for all active routes so breadcrumbs display correctly everywhere
 - Update the breadcrumb pattern guide to document the current `ROUTE_LABELS`-based approach
 - Keep rate limiting behavior consistent with the login pattern (5 attempts / 15s window)
 
 **Non-Goals:**
+
 - Do NOT refactor the login controller to use the shared rate limiter utility (scope is register-only)
 - Do NOT add rate limiting to other endpoints
 - Do NOT redesign the breadcrumb system or switch to route-registry-based breadcrumbs

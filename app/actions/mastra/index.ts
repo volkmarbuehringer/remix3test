@@ -1,10 +1,6 @@
 import { Mastra } from '@mastra/core'
 import { PinoLogger } from '@mastra/loggers'
-import {
-  Observability,
-  MastraStorageExporter,
-  SensitiveDataFilter,
-} from '@mastra/observability'
+import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mastra/observability'
 import { supportAgent } from './agents/support-agent.ts'
 import { customerAgent } from './agents/customer-agent.ts'
 import { bookingWorkflow } from './workflows/booking-workflow.ts'
@@ -20,7 +16,13 @@ import { setMastra } from './workflow-executor.ts'
 
 export const mastra = new Mastra({
   agents: { supportAgent, customerAgent },
-  workflows: { bookingWorkflow, customerBookingWorkflow, bookingCancellationWorkflow, bookingReminderWorkflow, cancelUserWorkflow },
+  workflows: {
+    bookingWorkflow,
+    customerBookingWorkflow,
+    bookingCancellationWorkflow,
+    bookingReminderWorkflow,
+    cancelUserWorkflow,
+  },
   scorers: {
     completeness: completenessScorer,
     appointmentCreated: appointmentCreatedScorer,

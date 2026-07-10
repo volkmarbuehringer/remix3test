@@ -20,7 +20,7 @@ The `/admin/nutzer` page displays user data from two joined tables (`nutzer` + `
 
 ### Modified Capabilities
 
-- *(none — no existing specs are changing)*
+- _(none — no existing specs are changing)_
 
 ## Impact
 

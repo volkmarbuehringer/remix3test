@@ -3,6 +3,7 @@
 newapp currently has basic CRUD routes (lists), auth flows, and a UI showcase. It needs AI-powered conversational capabilities — a simple chat route and a tool-calling agent route — that already exist in the sibling my_app project. Both apps share the same Remix 3 framework, the same `ai` SDK, and the same data-table + fetch-router infrastructure.
 
 The challenge is adapting my_app's chat/agent implementation to newapp's conventions:
+
 - newapp uses composite controllers (`app/actions/controller.tsx` pattern) rather than per-action subdirectories
 - newapp has a custom theme via `app/theme.tsx` with its own surface/color tokens
 - newapp's nav is declarative via `NAV_SECTIONS` in `app/ui/nav.ts`
@@ -12,6 +13,7 @@ The challenge is adapting my_app's chat/agent implementation to newapp's convent
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Port the `/chat` route with LLM-powered conversational AI, message history, and conversation persistence
 - Port the `/agent` route with tool-calling (weather, Wikipedia), tool call metadata display, and conversation persistence
 - Add `chatlog` database table and seed it during app initialization
@@ -20,6 +22,7 @@ The challenge is adapting my_app's chat/agent implementation to newapp's convent
 - Adapt all pages to newapp's theme system and layout
 
 **Non-Goals:**
+
 - No changes to `package.json` (dependencies already present)
 - No changes to auth, database, or middleware infrastructure
 - No changes to existing routes or functionality

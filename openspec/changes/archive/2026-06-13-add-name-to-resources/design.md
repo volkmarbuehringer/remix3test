@@ -7,6 +7,7 @@ Existing queries that display resource labels use `r.description` directly. Seed
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a required `name` column (TEXT NOT NULL) to the `resources` table
 - Require `name` to be at least 4 characters (server-side validation via `remix/data-schema`)
 - Display `name` as the primary column in the admin resources table
@@ -15,6 +16,7 @@ Existing queries that display resource labels use `r.description` directly. Seed
 - Provide a default of `'Unbenannt'` for existing rows via ALTER TABLE
 
 **Non-Goals:**
+
 - Removing or renaming `description` — it stays as an optional free-text field
 - Changing the resource filtering logic — only the displayed label changes
 - Adding unique constraints on `name` — duplicates are allowed
@@ -22,16 +24,19 @@ Existing queries that display resource labels use `r.description` directly. Seed
 ## Decisions
 
 ### Decision: Add column via ALTER TABLE, not DROP/CREATE
+
 - **Choice**: `ALTER TABLE resources ADD COLUMN name TEXT NOT NULL DEFAULT 'Unbenannt'`
 - **Rationale**: Unlike the original `add-resource-table` change (which could DROP/CREATE because it was a clean break), this change runs on an existing database with rows. ALTER TABLE preserves existing data and requires no migration of foreign-key relationships.
 - **Alternatives considered**: DROP/CREATE — would require re-creating FKs and re-inserting data; overkill for a single column.
 
 ### Decision: Update resource dropdowns to use `name`
+
 - **Choice**: Change all `SELECT id, description FROM resources ORDER BY description ASC` queries to `SELECT id, name, description FROM resources ORDER BY name ASC`, and display `row.name` in `<option>` labels.
 - **Rationale**: `name` is the concise identifier; `description` remains available as tooltip/fallback.
 - **Alternatives considered**: Concatenate `name — description` — clutters the dropdown for resources with long descriptions.
 
 ### Decision: `name` replaces `description` as the sortable/filterable column in the admin grid
+
 - **Choice**: The admin resources table's sort and search pivot from `description` to `name`.
 - **Rationale**: Users identify resources by their short name, not the longer description.
 

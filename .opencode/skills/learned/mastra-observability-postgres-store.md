@@ -1,6 +1,6 @@
 ---
 name: mastra-observability-postgres-store
-description: "Wire @mastra/observability into PostgresStore-based Mastra without DuckDB or separate connection"
+description: 'Wire @mastra/observability into PostgresStore-based Mastra without DuckDB or separate connection'
 origin: auto-extracted
 ---
 
@@ -43,11 +43,7 @@ pnpm add @mastra/observability
 ```typescript
 import { Mastra } from '@mastra/core'
 import { PinoLogger } from '@mastra/loggers'
-import {
-  Observability,
-  MastraStorageExporter,
-  SensitiveDataFilter,
-} from '@mastra/observability'
+import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mastra/observability'
 
 export const mastra = new Mastra({
   // ... existing config: agents, storage, logger ...

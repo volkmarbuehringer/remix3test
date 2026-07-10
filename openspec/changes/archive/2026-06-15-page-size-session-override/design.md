@@ -19,12 +19,14 @@ The settings page already has access to `context.session` but only uses it for a
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a page size dropdown (10, 15, 20, 25, 50) to the settings page
 - Store preference in session (`session.set('pageSize', N)`)
 - Read the session override in every paginated controller before falling back to the hardcoded constant
 - Override clears on logout (session destroyed)
 
 **Non-Goals:**
+
 - Not storing page size in the database (temporary preference only)
 - Not adding per-controller page sizes (single global override)
 - Not modifying the paginator utility itself (it already accepts `pageSize` parameter)

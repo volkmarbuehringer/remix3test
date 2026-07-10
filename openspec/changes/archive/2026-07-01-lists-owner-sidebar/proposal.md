@@ -14,9 +14,11 @@ The `/lists` page lets a user build and save lists, but once a list is saved the
 ## Capabilities
 
 ### New Capabilities
+
 - `lists-owner-sidebar`: A sidebar on `/lists` that lists every list owned by the current user (server-rendered, owner-scoped), highlights the list currently loaded for editing, and lets the user load any list into the editor with a single click, plus a "New list" entry to start fresh.
 
 ### Modified Capabilities
+
 <!-- No existing spec covers the /lists route behavior, so there are no requirement deltas to existing capabilities. -->
 
 ## Impact

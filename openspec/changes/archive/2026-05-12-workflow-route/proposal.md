@@ -19,9 +19,11 @@ The `my_app` project has a workflow engine — a configurable multi-step workflo
 ## Capabilities
 
 ### New Capabilities
+
 - `workflow-execution`: Multi-step workflow engine with async execution, tool integration, LLM-powered steps, workflow chaining, and persistent run tracking
 
 ### Modified Capabilities
+
 _(None — no existing specs are changing)_
 
 ## Impact

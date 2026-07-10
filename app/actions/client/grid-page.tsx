@@ -228,12 +228,23 @@ const actionBtnGroup = css({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function sortArrow(field: string, sortField: string | null | undefined, sortOrder: 'asc' | 'desc'): string {
+function sortArrow(
+  field: string,
+  sortField: string | null | undefined,
+  sortOrder: 'asc' | 'desc',
+): string {
   if (field !== sortField) return '\u2195'
   return sortOrder === 'asc' ? '\u2191' : '\u2193'
 }
 
-function buildSortUrl(field: string, currentSort: string | null | undefined, currentOrder: 'asc' | 'desc', offset: number, filter?: string, editingId?: number | null): string {
+function buildSortUrl(
+  field: string,
+  currentSort: string | null | undefined,
+  currentOrder: 'asc' | 'desc',
+  offset: number,
+  filter?: string,
+  editingId?: number | null,
+): string {
   let newOrder: 'asc' | 'desc'
   if (field === currentSort) {
     newOrder = currentOrder === 'asc' ? 'desc' : 'asc'
@@ -249,7 +260,13 @@ function buildSortUrl(field: string, currentSort: string | null | undefined, cur
   return '/admin/client?' + params.toString()
 }
 
-function buildPaginationUrl(newOffset: number, sort: string | null | undefined, order: 'asc' | 'desc', filter?: string, editingId?: number | null): string {
+function buildPaginationUrl(
+  newOffset: number,
+  sort: string | null | undefined,
+  order: 'asc' | 'desc',
+  filter?: string,
+  editingId?: number | null,
+): string {
   let params = new URLSearchParams()
   params.set('offset', String(newOffset))
   if (sort) params.set('sort', sort)
@@ -261,11 +278,18 @@ function buildPaginationUrl(newOffset: number, sort: string | null | undefined, 
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
 }
 
-function buildCreateUrl(sort: string | null | undefined, order: string, offset: number, filter?: string): string {
+function buildCreateUrl(
+  sort: string | null | undefined,
+  order: string,
+  offset: number,
+  filter?: string,
+): string {
   let params = new URLSearchParams()
   params.set('creating', 'true')
   if (sort) params.set('sort', sort)
@@ -275,7 +299,13 @@ function buildCreateUrl(sort: string | null | undefined, order: string, offset: 
   return '/admin/client?' + params.toString()
 }
 
-function buildEditUrl(rowId: number, offset: number, sort: string | null | undefined, order: string, filter?: string): string {
+function buildEditUrl(
+  rowId: number,
+  offset: number,
+  sort: string | null | undefined,
+  order: string,
+  filter?: string,
+): string {
   let params = new URLSearchParams()
   params.set('editing', String(rowId))
   params.set('offset', String(offset))
@@ -311,7 +341,14 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       <div id="client-grid-content">
         <ConfirmDelete />
         {/* Toolbar: Add New + Refresh button */}
-        <div mix={css({ display: 'flex', justifyContent: 'flex-end', gap: theme.space.sm, marginBottom: theme.space.sm })}>
+        <div
+          mix={css({
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: theme.space.sm,
+            marginBottom: theme.space.sm,
+          })}
+        >
           <FrameRefreshButton />
           <a
             href={buildCreateUrl(sortField, sortOrder, offset, filter)}
@@ -323,7 +360,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
         </div>
         {/* Filter bar */}
         <div mix={filterBarStyle}>
-          <form method="GET" action="/admin/client" mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}>
+          <form
+            method="GET"
+            action="/admin/client"
+            mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
+          >
             <input
               type="text"
               name="filter"
@@ -332,10 +373,14 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               mix={filterInputStyle}
             />
             {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
-            <button type="submit" mix={[button({ tone: 'secondary' })]}>Search</button>
+            <button type="submit" mix={[button({ tone: 'secondary' })]}>
+              Search
+            </button>
           </form>
           {filter ? (
-            <a href={routes.admin.client.index.href()} mix={clearLinkStyle}>Clear</a>
+            <a href={routes.admin.client.index.href()} mix={clearLinkStyle}>
+              Clear
+            </a>
           ) : null}
         </div>
 
@@ -408,12 +453,21 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   </th>
                   <th mix={thSortableStyle}>
                     <a
-                      href={buildSortUrl('registered', sortField, sortOrder, offset, filter, editingId)}
+                      href={buildSortUrl(
+                        'registered',
+                        sortField,
+                        sortOrder,
+                        offset,
+                        filter,
+                        editingId,
+                      )}
                       rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Reg.
-                      <span mix={sortField === 'registered' ? sortArrowActiveStyle : sortArrowStyle}>
+                      <span
+                        mix={sortField === 'registered' ? sortArrowActiveStyle : sortArrowStyle}
+                      >
                         {sortArrow('registered', sortField, sortOrder)}
                       </span>
                     </a>
@@ -423,30 +477,56 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} data-row-id={row.id} mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}>
+                  <tr
+                    key={row.id}
+                    data-row-id={row.id}
+                    mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}
+                  >
                     <td mix={tdIdStyle}>{row.id}</td>
-                    <td mix={tdStyle} title={row.name}>{row.name}</td>
+                    <td mix={tdStyle} title={row.name}>
+                      {row.name}
+                    </td>
                     <td
-  mix={tdStyle}
-  title={row.email}
-  data-inline-edit="email"
-  tabindex={0}
-  role="button"
-  aria-label={`Edit email: ${row.email}`}
->{row.email}</td>
+                      mix={tdStyle}
+                      title={row.email}
+                      data-inline-edit="email"
+                      tabindex={0}
+                      role="button"
+                      aria-label={`Edit email: ${row.email}`}
+                    >
+                      {row.email}
+                    </td>
                     <td mix={tdStyle}>{row.role}</td>
                     <td mix={tdStyle}>{row.status}</td>
                     <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
                     <td mix={tdActionsStyle}>
                       <div mix={actionBtnGroup}>
-                        <a href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)} target="_top" rmx-document>
+                        <a
+                          href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)}
+                          target="_top"
+                          rmx-document
+                        >
                           <button mix={[button({ tone: 'secondary' }), smallBtnStyle]}>Edit</button>
                         </a>
-                        <form method="POST" action={`/admin/client/${row.id}`} rmx-target="admin-content" data-confirm="Delete this row?">
+                        <form
+                          method="POST"
+                          action={`/admin/client/${row.id}`}
+                          rmx-target="admin-content"
+                          data-confirm="Delete this row?"
+                        >
                           <CsrfTokenInput />
                           <input type="hidden" name="_method" value="DELETE" />
-                          <GridStateHiddenInputs state={{ offset: String(offset), sort: sortField ?? '', order: sortOrder, filter: filter ?? '' }} />
-                          <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>Del</button>
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortField ?? '',
+                              order: sortOrder,
+                              filter: filter ?? '',
+                            }}
+                          />
+                          <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>
+                            Del
+                          </button>
                         </form>
                       </div>
                     </td>
@@ -461,35 +541,43 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                 {pageStart}–{pageEnd} of {hasNext ? `${pageTotalRows}+` : pageTotalRows}
               </span>
               <div mix={paginationBtnGroupStyle}>
-                  <a
-                    href={buildPaginationUrl(offset - pageSize, sortField, sortOrder, filter, editingId)}
-                    rmx-target="admin-content"
-                    mix={css({ textDecoration: 'none' })}
-                  >
-                    <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
-                      ← Prev
-                    </button>
-                  </a>
-                  <a
-                    href={buildPaginationUrl(offset + pageSize, sortField, sortOrder, filter, editingId)}
-                    rmx-target="admin-content"
-                    mix={css({ textDecoration: 'none' })}
-                  >
-                    <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
-                      Next →
-                    </button>
-                  </a>
+                <a
+                  href={buildPaginationUrl(
+                    offset - pageSize,
+                    sortField,
+                    sortOrder,
+                    filter,
+                    editingId,
+                  )}
+                  rmx-target="admin-content"
+                  mix={css({ textDecoration: 'none' })}
+                >
+                  <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
+                    ← Prev
+                  </button>
+                </a>
+                <a
+                  href={buildPaginationUrl(
+                    offset + pageSize,
+                    sortField,
+                    sortOrder,
+                    filter,
+                    editingId,
+                  )}
+                  rmx-target="admin-content"
+                  mix={css({ textDecoration: 'none' })}
+                >
+                  <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
+                    Next →
+                  </button>
+                </a>
               </div>
             </div>
           </>
         )}
 
         {/* Inline edit state for clientEntry */}
-        <script
-          id="client-grid-state"
-          type="application/json"
-          nonce={getCspNonce()}
-        >
+        <script id="client-grid-state" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
             csrfToken: tryGetCsrfToken() ?? '',
           })}

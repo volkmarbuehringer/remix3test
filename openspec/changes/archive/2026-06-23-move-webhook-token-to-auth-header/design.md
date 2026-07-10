@@ -7,6 +7,7 @@ External senders (e.g., hermes event processor, third-party services) currently 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Remove token from URL path for both webhook endpoints
 - Authenticate via `Authorization: Bearer <token>` header
 - Keep route paths clean: `/webhook` and `/app-webhook`
@@ -14,6 +15,7 @@ External senders (e.g., hermes event processor, third-party services) currently 
 - Backward-compatible for the server-side contract (response format unchanged)
 
 **Non-Goals:**
+
 - No database schema changes
 - No changes to the callback endpoint
 - No changes to the webhook-requests viewer or SSE logic

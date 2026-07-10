@@ -49,7 +49,18 @@ const formErrorBanner = css({
 
 export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePageProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', period = '', status = '', formValues, fieldErrors, formError } = handle.props
+    let {
+      resources,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      period = '',
+      status = '',
+      formValues,
+      fieldErrors,
+      formError,
+    } = handle.props
 
     let resolvedResourceId = formValues?.resource_id ?? ''
     let resolvedDay = formValues?.day ?? ''
@@ -71,32 +82,52 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oc-resource">Ressource</label>
+                <label mix={table.label} htmlFor="oc-resource">
+                  Ressource
+                </label>
                 <select
                   id="oc-resource"
                   name="resource_id"
                   required
-                  mix={fieldErrors?.resource_id ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.resource_id
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
-                  <option value="" disabled selected={!resolvedResourceId}>Ressource auswählen...</option>
+                  <option value="" disabled selected={!resolvedResourceId}>
+                    Ressource auswählen...
+                  </option>
                   {resources.map((res) => (
-                    <option key={res.id} value={res.id} selected={String(resolvedResourceId) === String(res.id)}>
+                    <option
+                      key={res.id}
+                      value={res.id}
+                      selected={String(resolvedResourceId) === String(res.id)}
+                    >
                       {res.name}
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.resource_id ? <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span> : null}
+                {fieldErrors?.resource_id ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span>
+                ) : null}
               </div>
 
               {/* Date input */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oc-day">Tag</label>
+                <label mix={table.label} htmlFor="oc-day">
+                  Tag
+                </label>
                 <input
                   id="oc-day"
                   name="day"
                   type="date"
                   required
-                  mix={fieldErrors?.day ? [input.base, input.error, input.focus] : [input.base, input.focus]}
+                  mix={
+                    fieldErrors?.day
+                      ? [input.base, input.error, input.focus]
+                      : [input.base, input.focus]
+                  }
                   value={resolvedDay}
                 />
                 {fieldErrors?.day ? <span mix={inlineErrorStyle}>{fieldErrors.day}</span> : null}
@@ -104,12 +135,18 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
 
               {/* Start time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oc-start">Startzeit</label>
+                <label mix={table.label} htmlFor="oc-start">
+                  Startzeit
+                </label>
                 <select
                   id="oc-start"
                   name="start_min"
                   required
-                  mix={fieldErrors?.start_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.start_min
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
                   {START_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedStartMin}>
@@ -117,17 +154,25 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.start_min ? <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span> : null}
+                {fieldErrors?.start_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span>
+                ) : null}
               </div>
 
               {/* End time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="oc-end">Endzeit</label>
+                <label mix={table.label} htmlFor="oc-end">
+                  Endzeit
+                </label>
                 <select
                   id="oc-end"
                   name="end_min"
                   required
-                  mix={fieldErrors?.end_min ? [input.base, input.error, input.focus, table.select] : [input.base, input.focus, table.select]}
+                  mix={
+                    fieldErrors?.end_min
+                      ? [input.base, input.error, input.focus, table.select]
+                      : [input.base, input.focus, table.select]
+                  }
                 >
                   {END_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedEndMin}>
@@ -135,15 +180,31 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.end_min ? <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span> : null}
+                {fieldErrors?.end_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.offerings.index.href(), offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.offerings.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                    period,
+                    status,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

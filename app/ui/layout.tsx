@@ -25,12 +25,16 @@ export function Layout(handle: Handle<LayoutProps>) {
         let success = session.get('success')
         if (typeof success === 'string') flashSuccess = success
       }
-    } catch { /* no session context */ }
+    } catch {
+      /* no session context */
+    }
 
     let currentPath = ''
     try {
       currentPath = new URL(getContext().request.url).pathname
-    } catch { /* SSR-only — ignored in non-request contexts */ }
+    } catch {
+      /* SSR-only — ignored in non-request contexts */
+    }
 
     return (
       <Document title={title}>

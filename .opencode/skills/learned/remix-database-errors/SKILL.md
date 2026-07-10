@@ -6,6 +6,7 @@ description: PostgreSQL constraint violation handling for Remix 3 admin controll
 # Remix Database Errors — Constraint Violations
 
 Use this skill when handling PostgreSQL errors in Remix controllers, especially:
+
 - Catching constraint violations in destroy/update/create actions
 - Converting JSON error responses to page re-renders with `formError`
 - Logging server-side errors for debugging
@@ -35,13 +36,15 @@ export function isConstraintViolation(error: unknown): boolean {
     // Check top-level (raw pg error)
     if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
     // Check nested (DataTableAdapterError wrapping)
-    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION) return true
+    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION)
+      return true
   }
   return false
 }
 ```
 
 **PostgreSQL error codes to check for:**
+
 - `23001` — `RESTRICT_VIOLATION` (ON DELETE RESTRICT is in use)
 - `23503` — `FOREIGN_KEY_VIOLATION` (generic FK constraint)
 
@@ -150,7 +153,7 @@ async destroy(context) {
 
 The page component needs a `formError` prop and a banner in the grid section:
 
-```tsx
+````tsx
 interface AdminPageProps {
   formError?: string
 }
@@ -176,7 +179,7 @@ new Date(row.day).toLocaleDateString('de-DE')
 
 // ✅ FIX: Number() coerces string → number
 new Date(Number(row.day)).toLocaleDateString('de-DE')
-```
+````
 
 For bulk conversion, use a utility:
 
@@ -214,12 +217,15 @@ For the **expired/past** filter, same principle — use `< todayUtcMidnight`:
 ```typescript
 if (status === 'pending' || !status) {
   query += ` AND a.date >= $${paramIndex}`
-  params.push(todayUtcMidnight)   // includes today and future
+  params.push(todayUtcMidnight) // includes today and future
 } else if (status === 'expired') {
   query += ` AND a.date < $${paramIndex}`
-  params.push(todayUtcMidnight)   // excludes today (yesterday and older only)
+  params.push(todayUtcMidnight) // excludes today (yesterday and older only)
 }
 ```
 
 **When to use:** Database columns storing epoch-ms dates at UTC day boundaries (BIGINT), SQL `WHERE` clauses filtering by "future"/"past", or comparing timestamps at different granularities.
+
+```
+
 ```

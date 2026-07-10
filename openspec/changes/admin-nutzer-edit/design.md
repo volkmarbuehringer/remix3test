@@ -7,7 +7,7 @@ nutzer (n_id PK, n_vorname, n_name, n_email, n_verpflichtung, n_lid FK → login
 login  (l_id PK, l_login, l_aktiv, l_gesperrt, l_letzte_login)
 ```
 
-The current controller (`admin-nutzer-controller.tsx`) only has an `index` handler (GET). The page description reads *"Übersicht aller Nutzer mit Login-Daten. Sortierbar, filterbar, read-only."*
+The current controller (`admin-nutzer-controller.tsx`) only has an `index` handler (GET). The page description reads _"Übersicht aller Nutzer mit Login-Daten. Sortierbar, filterbar, read-only."_
 
 The admin panel uses a frame-based sidebar layout (`admin-layout.tsx`). Pages render via `renderAdminPage()` which routes content through `X-Remix-Target=admin-content` frames.
 
@@ -16,6 +16,7 @@ The existing Client Lab at `/client` provides the exact inline-editing pattern t
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add PUT, POST, DELETE handlers to the nutzer controller
 - Support inline editing of all fields except `l_letzte_login` (system-set)
 - Support creating new nutzer+login pairs
@@ -24,6 +25,7 @@ The existing Client Lab at `/client` provides the exact inline-editing pattern t
 - Use two sequential SQL statements for updates (UPDATE nutzer; UPDATE login)
 
 **Non-Goals:**
+
 - No password management (the `users` table handles auth, not `login`)
 - No bulk operations
 - No audit logging
@@ -79,16 +81,16 @@ UPDATE login  SET ... WHERE l_id  = $1  -- from hidden form field
 
 **Decision**: The form sends flat field names. The controller maps them to the appropriate table in SQL:
 
-| Form field      | SQL target        | Table    |
-|-----------------|-------------------|----------|
-| `_l_id`         | `login.l_id`      | —        |
-| `vorname`       | `n_vorname`       | nutzer   |
-| `name`          | `n_name`          | nutzer   |
-| `email`         | `n_email`         | nutzer   |
-| `verpflichtung` | `n_verpflichtung` | nutzer   |
-| `login`         | `l_login`         | login    |
-| `aktiv`         | `l_aktiv`         | login    |
-| `gesperrt`      | `l_gesperrt`      | login    |
+| Form field      | SQL target        | Table  |
+| --------------- | ----------------- | ------ |
+| `_l_id`         | `login.l_id`      | —      |
+| `vorname`       | `n_vorname`       | nutzer |
+| `name`          | `n_name`          | nutzer |
+| `email`         | `n_email`         | nutzer |
+| `verpflichtung` | `n_verpflichtung` | nutzer |
+| `login`         | `l_login`         | login  |
+| `aktiv`         | `l_aktiv`         | login  |
+| `gesperrt`      | `l_gesperrt`      | login  |
 
 ### 6. ID routing uses `n_id`, login ID via hidden field
 

@@ -1,6 +1,10 @@
 import { showToast } from './toast.ts'
 import { readAppointmentData } from '../utils/appointment.ts'
-import { COLLISION_STATUS, type AppData, type AppointmentLayoutBlock } from './appointment-grid-types.ts'
+import {
+  COLLISION_STATUS,
+  type AppData,
+  type AppointmentLayoutBlock,
+} from './appointment-grid-types.ts'
 
 export function handleMutationResponse(response: Response): boolean {
   if (response.ok) {

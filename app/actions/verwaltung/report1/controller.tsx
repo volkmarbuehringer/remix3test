@@ -11,7 +11,12 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 import { AdminReport1Page } from '../../../ui/admin-report1-page.tsx'
 
 import type { Report1Row, Report1UserOption, RunReport1Opts } from '../../../data/report1.ts'
-import { runReport1, listReport1Users, REPORT1_PAGE_SIZE, REPORT1_SORTABLE_FIELDS } from '../../../data/report1.ts'
+import {
+  runReport1,
+  listReport1Users,
+  REPORT1_PAGE_SIZE,
+  REPORT1_SORTABLE_FIELDS,
+} from '../../../data/report1.ts'
 
 interface Report1PageData {
   rows: Report1Row[]
@@ -30,13 +35,20 @@ interface Report1PageData {
 
 async function loadReport1PageData(
   context: AppContext,
-  overrides?: Partial<Pick<Report1PageData, 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'year' | 'month' | 'selectedUserId'>>,
+  overrides?: Partial<
+    Pick<
+      Report1PageData,
+      'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'year' | 'month' | 'selectedUserId'
+    >
+  >,
 ): Promise<Report1PageData> {
   let effectivePageSize = getPageSize(context.session, REPORT1_PAGE_SIZE)
   let now = new Date()
-  let year = overrides?.year ?? (Number(context.url.searchParams.get('year')) || now.getUTCFullYear())
+  let year =
+    overrides?.year ?? (Number(context.url.searchParams.get('year')) || now.getUTCFullYear())
   year = Math.max(2000, Math.min(2100, year))
-  let month = overrides?.month ?? (Number(context.url.searchParams.get('month')) || (now.getUTCMonth() + 1))
+  let month =
+    overrides?.month ?? (Number(context.url.searchParams.get('month')) || now.getUTCMonth() + 1)
   month = Math.max(1, Math.min(12, month))
   let selectedUserId = overrides?.selectedUserId
   if (selectedUserId === undefined) {
@@ -51,7 +63,7 @@ async function loadReport1PageData(
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
 
   let { column, direction } = overrides?.sortColumn
-    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
     : parseSort(context.url, {
         allowedColumns: REPORT1_SORTABLE_FIELDS,
         defaultColumn: 'name',
@@ -90,7 +102,11 @@ async function loadReport1PageData(
   }
 }
 
-function renderReport1Page(context: AppContext, data: Report1PageData, init?: ResponseInit): Response {
+function renderReport1Page(
+  context: AppContext,
+  data: Report1PageData,
+  init?: ResponseInit,
+): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminReport1Page

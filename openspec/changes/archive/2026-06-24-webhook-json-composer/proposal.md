@@ -13,6 +13,7 @@ Admins need a way to manually craft webhook payloads for Hermes without using ex
 ## Capabilities
 
 ### New Capabilities
+
 - `webhook-composer`: Manual JSON payload composition via a key-value grid, insert into webhook_requests table
 
 ### Modified Capabilities

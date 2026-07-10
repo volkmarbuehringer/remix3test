@@ -12,11 +12,13 @@ The app uses `remix` from `remix#preview/main` (github dependency) and currently
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Update all `remix/components/*` imports to `remix/ui/*` so the app resolves correctly against upstream `preview/main`
 - Vendor `lockScroll` locally since it's no longer a public export
 - Zero behavioral changes — all imports resolve to the same implementations
 
 **Non-Goals:**
+
 - No refactoring of how components are used
 - No changes to component APIs or usage patterns
 - No updates to `remix/ui/menu` primitives imports — those still resolve correctly

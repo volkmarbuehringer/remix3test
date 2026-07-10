@@ -9,6 +9,7 @@ The callback columns (`callback_response`, `callback_received_at`) are set by th
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a POST route for resending a webhook request to hermes
 - Clear `callback_response` and `callback_received_at` to NULL before resending
 - Reuse the existing hermes URL and payload construction
@@ -17,6 +18,7 @@ The callback columns (`callback_response`, `callback_received_at`) are set by th
 - Broadcast SSE `new_request` event so connected viewers auto-refresh
 
 **Non-Goals:**
+
 - No UI for editing the payload before resend
 - No queueing or rate-limiting of resends
 - No retry logic beyond a single attempt (matching original hermes forwarding)

@@ -14,9 +14,11 @@ Currently, appointments must be created one by one by clicking on a time slot an
 ## Capabilities
 
 ### New Capabilities
+
 - `appointtypes-crud`: Manage appointment types — list, create (inline), update (inline rename), delete (context menu)
 
 ### Modified Capabilities
+
 - `appointment-calendar`: Add drag-from-type behavior to the existing grid; add types frame to the appointment page layout
 
 ## Impact

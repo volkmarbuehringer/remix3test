@@ -3,6 +3,7 @@
 The client lab page at `/client` renders a grid of records (via `<Frame>`) and an optional inline edit form in a right column. Currently only Edit and Delete exist — there is no Create path. Adding create completes the CRUD quartet and makes the lab self-contained for demo purposes.
 
 The existing edit pattern:
+
 ```
 Click "Edit" row action → GET /client/edit/:rowId → 302 /client?editing=N
   → index action loads row → ClientPage renders two-column layout
@@ -15,6 +16,7 @@ The create pattern mirrors this, using a blank form instead of a pre-filled one.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `POST /client` route for creating new client records
 - Add "Add New" button visible on the client page
 - Add `?creating=true` query param to open a blank create form in the edit column
@@ -22,6 +24,7 @@ The create pattern mirrors this, using a blank form instead of a pre-filled one.
 - Share field layout and styling with the edit form
 
 **Non-Goals:**
+
 - No changes to the grid, pagination, sorting, filtering, or edit/delete flows
 - No changes to the data schema or database setup
 - No standalone create page at a separate URL — always inline via `?creating=true`

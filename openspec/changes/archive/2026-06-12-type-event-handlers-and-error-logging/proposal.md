@@ -12,11 +12,13 @@ Two small code quality issues spotted during a codebase scan: event handlers typ
 ## Capabilities
 
 ### New Capabilities
+
 - `typed-event-handlers`: Replace `any` with specific DOM event types in Remix 3 event mixins
 - `catch-error-logging`: Add error logging via remix logger to bare catch blocks
 
 ### Modified Capabilities
-*(none)*
+
+_(none)_
 
 ## Impact
 

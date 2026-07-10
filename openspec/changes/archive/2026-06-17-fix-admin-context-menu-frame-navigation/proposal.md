@@ -25,6 +25,7 @@ None — this is a bug fix to existing functionality.
 ## Impact
 
 7 clientEntry files in `app/assets/`:
+
 - `nutzer-table-interactive.tsx` — convert from `getElementById` + `mounted` to `ref()`-based pattern
 - `admin-resources-context-menu.tsx` — remove `mounted` guard from `ref()` callback
 - `admin-offering-configs-context-menu.tsx` — same

@@ -7,6 +7,7 @@ The app has ~30 inline SVGs that don't match any existing glyph. The 6 `<div rol
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add glyph names to `glyph-contract.ts` and path definitions to `glyphs.tsx` for the most-repeated inline SVG icons
 - Replace all matching inline SVGs app-wide with `<Glyph name="..." />`
 - Replace the password toggle's `innerHTML` SVG swap with a `clientEntry` rendering `Glyph` components
@@ -15,6 +16,7 @@ The app has ~30 inline SVGs that don't match any existing glyph. The 6 `<div rol
 - Keep glyph sprite 16×16 viewBox with `strokeWidth: 1.5` stroke style
 
 **Non-Goals:**
+
 - Replacing every single inline SVG — low-reuse icons (puzzle piece, document, play triangle, lightning bolt, shield, dollar, calendar) are kept if they appear only once
 - Changing the glyph sprite rendering mechanism
 - Adding any route, controller, or data changes
@@ -26,26 +28,27 @@ The app has ~30 inline SVGs that don't match any existing glyph. The 6 `<div rol
 
 The icons with the most occurrences across the codebase get glyph names first:
 
-| Rank | Concept | Occurrences | Glyph Name |
-|------|---------|-------------|------------|
-| 1 | Eye (show password) | 8 | `eye` |
-| 2 | Eye-off (hide password) | 1 (paired with eye) | `eyeOff` |
-| 3 | Clock / timer | 4 | `clock` |
-| 4 | Send / paper-plane | 2 | `send` |
-| 5 | Chat bubble | 2 | `chat` |
-| 6 | User / person silhouette | 3 | `user` |
-| 7 | Arrow right (shaft + chevron) | 3 | `arrowRight` |
-| 8 | Settings / cog | 1 | `cog` |
-| 9 | Moon / crescent | 1 | `moon` |
-| 10 | Shield | 1 | `shield` |
-| 11 | Lightning / zap | 1 | `zap` |
-| 12 | Calendar | 1 | `calendar` |
+| Rank | Concept                       | Occurrences         | Glyph Name   |
+| ---- | ----------------------------- | ------------------- | ------------ |
+| 1    | Eye (show password)           | 8                   | `eye`        |
+| 2    | Eye-off (hide password)       | 1 (paired with eye) | `eyeOff`     |
+| 3    | Clock / timer                 | 4                   | `clock`      |
+| 4    | Send / paper-plane            | 2                   | `send`       |
+| 5    | Chat bubble                   | 2                   | `chat`       |
+| 6    | User / person silhouette      | 3                   | `user`       |
+| 7    | Arrow right (shaft + chevron) | 3                   | `arrowRight` |
+| 8    | Settings / cog                | 1                   | `cog`        |
+| 9    | Moon / crescent               | 1                   | `moon`       |
+| 10   | Shield                        | 1                   | `shield`     |
+| 11   | Lightning / zap               | 1                   | `zap`        |
+| 12   | Calendar                      | 1                   | `calendar`   |
 
 One-occurrence icons (zap, shield, calendar) are included because their visual concepts are generally useful beyond current usage.
 
 ### Decision 2: Glyph path style — match RMX_01 16×16 stroke convention
 
 All new glyph paths follow the existing pattern:
+
 - `viewBox="0 0 16 16"`
 - `fill="none"`, `stroke="currentColor"`, `strokeWidth="1.5"`
 - `strokeLinecap="round"`, `strokeLinejoin="round"` (except where inappropriate)

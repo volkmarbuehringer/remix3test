@@ -5,6 +5,7 @@ The starter app has theme tokens, namespace mixins, page primitives, and a nav r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Port the ListsClient component adapted to the newapp's mixin style (no `Button` from `remix/ui/button` — use `button.base` + `button.primary` from our mixins instead)
 - Create a route and controller that renders the ListsClient page at `/lists`
 - Add "Lists" to the nav registry so it appears in the header nav
@@ -13,6 +14,7 @@ The starter app has theme tokens, namespace mixins, page primitives, and a nav r
 - Keep all existing functionality: add, edit, delete, reorder (up/down), reverse, shuffle, auto-shuffle
 
 **Non-Goals:**
+
 - No database, auth, or session middleware
 - No server-side persistence (localStorage only)
 - No admin panel

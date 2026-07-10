@@ -1,6 +1,6 @@
 ---
 name: remix3-csp-inline-scripts
-description: "Use CSP nonces for inline scripts in Remix 3 to avoid blocking and escapeTextContent escaping"
+description: 'Use CSP nonces for inline scripts in Remix 3 to avoid blocking and escapeTextContent escaping'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -29,9 +29,7 @@ import { getCspNonce } from '~/middleware/security-headers.ts'
 
 export function PasswordToggle() {
   let nonce = getCspNonce()
-  return () => (
-    <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
-  )
+  return () => <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
 }
 
 const PASSWORD_TOGGLE_SCRIPT = `

@@ -13,6 +13,7 @@ The current newapp login and register pages lack the clean, centered-card visual
 ## Capabilities
 
 ### Modified Capabilities
+
 - `auth-ui-restyle`: Login and register pages adopt a centered-card visual design with eyebrow/title/body typography pattern, shared auth card components, and dark theme support — while preserving all existing auth behavior, validation, and rate limiting.
 
 ## Impact

@@ -35,7 +35,9 @@ const render = renderWith(
       let stream = renderToStream(node, {
         async resolveFrame(src) {
           let response = await router.fetch(new URL(src, url))
-          return response.ok ? (response.body ?? response.text()) : `<pre>Frame error: ${response.status}</pre>`
+          return response.ok
+            ? (response.body ?? response.text())
+            : `<pre>Frame error: ${response.status}</pre>`
         },
       })
       return createHtmlResponse(stream, init)

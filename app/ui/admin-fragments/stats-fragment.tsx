@@ -54,27 +54,27 @@ export function StatsFragment(handle: Handle<StatsFragmentProps>) {
   return () => {
     let { serverTime, serverDate, uptime, nodeVersion } = handle.props
     return (
-    <div mix={cardStyle}>
-      <h2 mix={titleStyle}>Server-Statistiken</h2>
-      <div mix={statGridStyle}>
-        <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Serverzeit</div>
-          <div mix={statValueStyle}>{serverTime}</div>
-        </div>
-        <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Date</div>
-          <div mix={statValueStyle}>{serverDate}</div>
-        </div>
-        <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Betriebszeit</div>
-          <div mix={statValueStyle}>{uptime}</div>
-        </div>
-        <div mix={statItemStyle}>
-          <div mix={statLabelStyle}>Node</div>
-          <div mix={statValueStyle}>{nodeVersion}</div>
+      <div mix={cardStyle}>
+        <h2 mix={titleStyle}>Server-Statistiken</h2>
+        <div mix={statGridStyle}>
+          <div mix={statItemStyle}>
+            <div mix={statLabelStyle}>Serverzeit</div>
+            <div mix={statValueStyle}>{serverTime}</div>
+          </div>
+          <div mix={statItemStyle}>
+            <div mix={statLabelStyle}>Date</div>
+            <div mix={statValueStyle}>{serverDate}</div>
+          </div>
+          <div mix={statItemStyle}>
+            <div mix={statLabelStyle}>Betriebszeit</div>
+            <div mix={statValueStyle}>{uptime}</div>
+          </div>
+          <div mix={statItemStyle}>
+            <div mix={statLabelStyle}>Node</div>
+            <div mix={statValueStyle}>{nodeVersion}</div>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
   }
 }

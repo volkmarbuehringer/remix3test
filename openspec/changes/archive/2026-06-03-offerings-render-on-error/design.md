@@ -2,11 +2,11 @@
 
 Three verwaltung forms currently use different error handling patterns:
 
-| Form | Current Pattern | Form Values Preserved? | Inline Errors? |
-|------|----------------|----------------------|----------------|
-| Offerings | 302 redirect with `fv_*`/`fe_*` URL params | Yes (via decode) | Yes |
-| Resources | `context.json({ ok: false }, 400)` | No | No |
-| Offering-configs | `context.json({ ok: false }, 400)` | No | No |
+| Form             | Current Pattern                            | Form Values Preserved? | Inline Errors? |
+| ---------------- | ------------------------------------------ | ---------------------- | -------------- |
+| Offerings        | 302 redirect with `fv_*`/`fe_*` URL params | Yes (via decode)       | Yes            |
+| Resources        | `context.json({ ok: false }, 400)`         | No                     | No             |
+| Offering-configs | `context.json({ ok: false }, 400)`         | No                     | No             |
 
 The `/client` route demonstrates the preferred pattern: on validation failure, the controller calls `context.render()` directly with the page component, passing `formValues` (raw `FormData` entries) and `fieldErrors` (from `issuesToFieldErrors()`) as props, returning status 400. No redirect, no URL encoding/decoding, no JSON error response.
 
@@ -15,12 +15,14 @@ Since the verwaltung routes now use `renderVerwaltungPage` (a simple `<Layout>` 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Unify all three forms to the same render-on-error pattern used by /client
 - Remove redirect-based error handling from offerings controller
 - Add field preservation and inline error display to resources and offering-configs forms
 - Pass `formValues` and `fieldErrors` directly as props on error
 
 **Non-Goals:**
+
 - Changing the appointments controller (has more complex calendar integration, separate change)
 - Changing validation schemas or business rules
 - Changing grid state handling (hidden `_offset`/`_sort`/`_order`/`_filter` form fields continue to work)
@@ -40,6 +42,7 @@ The existing `renderOfferingsPage(context, data)` helper already works for both 
 **3. Resources and offering-configs: add `formValues`/`fieldErrors` props to page components**
 
 These pages currently have no field-level error display. Add:
+
 - `formValues?: Record<string, string>` prop — pre-fill inputs on error
 - `fieldErrors?: Record<string, string>` prop — show inline error messages
 - Error styling on inputs with errors (red border, error text below field)

@@ -11,6 +11,7 @@ The notification sender is `consoleNotificationSender` — it logs to console an
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `list_my_appointments` tool to the customer agent — returns the authenticated user's upcoming appointments with ID, date, time, resource name, and title
 - Add `cancel_all_appointments` tool to the customer agent — cancels all upcoming appointments for the authenticated user
 - Require explicit customer confirmation before executing batch cancellation (agent must ask, customer must say yes)
@@ -18,6 +19,7 @@ The notification sender is `consoleNotificationSender` — it logs to console an
 - Update customer agent instructions to describe self-service capabilities and the confirmation protocol
 
 **Non-Goals:**
+
 - No changes to the `bookingCancellationWorkflow` itself — individual cancellation logic stays as-is
 - No UI changes — everything happens through the chat text interface
 - No changes to the support agent or admin tools
@@ -48,6 +50,7 @@ The existing `listAppointmentsNew` in `app/data/appointments-new-queries.ts` is 
 ### Decision 4: Agent must obtain explicit confirmation before `cancel_all_appointments`
 
 The agent instructions require a two-turn flow:
+
 1. Customer asks "cancel all my appointments" → agent calls `list_my_appointments` to show them, then asks "Soll ich alle X Termine stornieren?"
 2. Customer confirms → agent calls `cancel_all_appointments`
 
@@ -114,13 +117,13 @@ If an appointment is already cancelled (disappears between list and cancel), the
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Customer confirms cancellation, appointments change between list and cancel | Already-cancelled appointments return `already_cancelled` from the workflow — tool counts them as skipped, not failed |
-| Agent calls `cancel_all_appointments` without listing first | Agent instructions mandate listing + confirmation before calling the tool. The tool itself has no guard — relies on instructions |
-| Large number of appointments causes slow tool execution | Loop runs sequentially. For typical customers (single-digit appointments) this is fine. If perf becomes an issue, add concurrency later |
-| Notification spam from N individual cancellation notifications | Each cancellation sends its own notification via `consoleNotificationSender`. Future improvement: aggregate into a single "X appointments cancelled" notification |
-| Agent hallucinates appointment IDs in `cancel_booking` | The single-cancel tool only accepts IDs the customer provides. The batch tool queries the DB. Both are scoped to the authenticated user |
+| Risk                                                                        | Mitigation                                                                                                                                                        |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Customer confirms cancellation, appointments change between list and cancel | Already-cancelled appointments return `already_cancelled` from the workflow — tool counts them as skipped, not failed                                             |
+| Agent calls `cancel_all_appointments` without listing first                 | Agent instructions mandate listing + confirmation before calling the tool. The tool itself has no guard — relies on instructions                                  |
+| Large number of appointments causes slow tool execution                     | Loop runs sequentially. For typical customers (single-digit appointments) this is fine. If perf becomes an issue, add concurrency later                           |
+| Notification spam from N individual cancellation notifications              | Each cancellation sends its own notification via `consoleNotificationSender`. Future improvement: aggregate into a single "X appointments cancelled" notification |
+| Agent hallucinates appointment IDs in `cancel_booking`                      | The single-cancel tool only accepts IDs the customer provides. The batch tool queries the DB. Both are scoped to the authenticated user                           |
 
 ## Open Questions
 

@@ -12,6 +12,7 @@ Admins need a quick way to see per-user appointment activity in a given month â€
 ## Capabilities
 
 ### New Capabilities
+
 - `appointment-monthly-summary`: Aggregate appointment data by user for a given year/month, with optional user_id filter, showing count, min/max date, total hours
 
 ### Modified Capabilities

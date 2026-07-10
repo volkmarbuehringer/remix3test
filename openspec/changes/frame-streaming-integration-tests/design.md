@@ -64,7 +64,7 @@ The `frames-demo` project has an integration test (`router.test.ts`) that verifi
 
 **Alternative considered:** Snapshot-based testing of the full streaming output. Brittle — any CSS or layout change would break the snapshot without indicating a real streaming regression.
 
-**Rationale:** The streaming test should verify the *mechanics* of frame resolution (fallback first, template wrapping, content arrival), not pixel-perfect HTML. Content assertions on key text strings provide sufficient coverage.
+**Rationale:** The streaming test should verify the _mechanics_ of frame resolution (fallback first, template wrapping, content arrival), not pixel-perfect HTML. Content assertions on key text strings provide sufficient coverage.
 
 ## Risks / Trade-offs
 

@@ -13,7 +13,7 @@ The app's route definitions in `app/routes.ts` are fully typesafe (typed `route(
 
 ### New Capabilities
 
-*(None — this is a pure refactoring. Route behavior and URLs remain identical.)*
+_(None — this is a pure refactoring. Route behavior and URLs remain identical.)_
 
 ### Modified Capabilities
 

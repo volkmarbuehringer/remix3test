@@ -12,11 +12,12 @@ Users with many saved lists can't see lists beyond the first 50 in the sidebar. 
 ## Capabilities
 
 ### New Capabilities
+
 - `sidebar-list-pagination`: Offset-based pagination for the lists sidebar with next/previous controls and page tracking
 
 ### Modified Capabilities
 
-*(No existing spec-level behavior changes — only new UI capability added.)*
+_(No existing spec-level behavior changes — only new UI capability added.)_
 
 ## Impact
 

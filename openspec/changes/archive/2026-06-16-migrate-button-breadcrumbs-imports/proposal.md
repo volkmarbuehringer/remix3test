@@ -8,11 +8,11 @@ Update import paths across ~37 files to match the upstream Remix UI package rest
 
 The upstream `remix` package removed the old styled-component re-exports:
 
-| Removed path | Replacement |
-|---|---|
-| `remix/ui/button` | `remix/components/button` |
-| `remix/ui/breadcrumbs` | `remix/components/breadcrumbs` |
-| `remix/ui/menu` (partial — `MenuItem`, `MenuList`) | `remix/components/menu` |
+| Removed path                                       | Replacement                    |
+| -------------------------------------------------- | ------------------------------ |
+| `remix/ui/button`                                  | `remix/components/button`      |
+| `remix/ui/breadcrumbs`                             | `remix/components/breadcrumbs` |
+| `remix/ui/menu` (partial — `MenuItem`, `MenuList`) | `remix/components/menu`        |
 
 The headless primitive path (`remix/ui/menu`) still exists for `menu.Context`, `menu.contextTrigger()`, etc. Only the styled component names moved.
 

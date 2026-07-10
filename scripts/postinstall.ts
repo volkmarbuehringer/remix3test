@@ -69,13 +69,17 @@ async function syncRemixSkill() {
     let commitPrefix = commitMatch.slice(0, 9)
 
     let entries = await fsPromise.readdir(pnpmDir)
-    let cliDir = entries.find(e => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
+    let cliDir = entries.find((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
     if (!cliDir) {
       console.warn('@remix-run/cli not found in pnpm store, skipping skill sync.')
       return
     }
 
-    let sourceDir = path.join(pnpmDir, cliDir, 'node_modules/@remix-run/cli/template/.agents/skills/remix')
+    let sourceDir = path.join(
+      pnpmDir,
+      cliDir,
+      'node_modules/@remix-run/cli/template/.agents/skills/remix',
+    )
     if (!fs.existsSync(sourceDir)) {
       console.warn('Vendor skill not found at', sourceDir)
       return
@@ -217,4 +221,3 @@ main().catch((error: unknown) => {
   console.error(formatPlaywrightInstallError(error))
   process.exit(1)
 })
-

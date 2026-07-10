@@ -23,6 +23,7 @@ None — no spec-level requirement changes. All changes are UI/UX improvements.
 ## Impact
 
 **Affected files:**
+
 - `app/ui/appointment-grid.tsx` — CSS changes (3 style blocks), draft input type change, draft event handlers, draft layout, button markup
 
 **No API changes** — the controller and data layer remain untouched. Title validation stays at `maxLength(80)` (can be addressed separately if needed).

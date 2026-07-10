@@ -7,12 +7,14 @@ The grid's `endDrag` function already has conditional branches: if over trashcan
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Dragging an appointment block onto the types panel creates a new type with that title
 - The appointment stays unchanged (copy semantics, not move)
 - Types panel shows a visual drop zone highlight when an appointment is dragged over it
 - Works with the existing drag gesture (pointer already captured by grid)
 
 **Non-Goals:**
+
 - Dragging from the types panel into the grid (already implemented)
 - Reordering types in the panel
 - Batch creation of multiple types at once

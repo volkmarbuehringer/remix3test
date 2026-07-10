@@ -6,7 +6,14 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { frames, routes } from '../routes.ts'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildEditUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildEditUrl,
+  formatTimestamp,
+} from './mixins/admin-urls.ts'
 
 import { AdminNutzerEditPage } from './admin-nutzer-edit-page.tsx'
 import { AdminNutzerCreatePage } from './admin-nutzer-create-page.tsx'
@@ -43,20 +50,28 @@ const SORTABLE_COLUMNS: Array<{ key: string; label: string }> = [
 
 const ADMIN_BASE = routes.admin.nutzer.index.href()
 
-function boolLabel(val: boolean): string { return val ? 'Ja' : 'Nein' }
+function boolLabel(val: boolean): string {
+  return val ? 'Ja' : 'Nein'
+}
 
 // ── Styles ──
 
 const boolBadgeYes = css({
-  display: 'inline-block', padding: `2px ${theme.space.sm}`,
-  borderRadius: theme.radius.full, fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold, background: theme.colors.action.primary.background,
+  display: 'inline-block',
+  padding: `2px ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  background: theme.colors.action.primary.background,
   color: theme.colors.action.primary.foreground,
 })
 const boolBadgeNo = css({
-  display: 'inline-block', padding: `2px ${theme.space.sm}`,
-  borderRadius: theme.radius.full, fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold, background: theme.surface.lvl3,
+  display: 'inline-block',
+  padding: `2px ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  background: theme.surface.lvl3,
   color: theme.colors.text.muted,
 })
 
@@ -67,9 +82,19 @@ const boolBadgeNo = css({
 export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
   return () => {
     let {
-      rows, offset, hasMore, prevOffset, nextOffset,
-      sortColumn, sortDirection, filter,
-      editRow = null, creating = false, formValues, fieldErrors, error,
+      rows,
+      offset,
+      hasMore,
+      prevOffset,
+      nextOffset,
+      sortColumn,
+      sortDirection,
+      filter,
+      editRow = null,
+      creating = false,
+      formValues,
+      fieldErrors,
+      error,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -77,12 +102,22 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
     let gridSection = (
       <div mix={table.minWidth0}>
         {/* Filter bar + Add New */}
-        <form method="GET" action={ADMIN_BASE} rmx-target={frames.adminContent} mix={table.filterBar}>
+        <form
+          method="GET"
+          action={ADMIN_BASE}
+          rmx-target={frames.adminContent}
+          mix={table.filterBar}
+        >
           <input
-            type="text" name="filter" placeholder="Suche nach Name, Email oder Login..."
-            defaultValue={filter ?? ''} mix={table.filterInput}
+            type="text"
+            name="filter"
+            placeholder="Suche nach Name, Email oder Login..."
+            defaultValue={filter ?? ''}
+            mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
+          <button type="submit" mix={table.searchBtn}>
+            <Glyph name="search" width={14} height={14} /> Suchen
+          </button>
           {filter && (
             <a href={ADMIN_BASE} rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
@@ -94,7 +129,9 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
+            <button mix={[button({ tone: 'primary' })]}>
+              <Glyph name="add" width={14} height={14} /> Neu anlegen
+            </button>
           </a>
         </form>
 
@@ -102,9 +139,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
         <div mix={table.wrap}>
           {rows.length === 0 ? (
             <div mix={table.empty}>
-              {filter
-                ? 'Keine Nutzer gefunden für diese Suche.'
-                : 'Keine Nutzer vorhanden.'}
+              {filter ? 'Keine Nutzer gefunden für diese Suche.' : 'Keine Nutzer vorhanden.'}
             </div>
           ) : (
             <table id="nutzer-table" mix={table.table}>
@@ -123,12 +158,21 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                   {SORTABLE_COLUMNS.map((col) => (
                     <th key={col.key} mix={table.thSortable} title={col.label}>
                       <a
-                        href={buildSortUrl(ADMIN_BASE, col.key, sortColumn, sortDirection, offset, filter)}
+                        href={buildSortUrl(
+                          ADMIN_BASE,
+                          col.key,
+                          sortColumn,
+                          sortDirection,
+                          offset,
+                          filter,
+                        )}
                         rmx-target={frames.adminContent}
                         mix={table.sortLink}
                       >
                         {col.label}
-                        <span mix={col.key === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                        <span
+                          mix={col.key === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        >
                           {sortArrow(col.key, sortColumn, sortDirection)}
                         </span>
                       </a>
@@ -138,11 +182,23 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.n_id} mix={[table.row, editRow?.n_id === row.n_id ? table.editingRow : undefined]} data-row-id={row.n_id}>
-                    <td mix={table.td} title={row.n_vorname ?? ''}>{row.n_vorname ?? '\u2014'}</td>
-                    <td mix={table.td} title={row.n_name ?? ''}>{row.n_name ?? '\u2014'}</td>
-                    <td mix={table.td} title={row.n_email ?? ''}>{row.n_email ?? '\u2014'}</td>
-                    <td mix={table.td} title={row.l_login}>{row.l_login}</td>
+                  <tr
+                    key={row.n_id}
+                    mix={[table.row, editRow?.n_id === row.n_id ? table.editingRow : undefined]}
+                    data-row-id={row.n_id}
+                  >
+                    <td mix={table.td} title={row.n_vorname ?? ''}>
+                      {row.n_vorname ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.n_name ?? ''}>
+                      {row.n_name ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.n_email ?? ''}>
+                      {row.n_email ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.l_login}>
+                      {row.l_login}
+                    </td>
                     <td mix={table.td}>
                       <span mix={row.n_verpflichtung ? boolBadgeYes : boolBadgeNo}>
                         {boolLabel(row.n_verpflichtung)}
@@ -158,7 +214,12 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                         {boolLabel(row.l_gesperrt)}
                       </span>
                     </td>
-                    <td mix={table.td} title={row.l_letzte_login ? formatTimestamp(row.l_letzte_login) : ''}>{formatTimestamp(row.l_letzte_login)}</td>
+                    <td
+                      mix={table.td}
+                      title={row.l_letzte_login ? formatTimestamp(row.l_letzte_login) : ''}
+                    >
+                      {formatTimestamp(row.l_letzte_login)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -170,26 +231,60 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
+              <span mix={table.paginationInfo}>
+                Zeige {pageStart}–{pageEnd}
+              </span>
             )}
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
+                >
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
+                >
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
+                <span mix={table.pageLinkDisabled}>
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </span>
               )}
             </div>
           </div>
@@ -198,7 +293,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
         {/* JSON data for clientEntry context menu */}
         <script id="nutzer-table-data" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
-            rows: rows.map(r => ({
+            rows: rows.map((r) => ({
               n_id: r.n_id,
               n_name: r.n_name,
               n_l_login: r.l_login,
@@ -233,13 +328,21 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
               {editRow ? (
                 <AdminNutzerEditPage
                   row={editRow}
-                  offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter} formValues={formValues} fieldErrors={fieldErrors}
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               ) : (
                 <AdminNutzerCreatePage
-                  offset={String(offset)} sort={sortColumn}
-                  order={sortDirection} filter={filter} formValues={formValues} fieldErrors={fieldErrors}
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               )}
             </div>

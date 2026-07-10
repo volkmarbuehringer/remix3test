@@ -7,12 +7,14 @@ The existing settings-page implementation provides a proven pattern: schema-leve
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Enforce password complexity on the registration form
 - Enforce password complexity on the password-reset form
 - Provide real-time client-side complexity feedback on both forms
 - Reuse the existing `validatePasswordComplexity()` and `PASSWORD_MIN_LENGTH` constants
 
 **Non-Goals:**
+
 - Changing the complexity rules themselves (min length, digit, special char)
 - Modifying the settings change-password flow (already complete)
 - Adding uppercase or other new complexity rules

@@ -18,6 +18,7 @@ The timeboxer demo (`~/remix/demos/timeboxer/app/controllers/auth/controller.tsx
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Merge 5 flat controller dirs into `app/actions/auth/controller.tsx`
 - Extract page components to `app/actions/auth/pages.tsx`
 - Update `app/router.ts` to a single import statement
@@ -26,6 +27,7 @@ The timeboxer demo (`~/remix/demos/timeboxer/app/controllers/auth/controller.tsx
 - Serve as proof-of-concept for the consolidation pattern
 
 **Non-Goals:**
+
 - Changing route behavior, URLs, or HTTP semantics
 - Consolidating non-auth controllers (`admin/*`, `ai/*`, `verwaltung/*`)
 - Changing how `createController`, `createAction`, or `router.map()` work
@@ -43,9 +45,15 @@ The timeboxer demo (`~/remix/demos/timeboxer/app/controllers/auth/controller.tsx
 
 5. **Single router import** — replace 6 individual imports with:
    ```typescript
-   import { authLogin, authRegister, registerSent, verify,
-            authForgotten, authForgottenReset, authLogout }
-     from './actions/auth/controller.tsx'
+   import {
+     authLogin,
+     authRegister,
+     registerSent,
+     verify,
+     authForgotten,
+     authForgottenReset,
+     authLogout,
+   } from './actions/auth/controller.tsx'
    ```
 
 ## Risks / Trade-offs

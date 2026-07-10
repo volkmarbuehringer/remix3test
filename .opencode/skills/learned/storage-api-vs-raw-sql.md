@@ -1,6 +1,6 @@
 ---
 name: storage-api-vs-raw-sql
-description: "Use storage API (e.g. Memory.deleteThread) instead of raw SQL for thread deletion"
+description: 'Use storage API (e.g. Memory.deleteThread) instead of raw SQL for thread deletion'
 origin: auto-extracted
 ---
 
@@ -20,6 +20,7 @@ await context.db.exec(sql`DELETE FROM mastra_threads WHERE id = ${id}`)
 ```
 
 Problems:
+
 - Table/column names can change between library releases
 - Deletes are non-atomic (no transaction across tables)
 - Vector embeddings in the vector store are orphaned

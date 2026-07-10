@@ -14,10 +14,12 @@ The support agent currently answers admin questions about users and appointments
 ## Capabilities
 
 ### New Capabilities
+
 - `support-agent-tools`: The full tool set available to the support agent, covering read queries on all system tables, holiday lookup, PDF generation, and location context
 
 ### Modified Capabilities
-- *(none)*
+
+- _(none)_
 
 ## Impact
 

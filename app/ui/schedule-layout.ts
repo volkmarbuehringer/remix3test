@@ -268,7 +268,10 @@ function layoutAfterAnchor(
   return placed
 }
 
-function countMoved(placedBlocks: AppointmentLayoutBlock[], originalBlocks: AppointmentLayoutBlock[]) {
+function countMoved(
+  placedBlocks: AppointmentLayoutBlock[],
+  originalBlocks: AppointmentLayoutBlock[],
+) {
   let originalById = new Map(originalBlocks.map((block) => [block.id, block]))
   return placedBlocks.filter((block) => {
     let original = originalById.get(block.id)
@@ -276,7 +279,10 @@ function countMoved(placedBlocks: AppointmentLayoutBlock[], originalBlocks: Appo
   }).length
 }
 
-function totalMovement(placedBlocks: AppointmentLayoutBlock[], originalBlocks: AppointmentLayoutBlock[]) {
+function totalMovement(
+  placedBlocks: AppointmentLayoutBlock[],
+  originalBlocks: AppointmentLayoutBlock[],
+) {
   let originalById = new Map(originalBlocks.map((block) => [block.id, block]))
   return placedBlocks.reduce((total, block) => {
     let original = originalById.get(block.id)
@@ -295,9 +301,7 @@ function resolvePush(
   let collisions = getCollisions(candidate, anchor)
   if (collisions.length === 0) return isValidLayout(candidate, policy) ? candidate : null
 
-  let dayBlocks = candidate.filter(
-    (block) => block.id !== anchor.id && block.date === anchor.date,
-  )
+  let dayBlocks = candidate.filter((block) => block.id !== anchor.id && block.date === anchor.date)
 
   if (direction === 'down') {
     placeBlocksDown(anchor, dayBlocks)
@@ -457,9 +461,7 @@ function sortBlocks(blocks: AppointmentLayoutBlock[]) {
     .map(copyBlock)
     .sort(
       (left, right) =>
-        left.date - right.date ||
-        left.start_min - right.start_min ||
-        left.id - right.id,
+        left.date - right.date || left.start_min - right.start_min || left.id - right.id,
     )
 }
 

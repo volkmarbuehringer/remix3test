@@ -17,10 +17,15 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
   actions: {
     async index(context) {
       let user = getCurrentUser()
-      let rows: UploadRow[] = user.role === 'admin'
-        ? await listUploads(context.db)
-        : await listUploads(context.db, user.id)
-      return renderAdminPage(context.render, 'uploads', <UploadsContent uploads={rows} uploadId={null} uploadError={null} />)
+      let rows: UploadRow[] =
+        user.role === 'admin'
+          ? await listUploads(context.db)
+          : await listUploads(context.db, user.id)
+      return renderAdminPage(
+        context.render,
+        'uploads',
+        <UploadsContent uploads={rows} uploadId={null} uploadError={null} />,
+      )
     },
 
     async action(context) {
@@ -32,16 +37,21 @@ export default createController<typeof routes.uploads, AppContext>(routes.upload
         await claimUpload(context.db, uploadId, user.id)
       }
 
-      let rows: UploadRow[] = user.role === 'admin'
-        ? await listUploads(context.db)
-        : await listUploads(context.db, user.id)
+      let rows: UploadRow[] =
+        user.role === 'admin'
+          ? await listUploads(context.db)
+          : await listUploads(context.db, user.id)
       return renderAdminPage(
         context.render,
         'uploads',
         <UploadsContent
           uploads={rows}
           uploadId={uploadId && !Number.isNaN(uploadId) ? uploadId : null}
-          uploadError={uploadId === null || Number.isNaN(uploadId) ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.' : null}
+          uploadError={
+            uploadId === null || Number.isNaN(uploadId)
+              ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
+              : null
+          }
         />,
       )
     },
@@ -57,9 +67,10 @@ export const download = createAction(uploadsDownload, {
       return new Response('Invalid ID', { status: 400 })
     }
 
-    let row = user.role === 'admin'
-      ? await getUploadDownload(context.db, id)
-      : await getUploadDownload(context.db, id, user.id)
+    let row =
+      user.role === 'admin'
+        ? await getUploadDownload(context.db, id)
+        : await getUploadDownload(context.db, id, user.id)
     if (!row) {
       return new Response('Not found', { status: 404 })
     }
@@ -86,14 +97,28 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
     let { uploads, uploadId, uploadError } = handle.props
 
     return (
-      <PageSection title="Datei-Upload" description="Laden Sie Dateien hoch, die in der Datenbank gespeichert werden.">
+      <PageSection
+        title="Datei-Upload"
+        description="Laden Sie Dateien hoch, die in der Datenbank gespeichert werden."
+      >
         <div mix={panelCss}>
           {uploadId ? <p mix={successBanner}>Datei hochgeladen (ID: {uploadId}).</p> : null}
-          {uploadError ? <p role="alert" mix={errorBanner}>{uploadError}</p> : null}
-          <form action={routes.uploads.action.href()} method="POST" encType="multipart/form-data" mix={formCss}>
+          {uploadError ? (
+            <p role="alert" mix={errorBanner}>
+              {uploadError}
+            </p>
+          ) : null}
+          <form
+            action={routes.uploads.action.href()}
+            method="POST"
+            encType="multipart/form-data"
+            mix={formCss}
+          >
             <CsrfTokenInput />
             <input type="file" name="file" required mix={fileInputCss} />
-            <button type="submit" mix={submitCss}>Hochladen</button>
+            <button type="submit" mix={submitCss}>
+              Hochladen
+            </button>
           </form>
         </div>
 
@@ -119,7 +144,11 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <td>{u.mime_type}</td>
                     <td>{formatSize(u.size)}</td>
                     <td>{new Date(u.created_at).toLocaleDateString()}</td>
-                    <td><a href={uploadsDownload.href({ id: u.id })} download>Download</a></td>
+                    <td>
+                      <a href={uploadsDownload.href({ id: u.id })} download>
+                        Download
+                      </a>
+                    </td>
                   </tr>
                 ))}
               </tbody>

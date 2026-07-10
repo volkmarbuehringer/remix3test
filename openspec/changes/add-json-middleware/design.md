@@ -14,6 +14,7 @@ The existing `json()` render middleware (for responses) at `app/middleware/json-
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Parse JSON request bodies once per request in middleware, before they reach handlers
 - Surface parsed body as `context.jsonBody` (typed as `unknown`, same as `request.json()`)
 - Return consistent `400` with `{ error: "Invalid JSON body" }` on parse failure
@@ -23,6 +24,7 @@ The existing `json()` render middleware (for responses) at `app/middleware/json-
 - Match the existing middleware conventions: `createContextKey`, `context.set(Key, ...)`
 
 **Non-Goals:**
+
 - Schema validation — the middleware only guarantees the body is valid JSON. Schema validation (vs `data-schema`) stays in handlers where `data-schema` already handles it
 - Content negotiation (Accept header) — that's a separate concern for response shaping
 - Modifying request body after parsing — the parsed value is read-only

@@ -14,9 +14,11 @@ Webhook requests that failed to reach hermes or whose callback was never receive
 ## Capabilities
 
 ### New Capabilities
+
 - `webhook-resend`: Per-row resend action on the webhook-requests grid that clears callback columns and re-forwards the payload to hermes
 
 ### Modified Capabilities
+
 - `webhook-requests-viewer`: Add per-row action button column; spec requires update to reflect the new interactive capability
 
 ## Impact

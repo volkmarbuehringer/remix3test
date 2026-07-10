@@ -1,6 +1,7 @@
 ## Context
 
 Resources represent bookable entities (rooms, equipment, services) in the appointment management system. Each resource has:
+
 - `name` — short name (e.g., "Raum 1")
 - `description` — short description (e.g., "Behandlungsraum im EG")
 - `capabilities` — NEW, detailed multiline text describing what this resource can do
@@ -12,6 +13,7 @@ There is no customer-facing agent, no customer chat route, and no mechanism for 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a new `capabilities TEXT` column to the resources table with a migration
 - Add a multiline `<textarea>` labeled "Capabilities" to the admin resource form, below the existing description field
 - Add a GIN trigram index on `resources.capabilities` to enable efficient full-text / ILIKE search
@@ -20,6 +22,7 @@ There is no customer-facing agent, no customer chat route, and no mechanism for 
 - The customer agent recommends the best-fitting resource but does NOT book appointments (future workflow)
 
 **Non-Goals:**
+
 - No appointment booking from the agent (out of scope for this change; the agent only recommends)
 - No voice/STT/TTS integration
 - No RAG or vector embeddings — ILIKE + trigram search is sufficient for this scale
@@ -29,18 +32,23 @@ There is no customer-facing agent, no customer chat route, and no mechanism for 
 ## Decisions
 
 ### 1. New `capabilities` column instead of repurposing `description`
+
 The resources table has `name` and `description` with distinct semantics. Creating a new `capabilities TEXT` column keeps the schema clean: `name` → resource name, `description` → short description, `capabilities` → detailed capability text. Migration: `ALTER TABLE resources ADD COLUMN IF NOT EXISTS capabilities TEXT DEFAULT ''`.
 
 ### 2. GIN trigram index instead of vector embeddings
+
 At current scale (dozens of resources, not thousands), PostgreSQL's `pg_trgm` extension with a GIN index on `capabilities` provides fast ILIKE queries without adding a vector pipeline. If scale requires, this can be upgraded to `pgvector` embeddings later without changing the agent interface.
 
 ### 3. Separate agent instance instead of adding tools to supportAgent
+
 The `supportAgent` is admin-only with read-all permissions. The `customerAgent` needs a narrower scope (only read resource capabilities) and different auth constraints. A separate agent keeps security boundaries clear.
 
 ### 4. Top-level `/chat` route not under `/admin`
+
 Customer-facing chat should be outside the admin route tree. New controller at `app/actions/chat/controller.tsx`, new route in `app/routes.ts`, auth middleware requiring only login (not admin).
 
 ### 5. Same Mastra() orchestrator instance
+
 The new `customerAgent` registers in the existing `Mastra()` constructor alongside `supportAgent`. No second Mastra instance needed. The agents share the same PostgresStore and logger.
 
 ## Architecture
@@ -109,13 +117,13 @@ Response rendered in customer chat UI:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| ILIKE search misses resources with synonyms (e.g., "silent" vs "quiet") | Add a `pg_trgm` GIN index for fuzzy matching; document that admins should use multiple keywords in capabilities |
-| Customer asks the agent to book an appointment | Agent instructions explicitly forbid booking; future workflow will handle this |
-| Existing `capabilities` column starts empty for all resources | Admins populate capabilities via the new admin form field; no auto-migration of existing data needed |
-| Agent hallucinates resource capabilities not in the actual data | Agent is constrained to only answer from tool results; prompt instructs it to say "no matching resource" if nothing fits |
-| Rate limiting needed for customer chat | Reuse the existing `chatRateLimiter` from `app/actions/mastra/controller.tsx` but make it configurable or instantiate a second instance with different window |
+| Risk                                                                    | Mitigation                                                                                                                                                    |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ILIKE search misses resources with synonyms (e.g., "silent" vs "quiet") | Add a `pg_trgm` GIN index for fuzzy matching; document that admins should use multiple keywords in capabilities                                               |
+| Customer asks the agent to book an appointment                          | Agent instructions explicitly forbid booking; future workflow will handle this                                                                                |
+| Existing `capabilities` column starts empty for all resources           | Admins populate capabilities via the new admin form field; no auto-migration of existing data needed                                                          |
+| Agent hallucinates resource capabilities not in the actual data         | Agent is constrained to only answer from tool results; prompt instructs it to say "no matching resource" if nothing fits                                      |
+| Rate limiting needed for customer chat                                  | Reuse the existing `chatRateLimiter` from `app/actions/mastra/controller.tsx` but make it configurable or instantiate a second instance with different window |
 
 ## Open Questions
 

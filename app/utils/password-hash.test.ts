@@ -178,13 +178,7 @@ describe('hashPassword / verifyPassword', () => {
 
   it('verifyPassword does not throw for any string input', async () => {
     // Arrange
-    let inputs = [
-      '',
-      'not-a-hash',
-      '$$$',
-      'pbkdf2_sha256$$$',
-      'pbkdf2_sha256$abc$!!!$???',
-    ]
+    let inputs = ['', 'not-a-hash', '$$$', 'pbkdf2_sha256$$$', 'pbkdf2_sha256$abc$!!!$???']
 
     for (let input of inputs) {
       // Act — should never throw; we just need the promise to settle

@@ -7,12 +7,14 @@ The `/nutzer` page proves the alternative: server-rendered forms with `data-conf
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate per-row `clientEntry` components from the client grid
 - Maintain inline delete without full-page refresh
 - Keep confirmation dialog before delete
 - Preserve grid state (offset, sort, filter) after delete
 
 **Non-Goals:**
+
 - Changing the `FrameRefreshButton` component (kept as clientEntry)
 - Changing the Edit button (already server-rendered)
 - Changing the nutzer page or any other page

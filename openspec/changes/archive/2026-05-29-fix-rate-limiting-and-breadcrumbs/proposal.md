@@ -22,6 +22,7 @@ Two medium-severity issues degrade the app's robustness and developer experience
 ## Capabilities
 
 ### New Capabilities
+
 - `register-rate-limiting`: Rate limiting for the registration endpoint to prevent automated abuse
 - `breadcrumb-auto-sync`: Complete and accurate breadcrumb coverage for all active routes, enforced through the centralized `ROUTE_LABELS` map
 

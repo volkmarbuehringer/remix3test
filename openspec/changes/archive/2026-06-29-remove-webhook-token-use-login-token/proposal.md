@@ -16,9 +16,11 @@ The `WEBHOOK_TOKEN` environment variable is a shared static secret with no user 
 ## Capabilities
 
 ### New Capabilities
-- *(none — per-user API tokens already exist)*
+
+- _(none — per-user API tokens already exist)_
 
 ### Modified Capabilities
+
 - `webhook-ingestion`: Auth mechanism changes from `WEBHOOK_TOKEN` comparison to per-user API token lookup
 - `app-webhook-hermes`: Auth mechanism changes from `WEBHOOK_TOKEN` comparison to per-user API token lookup
 - `api-token-auth`: The `api-token-auth` middleware drops the `WEBHOOK_TOKEN` backward-compatible fallback

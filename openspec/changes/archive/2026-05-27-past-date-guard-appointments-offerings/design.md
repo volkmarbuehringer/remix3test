@@ -7,6 +7,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prevent creation of appointments and offerings with dates in the past
 - Prevent updating (modifying) appointments and offerings with dates in the past
 - Allow deletion of past records only for admin users; deny for non-admin users
@@ -15,6 +16,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 - Cover both the user-facing appointment calendar and admin appointment/offering management
 
 **Non-Goals:**
+
 - Not modifying the database schema (no new columns, no new constraints)
 - Not adding a soft-delete mechanism — deletion remains hard DELETE
 - Not backfilling or cleaning up existing past records
@@ -29,6 +31,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 **Decision**: Add past-date validation in `data/appointments.ts` and `data/appointofferings.ts`, inside `createAppointment`, `updateAppointment`, and equivalent offering functions.
 
 **Rationale**:
+
 - Both user-facing and admin controllers call the same DAL functions, so one enforcement point covers both.
 - Schema-level `validate` hooks in `schema.ts` would be too low-level — they lack context about which operation (create/update/delete) is being performed and who the user is.
 - Controller-level enforcement would require duplicating logic across multiple controllers.
@@ -40,6 +43,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 **Decision**: DAL functions accept an optional `{ adminBypass?: boolean }` options parameter. When `adminBypass: true`, past-date deletion is allowed. Only admin controllers pass this flag.
 
 **Rationale**:
+
 - Keeps the DAL pure and testable — no coupling to auth middleware or session context.
 - Admin controllers already have `requireAdmin()` middleware, so by the time they call the DAL, the user is confirmed admin. The `adminBypass` flag is a second line of defense.
 - Makes the authorization boundary explicit in the function signature — impossible to accidentally allow past deletion.
@@ -51,6 +55,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 **Decision**: Compare `date`/`day` (epoch ms) against the start of today in UTC (`Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())`). If `date < todayUtcMidnight`, the record is in the past.
 
 **Rationale**:
+
 - Dates are stored as UTC midnight epoch ms — no timezone ambiguity.
 - An appointment on "today" is not in the past, even if the time slot has already passed. This matches user expectations — you might want to book a same-day slot that hasn't started yet.
 - No need to compare `during` time ranges against current time — only the day matters.
@@ -62,6 +67,7 @@ Existing validation (schema-level and controller-level) covers format, range bou
 **Decision**: Return `AppointmentError` and `OfferingError` instances (matching existing patterns in `data/appointments.ts` and `data/appointofferings.ts`) with German messages.
 
 **Message examples**:
+
 - Create/update past appointment: `"Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden."`
 - Delete past appointment (non-admin): `"Termine in der Vergangenheit können nur von Administratoren gelöscht werden."`
 - Create/update past offering: `"Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden."`

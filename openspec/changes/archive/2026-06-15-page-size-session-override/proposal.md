@@ -13,6 +13,7 @@ Page sizes are hardcoded per controller (15, 20, 10, etc.). Users have no way to
 ## Capabilities
 
 ### New Capabilities
+
 - `page-size-preference`: A user-facing page size selector in the settings page that stores the preference in the session as a temporary override over the hardcoded defaults.
 
 ## Impact

@@ -1,12 +1,12 @@
 ## 1. app/middleware/admin.ts — 403 Forbidden page
 
 - [x] 1.1 Add `import { html } from 'remix/html-template'` to the import block
-- [x] 1.2 Wrap the 403 HTML template string with `html\`...\`` and convert via `String()` in the `new Response(...)` call
+- [x] 1.2 Wrap the 403 HTML template string with `html\`...\``and convert via`String()`in the`new Response(...)` call
 
 ## 2. app/middleware/auth.ts — Frame-level 401 response
 
 - [x] 2.1 Add `import { html } from 'remix/html-template'` to the import block
-- [x] 2.2 Wrap the 401 HTML string with `html\`...\`` and convert via `String()` in the `new Response(...)` call
+- [x] 2.2 Wrap the 401 HTML string with `html\`...\``and convert via`String()`in the`new Response(...)` call
 
 ## 3. app/middleware/render.tsx — Frame error fallback
 

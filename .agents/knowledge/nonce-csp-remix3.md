@@ -1,5 +1,5 @@
 ---
-title: "Nonce-based CSP in Remix 3 with per-request nonces"
+title: 'Nonce-based CSP in Remix 3 with per-request nonces'
 tags: [csp, security, nonce, security-headers, xss, remix3]
 created: 2026-05-31
 status: active
@@ -12,6 +12,7 @@ The Content-Security-Policy used `'unsafe-inline'` on `script-src`, which means 
 ## Solution
 
 Generate a cryptographically random nonce per request and:
+
 1. Include it in the CSP header via `'nonce-<value>'`
 2. Apply it as the `nonce` attribute on every `<script>` tag in the HTML
 

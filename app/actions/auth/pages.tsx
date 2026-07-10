@@ -6,7 +6,15 @@ import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 import { routes } from '../../routes.ts'
 
 import { Layout } from '../../ui/layout.tsx'
-import { AuthShell, AuthForm, fieldLabelCss, fieldErrorCss, inputWrapperCss, inputHasToggleCss, toggleButtonCss } from '../../ui/auth-card.tsx'
+import {
+  AuthShell,
+  AuthForm,
+  fieldLabelCss,
+  fieldErrorCss,
+  inputWrapperCss,
+  inputHasToggleCss,
+  toggleButtonCss,
+} from '../../ui/auth-card.tsx'
 import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
@@ -31,10 +39,15 @@ export function LoginPage(handle: Handle<LoginPageProps>) {
     let footer = (
       <>
         <p mix={[bodyTextCss, css({ margin: 0 })]}>
-          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>Forgot password?</a>
+          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>
+            Forgot password?
+          </a>
         </p>
         <p mix={[bodyTextCss, css({ margin: 0 })]}>
-          Don't have an account? <a href={routes.auth.register.index.href()} mix={footerLinkCss}>Register here</a>
+          Don't have an account?{' '}
+          <a href={routes.auth.register.index.href()} mix={footerLinkCss}>
+            Register here
+          </a>
         </p>
       </>
     )
@@ -59,7 +72,11 @@ export function LoginPage(handle: Handle<LoginPageProps>) {
                 aria-describedby={errors?.email ? 'email-error' : undefined}
                 mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
               />
-              {errors?.email ? <span id="email-error" role="alert" mix={fieldErrorCss}>{errors.email}</span> : null}
+              {errors?.email ? (
+                <span id="email-error" role="alert" mix={fieldErrorCss}>
+                  {errors.email}
+                </span>
+              ) : null}
             </label>
 
             <label mix={fieldLabelCss}>
@@ -73,7 +90,11 @@ export function LoginPage(handle: Handle<LoginPageProps>) {
                 aria-describedby={errors?.password ? 'password-error' : undefined}
                 mix={[input.base, input.focus, errors?.password ? input.error : undefined]}
               />
-              {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+              {errors?.password ? (
+                <span id="password-error" role="alert" mix={fieldErrorCss}>
+                  {errors.password}
+                </span>
+              ) : null}
             </label>
           </AuthForm>
         </AuthShell>
@@ -128,7 +149,10 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
-        Bereits ein Konto? <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Hier anmelden</a>
+        Bereits ein Konto?{' '}
+        <a href={routes.auth.login.index.href()} mix={footerLinkCss}>
+          Hier anmelden
+        </a>
       </p>
     )
 
@@ -139,21 +163,30 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
           title="Create your account"
           description="Fill in your details to create a new account."
         >
-          <AuthForm action={routes.auth.register.action.href()} error={error} submitLabel="Create account" footer={footer}>
+          <AuthForm
+            action={routes.auth.register.action.href()}
+            error={error}
+            submitLabel="Create account"
+            footer={footer}
+          >
             <label mix={fieldLabelCss}>
               <span>Name</span>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  autoComplete="name"
-                  minLength={8}
-                  defaultValue={formValues?.name ?? ''}
+              <input
+                type="text"
+                name="name"
+                required
+                autoComplete="name"
+                minLength={8}
+                defaultValue={formValues?.name ?? ''}
                 aria-invalid={errors?.name ? true : undefined}
                 aria-describedby={errors?.name ? 'name-error' : undefined}
                 mix={[input.base, input.focus, errors?.name ? input.error : undefined]}
               />
-              {errors?.name ? <span id="name-error" role="alert" mix={fieldErrorCss}>{errors.name}</span> : null}
+              {errors?.name ? (
+                <span id="name-error" role="alert" mix={fieldErrorCss}>
+                  {errors.name}
+                </span>
+              ) : null}
             </label>
 
             <label mix={fieldLabelCss}>
@@ -168,12 +201,19 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                 aria-describedby={errors?.email ? 'email-error' : undefined}
                 mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
               />
-              {errors?.email ? <span id="email-error" role="alert" mix={fieldErrorCss}>{errors.email}</span> : null}
+              {errors?.email ? (
+                <span id="email-error" role="alert" mix={fieldErrorCss}>
+                  {errors.email}
+                </span>
+              ) : null}
             </label>
 
             <label mix={fieldLabelCss}>
               <span>Passwort</span>
-              <p id="password-hint" mix={hintCss}>Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein Sonderzeichen enthalten.</p>
+              <p id="password-hint" mix={hintCss}>
+                Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein
+                Sonderzeichen enthalten.
+              </p>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
@@ -183,13 +223,27 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                   minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.password ? true : undefined}
                   aria-describedby={`password-hint${errors?.password ? ' password-error' : ''}`}
-                  mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    errors?.password ? input.error : undefined,
+                    inputHasToggleCss,
+                  ]}
                 />
-                <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
+                <button
+                  type="button"
+                  data-toggle-pw="password"
+                  aria-label="Passwort anzeigen"
+                  mix={toggleButtonCss}
+                >
                   <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
-              {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+              {errors?.password ? (
+                <span id="password-error" role="alert" mix={fieldErrorCss}>
+                  {errors.password}
+                </span>
+              ) : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
               <script>{passwordComplexityScript('password')}</script>
             </label>
@@ -205,13 +259,27 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                   minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.confirmPassword ? true : undefined}
                   aria-describedby={errors?.confirmPassword ? 'confirm-password-error' : undefined}
-                  mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    errors?.confirmPassword ? input.error : undefined,
+                    inputHasToggleCss,
+                  ]}
                 />
-                <button type="button" data-toggle-pw="confirmPassword" aria-label="Show password" mix={toggleButtonCss}>
+                <button
+                  type="button"
+                  data-toggle-pw="confirmPassword"
+                  aria-label="Show password"
+                  mix={toggleButtonCss}
+                >
                   <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
-              {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
+              {errors?.confirmPassword ? (
+                <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
+                  {errors.confirmPassword}
+                </span>
+              ) : null}
             </label>
           </AuthForm>
         </AuthShell>
@@ -230,7 +298,9 @@ export function RegisterSentPage(handle: Handle<{}>) {
       >
         <p mix={bodyTextCss}>The verification link will expire in 24 hours.</p>
         <p mix={bodyTextCss}>
-          <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Back to login</a>
+          <a href={routes.auth.login.index.href()} mix={footerLinkCss}>
+            Back to login
+          </a>
         </p>
       </AuthShell>
     </Layout>
@@ -250,7 +320,9 @@ export function ForgotPage(handle: Handle<ForgotPageProps>) {
 
     let footer = (
       <p mix={[bodyTextCss, css({ margin: 0 })]}>
-        <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Back to login</a>
+        <a href={routes.auth.login.index.href()} mix={footerLinkCss}>
+          Back to login
+        </a>
       </p>
     )
 
@@ -261,7 +333,12 @@ export function ForgotPage(handle: Handle<ForgotPageProps>) {
           title="Forgot your password?"
           description="Enter your email address and we'll send you a link to reset your password."
         >
-          <AuthForm action={routes.auth.forgotten.action.href()} error={error} submitLabel="Send reset link" footer={footer}>
+          <AuthForm
+            action={routes.auth.forgotten.action.href()}
+            error={error}
+            submitLabel="Send reset link"
+            footer={footer}
+          >
             <label mix={fieldLabelCss}>
               <span>Email</span>
               <input
@@ -273,7 +350,11 @@ export function ForgotPage(handle: Handle<ForgotPageProps>) {
                 aria-describedby={errors?.email ? 'email-error' : undefined}
                 mix={[input.base, input.focus, errors?.email ? input.error : undefined]}
               />
-              {errors?.email ? <span id="email-error" role="alert" mix={fieldErrorCss}>{errors.email}</span> : null}
+              {errors?.email ? (
+                <span id="email-error" role="alert" mix={fieldErrorCss}>
+                  {errors.email}
+                </span>
+              ) : null}
             </label>
           </AuthForm>
         </AuthShell>
@@ -292,7 +373,9 @@ export function ForgotSentPage(handle: Handle<{}>) {
       >
         <p mix={bodyTextCss}>The link will expire in 1 hour.</p>
         <p mix={bodyTextCss}>
-        <a href={routes.auth.login.index.href()} mix={footerLinkCss}>Zurück zum Login</a>
+          <a href={routes.auth.login.index.href()} mix={footerLinkCss}>
+            Zurück zum Login
+          </a>
         </p>
       </AuthShell>
     </Layout>
@@ -316,10 +399,17 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
           title="Set a new password"
           description="Enter your new password below."
         >
-          <AuthForm action={routes.auth.forgottenReset.action.href({ token })} error={error} submitLabel="Reset password">
+          <AuthForm
+            action={routes.auth.forgottenReset.action.href({ token })}
+            error={error}
+            submitLabel="Reset password"
+          >
             <label mix={fieldLabelCss}>
               <span>Neues Passwort</span>
-              <p id="password-hint" mix={hintCss}>Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein Sonderzeichen enthalten.</p>
+              <p id="password-hint" mix={hintCss}>
+                Das Passwort muss mindestens 10 Zeichen lang sein sowie mindestens eine Zahl und ein
+                Sonderzeichen enthalten.
+              </p>
               <div mix={inputWrapperCss}>
                 <input
                   type="password"
@@ -329,13 +419,27 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.password ? true : undefined}
                   aria-describedby={`password-hint${errors?.password ? ' password-error' : ''}`}
-                  mix={[input.base, input.focus, errors?.password ? input.error : undefined, inputHasToggleCss]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    errors?.password ? input.error : undefined,
+                    inputHasToggleCss,
+                  ]}
                 />
-                <button type="button" data-toggle-pw="password" aria-label="Passwort anzeigen" mix={toggleButtonCss}>
+                <button
+                  type="button"
+                  data-toggle-pw="password"
+                  aria-label="Passwort anzeigen"
+                  mix={toggleButtonCss}
+                >
                   <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
-              {errors?.password ? <span id="password-error" role="alert" mix={fieldErrorCss}>{errors.password}</span> : null}
+              {errors?.password ? (
+                <span id="password-error" role="alert" mix={fieldErrorCss}>
+                  {errors.password}
+                </span>
+              ) : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
               <script>{passwordComplexityScript('password')}</script>
             </label>
@@ -351,13 +455,27 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                   minLength={PASSWORD_MIN_LENGTH}
                   aria-invalid={errors?.confirmPassword ? true : undefined}
                   aria-describedby={errors?.confirmPassword ? 'confirm-password-error' : undefined}
-                  mix={[input.base, input.focus, errors?.confirmPassword ? input.error : undefined, inputHasToggleCss]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    errors?.confirmPassword ? input.error : undefined,
+                    inputHasToggleCss,
+                  ]}
                 />
-                <button type="button" data-toggle-pw="confirmPassword" aria-label="Show password" mix={toggleButtonCss}>
+                <button
+                  type="button"
+                  data-toggle-pw="confirmPassword"
+                  aria-label="Show password"
+                  mix={toggleButtonCss}
+                >
                   <Glyph name="eye" width={18} height={18} />
                 </button>
               </div>
-            {errors?.confirmPassword ? <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>{errors.confirmPassword}</span> : null}
+              {errors?.confirmPassword ? (
+                <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
+                  {errors.confirmPassword}
+                </span>
+              ) : null}
             </label>
           </AuthForm>
         </AuthShell>
@@ -375,7 +493,9 @@ export function ResetErrorPage(handle: Handle<{ title: string; message: string }
         description={handle.props.message}
       >
         <p mix={bodyTextCss}>
-          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>Neuen Link anfordern</a>
+          <a href={routes.auth.forgotten.index.href()} mix={footerLinkCss}>
+            Neuen Link anfordern
+          </a>
         </p>
       </AuthShell>
     </Layout>

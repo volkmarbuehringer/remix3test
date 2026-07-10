@@ -19,7 +19,9 @@ export function ForbiddenPage(handle: Handle<ForbiddenPageProps>) {
         <div mix={cardCss}>
           <h1 mix={titleCss}>403</h1>
           <p mix={messageCss}>{message}</p>
-          <a href="/" mix={linkCss}>Back to Home</a>
+          <a href="/" mix={linkCss}>
+            Back to Home
+          </a>
         </div>
       </div>
     )

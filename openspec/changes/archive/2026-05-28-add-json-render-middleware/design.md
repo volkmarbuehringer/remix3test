@@ -12,12 +12,14 @@ Both require manual status codes and optional header overrides at each call site
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a single `context.json(data, init?)` method on `AppContext` that returns `Response` with `Content-Type: application/json`
 - Minimize new code — reuse the existing `renderWith` pattern
 - Migrate all existing JSON responses in controllers to use `context.json(...)`
 - Zero new runtime dependencies
 
 **Non-Goals:**
+
 - Auto-inferring status from payload shape (e.g., "if `error` is present, use 400") — that couples the renderer to a specific error shape and is better handled explicitly
 - Changing the UI renderer or frame resolution logic
 - Adding a generic serialization layer (Zod or similar) — existing validation patterns stay as-is
@@ -30,6 +32,7 @@ Both require manual status codes and optional header overrides at each call site
 **Chosen**: `renderWith(() => (data, init?) => Response.json(data, init))`
 
 **Alternatives considered**:
+
 - A standalone middleware that sets `context.json` directly using `context.set(...)` — would duplicate the key/property wiring that `renderWith` already handles
 - A plain wrapper function in a utility module — would require passing the full context or creating a new context key manually
 
@@ -40,6 +43,7 @@ Both require manual status codes and optional header overrides at each call site
 **Chosen**: `(data: unknown, init?: ResponseInit) => Response`
 
 **Alternatives considered**:
+
 - A typed `JsonPayload = Record<string, unknown>` — would require widening for array responses, and TypeScript already infers from the literal at each call site
 - A discriminated union `{ ok: boolean; error?: string }` — too restrictive; controllers return varied shapes
 
@@ -50,6 +54,7 @@ Both require manual status codes and optional header overrides at each call site
 **Chosen**: Status is always explicit: `context.json({ error: '...' }, { status: 400 })`
 
 **Alternatives considered**:
+
 - Auto-set status based on `error` / `ok` keys in payload — reduces boilerplate but couples the renderer to specific payload shapes
 - Default to 200 with optional override — same as `Response.json()` behavior
 

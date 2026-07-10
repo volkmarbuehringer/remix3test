@@ -31,7 +31,13 @@ export interface RateLimiter {
 }
 
 export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
-  let { windowMs, perUser = false, perKey = false, maxAttempts = 1, cleanupInterval = windowMs * 100 } = options
+  let {
+    windowMs,
+    perUser = false,
+    perKey = false,
+    maxAttempts = 1,
+    cleanupInterval = windowMs * 100,
+  } = options
 
   if (perUser && perKey) {
     throw new Error('Cannot set both perUser and perKey on a rate limiter')
@@ -89,7 +95,9 @@ export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
         return { allowed: true }
       },
       set(): void {},
-      attempt(): boolean { return true },
+      attempt(): boolean {
+        return true
+      },
       state(): { count: number; remaining: number; reset: number } | null {
         return { count: 0, remaining: maxAttempts, reset: 0 }
       },

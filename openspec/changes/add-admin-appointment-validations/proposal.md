@@ -11,9 +11,11 @@ The admin appointments panel at `/admin/appointments` bypasses business logic th
 ## Capabilities
 
 ### New Capabilities
-*(none — this adds validation to an existing capability)*
+
+_(none — this adds validation to an existing capability)_
 
 ### Modified Capabilities
+
 - `admin-appointments`: New requirement — admin appointment creation and updates MUST validate that the requested time range is covered by an offering for the resource/day
 
 ## Impact

@@ -15,9 +15,11 @@ The app has a partial migration to `remix/headers` typed header classes in core 
 ## Capabilities
 
 ### New Capabilities
+
 <!-- No new capabilities — this is a pure refactoring/migration change with no spec-level behavioral changes -->
 
 ### Modified Capabilities
+
 <!-- No spec-level requirement changes — all existing behavior is preserved -->
 
 ## Impact

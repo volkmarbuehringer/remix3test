@@ -13,6 +13,7 @@
 ### Task 1: Add `chatlog` Table to Schema and Setup
 
 **Files:**
+
 - Modify: `my_app/app/data/schema.ts` (add table definition + type)
 - Modify: `my_app/app/data/setup.ts` (add CREATE TABLE + index)
 
@@ -89,6 +90,7 @@ import { chatlog, lists, messages, users } from './schema.ts'
 ### Task 2: Create `lib/chatlog.ts`
 
 **Files:**
+
 - Create: `my_app/app/lib/chatlog.ts`
 
 - [ ] **Step 1: Create chatlog library**
@@ -189,10 +191,7 @@ export async function getConversation(id: string): Promise<ChatLogRow | null> {
   return rowToChatLogRow(rows[0])
 }
 
-export async function appendMessage(
-  id: string,
-  message: ChatMessage,
-): Promise<ChatLogRow | null> {
+export async function appendMessage(id: string, message: ChatMessage): Promise<ChatLogRow | null> {
   let existing = await getConversation(id)
   if (!existing) {
     console.warn('[ChatLog] Conversation not found:', { id })
@@ -234,6 +233,7 @@ export async function getAllConversations(filter?: string): Promise<ChatLogRow[]
 ### Task 3: Create `utils/ai-provider.ts`
 
 **Files:**
+
 - Create: `my_app/app/utils/ai-provider.ts`
 
 - [ ] **Step 1: Create AI provider utility**
@@ -273,6 +273,7 @@ export function getModel() {
 ### Task 4: Create `utils/logger.ts`
 
 **Files:**
+
 - Create: `my_app/app/utils/logger.ts`
 
 - [ ] **Step 1: Create logger utility**
@@ -312,6 +313,7 @@ export function userLogger(prefix: string) {
 ### Task 5: Add Dependencies to `package.json`
 
 **Files:**
+
 - Modify: `my_app/package.json`
 
 - [ ] **Step 1: Add `ai`, `@ai-sdk/openai-compatible`, `zod` to dependencies**
@@ -335,6 +337,7 @@ Expected: Packages install without errors.
 ### Task 6: Create Chat Controller and Page
 
 **Files:**
+
 - Create: `my_app/app/controllers/chat/controller.tsx`
 - Create: `my_app/app/controllers/chat/page.tsx`
 
@@ -879,6 +882,7 @@ Note: The `messageAnimationStyle` helper from bookstore is omitted — the key-b
 ### Task 7: Create Agent Controller and Page
 
 **Files:**
+
 - Create: `my_app/app/controllers/agent/controller.tsx`
 - Create: `my_app/app/controllers/agent/page.tsx`
 
@@ -1366,6 +1370,7 @@ export { AgentPage }
 ### Task 8: Create Admin Chatlog Handler and Page
 
 **Files:**
+
 - Create: `my_app/app/controllers/admin/chatlog.tsx`
 - Create: `my_app/app/controllers/admin/chatlog/page.tsx`
 
@@ -1546,6 +1551,7 @@ export { ChatPage as ChatLogPage }
 ### Task 9: Wire Routes and Router
 
 **Files:**
+
 - Modify: `my_app/app/routes.ts`
 - Modify: `my_app/app/router.ts`
 - Modify: `my_app/app/controllers/admin/controller.tsx`
@@ -1635,6 +1641,7 @@ export default {
 ### Task 10: Update Layout Nav
 
 **Files:**
+
 - Modify: `my_app/app/ui/layout.tsx`
 
 - [ ] **Step 1: Add Chat and Agent nav links**

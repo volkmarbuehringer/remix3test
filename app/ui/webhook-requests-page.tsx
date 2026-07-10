@@ -67,8 +67,14 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       <div mix={headerRow}>
         <h1 mix={table.title}>Webhook Requests</h1>
         <div mix={headerActions}>
-          <a href="/webhook-requests/create" mix={composeBtn}>Erstellen</a>
-          <ConnectionIndicator url={webhookRequestsEventsRoute.href()} reloadMode="window" skipReloadParams={['editing']} />
+          <a href="/webhook-requests/create" mix={composeBtn}>
+            Erstellen
+          </a>
+          <ConnectionIndicator
+            url={webhookRequestsEventsRoute.href()}
+            reloadMode="window"
+            skipReloadParams={['editing']}
+          />
         </div>
       </div>
     )
@@ -77,13 +83,23 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       <div mix={hasSidebar ? table.minWidth0 : undefined}>
         <ConfirmDelete />
         <form method="GET" action={BASE} mix={table.filterBar}>
-          <input type="text" name="filter" placeholder="Filter (Payload)" value={curFilter} mix={table.filterInput} />
+          <input
+            type="text"
+            name="filter"
+            placeholder="Filter (Payload)"
+            value={curFilter}
+            mix={table.filterInput}
+          />
           <input type="hidden" name="sort" value={curSort} />
           <input type="hidden" name="order" value={curOrder} />
           <input type="hidden" name="offset" value="0" />
-          <button type="submit" mix={table.searchBtn}>Suchen</button>
+          <button type="submit" mix={table.searchBtn}>
+            Suchen
+          </button>
           {curFilter && (
-            <a href={BASE} mix={table.clearLink}>Zurücksetzen</a>
+            <a href={BASE} mix={table.clearLink}>
+              Zurücksetzen
+            </a>
           )}
         </form>
 
@@ -102,14 +118,25 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     ['', 'Aktion', '150px'],
                   ] as [string, string, string][]
                 ).map(([field, label, w]) => (
-                  <th key={field || label} style={w !== 'auto' ? { width: w } : undefined} mix={field ? table.thSortable : table.th}>
+                  <th
+                    key={field || label}
+                    style={w !== 'auto' ? { width: w } : undefined}
+                    mix={field ? table.thSortable : table.th}
+                  >
                     {field ? (
                       <a
-                        href={buildUrl({ sort: field, order: field === curSort ? (curOrder === 'asc' ? 'desc' : 'asc') : 'desc', offset: '0', filter: curFilter || undefined })}
+                        href={buildUrl({
+                          sort: field,
+                          order: field === curSort ? (curOrder === 'asc' ? 'desc' : 'asc') : 'desc',
+                          offset: '0',
+                          filter: curFilter || undefined,
+                        })}
                         mix={table.sortLink}
                       >
                         {label}
-                        <span mix={field === curSort ? table.sortArrowActive : table.sortArrow}>{sortArrow(field, curSort, curOrder)}</span>
+                        <span mix={field === curSort ? table.sortArrowActive : table.sortArrow}>
+                          {sortArrow(field, curSort, curOrder)}
+                        </span>
                       </a>
                     ) : (
                       label
@@ -121,17 +148,52 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             <tbody>
               {p.rows.length === 0 ? (
                 <tr>
-                    <td colspan={7} mix={table.empty}>Noch keine Webhook-Requests.</td>
+                  <td colspan={7} mix={table.empty}>
+                    Noch keine Webhook-Requests.
+                  </td>
                 </tr>
               ) : (
                 p.rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}>
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                  >
                     <td mix={table.td}>{fmtDate(row.created_at)}</td>
                     <td mix={table.td}>{row.source_ip}</td>
-                    <td mix={table.td}><span mix={!row.hermes_status ? statusBadgeNeutral : row.hermes_status === 'error' ? statusBadgeError : is2xx(row.hermes_status) ? statusBadgeOk : statusBadgeError}>{row.hermes_status ?? '-'}</span></td>
-                    <td mix={table.td}>{row.callback_received_at ? fmtDate(row.callback_received_at) : <span mix={statusBadgeNeutral}>-</span>}</td>
-                    <td mix={table.td}>{row.callback_response ? <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>{JSON.stringify(row.callback_response)}</code> : <span mix={statusBadgeNeutral}>-</span>}</td>
-                    <td mix={table.td} title={JSON.stringify(row.payload)}><code mix={codeStyle}>{truncatePayload(row.payload)}</code></td>
+                    <td mix={table.td}>
+                      <span
+                        mix={
+                          !row.hermes_status
+                            ? statusBadgeNeutral
+                            : row.hermes_status === 'error'
+                              ? statusBadgeError
+                              : is2xx(row.hermes_status)
+                                ? statusBadgeOk
+                                : statusBadgeError
+                        }
+                      >
+                        {row.hermes_status ?? '-'}
+                      </span>
+                    </td>
+                    <td mix={table.td}>
+                      {row.callback_received_at ? (
+                        fmtDate(row.callback_received_at)
+                      ) : (
+                        <span mix={statusBadgeNeutral}>-</span>
+                      )}
+                    </td>
+                    <td mix={table.td}>
+                      {row.callback_response ? (
+                        <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>
+                          {JSON.stringify(row.callback_response)}
+                        </code>
+                      ) : (
+                        <span mix={statusBadgeNeutral}>-</span>
+                      )}
+                    </td>
+                    <td mix={table.td} title={JSON.stringify(row.payload)}>
+                      <code mix={codeStyle}>{truncatePayload(row.payload)}</code>
+                    </td>
                     <td mix={table.td}>
                       <div mix={table.btnGroup}>
                         <a
@@ -140,9 +202,16 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                         >
                           Bearbeiten
                         </a>
-                        <form method="POST" action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`} data-confirm="Resend wirklich ausführen?" mix={inlineForm}>
+                        <form
+                          method="POST"
+                          action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`}
+                          data-confirm="Resend wirklich ausführen?"
+                          mix={inlineForm}
+                        >
                           <CsrfTokenInput />
-                          <button type="submit" mix={actionBtn}>Resenden</button>
+                          <button type="submit" mix={actionBtn}>
+                            Resenden
+                          </button>
                         </form>
                       </div>
                     </td>
@@ -155,13 +224,16 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
 
         {p.rows.length > 0 && (
           <div mix={table.pagination}>
-            <span mix={table.paginationInfo}>
-              ab Zeile {curOffset + 1}
-            </span>
+            <span mix={table.paginationInfo}>ab Zeile {curOffset + 1}</span>
             <div mix={table.flexGapSm}>
               {curOffset > 0 ? (
                 <a
-                  href={buildUrl({ offset: String(p.prevOffset), sort: curSort, order: curOrder, filter: curFilter || undefined })}
+                  href={buildUrl({
+                    offset: String(p.prevOffset),
+                    sort: curSort,
+                    order: curOrder,
+                    filter: curFilter || undefined,
+                  })}
                   mix={table.pageLink}
                 >
                   Zurück
@@ -171,7 +243,12 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
               )}
               {p.hasMore ? (
                 <a
-                  href={buildUrl({ offset: String(p.nextOffset), sort: curSort, order: curOrder, filter: curFilter || undefined })}
+                  href={buildUrl({
+                    offset: String(p.nextOffset),
+                    sort: curSort,
+                    order: curOrder,
+                    filter: curFilter || undefined,
+                  })}
                   mix={table.pageLink}
                 >
                   Vor
@@ -185,18 +262,19 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       </div>
     )
 
-    let editPanel = hasSidebar && editRow ? (
-      <div mix={table.stickyPanel}>
-        <WebhookComposer
-          initialPayload={JSON.stringify(editRow.payload)}
-          editId={editRow.id}
-          _offset={p.editingOffset ?? String(curOffset)}
-          _sort={p.editingSort ?? curSort}
-          _order={p.editingOrder ?? curOrder}
-          _filter={p.editingFilter ?? curFilter}
-        />
-      </div>
-    ) : null
+    let editPanel =
+      hasSidebar && editRow ? (
+        <div mix={table.stickyPanel}>
+          <WebhookComposer
+            initialPayload={JSON.stringify(editRow.payload)}
+            editId={editRow.id}
+            _offset={p.editingOffset ?? String(curOffset)}
+            _sort={p.editingSort ?? curSort}
+            _order={p.editingOrder ?? curOrder}
+            _filter={p.editingFilter ?? curFilter}
+          />
+        </div>
+      ) : null
 
     return (
       <div mix={page}>
@@ -232,28 +310,44 @@ const composeBtn = css({
 })
 
 const headerRow = css({
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
   marginBottom: theme.space.md,
 })
 
 const statusBadgeOk = css({
-  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
-  backgroundColor: '#22c55e', color: '#fff', fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.xs,
+  padding: `2px 8px`,
+  borderRadius: theme.radius.sm,
+  backgroundColor: '#22c55e',
+  color: '#fff',
+  fontWeight: theme.fontWeight.semibold,
 })
 
 const statusBadgeNeutral = css({
-  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
-  backgroundColor: '#6b7280', color: '#fff', fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.xs,
+  padding: `2px 8px`,
+  borderRadius: theme.radius.sm,
+  backgroundColor: '#6b7280',
+  color: '#fff',
+  fontWeight: theme.fontWeight.semibold,
 })
 
 const statusBadgeError = css({
-  fontSize: theme.fontSize.xs, padding: `2px 8px`, borderRadius: theme.radius.sm,
-  backgroundColor: '#ef4444', color: '#fff', fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.xs,
+  padding: `2px 8px`,
+  borderRadius: theme.radius.sm,
+  backgroundColor: '#ef4444',
+  color: '#fff',
+  fontWeight: theme.fontWeight.semibold,
 })
 
 const codeStyle = css({
-  fontSize: theme.fontSize.xs, backgroundColor: theme.surface.lvl2,
-  padding: '2px 6px', borderRadius: theme.radius.sm,
+  fontSize: theme.fontSize.xs,
+  backgroundColor: theme.surface.lvl2,
+  padding: '2px 6px',
+  borderRadius: theme.radius.sm,
 })
 
 const inlineForm = css({
@@ -261,13 +355,18 @@ const inlineForm = css({
 })
 
 const actionBtn = css({
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  padding: theme.space.xs, minWidth: '28px', minHeight: '28px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: theme.space.xs,
+  minWidth: '28px',
+  minHeight: '28px',
   background: theme.colors.action.primary.background,
   color: theme.colors.action.primary.foreground,
   border: 'none',
   borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  fontSize: theme.fontSize.xs, cursor: 'pointer',
+  fontSize: theme.fontSize.xs,
+  cursor: 'pointer',
   fontWeight: theme.fontWeight.semibold,
   '&:hover': { opacity: 0.9 },
 })

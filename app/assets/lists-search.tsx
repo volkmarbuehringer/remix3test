@@ -33,13 +33,17 @@ export const ListsSearch = clientEntry(
               handle.frame.reload().catch(() => {})
             }
 
-            input.addEventListener('input', () => {
-              if (timer) clearTimeout(timer)
-              timer = setTimeout(() => {
-                timer = null
-                doSearch(input!.value)
-              }, 250)
-            }, { signal: handle.signal })
+            input.addEventListener(
+              'input',
+              () => {
+                if (timer) clearTimeout(timer)
+                timer = setTimeout(() => {
+                  timer = null
+                  doSearch(input!.value)
+                }, 250)
+              },
+              { signal: handle.signal },
+            )
 
             return () => {
               if (timer) clearTimeout(timer)

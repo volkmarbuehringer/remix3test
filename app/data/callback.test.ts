@@ -41,7 +41,10 @@ describe('callback', () => {
       id: testId,
     })
     assert.equal(result, true)
-    let row = await pool.query('SELECT callback_response, callback_received_at FROM webhook_requests WHERE id = $1', [testId])
+    let row = await pool.query(
+      'SELECT callback_response, callback_received_at FROM webhook_requests WHERE id = $1',
+      [testId],
+    )
     assert.ok(row.rows[0].callback_response !== null)
     assert.ok(row.rows[0].callback_received_at !== null)
   })

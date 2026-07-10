@@ -110,5 +110,3 @@ describe('Admin layout exports', () => {
     assert.ok(AdminLayout, 'AdminLayout should be defined')
   })
 })
-
-

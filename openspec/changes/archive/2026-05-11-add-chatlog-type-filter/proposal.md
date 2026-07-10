@@ -11,6 +11,7 @@ The admin chatlog browser shows all conversations (chat and agent) mixed togethe
 - Preserve `type` parameter across pagination
 
 **No changes to**:
+
 - Existing routes, middleware, database schema, or package.json
 
 ## Capabilities
@@ -28,6 +29,7 @@ The admin chatlog browser shows all conversations (chat and agent) mixed togethe
 **New files**: None
 
 **Modified files**:
+
 - `app/ui/admin-layout.tsx` — Add "Chat Only" and "Agent Only" nav items to the Data section, update `AdminNavItem` type and `navIcon` handler
 - `app/actions/admin-chatlog-controller.tsx` — Parse `type` query param, filter conversations after fetching based on `toolCalls` presence
 - `app/ui/admin-chatlog-page.tsx` — Accept `type` prop, display active filter, preserve `type` in pagination URLs

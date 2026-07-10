@@ -89,21 +89,25 @@ describe('NavToggle', () => {
     clickHandler!()
 
     assert.equal(isOpen, true, 'drawer should open')
-    assert.equal(documentElementStyle.overflow, 'hidden',
-      'scroll should be locked when drawer opens')
+    assert.equal(
+      documentElementStyle.overflow,
+      'hidden',
+      'scroll should be locked when drawer opens',
+    )
 
     clickHandler!()
 
     assert.equal(isOpen, false, 'drawer should close')
-    assert.equal(documentElementStyle.overflow, '',
-      'scroll should be unlocked when drawer closes')
+    assert.equal(documentElementStyle.overflow, '', 'scroll should be unlocked when drawer closes')
   })
 
   it('restores focus to previous element on close', () => {
     setupDom()
 
     let focusCalled = false
-    previousActiveElement.focus = () => { focusCalled = true }
+    previousActiveElement.focus = () => {
+      focusCalled = true
+    }
 
     let handle = {} as any
     let initFn = (NavToggle as any)(handle)

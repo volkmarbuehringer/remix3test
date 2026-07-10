@@ -1,6 +1,10 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import { sendVerificationEmail, sendPasswordResetEmail, sendAccountDeletionEmail } from './send-email.ts'
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendAccountDeletionEmail,
+} from './send-email.ts'
 import type { SendEmailFn, SendEmailOptions } from './send-email.ts'
 
 function createMockSendEmail(): { fn: SendEmailFn; calls: Array<SendEmailOptions> } {
@@ -14,7 +18,11 @@ function createMockSendEmail(): { fn: SendEmailFn; calls: Array<SendEmailOptions
 describe('sendVerificationEmail', () => {
   it('sends with German subject and content', async () => {
     let { fn, calls } = createMockSendEmail()
-    await sendVerificationEmail(fn, { name: 'Max', email: 'max@example.com' }, 'https://example.com/verify/token123')
+    await sendVerificationEmail(
+      fn,
+      { name: 'Max', email: 'max@example.com' },
+      'https://example.com/verify/token123',
+    )
 
     assert.equal(calls.length, 1)
     let email = calls[0]
@@ -37,7 +45,11 @@ describe('sendVerificationEmail', () => {
 describe('sendPasswordResetEmail', () => {
   it('sends with German subject and content', async () => {
     let { fn, calls } = createMockSendEmail()
-    await sendPasswordResetEmail(fn, { name: 'Anna', email: 'anna@example.com' }, 'https://example.com/reset/token456')
+    await sendPasswordResetEmail(
+      fn,
+      { name: 'Anna', email: 'anna@example.com' },
+      'https://example.com/reset/token456',
+    )
 
     assert.equal(calls.length, 1)
     let email = calls[0]
@@ -101,7 +113,11 @@ describe('sendAccountDeletionEmail', () => {
 describe('HTML escaping', () => {
   it('escapes HTML characters in user name for HTML body', async () => {
     let { fn, calls } = createMockSendEmail()
-    await sendVerificationEmail(fn, { name: '<b>Max</b>', email: 'max@example.com' }, 'https://example.com/verify/t')
+    await sendVerificationEmail(
+      fn,
+      { name: '<b>Max</b>', email: 'max@example.com' },
+      'https://example.com/verify/t',
+    )
 
     let html = calls[0].html as string
     assert.ok(!html.includes('<b>Max</b>'), 'raw HTML should not appear in output')

@@ -14,6 +14,7 @@ if (!r.success) {                        s.parse(schema, data)
 ```
 
 Three controllers even call `s.parse()` **without any error handler** — a `ValidationError` propagates as an unhandled 500. This inconsistency means:
+
 - Half the controllers lose field-level error information on validation failure
 - Three controllers have latent crash bugs on bad input
 - New contributors don't know which pattern to follow
@@ -40,6 +41,7 @@ Timeboxer-demo uses `parseSafe` exclusively — it's the canonical Remix 3 patte
 ## Capabilities
 
 ### Modified Capabilities
+
 - `parse-safe-consistency`: All form-validation controllers use `s.parseSafe()` exclusively, returning structured field-level errors via `issuesToFieldErrors()` on validation failure. No controller uses `s.parse()` for form validation or leaves validation errors unhandled.
 
 ## Impact
@@ -47,5 +49,5 @@ Timeboxer-demo uses `parseSafe` exclusively — it's the canonical Remix 3 patte
 - Modified: 10 controller files under `app/actions/`
 - No changes to routes, middleware, database schema, or UI components
 - Existing `issuesToFieldErrors` utility reused without modification
-- Behavior preserved: controllers return the same HTTP status codes and error messages; only the *type* of error information improves (structured vs generic)
+- Behavior preserved: controllers return the same HTTP status codes and error messages; only the _type_ of error information improves (structured vs generic)
 - Bugs fixed: 3 controllers gain proper error handling for validation failures

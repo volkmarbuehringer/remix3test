@@ -11,12 +11,14 @@ The compliance audit identified three gaps between `newapp` and Remix 3 security
 ## Capabilities
 
 ### New Capabilities
+
 - `csrf-protection`: Cross-Site Request Forgery protection for the middleware chain and form system
 - `session-security`: Session regeneration on login and logout to prevent session fixation attacks
 - `error-response-standards`: Proper Remix component rendering for auth-related error responses (403 pages), using `css()` mixins and theme tokens
 
 ### Modified Capabilities
-*(None — no existing specs have requirement changes)*
+
+_(None — no existing specs have requirement changes)_
 
 ## Impact
 

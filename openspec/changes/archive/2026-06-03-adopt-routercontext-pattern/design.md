@@ -28,6 +28,7 @@ newapp also uses `createNewappRouter(options?)` — a factory that accepts `sess
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace the `RootMiddleware` tuple in `app/types/context.ts` with `createMiddleware()` in `app/router.ts`
 - Extract middleware into a `createNewappMiddleware()` factory following social-auth's pattern
 - Derive `AppContext` from the middleware factory return type (not a manual tuple)
@@ -36,6 +37,7 @@ newapp also uses `createNewappRouter(options?)` — a factory that accepts `sess
 - Preserve the `createNewappRouter(options?)` public API signature unchanged
 
 **Non-Goals:**
+
 - Changing middleware behavior — purely type-level refactoring
 - Using `router.mount()` for route organization (no demo uses it yet)
 - Consolidating or restructuring controller files
@@ -71,9 +73,9 @@ By co-locating both `createNewappMiddleware()` and the `AppContext` type in `con
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| `createMiddleware()` type inference failure if a middleware function's return type isn't properly declared | All existing middleware functions already declare explicit return types via `Middleware<{ ... }>` — the inference will work |
-| `createController()` without generics might not infer context type in all cases | The `RouterTypes.context` augmentation is the canonical mechanism Remix 3 uses for context inference — it works in timeboxer and all other demos |
-| Large diff touching 30+ files increases review surface | The controller changes are purely mechanical (remove generics, drop imports) — review risk is low |
-| Some controllers additionally import `AppContext` for non-generic uses (e.g., helper function signatures) | Verify before dropping each import — if `AppContext` is used in function signatures, keep the import but drop the generic |
+| Risk                                                                                                       | Mitigation                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createMiddleware()` type inference failure if a middleware function's return type isn't properly declared | All existing middleware functions already declare explicit return types via `Middleware<{ ... }>` — the inference will work                      |
+| `createController()` without generics might not infer context type in all cases                            | The `RouterTypes.context` augmentation is the canonical mechanism Remix 3 uses for context inference — it works in timeboxer and all other demos |
+| Large diff touching 30+ files increases review surface                                                     | The controller changes are purely mechanical (remove generics, drop imports) — review risk is low                                                |
+| Some controllers additionally import `AppContext` for non-generic uses (e.g., helper function signatures)  | Verify before dropping each import — if `AppContext` is used in function signatures, keep the import but drop the generic                        |

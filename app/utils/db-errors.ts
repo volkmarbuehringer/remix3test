@@ -3,7 +3,11 @@ const PG_FOREIGN_KEY_VIOLATION = '23503' as const
 
 export type PgErr = { code?: string; message?: string; constraint?: string; cause?: PgErr }
 
-function matchPg(err: PgErr | undefined, pred: (e: PgErr) => boolean, seen?: WeakSet<object>): boolean {
+function matchPg(
+  err: PgErr | undefined,
+  pred: (e: PgErr) => boolean,
+  seen?: WeakSet<object>,
+): boolean {
   if (!err || typeof err !== 'object') return false
   seen ??= new WeakSet()
   if (seen.has(err)) return false
@@ -12,15 +16,18 @@ function matchPg(err: PgErr | undefined, pred: (e: PgErr) => boolean, seen?: Wea
 }
 
 export function isConstraintViolation(error: unknown): boolean {
-  return matchPg(error as PgErr, (err) =>
-    err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION,
+  return matchPg(
+    error as PgErr,
+    (err) => err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION,
   )
 }
 
 export function isExclusionConstraintError(error: unknown): boolean {
-  return matchPg(error as PgErr, (err) =>
-    err.constraint === 'no_overlapping_seats' ||
-    err.code === '23P01' ||
-    (err.message ?? '').includes('conflicts with key'),
+  return matchPg(
+    error as PgErr,
+    (err) =>
+      err.constraint === 'no_overlapping_seats' ||
+      err.code === '23P01' ||
+      (err.message ?? '').includes('conflicts with key'),
   )
 }

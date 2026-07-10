@@ -6,7 +6,11 @@ import { isDateInPast } from '../utils/date-utils.ts'
 export type OfferingConfig = SchemaOfferingConfig
 
 function safeJsonParse(s: string): Record<string, unknown> {
-  try { return JSON.parse(s) } catch { return {} }
+  try {
+    return JSON.parse(s)
+  } catch {
+    return {}
+  }
 }
 
 function isValidRule(v: unknown): v is [number, number] {
@@ -47,10 +51,7 @@ export function mondayOfWeek(year: number, week: number): number {
 /**
  * Get offering config for a resource.
  */
-export async function getConfig(
-  db: Database,
-  resourceId: number,
-): Promise<OfferingConfig | null> {
+export async function getConfig(db: Database, resourceId: number): Promise<OfferingConfig | null> {
   let config = await db.findOne(offeringConfigs, {
     where: { resource_id: resourceId },
   })
@@ -111,10 +112,9 @@ export async function generateWeek(
   week: number,
 ): Promise<{ created: number; skipped: number; errors: string[] }> {
   // Read config via raw SQL to get the JSONB
-  let configResult = await db.exec(
-    'SELECT rules FROM offering_configs WHERE resource_id = $1',
-    [resourceId],
-  )
+  let configResult = await db.exec('SELECT rules FROM offering_configs WHERE resource_id = $1', [
+    resourceId,
+  ])
   if (!configResult.rows || configResult.rows.length === 0) {
     return { created: 0, skipped: 0, errors: ['Keine Konfiguration für diese Ressource.'] }
   }

@@ -1,5 +1,5 @@
 ---
-title: "PostgreSQL integer vs URL param string type coercion in select comparisons"
+title: 'PostgreSQL integer vs URL param string type coercion in select comparisons'
 tags: [postgres, remix3, forms, type-safety, selects, url-params, admin]
 created: 2026-06-02
 status: active
@@ -30,7 +30,9 @@ Full select pattern:
 ```tsx
 <select name="resource_id" required>
   {resourcePlaceholder ? (
-    <option value="" disabled selected={resolvedResourceId == null}>{resourcePlaceholder}</option>
+    <option value="" disabled selected={resolvedResourceId == null}>
+      {resourcePlaceholder}
+    </option>
   ) : null}
   {resources.map((res) => (
     <option
@@ -57,6 +59,7 @@ Replace `=== undefined` with `== null` on the placeholder to cover both `null` a
 ## Detection
 
 If selects appear to show the first option or wrong option after a validation error redirect, check:
+
 1. Console-log the runtime type: `console.log(typeof res.id, typeof resolvedResourceId)`
 2. If they differ → apply `String()` coercion
 3. Also check if the TypeScript interface for DB row types uses `string` when PostgreSQL returns `number` — fix the interface or add coercion in the query layer

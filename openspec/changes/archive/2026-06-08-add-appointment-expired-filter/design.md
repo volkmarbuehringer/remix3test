@@ -7,6 +7,7 @@ The existing `GridState` model tracks `offset`, `sort`, `order`, `filter`, and `
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a radio button group to the appointments filter bar with "Ausstehend" (pending) and "Abgelaufen" (expired) options
 - Default to pending when no `status` param is present (show appointments with `a.date >= now`)
 - When expired is selected, show appointments with `a.date < now`
@@ -14,6 +15,7 @@ The existing `GridState` model tracks `offset`, `sort`, `order`, `filter`, and `
 - Only affect the appointments list view — no schema changes, no database migrations
 
 **Non-Goals:**
+
 - No changes to other admin pages (offerings, resources, etc.)
 - No database schema changes or new columns
 - No API-level changes — only the admin UI and its controller
@@ -24,21 +26,21 @@ The existing `GridState` model tracks `offset`, `sort`, `order`, `filter`, and `
 1. **Reuse the `period` filter bar pattern instead of adding new URL helpers**
    - The radio buttons live inside the existing `<form method="GET">` as a `<fieldset>` with two `<input type="radio">` elements, placed after the period button group and before the "Neu" button
    - A new `status` query param flows through the same `buildSortUrl`, `buildPaginationUrl`, `buildCreateUrl`, and `gridStateToParams` functions
-   - *Alternative considered:* Custom JS toggle outside the form — rejected because it breaks frame-based navigation and the GET-form pattern used everywhere else
-   - *Alternative considered:* Dropdown/select — rejected because radio buttons are more explicit for a binary choice
+   - _Alternative considered:_ Custom JS toggle outside the form — rejected because it breaks frame-based navigation and the GET-form pattern used everywhere else
+   - _Alternative considered:_ Dropdown/select — rejected because radio buttons are more explicit for a binary choice
 
 2. **SQL filtering using `a.date` column**
    - `status=pending` → `WHERE a.date >= EXTRACT(EPOCH FROM NOW())::bigint * 1000` (or similar server-side now)
    - `status=expired` → `WHERE a.date < ...`
    - The filter is ANDed with existing search and period WHERE clauses
-   - *Alternative considered:* Adding a `status` computed column — rejected, no need; `a.date` is sufficient
-   - *Alternative considered:* Client-side filtering — rejected, breaks pagination and server-side search
+   - _Alternative considered:_ Adding a `status` computed column — rejected, no need; `a.date` is sufficient
+   - _Alternative considered:_ Client-side filtering — rejected, breaks pagination and server-side search
 
 3. **Default to pending when no status param is provided**
    - In the controller, if `context.url.searchParams.get('status')` is not set, act as if `status=pending`
    - This keeps the default view focused on actionable appointments
    - The radio group renders with "Ausstehend" preselected when no status param is present
-   - *Alternative considered:* Show all by default — rejected per user request ("pending is default")
+   - _Alternative considered:_ Show all by default — rejected per user request ("pending is default")
 
 4. **No new capability spec needed — purely additive UI filter**
    - This is an admin-only UX enhancement with no public API surface, no external contract, and no new data domain

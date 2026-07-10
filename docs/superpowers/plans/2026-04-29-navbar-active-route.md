@@ -12,16 +12,17 @@
 
 ### File Structure
 
-| File | Action | Responsibility |
-|------|--------|---------------|
+| File                          | Action | Responsibility                                                                                   |
+| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
 | `bookstore/app/ui/layout.tsx` | Modify | Add `getContext` import, path tracking, `isActive()` helper, and `nav-active` class on nav links |
-| `bookstore/public/app.css` | Modify | Add `.nav-active` styles |
+| `bookstore/public/app.css`    | Modify | Add `.nav-active` styles                                                                         |
 
 ---
 
 ### Task 1: Add active-route logic to Layout
 
 **Files:**
+
 - Modify: `bookstore/app/ui/layout.tsx`
 - Modify: `bookstore/public/app.css`
 
@@ -43,7 +44,9 @@ let currentPath = ''
 try {
   let context = getContext()
   currentPath = new URL(context.request.url).pathname
-} catch { /* SSR-only — ignored in non-request contexts */ }
+} catch {
+  /* SSR-only — ignored in non-request contexts */
+}
 
 // Match nav links — exact match OR sub-route prefix
 let isActive = (path: string) => {
@@ -58,15 +61,21 @@ let isActive = (path: string) => {
 For each `<a>` in the `<nav>` block, add `class={isActive(href) ? 'nav-active' : undefined}`.
 
 Change each nav link from:
+
 ```tsx
 <a href={routes.home.href()}>Home</a>
 ```
+
 to:
+
 ```tsx
-<a href={routes.home.href()} class={isActive(routes.home.href()) ? 'nav-active' : undefined}>Home</a>
+<a href={routes.home.href()} class={isActive(routes.home.href()) ? 'nav-active' : undefined}>
+  Home
+</a>
 ```
 
 The links to update:
+
 - `routes.home.href()` → Home
 - `routes.books.index.href()` → Books
 - `routes.books1.href()` → Books1
@@ -83,6 +92,7 @@ The links to update:
 - `routes.auth.register.index.href()` → Register
 
 Do NOT add `nav-active` to:
+
 - The `<h1><a href={routes.home.href()}>` (site title/brand, not a nav link)
 - The Admin link (if admin): `routes.admin.index.href()` — this IS a nav link also: `routes.admin.index.href()` → Admin — add it.
 - The Logout `<button>` (it's a form submit, not a nav link)
@@ -116,6 +126,7 @@ pnpm run dev
 ```
 
 Open the app in a browser, navigate between pages, and verify:
+
 - Home highlights only on `/`
 - Books highlights on `/books`, `/books/genre/fiction`, `/books/some-slug`
 - About highlights only on `/about`

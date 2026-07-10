@@ -1,6 +1,6 @@
 ---
 name: optional-ownership-scoping-admin-bypass
-description: "Scope DB queries by userId while letting admins bypass by omitting the parameter"
+description: 'Scope DB queries by userId while letting admins bypass by omitting the parameter'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -11,9 +11,11 @@ origin: auto-extracted
 **Context:** Adding `user_id` ownership to a multitenant table (`chatlog`) where admin controllers need full access
 
 ## Problem
+
 When adding user-ownership scoping to an existing table, admin dashboards still need to see and manage all records across users. A fixed `WHERE user_id = $userId` clause blocks admin access.
 
 ## Solution
+
 Make the `userId` parameter **optional** in data-access functions. When provided (regular user), scope the query. When `undefined` (admin context), skip the filter entirely.
 
 ### Pattern
@@ -34,6 +36,7 @@ let row = await getRecord(id) // no userId filter
 ```
 
 ### Key points
+
 - **User controllers** always call `getCurrentUser()` and pass `.id`
 - **Admin controllers** (already behind `requireAdmin()`) omit `userId` for unrestricted access
 - **Migration** uses `ALTER TABLE ADD COLUMN IF NOT EXISTS user_id` so existing rows get `NULL` and remain admin-visible
@@ -41,4 +44,5 @@ let row = await getRecord(id) // no userId filter
 - **Test files** use a `TEST_USER_ID` constant threaded through all calls
 
 ### Inverse consideration
+
 If the admin fragment controller happens to call a scoped function, it could inadvertently restrict admin access to only the admin's own records — check admin fragment controllers individually when applying this pattern.

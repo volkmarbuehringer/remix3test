@@ -10,13 +10,15 @@ const queryUpcomingAppointmentsStep = createStep({
   id: 'query-upcoming-appointments',
   inputSchema: z.object({}),
   outputSchema: z.object({
-    appointments: z.array(z.object({
-      id: z.number(),
-      userId: z.number(),
-      resourceName: z.string(),
-      date: z.number(),
-      title: z.string(),
-    })),
+    appointments: z.array(
+      z.object({
+        id: z.number(),
+        userId: z.number(),
+        resourceName: z.string(),
+        date: z.number(),
+        title: z.string(),
+      }),
+    ),
     count: z.number(),
   }),
   execute: async () => {
@@ -34,7 +36,7 @@ const queryUpcomingAppointmentsStep = createStep({
          ORDER BY a.date ASC`,
         [now, end],
       )
-      let appointments = result.rows.map(r => ({
+      let appointments = result.rows.map((r) => ({
         id: r.id,
         userId: r.user_id,
         resourceName: r.resource_name,
@@ -51,13 +53,15 @@ const queryUpcomingAppointmentsStep = createStep({
 const sendRemindersStep = createStep({
   id: 'send-reminders',
   inputSchema: z.object({
-    appointments: z.array(z.object({
-      id: z.number(),
-      userId: z.number(),
-      resourceName: z.string(),
-      date: z.number(),
-      title: z.string(),
-    })),
+    appointments: z.array(
+      z.object({
+        id: z.number(),
+        userId: z.number(),
+        resourceName: z.string(),
+        date: z.number(),
+        title: z.string(),
+      }),
+    ),
     count: z.number(),
   }),
   outputSchema: z.object({
@@ -83,15 +87,11 @@ const sendRemindersStep = createStep({
       }
 
       try {
-        let result = await consoleNotificationSender.send(
-          String(appt.userId),
-          'reminder',
-          {
-            type: 'reminder',
-            recipient: String(appt.userId),
-            appointmentId: appt.id,
-          },
-        )
+        let result = await consoleNotificationSender.send(String(appt.userId), 'reminder', {
+          type: 'reminder',
+          recipient: String(appt.userId),
+          appointmentId: appt.id,
+        })
         if (result.sent) {
           sent++
         } else {

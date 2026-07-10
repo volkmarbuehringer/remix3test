@@ -11,9 +11,11 @@ The customer agent chat (`/chat`) is designed to let users find resources and bo
 ## Capabilities
 
 ### New Capabilities
+
 - `customer-agent-booking-form`: The customer agent's slot-booking form lifecycle — agent returns slots → controller parses → session saves → form renders → user submits → workflow creates appointment.
 
 ### Modified Capabilities
+
 - (none)
 
 ## Impact

@@ -14,6 +14,7 @@ The app needs a place for users to manage their weekly appointments — a visual
 ## Capabilities
 
 ### New Capabilities
+
 - `appointment-calendar`: Weekly calendar view with drag-and-drop grid for managing appointments, week navigation via year/week pickers
 
 ### Modified Capabilities

@@ -1,6 +1,6 @@
 ---
 name: mastra-agent-inline-model-config
-description: "Use inline model config objects to defer model resolution and avoid module-load crashes when embedding Mastra"
+description: 'Use inline model config objects to defer model resolution and avoid module-load crashes when embedding Mastra'
 origin: auto-extracted
 ---
 

@@ -2,7 +2,7 @@
 
 After a customer books a single appointment through the chat form, the form disappears entirely. If they want to book a second appointment (e.g., next week, same resource), they must type a new message to the agent, wait for it to re-search slots, and go through the full flow again. This is friction for the common case of booking multiple appointments in one session.
 
-The customer explicitly said: *"the booking form should not close after booking one appointment, to make booking of further appointments possible"* — and if they're done, the Cancel link already handles closing.
+The customer explicitly said: _"the booking form should not close after booking one appointment, to make booking of further appointments possible"_ — and if they're done, the Cancel link already handles closing.
 
 ## What Changes
 
@@ -13,9 +13,11 @@ That's it. No UI changes, no agent prompt changes, no new routes.
 ## Capabilities
 
 ### New Capabilities
+
 - `multi-booking-session`: The customer booking form stays open after a successful booking, showing only the remaining unbooked slots. The customer can chain-book until they cancel or all slots are consumed.
 
 ### Modified Capabilities
+
 - (none — the `customer-agent-booking-form` capability already exists; this extends its post-booking behavior)
 
 ## Impact

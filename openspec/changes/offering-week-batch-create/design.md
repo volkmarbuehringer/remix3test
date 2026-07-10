@@ -7,6 +7,7 @@ The existing `appointoffering` table remains the source of truth for availabilit
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Per-resource config storing weekly time ranges as JSONB
 - One-click generation of a full ISO week's offerings from config
 - Automatic holiday skipping using existing `date-holidays` (DE, rp)
@@ -15,6 +16,7 @@ The existing `appointoffering` table remains the source of truth for availabilit
 - "Add Week" button in the offerings grid toolbar, opening a sidebar form
 
 **Non-Goals:**
+
 - Auto-generation on schedule (no cron job, no future auto-fill)
 - Recurrence rules beyond the current `offering_configs` model (no seasonal configs, no exceptions list)
 - Removal or replacement of existing single-offering CRUD
@@ -41,7 +43,7 @@ One row per resource. The `UNIQUE (resource_id)` constraint enforces one config 
 
 ```json
 {
-  "monday":    [540, 1020],
+  "monday": [540, 1020],
   "wednesday": [540, 1200]
 }
 ```
@@ -72,6 +74,7 @@ If an offering already exists for the same resource+day+during range, skip it. T
 ### Config editing UI
 
 A structured form (not raw JSON textarea):
+
 - Resource dropdown (select which resource to configure)
 - 7 rows of day checkboxes with start/end time dropdowns
 - Save button
@@ -81,6 +84,7 @@ The config form is accessible via the offerings page, shown when `?config=<resou
 ### "Add Week" form
 
 Sidebar panel triggered by "Add Week" button in the toolbar:
+
 - Resource dropdown
 - Year dropdown (e.g., 2026–2030)
 - Week dropdown (ISO week numbers with date range display, e.g., "KW 23 — 1. Jun – 7. Jun")
@@ -96,6 +100,7 @@ GET  /admin/offerings/config/:id → getConfig action (for form pre-fill)
 ```
 
 New URL params:
+
 - `?config=<resourceId>` → opens config editing panel
 - `?addweek=true` → opens week batch creation panel
 

@@ -1,5 +1,5 @@
 ---
-title: "Audit logging for admin mutation actions"
+title: 'Audit logging for admin mutation actions'
 tags: [audit, logging, admin, security, accountability, database]
 created: 2026-05-31
 status: active
@@ -31,20 +31,29 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 ```typescript
 import type { Pool } from 'pg'
 
-export async function logAdminAction(pool: Pool, entry: {
-  admin_user_id: number
-  admin_email: string
-  action_type: string
-  target_type: string
-  target_id?: string | number
-  details?: Record<string, unknown>
-}): Promise<void> {
+export async function logAdminAction(
+  pool: Pool,
+  entry: {
+    admin_user_id: number
+    admin_email: string
+    action_type: string
+    target_type: string
+    target_id?: string | number
+    details?: Record<string, unknown>
+  },
+): Promise<void> {
   await pool.query(
     `INSERT INTO audit_logs (admin_user_id, admin_email, action_type, target_type, target_id, details, created_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-    [entry.admin_user_id, entry.admin_email, entry.action_type,
-     entry.target_type, entry.target_id != null ? String(entry.target_id) : null,
-     entry.details ? JSON.stringify(entry.details) : null, Date.now()],
+    [
+      entry.admin_user_id,
+      entry.admin_email,
+      entry.action_type,
+      entry.target_type,
+      entry.target_id != null ? String(entry.target_id) : null,
+      entry.details ? JSON.stringify(entry.details) : null,
+      Date.now(),
+    ],
   )
 }
 ```
@@ -60,7 +69,7 @@ if (authIdentity) {
   logAdminAction(pool, {
     admin_user_id: authIdentity.id,
     admin_email: authIdentity.email,
-    action_type: 'create',      // create / update / destroy / password_reset / etc.
+    action_type: 'create', // create / update / destroy / password_reset / etc.
     target_type: 'appointment', // the table/resource name
     target_id: newId,
     details: { resource_id, title },

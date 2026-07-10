@@ -12,9 +12,11 @@ Tests share the same PostgreSQL database (`newapp`) as development. Over 2500 or
 ## Capabilities
 
 ### New Capabilities
+
 - `test-database-isolation`: Ephemeral PostgreSQL database creation, migration, seeding, and teardown per test run. Ensures each `remix test` invocation starts with a clean schema and seed data, with no cross-run accumulation.
 
 ### Modified Capabilities
+
 None. No application behavior changes.
 
 ## Impact

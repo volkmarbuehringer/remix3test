@@ -36,6 +36,7 @@ Replace `form('chat')` with explicit route structure.
 **File**: `app/actions/mastra/controller.tsx`
 
 Modify the `action` handler:
+
 - Pass `requireToolApproval: true` to `callAgentWithTimeout()`
 - Check `result.finishReason === 'suspended'`
 - If suspended: store flash data, redirect to chat page with `?pending=true`

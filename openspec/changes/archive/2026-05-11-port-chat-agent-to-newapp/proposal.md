@@ -13,6 +13,7 @@ The newapp project needs AI-powered chat and agent functionality, which already 
 - Adapt all code to newapp's theme system (remix-components) and coding patterns
 
 **No changes to**:
+
 - `package.json` (dependencies already installed)
 - Existing auth, database, or middleware infrastructure
 - Existing routes or functionality
@@ -34,6 +35,7 @@ The newapp project needs AI-powered chat and agent functionality, which already 
 ## Impact
 
 **New files** (ported from my_app, adapted to newapp conventions):
+
 - `app/actions/chat-controller.tsx` — Chat route controller
 - `app/actions/agent-controller.tsx` — Agent route controller
 - `app/lib/chatlog.ts` — Conversation persistence library
@@ -45,6 +47,7 @@ The newapp project needs AI-powered chat and agent functionality, which already 
 - `app/ui/scroll-to-top.tsx` — Client-side scroll-to-top component
 
 **Modified files**:
+
 - `app/routes.ts` — Add `chat` and `agent` route definitions
 - `app/router.ts` — Wire chat and agent controllers
 - `app/data/schema.ts` — Add `chatlog` table definition

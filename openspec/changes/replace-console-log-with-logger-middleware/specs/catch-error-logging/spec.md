@@ -1,6 +1,7 @@
 # catch-error-logging Specification
 
 ## Purpose
+
 Extend `context.logger` usage from bare catch blocks to all server-side console calls, and remove the deprecated `userLogger` utility.
 
 ## MODIFIED Requirements

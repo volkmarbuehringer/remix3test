@@ -8,6 +8,7 @@ All seven admin `clientEntry` components that attach DOM event listeners use a `
 4. The new DOM nodes have no event listeners → context menu silently stops working
 
 The pattern exists in 7 files:
+
 - `app/assets/nutzer-table-interactive.tsx` — different structure (uses `getElementById` in render)
 - `app/assets/admin-resources-context-menu.tsx` — uses `ref()` with `mounted` guard
 - `app/assets/admin-offering-configs-context-menu.tsx` — same ref pattern
@@ -19,6 +20,7 @@ The pattern exists in 7 files:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Context menus work after Frame navigation (sort, paginate, filter)
 - Inline grid edit survives Frame reload
 - No duplicate listener accumulation on `handle.update()` (current `mounted` behavior preserved)
@@ -26,6 +28,7 @@ The pattern exists in 7 files:
 - Minimal diff — preserve existing action handlers, menu structure, and UX
 
 **Non-Goals:**
+
 - Changing menu content, structure, or UX
 - Refactoring server-side controller logic
 - Adding new capabilities or actions
@@ -62,12 +65,12 @@ Frame sor t navigation flow:
 
 Alternatives considered:
 
-| Alternative | Problem |
-|---|---|
-| Cache table reference + AbortController in render | Works but is `nutzer`-only, doesn't fix ref-based files |
-| MutationObserver on Frame container | Over-engineered, indirect |
-| Re-create clientEntry on Frame update | Would require Remix runtime changes |
-| Remove `mounted` without using ref's signal | Would accumulate duplicate listeners on `handle.update()` |
+| Alternative                                       | Problem                                                   |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| Cache table reference + AbortController in render | Works but is `nutzer`-only, doesn't fix ref-based files   |
+| MutationObserver on Frame container               | Over-engineered, indirect                                 |
+| Re-create clientEntry on Frame update             | Would require Remix runtime changes                       |
+| Remove `mounted` without using ref's signal       | Would accumulate duplicate listeners on `handle.update()` |
 
 ### Decision 2: Convert `nutzer-table-interactive.tsx` to ref-based pattern
 
@@ -76,6 +79,7 @@ Alternatives considered:
 **Rationale:** Having two different patterns for the same purpose is maintenance debt. The ref pattern is more idiomatic (element lifecycle managed by the framework) and the fix is the same: remove the `mounted` guard.
 
 The conversion moves:
+
 - Event listener attachment from `attachContextMenuListeners(tableData, ...)` → into `ref()` callback on the trigger div
 - Data reading from closure-captured `tableData` → from `readData()` at event handler time (fresher)
 - `handle.update()` callback → directly in the event handler before trigger dispatch
@@ -94,9 +98,9 @@ The conversion moves:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|---|---|
-| `ref()` not firing on re-insertion after Frame update | Remix docs confirm `ref()` fires "when an element is inserted." Frame replacement removes+re-inserts the trigger div. |
+| Risk                                                           | Mitigation                                                                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ref()` not firing on re-insertion after Frame update          | Remix docs confirm `ref()` fires "when an element is inserted." Frame replacement removes+re-inserts the trigger div.                            |
 | Duplicate listener on rapid handle.update() + Frame navigation | `ref()`'s AbortSignal fires on removal (not on handle.update()), so listener persists across renders and is only rebuilt on actual DOM insertion |
-| Nutzer conversion introduces regression | Existing right-click → menu → action flow is unaffected; the event handler logic is identical, just moved inside the `ref()` callback |
-| `client-grid-inline-edit` AbortController management | The AbortController is local to the factory closure, cleaned up by `handle.signal` on component disposal |
+| Nutzer conversion introduces regression                        | Existing right-click → menu → action flow is unaffected; the event handler logic is identical, just moved inside the `ref()` callback            |
+| `client-grid-inline-edit` AbortController management           | The AbortController is local to the factory closure, cleaned up by `handle.signal` on component disposal                                         |

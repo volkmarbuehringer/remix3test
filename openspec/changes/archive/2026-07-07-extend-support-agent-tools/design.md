@@ -21,6 +21,7 @@ New tools will follow the same pattern. No new packages needed — `date-holiday
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add 9 read-only data tools covering all key system tables (resources, offerings, offering configs, appointment types, messages, admin stats)
 - Add `lookup_holiday` tool using date-holidays with DE-RP locale
 - Add `generate_pdf_report` tool wrapping the existing pdfmake utility
@@ -29,6 +30,7 @@ New tools will follow the same pattern. No new packages needed — `date-holiday
 - Keep every existing tool and its behavior intact
 
 **Non-Goals:**
+
 - No write/mutation tools (no INSERT/UPDATE/DELETE)
 - No new routes, controllers, or UI
 - No changes to the Mastra instance setup, storage, memory, or scorers
@@ -62,9 +64,9 @@ New tools will follow the same pattern. No new packages needed — `date-holiday
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|---|---|
-| Tool descriptions too vague → model picks wrong tool | Write specific, testable descriptions. Each tool description includes example queries that should trigger it. |
-| LLM timeout with large result sets | All read tools use `LIMIT` (default 20-50). The `search_appointments_by_date_range` tool requires both `startDate` and `endDate` to prevent unbounded scans. |
-| `generate_pdf_report` could generate expensive PDFs | Accept only a small set of predefined report types (appointment list, user list) rather than arbitrary document definitions. |
-| Tool count grows unwieldy | Current count: 5. After change: ~14. Still manageable in one file. Revisit at ~20. |
+| Risk                                                 | Mitigation                                                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tool descriptions too vague → model picks wrong tool | Write specific, testable descriptions. Each tool description includes example queries that should trigger it.                                                |
+| LLM timeout with large result sets                   | All read tools use `LIMIT` (default 20-50). The `search_appointments_by_date_range` tool requires both `startDate` and `endDate` to prevent unbounded scans. |
+| `generate_pdf_report` could generate expensive PDFs  | Accept only a small set of predefined report types (appointment list, user list) rather than arbitrary document definitions.                                 |
+| Tool count grows unwieldy                            | Current count: 5. After change: ~14. Still manageable in one file. Revisit at ~20.                                                                           |

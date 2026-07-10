@@ -5,6 +5,7 @@ The app already uses `remix/headers` in core middleware (`render.tsx` with `Supe
 ## Goals / Non-Goals
 
 **Goals:**
+
 - All header writes use typed `remix/headers` classes instead of raw string manipulation
 - Security headers middleware gets typed property accessors via `SuperHeaders`
 - File download controllers use `ContentType`, `ContentDisposition` classes and `SuperHeaders.contentLength` typed property
@@ -13,6 +14,7 @@ The app already uses `remix/headers` in core middleware (`render.tsx` with `Supe
 - Zero behavioral change — every existing response is byte-identical
 
 **Non-Goals:**
+
 - Introducing new headers or changing header values
 - Refactoring the application logic or route structure
 - Changing any non-header behavior

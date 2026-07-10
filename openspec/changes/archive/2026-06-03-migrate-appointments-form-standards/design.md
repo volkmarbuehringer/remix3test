@@ -7,6 +7,7 @@ The verwaltung route tree no longer uses frames (since the verwaltung-route-tree
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace redirect-based error handling with direct re-render on validation failure (status 400)
 - Remove all usage of `encodeFormValues`, `decodeFormValues`, `encodeFieldErrors`, `decodeFieldErrors`
 - Use `gridStateFromFormData()` with typed extractors instead of manual `formData.get(...)` destructuring
@@ -14,6 +15,7 @@ The verwaltung route tree no longer uses frames (since the verwaltung-route-tree
 - Keep all existing behaviors: SSE broadcasts, rate limiting, audit logging, past-date checks, slot-bookable checks, exclusion constraint handling
 
 **Non-Goals:**
+
 - Changing validation schemas or business rules
 - Changing the `destroy` action (already uses `gridStateFromFormData` and a simpler error redirect for its single error case — keep as-is for consistency with delete flow)
 - Changing `appointment-schema.ts` or data layer
@@ -45,6 +47,7 @@ This allows `create` and `update` to pass `{ status: 400 }` on error while `inde
 **3. Use `gridStateFromFormData` with extractor functions**
 
 Replace the manual destructuring pattern used by `create` and `update`:
+
 ```typescript
 // OLD
 let gridValues: GridState = {
@@ -65,12 +68,15 @@ Rationale: The `destroy` action already uses `gridStateFromFormData`. Consistenc
 **4. Remove URL-decoded fallbacks from `loadAppointmentPageData`**
 
 Change lines 267–269 from:
+
 ```typescript
 let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
 let formValues = overrides?.formValues ?? decodeFormValues(APPOINTMENT_FORM_KEYS, context.url)
 let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(APPOINTMENT_FORM_KEYS, context.url)
 ```
+
 To:
+
 ```typescript
 let error = overrides?.error ?? (context.url.searchParams.get('error') || undefined)
 let formValues = overrides?.formValues ?? undefined
@@ -88,6 +94,7 @@ Remove the `buildErrorRedirectUrl` function entirely. Remove imports of `encodeF
 **6. Pass grid state extractors directly to `loadAppointmentPageData`**
 
 On error, extract grid state components using the typed extractors and pass them as overrides:
+
 ```typescript
 let gridValues = gridStateFromFormData(formData)
 // ... on error:
@@ -114,13 +121,21 @@ Rationale: The offerings page has a bug where `formError` renders twice — once
 **8. Fix offerings double-error bug**
 
 In `AdminOfferingsPage`, line 120 renders `formError` unconditionally at page level:
+
 ```tsx
-{formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+{
+  formError ? <div mix={table.errorBanner}>{formError}</div> : null
+}
 ```
+
 This causes a double render when a form panel is also showing `formError` inside the form. Change to:
+
 ```tsx
-{!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+{
+  !hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null
+}
 ```
+
 Matching the pattern used on line 121 for the `error` prop.
 
 Rationale: This is a bug in the offerings page discovered during this migration. The fix is trivial (one character change: remove the `formError` guard, keep only the `!hasFormPanel && formError` guard).

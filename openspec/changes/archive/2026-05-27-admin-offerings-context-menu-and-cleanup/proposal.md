@@ -5,6 +5,7 @@ The admin offerings page still uses visible Edit/Delete action buttons per row â
 ## What Changes
 
 ### Admin Offerings â€” Add context menu
+
 - Add a right-click context menu to each offerings table row with Edit and Delete actions
 - Follow the established hidden-trigger pattern from `admin-appointments-context-menu.tsx`
 - Context menu opens on right-click anywhere on the row
@@ -12,6 +13,7 @@ The admin offerings page still uses visible Edit/Delete action buttons per row â
 - Delete shows confirmation then submits the existing RestfulForm via `.requestSubmit()`
 
 ### Admin Appointments â€” Remove action buttons
+
 - Remove the Edit/Delete glyph button group from each appointments table row
 - Remove the `actionCellStyle`, `btnGroupStyle`, `editBtnStyle`, `delBtnStyle` CSS mixins (no longer used)
 - The context menu (already implemented) becomes the sole action mechanism
@@ -20,9 +22,11 @@ The admin offerings page still uses visible Edit/Delete action buttons per row â
 ## Capabilities
 
 ### New Capabilities
+
 - `offerings-context-menu`: Right-click context menu for admin offerings table rows with Edit and Delete actions
 
 ### Modified Capabilities
+
 - `admin-appointments-context-menu`: Remove the visible action buttons; context menu is now the only action mechanism. Update spec to reflect this.
 
 ## Impact

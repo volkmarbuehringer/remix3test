@@ -8,9 +8,7 @@ describe('uploads', () => {
 
   before(async () => {
     await initializeAppDatabase()
-    let result = await pool.query(
-      "SELECT id FROM users WHERE email = 'admin@newapp.com'",
-    )
+    let result = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
     uploadUserId = result.rows[0].id
   })
 
@@ -52,7 +50,7 @@ describe('uploads', () => {
     })
     await claimUpload(db, Number(id), uploadUserId)
     let rows = await listUploads(db, uploadUserId)
-    assert.ok(rows.some(r => r.filename === 'test-filter.txt'))
+    assert.ok(rows.some((r) => r.filename === 'test-filter.txt'))
   })
 
   it('listUploads returns empty array for non-existent user', async () => {
@@ -71,7 +69,7 @@ describe('uploads', () => {
     })
     await claimUpload(db, Number(id), uploadUserId)
     let rows = await listUploads(db, uploadUserId)
-    assert.ok(rows.some(r => r.filename === 'test-claim.txt'))
+    assert.ok(rows.some((r) => r.filename === 'test-claim.txt'))
   })
 
   it('getUploadDownload returns undefined for non-existent id', async () => {

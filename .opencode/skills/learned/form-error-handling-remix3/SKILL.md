@@ -120,12 +120,18 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 
 ```tsx
 <select name="role">
-  <option value="Admin" selected={
-    formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'
-  }>Admin</option>
-  <option value="Editor" selected={
-    formValues?.role !== undefined ? formValues.role === 'Editor' : row.role === 'Editor'
-  }>Editor</option>
+  <option
+    value="Admin"
+    selected={formValues?.role !== undefined ? formValues.role === 'Admin' : row.role === 'Admin'}
+  >
+    Admin
+  </option>
+  <option
+    value="Editor"
+    selected={formValues?.role !== undefined ? formValues.role === 'Editor' : row.role === 'Editor'}
+  >
+    Editor
+  </option>
 </select>
 ```
 
@@ -144,7 +150,7 @@ Use this pattern when the form lives inside a `<Frame>` and a validation failure
 ```typescript
 export function encodeFormValues(
   keys: readonly string[],
-  parsed: Record<string, string>
+  parsed: Record<string, string>,
 ): Record<string, string> {
   let params: Record<string, string> = {}
   for (let key of keys) {
@@ -155,7 +161,7 @@ export function encodeFormValues(
 
 export function decodeFormValues(
   keys: readonly string[],
-  url: URL
+  url: URL,
 ): Record<string, string> | undefined {
   let values: Record<string, string> = {}
   let hasAny = false
@@ -169,9 +175,7 @@ export function decodeFormValues(
   return hasAny ? values : undefined
 }
 
-export function encodeFieldErrors(
-  errors: Record<string, string>
-): Record<string, string> {
+export function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
   let params: Record<string, string> = {}
   for (let [k, v] of Object.entries(errors)) {
     params[`fe_${k}`] = v
@@ -181,7 +185,7 @@ export function encodeFieldErrors(
 
 export function decodeFieldErrors(
   keys: readonly string[],
-  url: URL
+  url: URL,
 ): Record<string, string> | undefined {
   let errors: Record<string, string> = {}
   let hasAny = false
@@ -230,9 +234,7 @@ function EditPage(handle: Handle<EditPageProps>) {
     // Value priority: URL-decoded formValues > row data > defaults
     let resolvedTitle = formValues?.title ?? (row ? row.title : undefined)
 
-    return (
-      <input name="title" value={resolvedTitle ?? ''} />
-    )
+    return <input name="title" value={resolvedTitle ?? ''} />
   }
 }
 ```
@@ -300,7 +302,13 @@ rm newapp/app/utils/form-params.ts
 **6. Use `gridStateFromFormData` with extractors**
 
 ```typescript
-import { gridStateFromFormData, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter } from '../utils/grid-state.ts'
+import {
+  gridStateFromFormData,
+  gridStateOffset,
+  gridStateSort,
+  gridStateDirection,
+  gridStateFilter,
+} from '../utils/grid-state.ts'
 let gridValues = gridStateFromFormData(formData)
 // Pass extractors to loadPageData overrides
 ```
@@ -348,9 +356,7 @@ import * as s from 'remix/data-schema'
 import * as coerce from 'remix/data-schema/coerce'
 
 export const offeringSaveSchema = f.object({
-  resource_id: f.field(
-    coerce.number().refine((n) => n > 0, 'ist erforderlich.'),
-  ),
+  resource_id: f.field(coerce.number().refine((n) => n > 0, 'ist erforderlich.')),
   start_min: f.field(
     coerce.number().refine((n) => n >= 0 && n <= 1380 && n % 60 === 0, 'ist ungültig.'),
   ),
@@ -365,6 +371,7 @@ export const offeringSaveSchema = f.object({
 When a `<select>` has a disabled placeholder option (`<option value="">`), the browser sends `""`. `coerce.number()` fails immediately with **English** `"Expected number"` before `.refine()` can produce a **German** message.
 
 From the `coerce.js` source:
+
 ```
 // Empty string → immediate failure, .refine() never runs
 if (trimmed.length === 0) return fail('Expected number', ...)
@@ -377,7 +384,7 @@ let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
 if (!resourceIdRaw.trim()) {
   return buildErrorRedirect(formValues, gridValues, {
     creating: true,
-    fieldErrors: { resource_id: 'ist erforderlich.' }
+    fieldErrors: { resource_id: 'ist erforderlich.' },
   })
 }
 
@@ -481,13 +488,13 @@ return renderPage(context, data, { status: 400 })
 The data loader then uses `overrides.wizardResourceId` and `overrides.wizardDay` (falling back to URL params for GET requests):
 
 ```typescript
-let wizardResourceId = overrides?.wizardResourceId
-  ?? context.url.searchParams.get('resource_id')
-  ?? undefined
+let wizardResourceId =
+  overrides?.wizardResourceId ?? context.url.searchParams.get('resource_id') ?? undefined
 
-let wizardDayStr = overrides?.wizardDay !== undefined
-  ? String(overrides.wizardDay)
-  : (context.url.searchParams.get('day') || undefined)
+let wizardDayStr =
+  overrides?.wizardDay !== undefined
+    ? String(overrides.wizardDay)
+    : context.url.searchParams.get('day') || undefined
 ```
 
 > _Consolidated from: remix-wizard-post-validate-state_
@@ -501,7 +508,7 @@ let wizardDayStr = overrides?.wizardDay !== undefined
 ```typescript
 it('POST /client with short name returns 400 with field error', async () => {
   let body = new URLSearchParams({
-    name: 'Bob',         // too short (minLength 8)
+    name: 'Bob', // too short (minLength 8)
     email: 'bob@test.com',
     _csrf: csrfToken!,
   })
@@ -531,7 +538,7 @@ it('POST /client with short name returns 400 with field error', async () => {
 ```typescript
 it('POST /client creates a row and redirects', async () => {
   let body = new URLSearchParams({
-    name: 'ValidNameHere',  // 8+ chars
+    name: 'ValidNameHere', // 8+ chars
     email: 'valid@test.com',
     _csrf: csrfToken!,
   })
@@ -550,6 +557,7 @@ it('POST /client creates a row and redirects', async () => {
 ```
 
 **Key testing patterns:**
+
 - Use `redirect: 'manual'` to inspect response before following redirects
 - Assert `response.status` is 400 for validation failures
 - Search the response HTML for preserved form values and error messages
@@ -561,13 +569,13 @@ it('POST /client creates a row and redirects', async () => {
 
 **Use Pattern 1 (Direct Re-Render) for all new code.** Pattern 2 is deprecated and should only be used as reference when reading legacy code.
 
-| Criteria | Pattern 1: Direct Re-Render | Pattern 2: URL Params (DEPRECATED) |
-|----------|---------------------------|------------------------------------|
-| Form values preserved | Yes (in server render) | Yes (in URL) |
-| Implementation complexity | Lower | Higher (need encode/decode) |
-| Browser URL clean on error | Yes | No (bloated with fv_/fe_ params) |
-| Grid state preserved | Yes (via overrides) | Yes (in URL) |
-| HTTP semantics | Correct (400) | Incorrect (302) |
+| Criteria                   | Pattern 1: Direct Re-Render | Pattern 2: URL Params (DEPRECATED) |
+| -------------------------- | --------------------------- | ---------------------------------- |
+| Form values preserved      | Yes (in server render)      | Yes (in URL)                       |
+| Implementation complexity  | Lower                       | Higher (need encode/decode)        |
+| Browser URL clean on error | Yes                         | No (bloated with fv_/fe_ params)   |
+| Grid state preserved       | Yes (via overrides)         | Yes (in URL)                       |
+| HTTP semantics             | Correct (400)               | Incorrect (302)                    |
 
 ---
 
@@ -598,14 +606,35 @@ interface PageData {
 
 async function loadPageData(
   context: AppContext,
-  overrides?: Partial<Pick<PageData, 'creating' | 'editRow' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
+  overrides?: Partial<
+    Pick<
+      PageData,
+      | 'creating'
+      | 'editRow'
+      | 'formValues'
+      | 'fieldErrors'
+      | 'formError'
+      | 'offset'
+      | 'sortColumn'
+      | 'sortDirection'
+      | 'filter'
+    >
+  >,
 ): Promise<PageData> {
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = (overrides?.filter ?? context.url.searchParams.get('filter')) || undefined
   // Sort, query, paginate...
   return {
-    rows, offset, hasMore, prevOffset, nextOffset, sortColumn, sortDirection, filter,
-    editRow, creating,
+    rows,
+    offset,
+    hasMore,
+    prevOffset,
+    nextOffset,
+    sortColumn,
+    sortDirection,
+    filter,
+    editRow,
+    creating,
     formValues: overrides?.formValues,
     fieldErrors: overrides?.fieldErrors,
     formError: overrides?.formError,
@@ -621,12 +650,12 @@ Hidden inputs carry sort/filter/pagination state across POST. Use `app/utils/gri
 
 ```typescript
 import {
-  gridStateFromFormData,  // from FormData
-  gridStateToParams,      // to URLSearchParams
-  gridStateOffset,        // to number | undefined
-  gridStateSort,          // to string | undefined
-  gridStateDirection,     // to 'asc' | 'desc' | undefined
-  gridStateFilter,        // to string | undefined
+  gridStateFromFormData, // from FormData
+  gridStateToParams, // to URLSearchParams
+  gridStateOffset, // to number | undefined
+  gridStateSort, // to string | undefined
+  gridStateDirection, // to 'asc' | 'desc' | undefined
+  gridStateFilter, // to string | undefined
   type GridState,
 } from '../utils/grid-state.ts'
 
@@ -668,11 +697,17 @@ When a form panel is open, `formError` renders ONLY inside the form, NOT at page
 
 ```tsx
 // Page-level grid section — hidden when form is open
-{!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
-{!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
+{
+  !hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null
+}
+{
+  !hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null
+}
 
 // Inside the form component
-{formError ? <div mix={formErrorBanner}>{formError}</div> : null}
+{
+  formError ? <div mix={formErrorBanner}>{formError}</div> : null
+}
 ```
 
 Keep `formError` (form validation) and `error` (destroy flow) strictly separate — never chain them.
@@ -711,12 +746,14 @@ Unicode escapes like `\u00e4` are NOT interpreted in JSX text content (only in `
 Adding a new URL-query-param filter (e.g., `?status=pending`) that drives a SQL `WHERE` clause requires touching 8+ places across the controller, UI, forms, and wizard steps. Follow this touchpoint checklist in order:
 
 ### 1. GridState utility (`app/utils/grid-state.ts`)
+
 - Add field to `GridState` interface
 - Add reader in `gridStateFromURL`, `gridStateFromForm`, `gridStateFromFormData`
 - Add writer in `gridStateToParams`
 - Add accessor helper (`gridStateStatus()` pattern)
 
 ### 2. Controller — data layer (`app/actions/<route>/controller.tsx`)
+
 - Import the gridState accessor
 - Add field to data interface (`status?: string` in `AppointmentsNewPageData`)
 - Add field to `load*PageData()` overrides `Pick<>` type
@@ -725,22 +762,27 @@ Adding a new URL-query-param filter (e.g., `?status=pending`) that drives a SQL 
 - Return field in data object
 
 ### 3. Controller — render function
+
 - Pass `val={data.val}` to the page component
 
 ### 4. Controller — thread through all action override calls
+
 Every `load*PageData()` call with overrides needs `val: gridStateVal(gridValues)` — especially POST error paths where `context.url.searchParams` is empty. Check all:
+
 - Rate limit errors
-- Validation errors  
+- Validation errors
 - Past date / business rule errors
 - Exclusion constraint errors
 - Not-found errors
 
 Also add to explicit redirect URL params in wizard step transitions:
+
 ```
 if (gridValues.val) params.set('val', gridValues.val)
 ```
 
 ### 5. UI — page component (`app/ui/<page>.tsx`)
+
 - Add `val?: string` to props interface
 - Destructure `val` from handle props
 - Update local URL builder functions to accept and pass `val`
@@ -750,20 +792,24 @@ if (gridValues.val) params.set('val', gridValues.val)
 - Pass `val` to sub-page components (edit, create panels)
 
 ### 6. Sub-page components
+
 - **Edit page**: Add to props interface, add to `gridState` object
 - **Create page**: Add to props interface, add to `gridState` object
 
 ### 7. Form component (`app/ui/<form>.tsx`)
+
 - Destructure `val` from `gridState`
 - Pass `val` to `buildCancelUrl()`
 
 ### 8. Wizard step components (if applicable)
+
 - Add `_val` hidden input to each step's form
 - Update local URL builder functions (`buildPeriodUrl`, `buildBackUrl`) to pass `gridState.val`
 - Update "Abbrechen" links to use `buildCancelUrl` with `val` instead of bare base URL
 - Import `buildCancelUrl` from `./mixins/admin-urls.ts`
 
 ### 9. Tests
+
 - Test: default behavior (no param)
 - Test: param set to each valid value
 - Test: param filters correctly (verify content present/absent)

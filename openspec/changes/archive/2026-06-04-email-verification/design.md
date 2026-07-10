@@ -5,6 +5,7 @@ The app currently has a simple registration flow: user submits form → account 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Send a verification email with a unique token link after registration
 - Gate login to require verified email (except for preconfigured admin users)
 - Provide reusable email infrastructure (transport, helper) for future emails
@@ -12,6 +13,7 @@ The app currently has a simple registration flow: user submits form → account 
 - Existing admin seed users bypass verification
 
 **Non-Goals:**
+
 - Password reset flow (separate change)
 - Resend verification email (can be added later)
 - Bulk email / newsletter sending
@@ -25,6 +27,7 @@ The app currently has a simple registration flow: user submits form → account 
 **Chosen:** Crypto-random token (32 bytes, base64url-encoded), stored in `users` table with expiry.
 
 **Alternatives considered:**
+
 - JWT/HMAC signed token: Stateless but can't revoke individually, adds crypto complexity for no real benefit here.
 - Separate `email_verifications` table: Cleaner separation but overkill for a single verification flow. If we add password reset tokens later, we can extract a table then.
 
@@ -35,6 +38,7 @@ The app currently has a simple registration flow: user submits form → account 
 **Chosen:** `nodemailer` (industry standard for Node.js SMTP).
 
 **Alternatives considered:**
+
 - Raw `node:net` SMTP: Too low-level, no MIME handling, no HTML email support.
 - Service-specific SDK (Resend, SendGrid): Ties us to a vendor.
 
@@ -74,11 +78,11 @@ app/utils/verification-token.ts ← generateToken(), TOKEN_BYTES constant
 
 Three new columns on the `users` table:
 
-| Column | Type | Purpose |
-|--------|------|---------|
-| `email_verified` | integer (0/1) | Whether the email is confirmed |
-| `verification_token` | text (nullable) | One-time verification token |
-| `verification_expires` | integer (epoch ms) | Token expiry timestamp |
+| Column                 | Type               | Purpose                        |
+| ---------------------- | ------------------ | ------------------------------ |
+| `email_verified`       | integer (0/1)      | Whether the email is confirmed |
+| `verification_token`   | text (nullable)    | One-time verification token    |
+| `verification_expires` | integer (epoch ms) | Token expiry timestamp         |
 
 The `Schema` module already uses `beforeWrite`/`afterRead` hooks. New columns get defaults in `beforeWrite` (0 for email_verified on create, null for token/expiry on create) and `parseIntFields` in `afterRead`.
 

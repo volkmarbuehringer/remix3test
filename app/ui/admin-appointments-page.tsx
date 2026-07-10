@@ -5,7 +5,13 @@ import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  formatTimestamp,
+} from './mixins/admin-urls.ts'
 
 import { frames, routes } from '../routes.ts'
 import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
@@ -24,7 +30,14 @@ import { parseDuring } from '../data/appointofferings.ts'
 
 const ADMIN_BASE = routes.verwaltung.appointments.index.href()
 
-function buildPeriodUrl(newPeriod: string | null, offset: number, sort: string, order: string, filter?: string, status?: string): string {
+function buildPeriodUrl(
+  newPeriod: string | null,
+  offset: number,
+  sort: string,
+  order: string,
+  filter?: string,
+  status?: string,
+): string {
   let params = new URLSearchParams()
   if (offset > 0) params.set('offset', String(offset))
   params.set('sort', sort)
@@ -151,73 +164,98 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a href={routes.verwaltung.appointments.index.href()} rmx-target={frames.adminContent} mix={table.clearLink}>
+            <a
+              href={routes.verwaltung.appointments.index.href()}
+              rmx-target={frames.adminContent}
+              mix={table.clearLink}
+            >
               Zurücksetzen
             </a>
           )}
           <span mix={table.spacer} />
-          <span mix={css({
-            display: 'inline-flex',
-            alignItems: 'center',
-          })}>
-            {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map((value, i, arr) => {
-              let isFirst = i === 0
-              let isLast = i === arr.length - 1
-              let label = value === '' ? 'Alle' : { 'this-week': 'Diese Woche', 'next-week': 'Nächste Woche', 'this-month': 'Diesen Monat', 'next-month': 'Nächsten Monat' }[value]
-              let active = value === '' ? !period : period === value
-              let href = active
-                ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
-                : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
-              if (status === 'expired') {
-                return (
-                  <span mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                      opacity: 0.4,
-                      cursor: 'not-allowed',
-                      pointerEvents: 'none',
-                    },
-                  })}>
-                    <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
-                  </span>
-                )
-              }
-              return (
-                <a
-                  href={href}
-                  rmx-target={frames.adminContent}
-                  mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                    },
-                  })}
-                >
-                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
-                </a>
-              )
+          <span
+            mix={css({
+              display: 'inline-flex',
+              alignItems: 'center',
             })}
+          >
+            {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map(
+              (value, i, arr) => {
+                let isFirst = i === 0
+                let isLast = i === arr.length - 1
+                let label =
+                  value === ''
+                    ? 'Alle'
+                    : {
+                        'this-week': 'Diese Woche',
+                        'next-week': 'Nächste Woche',
+                        'this-month': 'Diesen Monat',
+                        'next-month': 'Nächsten Monat',
+                      }[value]
+                let active = value === '' ? !period : period === value
+                let href = active
+                  ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
+                  : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
+                if (status === 'expired') {
+                  return (
+                    <span
+                      mix={css({
+                        '& button': {
+                          paddingLeft: theme.space.xs,
+                          paddingRight: theme.space.xs,
+                          borderTopLeftRadius: isFirst ? undefined : '0',
+                          borderBottomLeftRadius: isFirst ? undefined : '0',
+                          borderTopRightRadius: isLast ? undefined : '0',
+                          borderBottomRightRadius: isLast ? undefined : '0',
+                          borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                          opacity: 0.4,
+                          cursor: 'not-allowed',
+                          pointerEvents: 'none',
+                        },
+                      })}
+                    >
+                      <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                        {label}
+                      </button>
+                    </span>
+                  )
+                }
+                return (
+                  <a
+                    href={href}
+                    rmx-target={frames.adminContent}
+                    mix={css({
+                      '& button': {
+                        paddingLeft: theme.space.xs,
+                        paddingRight: theme.space.xs,
+                        borderTopLeftRadius: isFirst ? undefined : '0',
+                        borderBottomLeftRadius: isFirst ? undefined : '0',
+                        borderTopRightRadius: isLast ? undefined : '0',
+                        borderBottomRightRadius: isLast ? undefined : '0',
+                        borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                      },
+                    })}
+                  >
+                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                      {label}
+                    </button>
+                  </a>
+                )
+              },
+            )}
           </span>
-          <span mix={css({
-            display: 'inline-flex',
-            alignItems: 'center',
-          })}>
+          <span
+            mix={css({
+              display: 'inline-flex',
+              alignItems: 'center',
+            })}
+          >
             {(['pending', 'expired'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1
               let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
-              let active = value === 'pending' ? (!status || status === 'pending') : status === 'expired'
+              let active =
+                value === 'pending' ? !status || status === 'pending' : status === 'expired'
               let params = new URLSearchParams()
               if (offset > 0) params.set('offset', String(offset))
               params.set('sort', sortColumn)
@@ -242,17 +280,29 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     },
                   })}
                 >
-                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
+                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                    {label}
+                  </button>
                 </a>
               )
             })}
           </span>
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter, period, status)}
+            href={buildCreateUrl(
+              ADMIN_BASE,
+              offset,
+              sortColumn,
+              sortDirection,
+              filter,
+              period,
+              status,
+            )}
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu</button>
+            <button mix={[button({ tone: 'primary' })]}>
+              <Glyph name="add" width={14} height={14} /> Neu
+            </button>
           </a>
         </form>
 
@@ -277,31 +327,54 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <tr>
                   <th mix={table.thSortable} title="Titel">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.title', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'a.title',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Titel
-                      <span mix={'a.title' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'a.title' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('a.title', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={table.thSortable} title="E-Mail">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'u.email', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'u.email',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       E-Mail
-                      <span mix={'u.email' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'u.email' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('u.email', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Ressource">
                     <a
-                      href={buildSortUrl(ADMIN_BASE,
+                      href={buildSortUrl(
+                        ADMIN_BASE,
                         'r.description',
                         sortColumn,
                         sortDirection,
@@ -315,7 +388,9 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     >
                       Ressource
                       <span
-                        mix={'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        mix={
+                          'r.description' === sortColumn ? table.sortArrowActive : table.sortArrow
+                        }
                       >
                         {sortArrow('r.description', sortColumn, sortDirection)}
                       </span>
@@ -324,7 +399,16 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   <th mix={table.th}>Beschreibung</th>
                   <th mix={table.thSortable} title="Datum">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.date', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'a.date',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
@@ -336,25 +420,47 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   </th>
                   <th mix={table.thSortable} title="Zeit">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.during', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'a.during',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Zeit
-                      <span mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'a.during' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('a.during', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
                   <th mix={table.thSortable} title="Aktualisiert">
                     <a
-                      href={buildSortUrl(ADMIN_BASE, 'a.updated_at', sortColumn, sortDirection, offset, filter, period, status)}
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'a.updated_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                        period,
+                        status,
+                      )}
                       rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Aktualisiert
                       <span
-                        mix={'a.updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        mix={
+                          'a.updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow
+                        }
                       >
                         {sortArrow('a.updated_at', sortColumn, sortDirection)}
                       </span>
@@ -363,9 +469,13 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 </tr>
               </thead>
               <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                      <td mix={table.td} title={row.title}>
+                {rows.map((row) => (
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    data-row-id={row.id}
+                  >
+                    <td mix={table.td} title={row.title}>
                       {row.title}
                     </td>
                     <td mix={table.td} title={row.user_email ?? ''}>
@@ -428,7 +538,15 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter, period, status)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                    period,
+                    status,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
@@ -453,7 +571,15 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter, period, status)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                    period,
+                    status,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >

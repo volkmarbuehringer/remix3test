@@ -2,5 +2,5 @@ services:
   newapp:
     build: .
     ports:
-      - "44100:44100"
+      - '44100:44100'
     restart: unless-stopped

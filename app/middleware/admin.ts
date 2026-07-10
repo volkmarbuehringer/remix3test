@@ -50,7 +50,9 @@ export function requireAdmin(options?: RequireAdminOptions): Middleware {
       }
 
       let render = context.get(Renderer) as (node: RemixNode, init?: ResponseInit) => Response
-      return render(ForbiddenPage({ id: 'forbidden', props: {} } as unknown as Handle)(), { status: 403 })
+      return render(ForbiddenPage({ id: 'forbidden', props: {} } as unknown as Handle)(), {
+        status: 403,
+      })
     }
 
     return next()

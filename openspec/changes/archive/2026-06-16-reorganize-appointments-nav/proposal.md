@@ -14,9 +14,11 @@ The appointment booking wizard at `/appointments/new` is currently only accessib
 ## Capabilities
 
 ### New Capabilities
-- *(none — this is a nav data reorganization, no new capability)*
+
+- _(none — this is a nav data reorganization, no new capability)_
 
 ### Modified Capabilities
+
 - `mobile-nav`: The mobile nav drawer gains a "TermineUI" link to the old grid-based booking page alongside the "Neuer Termin" CTA
 
 ## Impact

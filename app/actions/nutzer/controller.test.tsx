@@ -67,7 +67,9 @@ describe('Admin Nutzer controller & page', () => {
     // ── Comprehensive cleanup of any leftover test data ─────────────
 
     // Delete nutzer rows that reference test logins first (FK to login)
-    await pool.query(`DELETE FROM nutzer WHERE n_lid IN (SELECT l_id FROM login WHERE l_login LIKE 'test-%')`)
+    await pool.query(
+      `DELETE FROM nutzer WHERE n_lid IN (SELECT l_id FROM login WHERE l_login LIKE 'test-%')`,
+    )
     // Then delete login rows
     await pool.query(`DELETE FROM login WHERE l_login LIKE 'test-%'`)
 
@@ -161,13 +163,7 @@ describe('Admin Nutzer controller & page', () => {
         `INSERT INTO nutzer (n_vorname, n_name, n_email, n_verpflichtung, n_lid)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING n_id`,
-        [
-          n.n_vorname,
-          n.n_name,
-          n.n_email,
-          n.n_verpflichtung,
-          allLoginIds[n.l_idx],
-        ],
+        [n.n_vorname, n.n_name, n.n_email, n.n_verpflichtung, allLoginIds[n.l_idx]],
       )
       allNutzerIds.push(result.rows[0].n_id)
     }
@@ -229,10 +225,7 @@ describe('Admin Nutzer controller & page', () => {
       location?.startsWith(routes.auth.login.index.href()),
       'should redirect to /login with returnTo',
     )
-    assert.ok(
-      location?.includes('returnTo='),
-      'should capture return path in returnTo param',
-    )
+    assert.ok(location?.includes('returnTo='), 'should capture return path in returnTo param')
   })
 
   it('GET /admin/nutzer returns 200 for admin', async () => {
@@ -262,10 +255,7 @@ describe('Admin Nutzer controller & page', () => {
     let html = await response.text()
 
     assert.ok(html.includes('Nutzer'), 'response should contain "Nutzer" heading')
-    assert.ok(
-      html.includes('Nutzer'),
-      'response should contain "Nutzer" heading',
-    )
+    assert.ok(html.includes('Nutzer'), 'response should contain "Nutzer" heading')
   })
 
   it('GET /admin/nutzer renders data rows from the database', async () => {
@@ -303,16 +293,12 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   it('GET /admin/nutzer shows empty state when query matches nothing', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?filter=ZZZZNOTFOUND`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?filter=ZZZZNOTFOUND`, {
+      headers: { Cookie: adminCookie },
+    })
     let html = await response.text()
 
-    assert.ok(
-      html.includes('Keine Nutzer gefunden'),
-      'should show search-specific empty state',
-    )
+    assert.ok(html.includes('Keine Nutzer gefunden'), 'should show search-specific empty state')
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -320,10 +306,9 @@ describe('Admin Nutzer controller & page', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   it('GET /admin/nutzer with sort param changes ORDER BY column', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?sort=n_vorname&order=desc`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?sort=n_vorname&order=desc`, {
+      headers: { Cookie: adminCookie },
+    })
 
     assert.equal(response.status, 200)
     let html = await response.text()
@@ -331,10 +316,9 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   it('GET /admin/nutzer with sort direction asc works', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?sort=n_email&order=asc`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?sort=n_email&order=asc`, {
+      headers: { Cookie: adminCookie },
+    })
 
     assert.equal(response.status, 200)
     let html = await response.text()
@@ -342,10 +326,9 @@ describe('Admin Nutzer controller & page', () => {
   })
 
   it('GET /admin/nutzer with invalid sort column falls back to default and does not error', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?sort=nonexistent_column&order=asc`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?sort=nonexistent_column&order=asc`, {
+      headers: { Cookie: adminCookie },
+    })
 
     // Page renders without SQL error (invalid column is rejected
     // by parseSort which validates against the whitelist)
@@ -369,31 +352,23 @@ describe('Admin Nutzer controller & page', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('John'), 'should find matching name "John"')
-    assert.ok(
-      !html.includes('ZZZZNOTFOUND'),
-      'should not include arbitrary text',
-    )
+    assert.ok(!html.includes('ZZZZNOTFOUND'), 'should not include arbitrary text')
   })
 
   it('GET /admin/nutzer with filter finds matching results by email', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?filter=test-nutzer-bob`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?filter=test-nutzer-bob`, {
+      headers: { Cookie: adminCookie },
+    })
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(
-      html.includes('Builder'),
-      'should find row matching email filter',
-    )
+    assert.ok(html.includes('Builder'), 'should find row matching email filter')
   })
 
   it('GET /admin/nutzer with non-matching filter shows search-specific empty state', async () => {
-    let response = await router.fetch(
-      `${NUTZER_URL}?filter=ZZZZNOTFOUND`,
-      { headers: { Cookie: adminCookie } },
-    )
+    let response = await router.fetch(`${NUTZER_URL}?filter=ZZZZNOTFOUND`, {
+      headers: { Cookie: adminCookie },
+    })
 
     assert.equal(response.status, 200)
     let html = await response.text()
@@ -461,10 +436,7 @@ describe('Admin Nutzer controller & page', () => {
     let html = await response.text()
 
     // With 22 rows and PAGE_SIZE=15, hasMore=true
-    assert.ok(
-      html.includes('Weiter'),
-      'should show "Weiter" link when more pages exist',
-    )
+    assert.ok(html.includes('Weiter'), 'should show "Weiter" link when more pages exist')
   })
 
   it('does not show active "Zurück" link on the first page', async () => {
@@ -497,10 +469,7 @@ describe('Admin Nutzer controller & page', () => {
     })
     let html = await response.text()
 
-    assert.ok(
-      html.includes('Zurück'),
-      'should show "Zurück" link when offset > 0',
-    )
+    assert.ok(html.includes('Zurück'), 'should show "Zurück" link when offset > 0')
   })
 
   it('shows "Zeige" range text on first page', async () => {
@@ -509,10 +478,7 @@ describe('Admin Nutzer controller & page', () => {
     })
     let html = await response.text()
 
-    assert.ok(
-      html.includes('Zeige'),
-      'should show "Zeige" range text when rows are displayed',
-    )
+    assert.ok(html.includes('Zeige'), 'should show "Zeige" range text when rows are displayed')
   })
 
   it('shows "Zeige 1–15" on first page with 15 rows', async () => {
@@ -537,10 +503,7 @@ describe('Admin Nutzer controller & page', () => {
     // With 22 total rows, offset=15 returns the remaining 7 rows
     // (LIMIT 16 returns rows 16-22, then hasMore=false since 7 <= 15).
     // So the range should be "Zeige 16–22"
-    assert.ok(
-      html.includes('Zeige'),
-      'should show "Zeige" range text on second page',
-    )
+    assert.ok(html.includes('Zeige'), 'should show "Zeige" range text on second page')
     // Verify the range includes number 16 (start of second page)
     assert.ok(
       html.includes('16') && html.includes('22'),
@@ -568,14 +531,8 @@ describe('Admin Nutzer controller & page', () => {
     })
     let html = await response.text()
 
-    assert.ok(
-      html.includes('action="/admin/nutzer"'),
-      'filter form should POST to /admin/nutzer',
-    )
-    assert.ok(
-      html.includes('name="filter"'),
-      'filter form should have input named "filter"',
-    )
+    assert.ok(html.includes('action="/admin/nutzer"'), 'filter form should POST to /admin/nutzer')
+    assert.ok(html.includes('name="filter"'), 'filter form should have input named "filter"')
   })
 
   it('has filter form with rmx-target attribute (frame-based)', async () => {
@@ -608,10 +565,7 @@ describe('Admin Nutzer controller & page', () => {
     })
     let html = await response.text()
 
-    assert.ok(
-      !html.includes('Zurücksetzen'),
-      'should NOT show "Zurücksetzen" link without filter',
-    )
+    assert.ok(!html.includes('Zurücksetzen'), 'should NOT show "Zurücksetzen" link without filter')
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -646,10 +600,7 @@ describe('Admin Nutzer controller & page', () => {
     let html = await response.text()
 
     let sortLinks = html.match(/href="\/admin\/nutzer\?[^"]*"/g)
-    assert.ok(
-      sortLinks && sortLinks.length > 0,
-      'should render sort links to /admin/nutzer',
-    )
+    assert.ok(sortLinks && sortLinks.length > 0, 'should render sort links to /admin/nutzer')
 
     assert.ok(
       html.includes('rmx-target'),
@@ -715,10 +666,7 @@ describe('Admin Nutzer controller & page', () => {
     let emDashCount = (allHtml.match(new RegExp(emDash, 'g')) || []).length
     // Should have at least 2 em dashes: null vorname + null name
     // Plus maybe more from null timestamp
-    assert.ok(
-      emDashCount >= 2,
-      'should render em dash for null name fields',
-    )
+    assert.ok(emDashCount >= 2, 'should render em dash for null name fields')
   })
 
   it('renders null last login timestamp as em dash', async () => {
@@ -729,10 +677,7 @@ describe('Admin Nutzer controller & page', () => {
     let html = await response.text()
 
     let emDash = '\u2014'
-    assert.ok(
-      html.includes(emDash),
-      'should render em dash for null timestamp values',
-    )
+    assert.ok(html.includes(emDash), 'should render em dash for null timestamp values')
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -751,11 +696,7 @@ describe('Admin Nutzer controller & page', () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
-    assert.equal(
-      response.status,
-      200,
-      'route should be wired and return 200 for admin',
-    )
+    assert.equal(response.status, 200, 'route should be wired and return 200 for admin')
   })
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -824,9 +765,18 @@ describe('Admin Nutzer controller & page', () => {
   it('PUT /admin/nutzer/:id with non-existent UUID updates zero rows (no error)', async () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let body = new URLSearchParams({
-      vorname: '', name: 'ValidName', email: 'valid@test.com', verpflichtung: '',
-      login: 'valid@test.com', aktiv: '', gesperrt: '', _l_id: '00000000-0000-0000-0000-000000000000',
-      _offset: '', _sort: '', _order: '', _filter: '',
+      vorname: '',
+      name: 'ValidName',
+      email: 'valid@test.com',
+      verpflichtung: '',
+      login: 'valid@test.com',
+      aktiv: '',
+      gesperrt: '',
+      _l_id: '00000000-0000-0000-0000-000000000000',
+      _offset: '',
+      _sort: '',
+      _order: '',
+      _filter: '',
       _csrf: adminCsrf,
       _method: 'PUT',
     })
@@ -940,7 +890,10 @@ describe('Admin Nutzer controller & page', () => {
     allNutzerIds.push(String(delNId))
 
     let body = new URLSearchParams({
-      _offset: '', _sort: '', _order: '', _filter: '',
+      _offset: '',
+      _sort: '',
+      _order: '',
+      _filter: '',
       _csrf: adminCsrf,
       _method: 'DELETE',
     })
@@ -953,30 +906,24 @@ describe('Admin Nutzer controller & page', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(
-      location === '/admin/nutzer',
-      'should redirect to /admin/nutzer on delete',
-    )
+    assert.ok(location === '/admin/nutzer', 'should redirect to /admin/nutzer on delete')
 
     // Verify nutzer row is gone
-    let nutzerCheck = await pool.query(
-      'SELECT n_id FROM nutzer WHERE n_id = $1',
-      [delNId],
-    )
+    let nutzerCheck = await pool.query('SELECT n_id FROM nutzer WHERE n_id = $1', [delNId])
     assert.equal(nutzerCheck.rows.length, 0, 'nutzer row should be deleted')
 
     // Verify login row is gone
-    let loginCheck = await pool.query(
-      'SELECT l_id FROM login WHERE l_id = $1',
-      [delLId],
-    )
+    let loginCheck = await pool.query('SELECT l_id FROM login WHERE l_id = $1', [delLId])
     assert.equal(loginCheck.rows.length, 0, 'login row should be deleted')
   })
 
   it('DELETE /admin/nutzer/:id with non-existent UUID returns 404', async () => {
     let nonExistentId = '00000000-0000-0000-0000-000000000000'
     let body = new URLSearchParams({
-      _offset: '', _sort: '', _order: '', _filter: '',
+      _offset: '',
+      _sort: '',
+      _order: '',
+      _filter: '',
       _csrf: adminCsrf,
       _method: 'DELETE',
     })
@@ -1003,24 +950,12 @@ describe('Admin Nutzer controller & page', () => {
 
     assert.equal(response.status, 200)
     // Should render the edit panel header
-    assert.ok(
-      html.includes('Nutzer bearbeiten'),
-      'should show edit panel title',
-    )
+    assert.ok(html.includes('Nutzer bearbeiten'), 'should show edit panel title')
     // Should include a hidden _l_id input
-    assert.ok(
-      html.includes('name="_l_id"'),
-      'should include hidden _l_id input',
-    )
+    assert.ok(html.includes('name="_l_id"'), 'should include hidden _l_id input')
     // Should have save and cancel buttons
-    assert.ok(
-      html.includes('Speichern'),
-      'should have Speichern button',
-    )
-    assert.ok(
-      html.includes('Abbrechen'),
-      'should have Abbrechen button',
-    )
+    assert.ok(html.includes('Speichern'), 'should have Speichern button')
+    assert.ok(html.includes('Abbrechen'), 'should have Abbrechen button')
   })
 
   it('GET /admin/nutzer?editing=N with non-existent UUID does not show edit panel', async () => {
@@ -1049,23 +984,11 @@ describe('Admin Nutzer controller & page', () => {
 
     assert.equal(response.status, 200)
     // Should render the create panel header
-    assert.ok(
-      html.includes('Neuer Nutzer'),
-      'should show create panel title',
-    )
+    assert.ok(html.includes('Neuer Nutzer'), 'should show create panel title')
     // Should have create and cancel buttons
-    assert.ok(
-      html.includes('Anlegen'),
-      'should have Anlegen button',
-    )
-    assert.ok(
-      html.includes('Abbrechen'),
-      'should have Abbrechen button',
-    )
+    assert.ok(html.includes('Anlegen'), 'should have Anlegen button')
+    assert.ok(html.includes('Abbrechen'), 'should have Abbrechen button')
     // Should render the grid alongside (nutzer overview)
-    assert.ok(
-      html.includes('Nutzer'),
-      'should still render grid with Nutzer heading',
-    )
+    assert.ok(html.includes('Nutzer'), 'should still render grid with Nutzer heading')
   })
 })

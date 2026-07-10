@@ -19,12 +19,14 @@ Manage project knowledge files: $ARGUMENTS
 ### List mode (no subcommand or --tag)
 
 Read `.agents/knowledge/` directory. For each file with `status: active`, display:
+
 - Title
 - Tags
 - Created date
 - Slug (filename without extension)
 
 Show a summary like:
+
 ```
 Active knowledge (3):
   [remix3, router] Remix 3 Router Import Fix (2026-05-31)

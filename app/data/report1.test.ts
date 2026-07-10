@@ -58,7 +58,15 @@ describe('report1', () => {
     await pool.query(
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [userId, resourceId, '[TEST] Appt 2', monthStart + 2 * 86400000, '[540,600)', apptNow, apptNow],
+      [
+        userId,
+        resourceId,
+        '[TEST] Appt 2',
+        monthStart + 2 * 86400000,
+        '[540,600)',
+        apptNow,
+        apptNow,
+      ],
     )
 
     let result = await runReport1(db, {

@@ -13,9 +13,11 @@ The appointments admin page currently shows all appointments regardless of their
 ## Capabilities
 
 ### New Capabilities
+
 - `appointment-status-filter`: Server-side status filter (pending/expired) for the appointment admin list, with URL-preserved state across navigation actions
 
 ### Modified Capabilities
+
 <!-- No existing spec-level capabilities are changing — this is purely additive -->
 
 ## Impact

@@ -33,7 +33,9 @@ describe('Auth Forgot Password controller', () => {
 
   describe('POST /auth/forgotten (action)', () => {
     it('with valid existing email returns success page', async () => {
-      let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.forgotten.index.href()}`)
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
 
       let response = await router.fetch(`${BASE}${routes.auth.forgotten.action.href()}`, {
         method: 'POST',
@@ -52,7 +54,9 @@ describe('Auth Forgot Password controller', () => {
     })
 
     it('with non-existing email returns same success page (no user enumeration)', async () => {
-      let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.forgotten.index.href()}`)
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
 
       let response = await router.fetch(`${BASE}${routes.auth.forgotten.action.href()}`, {
         method: 'POST',
@@ -71,7 +75,9 @@ describe('Auth Forgot Password controller', () => {
     })
 
     it('with invalid email format returns validation error', async () => {
-      let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.forgotten.index.href()}`)
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
 
       let response = await router.fetch(`${BASE}${routes.auth.forgotten.action.href()}`, {
         method: 'POST',
@@ -132,7 +138,9 @@ describe('Auth Forgot Password controller', () => {
         [email, 'old-hash', 'Valid Token User', 'customer', Date.now(), token, expires],
       )
 
-      let response = await router.fetch(`${BASE}${routes.auth.forgottenReset.index.href({ token })}`)
+      let response = await router.fetch(
+        `${BASE}${routes.auth.forgottenReset.index.href({ token })}`,
+      )
 
       assert.equal(response.status, 200)
       let html = await response.text()
@@ -156,7 +164,9 @@ describe('Auth Forgot Password controller', () => {
         [email, 'old-hash', 'Expired User', 'customer', Date.now(), token, expires],
       )
 
-      let response = await router.fetch(`${BASE}${routes.auth.forgottenReset.index.href({ token })}`)
+      let response = await router.fetch(
+        `${BASE}${routes.auth.forgottenReset.index.href({ token })}`,
+      )
 
       assert.equal(response.status, 400)
       let html = await response.text()
@@ -164,7 +174,9 @@ describe('Auth Forgot Password controller', () => {
     })
 
     it('with unknown token shows error', async () => {
-      let response = await router.fetch(`${BASE}${routes.auth.forgottenReset.index.href({ token: 'nonexistent-token-xyz' })}`)
+      let response = await router.fetch(
+        `${BASE}${routes.auth.forgottenReset.index.href({ token: 'nonexistent-token-xyz' })}`,
+      )
 
       assert.equal(response.status, 400)
       let html = await response.text()
@@ -204,7 +216,11 @@ describe('Auth Forgot Password controller', () => {
       )
 
       assert.equal(response.status, 302, 'should redirect on success')
-      assert.equal(response.headers.get('Location'), routes.auth.login.index.href(), 'should redirect to login')
+      assert.equal(
+        response.headers.get('Location'),
+        routes.auth.login.index.href(),
+        'should redirect to login',
+      )
 
       let result = await pool.query(
         'SELECT password_reset_token, password_reset_expires FROM users WHERE email = $1',
@@ -285,7 +301,9 @@ describe('Auth Forgot Password controller', () => {
     })
 
     it('with already-used token shows error', async () => {
-      let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.forgotten.index.href()}`)
+      let { cookie, csrfToken } = await createCsrfSession(
+        `${BASE}${routes.auth.forgotten.index.href()}`,
+      )
       let token = 'used-token-' + Date.now()
 
       let response = await router.fetch(

@@ -46,7 +46,9 @@ export const ListNameEdit = clientEntry(
               let listId = currentListId
               let span = originalSpan
 
-              let csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+              let csrfToken = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content')
               let headers: Record<string, string> = { 'Content-Type': 'application/json' }
               if (csrfToken) headers['X-Csrf-Token'] = csrfToken
 
@@ -59,39 +61,51 @@ export const ListNameEdit = clientEntry(
                 headers,
                 body: JSON.stringify({ description: trimmed }),
                 signal,
-              }).then((response) => {
-                if (signal.aborted) return
-                if (response.ok) {
-                  response.json().then((data) => {
-                    if (signal.aborted) return
-                    span.textContent = trimmed
-                    let link = span.closest('[data-tooltip]')
-                    if (link) link.setAttribute('data-tooltip', trimmed)
-                    let deleteForm = span.closest('[data-list-id]')?.querySelector('form[data-confirm]')
-                    if (deleteForm) {
-                      deleteForm.setAttribute('data-confirm', `${trimmed} löschen?`)
-                      let deleteBtn = deleteForm.querySelector('button[aria-label]')
-                      if (deleteBtn) deleteBtn.setAttribute('aria-label', `Liste "${trimmed}" löschen`)
-                    }
-                    // Update data-updated-at from response
-                    if (entryEl && typeof data.updated_at === 'number') {
-                      entryEl.setAttribute('data-updated-at', String(data.updated_at))
-                    }
-                  }).catch(() => {})
-                } else if (response.status === 409) {
-                  // Conflict — briefly flash red and abort
+              })
+                .then((response) => {
+                  if (signal.aborted) return
+                  if (response.ok) {
+                    response
+                      .json()
+                      .then((data) => {
+                        if (signal.aborted) return
+                        span.textContent = trimmed
+                        let link = span.closest('[data-tooltip]')
+                        if (link) link.setAttribute('data-tooltip', trimmed)
+                        let deleteForm = span
+                          .closest('[data-list-id]')
+                          ?.querySelector('form[data-confirm]')
+                        if (deleteForm) {
+                          deleteForm.setAttribute('data-confirm', `${trimmed} löschen?`)
+                          let deleteBtn = deleteForm.querySelector('button[aria-label]')
+                          if (deleteBtn)
+                            deleteBtn.setAttribute('aria-label', `Liste "${trimmed}" löschen`)
+                        }
+                        // Update data-updated-at from response
+                        if (entryEl && typeof data.updated_at === 'number') {
+                          entryEl.setAttribute('data-updated-at', String(data.updated_at))
+                        }
+                      })
+                      .catch(() => {})
+                  } else if (response.status === 409) {
+                    // Conflict — briefly flash red and abort
+                    span.style.color = ''
+                    span.style.color = 'var(--color-danger, #e53e3e)'
+                    errorTimer = setTimeout(() => {
+                      span.style.color = ''
+                    }, 2000)
+                  }
+                  cancelEdit()
+                })
+                .catch((err) => {
+                  if (err instanceof DOMException && err.name === 'AbortError') return
+                  cancelEdit()
                   span.style.color = ''
                   span.style.color = 'var(--color-danger, #e53e3e)'
-                  errorTimer = setTimeout(() => { span.style.color = '' }, 2000)
-                }
-                cancelEdit()
-              }).catch((err) => {
-                if (err instanceof DOMException && err.name === 'AbortError') return
-                cancelEdit()
-                span.style.color = ''
-                span.style.color = 'var(--color-danger, #e53e3e)'
-                errorTimer = setTimeout(() => { span.style.color = '' }, 2000)
-              })
+                  errorTimer = setTimeout(() => {
+                    span.style.color = ''
+                  }, 2000)
+                })
             }
 
             function startEditing(entry: HTMLElement) {
@@ -145,56 +159,64 @@ export const ListNameEdit = clientEntry(
               activeInput = input
             }
 
-            document.addEventListener('click', (e) => {
-              let target = e.target as HTMLElement
-              let entry = target.closest('[data-list-id]') as HTMLElement | null
-              if (!entry) return
-              if (target.closest('button, form, input, textarea')) return
+            document.addEventListener(
+              'click',
+              (e) => {
+                let target = e.target as HTMLElement
+                let entry = target.closest('[data-list-id]') as HTMLElement | null
+                if (!entry) return
+                if (target.closest('button, form, input, textarea')) return
 
-              let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
-              if (!link) return
+                let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
+                if (!link) return
 
-              let entryId = entry.getAttribute('data-list-id')
-              if (!entryId) return
+                let entryId = entry.getAttribute('data-list-id')
+                if (!entryId) return
 
-              e.preventDefault()
-              e.stopPropagation()
+                e.preventDefault()
+                e.stopPropagation()
 
-              if (pendingEntry === entryId) {
-                if (pendingTimer) clearTimeout(pendingTimer)
-                pendingEntry = null
-                pendingTimer = null
-                startEditing(entry)
-                return
-              }
-
-              if (pendingTimer) clearTimeout(pendingTimer)
-              pendingEntry = entryId
-              pendingTimer = setTimeout(() => {
-                pendingEntry = null
-                pendingTimer = null
-                if (activeInput) return
-                let href = link.getAttribute('href')
-                if (href && handle.frame) {
-                  handle.frame.src = href
-                  handle.frame.reload().catch(() => {})
+                if (pendingEntry === entryId) {
+                  if (pendingTimer) clearTimeout(pendingTimer)
+                  pendingEntry = null
+                  pendingTimer = null
+                  startEditing(entry)
+                  return
                 }
-              }, 350)
-            }, { capture: true, signal: handle.signal })
 
-            document.addEventListener('keydown', (e) => {
-              let target = e.target as HTMLElement
-              let entry = target.closest('[data-list-id]') as HTMLElement | null
-              if (!entry) return
-              if (e.key !== 'Enter' || e.shiftKey) return
+                if (pendingTimer) clearTimeout(pendingTimer)
+                pendingEntry = entryId
+                pendingTimer = setTimeout(() => {
+                  pendingEntry = null
+                  pendingTimer = null
+                  if (activeInput) return
+                  let href = link.getAttribute('href')
+                  if (href && handle.frame) {
+                    handle.frame.src = href
+                    handle.frame.reload().catch(() => {})
+                  }
+                }, 350)
+              },
+              { capture: true, signal: handle.signal },
+            )
 
-              let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
-              if (!link) return
+            document.addEventListener(
+              'keydown',
+              (e) => {
+                let target = e.target as HTMLElement
+                let entry = target.closest('[data-list-id]') as HTMLElement | null
+                if (!entry) return
+                if (e.key !== 'Enter' || e.shiftKey) return
 
-              e.preventDefault()
-              e.stopPropagation()
-              startEditing(entry)
-            }, { signal: handle.signal })
+                let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
+                if (!link) return
+
+                e.preventDefault()
+                e.stopPropagation()
+                startEditing(entry)
+              },
+              { signal: handle.signal },
+            )
 
             return () => {
               if (pendingTimer) clearTimeout(pendingTimer)

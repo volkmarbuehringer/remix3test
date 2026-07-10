@@ -9,6 +9,7 @@ This change adds edit capability that follows the established two-column sidebar
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add an "Edit" button per row in the webhook requests grid
 - Implement `put('/webhook-requests/:id')` route and handler for updating the payload
 - Reuse `WebhookComposer` in edit mode, pre-populated with existing payload
@@ -17,6 +18,7 @@ This change adds edit capability that follows the established two-column sidebar
 - Visually highlight the row being edited
 
 **Non-Goals:**
+
 - Inline cell editing (no click-to-edit in the table cell)
 - Editing columns other than `payload` (token, headers, source_ip, timestamps all remain read-only)
 - Nested JSON support beyond flat key-value pairs (the WebhookComposer only builds flat `{string: string}` objects)

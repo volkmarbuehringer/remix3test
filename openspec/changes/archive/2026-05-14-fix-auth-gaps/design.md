@@ -12,6 +12,7 @@ All controllers and middleware live under `app/actions/` and `app/middleware/` r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - `/client/*` routes require authentication before any CRUD operation
 - `lists`/`listsShow` routes use the same `requireAuth()` middleware as all other protected controllers
 - Login controller uses the standard `completeAuth()` utility
@@ -19,6 +20,7 @@ All controllers and middleware live under `app/actions/` and `app/middleware/` r
 - No regressions in existing auth behavior (redirects, frame awareness, returnTo)
 
 **Non-Goals:**
+
 - CSRF protection (separate concern)
 - Password reset/forgot password flow
 - OAuth provider integration
@@ -54,8 +56,8 @@ Both login and logout will pass `true` to `regenerateId`. The boolean signals im
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Lists controller split could miss a route if new list routes are added without updating `router.ts` | Follow the existing pattern: each controller explicitly maps routes in `router.ts`. Adding a route requires updating both files. |
-| Client controller gets auth where it might need public access for some operations | Currently ALL client operations are behind the same controller. If public read-only access is needed later, a separate public endpoint can be created. |
-| `completeAuth()` changes behavior if the library updates | This is a benefit, not a risk — `completeAuth()` is the maintained path for session completion. Manual implementations would diverge. |
+| Risk                                                                                                | Mitigation                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lists controller split could miss a route if new list routes are added without updating `router.ts` | Follow the existing pattern: each controller explicitly maps routes in `router.ts`. Adding a route requires updating both files.                       |
+| Client controller gets auth where it might need public access for some operations                   | Currently ALL client operations are behind the same controller. If public read-only access is needed later, a separate public endpoint can be created. |
+| `completeAuth()` changes behavior if the library updates                                            | This is a benefit, not a risk — `completeAuth()` is the maintained path for session completion. Manual implementations would diverge.                  |

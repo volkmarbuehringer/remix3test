@@ -7,32 +7,29 @@ import { parseBearerToken } from '../../../utils/auth-header.ts'
 import { apiTokens } from '../../../data/schema.ts'
 import type { AppContext } from '../../../types/context.ts'
 
-export const apiLogout = createAction<typeof routes.api.logout, AppContext>(
-  routes.api.logout,
-  {
-    middleware: [],
+export const apiLogout = createAction<typeof routes.api.logout, AppContext>(routes.api.logout, {
+  middleware: [],
 
-    async handler(context) {
-      let token = parseBearerToken(context.request)
-      if (!token) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+  async handler(context) {
+    let token = parseBearerToken(context.request)
+    if (!token) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-      let db = context.get(Database)
-      if (!db) {
-        return Response.json({ error: 'Service unavailable' }, { status: 503 })
-      }
+    let db = context.get(Database)
+    if (!db) {
+      return Response.json({ error: 'Service unavailable' }, { status: 503 })
+    }
 
-      let tokenHash = hashToken(token)
-      let apiToken = await db.findOne(apiTokens, { where: { token_hash: tokenHash } })
+    let tokenHash = hashToken(token)
+    let apiToken = await db.findOne(apiTokens, { where: { token_hash: tokenHash } })
 
-      if (!apiToken || apiToken.revoked_at !== null || apiToken.expires_at < Date.now()) {
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
-      }
+    if (!apiToken || apiToken.revoked_at !== null || apiToken.expires_at < Date.now()) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-      await db.update(apiTokens, apiToken.id, { revoked_at: Date.now() })
+    await db.update(apiTokens, apiToken.id, { revoked_at: Date.now() })
 
-      return Response.json({ success: true })
-    },
+    return Response.json({ success: true })
   },
-)
+})

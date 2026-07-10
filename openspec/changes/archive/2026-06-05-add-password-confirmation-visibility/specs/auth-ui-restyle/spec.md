@@ -5,6 +5,7 @@
 The register page SHALL render using the shared `AuthShell` and `AuthForm` components, replacing the previous generic panel layout.
 
 The page SHALL display:
+
 - Eyebrow text "Get started" (uppercase, muted, 12px)
 - Title "Create your account" (28px, primary color, tight line-height)
 - Description text "Fill in your details to create a new account."

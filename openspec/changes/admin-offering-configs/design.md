@@ -7,12 +7,14 @@ Existing admin routes (resources, users, nutzer, offerings, appointments) follow
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide full admin CRUD (list, create, update, delete) for the `offering_configs` table at `/admin/offering-configs`
 - Follow existing admin patterns: paginated table with sort, filter/search, inline edit/create panels via grid state (offset, sort, order, filter)
 - Respect security: routes protected by `requireAuth()` and `requireAdmin()` middleware
 - Reuse the day-by-day time picker pattern from the existing offerings config page for `rules` editing
 
 **Non-Goals:**
+
 - Changes to the offerings grid or the week-generation flow
 - Bulk operations on offering configs
 - Any changes to existing `offerings`, `offerings/config`, or `offerings/week` routes

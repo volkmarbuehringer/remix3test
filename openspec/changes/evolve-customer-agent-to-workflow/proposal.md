@@ -13,10 +13,12 @@ The customer agent at `/chat` can recommend a resource based on capability match
 ## Capabilities
 
 ### New Capabilities
+
 - `booking-agent`: New Mastra agent with one tool (`createAppointment`) that inserts into the `appointments` table via existing `createAppointmentRecord()`. Agent instructions scope it to appointment creation only. Registered alongside `customerAgent` and `supportAgent` in the Mastra orchestrator.
 - `inline-booking-confirmation`: Inline HTML form rendered in the chat UI showing available slot options (radio buttons) with a confirm button. Form POSTs `_action=confirm_booking` to the chat controller.
 
 ### Modified Capabilities
+
 - `customer-resource-chat`: The customer agent gains a new tool `findNextAvailableSlots(resourceId, daysAhead=7)` that returns a sorted list of `{ date_epoch_ms, date_display, start_min, end_min }` for the next available full-hour slots. The agent presents up to 3 options to the user.
 
 ## Impact

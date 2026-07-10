@@ -5,6 +5,7 @@ The app has an email-based "forgot password" flow (`/auth/forgotten`) but no way
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Provide a `/settings` page accessible to authenticated users
 - Allow users to change their password by providing current password + new password
 - Enforce password complexity: minimum 10 characters, at least 1 digit, at least 1 special character
@@ -12,6 +13,7 @@ The app has an email-based "forgot password" flow (`/auth/forgotten`) but no way
 - Validate complexity on both client and server side
 
 **Non-Goals:**
+
 - Email/password-less auth changes
 - Profile editing (name, email, avatar)
 - Two-factor authentication

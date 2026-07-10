@@ -18,13 +18,17 @@ function formatDate(date: string | number | null): string {
   let d = new Date(Number(date))
   if (isNaN(d.getTime())) return '\u2014'
   return d.toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
 }
 
 function toLocalDateString(date: string): string {
   return new Date(date + 'T00:00:00').toLocaleDateString('de-DE', {
-    day: '2-digit', month: 'long', year: 'numeric',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
   })
 }
 
@@ -45,10 +49,7 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
 
     actions: {
       async index(context) {
-        return renderVerwaltungPage(
-          context.render,
-          <UsersExportPage />,
-        )
+        return renderVerwaltungPage(context.render, <UsersExportPage />)
       },
 
       async create(context) {
@@ -56,8 +57,22 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
 
         let result = s.parseSafe(
           f.object({
-            startDate: f.field(s.string().refine(v => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Startdatum erforderlich (YYYY-MM-DD).')),
-            endDate: f.field(s.string().refine(v => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Gültiges Enddatum erforderlich (YYYY-MM-DD).')),
+            startDate: f.field(
+              s
+                .string()
+                .refine(
+                  (v) => /^\d{4}-\d{2}-\d{2}$/.test(v),
+                  'Gültiges Startdatum erforderlich (YYYY-MM-DD).',
+                ),
+            ),
+            endDate: f.field(
+              s
+                .string()
+                .refine(
+                  (v) => /^\d{4}-\d{2}-\d{2}$/.test(v),
+                  'Gültiges Enddatum erforderlich (YYYY-MM-DD).',
+                ),
+            ),
           }),
           formData,
         )
@@ -67,8 +82,8 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
             context.render,
             <UsersExportPage
               error={result.issues[0]?.message ?? 'Ungültige Anfrage.'}
-              startDate={formData.get('startDate') as string ?? undefined}
-              endDate={formData.get('endDate') as string ?? undefined}
+              startDate={(formData.get('startDate') as string) ?? undefined}
+              endDate={(formData.get('endDate') as string) ?? undefined}
             />,
             { status: 400 },
           )
@@ -114,7 +129,11 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
                 text: `Zeitraum: ${toLocalDateString(startDate)} \u2013 ${toLocalDateString(endDate)}`,
                 style: 'subheader',
               },
-              { text: `Insgesamt ${rows.length} Benutzer mit Terminen`, style: 'subheader', margin: [0, 0, 0, 20] },
+              {
+                text: `Insgesamt ${rows.length} Benutzer mit Terminen`,
+                style: 'subheader',
+                margin: [0, 0, 0, 20],
+              },
               {
                 table: {
                   headerRows: 1,
@@ -128,7 +147,7 @@ export default createController<typeof routes.verwaltung.usersExport, AppContext
                       { text: 'Erster Termin', bold: true },
                       { text: 'Letzter Termin', bold: true },
                     ],
-                    ...rows.map(row => [
+                    ...rows.map((row) => [
                       row.name ?? row.email,
                       row.email,
                       String(row.appointment_count),

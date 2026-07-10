@@ -32,12 +32,14 @@ The `remix/routes` module exports `resources()` which auto-generates all 7 stand
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace three manual route blocks with `resources()` calls: `admin/resources`, `admin/users`, `appointment/types`
 - Maintain identical behavior for all existing routes (index, create, update, destroy)
 - Gain `show`, `new`, `edit` routes as additive, non-breaking additions
 - Keep controller and UI changes minimal — existing functionality untouched
 
 **Non-Goals:**
+
 - Not converting routes with custom actions (nutzer, offerings, appointments, client, chatlog, messages, lists — those stay manual)
 - Not adopting `resource()` (singular) — no singleton resources exist yet
 - Not changing router.ts, controllers, or middleware
@@ -73,8 +75,8 @@ resources('users', { exclude: ['new', 'show', 'edit'] })
 
 This keeps the generated route set identical to what existed before — only `index`, `create`, `update`, `destroy`:
 
-| Route Key | Method | Pattern | Status |
-|-----------|--------|---------|--------|
+| Route Key | Method | Pattern | Status       |
+| --------- | ------ | ------- | ------------ |
 | index     | GET    | `/`     | ✅ unchanged |
 | create    | POST   | `/`     | ✅ unchanged |
 | update    | PUT    | `/:id`  | ✅ unchanged |
@@ -91,8 +93,8 @@ When real controllers and UI for `show`/`new`/`edit` are built, the `exclude` ca
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| New routes (`show`, `new`, `edit`) are exposed but have no handler | They'll return Remix's default 404, which is safe. Adding handlers later is straightforward. |
-| The `resources()` helper generates `edit` and `new` GET routes which could conflict with future route definitions | Unlikely — these are standard CRUD conventions. If needed, `exclude: [...]` can filter them out. |
-| Developers unfamiliar with `resources()` may not realize it generates 7 routes | Minimal — the helper is from the framework itself and the pattern is standard Rails-style RESTful routing. Documentation in the route file is sufficient. |
+| Risk                                                                                                              | Mitigation                                                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New routes (`show`, `new`, `edit`) are exposed but have no handler                                                | They'll return Remix's default 404, which is safe. Adding handlers later is straightforward.                                                              |
+| The `resources()` helper generates `edit` and `new` GET routes which could conflict with future route definitions | Unlikely — these are standard CRUD conventions. If needed, `exclude: [...]` can filter them out.                                                          |
+| Developers unfamiliar with `resources()` may not realize it generates 7 routes                                    | Minimal — the helper is from the framework itself and the pattern is standard Rails-style RESTful routing. Documentation in the route file is sufficient. |

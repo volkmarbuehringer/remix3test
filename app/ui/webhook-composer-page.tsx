@@ -7,8 +7,9 @@ export function WebhookComposerPage() {
     <div mix={pageStyle}>
       <h1 mix={titleStyle}>Webhook erstellen</h1>
       <p mix={descStyle}>
-        Gib Schlüssel und Werte ein, um einen JSON-Payload für Hermes zu erstellen.
-        Nach dem Speichern erscheint der Eintrag in der Tabelle und kann per "Resenden" an Hermes gesendet werden.
+        Gib Schlüssel und Werte ein, um einen JSON-Payload für Hermes zu erstellen. Nach dem
+        Speichern erscheint der Eintrag in der Tabelle und kann per "Resenden" an Hermes gesendet
+        werden.
       </p>
       <WebhookComposer />
     </div>

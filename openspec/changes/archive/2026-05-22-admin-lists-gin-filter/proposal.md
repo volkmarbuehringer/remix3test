@@ -14,9 +14,11 @@ The `/admin/lists` page currently has no search/filter capability. Users managin
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-lists-filter`: Search/filter lists by item labels (via `jsonb_array_elements` + `ILIKE`) and description (via `ILIKE`), with GIN-backed indexes for performance
 
 ### Modified Capabilities
+
 <!-- No existing specs changed -->
 
 ## Impact

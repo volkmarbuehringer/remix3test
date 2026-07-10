@@ -97,48 +97,53 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
   return () => {
     let { activities } = handle.props
     return (
-    <div mix={cardStyle}>
-      <h2 mix={titleStyle}>Letzte Aktivitäten</h2>
-      {activities.length === 0 ? (
-        <p mix={css({ color: theme.colors.text.muted, fontSize: theme.fontSize.sm, margin: 0 })}>
-          Keine aktuellen Aktivitäten.
-        </p>
-      ) : (
-        <div mix={listStyle}>
-          {activities.map((activity) => (
-            <div key={activity.id}>
-              <div mix={activityRowStyle}>
-                <div mix={activityInfoStyle}>
-                  <div mix={activityActionStyle}>{activity.action}</div>
-                  <div mix={activityTimeStyle}>
-                    von <strong>Benutzer #{activity.userId}</strong> &middot; {timeAgo(activity.time)}
+      <div mix={cardStyle}>
+        <h2 mix={titleStyle}>Letzte Aktivitäten</h2>
+        {activities.length === 0 ? (
+          <p mix={css({ color: theme.colors.text.muted, fontSize: theme.fontSize.sm, margin: 0 })}>
+            Keine aktuellen Aktivitäten.
+          </p>
+        ) : (
+          <div mix={listStyle}>
+            {activities.map((activity) => (
+              <div key={activity.id}>
+                <div mix={activityRowStyle}>
+                  <div mix={activityInfoStyle}>
+                    <div mix={activityActionStyle}>{activity.action}</div>
+                    <div mix={activityTimeStyle}>
+                      von <strong>Benutzer #{activity.userId}</strong> &middot;{' '}
+                      {timeAgo(activity.time)}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Native <details>/<summary> disclosure widget — clickable,
+                {/* Native <details>/<summary> disclosure widget — clickable,
                   toggles frame visibility, requires zero JS. An <a> would
                   trigger the navigation intercept and reload the top-level
                   Document frame with fragment HTML, causing
                   Node.insertBefore DOMException. */}
-              <details>
-                <summary mix={detailBtnStyle}>Details anzeigen</summary>
-                <div mix={nestedFrameContainer}>
-                  <Frame
-                    name={`user-detail-${activity.userId}`}
-                    src={routes.admin.fragments.userDetail.href({ userId: String(activity.userId) })}
-                    fallback={
-                      <div mix={css({ fontSize: theme.fontSize.xs, color: theme.colors.text.muted })}>
-                        Benutzerdetails werden geladen…
-                      </div>
-                    }
-                  />
-                </div>
-              </details>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+                <details>
+                  <summary mix={detailBtnStyle}>Details anzeigen</summary>
+                  <div mix={nestedFrameContainer}>
+                    <Frame
+                      name={`user-detail-${activity.userId}`}
+                      src={routes.admin.fragments.userDetail.href({
+                        userId: String(activity.userId),
+                      })}
+                      fallback={
+                        <div
+                          mix={css({ fontSize: theme.fontSize.xs, color: theme.colors.text.muted })}
+                        >
+                          Benutzerdetails werden geladen…
+                        </div>
+                      }
+                    />
+                  </div>
+                </details>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 }

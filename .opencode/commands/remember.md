@@ -13,6 +13,7 @@ Analyze the recent conversation and code changes to extract the key fix or solut
 ### Step 1: Extract
 
 Identify:
+
 1. **Problem** — what was broken or what needed solving
 2. **Solution** — the code, config, or steps that fixed it
 3. **Why** — why this solution works (context, not just copy-paste)
@@ -20,6 +21,7 @@ Identify:
 ### Step 2: Auto-Tag
 
 Generate tags based on:
+
 - File paths touched (e.g., `app/actions/admin-offerings-controller.tsx` → `admin`, `offerings`)
 - Error messages or keywords in the discussion (e.g., `exclusion constraint`, `CSRF`, `hydration`)
 - Framework/domain keywords (e.g., `remix3`, `postgres`, `auth`)
@@ -30,7 +32,7 @@ Create a markdown file at `.agents/knowledge/<auto-slug>.md` with YAML frontmatt
 
 ```yaml
 ---
-title: "<descriptive title>"
+title: '<descriptive title>'
 tags: [auto, generated, tags]
 created: $(date +%Y-%m-%d)
 status: active
@@ -38,6 +40,7 @@ status: active
 ```
 
 The body should contain:
+
 - `## Problem` — what went wrong
 - `## Solution` — the fix with code examples
 - `## Why` — reasoning so it's not cargo-culted
@@ -47,11 +50,13 @@ The body should contain:
 Also create an instinct YAML file in the continuous-learning-v2 homunculus directory to make the knowledge visible in `/instinct-status` and `/evolve`.
 
 **Determine the project context:**
+
 1. Run `git rev-parse --show-toplevel` to find the project root
 2. Compute the project hash and find the instincts directory under `~/.local/share/ecc-homunculus/projects/<hash>/instincts/personal/`
 3. If the directory doesn't exist, create it
 
 **Instinct file format:**
+
 ```yaml
 ---
 id: <auto-slug>
@@ -76,6 +81,7 @@ project_name: "<project-name>"
 ### Step 5: Confirm
 
 Show the user what was saved:
+
 - Knowledge file path
 - Tags assigned
 - Instinct created

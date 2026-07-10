@@ -10,6 +10,7 @@ newapp uses Remix 3's `remix/ui` `Frame` component and `clientEntry` runtime, bu
 All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`) and `renderToStream()` with `resolveFrame` (already in `app/middleware/render.tsx`). No new framework capabilities are needed — this is an application-layer change.
 
 **Current app architecture:**
+
 ```
 /client          (page)             ← full page render via Layout
   └── Frame "client-grid"           ← loads /client/grid fragment
@@ -23,6 +24,7 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 ```
 
 **Target architecture:**
+
 ```
 /client          (page)
   └── Frame "client-grid"
@@ -48,6 +50,7 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add programmatic frame reload (`handle.frame.reload()`) to the existing client grid for post-CRUD auto-refresh
 - Add a client-mounted frame panel for AI agent results (mount on "Run Agent", unmount on close)
 - Add nested non-blocking frames for admin dashboard (stats + activity + detail)
@@ -56,6 +59,7 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 - Document applied patterns in `.opencode/context/project-intelligence/frames/`
 
 **Non-Goals:**
+
 - Not replacing all link-based navigation with frame reload — only where clear UX benefit exists
 - Not retrofitting every existing page — only client grid, admin dashboard, admin chatlog, and AI agent
 - Not changing `resolveFrame` or render middleware — existing infrastructure suffices
@@ -71,8 +75,9 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 **Rationale**: Frame content differs from full-page content — no `<Layout>`, `<!DOCTYPE>`, or `<Document>` wrapper. Keeping fragments under a separate route namespace avoids conflicts with existing page routes and makes the `X-Remix-Frame` check (already in render middleware) cleaner.
 
 **Alternatives considered**:
-- *Reuse existing page routes with `X-Remix-Frame` header detection* — adds conditional logic to existing actions, harder to reason about
-- *Shared fragment controller* — single controller for all fragments is too coupled
+
+- _Reuse existing page routes with `X-Remix-Frame` header detection_ — adds conditional logic to existing actions, harder to reason about
+- _Shared fragment controller_ — single controller for all fragments is too coupled
 
 ### Decision 2: Client-mounted frames via boolean toggle in `clientEntry`
 
@@ -89,8 +94,9 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 **Rationale**: The existing redirect-based CRUD flow preserves grid state (offset, sort, filter) in URL params. The frame auto-reload is triggered after the page renders — the client entry finds the frame by name (`"client-grid"` via `handle.frames[frameName]`) and reloads it. This means the grid content is always fresh without extra server logic.
 
 **Alternatives considered**:
-- *`handle.frames.top.reload()` after CRUD* — reloads the entire document unnecessarily
-- *Return fragment response directly from CRUD actions* — requires different response handling and doesn't work with redirect-based flow
+
+- _`handle.frames.top.reload()` after CRUD_ — reloads the entire document unnecessarily
+- _Return fragment response directly from CRUD actions_ — requires different response handling and doesn't work with redirect-based flow
 
 ### Decision 4: Admin dashboard uses three nested frames with staggered delays
 
@@ -99,6 +105,7 @@ All of these rely on `run()` from `remix/ui` (already in `app/assets/entry.tsx`)
 **Rationale**: Each frame streams independently. The stats frame renders quickly while the activity frame loads. The user detail frame only resolves when needed. This matches the demo's activity → activityDetail → time chain.
 
 **Frame hierarchy:**
+
 ```
 /admin
   └── Frame "admin-stats"          src: /admin/fragments/stats

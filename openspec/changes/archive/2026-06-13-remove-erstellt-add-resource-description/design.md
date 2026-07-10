@@ -5,6 +5,7 @@ The admin grids for offerings (`admin-offerings-page.tsx`), appointments (`admin
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Remove the "Erstellt" column header + data cell + sort link from each grid
 - Remove the inline action column (edit/delete buttons) from the offering-configs grid
 - Add a separate "Beschreibung" column displaying `resource_description` as a standalone column
@@ -12,6 +13,7 @@ The admin grids for offerings (`admin-offerings-page.tsx`), appointments (`admin
 - Add a right-click context menu to offering-configs grid rows (edit + delete) matching the existing pattern from offerings/appointments
 
 **Non-Goals:**
+
 - No data model or schema changes
 - No controller/logic changes — data is already present
 - No changes to resources admin grid (`admin-resources-page.tsx`)

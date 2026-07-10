@@ -9,7 +9,8 @@ import { executeCancelUserWorkflow } from '../workflow-executor.ts'
 export const supportTools = {
   lookupUser: createTool({
     id: 'lookup_user',
-    description: 'Look up a user by ID or email address. Returns id, name, email, role, and account status.',
+    description:
+      'Look up a user by ID or email address. Returns id, name, email, role, and account status.',
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Numeric user ID or email address'),
     }),
@@ -51,9 +52,17 @@ export const supportTools = {
 
   listRecentAppointments: createTool({
     id: 'list_recent_appointments',
-    description: 'List recent appointments. Optionally filter by user_id. Returns id, title, date, time range, and user name.',
+    description:
+      'List recent appointments. Optionally filter by user_id. Returns id, title, date, time range, and user name.',
     inputSchema: z.object({
-      limit: z.number().int().min(1).max(50).optional().default(10).describe('Maximum appointments to return (1-50)'),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(50)
+        .optional()
+        .default(10)
+        .describe('Maximum appointments to return (1-50)'),
       userId: z.number().int().optional().describe('Filter by user ID'),
     }),
     execute: async ({ limit, userId }) => {
@@ -69,7 +78,7 @@ export const supportTools = {
         let result = await client.query(query, params)
         return {
           count: result.rows.length,
-          appointments: result.rows.map(r => ({
+          appointments: result.rows.map((r) => ({
             id: r.id,
             title: r.title,
             date: r.date,
@@ -85,7 +94,8 @@ export const supportTools = {
 
   countUsers: createTool({
     id: 'count_users',
-    description: 'Count total users, optionally filtered by role (e.g. "admin", "customer"). Returns counts grouped by role.',
+    description:
+      'Count total users, optionally filtered by role (e.g. "admin", "customer"). Returns counts grouped by role.',
     inputSchema: z.object({
       role: z.string().optional().describe('Filter by role (e.g. "admin" or "customer")'),
     }),
@@ -110,7 +120,8 @@ export const supportTools = {
 
   getCurrentDateTime: createTool({
     id: 'get_current_date_time',
-    description: 'Get the current date and time. Returns today\'s date, day of week, and current time. Useful for determining context like "today", "this week", "this month" queries.',
+    description:
+      'Get the current date and time. Returns today\'s date, day of week, and current time. Useful for determining context like "today", "this week", "this month" queries.',
     inputSchema: z.object({}),
     execute: async () => {
       let now = new Date()
@@ -139,7 +150,8 @@ export const supportTools = {
 
   getWeather: createTool({
     id: 'get_weather',
-    description: 'Get current weather for a location worldwide. Returns temperature, condition, humidity, and wind speed for any city.',
+    description:
+      'Get current weather for a location worldwide. Returns temperature, condition, humidity, and wind speed for any city.',
     inputSchema: z.object({
       location: z.string().min(1).max(30).describe('The city name (max 30 characters)'),
     }),
@@ -154,7 +166,7 @@ export const supportTools = {
         )
         if (!geoResponse.ok) throw new Error('Geocoding failed')
 
-        let geoData = await geoResponse.json() as {
+        let geoData = (await geoResponse.json()) as {
           results?: Array<{ name: string; latitude: number; longitude: number; country?: string }>
         }
         if (!geoData.results?.[0]) throw new Error(`Location "${location}" not found`)
@@ -167,18 +179,38 @@ export const supportTools = {
         )
         if (!weatherResponse.ok) throw new Error('Weather fetch failed')
 
-        let weatherData = await weatherResponse.json() as {
-          current?: { temperature_2m: number; relative_humidity_2m: number; weather_code: number; wind_speed_10m: number }
+        let weatherData = (await weatherResponse.json()) as {
+          current?: {
+            temperature_2m: number
+            relative_humidity_2m: number
+            weather_code: number
+            wind_speed_10m: number
+          }
         }
         if (!weatherData.current) throw new Error('Weather data unavailable')
 
         let conditions: Record<number, string> = {
-          0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
-          45: 'Foggy', 48: 'Depositing rime fog', 51: 'Light drizzle', 53: 'Moderate drizzle',
-          55: 'Dense drizzle', 61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
-          71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
-          80: 'Slight rain showers', 81: 'Moderate rain showers', 82: 'Violent rain showers',
-          95: 'Thunderstorm', 96: 'Thunderstorm with slight hail', 99: 'Thunderstorm with heavy hail',
+          0: 'Clear sky',
+          1: 'Mainly clear',
+          2: 'Partly cloudy',
+          3: 'Overcast',
+          45: 'Foggy',
+          48: 'Depositing rime fog',
+          51: 'Light drizzle',
+          53: 'Moderate drizzle',
+          55: 'Dense drizzle',
+          61: 'Slight rain',
+          63: 'Moderate rain',
+          65: 'Heavy rain',
+          71: 'Slight snow',
+          73: 'Moderate snow',
+          75: 'Heavy snow',
+          80: 'Slight rain showers',
+          81: 'Moderate rain showers',
+          82: 'Violent rain showers',
+          95: 'Thunderstorm',
+          96: 'Thunderstorm with slight hail',
+          99: 'Thunderstorm with heavy hail',
         }
 
         return {
@@ -217,7 +249,8 @@ export const supportTools = {
           )
         }
         let rows = result.rows
-        if (rows.length === 0) return { found: false, message: 'No resource found matching that query' }
+        if (rows.length === 0)
+          return { found: false, message: 'No resource found matching that query' }
         let r = rows[0]
         return {
           found: true,
@@ -237,9 +270,14 @@ export const supportTools = {
 
   getOfferingsForDate: createTool({
     id: 'get_offerings_for_date',
-    description: 'Get all offering slots for a specific date. Returns time ranges and resource names. Use this for availability queries like "what is available on [date]".',
+    description:
+      'Get all offering slots for a specific date. Returns time ranges and resource names. Use this for availability queries like "what is available on [date]".',
     inputSchema: z.object({
-      date: z.string().min(1).max(30).describe('Date in ISO format (YYYY-MM-DD) or unix millisecond timestamp string'),
+      date: z
+        .string()
+        .min(1)
+        .max(30)
+        .describe('Date in ISO format (YYYY-MM-DD) or unix millisecond timestamp string'),
     }),
     execute: async ({ date }) => {
       let client = await pool.connect()
@@ -264,7 +302,7 @@ export const supportTools = {
         return {
           date,
           count: result.rows.length,
-          offerings: result.rows.map(r => ({
+          offerings: result.rows.map((r) => ({
             id: r.id,
             resourceId: r.resource_id,
             resourceName: r.resource_name ?? 'Unknown',
@@ -279,7 +317,8 @@ export const supportTools = {
 
   searchAppointmentsByDateRange: createTool({
     id: 'search_appointments_by_date_range',
-    description: 'Search appointments within a date range. Requires both startDate and endDate in ISO format (YYYY-MM-DD). Max range is 90 days. Results limited to 50.',
+    description:
+      'Search appointments within a date range. Requires both startDate and endDate in ISO format (YYYY-MM-DD). Max range is 90 days. Results limited to 50.',
     inputSchema: z.object({
       startDate: z.string().min(1).max(30).describe('Start date in ISO format (YYYY-MM-DD)'),
       endDate: z.string().min(1).max(30).describe('End date in ISO format (YYYY-MM-DD)'),
@@ -311,7 +350,7 @@ export const supportTools = {
           count: result.rows.length,
           startDate,
           endDate,
-          appointments: result.rows.map(r => ({
+          appointments: result.rows.map((r) => ({
             id: r.id,
             title: r.title,
             date: r.date,
@@ -328,7 +367,8 @@ export const supportTools = {
 
   getUserAppointments: createTool({
     id: 'get_user_appointments',
-    description: 'Get all appointments for a specific user by user ID. Returns most recent 50 appointments with dates and titles.',
+    description:
+      'Get all appointments for a specific user by user ID. Returns most recent 50 appointments with dates and titles.',
     inputSchema: z.object({
       userId: z.number().int().describe('The numeric user ID'),
     }),
@@ -346,7 +386,7 @@ export const supportTools = {
         )
         return {
           count: result.rows.length,
-          appointments: result.rows.map(r => ({
+          appointments: result.rows.map((r) => ({
             id: r.id,
             title: r.title,
             date: r.date,
@@ -362,7 +402,8 @@ export const supportTools = {
 
   getAppointmentDetails: createTool({
     id: 'get_appointment_details',
-    description: 'Get full details for a single appointment by ID. Returns title, date, time range, user name, resource name, and timestamps.',
+    description:
+      'Get full details for a single appointment by ID. Returns title, date, time range, user name, resource name, and timestamps.',
     inputSchema: z.object({
       id: z.number().int().describe('The appointment ID'),
     }),
@@ -380,7 +421,8 @@ export const supportTools = {
            LIMIT 1`,
           [id],
         )
-        if (result.rows.length === 0) return { found: false, message: 'No appointment found with that ID' }
+        if (result.rows.length === 0)
+          return { found: false, message: 'No appointment found with that ID' }
         let r = result.rows[0]
         return {
           found: true,
@@ -404,7 +446,8 @@ export const supportTools = {
 
   getOfferingConfigForResource: createTool({
     id: 'get_offering_config_for_resource',
-    description: 'Get the offering configuration (rules) for a resource by resource ID. Returns config id, resource id, and rules object.',
+    description:
+      'Get the offering configuration (rules) for a resource by resource ID. Returns config id, resource id, and rules object.',
     inputSchema: z.object({
       resourceId: z.number().int().describe('The numeric resource ID'),
     }),
@@ -424,7 +467,11 @@ export const supportTools = {
         let r = result.rows[0]
         let rules = r.rules
         if (typeof rules === 'string') {
-          try { rules = JSON.parse(rules) } catch { rules = {} }
+          try {
+            rules = JSON.parse(rules)
+          } catch {
+            rules = {}
+          }
         }
         return {
           found: true,
@@ -454,7 +501,7 @@ export const supportTools = {
         )
         return {
           count: result.rows.length,
-          types: result.rows.map(r => ({
+          types: result.rows.map((r) => ({
             id: r.id,
             title: r.title,
           })),
@@ -467,7 +514,8 @@ export const supportTools = {
 
   searchMessages: createTool({
     id: 'search_messages',
-    description: 'Search messages by content text or sender ID. Returns message content, sender name, and timestamp. Results limited to 50.',
+    description:
+      'Search messages by content text or sender ID. Returns message content, sender name, and timestamp. Results limited to 50.',
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Search term to find in message content'),
       senderId: z.number().int().optional().describe('Optional sender user ID to filter by'),
@@ -492,7 +540,7 @@ export const supportTools = {
         )
         return {
           count: result.rows.length,
-          messages: result.rows.map(r => ({
+          messages: result.rows.map((r) => ({
             id: r.id,
             senderId: r.sender_id,
             senderName: r.sender_name ?? 'Unknown',
@@ -508,10 +556,17 @@ export const supportTools = {
 
   getAdminStats: createTool({
     id: 'get_admin_stats',
-    description: 'Get aggregate dashboard statistics. Returns total users by role, total appointments (optionally filtered by date range), total resources, and total messages.',
+    description:
+      'Get aggregate dashboard statistics. Returns total users by role, total appointments (optionally filtered by date range), total resources, and total messages.',
     inputSchema: z.object({
-      startDate: z.string().optional().describe('Optional start date (YYYY-MM-DD) to filter appointments'),
-      endDate: z.string().optional().describe('Optional end date (YYYY-MM-DD) to filter appointments'),
+      startDate: z
+        .string()
+        .optional()
+        .describe('Optional start date (YYYY-MM-DD) to filter appointments'),
+      endDate: z
+        .string()
+        .optional()
+        .describe('Optional end date (YYYY-MM-DD) to filter appointments'),
     }),
     execute: async ({ startDate, endDate }) => {
       let client = await pool.connect()
@@ -560,7 +615,8 @@ export const supportTools = {
 
   lookupHoliday: createTool({
     id: 'lookup_holiday',
-    description: 'Check if a given date is a public holiday in Rhineland-Palatinate, Germany. Returns the holiday name if applicable.',
+    description:
+      'Check if a given date is a public holiday in Rhineland-Palatinate, Germany. Returns the holiday name if applicable.',
     inputSchema: z.object({
       date: z.string().min(1).max(30).describe('Date in ISO format (YYYY-MM-DD)'),
     }),
@@ -579,10 +635,14 @@ export const supportTools = {
 
   generatePdfReport: createTool({
     id: 'generate_pdf_report',
-    description: 'Generate a PDF report for a predefined type. Supported types: "appointment-list" (appointments in a date range), "user-list" (all users with role). Returns base64-encoded PDF data.',
+    description:
+      'Generate a PDF report for a predefined type. Supported types: "appointment-list" (appointments in a date range), "user-list" (all users with role). Returns base64-encoded PDF data.',
     inputSchema: z.object({
       reportType: z.enum(['appointment-list', 'user-list']).describe('Type of report to generate'),
-      startDate: z.string().optional().describe('Start date (YYYY-MM-DD) for appointment-list reports'),
+      startDate: z
+        .string()
+        .optional()
+        .describe('Start date (YYYY-MM-DD) for appointment-list reports'),
       endDate: z.string().optional().describe('End date (YYYY-MM-DD) for appointment-list reports'),
     }),
     execute: async ({ reportType, startDate, endDate }) => {
@@ -621,7 +681,7 @@ export const supportTools = {
                   widths: ['*', 'auto', 'auto', '*', '*'],
                   body: [
                     ['Title', 'Date', 'Time', 'User', 'Resource'],
-                    ...result.rows.map(r => [
+                    ...result.rows.map((r) => [
                       r.title,
                       new Date(r.date).toISOString().slice(0, 10),
                       r.during,
@@ -661,7 +721,7 @@ export const supportTools = {
                   widths: ['auto', '*', '*', 'auto', 'auto'],
                   body: [
                     ['ID', 'Name', 'Email', 'Role', 'Verified'],
-                    ...result.rows.map(r => [
+                    ...result.rows.map((r) => [
                       String(r.id),
                       r.name,
                       r.email,
@@ -695,7 +755,8 @@ export const supportTools = {
 
   getLocationContext: createTool({
     id: 'get_location_context',
-    description: 'Get the system default location context: Ransbach-Baumbach, Rhineland-Palatinate, Germany. Use this when you need the default location for weather queries, timezone information, or any location-based question.',
+    description:
+      'Get the system default location context: Ransbach-Baumbach, Rhineland-Palatinate, Germany. Use this when you need the default location for weather queries, timezone information, or any location-based question.',
     inputSchema: z.object({}),
     execute: async () => ({
       city: 'Ransbach-Baumbach',
@@ -710,7 +771,8 @@ export const supportTools = {
 
   cancelUserAccount: createTool({
     id: 'cancel_user_account',
-    description: 'Cancel a user account by ID: deletes all future appointments, disables login, and prevents re-registration with the same email. The user account stays in the database but is marked as disabled.',
+    description:
+      'Cancel a user account by ID: deletes all future appointments, disables login, and prevents re-registration with the same email. The user account stays in the database but is marked as disabled.',
     requireApproval: true,
     inputSchema: z.object({
       targetUserId: z.number().int().positive().describe('The user ID to cancel'),

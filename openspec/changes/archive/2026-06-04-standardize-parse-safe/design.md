@@ -16,12 +16,14 @@ The `parseSafe` pattern is the canonical approach from timeboxer-demo and the Re
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace all `s.parse()` + `try/catch` in form validation context with `s.parseSafe()`
 - Add proper error handling to 3 controllers currently using bare `s.parse()`
 - Use `issuesToFieldErrors()` from `app/utils/schema-utils.ts` for all parseSafe call sites
 - Upgrade 2 controllers already using parseSafe from generic to field-level errors
 
 **Non-Goals:**
+
 - Does NOT change schema definitions — only how they are invoked
 - Does NOT change route handlers, middleware, or rendering pipeline
 - Does NOT add new validation rules
@@ -34,6 +36,7 @@ The `parseSafe` pattern is the canonical approach from timeboxer-demo and the Re
 The transformation is mechanical and preserves behavior:
 
 **Before (try/catch):**
+
 ```typescript
 let email: string
 try {
@@ -44,6 +47,7 @@ try {
 ```
 
 **After (parseSafe):**
+
 ```typescript
 let parsed = s.parseSafe(loginSchema, context.formData)
 if (!parsed.success) {
@@ -54,6 +58,7 @@ let { email } = parsed.value
 ```
 
 Key invariants preserved:
+
 - Same context method used to access FormData (`context.formData` or `context.get(FormData)`)
 - Same HTTP status codes on failure
 - Same page component props API (add `errors` prop only where the page component already supports it)
@@ -105,6 +110,7 @@ This follows the timeboxer pattern exactly — `aria-invalid`, `aria-describedby
 ### Lists controller: distinguish form from param parsing
 
 `lists-controller.tsx` uses `s.parse()` in 4 places:
+
 - L46: `s.parse(listsSaveSchema, formData)` — **form validation** (needs parseSafe)
 - L79: `s.parse(s.number(), url.searchParams.get('page'))` — **query param** (keep s.parse)
 - L102: `s.parse(listsSaveSchema, formData)` — **form validation** (needs parseSafe)
@@ -124,7 +130,7 @@ if (!parsed.success) {
 let { message } = parsed.value
 ```
 
-For `agent-controller.tsx` and `chat-controller.tsx`, the parse is inside a try/catch that handles *other* errors (AI calls). The parseSafe check goes BEFORE the try block to keep validation separate from AI error handling.
+For `agent-controller.tsx` and `chat-controller.tsx`, the parse is inside a try/catch that handles _other_ errors (AI calls). The parseSafe check goes BEFORE the try block to keep validation separate from AI error handling.
 
 ### Error CSS: restore fieldErrorCss to auth-card.tsx
 

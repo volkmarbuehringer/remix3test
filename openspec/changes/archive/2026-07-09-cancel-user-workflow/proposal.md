@@ -16,10 +16,12 @@ The support agent has 17 read-only tools but zero mutation capabilities. When an
 ## Capabilities
 
 ### New Capabilities
+
 - `cancel-user-workflow`: Multi-step Mastra workflow that validates the target user, deletes future appointments, disables the account (login + re-registration blocked), writes an audit log entry, and sends a best-effort notification to the cancelled user
 
 ### Modified Capabilities
-- *(none — existing support agent tools remain unchanged)*
+
+- _(none — existing support agent tools remain unchanged)_
 
 ## Impact
 

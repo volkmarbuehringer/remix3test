@@ -15,9 +15,11 @@ The admin appointments form still uses a redirect-based error pattern — on val
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-appointments-form-validation`: Admin appointments form SHALL re-render directly on validation failure (status 400) with `formValues` and `fieldErrors` passed as server-side props — no URL parameter encoding. Form inputs SHALL display inline per-field errors and preserve submitted values on re-render.
 
 ### Modified Capabilities
+
 <!-- None — this is a new capability for appointments form behavior, not a change to existing spec-level requirements -->
 
 ## Impact

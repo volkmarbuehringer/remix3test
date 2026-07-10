@@ -19,15 +19,8 @@ export class AppointTypeError extends Error {
   }
 }
 
-export async function listAppointTypes(
-  db: Database,
-  userId: number,
-): Promise<AppointType[]> {
-  return await db
-    .query(appointtypes)
-    .where({ user_id: userId })
-    .orderBy('title', 'asc')
-    .all()
+export async function listAppointTypes(db: Database, userId: number): Promise<AppointType[]> {
+  return await db.query(appointtypes).where({ user_id: userId }).orderBy('title', 'asc').all()
 }
 
 export async function createAppointType(

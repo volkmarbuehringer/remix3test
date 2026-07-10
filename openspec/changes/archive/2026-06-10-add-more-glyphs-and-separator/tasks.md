@@ -1,7 +1,7 @@
 ## 1. Library: Add new glyph names and path definitions
 
 - [x] 1.1 Add new glyph names to `glyphNames` array in `remix/packages/ui/src/theme/glyph-contract.ts`:
-  `eye`, `eyeOff`, `clock`, `send`, `chat`, `user`, `arrowRight`, `cog`, `moon`, `shield`, `zap`, `calendar`
+      `eye`, `eyeOff`, `clock`, `send`, `chat`, `user`, `arrowRight`, `cog`, `moon`, `shield`, `zap`, `calendar`
 - [x] 1.2 Add `symbol()` path definitions in `remix/packages/ui/src/theme/presets/rmx-01/glyphs.tsx` for each new glyph, matching the 16×16 stroke style:
   - `eye`: Eye outline + pupil circle
   - `eyeOff`: Eye outline + pupil + diagonal strikethrough

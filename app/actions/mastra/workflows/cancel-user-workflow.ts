@@ -24,7 +24,13 @@ const validateTargetStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (inputData.targetUserId === inputData.adminUserId) {
-      return { valid: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, error: 'Cannot cancel your own account' }
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'Cannot cancel your own account',
+      }
     }
     let result = await db.exec(
       'SELECT id, email, name, role, disabled_at FROM users WHERE id = $1',
@@ -33,15 +39,40 @@ const validateTargetStep = createStep({
     let rows = result.rows as Array<Record<string, unknown>> | undefined
     let row = rows?.[0]
     if (!row) {
-      return { valid: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, error: 'User not found' }
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'User not found',
+      }
     }
     if (row.role === 'admin') {
-      return { valid: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, error: 'Cannot cancel admin accounts' }
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'Cannot cancel admin accounts',
+      }
     }
     if (row.disabled_at != null) {
-      return { valid: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, error: 'Account already disabled' }
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'Account already disabled',
+      }
     }
-    return { valid: true, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: String(row.email ?? ''), userName: String(row.name ?? '') }
+    return {
+      valid: true,
+      targetUserId: inputData.targetUserId,
+      adminUserId: inputData.adminUserId,
+      adminEmail: inputData.adminEmail,
+      userEmail: String(row.email ?? ''),
+      userName: String(row.name ?? ''),
+    }
   },
 })
 
@@ -68,14 +99,29 @@ const deleteFutureAppointmentsStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.valid) {
-      return { valid: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, deletedAppointments: 0, error: inputData.error }
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        deletedAppointments: 0,
+        error: inputData.error,
+      }
     }
     let todayMidnight = getTodayUtcMidnight()
-    let result = await db.exec(
-      'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
-      [inputData.targetUserId, todayMidnight],
-    )
-    return { valid: true, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: result.affectedRows ?? 0 }
+    let result = await db.exec('DELETE FROM appointments WHERE user_id = $1 AND date >= $2', [
+      inputData.targetUserId,
+      todayMidnight,
+    ])
+    return {
+      valid: true,
+      targetUserId: inputData.targetUserId,
+      adminUserId: inputData.adminUserId,
+      adminEmail: inputData.adminEmail,
+      userEmail: inputData.userEmail,
+      userName: inputData.userName,
+      deletedAppointments: result.affectedRows ?? 0,
+    }
   },
 })
 
@@ -104,7 +150,15 @@ const disableAccountStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.valid) {
-      return { valid: false, disabled: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, deletedAppointments: 0, error: inputData.error }
+      return {
+        valid: false,
+        disabled: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        deletedAppointments: 0,
+        error: inputData.error,
+      }
     }
     let now = Date.now()
     let result = await db.exec(
@@ -112,14 +166,33 @@ const disableAccountStep = createStep({
       [now, inputData.targetUserId],
     )
     if ((result.affectedRows ?? 0) === 0) {
-      return { valid: false, disabled: false, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: inputData.deletedAppointments, error: 'Account already disabled' }
+      return {
+        valid: false,
+        disabled: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        userEmail: inputData.userEmail,
+        userName: inputData.userName,
+        deletedAppointments: inputData.deletedAppointments,
+        error: 'Account already disabled',
+      }
     }
     // Revoke any outstanding API tokens
     await db.exec(
       'UPDATE api_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL',
       [now, inputData.targetUserId],
     )
-    return { valid: true, disabled: true, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: inputData.deletedAppointments }
+    return {
+      valid: true,
+      disabled: true,
+      targetUserId: inputData.targetUserId,
+      adminUserId: inputData.adminUserId,
+      adminEmail: inputData.adminEmail,
+      userEmail: inputData.userEmail,
+      userName: inputData.userName,
+      deletedAppointments: inputData.deletedAppointments,
+    }
   },
 })
 
@@ -150,7 +223,18 @@ const auditLogStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.valid || !inputData.disabled) {
-      return { valid: inputData.valid, disabled: inputData.disabled, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: inputData.deletedAppointments, auditLogged: false, error: inputData.error }
+      return {
+        valid: inputData.valid,
+        disabled: inputData.disabled,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        userEmail: inputData.userEmail,
+        userName: inputData.userName,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: false,
+        error: inputData.error,
+      }
     }
     try {
       await logAdminAction(db, {
@@ -165,9 +249,29 @@ const auditLogStep = createStep({
           deletedAppointments: inputData.deletedAppointments,
         },
       })
-      return { valid: true, disabled: true, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: inputData.deletedAppointments, auditLogged: true }
+      return {
+        valid: true,
+        disabled: true,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        userEmail: inputData.userEmail,
+        userName: inputData.userName,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: true,
+      }
     } catch {
-      return { valid: true, disabled: true, targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail, userEmail: inputData.userEmail, userName: inputData.userName, deletedAppointments: inputData.deletedAppointments, auditLogged: false }
+      return {
+        valid: true,
+        disabled: true,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        userEmail: inputData.userEmail,
+        userName: inputData.userName,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: false,
+      }
     }
   },
 })
@@ -196,15 +300,25 @@ const notifyUserStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.valid || !inputData.disabled) {
-      return { success: false, targetUserId: inputData.targetUserId, deletedAppointments: inputData.deletedAppointments, auditLogged: false, error: inputData.error }
+      return {
+        success: false,
+        targetUserId: inputData.targetUserId,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: false,
+        error: inputData.error,
+      }
     }
     try {
-      let result = await consoleNotificationSender.send(String(inputData.targetUserId), 'cancellation', {
-        type: 'cancellation',
-        recipient: String(inputData.targetUserId),
-        customerName: inputData.userName,
-        title: 'Account cancelled',
-      })
+      let result = await consoleNotificationSender.send(
+        String(inputData.targetUserId),
+        'cancellation',
+        {
+          type: 'cancellation',
+          recipient: String(inputData.targetUserId),
+          customerName: inputData.userName,
+          title: 'Account cancelled',
+        },
+      )
       if (!result.sent) {
         enqueueFailedNotification(String(inputData.targetUserId), 'cancellation', {
           type: 'cancellation',
@@ -213,7 +327,13 @@ const notifyUserStep = createStep({
           title: 'Account cancelled',
         })
       }
-      return { success: true, targetUserId: inputData.targetUserId, deletedAppointments: inputData.deletedAppointments, auditLogged: inputData.auditLogged, notificationSent: result.sent }
+      return {
+        success: true,
+        targetUserId: inputData.targetUserId,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: inputData.auditLogged,
+        notificationSent: result.sent,
+      }
     } catch {
       enqueueFailedNotification(String(inputData.targetUserId), 'cancellation', {
         type: 'cancellation',
@@ -221,7 +341,13 @@ const notifyUserStep = createStep({
         customerName: inputData.userName,
         title: 'Account cancelled',
       })
-      return { success: true, targetUserId: inputData.targetUserId, deletedAppointments: inputData.deletedAppointments, auditLogged: inputData.auditLogged, notificationSent: false }
+      return {
+        success: true,
+        targetUserId: inputData.targetUserId,
+        deletedAppointments: inputData.deletedAppointments,
+        auditLogged: inputData.auditLogged,
+        notificationSent: false,
+      }
     }
   },
 })

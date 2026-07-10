@@ -21,12 +21,16 @@ export function MainNav() {
     let currentPath = ''
     try {
       currentPath = new URL(getContext().request.url).pathname
-    } catch { /* SSR-only */ }
+    } catch {
+      /* SSR-only */
+    }
 
     let csrfToken: string | undefined
     try {
       csrfToken = getCsrfToken(getContext())
-    } catch { /* CSRF may not be active */ }
+    } catch {
+      /* CSRF may not be active */
+    }
 
     // `path + '/'` in startsWith prevents collision between /appointment
     // and /appointments/new — the trailing slash ensures exact segment matching
@@ -57,7 +61,10 @@ export function MainNav() {
                 </linearGradient>
               </defs>
               <rect width="28" height="28" rx="8" fill="url(#logo-grad)" />
-              <path d="M8 20V8h5.2c2.133 0 3.733.4 4.8 1.2 1.067.8 1.6 2 1.6 3.6 0 1.067-.267 1.933-.8 2.6-.533.667-1.333 1.133-2.4 1.4L19 20h-3.2l-2.6-3.2H11V20H8zm3-5.6h2c1.067 0 1.833-.2 2.3-.6.467-.4.7-1 .7-1.8 0-.8-.233-1.367-.7-1.7-.467-.333-1.233-.5-2.3-.5H11v4.6z" fill="white" />
+              <path
+                d="M8 20V8h5.2c2.133 0 3.733.4 4.8 1.2 1.067.8 1.6 2 1.6 3.6 0 1.067-.267 1.933-.8 2.6-.533.667-1.333 1.133-2.4 1.4L19 20h-3.2l-2.6-3.2H11V20H8zm3-5.6h2c1.067 0 1.833-.2 2.3-.6.467-.4.7-1 .7-1.8 0-.8-.233-1.367-.7-1.7-.467-.333-1.233-.5-2.3-.5H11v4.6z"
+                fill="white"
+              />
             </svg>
             <span mix={logoNameCss}>
               new<span mix={logoAccentCss}>app</span>
@@ -66,7 +73,7 @@ export function MainNav() {
 
           <nav mix={[navLinksCss, desktopOnlyCss]}>
             {NAV_SECTIONS.map((section, i) => {
-              let items = section.items.filter(it => !it.adminOnly || user?.role === 'admin')
+              let items = section.items.filter((it) => !it.adminOnly || user?.role === 'admin')
               if (items.length === 0) return null
               return (
                 <div key={i} mix={sectionGroupCss}>
@@ -76,7 +83,10 @@ export function MainNav() {
                       key={item.href}
                       href={item.href}
                       {...(item.href && isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
-                      mix={[navLinkCss, item.href && isActive(item.href) ? navActiveCss : null].filter(Boolean)}
+                      mix={[
+                        navLinkCss,
+                        item.href && isActive(item.href) ? navActiveCss : null,
+                      ].filter(Boolean)}
                     >
                       {item.label}
                     </a>
@@ -86,7 +96,13 @@ export function MainNav() {
             })}
             {user ? (
               <>
-                <a href={routes.settings.index.href()} {...(isCrossSection(routes.settings.index.href()) ? { 'rmx-document': '' } : {})} mix={iconLinkCss} aria-label="Settings" title="Einstellungen">
+                <a
+                  href={routes.settings.index.href()}
+                  {...(isCrossSection(routes.settings.index.href()) ? { 'rmx-document': '' } : {})}
+                  mix={iconLinkCss}
+                  aria-label="Settings"
+                  title="Einstellungen"
+                >
                   <Glyph name="cog" width={18} height={18} />
                 </a>
                 <form method="POST" action={routes.auth.logout.href()} mix={logoutFormCss}>
@@ -98,7 +114,13 @@ export function MainNav() {
               </>
             ) : (
               <>
-                <a href={routes.auth.login.index.href()} {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})} mix={navBtnCss}>
+                <a
+                  href={routes.auth.login.index.href()}
+                  {...(isCrossSection(routes.auth.login.index.href())
+                    ? { 'rmx-document': '' }
+                    : {})}
+                  mix={navBtnCss}
+                >
                   <Glyph name="open" width={14} height={14} />
                   Anmelden
                 </a>
@@ -126,12 +148,18 @@ export function MainNav() {
             mix={themeBtnCss}
             type="button"
           >
-          <Glyph name="moon" width={16} height={16} />
+            <Glyph name="moon" width={16} height={16} />
           </button>
         </div>
 
         <NavToggle />
-        <div id="nav-drawer" role="dialog" aria-modal="true" aria-label="Navigation" mix={navDrawerCss}>
+        <div
+          id="nav-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation"
+          mix={navDrawerCss}
+        >
           <div mix={drawerHeaderCss}>
             <a href={routes.home.href()} mix={drawerLogoGroupCss}>
               <span mix={drawerLogoTextCss}>
@@ -145,17 +173,27 @@ export function MainNav() {
           <div mix={drawerBodyCss}>
             {user ? (
               <>
-                {MOBILE_ITEMS.filter(it => it.requireAuth).map((item) => (
+                {MOBILE_ITEMS.filter((it) => it.requireAuth).map((item) =>
                   item.cta ? (
-                    <a key={item.href} href={item.href} {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})} mix={drawerCtaCss}>
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
+                      mix={drawerCtaCss}
+                    >
                       {item.label}
                     </a>
                   ) : (
-                    <a key={item.href} href={item.href} {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})} mix={drawerLinkCss}>
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
+                      mix={drawerLinkCss}
+                    >
                       {item.label}
                     </a>
-                  )
-                ))}
+                  ),
+                )}
                 <form method="POST" action={routes.auth.logout.href()} mix={drawerLogoutFormCss}>
                   {csrfToken ? <input type="hidden" name="_csrf" value={csrfToken} /> : null}
                   <button type="submit" mix={drawerLogoutBtnCss}>
@@ -164,7 +202,11 @@ export function MainNav() {
                 </form>
               </>
             ) : (
-              <a href={routes.auth.login.index.href()} {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})} mix={drawerCtaCss}>
+              <a
+                href={routes.auth.login.index.href()}
+                {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})}
+                mix={drawerCtaCss}
+              >
                 Anmelden
               </a>
             )}

@@ -14,10 +14,12 @@ Users need to delete their own lists directly from the lists sidebar without swi
 ## Capabilities
 
 ### New Capabilities
+
 - `lists-delete`: Server-side list deletion for the public `/lists` route, scoped to the authenticated user, with proper error handling and sidebar invalidation.
 
 ### Modified Capabilities
-*(None — no existing spec-level requirements are changing)*
+
+_(None — no existing spec-level requirements are changing)_
 
 ## Impact
 

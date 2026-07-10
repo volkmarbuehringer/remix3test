@@ -1,6 +1,6 @@
 ---
 name: remix3-cliententry-drag-and-drop
-description: "Add HTML5 drag-and-drop to Remix 3 clientEntry components without infinite loops"
+description: 'Add HTML5 drag-and-drop to Remix 3 clientEntry components without infinite loops'
 origin: auto-extracted
 ---
 
@@ -102,10 +102,14 @@ let handleDragEnd = () => {
 
 ```ts
 // ✅ Correct: read live from DOM
-el.addEventListener('dragover', (e) => {
-  let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
-  handleDragOver(e as DragEvent, idx)
-}, { signal: ac.signal })
+el.addEventListener(
+  'dragover',
+  (e) => {
+    let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+    handleDragOver(e as DragEvent, idx)
+  },
+  { signal: ac.signal },
+)
 
 // ❌ Wrong: captured in closure, stale after reorder
 el.addEventListener('dragover', (e) => handleDragOver(e as DragEvent, index), { signal: ac.signal })

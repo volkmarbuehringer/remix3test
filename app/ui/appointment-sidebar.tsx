@@ -35,7 +35,11 @@ function readData(): {
   }
 }
 
-function navigateWithParams(baseYear: string | number, baseWeek: string | number, resourceId: number): string {
+function navigateWithParams(
+  baseYear: string | number,
+  baseWeek: string | number,
+  resourceId: number,
+): string {
   return `${routes.appointment.index.href()}?year=${baseYear}&week=${baseWeek}&resource_id=${resourceId}`
 }
 
@@ -143,7 +147,12 @@ export const AppointmentSidebar = clientEntry(
                   }),
                 ]}
               >
-                <Glyph name="chevronRight" width={16} height={16} style={{ transform: 'rotate(180deg)' }} />
+                <Glyph
+                  name="chevronRight"
+                  width={16}
+                  height={16}
+                  style={{ transform: 'rotate(180deg)' }}
+                />
               </button>
               <span mix={dateRangeStyle}>{weekDateRange}</span>
               <button
@@ -168,7 +177,12 @@ export const AppointmentSidebar = clientEntry(
             <a href={routes.lists.index.href()} mix={navLinkStyle}>
               Listen
             </a>
-            <form action={routes.auth.logout.href()} method="post" mix={logoutFormStyle} id="appt-logout-form">
+            <form
+              action={routes.auth.logout.href()}
+              method="post"
+              mix={logoutFormStyle}
+              id="appt-logout-form"
+            >
               <button
                 type="submit"
                 mix={[
@@ -176,7 +190,9 @@ export const AppointmentSidebar = clientEntry(
                   on('click', () => {
                     let form = document.getElementById('appt-logout-form') as HTMLFormElement | null
                     if (form && !form.querySelector('input[name="_csrf"]')) {
-                      let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                      let token = document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute('content')
                       if (token) {
                         let input = document.createElement('input')
                         input.type = 'hidden'

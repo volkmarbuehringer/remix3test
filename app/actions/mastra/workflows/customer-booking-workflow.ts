@@ -34,7 +34,13 @@ const findAvailableSlotsStep = createStep({
     if (date !== undefined && startMin !== undefined) {
       let bookable = await isSlotBookable(db, date, resourceId, startMin, startMin + 60)
       if (!bookable) {
-        return { hasSlots: false, resourceId, customerId, title, error: 'Slot is no longer available' }
+        return {
+          hasSlots: false,
+          resourceId,
+          customerId,
+          title,
+          error: 'Slot is no longer available',
+        }
       }
       if (isDateInPast(date)) {
         return { hasSlots: false, resourceId, customerId, title, error: 'Cannot book in the past' }
@@ -58,7 +64,13 @@ const findAvailableSlotsStep = createStep({
       )
 
       if (offeringResult.rows.length === 0) {
-        return { hasSlots: false, resourceId, customerId, title, error: 'Keine freien Termine verfügbar' }
+        return {
+          hasSlots: false,
+          resourceId,
+          customerId,
+          title,
+          error: 'Keine freien Termine verfügbar',
+        }
       }
 
       return { hasSlots: true, resourceId, customerId, title }
@@ -91,7 +103,13 @@ const createAppointmentStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.hasSlots || inputData.date === undefined || inputData.startMin === undefined) {
-      return { success: false, resourceId: inputData.resourceId, customerId: inputData.customerId, title: inputData.title, error: inputData.error ?? 'invalid_params' }
+      return {
+        success: false,
+        resourceId: inputData.resourceId,
+        customerId: inputData.customerId,
+        title: inputData.title,
+        error: inputData.error ?? 'invalid_params',
+      }
     }
 
     let during = `[${inputData.startMin},${inputData.startMin + 60})`
@@ -106,10 +124,24 @@ const createAppointmentStep = createStep({
         during,
         now,
       })
-      return { success: true, id, resourceId: inputData.resourceId, customerId: inputData.customerId, title: inputData.title, date: inputData.date, startMin: inputData.startMin }
+      return {
+        success: true,
+        id,
+        resourceId: inputData.resourceId,
+        customerId: inputData.customerId,
+        title: inputData.title,
+        date: inputData.date,
+        startMin: inputData.startMin,
+      }
     } catch (error: unknown) {
       if (isExclusionConstraintError(error)) {
-        return { success: false, resourceId: inputData.resourceId, customerId: inputData.customerId, title: inputData.title, error: 'collision' }
+        return {
+          success: false,
+          resourceId: inputData.resourceId,
+          customerId: inputData.customerId,
+          title: inputData.title,
+          error: 'collision',
+        }
       }
       throw error
     }
@@ -139,9 +171,10 @@ const sendConfirmationStep = createStep({
       return { success: false, error: inputData.error }
     }
 
-    let timeRange = inputData.startMin !== undefined
-      ? `${formatMinOption(inputData.startMin)}–${formatMinOption(inputData.startMin + 60)}`
-      : undefined
+    let timeRange =
+      inputData.startMin !== undefined
+        ? `${formatMinOption(inputData.startMin)}–${formatMinOption(inputData.startMin + 60)}`
+        : undefined
 
     let payload = {
       type: 'confirmation' as const,
@@ -153,7 +186,11 @@ const sendConfirmationStep = createStep({
     }
 
     try {
-      let result = await consoleNotificationSender.send(String(inputData.customerId), 'confirmation', payload)
+      let result = await consoleNotificationSender.send(
+        String(inputData.customerId),
+        'confirmation',
+        payload,
+      )
       if (!result.sent) {
         enqueueFailedNotification(String(inputData.customerId), 'confirmation', payload)
       }

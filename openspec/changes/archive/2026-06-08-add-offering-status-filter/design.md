@@ -5,6 +5,7 @@ The offerings admin page at `/verwaltung/offerings` shows a table of `appointoff
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a button group to the offerings filter bar with "Ausstehend" (pending) and "Abgelaufen" (expired) options
 - Default to pending when no `status` param is present (show offerings with `ao.day >= now`)
 - When expired is selected, show offerings with `ao.day < now`
@@ -12,6 +13,7 @@ The offerings admin page at `/verwaltung/offerings` shows a table of `appointoff
 - Match the exact same UI pattern as the appointments status toggle
 
 **Non-Goals:**
+
 - No changes to shared utilities (`grid-state.ts`, URL helpers) — already done
 - No database schema changes
 - No changes to other admin pages

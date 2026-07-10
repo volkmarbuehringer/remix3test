@@ -90,20 +90,19 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
       <div mix={pageStyle}>
         <h2 mix={headingStyle}>Benutzer-Export (gefiltert)</h2>
         <p mix={descStyle}>
-          Wählen Sie einen Zeitraum aus, um alle Benutzer mit Terminen in diesem Zeitraum als PDF zu exportieren.
+          Wählen Sie einen Zeitraum aus, um alle Benutzer mit Terminen in diesem Zeitraum als PDF zu
+          exportieren.
         </p>
 
         {p.error && <div mix={errorStyle}>{p.error}</div>}
 
-        <form
-          method="POST"
-          action={routes.verwaltung.usersExport.index.href()}
-          mix={formStyle}
-        >
+        <form method="POST" action={routes.verwaltung.usersExport.index.href()} mix={formStyle}>
           <CsrfTokenInput />
           <div mix={fieldRowStyle}>
             <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="startDate">Startdatum</label>
+              <label mix={labelStyle} htmlFor="startDate">
+                Startdatum
+              </label>
               <input
                 id="startDate"
                 name="startDate"
@@ -114,7 +113,9 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
               />
             </div>
             <div mix={fieldGroupStyle}>
-              <label mix={labelStyle} htmlFor="endDate">Enddatum</label>
+              <label mix={labelStyle} htmlFor="endDate">
+                Enddatum
+              </label>
               <input
                 id="endDate"
                 name="endDate"
@@ -125,7 +126,9 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
               />
             </div>
           </div>
-          <button type="submit" mix={submitStyle}>PDF erstellen</button>
+          <button type="submit" mix={submitStyle}>
+            PDF erstellen
+          </button>
         </form>
       </div>
     )

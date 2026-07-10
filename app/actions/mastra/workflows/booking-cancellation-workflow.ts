@@ -18,21 +18,34 @@ const verifyOwnershipStep = createStep({
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    let result = await db.exec(
-      'SELECT id, user_id FROM appointments WHERE id = $1',
-      [inputData.appointmentId],
-    )
+    let result = await db.exec('SELECT id, user_id FROM appointments WHERE id = $1', [
+      inputData.appointmentId,
+    ])
     let rows = result.rows as Array<{ id: number; user_id: number }> | undefined
 
     if (!rows || rows.length === 0) {
-      return { valid: false, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId, error: 'already_cancelled' }
+      return {
+        valid: false,
+        appointmentId: inputData.appointmentId,
+        requestingUserId: inputData.requestingUserId,
+        error: 'already_cancelled',
+      }
     }
 
     if (rows[0].user_id !== inputData.requestingUserId) {
-      return { valid: false, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId, error: 'not_owner' }
+      return {
+        valid: false,
+        appointmentId: inputData.appointmentId,
+        requestingUserId: inputData.requestingUserId,
+        error: 'not_owner',
+      }
     }
 
-    return { valid: true, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId }
+    return {
+      valid: true,
+      appointmentId: inputData.appointmentId,
+      requestingUserId: inputData.requestingUserId,
+    }
   },
 })
 
@@ -52,15 +65,33 @@ const deleteAppointmentStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (!inputData.valid) {
-      return { success: false, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId, error: inputData.error }
+      return {
+        success: false,
+        appointmentId: inputData.appointmentId,
+        requestingUserId: inputData.requestingUserId,
+        error: inputData.error,
+      }
     }
 
-    let deleted = await deleteAppointmentRecord(db, String(inputData.appointmentId), inputData.requestingUserId)
+    let deleted = await deleteAppointmentRecord(
+      db,
+      String(inputData.appointmentId),
+      inputData.requestingUserId,
+    )
     if (!deleted) {
-      return { success: false, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId, error: 'already_cancelled' }
+      return {
+        success: false,
+        appointmentId: inputData.appointmentId,
+        requestingUserId: inputData.requestingUserId,
+        error: 'already_cancelled',
+      }
     }
 
-    return { success: true, appointmentId: inputData.appointmentId, requestingUserId: inputData.requestingUserId }
+    return {
+      success: true,
+      appointmentId: inputData.appointmentId,
+      requestingUserId: inputData.requestingUserId,
+    }
   },
 })
 
@@ -85,20 +116,28 @@ const sendCancellationNotificationStep = createStep({
 
     let recipient = String(inputData.requestingUserId)
     try {
-      let result = await consoleNotificationSender.send(
+      let result = await consoleNotificationSender.send(recipient, 'cancellation', {
+        type: 'cancellation',
         recipient,
-        'cancellation',
-        { type: 'cancellation', recipient, appointmentId: inputData.appointmentId },
-      )
+        appointmentId: inputData.appointmentId,
+      })
       if (!result.sent) {
         enqueueFailedNotification(recipient, 'cancellation', {
-          type: 'cancellation', recipient, appointmentId: inputData.appointmentId,
+          type: 'cancellation',
+          recipient,
+          appointmentId: inputData.appointmentId,
         })
       }
-      return { success: true, appointmentId: inputData.appointmentId, notificationSent: result.sent }
+      return {
+        success: true,
+        appointmentId: inputData.appointmentId,
+        notificationSent: result.sent,
+      }
     } catch {
       enqueueFailedNotification(recipient, 'cancellation', {
-        type: 'cancellation', recipient, appointmentId: inputData.appointmentId,
+        type: 'cancellation',
+        recipient,
+        appointmentId: inputData.appointmentId,
       })
       return { success: true, appointmentId: inputData.appointmentId, notificationSent: false }
     }

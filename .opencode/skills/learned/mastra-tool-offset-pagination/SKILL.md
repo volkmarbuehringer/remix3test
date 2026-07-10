@@ -1,6 +1,6 @@
 ---
 name: mastra-tool-offset-pagination
-description: "Add offset/offsetDays parameters to Mastra tools so agents can request more results without duplicates"
+description: 'Add offset/offsetDays parameters to Mastra tools so agents can request more results without duplicates'
 origin: auto-extracted
 ---
 
@@ -40,15 +40,15 @@ execute: async ({ resourceId, daysAhead, offsetDays }) => {
 Tell the agent how to use the offset parameter:
 
 ```
-- Wenn der Kunde nach SPÄTEREN Terminen fragt: Rufe find_next_available_slots erneut 
+- Wenn der Kunde nach SPÄTEREN Terminen fragt: Rufe find_next_available_slots erneut
   mit offsetDays auf den bereits gezeigten Zeitraum (z.B. offsetDays=30, daysAhead=30)
 ```
 
 The tool description should also mention the offset parameter so the agent knows it exists:
 
 ```
-Parameter: offsetDays (optional, Standard 0, maximal 365). 
-offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen 
+Parameter: offsetDays (optional, Standard 0, maximal 365).
+offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen
 (z.B. offsetDays=30 für Termine ab Tag 31).
 ```
 

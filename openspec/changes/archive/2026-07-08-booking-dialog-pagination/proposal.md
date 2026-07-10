@@ -15,11 +15,11 @@ The booking dialog in the customer chat dumps up to 30 slots (10 days × 3 slots
 
 ### New Capabilities
 
-*(none — this is a UI improvement to the existing booking flow)*
+_(none — this is a UI improvement to the existing booking flow)_
 
 ### Modified Capabilities
 
-*(none — no spec-level requirement changes; the booking capability still allows finding and booking slots the same way)*
+_(none — no spec-level requirement changes; the booking capability still allows finding and booking slots the same way)_
 
 ## Impact
 

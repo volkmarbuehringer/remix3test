@@ -12,9 +12,11 @@ The app has `remix/middleware/logger` installed and used in middleware/root.ts, 
 ## Capabilities
 
 ### New Capabilities
+
 - `server-logger-migration`: Replace all server-side raw console calls with `context.logger` from `remix/middleware/logger`, and remove the deprecated `userLogger` utility.
 
 ### Modified Capabilities
+
 - `catch-error-logging`: Expanded scope — already specifies `context.logger` for catch blocks; this change extends the same pattern to all server-side console calls.
 
 ## Impact

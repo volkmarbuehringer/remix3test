@@ -12,9 +12,11 @@ The current 24h cancellation policy at `/appointments/new` prevents all non-admi
 ## Capabilities
 
 ### New Capabilities
+
 - `delete-grace-period`: A 10-minute grace window after appointment creation during which the cancellation policy is bypassed for non-admin users.
 
 ### Modified Capabilities
+
 - `24h-cancellation-policy`: The existing 24h delete restriction gains a grace-period exception for newly created appointments.
 
 ## Impact

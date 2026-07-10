@@ -16,7 +16,7 @@ The system SHALL call `session.regenerate()` before setting auth data in the ses
 
 ### Requirement: Session ID is regenerated on logout
 
-The system SHALL regenerate the session ID during logout. *(Already implemented — verification only.)*
+The system SHALL regenerate the session ID during logout. _(Already implemented — verification only.)_
 
 #### Scenario: Logout regenerates session
 

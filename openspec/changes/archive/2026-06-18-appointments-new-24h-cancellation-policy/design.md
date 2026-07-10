@@ -7,12 +7,14 @@ The admin-facing route (`verwaltung/appointments`) is intentionally excluded —
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Prevent non-admin users from updating appointments at `/appointments/new` when start time < 24h from now
 - Prevent non-admin users from deleting appointments at `/appointments/new` when start time < 24h from now
 - Hide/disable the Bearbeiten and Löschen buttons in the UI for affected rows
 - Show a clear German error message explaining the restriction
 
 **Non-Goals:**
+
 - This does NOT affect the admin `verwaltung/appointments` controller — admins retain full edit/delete access
 - This does NOT affect the create flow — new appointments can still be created freely
 - This does NOT send email notifications or implement a cancellation fee — pure server+UI gate

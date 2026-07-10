@@ -63,7 +63,7 @@ function isoWeekFromMonday(mondayMs: number): { year: number; week: number } {
   let d = new Date(mondayMs)
   d.setUTCDate(d.getUTCDate() + 3) // Thursday — always in the same ISO week as Monday
   let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  let weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+  let weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
   return { year: d.getUTCFullYear(), week: weekNum }
 }
 
@@ -72,9 +72,7 @@ function isoWeekFromMonday(mondayMs: number): { year: number; week: number } {
  * Uses the server-embedded `<script id="appointment-data">` tag.
  */
 function parseAppointmentData(html: string): AppointmentData | null {
-  let match = html.match(
-    /<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/,
-  )
+  let match = html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)
   if (!match) return null
   try {
     return JSON.parse(match[1])
@@ -102,9 +100,7 @@ describe('Appointment Grid', () => {
     // Use seed user for authenticated requests
     let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!auth?.cookie) {
-      throw new Error(
-        'Failed to create user session — check user@newapp.com exists in seed data',
-      )
+      throw new Error('Failed to create user session — check user@newapp.com exists in seed data')
     }
     userCookie = auth.cookie
     userCsrfToken = auth.csrfToken
@@ -144,8 +140,16 @@ describe('Appointment Grid', () => {
    */
   async function seedTestOfferings(): Promise<void> {
     // Remove ALL appointments on test dates (from any user) to prevent collisions
-    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2 OR date = $3`, [saturdayMs, sundayMs, farFutureDateMs])
-    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2 OR day = $3`, [saturdayMs, sundayMs, farFutureDateMs])
+    await pool.query(`DELETE FROM appointments WHERE date = $1 OR date = $2 OR date = $3`, [
+      saturdayMs,
+      sundayMs,
+      farFutureDateMs,
+    ])
+    await pool.query(`DELETE FROM appointoffering WHERE day = $1 OR day = $2 OR day = $3`, [
+      saturdayMs,
+      sundayMs,
+      farFutureDateMs,
+    ])
     await pool.query(
       `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
        VALUES ($1::bigint, $4, int4range(0, 1440, '[)'), $3, $3),
@@ -157,8 +161,6 @@ describe('Appointment Grid', () => {
 
   // Seed fresh offerings before each test (ensures clean per-test state)
   beforeEach(seedTestOfferings)
-
-
 
   let testAppointTypeIds: number[] = []
 
@@ -218,11 +220,7 @@ describe('Appointment Grid', () => {
     })
 
     // Assert
-    assert.equal(
-      response.status,
-      403,
-      'unauthenticated POST without CSRF should return 403',
-    )
+    assert.equal(response.status, 403, 'unauthenticated POST without CSRF should return 403')
   })
 
   it('PUT /appointment/:id returns 403 when not authenticated (CSRF missing)', async () => {
@@ -236,11 +234,7 @@ describe('Appointment Grid', () => {
     })
 
     // Assert
-    assert.equal(
-      response.status,
-      403,
-      'unauthenticated PUT without CSRF should return 403',
-    )
+    assert.equal(response.status, 403, 'unauthenticated PUT without CSRF should return 403')
   })
 
   // -----------------------------------------------------------------------
@@ -342,11 +336,7 @@ describe('Appointment Grid', () => {
       multilineTitle,
       'title should preserve \\n characters through POST',
     )
-    assert.equal(
-      body.appointment.start_min,
-      480,
-      'start_min should be preserved',
-    )
+    assert.equal(body.appointment.start_min, 480, 'start_min should be preserved')
     assert.equal(body.appointment.end_min, 540, 'end_min should be preserved')
     testAppointmentIds.push(body.appointment.id)
   })
@@ -380,10 +370,7 @@ describe('Appointment Grid', () => {
       multilineTitle,
       'internal newlines should be preserved through POST',
     )
-    assert.ok(
-      body.appointment.title.includes('\n'),
-      'title should contain newline characters',
-    )
+    assert.ok(body.appointment.title.includes('\n'), 'title should contain newline characters')
     testAppointmentIds.push(body.appointment.id)
   })
 
@@ -500,11 +487,7 @@ describe('Appointment Grid', () => {
     })
 
     // Assert
-    assert.equal(
-      response.status,
-      400,
-      'title exceeding maxLength(80) should return 400',
-    )
+    assert.equal(response.status, 400, 'title exceeding maxLength(80) should return 400')
     let body = await response.json()
     assert.ok(body.error, 'should include error message')
   })
@@ -559,11 +542,7 @@ describe('Appointment Grid', () => {
     })
 
     // Assert
-    assert.equal(
-      response.status,
-      201,
-      'multiline 80-char title (including \\n) should succeed',
-    )
+    assert.equal(response.status, 201, 'multiline 80-char title (including \\n) should succeed')
     let body = await response.json()
     assert.equal(body.appointment.title, multilineBoundary)
     testAppointmentIds.push(body.appointment.id)
@@ -640,23 +619,20 @@ describe('Appointment Grid', () => {
     testAppointmentIds.push(created.id)
 
     // Act: PUT with date/start_min/end_min (no title)
-    let updateResponse = await router.fetch(
-      `${APPT_URL}/${created.id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Csrf-Token': userCsrfToken,
-          Cookie: userCookie,
-        },
-        body: JSON.stringify({
-          date: farFutureDateMs,
-          start_min: 600,
-          end_min: 660,
-        resource_id: firstResourceId,
-        }),
+    let updateResponse = await router.fetch(`${APPT_URL}/${created.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
       },
-    )
+      body: JSON.stringify({
+        date: farFutureDateMs,
+        start_min: 600,
+        end_min: 660,
+        resource_id: firstResourceId,
+      }),
+    })
 
     // Assert
     assert.equal(updateResponse.status, 200)
@@ -666,11 +642,7 @@ describe('Appointment Grid', () => {
       'Existing title',
       'title should remain unchanged when not provided',
     )
-    assert.equal(
-      updateBody.appointment.start_min,
-      600,
-      'start_min should update',
-    )
+    assert.equal(updateBody.appointment.start_min, 600, 'start_min should update')
   })
 
   it('PUT /appointment/:id for non-existent appointment returns 404', async () => {
@@ -716,11 +688,7 @@ describe('Appointment Grid', () => {
     })
     assert.equal(createResponse.status, 201)
     let { appointment: created } = await createResponse.json()
-    assert.equal(
-      created.title,
-      multilineTitle,
-      'POST should return title with \\n',
-    )
+    assert.equal(created.title, multilineTitle, 'POST should return title with \\n')
     testAppointmentIds.push(created.id)
 
     // Act: fetch the page for the week containing the appointment
@@ -776,7 +744,7 @@ describe('Appointment Grid', () => {
           date: saturdayMs,
           start_min: 1020 + i * 60,
           end_min: 1080 + i * 60,
-        resource_id: firstResourceId,
+          resource_id: firstResourceId,
         }),
       })
       assert.equal(response.status, 201)
@@ -795,7 +763,9 @@ describe('Appointment Grid', () => {
     // Assert
     assert.ok(data, 'page should have appointment data')
     for (let i = 0; i < titles.length; i++) {
-      let found: AppointmentData['appointments'][number] | undefined = data!.appointments.find((a) => a.id === ids[i])
+      let found: AppointmentData['appointments'][number] | undefined = data!.appointments.find(
+        (a) => a.id === ids[i],
+      )
       assert.ok(found, `appointment ${ids[i]} should appear in page data`)
       assert.equal(
         found!.title,
@@ -843,10 +813,7 @@ describe('Appointment Grid', () => {
     // Assert
     assert.ok(data, 'should parse appointment data')
     let found = data!.appointments.find((a) => a.title === uniqueTitle)
-    assert.ok(
-      found,
-      'created appointment should be findable by title in page data',
-    )
+    assert.ok(found, 'created appointment should be findable by title in page data')
     assert.equal(found!.id, appointment.id, 'appointment id should match')
     assert.equal(found!.date, saturdayMs, 'appointment date should match')
     assert.equal(found!.start_min, 1200, 'appointment start_min should match')
@@ -1027,7 +994,10 @@ describe('Appointment Grid', () => {
     assert.equal(response.status, 403, 'slot outside offering should return 403')
     let body = await response.json()
     assert.ok(body.error, 'should include error message')
-    assert.ok(body.error.toLowerCase().includes('bookable'), 'error should mention slot not bookable')
+    assert.ok(
+      body.error.toLowerCase().includes('bookable'),
+      'error should mention slot not bookable',
+    )
   })
 
   it('POST /appointment with slot within full-day offering returns 201', async () => {
@@ -1312,7 +1282,9 @@ describe('Appointment Grid', () => {
     assert.ok(data, 'should have appointment data')
     // Access offerings via the parsed data (the type doesn't include offerings,
     // but the actual JSON does)
-    let embeddedData = JSON.parse(html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '{}')
+    let embeddedData = JSON.parse(
+      html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? '{}',
+    )
     assert.ok(
       Array.isArray(embeddedData.offerings),
       'offerings should be an array in embedded JSON',

@@ -7,6 +7,7 @@ Rate limiting for auth endpoints (login, register) is implemented twice — each
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add CSP header with directives that work with Remix 3's inline `css()` style generation
 - Add HSTS (production) and Permissions-Policy headers
 - Add `perKey` mode to `createRateLimiter()` for string-based rate limiting
@@ -14,6 +15,7 @@ Rate limiting for auth endpoints (login, register) is implemented twice — each
 - Ensure full test coverage for both changes
 
 **Non-Goals:**
+
 - Not modifying CSP during dynamic content generation (policy is static)
 - Not adding per-IP rate limiting (future concern)
 - Not adding CSRF token improvements beyond what exists
@@ -25,6 +27,7 @@ Rate limiting for auth endpoints (login, register) is implemented twice — each
 Remix 3's `css()` function generates inline `<style>` elements at runtime. Without `'unsafe-inline'` on `style-src`, all app styles break. This is a framework constraint, not a choice.
 
 Alternatives considered:
+
 - **Nonce-based**: Remix 3 does not expose a nonce mechanism for `css()` blocks
 - **Hash-based**: Style hashes would need per-build regeneration and are impractical with dynamic mixins
 
@@ -43,6 +46,7 @@ Local development often uses HTTP. Setting HSTS in dev would require HTTPS and a
 The existing `createRateLimiter()` already has the architecture for keyed maps. Adding `perKey` is a natural extension that reuses the same cleanup, window, and check logic. The only difference is the key type (`string` vs `number`).
 
 Alternatives considered:
+
 - **Generic key type**: Union `number | string` accepted everywhere — simpler API but looser typing
 - **Separate factory**: `createStringRateLimiter()` — avoids breaking existing API but duplicates logic
 
@@ -54,10 +58,10 @@ The CSP policy is static — it doesn't change between requests. Building the st
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| CSP blocks legitimate inline scripts or external resources | Test thoroughly with the full app — appointment grid, SSE, AI chat |
-| `'unsafe-inline'` on styles weakens CSP value | Acceptable — style injection is much lower risk than script injection. Scripts remain locked down |
+| Risk                                                          | Mitigation                                                                                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| CSP blocks legitimate inline scripts or external resources    | Test thoroughly with the full app — appointment grid, SSE, AI chat                                                      |
+| `'unsafe-inline'` on styles weakens CSP value                 | Acceptable — style injection is much lower risk than script injection. Scripts remain locked down                       |
 | Register rate limiter refactor changes subtle window behavior | Existing inline uses `firstAt` tracking; the shared utility uses last-timestamp. Verify behavior is equivalent in tests |
-| Login rate limiter has per-second window (≤1 req/s) | Shared utility's single-attempt window replicates this. Test confirms |
-| HSTS in dev breaks local testing | Guarded by `NODE_ENV === 'production'` |
+| Login rate limiter has per-second window (≤1 req/s)           | Shared utility's single-attempt window replicates this. Test confirms                                                   |
+| HSTS in dev breaks local testing                              | Guarded by `NODE_ENV === 'production'`                                                                                  |

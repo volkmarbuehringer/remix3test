@@ -24,9 +24,7 @@ function treeContainsText(node: unknown, text: string): boolean {
   if (typeof node === 'object' && node !== null) {
     let el = node as RemixElement
     if (el.props?.children) {
-      let children = Array.isArray(el.props.children)
-        ? el.props.children
-        : [el.props.children]
+      let children = Array.isArray(el.props.children) ? el.props.children : [el.props.children]
       for (let child of children) {
         if (treeContainsText(child, text)) return true
       }
@@ -58,12 +56,16 @@ function makeHandle<P>(props: P): Handle<P> {
 
 describe('ClientEditPage', () => {
   it('returns a render function', () => {
-    let renderFn = ClientEditPage(makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }))
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }),
+    )
     assert.equal(typeof renderFn, 'function')
   })
 
   it('renders the edit form with row data', () => {
-    let renderFn = ClientEditPage(makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }))
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }),
+    )
     let tree = renderFn()
 
     assert.ok(tree, 'should produce a tree')
@@ -72,21 +74,27 @@ describe('ClientEditPage', () => {
   })
 
   it('renders a save button', () => {
-    let renderFn = ClientEditPage(makeHandle({ row: sampleRow, offset: '0', sort: '', order: 'asc' }))
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '0', sort: '', order: 'asc' }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Save Changes'), 'should have submit button')
   })
 
   it('renders a cancel link back to client list', () => {
-    let renderFn = ClientEditPage(makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }))
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '20', sort: 'name', order: 'asc' }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Cancel'), 'should have cancel button')
   })
 
   it('renders all form fields (name, email, role, status, registered)', () => {
-    let renderFn = ClientEditPage(makeHandle({ row: sampleRow, offset: '0', sort: '', order: 'asc' }))
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '0', sort: '', order: 'asc' }),
+    )
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Name'), 'should show Name label')

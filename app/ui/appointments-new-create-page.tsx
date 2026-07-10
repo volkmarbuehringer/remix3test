@@ -32,7 +32,22 @@ export interface AppointmentsNewCreatePageProps {
 
 export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePageProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', period = '', status = '', formValues, fieldErrors, formError, step, wizardResourceId, weekStart, daysWithSlots } = handle.props
+    let {
+      resources,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      period = '',
+      status = '',
+      formValues,
+      fieldErrors,
+      formError,
+      step,
+      wizardResourceId,
+      weekStart,
+      daysWithSlots,
+    } = handle.props
 
     let gridState = { offset, sort, order, filter: filter ?? '', period: period ?? '', status }
 

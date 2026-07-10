@@ -9,6 +9,7 @@ The data model spans two joined tables (`nutzer` + `login`) in PostgreSQL, acces
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Relocate nutzer from `/admin/nutzer` to `/nutzer` as a top-level route
 - Add "Nutzer" link to main navigation bar (admin-only)
 - Remove "Nutzer" from admin sidebar navigation
@@ -17,6 +18,7 @@ The data model spans two joined tables (`nutzer` + `login`) in PostgreSQL, acces
 - Remove all frame-based navigation (`rmx-target` attributes) from nutzer page components
 
 **Non-Goals:**
+
 - No changes to the data model, `nutzer` or `login` table schema
 - No changes to auth or admin middleware (both remain)
 - No changes to the context menu structure (right-click actions remain the same)
@@ -52,6 +54,7 @@ The data model spans two joined tables (`nutzer` + `login`) in PostgreSQL, acces
 ### 4. `parseSafe` validation with `context.render()` on failure
 
 **Decision**: Replace `buildNutzerErrorRedirect(formData, { error, ... })` 302 redirects with:
+
 1. `readFormFieldValues(NUTZER_FORM_KEYS, formData)` to extract raw string values
 2. `s.parseSafe(nutzerSaveSchema, formData)` to validate
 3. On failure: `issuesToFieldErrors(parsed.issues)`, then `context.render(<Layout><NutzerPage formValues={rawValues} fieldErrors={fieldErrors} ... /></Layout>, { status: 400 })`
@@ -72,6 +75,7 @@ Checkboxes need special handling: `checked` depends on `formValues?.name === 'on
 ### 6. URL base change from `/admin/nutzer` to `/nutzer`
 
 **Decision**: Every string literal and generated URL referencing `/admin/nutzer` changes to `/nutzer`:
+
 - `ADMIN_BASE` constant in `admin-nutzer-page.tsx`: `'/admin/nutzer'` → `'/nutzer'`
 - All form `action` attributes: `action="/admin/nutzer"` → `action="/nutzer"`, `action="/admin/nutzer/${id}"` → `action="/nutzer/${id}"`
 - Cancel links: `buildCancelUrl('/admin/nutzer', ...)` → `buildCancelUrl('/nutzer', ...)`

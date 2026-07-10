@@ -97,7 +97,12 @@ export function requireAuth(options?: { redirectTo?: string }) {
         let headers = new SuperHeaders()
         headers.contentType = { mediaType: 'text/html', charset: 'utf-8' }
         return new Response(
-          String(html`<div><h1>Not authorized</h1><p>Refresh the page to sign in again.</p></div>`),
+          String(
+            html`<div>
+              <h1>Not authorized</h1>
+              <p>Refresh the page to sign in again.</p>
+            </div>`,
+          ),
           { status: 401, headers },
         )
       }
@@ -132,5 +137,3 @@ function parseAppAuthSession(value: unknown): AppAuthSession | null {
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
-
-

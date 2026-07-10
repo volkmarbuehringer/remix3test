@@ -3,6 +3,7 @@
 The appointment calendar currently supports manual creation by clicking a time slot and typing a title. There is no reusable catalog of appointment types. Users need to type the same titles repeatedly (Massage, Consultation, Follow-up, etc.). This design adds an `appointtypes` table with a types management panel loaded as a Remix Frame below the sidebar, enabling drag-and-drop creation of appointments from type templates.
 
 The existing architecture uses:
+
 - `remix/data-table` for schema definitions and CRUD
 - `remix/ui` with `clientEntry` for interactive client-side components
 - `remix/ui/menu` for context menus
@@ -12,6 +13,7 @@ The existing architecture uses:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - New `appointtypes` table with user-scoped type catalog
 - Inline CRUD: add (inline input), rename (click-to-edit), delete (context menu)
 - Types panel renders as a Remix Frame below the appointment sidebar
@@ -20,6 +22,7 @@ The existing architecture uses:
 - Drag visual follows existing grid patterns (ghost block, snap to hours)
 
 **Non-Goals:**
+
 - Per-type default duration (always 60 min for now, extendable later)
 - Color or other metadata columns on appointtypes
 - Reordering or sorting controls (alphabetical order only)
@@ -56,6 +59,7 @@ RETURNING id
 ### 4. Inline CRUD for types
 
 **Decision**: All type management happens inline in the types list:
+
 - **Add**: [+ Add Type] button adds a new row with an `<input>` focused
 - **Edit**: Click on a type title switches it to an `<input>` (same pattern as appointment rename)
 - **Delete**: Right-click → context menu → "Löschen" → confirm

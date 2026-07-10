@@ -9,6 +9,7 @@ The goal is to move `/client` under `/admin/client`, matching the `/admin/nutzer
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Relocate `/client` route from top-level to `routes.admin.client` at `/admin/client`
 - Add `requireAdmin()` middleware alongside `requireAuth()`
 - Switch rendering from `<Layout>` to `renderAdminPage()` with admin sidebar
@@ -17,6 +18,7 @@ The goal is to move `/client` under `/admin/client`, matching the `/admin/nutzer
 - Update all internal URL references, redirects, and form actions
 
 **Non-Goals:**
+
 - Changing the DB schema, data model, or business logic
 - Rewriting the grid or page components — keep existing inline edit, CRUD, pagination, sorting, filtering
 - Changing the nutzer pattern or other admin routes
@@ -25,29 +27,35 @@ The goal is to move `/client` under `/admin/client`, matching the `/admin/nutzer
 ## Decisions
 
 ### 1. Controller stays at `app/actions/client/controller.tsx`
+
 **Rationale:** Matches the nutzer pattern where `app/actions/nutzer/controller.tsx` serves `routes.admin.nutzer` despite not being under an `admin/` directory. Moving it would create unnecessary churn.
 
 ### 2. Page components stay co-located (not moved to `app/ui/`)
+
 **Rationale:** The nutzer pattern has page components in `app/ui/`, but the client page components are tightly coupled to the client controller's data flow (grid state, inline edit, etc.). Moving them adds risk without benefit. The `renderAdminPage()` function is a layout wrapper — page content components don't need to live in `app/ui/` to use it. However, we will move them if the renderAdminPage pattern requires it.
 
 **Update after deeper analysis:** The nutzer page components live in `app/ui/` because they are shared with other admin routes. The client page components are narrow — they only serve this route. Keep them co-located to minimize diff and risk.
 
 ### 3. Frame navigation: Replace `client-grid` with `admin-content`
+
 **Rationale:** After moving to `/admin/client`, the page will be rendered inside the admin sidebar layout via `renderAdminPage()`. The sidebar layout already manages frame navigation via `admin-content`. We replace the `Frame(name=frames.clientGrid, ...)` with the layout-managed frame. The grid fragment endpoint changes from `/client/grid` to `/admin/client/grid`.
 
 ### 4. Route key: `routes.admin.client`
+
 **Rationale:** Consistent with `routes.admin.nutzer`, `routes.admin.chatlog`, etc.
 
 ### 5. Remove `frames.clientGrid` from routes.ts
+
 **Rationale:** No longer needed. The admin layout manages its own `admin-content` frame.
 
 ### 6. URL string updates: use `routes.admin.client` references instead of hardcoded `/client`
+
 **Rationale:** Using route references (`routes.admin.client.index.href()`) for all internal links provides type safety and makes future changes easier. Hardcoded URLs (`/admin/client`) are acceptable in templates where route references are not available.
 
 ## Risks / Trade-offs
 
 - **Grid content vs admin-content frame**: Currently the client page has a separate `Frame(name=frames.clientGrid, src=...)` inside the page. The admin layout's `renderAdminPage()` also manages a frame (`admin-content`). To avoid double-framing, the client page will no longer use its own Frame — it will render the grid content directly (or via the admin layout's frame). This changes the grid loading pattern from a nested Frame to a direct content area.
-  
+
   **Resolution**: The nutzer pattern renders the grid directly in the page content (no separate Frame). We'll follow that pattern: the admin page renders grid content inline inside `renderAdminPage()`.
 
 - **Inline edit asset (`client-grid-inline-edit.tsx`)**: This clientEntry module references `#client-grid-content` for DOM queries and fetches to `/client/${rowId}`. The selectors still work after the move — only the fetch URL needs updating to `/admin/client/${rowId}`.

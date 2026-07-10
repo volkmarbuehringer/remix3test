@@ -3,6 +3,7 @@
 ### Requirement: Compact delete account panel spacing
 
 The settings page "Konto löschen" panel SHALL use compact spacing appropriate for its sparse content:
+
 - `deletePanelCss` SHALL have `padding: theme.space.md` (12px) instead of `lg` (16px) on all viewports
 - `deletePanelCss` SHALL NOT have any `marginTop`
 - `warningTextCss` SHALL use `marginBottom: theme.space.sm` (8px) instead of `md` (12px)

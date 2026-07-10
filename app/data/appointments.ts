@@ -1,7 +1,12 @@
 import { gte, lt, type Database } from 'remix/data-table'
 
 import { appointments, type Appointment } from './schema.ts'
-import { isDateInPast, isWithinHours, getPeriodRange, getTodayUtcMidnight } from '../utils/date-utils.ts'
+import {
+  isDateInPast,
+  isWithinHours,
+  getPeriodRange,
+  getTodayUtcMidnight,
+} from '../utils/date-utils.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // 1. Data-table adapter (user-scoped CRUD)
@@ -104,10 +109,7 @@ export async function listAppointmentsByWeek(
   weekEnd: number,
   resourceId?: number,
 ): Promise<Appointment[]> {
-  let query = db
-    .query(appointments)
-    .where(gte('date', weekStart))
-    .where(lt('date', weekEnd))
+  let query = db.query(appointments).where(gte('date', weekStart)).where(lt('date', weekEnd))
 
   if (resourceId !== undefined) {
     query = query.where({ resource_id: resourceId })
@@ -252,7 +254,10 @@ export interface AppointmentUserOption {
   name: string
 }
 
-export async function fetchAppointmentEditRow(db: Database, id: string): Promise<AppointmentRow | undefined> {
+export async function fetchAppointmentEditRow(
+  db: Database,
+  id: string,
+): Promise<AppointmentRow | undefined> {
   let result = await db.exec(
     `SELECT a.id, a.title, a.user_id, u.email AS user_email,
             a.resource_id, r.name AS resource_name, r.description AS resource_description,
@@ -367,7 +372,9 @@ export async function listAppointments(
   return { rows, hasMore }
 }
 
-export async function listResourcesForAppointments(db: Database): Promise<AppointmentResourceOption[]> {
+export async function listResourcesForAppointments(
+  db: Database,
+): Promise<AppointmentResourceOption[]> {
   let result = await db.exec('SELECT id, name, description FROM resources ORDER BY name ASC')
   return (result.rows ?? []) as unknown as AppointmentResourceOption[]
 }
@@ -459,9 +466,7 @@ export interface DayWithSlots {
 }
 
 export async function listResources(db: Database): Promise<ResourceOption[]> {
-  let result = await db.exec(
-    'SELECT id, name, description FROM resources ORDER BY name ASC',
-  )
+  let result = await db.exec('SELECT id, name, description FROM resources ORDER BY name ASC')
   return (result.rows ?? []) as unknown as ResourceOption[]
 }
 
@@ -540,10 +545,7 @@ export async function listAppointmentsNew(
   return { rows, hasMore }
 }
 
-export async function checkResourceExists(
-  db: Database,
-  resourceId: number,
-): Promise<boolean> {
+export async function checkResourceExists(db: Database, resourceId: number): Promise<boolean> {
   let result = await db.exec('SELECT 1 FROM resources WHERE id = $1', [resourceId])
   return (result.rows ?? []).length > 0
 }
@@ -569,7 +571,14 @@ export async function getAppointmentForDelete(
 
 export async function createAppointmentRecord(
   db: Database,
-  data: { userId: number; resourceId: number; title: string; dayMs: number; during: string; now: number },
+  data: {
+    userId: number
+    resourceId: number
+    title: string
+    dayMs: number
+    during: string
+    now: number
+  },
 ): Promise<number> {
   let result = await db.exec(
     `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
@@ -601,9 +610,9 @@ export async function deleteAppointmentRecord(
   id: string,
   userId: number,
 ): Promise<boolean> {
-  let result = await db.exec(
-    'DELETE FROM appointments WHERE id = $1 AND user_id = $2',
-    [id, userId],
-  )
+  let result = await db.exec('DELETE FROM appointments WHERE id = $1 AND user_id = $2', [
+    id,
+    userId,
+  ])
   return (result.affectedRows ?? 0) > 0
 }

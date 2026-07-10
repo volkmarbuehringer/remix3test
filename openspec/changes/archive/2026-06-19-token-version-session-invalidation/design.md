@@ -7,6 +7,7 @@ The data-table ORM doesn't support raw SQL expressions in update values (always 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `token_version` INTEGER column to `users` table, default 1
 - Store `token_version` in session auth data at login: `{ userId, tv }`
 - Auth `verify()` rejects sessions whose `tv` doesn't match the user's current `token_version`
@@ -15,6 +16,7 @@ The data-table ORM doesn't support raw SQL expressions in update values (always 
 - Settings password change re-issues auth with new `tv` so the current device isn't logged out
 
 **Non-Goals:**
+
 - Not implementing a full session-revocation list or JWT blacklist
 - Not adding a `password_changed_at` timestamp (covered by the version counter)
 - Not changing the admin user management destroy path (deletion already cleans up)

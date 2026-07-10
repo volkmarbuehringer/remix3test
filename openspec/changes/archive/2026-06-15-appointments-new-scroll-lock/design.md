@@ -9,11 +9,13 @@ The built-in `lockScroll()` from `remix/ui/scroll-lock` handles both correctly: 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Lock page scroll while the side panel is open on `/appointments/new` (create/edit/delete)
 - Replace the manual `overflow: hidden` in the mobile nav toggle with `lockScroll()` for proper scrollbar-gutter handling
 - Use the existing `remix/ui/scroll-lock` API consistently across both surfaces
 
 **Non-Goals:**
+
 - No new modal/overlay UI pattern — the sticky panel stays inline
 - No behavioral change to the nav drawer's open/close lifecycle
 - No responsive layout changes to the two-column grid
@@ -22,23 +24,27 @@ The built-in `lockScroll()` from `remix/ui/scroll-lock` handles both correctly: 
 
 **1. Appointments page: clientEntry that reads URL state on page load**
 Since the panel open/close is driven by server-rendered URL state (full page navigations), there's no client-side toggle event to hook into. A clientEntry component will:
+
 - On mount, check `location.search` for `editing=`, `deleting=`, or `creating=true`
 - If a panel is open, call `lockScroll()` and store the unlock function
 - Register a `popstate` listener to re-evaluate on back/forward navigation
 - Clean up on unmount
 
 Alternatives considered:
+
 - **Server-rendered `<script>` block** — could inline a scroll-lock call, but creates duplication and bypasses the standard clientEntry lifecycle
 - **MutationObserver on the panel DOM** — fragile, couples to HTML structure
 - **CSS-only `overflow: hidden` on `<html>`** when panel present — would require server-side class toggling, no scrollbar-gutter compensation
 
 **2. Nav drawer: replace `document.body.style.overflow` with `lockScroll()`**
 The nav toggle clientEntry already manages open/close. The simplest path:
+
 - `lockScroll()` returns an idempotent unlock function
 - Store the unlock function in the outer closure
 - On toggle open → call `lockScroll()`, on close → call unlock
 
 Alternatives considered:
+
 - **`lockScrollOnToggle()` mixin** — would require restructuring the nav toggle to use popover `beforetoggle` events, which doesn't match its current class-based toggle pattern
 
 ## Risks / Trade-offs

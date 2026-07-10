@@ -50,4 +50,3 @@ Refer to `.opencode/skills/remix/SKILL.md` (plus 11 specialized skills: remix3-m
 - This starter intentionally begins small; add directories like `app/data/` and `test/` only when you need them.
 - Prefer putting code in the narrowest owner before introducing shared modules.
 - Avoid generic dumping-ground directories like `app/lib/` or `app/components/`.
-

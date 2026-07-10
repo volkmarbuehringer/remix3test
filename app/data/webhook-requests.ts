@@ -80,10 +80,10 @@ export async function updateWebhookRequestPayload(
   id: string,
   payload: string,
 ): Promise<boolean> {
-  let result = await db.exec(
-    'UPDATE webhook_requests SET payload = $1 WHERE id = $2',
-    [payload, id],
-  )
+  let result = await db.exec('UPDATE webhook_requests SET payload = $1 WHERE id = $2', [
+    payload,
+    id,
+  ])
   return (result.affectedRows ?? 0) > 0
 }
 
@@ -91,19 +91,13 @@ export async function getWebhookRequestPayload(
   db: Database,
   id: string,
 ): Promise<{ payload: Record<string, unknown> } | undefined> {
-  let result = await db.exec(
-    'SELECT payload FROM webhook_requests WHERE id = $1',
-    [id],
-  )
+  let result = await db.exec('SELECT payload FROM webhook_requests WHERE id = $1', [id])
   return (result.rows ?? []).length > 0
     ? (result.rows![0] as { payload: Record<string, unknown> })
     : undefined
 }
 
-export async function resetWebhookRequestCallback(
-  db: Database,
-  id: string,
-): Promise<void> {
+export async function resetWebhookRequestCallback(db: Database, id: string): Promise<void> {
   await db.exec(
     'UPDATE webhook_requests SET callback_response = NULL, callback_received_at = NULL WHERE id = $1',
     [id],
@@ -115,10 +109,7 @@ export async function updateWebhookRequestHermesStatus(
   id: string,
   status: string,
 ): Promise<void> {
-  await db.exec(
-    'UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2',
-    [status, id],
-  )
+  await db.exec('UPDATE webhook_requests SET hermes_status = $1 WHERE id = $2', [status, id])
 }
 
 export async function insertWebhookRequest(

@@ -17,7 +17,7 @@ Over 30 JSON API response calls across the app manually construct `new Response(
 
 ### Modified Capabilities
 
-*(none — no existing specs are changing)*
+_(none — no existing specs are changing)_
 
 ## Impact
 

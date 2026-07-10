@@ -56,9 +56,10 @@ export const ClientGridInlineEdit = clientEntry(
     }
 
     return () => {
-      let table = typeof document !== 'undefined'
-        ? document.querySelector<HTMLElement>('#client-grid-content table')
-        : null
+      let table =
+        typeof document !== 'undefined'
+          ? document.querySelector<HTMLElement>('#client-grid-content table')
+          : null
       if (table && table !== currentTable) {
         attachController?.abort()
         attachController = new AbortController()

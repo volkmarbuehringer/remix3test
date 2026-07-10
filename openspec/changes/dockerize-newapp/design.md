@@ -7,6 +7,7 @@ The app uses `remix@next` (from npm), `pg` for database access, and has AI SDK d
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Produce a working Docker image that starts the app on `http://0.0.0.0:44100`
 - Connect to a Neon PostgreSQL database via baked-in `.env` file
 - Skip SMTP/AI features (existing users can log in, registration disabled)
@@ -14,6 +15,7 @@ The app uses `remix@next` (from npm), `pg` for database access, and has AI SDK d
 - Clean signal handling (SIGTERM/SIGINT) for graceful shutdown in Docker
 
 **Non-Goals:**
+
 - TLS/HTTPS termination (handled by reverse proxy separately if needed)
 - SMTP/email configuration (not needed for initial deployment)
 - Health checks, logging infrastructure, or monitoring
@@ -23,26 +25,31 @@ The app uses `remix@next` (from npm), `pg` for database access, and has AI SDK d
 ## Decisions
 
 ### Multi-stage build with pnpm
+
 - **Choice**: Builder stage installs deps, runtime stage contains only what's needed
 - **Rationale**: Keeps final image lean — devDependencies (Playwright, oxlint, prettier) are excluded. pnpm is not needed in the runtime stage.
 - **Alternative considered**: Single-stage build — simpler but includes dev tooling in the image.
 
 ### node:26-slim base image
+
 - **Choice**: Official Node 26 slim image
 - **Rationale**: Matches the project's `node >=26.2.0` requirement. Slim variant is smaller than full Debian but includes enough for `pg` SSL connections after adding `ca-certificates`.
 - **Alternative considered**: `node:26-alpine` — smaller but adds complexity (need build tools for native deps if any; `pg` has C extensions).
 
 ### Bake .env into the image
+
 - **Choice**: `COPY . .` includes `.env` with DATABASE_URL and SESSION_SECRET
 - **Rationale**: Simplest approach for a single-container deployment with test data. The Neon DB URL is low-risk (test data only).
 - **Alternative considered**: Docker secrets or `env_file` in compose — more secure but requires runtime env management. Not needed for this use case.
 
 ### Remix from npm (`remix@next`)
+
 - **Choice**: Switch from GitHub URL to npm registry
 - **Rationale**: npm install is simpler, faster, and works reliably in Docker without git dependencies. Same package, same exports.
 - **Alternative considered**: Keep GitHub URL — works but adds git as a build dependency.
 
 ### `CI=true` to skip Playwright postinstall
+
 - **Choice**: Set `CI=true` in builder stage
 - **Rationale**: The postinstall script installs Playwright browser binaries (chromium, firefox) which are only needed for E2E tests, not production. `CI=true` skips them entirely.
 - **Alternative considered**: `pnpm install --prod` — skips all devDependencies but also skips the postinstall script, which could cause issues if any dependency has a required postinstall.

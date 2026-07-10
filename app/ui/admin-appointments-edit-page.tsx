@@ -1,5 +1,9 @@
 import type { Handle } from 'remix/ui'
-import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../data/appointments.ts'
+import type {
+  AppointmentRow,
+  AppointmentResourceOption,
+  AppointmentUserOption,
+} from '../data/appointments.ts'
 import { AdminAppointmentsForm } from './admin-appointments-form.tsx'
 
 export interface AdminAppointmentsEditPageProps {
@@ -19,7 +23,20 @@ export interface AdminAppointmentsEditPageProps {
 
 export function AdminAppointmentsEditPage(handle: Handle<AdminAppointmentsEditPageProps>) {
   return () => {
-    let { row, resources, users, offset, sort, order, filter = '', period = '', status = '', formValues, fieldErrors, formError } = handle.props
+    let {
+      row,
+      resources,
+      users,
+      offset,
+      sort,
+      order,
+      filter = '',
+      period = '',
+      status = '',
+      formValues,
+      fieldErrors,
+      formError,
+    } = handle.props
     return (
       <AdminAppointmentsForm
         mode="edit"

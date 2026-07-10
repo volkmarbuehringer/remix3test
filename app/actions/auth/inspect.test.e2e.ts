@@ -17,10 +17,18 @@ describe('register form inspection', () => {
     assert.ok(getHtml.includes('name="confirmPassword"'), 'should have confirm password field')
 
     // POST: trigger validation errors
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let postRes = await router.fetch(`${BASE}${routes.auth.register.action.href()}`, {
       method: 'POST',
-      body: new URLSearchParams({ name: 'X', email: 'bad', password: 'sh', confirmPassword: 'sh', _csrf: csrfToken }),
+      body: new URLSearchParams({
+        name: 'X',
+        email: 'bad',
+        password: 'sh',
+        confirmPassword: 'sh',
+        _csrf: csrfToken,
+      }),
       headers: { Cookie: cookie },
     })
     let postHtml = await postRes.text()
@@ -28,8 +36,14 @@ describe('register form inspection', () => {
     assert.equal(postRes.status, 400)
     assert.ok(postHtml.includes('<span id="name-error"'), 'should have name field error span')
     assert.ok(postHtml.includes('<span id="email-error"'), 'should have email field error span')
-    assert.ok(postHtml.includes('<span id="password-error"'), 'should have password field error span')
-    assert.ok(postHtml.includes('<span id="confirm-password-error"'), 'should have confirm-password field error span')
+    assert.ok(
+      postHtml.includes('<span id="password-error"'),
+      'should have password field error span',
+    )
+    assert.ok(
+      postHtml.includes('<span id="confirm-password-error"'),
+      'should have confirm-password field error span',
+    )
     assert.ok(postHtml.includes('Expected valid email'), 'should show email error message')
     assert.ok(postHtml.includes('Expected at least 10'), 'should show password error message')
     assert.ok(!postHtml.includes('defaultValue='), 'should not leak formValues as defaultValue')

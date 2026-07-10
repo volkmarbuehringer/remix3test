@@ -19,6 +19,7 @@ The global middleware is the natural place for a first-line throughput gate. The
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Block flood-level traffic from a single IP before it reaches formData parsing, session loading, or database queries
 - Cover all routes uniformly — including the 20+ controllers with no rate limiting today
 - Reuse the existing `createRateLimiter()` utility — no new storage or infrastructure
@@ -26,6 +27,7 @@ The global middleware is the natural place for a first-line throughput gate. The
 - Include standard `RateLimit-*` headers for client visibility
 
 **Non-Goals:**
+
 - Replacing action-level semantic rate limits (login brute-force protection, chat throttles, appointment CRUD limits — these stay in controllers)
 - Per-user, per-route, or per-method differentiation (single per-IP bucket for all non-asset traffic)
 - Distributed/cross-process counting (Redis — not needed for first version)
@@ -45,7 +47,7 @@ The global middleware is the natural place for a first-line throughput gate. The
 
 6. **Plain text 429 response** — no HTML rendering, no layout. The middleware runs before the `render()` and `json()` middleware, so those aren't available anyway. A minimal text response plus `Retry-After` header is the right tradeoff.
 
-7. **RateLimit-* headers on all responses** — the draft standard (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`) costs almost nothing to add (one in-memory lookup per response) and lets clients, CDNs, and operators observe their limit status.
+7. _*RateLimit-* headers on all responses_* — the draft standard (`RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`) costs almost nothing to add (one in-memory lookup per response) and lets clients, CDNs, and operators observe their limit status.
 
 ## Risks / Trade-offs
 

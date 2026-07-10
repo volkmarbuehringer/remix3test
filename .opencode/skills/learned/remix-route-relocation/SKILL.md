@@ -144,12 +144,14 @@ function dbErrorMessage(error: unknown): string {
 
 ```tsx
 // Every text input should follow this pattern:
-<input
+;<input
   name="field"
   mix={[input.base, input.focus, fieldErrors?.field ? inputErrorStyle : null].filter(Boolean)}
   value={formValues?.field ?? defaultValue}
 />
-{fieldErrors?.field ? <div mix={fieldErrorStyle}>{fieldErrors.field}</div> : null}
+{
+  fieldErrors?.field ? <div mix={fieldErrorStyle}>{fieldErrors.field}</div> : null
+}
 ```
 
 5. **Checkbox state preservation** — Checkboxes need special handling since unchecked checkboxes don't appear in FormData:

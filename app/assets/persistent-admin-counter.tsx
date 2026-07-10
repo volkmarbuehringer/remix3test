@@ -28,9 +28,7 @@ export const PersistentAdminCounter = clientEntry(
     // Cleanup handler: fires when entry is removed from DOM
     handle.signal.addEventListener('abort', () => {
       disposeCount++
-      console.info(
-        `[PersistentAdminCounter] Disposed. Total disposes: ${disposeCount}`,
-      )
+      console.info(`[PersistentAdminCounter] Disposed. Total disposes: ${disposeCount}`)
     })
 
     return () => (

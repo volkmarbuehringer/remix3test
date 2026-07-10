@@ -22,19 +22,19 @@ Previous attempts hit a wall: form validation errors didn't render correctly ins
 
 ### Modified Capabilities
 
-- *(none — no spec-level requirement changes)*
+- _(none — no spec-level requirement changes)_
 
 ## Impact
 
-| Area | Impact |
-|------|--------|
-| `app/routes.ts` | Move `nutzer` block into `admin` block |
-| `app/router.ts` | One line change: `routes.nutzer` → `routes.admin.nutzer` |
-| `app/actions/nutzer/controller.tsx` | ~6 `context.render()` calls switch from `<Layout>` to `renderAdminPage()`; 3 redirect URLs change |
-| `app/ui/admin-nutzer-page.tsx` | Add `rmx-target` to ~6 elements; change `ADMIN_BASE` |
-| `app/ui/admin-nutzer-edit-page.tsx` | Form action + cancel URL |
-| `app/ui/admin-nutzer-create-page.tsx` | Form action + cancel URL |
-| `app/assets/nutzer-table-interactive.tsx` | 5 fetch/URL references |
-| `app/ui/admin-layout.tsx` | Add nav item |
-| `app/ui/nav.ts` | Update href |
-| `app/actions/nutzer/controller.test.tsx` | ~40 URL references + rmx-target assertions |
+| Area                                      | Impact                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `app/routes.ts`                           | Move `nutzer` block into `admin` block                                                            |
+| `app/router.ts`                           | One line change: `routes.nutzer` → `routes.admin.nutzer`                                          |
+| `app/actions/nutzer/controller.tsx`       | ~6 `context.render()` calls switch from `<Layout>` to `renderAdminPage()`; 3 redirect URLs change |
+| `app/ui/admin-nutzer-page.tsx`            | Add `rmx-target` to ~6 elements; change `ADMIN_BASE`                                              |
+| `app/ui/admin-nutzer-edit-page.tsx`       | Form action + cancel URL                                                                          |
+| `app/ui/admin-nutzer-create-page.tsx`     | Form action + cancel URL                                                                          |
+| `app/assets/nutzer-table-interactive.tsx` | 5 fetch/URL references                                                                            |
+| `app/ui/admin-layout.tsx`                 | Add nav item                                                                                      |
+| `app/ui/nav.ts`                           | Update href                                                                                       |
+| `app/actions/nutzer/controller.test.tsx`  | ~40 URL references + rmx-target assertions                                                        |

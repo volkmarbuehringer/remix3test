@@ -15,10 +15,12 @@ The first pass (`consolidate-architecture-layers`) flipped the audit-log seam, l
 ## Capabilities
 
 ### New Capabilities
+
 - `remaining-data-repositories`: The remaining controllers (offerings, appointments, appointment, appointments-new, offering-configs, report1, pdf, users-pdf, users-export, admin/lists, admin/messages, uploads, settings, webhook, app-webhook, webhook-requests, webhook-requests/create, callback) and the uploads middleware consume typed repository functions from `app/data/**` only; no raw SQL remains outside `app/data/**`.
 - `app-lib-elimination`: Disk layout where `app/lib/` does not exist; theme primitives live under `app/ui/theme/`, domain modules under `app/data/`, and pure utilities under `app/utils/`; the asset allow list excludes `app/lib/**`.
 
 ### Modified Capabilities
+
 - `router-composition-root`: The `export const router` singleton at `app/router.ts:139` is removed; test consumers go through a shared test helper that constructs the single instance, and `app/test-utils.ts` builds its own router for cookie/storage overrides.
 
 ## Impact

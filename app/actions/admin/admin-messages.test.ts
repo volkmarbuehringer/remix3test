@@ -37,7 +37,10 @@ describe('Admin Messages controller', () => {
     let response = await router.fetch(ADMIN_MESSAGES_URL)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
+    assert.ok(
+      location?.startsWith(routes.auth.login.index.href()),
+      'should redirect to login with returnTo',
+    )
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 
@@ -105,12 +108,11 @@ describe('Admin Messages controller', () => {
     // Should redirect back to messages after creation
     assert.equal(response.status, 302)
     assert.equal(response.headers.get('Location'), '/admin/messages')
-
   })
 
   it('POST /admin/messages with sanitizable content creates message (after rate limit window)', async () => {
     // Wait for rate limit window to clear (500ms)
-    await new Promise(r => setTimeout(r, 600))
+    await new Promise((r) => setTimeout(r, 600))
 
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
@@ -177,7 +179,10 @@ describe('Admin Messages controller', () => {
       headers: { Cookie: adminCookie },
     })
     assert.equal(response.status, 200)
-    assert.equal(ContentType.from(response.headers.get('Content-Type')).mediaType, 'text/event-stream')
+    assert.equal(
+      ContentType.from(response.headers.get('Content-Type')).mediaType,
+      'text/event-stream',
+    )
     assert.ok(CacheControl.from(response.headers.get('Cache-Control')).noCache)
     assert.equal(response.headers.get('Connection'), 'keep-alive')
     assert.equal(response.headers.get('X-Accel-Buffering'), 'no')
@@ -205,7 +210,10 @@ describe('Admin Messages controller', () => {
     let response = await router.fetch(`${ADMIN_MESSAGES_URL}/subscribe`)
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
-    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login with returnTo')
+    assert.ok(
+      location?.startsWith(routes.auth.login.index.href()),
+      'should redirect to login with returnTo',
+    )
     assert.ok(location?.includes('returnTo='), 'should capture return path')
   })
 

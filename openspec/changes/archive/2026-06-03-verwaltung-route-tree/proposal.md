@@ -15,10 +15,12 @@ The current `/admin` route tree mixes operational data management (offerings, ap
 ## Capabilities
 
 ### New Capabilities
+
 - `verwaltung-dashboard`: Simple dashboard at `/verwaltung` with card-based navigation linking to offerings, appointments, resources, and offering-configs — no sidebar layout, full-page navigation
 - `verwaltung-route-tree`: New route tree definition at `/verwaltung/*` containing the four operational data routes
 
 ### Modified Capabilities
+
 - `admin-offerings-form-validation`: Route contract changes from `/admin/offerings` to `/verwaltung/offerings` — controller references and URL patterns change but form behavior and validation logic remain identical
 - `appointment-calendar`: Route contract changes from `/admin/appointments` to `/verwaltung/appointments`
 

@@ -1,6 +1,6 @@
 ---
 name: remix-consolidate-controllers
-description: "Mechanical process for merging flat kebab-case Remix 3 controllers into feature directories with named exports"
+description: 'Mechanical process for merging flat kebab-case Remix 3 controllers into feature directories with named exports'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -35,6 +35,7 @@ Count total lines of all source controllers to anticipate file size.
 When merging multiple controllers, scan for:
 
 **Constant conflicts** — same name used in multiple files with different values:
+
 ```
 PAGE_SIZE = 5    (chatlog)
 PAGE_SIZE = 15   (users)       → must rename each uniquely
@@ -44,10 +45,12 @@ PAGE_SIZE = 12   (offerings)
 Prefix with controller name: `CHATLOG_PAGE_SIZE`, `USERS_PAGE_SIZE`, `OFFERINGS_PAGE_SIZE`.
 
 **Type conflicts** — same type name with different shapes:
+
 ```
 interface ResourceOption { id: string; description: string }     // offerings
 interface ResourceOption { id: number; description: string }     // offering-configs
 ```
+
 Rename: `OfferingsResourceOption`, `OfferingConfigResourceOption`.
 
 **Schema conflicts** — same `createSchema`/`updateSchema` in multiple controllers:
@@ -66,7 +69,10 @@ UI files may import types from the flat controller paths:
 import type { AppointmentRow, ResourceOption } from '../actions/admin-appointments/controller.tsx'
 
 // New — point to consolidated file with renamed types:
-import type { AppointmentRow, AppointmentResourceOption } from '../actions/verwaltung/controller.tsx'
+import type {
+  AppointmentRow,
+  AppointmentResourceOption,
+} from '../actions/verwaltung/controller.tsx'
 ```
 
 Add `export` to all type interfaces that UI files consume. Search: `grep -r "from.*<old-path>" app/ui/`.

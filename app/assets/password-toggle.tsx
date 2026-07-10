@@ -3,9 +3,7 @@ import { getCspNonce } from '../middleware/security-headers.ts'
 
 export function PasswordToggle(_handle: Handle) {
   let nonce = getCspNonce()
-  return () => (
-    <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
-  )
+  return () => <script nonce={nonce}>{PASSWORD_TOGGLE_SCRIPT}</script>
 }
 
 const PASSWORD_TOGGLE_SCRIPT = `

@@ -49,24 +49,43 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
 
             <div mix={table.panelBody}>
               <div mix={noteStyle}>
-                Erzeugt Angebote für alle Ressourcen mit Konfiguration. Feiertage werden automatisch übersprungen.
+                Erzeugt Angebote für alle Ressourcen mit Konfiguration. Feiertage werden automatisch
+                übersprungen.
               </div>
 
               {/* Year */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} for="aw-year">Jahr</label>
-                <select id="aw-year" name="year" required mix={[input.base, input.focus, table.select]}>
+                <label mix={table.label} for="aw-year">
+                  Jahr
+                </label>
+                <select
+                  id="aw-year"
+                  name="year"
+                  required
+                  mix={[input.base, input.focus, table.select]}
+                >
                   {years.map((y) => (
-                    <option key={y} value={y}>{y}</option>
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
                   ))}
                 </select>
               </div>
 
               {/* Week */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} for="aw-week">Woche</label>
-                <select id="aw-week" name="week" required mix={[input.base, input.focus, table.select]}>
-                  <option value="" disabled selected>Woche auswählen...</option>
+                <label mix={table.label} for="aw-week">
+                  Woche
+                </label>
+                <select
+                  id="aw-week"
+                  name="week"
+                  required
+                  mix={[input.base, input.focus, table.select]}
+                >
+                  <option value="" disabled selected>
+                    Woche auswählen...
+                  </option>
                   {years.map((y) => {
                     let max = isoWeeksInYear(y)
                     return Array.from({ length: max }, (_, i) => {
@@ -86,7 +105,10 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                   Erstellen
                 </button>
                 <a href="/verwaltung/offerings" mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

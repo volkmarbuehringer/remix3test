@@ -72,26 +72,38 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="nc-vorname">Vorname</label>
+                <label mix={table.label} htmlFor="nc-vorname">
+                  Vorname
+                </label>
                 <input
                   id="nc-vorname"
                   name="vorname"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.vorname ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.vorname ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.vorname ?? ''}
                   placeholder="Vorname"
                   maxLength={100}
                 />
-                {fieldErrors?.vorname ? <div mix={fieldErrorStyle}>{fieldErrors.vorname}</div> : null}
+                {fieldErrors?.vorname ? (
+                  <div mix={fieldErrorStyle}>{fieldErrors.vorname}</div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="nc-name">Name</label>
+                <label mix={table.label} htmlFor="nc-name">
+                  Name
+                </label>
                 <input
                   id="nc-name"
                   name="name"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
+                    Boolean,
+                  )}
                   value={formValues?.name ?? ''}
                   placeholder="Name"
                   maxLength={100}
@@ -100,12 +112,18 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="nc-email">Email</label>
+                <label mix={table.label} htmlFor="nc-email">
+                  Email
+                </label>
                 <input
                   id="nc-email"
                   name="email"
                   type="email"
-                  mix={[input.base, input.focus, fieldErrors?.email ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.email ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.email ?? ''}
                   placeholder="email@example.com"
                   maxLength={200}
@@ -127,12 +145,18 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="nc-login">Login</label>
+                <label mix={table.label} htmlFor="nc-login">
+                  Login
+                </label>
                 <input
                   id="nc-login"
                   name="login"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.login ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.login ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.login ?? ''}
                   placeholder="Loginname"
                   maxLength={100}
@@ -148,7 +172,9 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   mix={checkboxStyle}
                   checked={formValues?.aktiv !== undefined ? formValues.aktiv === 'on' : true}
                 />
-                <label mix={checkboxLabelStyle} htmlFor="nc-aktiv">Aktiv</label>
+                <label mix={checkboxLabelStyle} htmlFor="nc-aktiv">
+                  Aktiv
+                </label>
               </div>
 
               <div mix={checkboxRowStyle}>
@@ -159,15 +185,29 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
                   mix={checkboxStyle}
                   checked={formValues?.gesperrt === 'on'}
                 />
-                <label mix={checkboxLabelStyle} htmlFor="nc-gesperrt">Gesperrt</label>
+                <label mix={checkboxLabelStyle} htmlFor="nc-gesperrt">
+                  Gesperrt
+                </label>
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
                 </button>
-                <a href={buildCancelUrl(routes.admin.nutzer.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.admin.nutzer.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

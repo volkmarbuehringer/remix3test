@@ -5,6 +5,7 @@ The app needs a webhook endpoint that external services can call with a token. P
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Token-authenticated JSON POST endpoint that stores arbitrary JSON payloads
 - UUID-based table with JSONB column for the payload
 - SSR viewer page with paging, sorting, and filtering on the stored data
@@ -12,6 +13,7 @@ The app needs a webhook endpoint that external services can call with a token. P
 - Token validated against a configurable secret (env var or DB-stored)
 
 **Non-Goals:**
+
 - No authentication dashboard (tokens are static for now)
 - No payload schema validation (stored as-is)
 - No rate limiting (separate concern)

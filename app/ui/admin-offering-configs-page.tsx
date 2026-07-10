@@ -7,14 +7,21 @@ import { animateEntrance } from 'remix/ui/animation'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import {
-  sortArrow, buildSortUrl, buildPaginationUrl,
-  buildCreateUrl, buildCancelUrl, formatTimestamp,
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildCancelUrl,
+  formatTimestamp,
 } from './mixins/admin-urls.ts'
 
 import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import type { OfferingConfigRow, OfferingConfigResourceOption } from '../data/offering-configs-queries.ts'
+import type {
+  OfferingConfigRow,
+  OfferingConfigResourceOption,
+} from '../data/offering-configs-queries.ts'
 import { ConfirmDelete } from '../assets/confirm-delete.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { AdminOfferingConfigsContextMenu } from '../assets/admin-offering-configs-context-menu.tsx'
@@ -47,8 +54,13 @@ const DAYS = [
 ] as const
 
 const DAY_LABELS_SHORT: Record<string, string> = {
-  monday: 'Mo', tuesday: 'Di', wednesday: 'Mi',
-  thursday: 'Do', friday: 'Fr', saturday: 'Sa', sunday: 'So',
+  monday: 'Mo',
+  tuesday: 'Di',
+  wednesday: 'Mi',
+  thursday: 'Do',
+  friday: 'Fr',
+  saturday: 'Sa',
+  sunday: 'So',
 }
 
 const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => i * 60)
@@ -83,7 +95,10 @@ function DayRuleRow(handle: Handle<DayRuleRowProps>) {
           checked={checked}
           mix={dayCheckboxStyle}
         />
-        <label for={`${idPrefix}-${dayKey}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
+        <label
+          for={`${idPrefix}-${dayKey}`}
+          mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}
+        >
           {dayLabel}
         </label>
         <select name={`${dayKey}_start`} mix={timeSelectStyle}>
@@ -93,7 +108,9 @@ function DayRuleRow(handle: Handle<DayRuleRowProps>) {
             </option>
           ))}
         </select>
-        <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>{'\u2013'}</span>
+        <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>
+          {'\u2013'}
+        </span>
         <select name={`${dayKey}_end`} mix={timeSelectStyle}>
           {TIME_END_OPTIONS.map((min) => (
             <option key={min} value={min} selected={min === endMin}>
@@ -159,10 +176,20 @@ const dayCheckboxStyle = css({
 export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPageProps>) {
   return () => {
     let {
-      rows, offset, hasMore, prevOffset, nextOffset,
-      sortColumn, sortDirection, filter,
-      editRow = null, creating = false, resources,
-      formValues, fieldErrors, formError,
+      rows,
+      offset,
+      hasMore,
+      prevOffset,
+      nextOffset,
+      sortColumn,
+      sortDirection,
+      filter,
+      editRow = null,
+      creating = false,
+      resources,
+      formValues,
+      fieldErrors,
+      formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -184,7 +211,9 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
+          <button type="submit" mix={table.searchBtn}>
+            <Glyph name="search" width={14} height={14} /> Suchen
+          </button>
           {filter && (
             <a
               href={routes.verwaltung.offeringConfigs.index.href()}
@@ -200,7 +229,9 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
+            <button mix={[button({ tone: 'primary' })]}>
+              <Glyph name="add" width={14} height={14} /> Neu anlegen
+            </button>
           </a>
         </form>
 
@@ -222,10 +253,26 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               <thead>
                 <tr>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'resource_description', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'resource_description',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Ressource
-                      <span mix={'resource_description' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={
+                          'resource_description' === sortColumn
+                            ? table.sortArrowActive
+                            : table.sortArrow
+                        }
+                      >
                         {sortArrow('resource_description', sortColumn, sortDirection)}
                       </span>
                     </a>
@@ -233,10 +280,22 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   <th mix={table.th}>Beschreibung</th>
                   <th mix={table.th}>Regeln</th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'updated_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'updated_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Aktualisiert
-                      <span mix={'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'updated_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('updated_at', sortColumn, sortDirection)}
                       </span>
                     </a>
@@ -245,11 +304,23 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               </thead>
               <tbody>
                 {rows.map((row) => (
-                    <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                      <td mix={table.td} title={row.resource_name ?? ''}>{row.resource_name ?? '\u2014'}</td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>{row.resource_description ?? '\u2014'}</td>
-                    <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>{rulesSummary(row.rules)}</td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>{formatTimestamp(row.updated_at)}</td>
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    data-row-id={row.id}
+                  >
+                    <td mix={table.td} title={row.resource_name ?? ''}>
+                      {row.resource_name ?? '\u2014'}
+                    </td>
+                    <td mix={table.td} title={row.resource_description ?? ''}>
+                      {row.resource_description ?? '\u2014'}
+                    </td>
+                    <td mix={[table.td, css({ fontSize: '11px' })]} title={rulesSummary(row.rules)}>
+                      {rulesSummary(row.rules)}
+                    </td>
+                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>
+                      {formatTimestamp(row.updated_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -282,26 +353,62 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={table.paginationInfo}>Zeige {pageStart}{'\u2013'}{pageEnd}</span>
+              <span mix={table.paginationInfo}>
+                Zeige {pageStart}
+                {'\u2013'}
+                {pageEnd}
+              </span>
             )}
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> {'Zur\u00fcck'}</a>
+                >
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  {'Zur\u00fcck'}
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> {'Zur\u00fcck'}</span>
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  {'Zur\u00fcck'}
+                </span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
+                >
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
+                <span mix={table.pageLinkDisabled}>
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </span>
               )}
             </div>
           </div>
@@ -378,13 +485,27 @@ interface EditPanelProps {
 
 function EditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, resources, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      row,
+      resources,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     let rules: Record<string, [number, number]> = row.rules ?? {}
-    let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : Number(row.resource_id)
+    let selectedResourceId = formValues?.resource_id
+      ? Number(formValues.resource_id)
+      : Number(row.resource_id)
     let hasResourceError = !!fieldErrors?.resource_id
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
-        <RestfulForm method="PUT" action={routes.verwaltung.offeringConfigs.update.href({ id: row.id })}>
+        <RestfulForm
+          method="PUT"
+          action={routes.verwaltung.offeringConfigs.update.href({ id: row.id })}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -394,31 +515,81 @@ function EditPanel(handle: Handle<EditPanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} for="oc-resource">Ressource</label>
-                <select id="oc-resource" name="resource_id" mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
-                  {resources.map(r => (
+                <label mix={table.label} for="oc-resource">
+                  Ressource
+                </label>
+                <select
+                  id="oc-resource"
+                  name="resource_id"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    ...(hasResourceError ? [input.error] : []),
+                  ]}
+                >
+                  {resources.map((r) => (
                     <option key={r.id} value={r.id} selected={Number(r.id) === selectedResourceId}>
                       {r.name}
                     </option>
                   ))}
                 </select>
-                {hasResourceError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.resource_id}</div> : null}
+                {hasResourceError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {fieldErrors!.resource_id}
+                  </div>
+                ) : null}
               </div>
 
               {DAYS.map((day) => {
                 let rule = rules[day.key]
                 let checked = formValues ? formValues[`${day.key}_enabled`] === '1' : !!rule
-                let startMin = formValues?.[`${day.key}_start`] ? Number(formValues[`${day.key}_start`]) : (rule ? rule[0] : 480)
-                let endMin = formValues?.[`${day.key}_end`] ? Number(formValues[`${day.key}_end`]) : (rule ? rule[1] : 1020)
-                return <DayRuleRow dayKey={day.key} dayLabel={day.label} idPrefix="oc" checked={checked} startMin={startMin} endMin={endMin} />
+                let startMin = formValues?.[`${day.key}_start`]
+                  ? Number(formValues[`${day.key}_start`])
+                  : rule
+                    ? rule[0]
+                    : 480
+                let endMin = formValues?.[`${day.key}_end`]
+                  ? Number(formValues[`${day.key}_end`])
+                  : rule
+                    ? rule[1]
+                    : 1020
+                return (
+                  <DayRuleRow
+                    dayKey={day.key}
+                    dayLabel={day.label}
+                    idPrefix="oc"
+                    checked={checked}
+                    startMin={startMin}
+                    endMin={endMin}
+                  />
+                )
               })}
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.offeringConfigs.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.offeringConfigs.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>
@@ -443,7 +614,15 @@ interface CreatePanelProps {
 
 function CreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { resources, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      resources,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : undefined
     let hasResourceError = !!fieldErrors?.resource_id
     return (
@@ -458,29 +637,76 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} for="oc-resource-c">Ressource</label>
-                <select id="oc-resource-c" name="resource_id" required mix={[input.base, input.focus, selectStyle, ...(hasResourceError ? [input.error] : [])]}>
-                  <option value="" disabled selected={!selectedResourceId}>Ressource auswählen</option>
-                  {resources.map(r => (
-                    <option key={r.id} value={r.id} selected={selectedResourceId === Number(r.id)}>{r.name}</option>
+                <label mix={table.label} for="oc-resource-c">
+                  Ressource
+                </label>
+                <select
+                  id="oc-resource-c"
+                  name="resource_id"
+                  required
+                  mix={[
+                    input.base,
+                    input.focus,
+                    selectStyle,
+                    ...(hasResourceError ? [input.error] : []),
+                  ]}
+                >
+                  <option value="" disabled selected={!selectedResourceId}>
+                    Ressource auswählen
+                  </option>
+                  {resources.map((r) => (
+                    <option key={r.id} value={r.id} selected={selectedResourceId === Number(r.id)}>
+                      {r.name}
+                    </option>
                   ))}
                 </select>
-                {hasResourceError ? <div mix={css({ color: theme.colors.action.danger.background, fontSize: theme.fontSize.xs, marginTop: theme.space.xs })}>{fieldErrors!.resource_id}</div> : null}
+                {hasResourceError ? (
+                  <div
+                    mix={css({
+                      color: theme.colors.action.danger.background,
+                      fontSize: theme.fontSize.xs,
+                      marginTop: theme.space.xs,
+                    })}
+                  >
+                    {fieldErrors!.resource_id}
+                  </div>
+                ) : null}
               </div>
 
               {DAYS.map((day) => {
                 let checked = formValues?.[`${day.key}_enabled`] === '1'
                 let startMin = Number(formValues?.[`${day.key}_start`] ?? 480)
                 let endMin = Number(formValues?.[`${day.key}_end`] ?? 1020)
-                return <DayRuleRow dayKey={day.key} dayLabel={day.label} idPrefix="oc-c" checked={checked} startMin={startMin} endMin={endMin} />
+                return (
+                  <DayRuleRow
+                    dayKey={day.key}
+                    dayLabel={day.label}
+                    idPrefix="oc-c"
+                    checked={checked}
+                    startMin={startMin}
+                    endMin={endMin}
+                  />
+                )
               })}
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.offeringConfigs.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.offeringConfigs.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

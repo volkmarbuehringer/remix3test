@@ -24,7 +24,7 @@ Currently, newapp's frame usage is limited to a single `<Frame>` grid at `/clien
 
 ### Modified Capabilities
 
-*(No existing specs change — all new capabilities)*
+_(No existing specs change — all new capabilities)_
 
 ## Impact
 

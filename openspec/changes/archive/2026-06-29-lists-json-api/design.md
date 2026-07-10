@@ -5,6 +5,7 @@ The app currently has two authentication systems: session cookies (for browser u
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Extract all list CRUD logic into a shared lib (`app/lib/lists-api.ts`)
 - Refactor existing controller to call the lib (identical behavior, zero regression)
 - Create new token-authenticated JSON API at `/api/lists` with full CRUD
@@ -12,6 +13,7 @@ The app currently has two authentication systems: session cookies (for browser u
 - Follow the existing webhook auth pattern: Bearer token, CSRF exemption, inline auth call
 
 **Non-Goals:**
+
 - No user-ownership scoping (lists table has no user_id; this remains global)
 - No HMAC verification (adds complexity; can be added later)
 - No changes to the admin panel or its query logic
@@ -20,25 +22,30 @@ The app currently has two authentication systems: session cookies (for browser u
 ## Decisions
 
 **1. Extract shared lib over importing action handlers directly**
+
 - Importing action functions from a controller couples the API controller to the existing controller's internals and middleware assumptions
 - A dedicated `app/lib/lists-api.ts` with pure functions (accepting `db` and params, returning data) is testable in isolation and reusable from both controllers, tests, and future consumers
 
 **2. Exported functions follow a consistent signature**
+
 - Each function accepts the database client + operation-specific params and returns typed results
 - No Response objects — the caller (controller action) handles HTTP concerns (status codes, response format)
 - This keeps the lib pure and the controller focused on auth + HTTP
 
 **3. Pagination / filtering on `GET /api/lists`** mirrors the admin panel's approach
+
 - `offset` and `limit` query params for pagination
 - `filter` query param for ILIKE search on description and item labels (same GIN-backed query as admin)
 - Returns `{ data: [...], hasMore: boolean, offset: number }`
 
 **4. Token auth inline, not as middleware**
+
 - Matches existing webhook pattern: call `authenticateWebhook(context.request)` at handler top
 - Returns `401`/`503` `Response` on failure; continues on success
 - Avoids needing a new middleware registration in the router
 
 **5. CSRF exemption by path prefix**
+
 - Add `/api/` prefix check to `skip-csrf.ts` rather than individual paths — clean, future-proof
 
 ## Risks / Trade-offs

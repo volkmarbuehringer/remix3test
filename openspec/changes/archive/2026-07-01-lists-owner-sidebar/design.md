@@ -7,6 +7,7 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Render `/lists` with `createSidebarLayout` so it visually matches `/admin` (sidebar + content grid).
 - Server-render the sidebar from the current user's list summaries (owner-scoped), ordered by `updated_at desc`.
 - Highlight the list currently loaded for editing; clicking a sidebar entry loads it into `ListsClient` for editing via the existing `GET /lists/:id/data` flow.
@@ -14,6 +15,7 @@
 - Keep all existing editor operations and the save/update endpoints unchanged.
 
 **Non-Goals:**
+
 - No new routes — reuse `routes.lists` (`index`, `show`, `save`, `update`, `data`).
 - No pagination on the sidebar (the per-user list count is small; a hard limit with "more" affordance is a later iteration).
 - No search/filter on the sidebar (the admin lists page already has search at `/admin/lists`).

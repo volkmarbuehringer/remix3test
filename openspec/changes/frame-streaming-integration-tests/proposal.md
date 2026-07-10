@@ -18,17 +18,21 @@ newapp uses Remix 3's Frame system throughout — admin pages load content via `
 ## Capabilities
 
 ### New Capabilities
+
 - `frame-streaming-tests`: Integration test suite that validates the end-to-end frame streaming pipeline — fallback rendering, incremental frame resolution via `<template>` tags, fragment endpoint isolation, nested frame composition, and error handling for broken frame targets.
 
 ### Modified Capabilities
-*(None — no existing spec requirements change.)*
+
+_(None — no existing spec requirements change.)_
 
 ## Impact
 
 **Files created:**
+
 - `app/router.test.ts` — Main integration test for frame streaming
 
 **Files affected (indirectly — tests exercise existing endpoints, no code changes):**
+
 - `app/middleware/render.tsx` — (no change) tested via router integration
 - `app/actions/admin-fragments-controller.tsx` — (no change) tested via router integration
 - `app/actions/admin-chatlog-fragments-controller.tsx` — (no change) tested via router integration

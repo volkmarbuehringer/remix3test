@@ -22,9 +22,7 @@ const BASE = 'https://remix.run'
 
 // ── Streaming helpers ──────────────────────────────────────────
 
-async function* readChunks(
-  stream: ReadableStream<Uint8Array>,
-): AsyncGenerator<string, void, void> {
+async function* readChunks(stream: ReadableStream<Uint8Array>): AsyncGenerator<string, void, void> {
   let reader = stream.getReader()
   let decoder = new TextDecoder()
 
@@ -243,11 +241,7 @@ describe('CSRF protection', () => {
 
     // Assert: request passes CSRF validation
     // (status is 302 because login succeeded, not 403 from CSRF)
-    assert.equal(
-      response.status,
-      302,
-      'POST with valid CSRF token should pass through',
-    )
+    assert.equal(response.status, 302, 'POST with valid CSRF token should pass through')
   })
 
   // -----------------------------------------------------------------------
@@ -259,11 +253,7 @@ describe('CSRF protection', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
 
     // Assert: CSRF middleware does not block GET requests
-    assert.equal(
-      response.status,
-      200,
-      'GET should pass through without CSRF validation',
-    )
+    assert.equal(response.status, 200, 'GET should pass through without CSRF validation')
   })
 
   // -----------------------------------------------------------------------

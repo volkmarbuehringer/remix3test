@@ -9,6 +9,7 @@ This change converts the admin appointments table to use `menu.contextTrigger()`
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace visible Edit/Delete buttons in admin appointments table with a right-click context menu
 - Use `menu.contextTrigger()` directly on table rows (not via hidden proxy element)
 - Preserve all existing functionality: inline edit navigation, DELETE via `methodOverride` middleware
@@ -16,6 +17,7 @@ This change converts the admin appointments table to use `menu.contextTrigger()`
 - Keep the pattern clean and scalable for adding future actions (duplicate, copy ID, view details)
 
 **Non-Goals:**
+
 - Not changing the existing `appointtype-panel.tsx` context menu (that's a separate improvement)
 - Not adding client-side data fetching or optimistic updates — all mutations remain server-side POST/redirect
 - Not converting the entire page to `clientEntry` — only the table rows need interactivity
@@ -32,6 +34,7 @@ This change converts the admin appointments table to use `menu.contextTrigger()`
 **Why**: The existing DELETE path uses `methodOverride()` middleware expecting a POST body with `_method=DELETE` and grid state fields (`_offset`, `_sort`, `_order`, `_filter`). Rather than duplicating the form submission logic or changing the controller to accept JSON DELETE, we keep the existing `RestfulForm` hidden and call `.requestSubmit()` on it from the context menu's "Delete" action. This preserves the exact same server behavior, CSRF protection, and grid state forwarding.
 
 **Alternatives considered**:
+
 - `fetch()` POST with `_method=DELETE`: Works but duplicates CSRF token handling and grid state serialization
 - `fetch()` DELETE with JSON body: Requires controller changes to accept JSON, breaking the existing pattern
 
@@ -40,6 +43,7 @@ This change converts the admin appointments table to use `menu.contextTrigger()`
 **Why**: Only the table rows need `menu.contextTrigger()` interactivity. The page layout, header, filter bar, and pagination are static server content. Extracting just the table into a `clientEntry` component minimizes the client-side surface area. Each `<tr>` inside that `clientEntry` gets `menu.contextTrigger()` applied directly.
 
 **Alternatives considered**:
+
 - Make entire page a `clientEntry`: Unnecessary — only the table rows need event handlers
 - Add inline script to handle context: Conflicts with Remix 3 component model
 
@@ -53,9 +57,9 @@ This change converts the admin appointments table to use `menu.contextTrigger()`
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Users may not discover the right-click context menu | Keep the action button group visible `@media (hover: hover)` for mouse users; context menu is a power-user shortcut — more buttons can be added later without visual clutter |
-| `menu.contextTrigger()` on `<tr>` may conflict with other row events | The `contextmenu` event fires before any click events; `handlePointerDown` already checks `event.button !== 0` to ignore right-clicks |
-| Hidden `RestfulForm` could be detected by accessibility tools | Use `aria-hidden="true"` and `role="presentation"` on the hidden form wrapper |
-| Grid state must be available to the clientEntry component | Pass grid state (offset, sort, order, filter) as data attributes rendered by the server template, read via `JSON.parse` in the clientEntry |
+| Risk                                                                 | Mitigation                                                                                                                                                                   |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Users may not discover the right-click context menu                  | Keep the action button group visible `@media (hover: hover)` for mouse users; context menu is a power-user shortcut — more buttons can be added later without visual clutter |
+| `menu.contextTrigger()` on `<tr>` may conflict with other row events | The `contextmenu` event fires before any click events; `handlePointerDown` already checks `event.button !== 0` to ignore right-clicks                                        |
+| Hidden `RestfulForm` could be detected by accessibility tools        | Use `aria-hidden="true"` and `role="presentation"` on the hidden form wrapper                                                                                                |
+| Grid state must be available to the clientEntry component            | Pass grid state (offset, sort, order, filter) as data attributes rendered by the server template, read via `JSON.parse` in the clientEntry                                   |

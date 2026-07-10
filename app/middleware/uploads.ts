@@ -5,14 +5,29 @@ import { insertUpload } from '../data/uploads.ts'
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 const ALLOWED_EXTENSIONS = new Set([
-  '.jpg', '.jpeg', '.png', '.gif', '.webp',
-  '.pdf', '.txt', '.csv', '.json', '.xml',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.pdf',
+  '.txt',
+  '.csv',
+  '.json',
+  '.xml',
 ])
 
 const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-  'application/pdf', 'text/plain', 'text/csv',
-  'application/json', 'application/xml', 'text/xml',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/xml',
+  'text/xml',
 ])
 
 function validateFileUpload(file: FileUpload): void {

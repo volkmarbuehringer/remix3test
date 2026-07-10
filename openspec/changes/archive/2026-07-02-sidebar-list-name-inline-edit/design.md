@@ -9,6 +9,7 @@ The project uses `clientEntry()` components for client-side interactivity (see `
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Double-click a list name in the sidebar to enter inline edit mode
 - Show a text input pre-filled with the current name
 - Save on Enter or blur (via PUT with new description)
@@ -17,6 +18,7 @@ The project uses `clientEntry()` components for client-side interactivity (see `
 - Show a brief error state if save fails (restore original)
 
 **Non-Goals:**
+
 - Changing the existing `PUT /lists/:id/update` schema (keeps full-save path intact)
 - Editing via the admin lists sidebar
 - Animations, optimistic UI, or undo
@@ -51,6 +53,7 @@ The project uses `clientEntry()` components for client-side interactivity (see `
 **routes.ts** — Add `rename: put('/:id/rename')` to the `lists` route group.
 
 **controller.tsx** — Add `rename` action:
+
 - Parse `{ description: string }` with `s.object({ description: s.string().pipe(minLength(1), maxLength(500)) })`
 - Call `renameList(db, id, description, userId)` which updates only the `description` column and `updated_at`
 - Return `{ id, description }` on success, `{ error }` on failure
@@ -62,6 +65,7 @@ The project uses `clientEntry()` components for client-side interactivity (see `
 **lists-layout.tsx** — Add `data-list-id` to each sidebar entry div, `data-list-name` to the name span. Import and render `<ListNameEdit />` in the sidebar `<nav>`.
 
 **app/assets/list-name-edit.tsx** (new) — clientEntry component:
+
 - Attaches delegated `dblclick` listener on the nav container
 - On double-click: finds the target span, hides it, inserts an input
 - Handles Enter/blur/Escape via listeners on the input

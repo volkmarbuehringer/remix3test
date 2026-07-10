@@ -8,10 +8,7 @@ export interface UploadRow {
   created_at: number
 }
 
-export async function listUploads(
-  db: Database,
-  userId?: number,
-): Promise<UploadRow[]> {
+export async function listUploads(db: Database, userId?: number): Promise<UploadRow[]> {
   let result
   if (userId !== undefined) {
     result = await db.exec(
@@ -32,11 +29,7 @@ export async function listUploads(
   }))
 }
 
-export async function claimUpload(
-  db: Database,
-  uploadId: number,
-  userId: number,
-): Promise<void> {
+export async function claimUpload(db: Database, uploadId: number, userId: number): Promise<void> {
   await db.exec(
     `UPDATE uploads SET uploaded_by = $1 WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)`,
     [userId, uploadId],
@@ -55,10 +48,7 @@ export async function getUploadDownload(
       [id, userId],
     )
   } else {
-    result = await db.exec(
-      `SELECT filename, mime_type, data FROM uploads WHERE id = $1`,
-      [id],
-    )
+    result = await db.exec(`SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id])
   }
   return (result.rows ?? []).length > 0
     ? (result.rows![0] as unknown as { filename: string; mime_type: string; data: BodyInit })

@@ -1,5 +1,5 @@
 ---
-title: "Remix 3 Theme Extension Pattern — Custom Brand Colors"
+title: 'Remix 3 Theme Extension Pattern — Custom Brand Colors'
 tags: [remix3, theme, css, dark-mode, branding, styling]
 created: 2026-06-01
 status: active

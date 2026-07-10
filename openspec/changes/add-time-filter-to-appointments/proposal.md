@@ -12,9 +12,11 @@ The admin appointments page (`/verwaltung/appointments`) currently lacks time-pe
 ## Capabilities
 
 ### New Capabilities
+
 - `appointments-time-filter`: Time-period filter buttons on the admin appointments page allowing admins to filter appointments by "Alle" (all), "Diese Woche" (this week), "Nächste Woche" (next week), "Diesen Monat" (this month), and "Nächsten Monat" (next month)
 
 ### Modified Capabilities
+
 <!-- No existing capability requirements change. Implementation details only. -->
 
 ## Impact

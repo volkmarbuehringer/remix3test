@@ -50,7 +50,9 @@ describe('Auth Register controller', () => {
   // POST /register — successful registration
   // -----------------------------------------------------------------------
   it('POST /register with valid data creates user and redirects to register-sent', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let email = `${TEST_PREFIX}valid@example.com`
 
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
@@ -67,14 +69,20 @@ describe('Auth Register controller', () => {
     })
 
     assert.equal(response.status, 302, 'should redirect on success')
-    assert.equal(response.headers.get('Location'), routes.auth.registerSent.href(), 'should redirect to register-sent page')
+    assert.equal(
+      response.headers.get('Location'),
+      routes.auth.registerSent.href(),
+      'should redirect to register-sent page',
+    )
   })
 
   // -----------------------------------------------------------------------
   // POST /register — duplicate email
   // -----------------------------------------------------------------------
   it('POST /register with duplicate email returns 400 with error', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let email = `${TEST_PREFIX}duplicate@example.com`
 
     // Create the user first
@@ -118,7 +126,9 @@ describe('Auth Register controller', () => {
   // hitting the database. Invalid fields return 400 with an error message.
   // -----------------------------------------------------------------------
   it('POST /register with empty name returns 400 with error message', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let email = `${TEST_PREFIX}emptyname@example.com`
 
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
@@ -141,7 +151,9 @@ describe('Auth Register controller', () => {
   })
 
   it('POST /register with empty email returns 400 with error message', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
 
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
@@ -166,7 +178,9 @@ describe('Auth Register controller', () => {
   // POST /register — rate limiting
   // -----------------------------------------------------------------------
   it('POST /register with repeated attempts for same email returns 429 after limit', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let email = `${TEST_PREFIX}ratelimit@example.com`
 
     // Fire 6 attempts — the first succeeds (new user, resets counter), then
@@ -181,9 +195,9 @@ describe('Auth Register controller', () => {
         body: new URLSearchParams({
           name: 'Rate Limit User',
           email,
-        password: 'password123!',
-        confirmPassword: 'password123!',
-        _csrf: session.csrfToken,
+          password: 'password123!',
+          confirmPassword: 'password123!',
+          _csrf: session.csrfToken,
         }),
         redirect: 'manual',
       })
@@ -206,10 +220,7 @@ describe('Auth Register controller', () => {
 
     assert.equal(response.status, 429, 'should return 429 when rate limited')
     let html = await response.text()
-    assert.ok(
-      html.toLowerCase().includes('zu viele'),
-      'should show rate limit error message',
-    )
+    assert.ok(html.toLowerCase().includes('zu viele'), 'should show rate limit error message')
   })
 
   // Note: hashPassword('') produces a non-empty hash string, so an empty
@@ -221,7 +232,9 @@ describe('Auth Register controller', () => {
   // POST /register — short password shows field error
   // -----------------------------------------------------------------------
   it('POST /register with short password returns 400 with field error', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
 
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
@@ -239,14 +252,19 @@ describe('Auth Register controller', () => {
     assert.equal(response.status, 400)
     let html = await response.text()
     assert.ok(html.includes('<span id="password-error"'), 'should show password field error')
-    assert.ok(html.includes('<span id="confirm-password-error"'), 'should show confirm-password field error')
+    assert.ok(
+      html.includes('<span id="confirm-password-error"'),
+      'should show confirm-password field error',
+    )
   })
 
   // -----------------------------------------------------------------------
   // POST /register — mismatched passwords shows field error
   // -----------------------------------------------------------------------
   it('POST /register with mismatched passwords returns 400 with field error', async () => {
-    let { cookie, csrfToken } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie, csrfToken } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
 
     let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
@@ -263,7 +281,10 @@ describe('Auth Register controller', () => {
 
     assert.equal(response.status, 400)
     let html = await response.text()
-    assert.ok(html.includes('<span id="confirm-password-error"'), 'should show confirm-password field error')
+    assert.ok(
+      html.includes('<span id="confirm-password-error"'),
+      'should show confirm-password field error',
+    )
     assert.ok(html.includes('stimmen nicht überein'), 'should show mismatch error text')
   })
 })

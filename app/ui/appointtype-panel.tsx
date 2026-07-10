@@ -6,7 +6,11 @@ import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
 
-import { getTypeDragState, setTypeDragState, getPanelDropActive } from '../utils/appointtype-drag.ts'
+import {
+  getTypeDragState,
+  setTypeDragState,
+  getPanelDropActive,
+} from '../utils/appointtype-drag.ts'
 import type { AppointType } from '../data/schema.ts'
 import { showToast } from './toast.ts'
 
@@ -55,7 +59,10 @@ export const AppointTypePanel = clientEntry(
       let isDropActive = getPanelDropActive()
 
       return (
-        <div data-types-panel="true" mix={[panelStyle, isDropActive ? panelDropActiveStyle : undefined]}>
+        <div
+          data-types-panel="true"
+          mix={[panelStyle, isDropActive ? panelDropActiveStyle : undefined]}
+        >
           <div mix={headerStyle}>
             <span mix={headerTitleStyle}>Termintypen</span>
           </div>
@@ -73,7 +80,9 @@ export const AppointTypePanel = clientEntry(
                     on('pointerdown', (e) => handlePointerDown(t, e)),
                     on('pointerup', () => handlePointerUp()),
                     menu.contextTrigger(),
-                    on('contextmenu', () => { lastRightClickedType = t }),
+                    on('contextmenu', () => {
+                      lastRightClickedType = t
+                    }),
                   ]}
                 >
                   {editingId === t.id ? (
@@ -93,8 +102,14 @@ export const AppointTypePanel = clientEntry(
                           }
                         }),
                         on('keydown', (e) => {
-                          if (e.key === 'Escape') { cancelRename(); return }
-                          if (e.key === 'Enter') { commitRename(t, csrfToken); return }
+                          if (e.key === 'Escape') {
+                            cancelRename()
+                            return
+                          }
+                          if (e.key === 'Enter') {
+                            commitRename(t, csrfToken)
+                            return
+                          }
                         }),
                         on('blur', () => commitRename(t, csrfToken)),
                       ]}
@@ -115,11 +130,19 @@ export const AppointTypePanel = clientEntry(
                       inputStyle,
                       ref((el) => {
                         addInput = el
-                        if (el) { el.focus() }
+                        if (el) {
+                          el.focus()
+                        }
                       }),
                       on('keydown', (e) => {
-                        if (e.key === 'Escape') { cancelAdd(); return }
-                        if (e.key === 'Enter') { commitAdd(csrfToken); return }
+                        if (e.key === 'Escape') {
+                          cancelAdd()
+                          return
+                        }
+                        if (e.key === 'Enter') {
+                          commitAdd(csrfToken)
+                          return
+                        }
                       }),
                       on('blur', () => commitAdd(csrfToken)),
                     ]}
@@ -132,7 +155,10 @@ export const AppointTypePanel = clientEntry(
               <button
                 mix={[
                   addButtonStyle,
-                  on('click', () => { adding = true; handle.update() }),
+                  on('click', () => {
+                    adding = true
+                    handle.update()
+                  }),
                 ]}
               >
                 + Typ hinzufügen
@@ -146,9 +172,13 @@ export const AppointTypePanel = clientEntry(
                 }
               })}
             >
-              <MenuItem name="edit"><Glyph name="edit" width={14} height={14} /> Bearbeiten</MenuItem>
+              <MenuItem name="edit">
+                <Glyph name="edit" width={14} height={14} /> Bearbeiten
+              </MenuItem>
               <Separator />
-              <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}><Glyph name="trash" width={14} height={14} /> Löschen</MenuItem>
+              <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
+                <Glyph name="trash" width={14} height={14} /> Löschen
+              </MenuItem>
             </MenuList>
           </menu.Context>
         </div>
@@ -165,7 +195,10 @@ export const AppointTypePanel = clientEntry(
     async function commitAdd(csrfToken: string) {
       if (!adding) return
       let title = addInput?.value?.trim() ?? ''
-      if (!title) { cancelAdd(); return }
+      if (!title) {
+        cancelAdd()
+        return
+      }
 
       adding = false
       handle.update()
@@ -174,7 +207,7 @@ export const AppointTypePanel = clientEntry(
         let response = await fetch(typesBaseHref, {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'Content-Type': 'application/json',
             'X-Csrf-Token': csrfToken,
           },
@@ -226,7 +259,7 @@ export const AppointTypePanel = clientEntry(
       fetch(`${typesBaseHref}/${id}`, {
         method: 'PUT',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-Csrf-Token': csrfToken,
         },
@@ -258,7 +291,7 @@ export const AppointTypePanel = clientEntry(
           fetch(`${typesBaseHref}/${type.id}`, {
             method: 'DELETE',
             headers: {
-              'Accept': 'application/json',
+              Accept: 'application/json',
               'X-Csrf-Token': csrfToken,
             },
           })

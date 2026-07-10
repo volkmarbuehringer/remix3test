@@ -11,7 +11,9 @@ export interface SendEmailOptions {
 
 export type SendEmailFn = (options: SendEmailOptions) => Promise<unknown>
 
-export function createSendEmail(transport: { sendMail: (opts: Record<string, unknown>) => Promise<unknown> }): SendEmailFn {
+export function createSendEmail(transport: {
+  sendMail: (opts: Record<string, unknown>) => Promise<unknown>
+}): SendEmailFn {
   let from = process.env.SMTP_FROM || 'noreply@localhost'
 
   return async (options) =>

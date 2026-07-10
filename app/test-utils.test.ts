@@ -1,11 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import {
-  generateCsrfToken,
-  extractCookie,
-  createCsrfSession,
-} from './test-utils.ts'
+import { generateCsrfToken, extractCookie, createCsrfSession } from './test-utils.ts'
 import { routes } from './routes.ts'
 
 const BASE = 'https://remix.run'
@@ -21,10 +17,7 @@ describe('generateCsrfToken', () => {
 
     // Assert
     assert.equal(token.length, 64, 'should be 64 characters')
-    assert.ok(
-      /^[0-9a-f]{64}$/.test(token),
-      'should be a lowercase hex string',
-    )
+    assert.ok(/^[0-9a-f]{64}$/.test(token), 'should be a lowercase hex string')
   })
 
   it('generates unique tokens on each call', () => {
@@ -33,11 +26,7 @@ describe('generateCsrfToken', () => {
     let token2 = generateCsrfToken()
 
     // Assert
-    assert.notEqual(
-      token1,
-      token2,
-      'should generate different tokens each time',
-    )
+    assert.notEqual(token1, token2, 'should generate different tokens each time')
   })
 })
 
@@ -50,8 +39,7 @@ describe('extractCookie', () => {
     // Arrange
     let response = new Response(null, {
       headers: {
-        'Set-Cookie':
-          'session=abc123; Path=/; HttpOnly; SameSite=Lax; Secure',
+        'Set-Cookie': 'session=abc123; Path=/; HttpOnly; SameSite=Lax; Secure',
       },
     })
 
@@ -128,15 +116,8 @@ describe('createCsrfSession', () => {
     // Assert
     assert.ok(result, 'should return a result object')
     assert.ok(result.cookie.startsWith('session='), 'should have a session cookie')
-    assert.equal(
-      result.csrfToken.length,
-      64,
-      'CSRF token should be 64 characters',
-    )
-    assert.ok(
-      /^[0-9a-f]{64}$/.test(result.csrfToken),
-      'CSRF token should be a hex string',
-    )
+    assert.equal(result.csrfToken.length, 64, 'CSRF token should be 64 characters')
+    assert.ok(/^[0-9a-f]{64}$/.test(result.csrfToken), 'CSRF token should be a hex string')
   })
 
   it('throws an error when the page has no CSRF form input', async () => {

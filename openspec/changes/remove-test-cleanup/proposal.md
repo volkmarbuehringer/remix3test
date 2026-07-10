@@ -5,6 +5,7 @@ The ephemeral test database change now gives every test run a clean database. Al
 ## What Changes
 
 All changes are deletions:
+
 - Remove `teardownTestEnvironment()` from `app/actions/verwaltung/controller.test-utils.ts`
 - Remove all `after()` cleanup blocks across ~13 test files
 - Remove tracking arrays (`createdAppointmentIds`, `createdUserIds`, etc.) from test files
@@ -14,9 +15,11 @@ All changes are deletions:
 ## Capabilities
 
 ### New Capabilities
+
 None. This is pure deletion of dead code — no new capabilities.
 
 ### Modified Capabilities
+
 None. No spec-level behavior changes.
 
 ## Impact

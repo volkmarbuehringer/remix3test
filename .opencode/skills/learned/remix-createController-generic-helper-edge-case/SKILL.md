@@ -1,6 +1,6 @@
 ---
 name: remix-createController-generic-helper-edge-case
-description: "Keep explicit generics on createController() when passing context.auth to typed helper functions in Remix 3"
+description: 'Keep explicit generics on createController() when passing context.auth to typed helper functions in Remix 3'
 user-invocable: false
 origin: auto-extracted
 ---

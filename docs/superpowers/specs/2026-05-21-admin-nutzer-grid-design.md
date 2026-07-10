@@ -32,17 +32,17 @@ Standard SSR `<table>` matching the `admin-lists-page` and `client/grid-page` pa
 
 **Columns:**
 
-| Header | DB column | Type | Sortable |
-|---|---|---|---|
-| Vorname | `n_vorname` | text | yes |
-| Name | `n_name` | text | yes |
-| Email | `n_email` | text | yes |
-| Verpflichtung | `n_verpflichtung` | boolean badge | yes |
-| Login | `l_login` | text | yes |
-| Passwort | `l_passwort` | masked (`••••••••`) | no |
-| Aktiv | `l_aktiv` | boolean badge | yes |
-| Gesperrt | `l_gesperrt` | boolean badge | yes |
-| Letzter Login | `l_letzte_login` | timestamp formatted | yes |
+| Header        | DB column         | Type                | Sortable |
+| ------------- | ----------------- | ------------------- | -------- |
+| Vorname       | `n_vorname`       | text                | yes      |
+| Name          | `n_name`          | text                | yes      |
+| Email         | `n_email`         | text                | yes      |
+| Verpflichtung | `n_verpflichtung` | boolean badge       | yes      |
+| Login         | `l_login`         | text                | yes      |
+| Passwort      | `l_passwort`      | masked (`••••••••`) | no       |
+| Aktiv         | `l_aktiv`         | boolean badge       | yes      |
+| Gesperrt      | `l_gesperrt`      | boolean badge       | yes      |
+| Letzter Login | `l_letzte_login`  | timestamp formatted | yes      |
 
 **Filter:** Text input (GET form) that searches across `n_vorname`, `n_name`, `n_email`, `l_login` via `ILIKE`.
 
@@ -61,10 +61,12 @@ Standard SSR `<table>` matching the `admin-lists-page` and `client/grid-page` pa
 ## Files
 
 ### Created
+
 1. `app/actions/admin-nutzer-controller.tsx` — controller with SQL query + pagination logic
 2. `app/ui/admin-nutzer-page.tsx` — SSR table component with sort, filter, pagination UI
 
 ### Modified
+
 3. `app/routes.ts` — add `nutzer` route under `adminRoutes`
 4. `app/router.ts` — import and map `adminNutzerController`
 5. `app/ui/admin-layout.tsx` — add nav item

@@ -7,12 +7,14 @@ The `.env` file lives at the project root and stays there.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace `import 'dotenv/config'` with `process.loadEnvFile('./.env')` in all entry modules
 - Remove `dotenv` from `package.json` dependencies
 - Clean up `pnpm-lock.yaml`
 - Preserve identical runtime behavior
 
 **Non-Goals:**
+
 - No changes to which environment variables are used or their values
 - No changes to schema validation or env var defaults
 - No introduction of `.env.local`, `.env.production`, or other multi-env patterns
@@ -20,11 +22,11 @@ The `.env` file lives at the project root and stays there.
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
+| Decision                             | Choice                                                   | Rationale                                                                                                                                                                                                            |
+| ------------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Which module calls `loadEnvFile`** | Each entry module that currently imports `dotenv/config` | `loadEnvFile` is a side effect (loads env into `process.env`), the same as `import 'dotenv/config'`. Placing it in each entry file preserves the existing pattern where every entry point is independently runnable. |
-| **File path** | `./.env` | Keeps `.env` at the project root, unchanged from current location. Relative path resolves from `process.cwd()` which is the project root during normal `npm start` / `tsx server.ts` usage. |
-| **Timing** | Called before any module that reads `process.env` | Same as current — the `import 'dotenv/config'` runs at module evaluation time. `loadEnvFile` will be the first executable statement in each entry file. |
+| **File path**                        | `./.env`                                                 | Keeps `.env` at the project root, unchanged from current location. Relative path resolves from `process.cwd()` which is the project root during normal `npm start` / `tsx server.ts` usage.                          |
+| **Timing**                           | Called before any module that reads `process.env`        | Same as current — the `import 'dotenv/config'` runs at module evaluation time. `loadEnvFile` will be the first executable statement in each entry file.                                                              |
 
 ## Risks / Trade-offs
 

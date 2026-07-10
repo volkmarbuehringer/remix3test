@@ -46,7 +46,9 @@ describe('auth e2e', () => {
     let password = 'journeyPass123!'
 
     // --- Step 1: Register a new user ---
-    let { cookie: registerCsrfCookie, csrfToken: registerCsrf } = await createCsrfSession(`${BASE}${routes.auth.register.index.href()}`)
+    let { cookie: registerCsrfCookie, csrfToken: registerCsrf } = await createCsrfSession(
+      `${BASE}${routes.auth.register.index.href()}`,
+    )
     let registerResponse = await router.fetch(`${BASE}${routes.auth.register.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
@@ -69,7 +71,9 @@ describe('auth e2e', () => {
     )
 
     // --- Step 2: Login with the registered credentials ---
-    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(
+      `${BASE}${routes.auth.login.index.href()}`,
+    )
     let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ email, password, _csrf: loginCsrf }),
@@ -79,17 +83,15 @@ describe('auth e2e', () => {
 
     // Assert: Login authenticates and redirects to home
     assert.equal(loginResponse.status, 302, 'login should redirect')
-    assert.equal(
-      loginResponse.headers.get('Location'),
-      '/',
-      'login should redirect to home',
-    )
+    assert.equal(loginResponse.headers.get('Location'), '/', 'login should redirect to home')
 
     let cookie = extractSessionCookie(loginResponse)
     assert.ok(cookie, 'login should set an authenticated session cookie')
 
     // --- Step 3: Logout ---
-    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(
+      `${BASE}${routes.auth.login.index.href()}`,
+    )
     let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ _csrf: logoutCsrf }),
@@ -99,11 +101,7 @@ describe('auth e2e', () => {
 
     // Assert: Logout unsets auth and redirects to home
     assert.equal(logoutResponse.status, 302, 'logout should redirect')
-    assert.equal(
-      logoutResponse.headers.get('Location'),
-      '/',
-      'logout should redirect to home',
-    )
+    assert.equal(logoutResponse.headers.get('Location'), '/', 'logout should redirect to home')
   })
 
   // -----------------------------------------------------------------------
@@ -112,7 +110,9 @@ describe('auth e2e', () => {
 
   it('logs in with seed admin account then logs out', async () => {
     // --- Step 1: Login as admin ---
-    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let { cookie: loginCsrfCookie, csrfToken: loginCsrf } = await createCsrfSession(
+      `${BASE}${routes.auth.login.index.href()}`,
+    )
     let loginResponse = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       body: new URLSearchParams({
@@ -126,17 +126,15 @@ describe('auth e2e', () => {
 
     // Assert: Admin login succeeds
     assert.equal(loginResponse.status, 302, 'admin login should redirect')
-    assert.equal(
-      loginResponse.headers.get('Location'),
-      '/',
-      'admin login should redirect to home',
-    )
+    assert.equal(loginResponse.headers.get('Location'), '/', 'admin login should redirect to home')
 
     let adminCookie = extractSessionCookie(loginResponse)
     assert.ok(adminCookie, 'admin login should set a session cookie')
 
     // --- Step 2: Logout ---
-    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(`${BASE}${routes.auth.login.index.href()}`)
+    let { cookie: logoutCsrfCookie, csrfToken: logoutCsrf } = await createCsrfSession(
+      `${BASE}${routes.auth.login.index.href()}`,
+    )
     let logoutResponse = await router.fetch(`${BASE}${routes.auth.logout.href()}`, {
       method: 'POST',
       body: new URLSearchParams({ _csrf: logoutCsrf }),
@@ -146,11 +144,7 @@ describe('auth e2e', () => {
 
     // Assert: Logout succeeds with regenerated session ID
     assert.equal(logoutResponse.status, 302, 'logout should redirect after admin login')
-    assert.equal(
-      logoutResponse.headers.get('Location'),
-      '/',
-      'logout should redirect to home',
-    )
+    assert.equal(logoutResponse.headers.get('Location'), '/', 'logout should redirect to home')
 
     let logoutCookie = extractSessionCookie(logoutResponse)
     assert.ok(logoutCookie, 'logout after admin should set a new session cookie')
@@ -175,11 +169,7 @@ describe('auth e2e', () => {
 
     // Assert: User login redirects to home with session cookie
     assert.equal(response.status, 302, 'user login should redirect')
-    assert.equal(
-      response.headers.get('Location'),
-      '/',
-      'user login should redirect to home',
-    )
+    assert.equal(response.headers.get('Location'), '/', 'user login should redirect to home')
 
     let sessionCookie = extractSessionCookie(response)
     assert.ok(sessionCookie, 'user login should set a session cookie')
@@ -256,10 +246,7 @@ describe('auth e2e', () => {
 
     // Password field
     assert.ok(html.includes('type="password"'), 'page should have a password input')
-    assert.ok(
-      html.includes('name="password"'),
-      'password input should have name="password"',
-    )
+    assert.ok(html.includes('name="password"'), 'password input should have name="password"')
 
     // Submit button
     assert.ok(html.includes('type="submit"'), 'page should have a submit button')
@@ -279,7 +266,10 @@ describe('auth e2e', () => {
     let html = await response.text()
 
     // Page heading
-    assert.ok(html.includes('Create your account'), 'page should contain "Create your account" heading')
+    assert.ok(
+      html.includes('Create your account'),
+      'page should contain "Create your account" heading',
+    )
 
     // Form structure
     assert.ok(html.includes('<form'), 'page should contain a form element')
@@ -294,10 +284,7 @@ describe('auth e2e', () => {
 
     // Password field
     assert.ok(html.includes('type="password"'), 'page should have a password input')
-    assert.ok(
-      html.includes('name="password"'),
-      'password input should have name="password"',
-    )
+    assert.ok(html.includes('name="password"'), 'password input should have name="password"')
 
     // Submit button
     assert.ok(html.includes('type="submit"'), 'page should have a submit button')

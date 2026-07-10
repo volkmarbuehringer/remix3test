@@ -55,6 +55,7 @@ The existing `appointmentsNew` route already handles all needed paths.
 1. **Step 1 rendering** — When `creating=true` and no `step` param, show resource cards instead of the old dropdown form. Load resources (same query, cached).
 
 2. **Step 1 → Step 2 navigation** — Removed the POST handler for step 1. Resources are now `<a>` links:
+
    ```
    ?creating=true&step=2&resource_id=42
    ```
@@ -92,10 +93,10 @@ query: SELECT id, description FROM resources ORDER BY description
 ```typescript
 let offerings = await listOfferingsByDayRange(db, weekStart, weekEnd, resourceId)
 // Group by day
-let dayOfferingMap = groupBy(offerings, o => o.day)
+let dayOfferingMap = groupBy(offerings, (o) => o.day)
 let daysWithSlots = []
 for (let [day, dayOfferings] of dayOfferingMap) {
-  let ranges = dayOfferings.map(o => parseDuring(o.during)).filter(Boolean)
+  let ranges = dayOfferings.map((o) => parseDuring(o.during)).filter(Boolean)
   let slots = computeFullHourSlots(ranges)
   let booked = await getBookedRanges(db, resourceId, day)
   if (booked.length > 0) slots = filterAvailableSlots(slots, booked)
@@ -110,6 +111,7 @@ Performance: ~1-2 queries per day for booked ranges. Mitigation: batch query all
 ### New: `appointments-new-resource-cards.tsx`
 
 Renders the resource list as styled `<a>` link cards. Each card:
+
 - Full-width, large touch target (min 48px height)
 - Shows resource name
 - Background color, border, rounded corners
@@ -120,6 +122,7 @@ Replace `WizardStep1` usage in `AppointmentsNewCreatePage`.
 ### Modified: `appointments-new-wizard-step2.tsx` → `appointments-new-step2.tsx`
 
 Rename and extend:
+
 - Week pagination bar: ◀ Vorherige | KW label | Nächste ▶
   - All links with `week_start` param
   - "Vorherige" disabled (not a link) when `week_start === currentWeekMonday`
@@ -144,6 +147,7 @@ Rename and extend:
 ## Week Pagination Details
 
 URL format:
+
 ```
 /appointments/new?creating=true&step=2&resource_id=42&week_start=1750896000000
 ```
@@ -165,6 +169,7 @@ function getWeekNumber(epochMs: number): number {
 ## Validation (Step 2 Form Submit)
 
 All validated server-side via `s.parseSafe`:
+
 - `resource_id`: required, valid integer
 - `day`: required, valid epoch ms, must not be in the past
 - `start_min`: required, valid minute-of-day (0-1380), must be in offerings for that day+resource
@@ -174,6 +179,7 @@ All validated server-side via `s.parseSafe`:
 ## Rendering on Error
 
 If step 2 form validation fails, re-render step 2 with:
+
 - Same `week_start` and `resource_id` preserved
 - `fieldErrors` mapped to specific fields
 - `formValues` to repopulate inputs
@@ -185,9 +191,9 @@ Add to controller.tsx exports:
 
 ```typescript
 export interface DayWithSlots {
-  day: number          // epoch ms
-  slots: number[]      // valid start_min values
-  ranges: { startMin: number; endMin: number }[]  // offering ranges for display
+  day: number // epoch ms
+  slots: number[] // valid start_min values
+  ranges: { startMin: number; endMin: number }[] // offering ranges for display
 }
 
 export interface ResourceCard {

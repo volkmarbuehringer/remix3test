@@ -18,7 +18,7 @@ Validate the inline-editable column pattern on the `/client` grid before adoptin
 
 ### Modified Capabilities
 
-*(none)*
+_(none)_
 
 ## Impact
 

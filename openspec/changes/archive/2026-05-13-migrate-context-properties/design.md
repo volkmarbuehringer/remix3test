@@ -2,14 +2,14 @@
 
 The remix "direct context properties" feature (commits `970e2cd7f`, `e803fdc90`, `29bd16291`) allows middleware to install values as direct named properties on `RequestContext` via the `property` field. All built-in remix middleware now does this:
 
-| Middleware     | Property             | Status in newapp              |
-|----------------|----------------------|-------------------------------|
-| `auth()`       | `context.auth`       | Not used — still `context.get(Auth)` |
-| `session()`    | `context.session`    | Not used — still `getContext().get(Session)` |
-| `formData()`   | `context.formData`   | Not used — still `context.get(FormData)` |
-| `renderWith()` | `context.render`     | Not used — still `context.get(Renderer)` / `get(Renderer)` |
-| `logger()`     | `context.logger`     | Not used — no custom logging |
-| `loadDatabase()`| ❌ no property      | Missing entirely |
+| Middleware       | Property           | Status in newapp                                           |
+| ---------------- | ------------------ | ---------------------------------------------------------- |
+| `auth()`         | `context.auth`     | Not used — still `context.get(Auth)`                       |
+| `session()`      | `context.session`  | Not used — still `getContext().get(Session)`               |
+| `formData()`     | `context.formData` | Not used — still `context.get(FormData)`                   |
+| `renderWith()`   | `context.render`   | Not used — still `context.get(Renderer)` / `get(Renderer)` |
+| `logger()`       | `context.logger`   | Not used — no custom logging                               |
+| `loadDatabase()` | ❌ no property     | Missing entirely                                           |
 
 The `loadDatabase()` custom middleware was updated in a previous change (`fix-typecheck-errors`) to use the new `ContextEntry` object format, but it doesn't set `{ property: 'db' }`.
 
@@ -18,6 +18,7 @@ Additionally, auth controllers (`auth-login`, `auth-register`) inconsistently mi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace all `context.get(Key)` / `getContext().get(Key)` calls with direct property access where available
 - Add `{ property: 'db' }` to `loadDatabase()` to complete the set
 - Unify `getContext()` vs `context` parameter usage in auth controllers — always use `context` when inside a controller action
@@ -25,6 +26,7 @@ Additionally, auth controllers (`auth-login`, `auth-register`) inconsistently mi
 - Zero behavioral changes — this is a code-style refactor
 
 **Non-Goals:**
+
 - No API surface changes — `context.get(Key)` remains available and functional
 - No runtime behavior changes — `context.get(Key)` is still used internally; just not directly in controller code
 - No canonical import path migration (`remix/router` vs `remix/fetch-router`) — blocked on upstream exports
@@ -32,6 +34,7 @@ Additionally, auth controllers (`auth-login`, `auth-register`) inconsistently mi
 ## Decisions
 
 **Decision 1: Migrate per-property in dependency order**
+
 - `loadDatabase()` first (adds the `db` property) → Database consumers can then use `context.db`
 - `render()` already has `property: 'render'` → straightforward substitution
 - All other properties (`auth`, `session`, `formData`) are already set by remix middleware → straightforward substitution
@@ -40,6 +43,7 @@ Additionally, auth controllers (`auth-login`, `auth-register`) inconsistently mi
 **Decision 2: Convert `get(Renderer)` call sites in two patterns**
 
 Controllers that use `get(Renderer)` via destructured `{ get }`:
+
 ```ts
 // Before
 index({ get }) {
@@ -53,6 +57,7 @@ index(context) {
 ```
 
 Controllers that use `context.get(Renderer)`:
+
 ```ts
 // Before
 index(context) {
@@ -74,10 +79,13 @@ index(context) {
 **Decision 3: Use the `context` parameter directly in auth controllers instead of `getContext()`**
 
 In `auth-login-controller.tsx` and `auth-register-controller.tsx`, replace:
+
 ```ts
 let session = getContext().get(Session)
 ```
+
 with:
+
 ```ts
 let session = context.session
 ```
@@ -87,6 +95,7 @@ This eliminates the `getContext()` import and makes the data flow clearer — th
 **Decision 4: Remove `!` assertions that are no longer needed**
 
 In `controller.tsx`:
+
 ```ts
 // Before
 let render = context.get(Renderer)!

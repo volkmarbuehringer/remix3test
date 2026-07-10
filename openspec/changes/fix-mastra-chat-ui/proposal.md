@@ -11,10 +11,12 @@ The MastraChatPage has two UI problems: (1) after sending a message, the page do
 ## Capabilities
 
 ### New Capabilities
+
 - `mastra-chat-ui`: Chat page UI layout and auto-scroll behavior
 
 ### Modified Capabilities
-- *(none)*
+
+- _(none)_
 
 ## Impact
 

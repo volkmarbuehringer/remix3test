@@ -80,8 +80,8 @@ export const AdminAppointmentsContextMenu = clientEntry(
                 table.removeEventListener('contextmenu', onContextMenu)
               })
             }),
-              css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
-            ]}
+            css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
+          ]}
         />
 
         <MenuList
@@ -96,9 +96,13 @@ export const AdminAppointmentsContextMenu = clientEntry(
             }
           })}
         >
-          <MenuItem name="edit"><Glyph name="edit" width={14} height={14} /> Bearbeiten</MenuItem>
+          <MenuItem name="edit">
+            <Glyph name="edit" width={14} height={14} /> Bearbeiten
+          </MenuItem>
           <Separator />
-          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}><Glyph name="trash" width={14} height={14} /> Löschen</MenuItem>
+          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
+            <Glyph name="trash" width={14} height={14} /> Löschen
+          </MenuItem>
         </MenuList>
       </menu.Context>
     )
@@ -129,9 +133,7 @@ export const AdminAppointmentsContextMenu = clientEntry(
     function handleDeleteAction(rowId: string) {
       if (!confirm('Wirklich löschen?')) return
 
-      let form = document.querySelector<HTMLFormElement>(
-        `form[data-delete-form="${rowId}"]`,
-      )
+      let form = document.querySelector<HTMLFormElement>(`form[data-delete-form="${rowId}"]`)
       if (form) {
         form.requestSubmit()
       }

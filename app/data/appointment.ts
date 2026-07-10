@@ -5,20 +5,21 @@ export interface UserEmailRow {
   email: string
 }
 
-export async function listUserEmails(
-  db: Database,
-  userIds: number[],
-): Promise<UserEmailRow[]> {
-  let result = await db.exec(
-    'SELECT id, email FROM users WHERE id = ANY($1::int[])',
-    [userIds],
-  )
+export async function listUserEmails(db: Database, userIds: number[]): Promise<UserEmailRow[]> {
+  let result = await db.exec('SELECT id, email FROM users WHERE id = ANY($1::int[])', [userIds])
   return (result.rows ?? []) as unknown as UserEmailRow[]
 }
 
 export async function createAppointmentFromType(
   db: Database,
-  data: { date: number; startMin: number; now: number; typeId: number; userId: number; resourceId: number },
+  data: {
+    date: number
+    startMin: number
+    now: number
+    typeId: number
+    userId: number
+    resourceId: number
+  },
 ): Promise<number | undefined> {
   let result = await db.exec(
     `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
@@ -28,7 +29,5 @@ export async function createAppointmentFromType(
      RETURNING id`,
     [data.date, data.startMin, data.now, data.typeId, data.userId, data.resourceId],
   )
-  return (result.rows ?? []).length > 0
-    ? (result.rows![0] as { id: number }).id
-    : undefined
+  return (result.rows ?? []).length > 0 ? (result.rows![0] as { id: number }).id : undefined
 }

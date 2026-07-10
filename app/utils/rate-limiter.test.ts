@@ -219,7 +219,11 @@ describe('RateLimiter - perKey mode', () => {
 
     keyLimiter.set('shared')
     assert.equal(keyLimiter.check('shared').allowed, false)
-    assert.deepEqual(userLimiter.check(1), { allowed: true }, 'user limiter unaffected by key limiter')
+    assert.deepEqual(
+      userLimiter.check(1),
+      { allowed: true },
+      'user limiter unaffected by key limiter',
+    )
   })
 
   it('throws when both perUser and perKey are set', () => {

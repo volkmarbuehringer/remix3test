@@ -3,6 +3,7 @@
 The `ryan/component-rearchitecture` commit (`7f47d3d30`) in the upstream `remix` repo removes the `remix/ui/theme`, `remix/ui/glyph`, `remix/ui/button`, `remix/ui/separator`, and `remix/ui/breadcrumbs` subpath imports from the remix package manifest. The headless UI primitives were split from styled components, and the theme system was no longer re-exported.
 
 This app depends on these subpath imports extensively:
+
 - `remix/ui/theme` — ~60+ imports (theme contract, `createTheme`, glyph sheet, theme tokens)
 - `remix/ui/glyph` — ~20 imports (`Glyph` component, `createGlyphSheet`)
 - `remix/ui/separator` — ~5 imports (`Separator` component style)

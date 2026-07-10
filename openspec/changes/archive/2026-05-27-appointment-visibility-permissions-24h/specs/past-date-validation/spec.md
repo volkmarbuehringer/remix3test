@@ -11,6 +11,7 @@ The system SHALL reject creation of appointments whose `date` (epoch ms, UTC mid
 - **AND** the appointment SHALL NOT be created
 
 #### Scenario: Update appointment to past date (removed — replaced by 24h cancellation policy)
+
 **Reason**: Update restriction is now based on the forward-looking 24h cancellation window, not past-date check. See appointment-calendar spec for the new update rules.
 
 ### Requirement: Offerings must not be created or updated with past dates

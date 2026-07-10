@@ -11,10 +11,7 @@ export async function updateCallbackResponse(
   return (result.affectedRows ?? 0) > 0
 }
 
-export async function checkWebhookRequestExists(
-  db: Database,
-  id: string,
-): Promise<boolean> {
+export async function checkWebhookRequestExists(db: Database, id: string): Promise<boolean> {
   let result = await db.exec('SELECT 1 FROM webhook_requests WHERE id = $1', [id])
   return (result.rows ?? []).length > 0
 }

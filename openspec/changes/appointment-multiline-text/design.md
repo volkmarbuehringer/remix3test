@@ -11,12 +11,14 @@ Two gaps exist:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Stored `\n` characters in appointment titles render as visible line breaks in all display contexts (block, hover-expanded, tooltip)
 - New appointment drafts support multiline input via textarea
 - Draft blur cancels instead of auto-saving (prevents accidental creation)
 - Draft has explicit Save + Cancel buttons alongside keyboard shortcuts
 
 **Non-Goals:**
+
 - No change to the rename/edit experience (already uses textarea with Shift+Enter save, blur auto-save — that stays as-is)
 - No change to server-side validation (`maxLength(80)`) or data layer
 - No Frame-based fragment updates (still uses `window.location.reload()` on save — Phase 1 limitation)
@@ -28,12 +30,12 @@ Two gaps exist:
 
 Both the draft (create) and rename (edit) flows now share identical UX:
 
-| Aspect | Rename (after change) | Draft (after change) |
-|--------|----------------------|----------------------|
-| Blur | Cancel (discard) | Cancel (discard) |
-| Save trigger | Shift+Enter, Save button | Shift+Enter, Save button |
+| Aspect         | Rename (after change)       | Draft (after change)        |
+| -------------- | --------------------------- | --------------------------- |
+| Blur           | Cancel (discard)            | Cancel (discard)            |
+| Save trigger   | Shift+Enter, Save button    | Shift+Enter, Save button    |
 | Cancel trigger | Escape, Cancel button, blur | Escape, Cancel button, blur |
-| Buttons | Save + Cancel | Save + Cancel |
+| Buttons        | Save + Cancel               | Save + Cancel               |
 
 **Rationale**: The user explicitly requested homogenization. Both flows have the same stakes — accidental saves are equally undesirable in both contexts. Consistent behavior reduces cognitive load.
 
@@ -48,6 +50,7 @@ Safe because `expandedTitleStyle` is only applied during hover (transient state)
 ### D3: Draft block min-height raised to 84px
 
 84px accommodates:
+
 - 2 rows of textarea text (~32px) + padding (~10px top/bottom)
 - Buttons row (~24px)
 - Gap between textarea and buttons (~4px)

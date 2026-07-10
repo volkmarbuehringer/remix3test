@@ -484,7 +484,11 @@ export const offeringConfigs = table({
   afterRead({ value }) {
     parseIntFields(value, 'created_at', 'updated_at', 'resource_id')
     if (typeof value.rules === 'string') {
-      try { value.rules = JSON.parse(value.rules) } catch { value.rules = {} }
+      try {
+        value.rules = JSON.parse(value.rules)
+      } catch {
+        value.rules = {}
+      }
     }
     return { value }
   },

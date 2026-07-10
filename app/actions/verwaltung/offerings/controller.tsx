@@ -54,7 +54,13 @@ const hd = new Holidays('DE', 'rp')
 const OFFERINGS_PAGE_SIZE = 12
 
 const OFFERINGS_SORTABLE_FIELDS = [
-  'ao.id', 'ao.day', 'ao.resource_id', 'r.description', 'ao.during', 'ao.created_at', 'ao.updated_at',
+  'ao.id',
+  'ao.day',
+  'ao.resource_id',
+  'r.description',
+  'ao.during',
+  'ao.created_at',
+  'ao.updated_at',
 ] as const
 
 const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
@@ -92,7 +98,23 @@ interface OfferingPageData {
 
 async function loadOfferingPageData(
   context: AppContext,
-  overrides?: Partial<Pick<OfferingPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
+  overrides?: Partial<
+    Pick<
+      OfferingPageData,
+      | 'creating'
+      | 'editRow'
+      | 'error'
+      | 'formValues'
+      | 'fieldErrors'
+      | 'formError'
+      | 'offset'
+      | 'sortColumn'
+      | 'sortDirection'
+      | 'filter'
+      | 'period'
+      | 'status'
+    >
+  >,
 ): Promise<OfferingPageData> {
   let effectivePageSize = getPageSize(context.session, OFFERINGS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -101,7 +123,7 @@ async function loadOfferingPageData(
   let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
 
   let { column, direction } = overrides?.sortColumn
-    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const }
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
     : parseSort(context.url, {
         allowedColumns: OFFERINGS_SORTABLE_FIELDS,
         defaultColumn: 'ao.day',
@@ -121,7 +143,8 @@ async function loadOfferingPageData(
     listResources(context.db),
   ])
 
-  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingParam =
+    overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let editingRowId = editingParam || null
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId) {
@@ -170,7 +193,11 @@ async function loadOfferingPageData(
   }
 }
 
-function renderOfferingsPage(context: AppContext, data: OfferingPageData, init?: ResponseInit): Response {
+function renderOfferingsPage(
+  context: AppContext,
+  data: OfferingPageData,
+  init?: ResponseInit,
+): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminOfferingsPage
@@ -272,7 +299,8 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           let data = await loadOfferingPageData(context, {
             creating: true,
             formValues,
-            formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+            formError:
+              'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
@@ -327,10 +355,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let formData = context.formData
         let id = context.params.id
         if (!id) {
-          return context.json(
-            { ok: false, error: 'Ungültige ID.' },
-            { status: 400 },
-          )
+          return context.json({ ok: false, error: 'Ungültige ID.' }, { status: 400 })
         }
 
         let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
@@ -397,7 +422,8 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           let data = await loadOfferingPageData(context, {
             editRow,
             formValues,
-            formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+            formError:
+              'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
@@ -411,13 +437,14 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
         let during = `[${start_min},${end_min})`
 
         try {
-          let updated = await updateOffering(context.db, id, { dayMs, resourceId: resource_id, during })
+          let updated = await updateOffering(context.db, id, {
+            dayMs,
+            resourceId: resource_id,
+            during,
+          })
 
           if (!updated) {
-            return context.json(
-              { ok: false, error: 'Eintrag nicht gefunden.' },
-              { status: 404 },
-            )
+            return context.json({ ok: false, error: 'Eintrag nicht gefunden.' }, { status: 404 })
           }
 
           let authIdentity = getAdminIdentity(context.auth)
@@ -457,10 +484,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
       async destroy(context) {
         let id = context.params.id
         if (!id) {
-          return context.json(
-            { ok: false, error: 'Ungültige ID.' },
-            { status: 400 },
-          )
+          return context.json({ ok: false, error: 'Ungültige ID.' }, { status: 400 })
         }
 
         let formData = context.formData
@@ -469,10 +493,7 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
           let deleted = await deleteOffering(context.db, id)
 
           if (!deleted) {
-            return context.json(
-              { ok: false, error: 'Eintrag nicht gefunden.' },
-              { status: 404 },
-            )
+            return context.json({ ok: false, error: 'Eintrag nicht gefunden.' }, { status: 404 })
           }
 
           let authIdentity = getAdminIdentity(context.auth)
@@ -504,7 +525,9 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let result = s.parseSafe(
           f.object({
-            resource_id: f.field(s.string().refine(v => /^\d+$/.test(v), 'Ressource ist erforderlich.')),
+            resource_id: f.field(
+              s.string().refine((v) => /^\d+$/.test(v), 'Ressource ist erforderlich.'),
+            ),
           }),
           formData,
         )
@@ -518,7 +541,15 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let resourceId = parseInt(result.value.resource_id, 10)
 
-        let DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        let DAY_KEYS = [
+          'monday',
+          'tuesday',
+          'wednesday',
+          'thursday',
+          'friday',
+          'saturday',
+          'sunday',
+        ]
         let rules: Record<string, [number, number]> = {}
         for (let key of DAY_KEYS) {
           let enabled = formData.get(`${key}_enabled`)
@@ -555,8 +586,8 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let result = s.parseSafe(
           f.object({
-            year: f.field(s.string().refine(v => /^\d+$/.test(v), 'Jahr ist erforderlich.')),
-            week: f.field(s.string().refine(v => /^\d+$/.test(v), 'Woche ist erforderlich.')),
+            year: f.field(s.string().refine((v) => /^\d+$/.test(v), 'Jahr ist erforderlich.')),
+            week: f.field(s.string().refine((v) => /^\d+$/.test(v), 'Woche ist erforderlich.')),
           }),
           formData,
         )
@@ -585,9 +616,15 @@ export default createController<typeof routes.verwaltung.offerings, AppContext>(
 
         let params = new URLSearchParams()
         if (allErrors.length > 0) {
-          params.set('error', `${totalCreated} erstellt, ${totalSkipped} übersprungen. Fehler: ${allErrors[0]}`)
+          params.set(
+            'error',
+            `${totalCreated} erstellt, ${totalSkipped} übersprungen. Fehler: ${allErrors[0]}`,
+          )
         } else {
-          params.set('error', `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`)
+          params.set(
+            'error',
+            `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`,
+          )
         }
 
         let authIdentity = getAdminIdentity(context.auth)

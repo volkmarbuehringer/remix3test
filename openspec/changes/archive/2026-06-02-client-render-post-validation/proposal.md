@@ -15,9 +15,11 @@ The Client Lab route (`/client`) already uses `Layout` directly without the `She
 ## Capabilities
 
 ### New Capabilities
+
 - `form-validation`: Server-side form validation using `parseSafe` that re-renders the form page on failure with per-field errors and preserved input values — no redirects, no URL params, no client-side JS required.
 
 ### Modified Capabilities
+
 <!-- None — this is a new pattern applied to an existing route, not a requirement change to an existing spec. -->
 
 ## Impact

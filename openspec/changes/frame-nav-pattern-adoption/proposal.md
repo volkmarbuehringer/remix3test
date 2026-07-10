@@ -14,6 +14,7 @@ newapp already uses frame-based navigation for its Admin and AI sections, but th
 ## Capabilities
 
 ### New Capabilities
+
 - `frame-nav-refinements`: Server-side frame navigation utilities — `followFrameRedirects()` middleware helper, `rmx-src` attribute pipeline, and auth-aware frame error handling
 - `frame-error-states`: Client-side frame error UI — graceful 401 handling, error cards with reload actions, and fatal error boundaries for the Remix frame runtime
 

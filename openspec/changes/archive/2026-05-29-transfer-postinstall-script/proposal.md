@@ -9,16 +9,18 @@ The old postinstall (oxlint bindings + node-tsx patch) has been removed as it's 
 - Copy and adapt `~/remix/scripts/postinstall.ts` to `newapp/scripts/postinstall.ts`
 - Add a `"postinstall": "node ./scripts/postinstall.ts"` script to `newapp/package.json`
 - Remove the old `scripts/install-oxc-bindings.mjs` and `scripts/patch-node-tsx.mjs` files
-Keep the `scripts/oxlint-plugins/` directory — these are custom oxlint JS plugins still referenced in `.oxlintrc.json`.
+  Keep the `scripts/oxlint-plugins/` directory — these are custom oxlint JS plugins still referenced in `.oxlintrc.json`.
 
 The adapted script will install Playwright browsers (chromium, firefox --only-shell) for the newapp project's Playwright setup.
 
 ## Capabilities
 
 ### New Capabilities
+
 - `playwright-browsers`: Automated Playwright browser installation on `pnpm install`, with retry logic, timeout, signal handling, and partial-install cleanup.
 
 ### Modified Capabilities
+
 - None
 
 ## Impact

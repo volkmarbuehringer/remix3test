@@ -15,6 +15,7 @@
 ### Task 1: Modify Nutzer Page — Remove Actions Column + Add Context Menu
 
 **Files:**
+
 - Modify: `app/ui/admin-nutzer-page.tsx`
 
 - [ ] **Step 1: Add menu imports at top of file**
@@ -35,20 +36,21 @@ Change the `colgroup` from 9 columns to 8. Remove the line `col style={{ width: 
 
 ```tsx
 <colgroup>
-  <col style={{ width: '12%' }} />   {/* was 11% — Vorname */}
-  <col style={{ width: '20%' }} />   {/* was 18% — Name */}
-  <col style={{ width: '24%' }} />   {/* was 22% — Email */}
-  <col style={{ width: '11%' }} />   {/* was 10% — Login */}
-  <col style={{ width: '8%' }} />    {/* was 7% — Verpfl */}
-  <col style={{ width: '6%' }} />    {/* was 5% — Aktiv */}
-  <col style={{ width: '6%' }} />    {/* was 5% — Gesp */}
-  <col style={{ width: '13%' }} />   {/* was 12% — Letzter Login */}
+  <col style={{ width: '12%' }} /> {/* was 11% — Vorname */}
+  <col style={{ width: '20%' }} /> {/* was 18% — Name */}
+  <col style={{ width: '24%' }} /> {/* was 22% — Email */}
+  <col style={{ width: '11%' }} /> {/* was 10% — Login */}
+  <col style={{ width: '8%' }} /> {/* was 7% — Verpfl */}
+  <col style={{ width: '6%' }} /> {/* was 5% — Aktiv */}
+  <col style={{ width: '6%' }} /> {/* was 5% — Gesp */}
+  <col style={{ width: '13%' }} /> {/* was 12% — Letzter Login */}
 </colgroup>
 ```
 
 - [ ] **Step 3: Remove "Aktionen" header from `<thead>`**
 
 Remove the line:
+
 ```tsx
 <th mix={thSortableStyle}>Aktionen</th>
 ```
@@ -56,6 +58,7 @@ Remove the line:
 - [ ] **Step 4: Remove unused CSS styles**
 
 Remove these style definitions:
+
 - `tdActionsStyle`
 - `smallBtnStyle`
 
@@ -72,8 +75,7 @@ function handleRowAction(
   sortDirection: 'asc' | 'desc',
   filter: string | undefined,
 ) {
-  let csrfToken =
-    document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+  let csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 
   switch (event.item.name) {
     case 'edit': {
@@ -136,9 +138,7 @@ function handleRowAction(
     case 'delete': {
       let name = row.n_name || row.l_login
       if (!confirm(`${name} wirklich löschen?`)) return
-      let form = document.querySelector<HTMLFormElement>(
-        `form[data-delete-id="${row.n_id}"]`,
-      )
+      let form = document.querySelector<HTMLFormElement>(`form[data-delete-id="${row.n_id}"]`)
       if (form) form.submit()
       break
     }
@@ -152,31 +152,33 @@ Replace the current `<tr key={row.n_id} mix={rowStyle}>` block (including its ch
 
 ```tsx
 <menu.Context label={`Aktionen: ${row.n_name ?? row.l_login}`}>
-  <tr
-    key={row.n_id}
-    mix={[rowStyle, menu.contextTrigger()]}
-    data-row-id={row.n_id}
-  >
-    <td mix={tdStyle} title={row.n_vorname ?? ''}>{row.n_vorname ?? '\u2014'}</td>
-    <td mix={tdStyle} title={row.n_name ?? ''}>{row.n_name ?? '\u2014'}</td>
-    <td mix={tdStyle} title={row.n_email ?? ''}>{row.n_email ?? '\u2014'}</td>
-    <td mix={tdStyle} title={row.l_login}>{row.l_login}</td>
+  <tr key={row.n_id} mix={[rowStyle, menu.contextTrigger()]} data-row-id={row.n_id}>
+    <td mix={tdStyle} title={row.n_vorname ?? ''}>
+      {row.n_vorname ?? '\u2014'}
+    </td>
+    <td mix={tdStyle} title={row.n_name ?? ''}>
+      {row.n_name ?? '\u2014'}
+    </td>
+    <td mix={tdStyle} title={row.n_email ?? ''}>
+      {row.n_email ?? '\u2014'}
+    </td>
+    <td mix={tdStyle} title={row.l_login}>
+      {row.l_login}
+    </td>
     <td mix={tdStyle}>
       <span mix={row.n_verpflichtung ? boolBadgeYes : boolBadgeNo}>
         {boolLabel(row.n_verpflichtung)}
       </span>
     </td>
     <td mix={tdStyle}>
-      <span mix={row.l_aktiv ? boolBadgeYes : boolBadgeNo}>
-        {boolLabel(row.l_aktiv)}
-      </span>
+      <span mix={row.l_aktiv ? boolBadgeYes : boolBadgeNo}>{boolLabel(row.l_aktiv)}</span>
     </td>
     <td mix={tdStyle}>
-      <span mix={row.l_gesperrt ? boolBadgeYes : boolBadgeNo}>
-        {boolLabel(row.l_gesperrt)}
-      </span>
+      <span mix={row.l_gesperrt ? boolBadgeYes : boolBadgeNo}>{boolLabel(row.l_gesperrt)}</span>
     </td>
-    <td mix={tdStyle} title={row.l_letzte_login ?? ''}>{formatTimestamp(row.l_letzte_login)}</td>
+    <td mix={tdStyle} title={row.l_letzte_login ?? ''}>
+      {formatTimestamp(row.l_letzte_login)}
+    </td>
   </tr>
 
   <MenuList
@@ -187,9 +189,11 @@ Replace the current `<tr key={row.n_id} mix={rowStyle}>` block (including its ch
     <MenuItem name="edit">✏️ Bearbeiten</MenuItem>
     <MenuItem name="reset-password">🔄 Passwort zurücksetzen</MenuItem>
     <div role="separator" />
-    {row.l_gesperrt
-      ? <MenuItem name="unlock">🔓 Entsperren</MenuItem>
-      : <MenuItem name="lock">🔒 Sperren</MenuItem>}
+    {row.l_gesperrt ? (
+      <MenuItem name="unlock">🔓 Entsperren</MenuItem>
+    ) : (
+      <MenuItem name="lock">🔒 Sperren</MenuItem>
+    )}
     <MenuItem name="copy-email" disabled={!row.n_email}>
       📋 E-Mail kopieren
     </MenuItem>
@@ -238,6 +242,7 @@ Expected: Passes (no type errors).
 ### Task 2: Add Reset-Password Backend Endpoint
 
 **Files:**
+
 - Modify: `app/actions/admin-nutzer-controller.tsx`
 - Modify: `app/routes.ts`
 
@@ -314,6 +319,7 @@ Expected: Passes.
 ### Task 3: Add Toggle-Lock Backend Endpoint
 
 **Files:**
+
 - Modify: `app/actions/admin-nutzer-controller.tsx`
 - Modify: `app/routes.ts`
 

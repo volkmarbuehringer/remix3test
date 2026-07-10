@@ -60,12 +60,14 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
 
     if (resources.length === 0) {
       return (
-        <div mix={css({
-          textAlign: 'center',
-          padding: theme.space.xl,
-          color: theme.colors.text.muted,
-          fontSize: theme.fontSize.sm,
-        })}>
+        <div
+          mix={css({
+            textAlign: 'center',
+            padding: theme.space.xl,
+            color: theme.colors.text.muted,
+            fontSize: theme.fontSize.sm,
+          })}
+        >
           Keine Ressourcen verfügbar.
         </div>
       )

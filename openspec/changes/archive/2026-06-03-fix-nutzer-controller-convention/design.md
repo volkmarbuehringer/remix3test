@@ -5,11 +5,13 @@ The `nutzer` route was relocated from `/admin/nutzer` to `/nutzer` (top-level) i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate the `remix doctor` warning by placing the controller at the expected path
 - Remove the misleading `admin-` prefix from a non-admin-prefixed route's controller
 - Follow the same convention as `app/actions/client/controller.tsx`
 
 **Non-Goals:**
+
 - Restructuring any other controllers — other routes use flat-file naming and don't trigger warnings
 
 ## Decisions
@@ -24,7 +26,7 @@ The `nutzer` route was relocated from `/admin/nutzer` to `/nutzer` (top-level) i
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Test imports break after move | The test file imports `../actions/admin-nutzer-controller.tsx` — needs updating. That's the only internal import change needed. |
-| Git history obscured by file move | Using `git mv` preserves history. |
+| Risk                              | Mitigation                                                                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Test imports break after move     | The test file imports `../actions/admin-nutzer-controller.tsx` — needs updating. That's the only internal import change needed. |
+| Git history obscured by file move | Using `git mv` preserves history.                                                                                               |

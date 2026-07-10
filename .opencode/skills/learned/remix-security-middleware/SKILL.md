@@ -30,7 +30,7 @@ Add `<CsrfTokenInput />` inside every `<form method="POST">`:
 ```tsx
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 
-<form method="POST" action={routes.someRoute.index.href()}>
+;<form method="POST" action={routes.someRoute.index.href()}>
   <CsrfTokenInput />
   <button type="submit">Submit</button>
 </form>
@@ -55,9 +55,9 @@ const csrfMiddleware = csrf({
 export function skipCsrf(): Middleware {
   return async (context, next) => {
     if (context.url.pathname.startsWith('/webhook/')) {
-      return next()  // ← bypass CSRF for webhook paths
+      return next() // ← bypass CSRF for webhook paths
     }
-    return csrfMiddleware(context, next)  // ← CSRF for everything else
+    return csrfMiddleware(context, next) // ← CSRF for everything else
   }
 }
 ```
@@ -67,6 +67,7 @@ export function skipCsrf(): Middleware {
 When you add a new POST route via `createAction` + `router.post()` (not a form), it still goes through CSRF middleware and silently returns 403 — not with "missing csrf token" but a bare 403 that looks like an auth/IP rejection.
 
 **Scenario:** You add:
+
 ```ts
 // routes.ts
 export const callbackRoute = post('/callback')
@@ -78,17 +79,19 @@ router.post(callbackRoute, callbackReceive)
 And `callbackReceive` returns 403 even when the controller logic looks correct. The root cause is CSRF middleware running before your handler.
 
 **Fix:** Add the new path to the existing `skip-csrf.ts` skip list:
+
 ```ts
 if (
   context.url.pathname.startsWith('/webhook/') ||
-  context.url.pathname === '/callback'   // ← add new routes here
+  context.url.pathname === '/callback' // ← add new routes here
 ) {
   return next()
 }
 ```
 
 **Debug tip:** When a new POST route returns 403 and the handler's logic seems correct, check `skip-csrf.ts` first. If the route isn't a browser form (server-to-server, API, callback), it needs to be added to the skip list.
-```
+
+````
 
 In your middleware chain, replace the standalone `csrf()` with the wrapper:
 
@@ -100,24 +103,30 @@ createMiddleware(
   skipCsrf(),  // ← replaces csrf({...})
   ...
 )
-```
+````
 
 **clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
 
 ```tsx
 <form action="/logout" method="post" id="logout-form">
-  <button type="submit" mix={on('click', () => {
-    let form = document.getElementById('logout-form') as HTMLFormElement
-    if (form && !form.querySelector('input[name="_csrf"]')) {
-      let token = document.querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content')
-      if (token) {
-        let input = document.createElement('input')
-        input.type = 'hidden'; input.name = '_csrf'; input.value = token
-        form.appendChild(input)
+  <button
+    type="submit"
+    mix={on('click', () => {
+      let form = document.getElementById('logout-form') as HTMLFormElement
+      if (form && !form.querySelector('input[name="_csrf"]')) {
+        let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        if (token) {
+          let input = document.createElement('input')
+          input.type = 'hidden'
+          input.name = '_csrf'
+          input.value = token
+          form.appendChild(input)
+        }
       }
-    }
-  })}>Logout</button>
+    })}
+  >
+    Logout
+  </button>
 </form>
 ```
 

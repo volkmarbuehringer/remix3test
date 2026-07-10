@@ -5,11 +5,13 @@ The `messageContentToText()` function in `app/utils/message-content.ts` is used 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `parts` array handling to `messageContentToText()` as a third content format handler
 - Verify recalled messages render correctly in `/mastra/chat`
 - Verify recalled messages render correctly in `/admin/chatlog/fragments/detail/:id`
 
 **Non-Goals:**
+
 - Changing how Mastra stores message content (that's the framework's format)
 - Adding new test coverage for `messageContentToText()` (existing tests cover the current format)
 

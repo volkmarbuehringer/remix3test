@@ -5,6 +5,7 @@ The settings page at `/settings` currently supports password changes via a singl
 The admin panel has an existing user deletion pattern in `app/actions/admin-users/controller.tsx` that prevents self-deletion (admin cannot delete own account). This new feature is for self-service deletion, which has different constraints: the user _should_ be able to delete themselves, then get logged out.
 
 Database foreign key constraints on `users.id`:
+
 - `messages.sender_id` → `ON DELETE RESTRICT` (blocks deletion)
 - `workflow_runs.created_by` → no cascade (no action = restrict, blocks deletion)
 - `appointments.user_id` → `ON DELETE CASCADE` (safe)
@@ -15,6 +16,7 @@ Database foreign key constraints on `users.id`:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add a "Delete account" section to the settings page UI
 - Allow user to request deletion after confirming with their current password
 - Clean up or reassign all related records before deletion
@@ -23,6 +25,7 @@ Database foreign key constraints on `users.id`:
 - Rate-limit deletion attempts to prevent abuse
 
 **Non-Goals:**
+
 - Admin-initiated deletion (already exists in admin panel)
 - Soft-delete or account recovery (hard delete only)
 - Email confirmation flow (current password confirmation is sufficient)

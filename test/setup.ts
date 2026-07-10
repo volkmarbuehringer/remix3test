@@ -64,7 +64,9 @@ export async function globalTeardown() {
     try {
       await Promise.race([
         appModule?.closeAppDatabase() ?? Promise.resolve(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('pool.end() timed out after 5s')), 5000)),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('pool.end() timed out after 5s')), 5000),
+        ),
       ])
     } catch (err) {
       console.error('Error closing app database pool:', err)

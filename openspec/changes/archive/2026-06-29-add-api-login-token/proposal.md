@@ -14,9 +14,11 @@ External API consumers (third-party services, mobile apps, scripts) have no way 
 ## Capabilities
 
 ### New Capabilities
+
 - **api-token-auth**: Token-based authentication for API routes — login endpoint, token validation middleware, token revocation, and per-user API token management
 
 ### Modified Capabilities
+
 - <!-- No existing spec-level behavior changes — the existing `/api/lists` route currently uses a static shared token, which is an implementation detail not captured in an existing spec -->
 
 ## Impact

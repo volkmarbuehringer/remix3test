@@ -8,7 +8,11 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { routes } from '../../../routes.ts'
 import { isDateInPast, getPeriodRange, getTodayUtcMidnight } from '../../../utils/date-utils.ts'
-import { isSlotBookable, listOfferingsByDayRange, parseDuring } from '../../../data/appointofferings.ts'
+import {
+  isSlotBookable,
+  listOfferingsByDayRange,
+  parseDuring,
+} from '../../../data/appointofferings.ts'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import Holidays from 'date-holidays'
@@ -17,7 +21,17 @@ import { appointmentChannel } from '../../../utils/appointments-sse.ts'
 import { appointmentSaveSchema, APPOINTMENT_FORM_KEYS } from '../../../utils/appointment-schema.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
-import { gridStateFromForm, gridStateFromFormData, gridStateToParams, gridStateOffset, gridStateSort, gridStateDirection, gridStateFilter, gridStatePeriod, gridStateStatus } from '../../../utils/grid-state.ts'
+import {
+  gridStateFromForm,
+  gridStateFromFormData,
+  gridStateToParams,
+  gridStateOffset,
+  gridStateSort,
+  gridStateDirection,
+  gridStateFilter,
+  gridStatePeriod,
+  gridStateStatus,
+} from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { AdminAppointmentsPage } from '../../../ui/admin-appointments-page.tsx'
@@ -31,7 +45,11 @@ import {
   adminUpdateAppointment,
   adminDeleteAppointment,
 } from '../../../data/appointments.ts'
-import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../../../data/appointments.ts'
+import type {
+  AppointmentRow,
+  AppointmentResourceOption,
+  AppointmentUserOption,
+} from '../../../data/appointments.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Appointments
@@ -39,19 +57,37 @@ import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption }
 
 const APPOINTMENTS_PAGE_SIZE = 15
 
-const APPOINTMENTS_RATE_LIMIT_MS = process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS !== undefined
-  ? Number(process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS)
-  : 1000
-const appointmentsCreateLimiter = createRateLimiter({ windowMs: APPOINTMENTS_RATE_LIMIT_MS, perUser: true })
-const appointmentsUpdateLimiter = createRateLimiter({ windowMs: APPOINTMENTS_RATE_LIMIT_MS, perUser: true })
-const appointmentsDeleteLimiter = createRateLimiter({ windowMs: APPOINTMENTS_RATE_LIMIT_MS, perUser: true })
+const APPOINTMENTS_RATE_LIMIT_MS =
+  process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS !== undefined
+    ? Number(process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS)
+    : 1000
+const appointmentsCreateLimiter = createRateLimiter({
+  windowMs: APPOINTMENTS_RATE_LIMIT_MS,
+  perUser: true,
+})
+const appointmentsUpdateLimiter = createRateLimiter({
+  windowMs: APPOINTMENTS_RATE_LIMIT_MS,
+  perUser: true,
+})
+const appointmentsDeleteLimiter = createRateLimiter({
+  windowMs: APPOINTMENTS_RATE_LIMIT_MS,
+  perUser: true,
+})
 
 const CACHE_TTL_MS = 60_000
-let appointmentsResourcesCache: { data: AppointmentResourceOption[]; expiresAt: number } | null = null
+let appointmentsResourcesCache: { data: AppointmentResourceOption[]; expiresAt: number } | null =
+  null
 let appointmentsUsersCache: { data: AppointmentUserOption[]; expiresAt: number } | null = null
 
 const APPOINTMENTS_SORTABLE_FIELDS = [
-  'a.id', 'a.title', 'u.email', 'r.description', 'a.date', 'a.during', 'a.created_at', 'a.updated_at',
+  'a.id',
+  'a.title',
+  'u.email',
+  'r.description',
+  'a.date',
+  'a.during',
+  'a.created_at',
+  'a.updated_at',
 ] as const
 
 const APPOINTMENTS_ORDER_BY_COLUMNS: Record<string, string> = {
@@ -98,22 +134,48 @@ function errorRedirectDestroy(formData: FormData, error: string): Response {
 
 async function loadAppointmentPageData(
   context: AppContext,
-  overrides?: Partial<Pick<AppointmentPageData, 'creating' | 'editRow' | 'error' | 'formValues' | 'fieldErrors' | 'formError' | 'offset' | 'sortColumn' | 'sortDirection' | 'filter' | 'period' | 'status'>>,
+  overrides?: Partial<
+    Pick<
+      AppointmentPageData,
+      | 'creating'
+      | 'editRow'
+      | 'error'
+      | 'formValues'
+      | 'fieldErrors'
+      | 'formError'
+      | 'offset'
+      | 'sortColumn'
+      | 'sortDirection'
+      | 'filter'
+      | 'period'
+      | 'status'
+    >
+  >,
 ): Promise<AppointmentPageData> {
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE)
-  let offset = overrides?.offset ?? Math.max(0, (Number(context.url.searchParams.get('offset')) || 0))
+  let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
   let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
   let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
   let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
 
-  let { column, direction } = overrides?.sortColumn ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? 'asc' as const } : parseSort(context.url, {
-    allowedColumns: APPOINTMENTS_SORTABLE_FIELDS,
-    defaultColumn: 'a.date',
-    defaultDirection: 'asc',
-  })
+  let { column, direction } = overrides?.sortColumn
+    ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
+    : parseSort(context.url, {
+        allowedColumns: APPOINTMENTS_SORTABLE_FIELDS,
+        defaultColumn: 'a.date',
+        defaultDirection: 'asc',
+      })
 
   let [{ rows, hasMore }, resourcesResult, usersResult] = await Promise.all([
-    listAppointments(context.db, { offset, pageSize: effectivePageSize, column, direction, filter, period, status }),
+    listAppointments(context.db, {
+      offset,
+      pageSize: effectivePageSize,
+      column,
+      direction,
+      filter,
+      period,
+      status,
+    }),
     (() => {
       if (appointmentsResourcesCache && Date.now() < appointmentsResourcesCache.expiresAt) {
         return Promise.resolve(appointmentsResourcesCache.data)
@@ -134,11 +196,12 @@ async function loadAppointmentPageData(
     })(),
   ])
 
-  let editingParam = overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
+  let editingParam =
+    overrides?.editRow !== undefined ? null : context.url.searchParams.get('editing')
   let editingRowId = editingParam || null
   let editRow = overrides?.editRow ?? null
   if (!editRow && editingRowId) {
-    editRow = await fetchAppointmentEditRow(context.db, editingRowId) ?? null
+    editRow = (await fetchAppointmentEditRow(context.db, editingRowId)) ?? null
   }
 
   let creating = overrides?.creating ?? context.url.searchParams.get('creating') === 'true'
@@ -148,9 +211,15 @@ async function loadAppointmentPageData(
   if (creating && resourcesResult.length > 0) {
     let firstResourceId = parseInt(resourcesResult[0].id, 10)
     let today = new Date()
-    let searchStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
+    let searchStart =
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
     let searchEnd = searchStart + 14 * 86_400_000
-    let offerings = await listOfferingsByDayRange(context.db, searchStart, searchEnd, firstResourceId)
+    let offerings = await listOfferingsByDayRange(
+      context.db,
+      searchStart,
+      searchEnd,
+      firstResourceId,
+    )
     if (offerings.length > 0) {
       let parsed = parseDuring(offerings[0].during)
       if (parsed) {
@@ -362,7 +431,13 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let newId: number
 
         try {
-          newId = await adminCreateAppointment(context.db, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
+          newId = await adminCreateAppointment(context.db, {
+            title: trimmedTitle,
+            userId: user_id,
+            resourceId: resource_id,
+            date: dayMs,
+            during,
+          })
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
@@ -395,7 +470,13 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
+        let params = gridStateToParams({
+          ...gridValues,
+          period: '',
+          filter: '',
+          offset: '',
+          status: '',
+        })
         params.set('editing', String(newId))
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
@@ -552,7 +633,13 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         let during = `[${start_min},${end_min})`
 
         try {
-          let updated = await adminUpdateAppointment(context.db, id, { title: trimmedTitle, userId: user_id, resourceId: resource_id, date: dayMs, during })
+          let updated = await adminUpdateAppointment(context.db, id, {
+            title: trimmedTitle,
+            userId: user_id,
+            resourceId: resource_id,
+            date: dayMs,
+            during,
+          })
 
           if (!updated) {
             let editRow = await fetchAppointmentEditRow(context.db, id)
@@ -602,7 +689,13 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams({ ...gridValues, period: '', filter: '', offset: '', status: '' })
+        let params = gridStateToParams({
+          ...gridValues,
+          period: '',
+          filter: '',
+          offset: '',
+          status: '',
+        })
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },
@@ -615,7 +708,10 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
         if (auth?.ok) {
           let authUserId = (auth.identity as { id: number }).id
           if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
-            return errorRedirectDestroy(formData, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
+            return errorRedirectDestroy(
+              formData,
+              'Bitte warten Sie, bevor Sie einen Termin löschen.',
+            )
           }
         }
 
@@ -642,14 +738,23 @@ export default createController<typeof routes.verwaltung.appointments, AppContex
           }
         } catch (error: unknown) {
           if (isConstraintViolation(error)) {
-            return errorRedirectDestroy(formData, 'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.')
+            return errorRedirectDestroy(
+              formData,
+              'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
+            )
           }
           throw error
         }
 
         appointmentChannel.broadcast('invalidate')
 
-        let params = gridStateToParams({ ...gridStateFromFormData(formData), period: '', filter: '', offset: '', status: '' })
+        let params = gridStateToParams({
+          ...gridStateFromFormData(formData),
+          period: '',
+          filter: '',
+          offset: '',
+          status: '',
+        })
         let qs = params.toString()
         return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
       },

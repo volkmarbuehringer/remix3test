@@ -173,12 +173,17 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
           {messages.map((msg, idx) => (
             <div
               key={idx}
-              mix={[messageBubbleStyle, msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle]}
+              mix={[
+                messageBubbleStyle,
+                msg.role === 'user' ? userBubbleStyle : assistantBubbleStyle,
+              ]}
             >
               <p mix={messageContentStyle}>{msg.content}</p>
               <div mix={messageMetaStyle}>
                 {msg.role === 'user' ? 'Du' : 'Assistent'}
-                {msg.timestamp ? ` · ${new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                {msg.timestamp
+                  ? ` · ${new Date(msg.timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+                  : ''}
               </div>
             </div>
           ))}
@@ -192,7 +197,8 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
               {approvalData!.responseText || 'Soll das Benutzerkonto wirklich gelöscht werden?'}
             </p>
             <p style={{ color: theme.colors.text.muted, fontSize: theme.fontSize.sm }}>
-              Diese Aktion löscht alle zukünftigen Termine, deaktiviert den Login und verhindert eine erneute Registrierung mit derselben E-Mail-Adresse.
+              Diese Aktion löscht alle zukünftigen Termine, deaktiviert den Login und verhindert
+              eine erneute Registrierung mit derselben E-Mail-Adresse.
             </p>
             <div mix={approvalActionsStyle}>
               <form method="POST" action={routes.mastra.chat.approve.href()}>
@@ -200,27 +206,47 @@ export function MastraChatPage(handle: Handle<MastraChatPageProps>) {
                 <input type="hidden" name="runId" value={approvalData!.runId} />
                 <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
                 <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={approveBtnStyle}>✔ Bestätigen</button>
+                <button type="submit" mix={approveBtnStyle}>
+                  ✔ Bestätigen
+                </button>
               </form>
               <form method="POST" action={routes.mastra.chat.decline.href()}>
                 <CsrfTokenInput />
                 <input type="hidden" name="runId" value={approvalData!.runId} />
                 <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
                 <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={declineBtnStyle}>✖ Ablehnen</button>
+                <button type="submit" mix={declineBtnStyle}>
+                  ✖ Ablehnen
+                </button>
               </form>
             </div>
           </div>
         )}
 
         {!showApproval && (
-          <form method="POST" action={routes.mastra.chat.action.href()} autocomplete="off" mix={formStyle}>
+          <form
+            method="POST"
+            action={routes.mastra.chat.action.href()}
+            autocomplete="off"
+            mix={formStyle}
+          >
             <CsrfTokenInput />
             {threadId && <input type="hidden" name="threadId" value={threadId} />}
-            <label mix={labelStyle} for="message">Deine Frage</label>
-            <textarea id="message" name="message" rows={4} required maxLength={5000} mix={textareaStyle} />
+            <label mix={labelStyle} for="message">
+              Deine Frage
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              rows={4}
+              required
+              maxLength={5000}
+              mix={textareaStyle}
+            />
             <div>
-              <button type="submit" mix={btnStyle}>Senden</button>
+              <button type="submit" mix={btnStyle}>
+                Senden
+              </button>
             </div>
           </form>
         )}

@@ -20,7 +20,11 @@ export async function searchLists(
   return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => {
     let list = row.list
     if (typeof list === 'string') {
-      try { list = JSON.parse(list as string) } catch { list = [] }
+      try {
+        list = JSON.parse(list as string)
+      } catch {
+        list = []
+      }
     }
     return {
       ...row,

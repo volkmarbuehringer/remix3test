@@ -17,9 +17,11 @@ When Hermes processes a webhook payload asynchronously, the app currently has no
 ## Capabilities
 
 ### New Capabilities
+
 - `callback-endpoint`: Receives async processing results from Hermes via POST and stores them in the `webhook_requests` table with a JSONB payload
 
 ### Modified Capabilities
+
 - `app-webhook-hermes`: The response already includes `callbackUrl` — now the endpoint it points to actually exists. No spec-level requirement changes, only implementation.
 - `webhook-requests-viewer`: May want to display `callback_response` and `callback_received_at` in the viewer table in the future (out of scope for this change).
 

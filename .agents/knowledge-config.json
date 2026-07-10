@@ -1,4 +1,17 @@
 {
-  "auto_load_tags": ["remix3", "validation", "postgres", "forms", "admin", "typescript", "redirect", "render", "design", "clientEntry", "svg", "layout","admin-table-editing-row-highlight"]
-  
+  "auto_load_tags": [
+    "remix3",
+    "validation",
+    "postgres",
+    "forms",
+    "admin",
+    "typescript",
+    "redirect",
+    "render",
+    "design",
+    "clientEntry",
+    "svg",
+    "layout",
+    "admin-table-editing-row-highlight"
+  ]
 }

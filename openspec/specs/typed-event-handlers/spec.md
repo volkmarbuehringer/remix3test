@@ -1,8 +1,11 @@
 # typed-event-handlers Specification
 
 ## Purpose
+
 TBD - created by archiving change type-event-handlers-and-error-logging. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Event handlers use specific DOM event types
 
 The system SHALL type Remix 3 `on()` mixin callbacks with the correct DOM event type instead of `any`.
@@ -16,4 +19,3 @@ The system SHALL type Remix 3 `on()` mixin callbacks with the correct DOM event 
 
 - **WHEN** an `on('pointerdown', ...)` callback is defined in `appointment-grid.tsx`
 - **THEN** the callback parameter SHALL be typed as `PointerEvent` instead of `any`
-

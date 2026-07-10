@@ -15,9 +15,11 @@ The existing `POST /webhook/:token` endpoint ingests webhook payloads into the d
 ## Capabilities
 
 ### New Capabilities
+
 - `app-webhook-hermes`: New authenticated webhook endpoint that ingests JSON payloads, persists them with a UUID, and forwards to the hermes event processor for background handling
 
 ### Modified Capabilities
+
 <!-- No existing spec-level behavior is changing -->
 
 ## Impact

@@ -15,9 +15,11 @@ Adding SSE-based auto-refresh to the admin appointments page brings it to parity
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-appointments-sse`: SSE-based auto-refresh for the admin appointments page, including event subscription, client-side reload logic, and mutation broadcasting
 
 ### Modified Capabilities
+
 _(No existing capability requirements are changing — the admin appointments page simply gains a new capability)_
 
 ## Impact

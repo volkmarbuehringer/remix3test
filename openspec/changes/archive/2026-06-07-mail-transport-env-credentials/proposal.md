@@ -12,10 +12,12 @@ The current nodemailer transport has no authentication support, making it imposs
 ## Capabilities
 
 ### New Capabilities
+
 - `mail-transport-auth`: Authenticated SMTP transport via env vars
 
 ### Modified Capabilities
-*(none — purely an implementation/infrastructure change)*
+
+_(none — purely an implementation/infrastructure change)_
 
 ## Impact
 

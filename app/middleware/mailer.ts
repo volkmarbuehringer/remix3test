@@ -25,7 +25,11 @@ const transport =
         ignoreTLS: true,
       })
 
-export function mailer(): Middleware<{ key: typeof MailerContext; value: SendEmailFn; property: 'mailer' }> {
+export function mailer(): Middleware<{
+  key: typeof MailerContext
+  value: SendEmailFn
+  property: 'mailer'
+}> {
   let sendEmail = createSendEmail(transport)
 
   return async (context, next) => {

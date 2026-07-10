@@ -27,7 +27,7 @@ The default `remix new` scaffold is a single-page app with inline CSS variables,
 
 ### Modified Capabilities
 
-*(None — this is a greenfield starter with no existing capability specs.)*
+_(None — this is a greenfield starter with no existing capability specs.)_
 
 ## Impact
 

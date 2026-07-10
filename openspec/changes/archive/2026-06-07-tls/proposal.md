@@ -12,6 +12,7 @@ Serve the app over HTTPS in production without requiring a purchased domain. Sel
 ## Capabilities
 
 ### New Capabilities
+
 - `tls-server`: HTTPS server support with self-signed certificates for production deployments
 
 ### Modified Capabilities

@@ -120,18 +120,9 @@ describe('requireAdmin middleware', () => {
     assert.ok(response, 'should return a response')
     assert.equal(response!.status, 302, 'should return 302 redirect')
     let location = response!.headers.get('Location')
-    assert.ok(
-      location?.startsWith(routes.auth.login.index.href()),
-      'should redirect to /login',
-    )
-    assert.ok(
-      location?.includes('returnTo='),
-      'should include captured return path',
-    )
-    assert.ok(
-      location?.includes('%2Fadmin%2Fmessages'),
-      'returnTo should be the original URL path',
-    )
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to /login')
+    assert.ok(location?.includes('returnTo='), 'should include captured return path')
+    assert.ok(location?.includes('%2Fadmin%2Fmessages'), 'returnTo should be the original URL path')
   })
 
   it('uses custom redirectTo when configured', async () => {
@@ -146,11 +137,7 @@ describe('requireAdmin middleware', () => {
     assert.ok(response, 'should return a response')
     assert.equal(response!.status, 302)
     let location = response!.headers.get('Location')
-    assert.equal(
-      location,
-      '/custom-login',
-      'should redirect to custom login page',
-    )
+    assert.equal(location, '/custom-login', 'should redirect to custom login page')
   })
 
   // -----------------------------------------------------------------------
@@ -161,11 +148,14 @@ describe('requireAdmin middleware', () => {
     // Arrange
     let capturedNode: RemixNode | null = null
     let middleware = requireAdmin()
-    let context = createMockContext(createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }), {
-      captureForbidden: (node) => {
-        capturedNode = node
+    let context = createMockContext(
+      createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }),
+      {
+        captureForbidden: (node) => {
+          capturedNode = node
+        },
       },
-    })
+    )
 
     // Act
     let response = await middleware(context, async () => new Response('ok'))
@@ -173,10 +163,7 @@ describe('requireAdmin middleware', () => {
     // Assert
     assert.ok(response, 'should return a response')
     assert.equal(response!.status, 403, 'should return 403 Forbidden')
-    assert.ok(
-      capturedNode != null,
-      'should render ForbiddenPage component (not hardcoded HTML)',
-    )
+    assert.ok(capturedNode != null, 'should render ForbiddenPage component (not hardcoded HTML)')
   })
 
   // -----------------------------------------------------------------------
@@ -190,11 +177,14 @@ describe('requireAdmin middleware', () => {
     let middleware = requireAdmin({
       forbiddenPage: customPage,
     })
-    let context = createMockContext(createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }), {
-      captureForbidden: (node) => {
-        capturedNode = node
+    let context = createMockContext(
+      createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }),
+      {
+        captureForbidden: (node) => {
+          capturedNode = node
+        },
       },
-    })
+    )
 
     // Act
     let response = await middleware(context, async () => new Response('ok'))
@@ -202,11 +192,7 @@ describe('requireAdmin middleware', () => {
     // Assert
     assert.ok(response, 'should return a response')
     assert.equal(response!.status, 403, 'should return 403 Forbidden')
-    assert.equal(
-      capturedNode,
-      customPage,
-      'should render the custom forbidden page',
-    )
+    assert.equal(capturedNode, customPage, 'should render the custom forbidden page')
     let text = await response!.text()
     assert.equal(text, customPage, 'response body should match custom page')
   })
@@ -220,7 +206,9 @@ describe('requireAdmin middleware', () => {
     let middleware = requireAdmin({
       forbiddenPage: customResponse,
     })
-    let context = createMockContext(createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }))
+    let context = createMockContext(
+      createMockAuth({ ok: true, identity: { id: 2, role: 'customer' } as User }),
+    )
 
     // Act
     let response = await middleware(context, async () => new Response('ok'))

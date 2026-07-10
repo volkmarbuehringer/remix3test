@@ -1,6 +1,6 @@
 ---
 name: remix3-token-json-api-alongside-session
-description: "Add Bearer-token JSON API endpoints alongside session-authenticated routes in Remix 3, reusing backend logic."
+description: 'Add Bearer-token JSON API endpoints alongside session-authenticated routes in Remix 3, reusing backend logic.'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -38,7 +38,11 @@ export async function getWidgetById(db: { findOne: Function }, id: number) {
 }
 
 export async function createWidget(db: { create: Function }, input: { name: string }) {
-  let row = await db.create(widgets, { name: input.name, created_at: Date.now() }, { returnRow: true })
+  let row = await db.create(
+    widgets,
+    { name: input.name, created_at: Date.now() },
+    { returnRow: true },
+  )
   return { id: row.id, name: row.name }
 }
 ```

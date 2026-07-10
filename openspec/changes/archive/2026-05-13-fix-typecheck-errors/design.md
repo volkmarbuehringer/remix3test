@@ -36,11 +36,13 @@ Upstream remix packages (shipped as `remix@preview/main`) already contain the ne
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Restore clean typecheck (`tsc --noEmit` passes with 0 errors)
 - Update `loadDatabase()` to align with the new `ContextEntry` API shape
 - No runtime behavior changes
 
 **Non-Goals:**
+
 - Migrating to direct context properties (e.g., `context.db` instead of `context.get(Database)`) — that's a follow-up improvement
 - Updating import paths to canonical forms (`remix/router` vs `remix/fetch-router`) — not yet available as exports
 - Refactoring controllers to use `context.render` direct property — nice-to-have, not required
@@ -48,16 +50,19 @@ Upstream remix packages (shipped as `remix@preview/main`) already contain the ne
 ## Decisions
 
 **Decision 1: Only update the type annotation, not the `context.set()` call**
+
 - The `context.set(Database, db)` runtime call doesn't need to change — it accepts both old and new formats
 - Only the return type `Middleware<...>` needs updating because the generic constraint on `AnyMiddleware` changed
 - Adding `{ property: 'db' }` to `context.set()` would be a follow-up; the direct property feature is optional
 
 **Decision 2: Use the minimal object format without `property`**
+
 - Format: `Middleware<{ key: typeof Database; value: Database }>`
 - This satisfies the new `ContextEntry` constraint
 - The `property` field is optional and omitting it keeps scope minimal
 
 **Decision 3: No specs needed**
+
 - This change fixes existing functionality rather than introducing new capabilities
 - There are no requirement changes to capture in spec files
 - The change is purely implementation (type annotation alignment)

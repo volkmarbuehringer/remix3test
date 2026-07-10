@@ -32,10 +32,7 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(
-      html.includes('Client-Test'),
-      'page should contain Client-Test nav label',
-    )
+    assert.ok(html.includes('Client-Test'), 'page should contain Client-Test nav label')
   })
 
   // -----------------------------------------------------------------------
@@ -232,7 +229,10 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/admin/client?editing='), 'should redirect to /admin/client?editing=<id>')
+    assert.ok(
+      location.startsWith('/admin/client?editing='),
+      'should redirect to /admin/client?editing=<id>',
+    )
     assert.ok(/\bediting=\d+/.test(location), 'editing param should be a number')
   })
 
@@ -295,7 +295,11 @@ describe('Client lab controller', () => {
   it('POST /admin/client creates a new row and redirects', async () => {
     let response = await router.fetch('https://remix.run/admin/client', {
       method: 'POST',
-      body: new URLSearchParams({ name: 'Refresh Test', email: 'refresh-test@example.com', _csrf: csrfToken! }),
+      body: new URLSearchParams({
+        name: 'Refresh Test',
+        email: 'refresh-test@example.com',
+        _csrf: csrfToken!,
+      }),
       redirect: 'manual',
       headers: authHeaders(),
     })

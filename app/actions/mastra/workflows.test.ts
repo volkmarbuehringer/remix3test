@@ -3,7 +3,11 @@ import * as assert from 'remix/assert'
 
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { consoleNotificationSender } from './notifications/sender.ts'
-import { clearFailedNotifications, enqueueFailedNotification, getFailedNotifications } from './notifications/queue.ts'
+import {
+  clearFailedNotifications,
+  enqueueFailedNotification,
+  getFailedNotifications,
+} from './notifications/queue.ts'
 import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments.ts'
 import { db } from '../../data/connection.ts'
 
@@ -145,7 +149,11 @@ describe('Booking mutation helpers', () => {
     // If the sender ever returns sent:false, the compensation path
     // (keep booking, enqueue failure) kicks in — test the queue side:
     clearFailedNotifications()
-    enqueueFailedNotification('1', 'confirmation', { type: 'confirmation', recipient: '1', appointmentId: 999 })
+    enqueueFailedNotification('1', 'confirmation', {
+      type: 'confirmation',
+      recipient: '1',
+      appointmentId: 999,
+    })
     assert.equal(getFailedNotifications().length, 1)
     assert.equal(getFailedNotifications()[0].data.appointmentId, 999)
   })

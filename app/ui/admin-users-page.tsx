@@ -10,7 +10,14 @@ import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { table } from './mixins/admin-table.ts'
-import { sortArrow, buildSortUrl, buildPaginationUrl, buildCreateUrl, buildCancelUrl, formatTimestamp } from './mixins/admin-urls.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildCancelUrl,
+  formatTimestamp,
+} from './mixins/admin-urls.ts'
 import { AdminUsersContextMenu } from '../assets/admin-users-context-menu.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
@@ -44,9 +51,16 @@ interface AdminUsersPageProps {
 export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
   return () => {
     let {
-      rows, offset, hasMore, prevOffset, nextOffset,
-      sortColumn, sortDirection, filter,
-      editRow = null, creating = false,
+      rows,
+      offset,
+      hasMore,
+      prevOffset,
+      nextOffset,
+      sortColumn,
+      sortDirection,
+      filter,
+      editRow = null,
+      creating = false,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
@@ -67,7 +81,9 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
-          <button type="submit" mix={table.searchBtn}><Glyph name="search" width={14} height={14} /> Suchen</button>
+          <button type="submit" mix={table.searchBtn}>
+            <Glyph name="search" width={14} height={14} /> Suchen
+          </button>
           {filter && (
             <a
               href={routes.admin.users.index.href()}
@@ -83,7 +99,9 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}><Glyph name="add" width={14} height={14} /> Neu anlegen</button>
+            <button mix={[button({ tone: 'primary' })]}>
+              <Glyph name="add" width={14} height={14} /> Neu anlegen
+            </button>
           </a>
         </form>
 
@@ -91,9 +109,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         <div mix={table.wrap} data-users-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
-              {filter
-                ? 'Keine Benutzer gefunden für diese Suche.'
-                : 'Keine Benutzer vorhanden.'}
+              {filter ? 'Keine Benutzer gefunden für diese Suche.' : 'Keine Benutzer vorhanden.'}
             </div>
           ) : (
             <table mix={table.table}>
@@ -107,8 +123,18 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               <thead>
                 <tr>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'id', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'id',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       ID
                       <span mix={'id' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('id', sortColumn, sortDirection)}
@@ -116,8 +142,18 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'name', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'name',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Name
                       <span mix={'name' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('name', sortColumn, sortDirection)}
@@ -125,8 +161,18 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'email', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'email',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       E-Mail
                       <span mix={'email' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('email', sortColumn, sortDirection)}
@@ -134,8 +180,18 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'role', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'role',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Rolle
                       <span mix={'role' === sortColumn ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('role', sortColumn, sortDirection)}
@@ -143,10 +199,22 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.thSortable}>
-                    <a href={buildSortUrl(ADMIN_BASE, 'created_at', sortColumn, sortDirection, offset, filter)}
-                       rmx-target={frames.adminContent} mix={table.sortLink}>
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'created_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      rmx-target={frames.adminContent}
+                      mix={table.sortLink}
+                    >
                       Erstellt
-                      <span mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}>
+                      <span
+                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
                         {sortArrow('created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
@@ -155,12 +223,24 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id} mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]} data-row-id={row.id}>
-                    <td mix={table.td} title={String(row.id)}>{row.id}</td>
-                    <td mix={table.td} title={row.name}>{row.name}</td>
-                    <td mix={table.td} title={row.email}>{row.email}</td>
+                  <tr
+                    key={row.id}
+                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    data-row-id={row.id}
+                  >
+                    <td mix={table.td} title={String(row.id)}>
+                      {row.id}
+                    </td>
+                    <td mix={table.td} title={row.name}>
+                      {row.name}
+                    </td>
+                    <td mix={table.td} title={row.email}>
+                      {row.email}
+                    </td>
                     <td mix={table.td}>{row.role}</td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at)}>{formatTimestamp(row.created_at)}</td>
+                    <td mix={table.td} title={formatTimestamp(row.created_at)}>
+                      {formatTimestamp(row.created_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -194,26 +274,60 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
             {rows.length > 0 && (
-              <span mix={table.paginationInfo}>Zeige {pageStart}–{pageEnd}</span>
+              <span mix={table.paginationInfo}>
+                Zeige {pageStart}–{pageEnd}
+              </span>
             )}
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, prevOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    prevOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                ><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</a>
+                >
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}><Glyph name="chevronRight" width={14} height={14} style={{ transform: 'rotate(180deg)' }} /> Zurück</span>
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph
+                    name="chevronRight"
+                    width={14}
+                    height={14}
+                    style={{ transform: 'rotate(180deg)' }}
+                  />{' '}
+                  Zurück
+                </span>
               )}
               {hasMore ? (
                 <a
-                  href={buildPaginationUrl(ADMIN_BASE, nextOffset, sortColumn, sortDirection, filter)}
+                  href={buildPaginationUrl(
+                    ADMIN_BASE,
+                    nextOffset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )}
                   rmx-target={frames.adminContent}
                   mix={table.pageLink}
-                >Weiter <Glyph name="chevronRight" width={14} height={14} /></a>
+                >
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </a>
               ) : (
-                <span mix={table.pageLinkDisabled}>Weiter <Glyph name="chevronRight" width={14} height={14} /></span>
+                <span mix={table.pageLinkDisabled}>
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </span>
               )}
             </div>
           </div>
@@ -299,7 +413,9 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-name">Name</label>
+                <label mix={table.label} htmlFor="au-name">
+                  Name
+                </label>
                 <input
                   id="au-name"
                   name="name"
@@ -310,7 +426,9 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-email">E-Mail</label>
+                <label mix={table.label} htmlFor="au-email">
+                  E-Mail
+                </label>
                 <input
                   id="au-email"
                   name="email"
@@ -321,14 +439,16 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-role">Rolle</label>
-                <select
-                  id="au-role"
-                  name="role"
-                  mix={[input.base, input.focus, table.select]}
-                >
-                  <option value="customer" selected={row.role === 'customer'}>Kunde</option>
-                  <option value="admin" selected={row.role === 'admin'}>Admin</option>
+                <label mix={table.label} htmlFor="au-role">
+                  Rolle
+                </label>
+                <select id="au-role" name="role" mix={[input.base, input.focus, table.select]}>
+                  <option value="customer" selected={row.role === 'customer'}>
+                    Kunde
+                  </option>
+                  <option value="admin" selected={row.role === 'admin'}>
+                    Admin
+                  </option>
                 </select>
               </div>
 
@@ -336,8 +456,20 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.admin.users.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>
@@ -374,7 +506,9 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-name-c">Name</label>
+                <label mix={table.label} htmlFor="au-name-c">
+                  Name
+                </label>
                 <input
                   id="au-name-c"
                   name="name"
@@ -385,7 +519,9 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-email-c">E-Mail</label>
+                <label mix={table.label} htmlFor="au-email-c">
+                  E-Mail
+                </label>
                 <input
                   id="au-email-c"
                   name="email"
@@ -396,19 +532,21 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-role-c">Rolle</label>
-                <select
-                  id="au-role-c"
-                  name="role"
-                  mix={[input.base, input.focus, table.select]}
-                >
-                  <option value="customer" selected>Kunde</option>
+                <label mix={table.label} htmlFor="au-role-c">
+                  Rolle
+                </label>
+                <select id="au-role-c" name="role" mix={[input.base, input.focus, table.select]}>
+                  <option value="customer" selected>
+                    Kunde
+                  </option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="au-password-c">Passwort</label>
+                <label mix={table.label} htmlFor="au-password-c">
+                  Passwort
+                </label>
                 <input
                   id="au-password-c"
                   name="password"
@@ -423,8 +561,20 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Anlegen
                 </button>
-                <a href={buildCancelUrl(routes.admin.users.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.admin.users.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

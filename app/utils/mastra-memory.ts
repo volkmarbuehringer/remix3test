@@ -13,7 +13,11 @@ export interface ThreadListResult {
 }
 
 interface MemoryHandle {
-  recall: (opts: { threadId: string; resource?: string; perPage: false }) => Promise<{ messages?: unknown[] }>
+  recall: (opts: {
+    threadId: string
+    resource?: string
+    perPage: false
+  }) => Promise<{ messages?: unknown[] }>
   listThreads: (opts: {
     page: number
     perPage: number

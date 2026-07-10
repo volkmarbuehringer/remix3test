@@ -5,6 +5,7 @@ The appointments calendar in newapp uses a PostgreSQL `appointments` table with 
 PostgreSQL offers `int4range` — a built-in range type for integer ranges — with GiST-indexable overlap operators (`&&`). By using a range column with a `GENERATED ALWAYS AS ... STORED` computed column pattern, we can compute `start_min` and `end_min` from the range automatically. This keeps the existing API contract (clients send/receive `start_min`/`end_min`) while adding database-level overlap enforcement.
 
 Current state:
+
 - Table uses `start_min INTEGER NOT NULL, end_min INTEGER NOT NULL` as storage columns
 - No exclusion constraint for overlap prevention
 - Schema's `beforeWrite` handles timestamp defaults
@@ -14,6 +15,7 @@ Current state:
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `during int4range NOT NULL` as the primary storage column
 - Make `start_min` and `end_min` computed from `during` via `GENERATED ALWAYS AS (lower/upper(during)) STORED`
 - Add `CONSTRAINT no_overlapping_seats EXCLUDE USING GIST (during WITH &&)` to prevent overlapping ranges
@@ -23,6 +25,7 @@ Current state:
 - All existing tests pass without modification to test assertions
 
 **Non-Goals:**
+
 - No changes to the API contract — request/response payloads still use `start_min`/`end_min`
 - No changes to the UI or client-side layout solver (`schedule-layout.ts` unchanged)
 - No changes to how appointments are queried (SELECT, filtering by week/date)

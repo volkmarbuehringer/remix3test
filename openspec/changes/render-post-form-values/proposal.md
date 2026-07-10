@@ -14,9 +14,11 @@ The canonical Remix 3 pattern for form validation — `context.render(<Page erro
 ## Capabilities
 
 ### New Capabilities
+
 - `form-render-post`: A form that validates input server-side and re-renders the page on validation failure, preserving the user's submitted values and showing per-field error messages — without URL parameters, session flash, or redirects.
 
 ### Modified Capabilities
+
 <!-- None -->
 
 ## Impact

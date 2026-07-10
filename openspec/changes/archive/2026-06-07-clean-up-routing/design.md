@@ -21,12 +21,14 @@ routes.ts (typed) ──→ router.ts (mostly router.map()) ──→ controller
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Every `form action`, `<a href>`, `<Frame src>`, redirect URL, and `fetch()` URL in server-rendered UI components uses `routes.X.href()` or passes it through
 - The `ROUTE_LABELS` string map is replaced with route-derived label registration
 - The 3 `.href()` string registrations in `router.ts` become `router.map()` calls
 - Achieve zero hardcoded URL strings in `app/ui/` and `app/routes.ts`/`app/router.ts`
 
 **Non-Goals:**
+
 - Renaming the route tree structure or changing URL paths
 - Changing controller handler signatures
 - Making client-side-only assets (`app/assets/`) import `routes.ts` directly — they receive URLs as props from server-rendered parents
@@ -58,7 +60,7 @@ The breadcrumb `getBreadcrumbs()` function remains pathname-based (it receives t
 Each page currently does something like:
 
 ```typescript
-action="/verwaltung/offering-configs"
+action = '/verwaltung/offering-configs'
 ```
 
 becomes:

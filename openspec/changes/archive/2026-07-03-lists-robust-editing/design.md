@@ -5,7 +5,7 @@ The `/lists` feature is a personal scratchpad. Current shape:
 - One DB row per list: `id, user_id, list(jsonb Array<{id,label}>), description, created_at, updated_at`.
 - Two controllers share `app/lib/lists-api.ts`: session-auth `app/actions/lists/*` (the browser UI) and bearer-auth `app/actions/api/lists/*` (out of scope for this change).
 - Browser UI = a `Frame`-based sidebar + content layout (`app/ui/lists-layout.tsx`) wrapping a `clientEntry` (`app/assets/lists-client.tsx`) that holds all editing state in memory and round-trips JSON to `save`, `update`, `rename`, `data`, `destroy` actions.
-- `updated_at` is written but never *compared*, so concurrent edits silently overwrite.
+- `updated_at` is written but never _compared_, so concurrent edits silently overwrite.
 - Item `id` is rewritten by `deleteItem`, so identity is positional, not stable.
 
 Constraints:
@@ -22,7 +22,7 @@ Constraints:
 
 - Stable item identity that survives delete/edit/drag.
 - One resource-oriented write path: `POST /` (create) and `PATCH /:id` (partial update — description only, items only, or both).
-- Loaded list data is delivered *with* the `?load=N` frame response — no second `/data` fetch.
+- Loaded list data is delivered _with_ the `?load=N` frame response — no second `/data` fetch.
 - Optimistic concurrency: stale writes return `409` with the current row; the user can choose to reload.
 - Autosave on idle with a visible dirty/saving/saved indicator; manual Save/Update buttons become a non-default escape hatch.
 - Sidebar search for users, reusing the existing `getAllLists({ filter })` path.
@@ -34,7 +34,7 @@ Constraints:
 - Realtime multi-user/cross-tab collaboration (SSE, CRDT, diff/merge).
 - Soft delete / trash / undo.
 - Touching `/api/lists` in any way.
-- Item-model expansion (checked, priority, due_at, tags, notes) — deferred; this change only stabilizes ids to *enable* that future work, not to ship it.
+- Item-model expansion (checked, priority, due_at, tags, notes) — deferred; this change only stabilizes ids to _enable_ that future work, not to ship it.
 - i18n — out of scope; existing German strings stay as-is, replaced where they are already replaced.
 
 ## Decisions
@@ -67,7 +67,7 @@ The server applies whichever keys are present, bumps `updated_at`, and returns t
 
 **Why not keep `update` (full replace) and a separate `rename`?** The split exists today only because the sidebar-rename client (`list-name-edit.tsx`) didn't want to ship the items array. With PATCH, that client simply sends `{ description }`. One endpoint serves both UXs, and we delete `rename`.
 
-**Why full-replace for `items` (not per-item operations)?** Per-item ops would require per-item server actions, which in turn require either normalizing the table or treating the jsonb as an indexed collection you can address — both larger changes than this scope. Full-array `items` patch is the smallest step that still fixes the action-shape duplication. Per-item is enabled by D1 *for future changes* but is not built now.
+**Why full-replace for `items` (not per-item operations)?** Per-item ops would require per-item server actions, which in turn require either normalizing the table or treating the jsonb as an indexed collection you can address — both larger changes than this scope. Full-array `items` patch is the smallest step that still fixes the action-shape duplication. Per-item is enabled by D1 _for future changes_ but is not built now.
 
 ### D3. Optimistic concurrency via `If-Match: <updated_at>`
 
@@ -82,11 +82,11 @@ The client stores the loaded `updated_at` in a closure variable and refreshes it
 
 **Why `If-Match` header instead of a body field?** Header is the HTTP idiom, keeps the body a clean resource representation, and is trivially ignored by the API path (which we're not touching) without schema churn.
 
-**Trade-off:** Strict precondition means a user with two tabs *will* hit 409 if both edit. That is the desired behavior — we are trading "silent loss" for "explicit conflict". Acceptable for a scratchpad.
+**Trade-off:** Strict precondition means a user with two tabs _will_ hit 409 if both edit. That is the desired behavior — we are trading "silent loss" for "explicit conflict". Acceptable for a scratchpad.
 
 ### D4. Fold loaded-list data into the `?load=N` frame response
 
-**Choice:** The `index` action, when `?load=N` is present and the list exists and is owned by the user, returns the shell *plus* the loaded list's full row serialized into the initial `ListsClient` props (server-rendered as a JSON island or via a `data-` attribute / inline `<script type="application/json">`). The client `ListsClient` reads initial state from that payload on first render instead of fetching `/lists/N/data`. The `data` action is removed.
+**Choice:** The `index` action, when `?load=N` is present and the list exists and is owned by the user, returns the shell _plus_ the loaded list's full row serialized into the initial `ListsClient` props (server-rendered as a JSON island or via a `data-` attribute / inline `<script type="application/json">`). The client `ListsClient` reads initial state from that payload on first render instead of fetching `/lists/N/data`. The `data` action is removed.
 
 **Why not keep the `/data` fetch as a "warm-up" optimization?** It is the opposite — it adds a round-trip, requires its own auth path, and only exists because the original clientEntry didn't have a server-injected initial-state mechanism. The existing `programmatic-frame-reload` + `client-mounted-frames` patterns already support server-rendered initial props for clientEntry components; we use them.
 
@@ -104,7 +104,7 @@ The client stores the loaded `updated_at` in a closure variable and refreshes it
 - On `409`, autosave does **not** retry; the conflict banner (D3) takes over.
 - On navigate-away (`handle.signal` aborts) with pending dirty state, fire a final flush using `sendBeacon` if a payload is queued, best-effort.
 
-**Why keep manual buttons at all?** Autosave is new behavior; some scratchpad users *want* to trust an explicit save. Demoting the buttons (not deleting them) preserves the existing muscle memory while removing the necessity.
+**Why keep manual buttons at all?** Autosave is new behavior; some scratchpad users _want_ to trust an explicit save. Demoting the buttons (not deleting them) preserves the existing muscle memory while removing the necessity.
 
 **Why 1500 ms?** Long enough that typing continuously doesn't fire a write per keystroke; short enough that "I stopped typing and tabbed away" almost always saves before the user leaves.
 
@@ -120,12 +120,12 @@ The client stores the loaded `updated_at` in a closure variable and refreshes it
 
 ## Risks / Trade-offs
 
-- **Risk:** Server-issued item ids break any client-side code that still assumes numeric positional ids. → *Mitigation:* The only consumers are `ListsClient` (rewritten in this change) and `list-name-edit.tsx` (does not touch item ids). Audit `grep -r 'item.id' app/` before merge.
-- **Risk:** `If-Match` precondition is strict; users editing the same list in two tabs hit 409 often. → *Mitigation:* This is desired (no more silent loss); the conflict UI offers single-click overwrite or reload. Acceptable for a personal scratchpad.
-- **Risk:** Folding data into the frame response increases the `index` action's response size when `?load=N` is set. → *Mitigation:* A list row is small (description ≤ 500 chars + jsonb items). Negligible vs. the saved round-trip.
-- **Risk:** Autosave-on-navigate races with `sendBeacon`; some browsers don't honor custom headers on beacon. → *Mitigation:* `If-Match` cannot be sent via beacon; for the navigate-away flush, send the precondition in the body as `_if_match` (server accepts either header or body field). Documented escape valve; not on the happy path.
-- **Risk:** Removing the `data` action could break the API surface if anyone calls it. → *Mitigation:* `routes.lists.data` is session-auth only and used solely by the client we are rewriting; `/api/lists` has its own `show` and is out of scope. A repo-wide `grep` confirms no other callers.
-- **Risk:** PATCH with `items` only (no description) still ships the entire items array on every edit; payload grows linearly with list size. → *Mitigation:* Acceptable for a scratchpad. Per-item server actions are a future change (enabled by D1's stable ids), explicitly out of scope here.
+- **Risk:** Server-issued item ids break any client-side code that still assumes numeric positional ids. → _Mitigation:_ The only consumers are `ListsClient` (rewritten in this change) and `list-name-edit.tsx` (does not touch item ids). Audit `grep -r 'item.id' app/` before merge.
+- **Risk:** `If-Match` precondition is strict; users editing the same list in two tabs hit 409 often. → _Mitigation:_ This is desired (no more silent loss); the conflict UI offers single-click overwrite or reload. Acceptable for a personal scratchpad.
+- **Risk:** Folding data into the frame response increases the `index` action's response size when `?load=N` is set. → _Mitigation:_ A list row is small (description ≤ 500 chars + jsonb items). Negligible vs. the saved round-trip.
+- **Risk:** Autosave-on-navigate races with `sendBeacon`; some browsers don't honor custom headers on beacon. → _Mitigation:_ `If-Match` cannot be sent via beacon; for the navigate-away flush, send the precondition in the body as `_if_match` (server accepts either header or body field). Documented escape valve; not on the happy path.
+- **Risk:** Removing the `data` action could break the API surface if anyone calls it. → _Mitigation:_ `routes.lists.data` is session-auth only and used solely by the client we are rewriting; `/api/lists` has its own `show` and is out of scope. A repo-wide `grep` confirms no other callers.
+- **Risk:** PATCH with `items` only (no description) still ships the entire items array on every edit; payload grows linearly with list size. → _Mitigation:_ Acceptable for a scratchpad. Per-item server actions are a future change (enabled by D1's stable ids), explicitly out of scope here.
 - **Trade-off:** We delete `renameList` and `updateList` from `lists-api.ts`. Admin's `app/actions/admin/lists/controller.tsx` uses `db.delete` only (not these helpers), so it is unaffected — confirmed by reading that controller.
 
 ## Migration Plan

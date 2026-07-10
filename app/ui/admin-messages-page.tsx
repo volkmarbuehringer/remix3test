@@ -201,9 +201,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
         {/* Messages list */}
         <div id="messages-container" role="log" aria-live="polite" mix={messagesListStyle}>
           {messages.length === 0 ? (
-            <div mix={emptyStateStyle}>
-              Noch keine Nachrichten. Sende die erste!
-            </div>
+            <div mix={emptyStateStyle}>Noch keine Nachrichten. Sende die erste!</div>
           ) : (
             messages.map((msg) => (
               <div key={msg.id} mix={messageItemStyle}>
@@ -221,7 +219,9 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                     mix={css({ margin: 0, padding: 0 })}
                   >
                     <CsrfTokenInput />
-                    <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>Löschen</button>
+                    <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>
+                      Löschen
+                    </button>
                   </form>
                 </div>
               </div>

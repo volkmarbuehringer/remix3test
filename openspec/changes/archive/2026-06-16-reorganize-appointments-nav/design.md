@@ -1,6 +1,7 @@
 ## Context
 
 The nav data is defined in `app/ui/nav.ts` with two exports:
+
 - `NAV_SECTIONS` — desktop nav items (one section, flat list of links)
 - `MOBILE_ITEMS` — mobile drawer items (action-oriented, with auth guards and CTA styling)
 
@@ -11,12 +12,14 @@ No route, controller, or handler changes are needed — only nav data and tests.
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Change the "Termine" desktop nav link from `/appointment` to `/appointments/new`
 - Add "TermineUI" nav entry pointing to `/appointment` in desktop nav only
 - Keep "Neuer Termin" CTA in mobile drawer unchanged; no mobile TermineUI entry
 - Update nav tests to match new structure
 
 **Non-Goals:**
+
 - No route definition changes in `app/routes.ts`
 - No controller or handler changes
 - No UI component changes outside nav data
@@ -24,12 +27,12 @@ No route, controller, or handler changes are needed — only nav data and tests.
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Label for old route | "TermineUI" | Distinct from "Termine" to avoid confusion; `UI` suffix signals it's the older grid UI |
-| "TermineUI" in mobile drawer | Not included | Keeps mobile drawer focused on primary actions; old grid is desktop-only |
-| "TermineUI" auth requirement | Not applicable (desktop only) | Desktop nav has no auth filtering; publicly accessible |
-| `NAV_SECTIONS` structure | Flat list in one section (unchanged) | No structural nav change, just swapping one href and adding one item |
+| Decision                     | Choice                               | Rationale                                                                              |
+| ---------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
+| Label for old route          | "TermineUI"                          | Distinct from "Termine" to avoid confusion; `UI` suffix signals it's the older grid UI |
+| "TermineUI" in mobile drawer | Not included                         | Keeps mobile drawer focused on primary actions; old grid is desktop-only               |
+| "TermineUI" auth requirement | Not applicable (desktop only)        | Desktop nav has no auth filtering; publicly accessible                                 |
+| `NAV_SECTIONS` structure     | Flat list in one section (unchanged) | No structural nav change, just swapping one href and adding one item                   |
 
 ## Risks / Trade-offs
 

@@ -25,6 +25,7 @@ app/lib/separator/
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create local `app/lib/theme/` with the full theme contract, runtime, and RMX_01 preset
 - Create local `app/lib/glyph/` with the `Glyph` component and `createGlyphSheet`
 - Create local `app/lib/separator/` with the `separatorStyle` CSS mixin
@@ -33,6 +34,7 @@ app/lib/separator/
 - Keep all visual output identical
 
 **Non-Goals:**
+
 - Modifying the behavior or output of any copied module
 - Recreating button or breadcrumbs (the app uses `remix/components/button` and `remix/components/breadcrumbs` as replacements)
 - Adding new glyph names or changing glyph SVGs
@@ -44,11 +46,11 @@ app/lib/separator/
 
 Position the modules so import paths are short and consistent:
 
-| Upstream path | Local path |
-|---|---|
-| `remix/ui/theme` → `createTheme, theme, RMX_01, RMX_01_GLYPHS, glyphNames, etc.` | `app/lib/theme.ts` (barrel) |
-| `remix/ui/glyph` → `Glyph, type GlyphName` | `app/lib/glyph.ts` (barrel) |
-| `remix/ui/separator` → `separatorStyle` | `app/lib/separator.ts` (barrel) |
+| Upstream path                                                                    | Local path                      |
+| -------------------------------------------------------------------------------- | ------------------------------- |
+| `remix/ui/theme` → `createTheme, theme, RMX_01, RMX_01_GLYPHS, glyphNames, etc.` | `app/lib/theme.ts` (barrel)     |
+| `remix/ui/glyph` → `Glyph, type GlyphName`                                       | `app/lib/glyph.ts` (barrel)     |
+| `remix/ui/separator` → `separatorStyle`                                          | `app/lib/separator.ts` (barrel) |
 
 Each barrel re-exports from its `app/lib/<name>/` subdirectory. This mirrors the original pattern and keeps internal file structure accessible if needed.
 

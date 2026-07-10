@@ -68,7 +68,10 @@ const dayCheckboxStyle = css({
 export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPageProps>) {
   return () => {
     let { resources, config, resourceId } = handle.props
-    let rules: Record<string, [number, number]> = (config?.rules ?? {}) as Record<string, [number, number]>
+    let rules: Record<string, [number, number]> = (config?.rules ?? {}) as Record<
+      string,
+      [number, number]
+    >
 
     return (
       <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
@@ -83,10 +86,18 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
                 <label mix={table.label}>Ressource</label>
-                <select name="_resource_display" disabled mix={[input.base, input.focus, table.select]}>
-                  {resources.filter(r => Number(r.id) === resourceId).map(r => (
-                    <option key={r.id} value={r.id} selected>{r.name}</option>
-                  ))}
+                <select
+                  name="_resource_display"
+                  disabled
+                  mix={[input.base, input.focus, table.select]}
+                >
+                  {resources
+                    .filter((r) => Number(r.id) === resourceId)
+                    .map((r) => (
+                      <option key={r.id} value={r.id} selected>
+                        {r.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -105,7 +116,10 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                       checked={hasRule}
                       mix={dayCheckboxStyle}
                     />
-                    <label for={`cfg-${day.key}`} mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}>
+                    <label
+                      for={`cfg-${day.key}`}
+                      mix={css({ width: '100px', fontSize: theme.fontSize.sm, cursor: 'pointer' })}
+                    >
                       {day.label}
                     </label>
                     <select name={`${day.key}_start`} mix={timeSelectStyle}>
@@ -115,7 +129,11 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                         </option>
                       ))}
                     </select>
-                    <span mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}>–</span>
+                    <span
+                      mix={css({ fontSize: theme.fontSize.sm, color: theme.colors.text.muted })}
+                    >
+                      –
+                    </span>
                     <select name={`${day.key}_end`} mix={timeSelectStyle}>
                       {TIME_END_OPTIONS.map((min) => (
                         <option key={min} value={min} selected={min === endMin}>
@@ -131,8 +149,14 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={routes.verwaltung.offerings.index.href()} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={routes.verwaltung.offerings.index.href()}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

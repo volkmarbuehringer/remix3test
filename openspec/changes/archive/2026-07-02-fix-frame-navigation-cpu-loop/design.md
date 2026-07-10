@@ -7,11 +7,13 @@ Remix 3 uses `rmx-document` to signal document-level navigation. Without it, the
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `rmx-document` to the two plain `<a>` tags that navigate between Frame-relay sections
 - Eliminate the CPU-hogging frame-resolution loop
 - Match the existing pattern used by other cross-section links (`grid-page.tsx`, `verwaltung-page.tsx`)
 
 **Non-Goals:**
+
 - Changing how `NavLink` renders cross-section navigation (already correct)
 - Auditing every `<a>` tag in the codebase for this pattern
 - Changing the Frame relay architecture

@@ -16,14 +16,14 @@ export interface NutzerRow {
 const PAGE_SIZE = 15
 
 const ORDER_BY_COLUMNS: Record<string, string> = {
-  'n_vorname': 'n_vorname',
-  'n_name': 'n_name',
-  'n_email': 'n_email',
-  'n_verpflichtung': 'n_verpflichtung',
-  'l_login': 'l_login',
-  'l_aktiv': 'l_aktiv',
-  'l_gesperrt': 'l_gesperrt',
-  'l_letzte_login': 'l_letzte_login',
+  n_vorname: 'n_vorname',
+  n_name: 'n_name',
+  n_email: 'n_email',
+  n_verpflichtung: 'n_verpflichtung',
+  l_login: 'l_login',
+  l_aktiv: 'l_aktiv',
+  l_gesperrt: 'l_gesperrt',
+  l_letzte_login: 'l_letzte_login',
 }
 
 const SEARCH_COLUMNS = ['n_vorname', 'n_name', 'n_email', 'l_login']
@@ -75,7 +75,10 @@ export async function listNutzerGrid(db: Database, opts: ListNutzerGridOpts) {
   return { rows, hasMore }
 }
 
-export async function fetchNutzerEditRow(db: Database, editingRowId: string): Promise<NutzerRow | null> {
+export async function fetchNutzerEditRow(
+  db: Database,
+  editingRowId: string,
+): Promise<NutzerRow | null> {
   let result = await db.exec(
     `SELECT n_id, n_vorname, n_name, n_email, n_verpflichtung,
             l_id, l_login, l_aktiv, l_gesperrt, l_letzte_login
@@ -84,7 +87,7 @@ export async function fetchNutzerEditRow(db: Database, editingRowId: string): Pr
     [editingRowId],
   )
   if ((result.rows ?? []).length > 0) {
-    return (result.rows![0] as unknown as NutzerRow)
+    return result.rows![0] as unknown as NutzerRow
   }
   return null
 }
@@ -111,7 +114,8 @@ export async function createNutzerWithLogin(
       [data.login, data.aktiv, data.gesperrt],
     )
     let loginRow = loginResult.rows?.[0] as { l_id: number } | undefined
-    if (!loginRow) throw new Error('createNutzerWithLogin: INSERT login … RETURNING produced no row')
+    if (!loginRow)
+      throw new Error('createNutzerWithLogin: INSERT login … RETURNING produced no row')
     let newLId = loginRow.l_id
 
     let nutzerResult = await tx.exec(
@@ -121,7 +125,8 @@ export async function createNutzerWithLogin(
       [data.vorname, data.name, data.email, data.verpflichtung, newLId],
     )
     let nutzerRow = nutzerResult.rows?.[0] as { n_id: number } | undefined
-    if (!nutzerRow) throw new Error('createNutzerWithLogin: INSERT nutzer … RETURNING produced no row')
+    if (!nutzerRow)
+      throw new Error('createNutzerWithLogin: INSERT nutzer … RETURNING produced no row')
     let newNId = nutzerRow.n_id
 
     return { nId: newNId, lId: newLId }
@@ -158,12 +163,12 @@ export async function updateNutzerWithLogin(
   })
 }
 
-export async function deleteNutzer(db: Database, id: string): Promise<{ deletedLid: number } | null> {
+export async function deleteNutzer(
+  db: Database,
+  id: string,
+): Promise<{ deletedLid: number } | null> {
   return await db.transaction(async (tx) => {
-    let nutzerResult = await tx.exec(
-      `DELETE FROM nutzer WHERE n_id=$1 RETURNING n_lid`,
-      [id],
-    )
+    let nutzerResult = await tx.exec(`DELETE FROM nutzer WHERE n_id=$1 RETURNING n_lid`, [id])
     if ((nutzerResult.rows ?? []).length === 0) {
       return null
     }
@@ -184,7 +189,10 @@ export interface NutzerWithLogin {
   lId: number
 }
 
-export async function getNutzerWithLogin(db: Database, id: string): Promise<NutzerWithLogin | null> {
+export async function getNutzerWithLogin(
+  db: Database,
+  id: string,
+): Promise<NutzerWithLogin | null> {
   let result = await db.exec(
     `SELECT n.n_id, n.n_name, n.n_vorname, l.l_id
      FROM nutzer n JOIN login l ON n.n_lid = l.l_id
@@ -192,7 +200,12 @@ export async function getNutzerWithLogin(db: Database, id: string): Promise<Nutz
     [id],
   )
   if ((result.rows ?? []).length === 0) return null
-  let row = result.rows![0] as { n_id: string; n_name: string | null; n_vorname: string | null; l_id: number }
+  let row = result.rows![0] as {
+    n_id: string
+    n_name: string | null
+    n_vorname: string | null
+    l_id: number
+  }
   return {
     nId: row.n_id,
     nName: row.n_name,
@@ -201,14 +214,22 @@ export async function getNutzerWithLogin(db: Database, id: string): Promise<Nutz
   }
 }
 
-export async function updateNutzerPassword(db: Database, lId: number, hashedPassword: string): Promise<void> {
-  await db.exec(
-    `UPDATE login SET l_password=$1, l_tv = COALESCE(l_tv, 0) + 1 WHERE l_id=$2`,
-    [hashedPassword, lId],
-  )
+export async function updateNutzerPassword(
+  db: Database,
+  lId: number,
+  hashedPassword: string,
+): Promise<void> {
+  await db.exec(`UPDATE login SET l_password=$1, l_tv = COALESCE(l_tv, 0) + 1 WHERE l_id=$2`, [
+    hashedPassword,
+    lId,
+  ])
 }
 
-export async function toggleNutzerLock(db: Database, id: string, locked: boolean): Promise<boolean> {
+export async function toggleNutzerLock(
+  db: Database,
+  id: string,
+  locked: boolean,
+): Promise<boolean> {
   let result = await db.exec(
     `UPDATE login SET l_gesperrt=$1
      FROM nutzer WHERE nutzer.n_lid = login.l_id AND nutzer.n_id = $2`,
@@ -217,7 +238,11 @@ export async function toggleNutzerLock(db: Database, id: string, locked: boolean
   return (result.affectedRows ?? 0) > 0
 }
 
-export async function toggleNutzerActive(db: Database, id: string, active: boolean): Promise<boolean> {
+export async function toggleNutzerActive(
+  db: Database,
+  id: string,
+  active: boolean,
+): Promise<boolean> {
   let result = await db.exec(
     `UPDATE login SET l_aktiv=$1
      FROM nutzer WHERE nutzer.n_lid = login.l_id AND nutzer.n_id = $2`,

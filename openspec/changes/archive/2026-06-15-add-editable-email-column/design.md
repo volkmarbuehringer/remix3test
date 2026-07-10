@@ -7,6 +7,7 @@ The appointment grid already proves this pattern works: one `clientEntry`, all b
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Email column cells are click-to-edit inline (click → `<input>` → save on blur/Enter → revert to text)
 - Single `clientEntry` manages all rows — no per-row `clientEntry`
 - Backend update action accepts partial (email-only) PUT bodies
@@ -14,6 +15,7 @@ The appointment grid already proves this pattern works: one `clientEntry`, all b
 - CSRF-protected
 
 **Non-Goals:**
+
 - Other columns (name, role, status) — email only for now
 - Optimistic UI with rollback — show saving indicator, reload on success
 - Drag/resize or other complex interactions

@@ -13,6 +13,7 @@ The existing `/lists` endpoints require session cookie authentication and CSRF t
 ## Capabilities
 
 ### New Capabilities
+
 - `api-lists`: Webhook-token-authenticated JSON API for lists with full CRUD, pagination, and filtering — reuses backend logic extracted from the existing controller
 
 ### Modified Capabilities

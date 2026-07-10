@@ -20,9 +20,7 @@ describe('appointment', () => {
        VALUES ($1, $2, $3, 'customer', 1, 1, $4, $4)`,
       ['test-appt-a@example.com', 'hash', 'Appt A', Date.now()],
     )
-    let result = await pool.query(
-      "SELECT id FROM users WHERE email = 'test-appt-a@example.com'",
-    )
+    let result = await pool.query("SELECT id FROM users WHERE email = 'test-appt-a@example.com'")
     let userId = result.rows[0].id
 
     let rows = await listUserEmails(db, [userId])
@@ -46,9 +44,7 @@ describe('appointment', () => {
          VALUES ($1, $2, $3, 'customer', 1, 1, $4, $4)`,
         ['test-appt-a@example.com', 'hash', 'Appt A', Date.now()],
       )
-      let r = await pool.query(
-        "SELECT id FROM users WHERE email = 'test-appt-a@example.com'",
-      )
+      let r = await pool.query("SELECT id FROM users WHERE email = 'test-appt-a@example.com'")
       userId = r.rows[0].id
     } else {
       userId = userResult.rows[0].id
@@ -60,9 +56,7 @@ describe('appointment', () => {
        VALUES ($1, '[TEST] Type', $2, $2)`,
       [userId, now],
     )
-    let typeResult = await pool.query(
-      "SELECT id FROM appointtypes WHERE title = '[TEST] Type'",
-    )
+    let typeResult = await pool.query("SELECT id FROM appointtypes WHERE title = '[TEST] Type'")
     let typeId = typeResult.rows[0].id
     let resources = await pool.query('SELECT id FROM resources LIMIT 1')
     let resourceId = resources.rows[0].id

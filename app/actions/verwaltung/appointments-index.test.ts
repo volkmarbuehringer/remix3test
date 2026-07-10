@@ -3,7 +3,12 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/setup.ts'
-import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
+import {
+  BASE,
+  ADMIN_APPT_URL,
+  setupTestEnvironment,
+  teardownTestEnvironment,
+} from './controller.test-utils.ts'
 import { routes } from '../../routes.ts'
 
 // Track IDs created during tests for cleanup
@@ -22,7 +27,9 @@ function nextSlot(): { startMin: number; endMin: number } {
   let startMin = offeringBoundsStart + 60 + _slotCounter * slotWidth
   let maxStart = offeringBoundsEnd - slotWidth
   if (startMin >= maxStart) {
-    throw new Error(`nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`)
+    throw new Error(
+      `nextSlot(): ran out of available slots (offering ${offeringBoundsStart}–${offeringBoundsEnd}, used ${_slotCounter} slots). Move some tests to nextSlot2 or increase offering range.`,
+    )
   }
   _slotCounter++
   return { startMin, endMin: startMin + slotWidth }
@@ -131,10 +138,7 @@ describe('Admin Appointments Controller', () => {
       let html = await response.text()
 
       // Assert
-      assert.ok(
-        html.includes('Keine Termine gefunden'),
-        'should show empty search result message',
-      )
+      assert.ok(html.includes('Keine Termine gefunden'), 'should show empty search result message')
     })
 
     it('respects sorting parameters', async () => {
@@ -228,7 +232,10 @@ describe('Admin Appointments Controller', () => {
 
       // Assert: only the past appointment should appear
       assert.ok(html.includes('PAST-APPT-EXPIRED'), 'expired view should show past appointment')
-      assert.ok(!html.includes('FUTURE-APPT-EXPIRED'), 'expired view should NOT show future appointment')
+      assert.ok(
+        !html.includes('FUTURE-APPT-EXPIRED'),
+        'expired view should NOT show future appointment',
+      )
     })
 
     it('preserves status parameter in sort URLs', async () => {

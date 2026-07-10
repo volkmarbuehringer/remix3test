@@ -16,12 +16,14 @@ The customer booking journey is currently fragmented across an agent conversatio
 ## Capabilities
 
 ### New Capabilities
+
 - `customer-booking-workflow`: End-to-end booking workflow with intent matching, slot selection, booking creation, confirmation notification, saga compensation, and observability
 - `booking-notifications`: Multi-channel (email/SMS) notification triggers on booking confirmation, reminders, and cancellation
 - `booking-cancellation`: Cancellation workflow that releases the slot, notifies affected parties, and handles compensation
 - `booking-scheduler`: Cron-triggered workflow that sends reminders for upcoming appointments
 
 ### Modified Capabilities
+
 None. This is entirely new workflow infrastructure.
 
 ## Impact

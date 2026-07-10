@@ -33,7 +33,7 @@ describe('admin-messages', () => {
     )
     let rows = await listMessages(db, 10, 0)
     assert.ok(rows.length >= 1)
-    let match = rows.find(r => r.content === 'Hello admin')
+    let match = rows.find((r) => r.content === 'Hello admin')
     assert.ok(match !== undefined)
     assert.equal(match!.sender_name, 'Message Sender')
     assert.equal(match!.sender_id, testUserId)

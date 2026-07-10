@@ -8,13 +8,14 @@ Port the Chat, Agent, and Admin Chatlog AI routes from the `bookstore` project t
 
 ### Routes
 
-| Route | Source | Destination |
-|-------|--------|-------------|
-| `/chat` | `bookstore/app/controllers/chat/` | `my_app/app/controllers/chat/` |
-| `/agent` | `bookstore/app/controllers/agent/` | `my_app/app/controllers/agent/` |
-| `/admin/chatlog` | `bookstore/app/controllers/admin/chatlog.tsx` + `chatlog/page.tsx` | Same paths in my_app |
+| Route            | Source                                                             | Destination                     |
+| ---------------- | ------------------------------------------------------------------ | ------------------------------- |
+| `/chat`          | `bookstore/app/controllers/chat/`                                  | `my_app/app/controllers/chat/`  |
+| `/agent`         | `bookstore/app/controllers/agent/`                                 | `my_app/app/controllers/agent/` |
+| `/admin/chatlog` | `bookstore/app/controllers/admin/chatlog.tsx` + `chatlog/page.tsx` | Same paths in my_app            |
 
 ### Chat (`/chat`)
+
 - Simple chatbot using the `ai` package's `streamText` API
 - Conversation history saved to DB (chatlog table)
 - POST-redirect-GET pattern (POST to send message, redirects to GET with `chatId` query param)
@@ -22,6 +23,7 @@ Port the Chat, Agent, and Admin Chatlog AI routes from the `bookstore` project t
 - Messages displayed reverse-chronological (newest on top)
 
 ### Agent (`/agent`)
+
 - Tool-loop agent using `ai` package's `ToolLoopAgent`
 - Two tools: `get_weather` (Open-Meteo API) and `search_wikipedia` (Wikipedia API)
 - Same conversation persistence and POST-redirect-GET as Chat
@@ -29,6 +31,7 @@ Port the Chat, Agent, and Admin Chatlog AI routes from the `bookstore` project t
 - Per-message token and elapsed time display
 
 ### Admin Chatlog (`/admin/chatlog`)
+
 - Admin-only page listing all conversations
 - Text search/filter across conversation content
 - Auto-detects Agent vs Chat conversations (based on presence of tool calls)

@@ -14,23 +14,25 @@ The `form()` helper from `remix/routes` exists specifically for this pattern and
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace manual `route()` definitions with `form()` for chat, agent, and workflow sub-routes
 - Reduce boilerplate and improve consistency with the existing auth route convention
 - Zero behavioral change — all route names, patterns, and types must remain identical
 
 **Non-Goals:**
+
 - No controller, router, UI, or test changes
 - No import changes (form is already imported)
 - No conversion of other route groups (client, admin, lists — they don't follow the form pattern)
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Which routes to convert | chat, agent, workflow | These are the only sub-routes with the exact `index` (GET) + `action` (POST) pattern that `form()` models |
-| Whether to convert as a group or individually | All three together | Same pattern, same file, one commit |
-| Whether to rename the routes | No, use default names | Current names `index`/`action` match `form()` defaults exactly |
-| Whether to change the form method | No, use default POST | Current routes use POST for action — `form()` defaults to POST |
+| Decision                                      | Choice                | Rationale                                                                                                 |
+| --------------------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Which routes to convert                       | chat, agent, workflow | These are the only sub-routes with the exact `index` (GET) + `action` (POST) pattern that `form()` models |
+| Whether to convert as a group or individually | All three together    | Same pattern, same file, one commit                                                                       |
+| Whether to rename the routes                  | No, use default names | Current names `index`/`action` match `form()` defaults exactly                                            |
+| Whether to change the form method             | No, use default POST  | Current routes use POST for action — `form()` defaults to POST                                            |
 
 No alternatives were seriously considered — this is a 1:1 syntactic replacement with identical semantics.
 

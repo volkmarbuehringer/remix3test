@@ -5,12 +5,14 @@ Current `logger()` middleware in `app/middleware/root.ts` logs every request inc
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Suppress log lines for `/assets/` requests with status < 400
 - Keep logging `/assets/` errors (status >= 400)
 - Keep logging all non-asset requests unchanged
 - Single file change, minimal diff
 
 **Non-Goals:**
+
 - Configurable filter patterns (hardcoded to `/assets/` prefix)
 - Log level changes
 - Performance optimization of asset serving

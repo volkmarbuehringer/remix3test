@@ -1,16 +1,19 @@
 ## Context
 
 The webhook requests table stores `callback_received_at` (BIGINT epoch ms) and `callback_response` (JSONB) columns, populated by the external callback endpoint (`POST /callback`). Currently:
+
 - The webhook requests grid does not display `callback_received_at`
 - The callback endpoint unconditionally overwrites both columns on every request
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Display `callback_received_at` as a readable timestamp column in the webhook requests grid, sortable like other columns
 - Reject duplicate callbacks at the endpoint before modifying data
 
 **Non-Goals:**
+
 - No changes to the callback response display (already shown)
 - No changes to the callback authentication or IP validation
 

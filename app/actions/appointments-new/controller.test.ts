@@ -22,7 +22,9 @@ function isoWeekFromMonday(ms: number): { year: number; week: number } {
   let d = new Date(ms)
   d.setUTCDate(d.getUTCDate() + 3)
   let yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  let weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + yearStart.getUTCDay() + 1) / 7)
+  let weekNum = Math.ceil(
+    ((d.getTime() - yearStart.getTime()) / 86_400_000 + yearStart.getUTCDay() + 1) / 7,
+  )
   return { year: d.getUTCFullYear(), week: weekNum }
 }
 
@@ -78,7 +80,12 @@ describe('Appointments New Controller', () => {
     let response = await router.fetch(APPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Test', date: futureDateStr, start_min: '480' }).toString(),
+      body: new URLSearchParams({
+        resource_id: String(firstResourceId),
+        title: 'Test',
+        date: futureDateStr,
+        start_min: '480',
+      }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 403)
@@ -129,9 +136,12 @@ describe('Appointments New Controller', () => {
   })
 
   it('GET /appointments/new with creating=true and step=2 and resource_id renders wizard step 2', async () => {
-    let response = await router.fetch(`${APPT_URL}?creating=true&step=2&resource_id=${firstResourceId}`, {
-      headers: { Cookie: userCookie },
-    })
+    let response = await router.fetch(
+      `${APPT_URL}?creating=true&step=2&resource_id=${firstResourceId}`,
+      {
+        headers: { Cookie: userCookie },
+      },
+    )
     assert.equal(response.status, 200)
   })
 
@@ -161,7 +171,12 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), day_start: '', title: 'Test', step: '2' }).toString(),
+      body: new URLSearchParams({
+        resource_id: String(firstResourceId),
+        day_start: '',
+        title: 'Test',
+        step: '2',
+      }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
@@ -200,7 +215,7 @@ describe('Appointments New Controller', () => {
 
   it('POST /appointments/new step 2 creates appointment', async () => {
     // Wait to avoid rate limiter collision (windowMs=0 in dev)
-    await new Promise(r => setTimeout(r, 5))
+    await new Promise((r) => setTimeout(r, 5))
     let body = new URLSearchParams({
       resource_id: String(firstResourceId),
       day_start: `${futureDateMs}:540`,
@@ -236,7 +251,12 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: '', title: '', day_start: `${futureDateMs}:480`, step: '2' }).toString(),
+      body: new URLSearchParams({
+        resource_id: '',
+        title: '',
+        day_start: `${futureDateMs}:480`,
+        step: '2',
+      }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
@@ -251,7 +271,12 @@ describe('Appointments New Controller', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Csrf-Token': userCsrfToken,
       },
-      body: new URLSearchParams({ resource_id: String(firstResourceId), title: 'Past Date', day_start: `${pastDayMs}:480`, step: '2' }).toString(),
+      body: new URLSearchParams({
+        resource_id: String(firstResourceId),
+        title: 'Past Date',
+        day_start: `${pastDayMs}:480`,
+        step: '2',
+      }).toString(),
       redirect: 'manual',
     })
     assert.equal(response.status, 400)
@@ -333,8 +358,10 @@ describe('Appointments New Controller', () => {
     // Use a unique resource to avoid exclusion constraint conflicts
     let uniqueResourceId = firstResourceId + 100
     let resourceNow = Date.now()
-    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-      [uniqueResourceId, '24h Delete Test', 'Temporary', resourceNow, resourceNow])
+    await pool.query(
+      'INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, '24h Delete Test', 'Temporary', resourceNow, resourceNow],
+    )
 
     // Use created_at 30 minutes ago so grace period doesn't apply
     let oldCreatedAt = Date.now() - 30 * 60 * 1000
@@ -368,8 +395,10 @@ describe('Appointments New Controller', () => {
     let nearFutureMin = currentMin + 75
     let uniqueResourceId = firstResourceId + 200
     let resourceNow = Date.now()
-    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-      [uniqueResourceId, 'Grace Period Test', 'Temporary', resourceNow, resourceNow])
+    await pool.query(
+      'INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, 'Grace Period Test', 'Temporary', resourceNow, resourceNow],
+    )
 
     let insertResult = await pool.query(
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
@@ -404,8 +433,10 @@ describe('Appointments New Controller', () => {
     let nearFutureMin = currentMin + 80
     let uniqueResourceId = firstResourceId + 201
     let resourceNow = Date.now()
-    await pool.query('INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
-      [uniqueResourceId, 'Admin Override Test', 'Temporary', resourceNow, resourceNow])
+    await pool.query(
+      'INSERT INTO resources (id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+      [uniqueResourceId, 'Admin Override Test', 'Temporary', resourceNow, resourceNow],
+    )
 
     // Insert with a created_at 30 minutes ago (outside grace period)
     let oldCreatedAt = Date.now() - 30 * 60 * 1000
@@ -448,7 +479,10 @@ describe('Appointments New Controller', () => {
     })
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') ?? ''
-    assert.ok(location.includes('Eintrag+nicht+gefunden') || location.includes('Eintrag%20nicht%20gefunden'))
+    assert.ok(
+      location.includes('Eintrag+nicht+gefunden') ||
+        location.includes('Eintrag%20nicht%20gefunden'),
+    )
   })
 
   it('DELETE /appointments/new/:id returns 403 when not authenticated (CSRF before auth)', async () => {
@@ -464,7 +498,7 @@ describe('Appointments New Controller', () => {
   // ── Grid state preservation on create ──
 
   it('POST /appointments/new clears filter, period, offset, and status on successful create', async () => {
-    await new Promise(r => setTimeout(r, 5))
+    await new Promise((r) => setTimeout(r, 5))
     let body = new URLSearchParams({
       resource_id: String(firstResourceId),
       day_start: `${futureDateMs + 1}:600`,

@@ -7,6 +7,7 @@ This design creates a new `/mastra/*` route tree that uses Mastra as the framewo
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create a new `/mastra/*` route tree with sub-routes for chat, agent, and workflow
 - `/mastra/chat` uses Mastra `Agent` with `Memory` backed by `PostgresStore` — single source of truth
 - No custom chatlog CRUD, no manual tool call extraction, no in-memory storage
@@ -16,6 +17,7 @@ This design creates a new `/mastra/*` route tree that uses Mastra as the framewo
 - Same database, same pool as the rest of the app
 
 **Non-Goals:**
+
 - Migrating existing `/ai/*` routes (they stay as-is for a later change)
 - Replacing the custom workflow engine (`app/workflows/engine.ts`) — that's a later change
 - Building a UI for the Mastra endpoint — the API layer was built first, a chat UI added in follow-up
@@ -30,6 +32,7 @@ This design creates a new `/mastra/*` route tree that uses Mastra as the framewo
 **Rationale:** The `/admin/support` route already proves this works — import Mastra, create Agent, call `agent.generate()`. Adding `@mastra/hono` would mean running a second HTTP server inside the Remix process, duplicating auth middleware, and bridging two routing layers for no benefit.
 
 **Alternatives considered:**
+
 - Standalone `mastra dev` server on port 4111 → two processes, auth forwarding complexity, network overhead
 - `@mastra/hono` adapter mounted under a Remix catch-all → two routing layers fighting over error handling
 

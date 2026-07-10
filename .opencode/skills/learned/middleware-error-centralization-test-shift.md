@@ -1,6 +1,6 @@
 ---
 name: middleware-error-centralization-test-shift
-description: "Tests break when error handling moves from controllers to middleware — expect shifted error sources and formats"
+description: 'Tests break when error handling moves from controllers to middleware — expect shifted error sources and formats'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -75,7 +75,7 @@ if (contentLength > maxSize) return 413
 
 // Controller: re-checks serialized size (defense-in-depth)
 let serialized = JSON.stringify(body)
-if (serialized.length > MAX_SIZE) return 413  // keep this
+if (serialized.length > MAX_SIZE) return 413 // keep this
 ```
 
 ### 4. Update tests that check Content-Type rejection

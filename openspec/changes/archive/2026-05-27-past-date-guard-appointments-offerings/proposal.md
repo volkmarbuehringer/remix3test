@@ -13,9 +13,11 @@ Currently, appointments and offerings can be created or modified with dates in t
 ## Capabilities
 
 ### New Capabilities
+
 - `past-date-validation`: Cross-cutting validation rules that prevent creation and modification of appointments and offerings in the past, while allowing admin-only deletion of past records.
 
 ### Modified Capabilities
+
 - `appointment-calendar`: Appointment create, update, and delete requirements need delta specs to add past-date guardrails and admin-only past-deletion rules.
 
 ## Impact

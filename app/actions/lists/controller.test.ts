@@ -30,17 +30,20 @@ describe('Lists controller', () => {
     await initializeAppDatabase()
 
     let user = await createAuthCookieWithCsrfForUser('user@newapp.com')
-    if (!user?.cookie) throw new Error('Failed to create user session — check user@newapp.com exists')
+    if (!user?.cookie)
+      throw new Error('Failed to create user session — check user@newapp.com exists')
     userCookie = user.cookie
     userCsrfToken = user.csrfToken
 
     let admin = await createAuthCookieWithCsrfForUser('admin@newapp.com')
-    if (!admin?.cookie) throw new Error('Failed to create admin session — check admin@newapp.com exists')
+    if (!admin?.cookie)
+      throw new Error('Failed to create admin session — check admin@newapp.com exists')
     adminCookie = admin.cookie
     adminCsrfToken = admin.csrfToken
 
     let nonAdmin = await createAuthCookieWithCsrfForUser('user@newapp.com')
-    if (!nonAdmin?.cookie) throw new Error('Failed to create non-admin session — check user@newapp.com exists')
+    if (!nonAdmin?.cookie)
+      throw new Error('Failed to create non-admin session — check user@newapp.com exists')
     nonAdminCookie = nonAdmin.cookie
   })
 
@@ -143,7 +146,10 @@ describe('Lists controller', () => {
       headers: { Cookie: userCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('aria-current="page"'), 'active list entry should have aria-current="page"')
+    assert.ok(
+      text.includes('aria-current="page"'),
+      'active list entry should have aria-current="page"',
+    )
   })
 
   it('GET /lists with ?load for non-existent or foreign id defaults to Neue Liste', async () => {
@@ -151,7 +157,10 @@ describe('Lists controller', () => {
       headers: { Cookie: userCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('aria-current="page"'), 'sidebar should have an active entry when ?load is invalid')
+    assert.ok(
+      text.includes('aria-current="page"'),
+      'sidebar should have an active entry when ?load is invalid',
+    )
   })
 
   it('GET /lists without ?load defaults to Neue Liste as active', async () => {
@@ -189,10 +198,7 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({
         description: 'My grocery list',
-        items: [
-          { label: 'Milk' },
-          { label: 'Eggs' },
-        ],
+        items: [{ label: 'Milk' }, { label: 'Eggs' }],
       }),
     })
 
@@ -423,7 +429,7 @@ describe('Lists controller', () => {
     assert.equal(response.status, 404)
   })
 
-  it('PUT /lists/:id (patch) returns 404 for another user\'s list', async () => {
+  it("PUT /lists/:id (patch) returns 404 for another user's list", async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -495,7 +501,11 @@ describe('Lists controller', () => {
     assert.equal(conflictResponse.status, 409)
     let conflictBody = await conflictResponse.json()
     assert.ok(conflictBody.updated_at > origUpdatedAt, '409 body should return current updated_at')
-    assert.equal(conflictBody.description, 'First edit', '409 body should return current description')
+    assert.equal(
+      conflictBody.description,
+      'First edit',
+      '409 body should return current description',
+    )
   })
 
   it('PUT /lists/:id (patch) force overwrite after conflict', async () => {
@@ -555,7 +565,10 @@ describe('Lists controller', () => {
     assert.equal(retryResponse.status, 200)
     let finalBody = await retryResponse.json()
     assert.equal(finalBody.description, 'Overwritten')
-    assert.ok(finalBody.updated_at >= conflictBody.updated_at, 'final updated_at should be at least the conflict value')
+    assert.ok(
+      finalBody.updated_at >= conflictBody.updated_at,
+      'final updated_at should be at least the conflict value',
+    )
   })
 
   it('PUT /lists/:id (patch) with empty body returns 400', async () => {
@@ -861,7 +874,10 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
     let text = await response.text()
     assert.ok(text.includes('Suchen'), 'should show search button')
-    assert.ok(!text.includes('Zurücksetzen'), 'should NOT show Zurücksetzen link when no filter is active')
+    assert.ok(
+      !text.includes('Zurücksetzen'),
+      'should NOT show Zurücksetzen link when no filter is active',
+    )
   })
 
   it('GET /admin/lists preserves filter across pagination', async () => {
@@ -895,13 +911,19 @@ describe('Lists controller', () => {
     })
     assert.equal(saveResponse.status, 200)
 
-    let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=${encodeURIComponent(uniqueLabel)}`, {
-      headers: { Cookie: adminCookie },
-    })
+    let response = await router.fetch(
+      `${ADMIN_LISTS_URL}?filter=${encodeURIComponent(uniqueLabel)}`,
+      {
+        headers: { Cookie: adminCookie },
+      },
+    )
     assert.equal(response.status, 200)
     let text = await response.text()
 
-    assert.ok(text.includes(uniqueLabel), 'filtered list should render item labels from parsed JSONB')
+    assert.ok(
+      text.includes(uniqueLabel),
+      'filtered list should render item labels from parsed JSONB',
+    )
     assert.ok(text.includes('JSONB Parse Test List'), 'filtered list should show its description')
   })
 })

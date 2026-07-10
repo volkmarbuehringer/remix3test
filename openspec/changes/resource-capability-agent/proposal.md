@@ -14,10 +14,12 @@ Resources currently have a short `description` field rendered as a single-line t
 ## Capabilities
 
 ### New Capabilities
+
 - `resource-capabilities`: New `capabilities` column on the resources table with a multiline textarea in the admin panel; full-text searchable via GIN trigram index
 - `customer-resource-chat`: Customer-facing Mastra agent that accepts problem descriptions, searches resource capabilities, and recommends the best-fitting resource
 
 ### Modified Capabilities
+
 - `resources-form-validation`: Add validation rules for the new `capabilities` field alongside existing name and description fields
 
 ## Impact

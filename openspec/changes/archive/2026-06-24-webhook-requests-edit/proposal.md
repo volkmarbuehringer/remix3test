@@ -14,9 +14,11 @@ The webhook requests grid currently offers "Erstellen" (create) and "Resenden" a
 ## Capabilities
 
 ### New Capabilities
+
 - `webhook-requests-edit`: Admin can edit an existing webhook request's JSON payload via a side-panel that reuses the key-value composer grid, pre-populated with the row's current payload data
 
 ### Modified Capabilities
+
 - `webhook-requests-viewer`: The webhook requests grid table gains an "Edit" action button per row; the page renders in a two-column layout when `?editing=<id>` is present; the editing row is visually highlighted
 - `webhook-composer`: The `WebhookComposer` clientEntry component is extended to accept an optional initial payload — when provided it renders pre-populated rows instead of starting from one empty row
 

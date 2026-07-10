@@ -16,78 +16,81 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const LISTS_PAGE_LIMIT = 10
 
-export const adminLists = createController<typeof routes.admin.lists, AppContext>(routes.admin.lists, {
-  middleware: [requireAuth(), requireAdmin()],
+export const adminLists = createController<typeof routes.admin.lists, AppContext>(
+  routes.admin.lists,
+  {
+    middleware: [requireAuth(), requireAdmin()],
 
-  actions: {
-    async index(context) {
-      let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let filter = context.url.searchParams.get('filter') || undefined
+    actions: {
+      async index(context) {
+        let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
+        let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+        let filter = context.url.searchParams.get('filter') || undefined
 
-      let rows: Array<Record<string, unknown>>
-      let hasMore: boolean
+        let rows: Array<Record<string, unknown>>
+        let hasMore: boolean
 
-      if (filter) {
-        if (filter.length > 200) filter = filter.slice(0, 200)
-        let esc = filter.replace(/[%_\\]/g, '\\$&')
-        let searchPattern = `%${esc}%`
-        rows = await searchLists(context.db, searchPattern, effectivePageSize + 1, offset)
-        hasMore = rows.length > effectivePageSize
-        if (hasMore) rows.pop()
-      } else {
-        rows = await context.db.findMany(lists, {
-          limit: effectivePageSize + 1,
-          offset,
-          orderBy: [['created_at', 'desc']] as const,
-        })
-        hasMore = rows.length > effectivePageSize
-        if (hasMore) rows.pop()
-      }
+        if (filter) {
+          if (filter.length > 200) filter = filter.slice(0, 200)
+          let esc = filter.replace(/[%_\\]/g, '\\$&')
+          let searchPattern = `%${esc}%`
+          rows = await searchLists(context.db, searchPattern, effectivePageSize + 1, offset)
+          hasMore = rows.length > effectivePageSize
+          if (hasMore) rows.pop()
+        } else {
+          rows = await context.db.findMany(lists, {
+            limit: effectivePageSize + 1,
+            offset,
+            orderBy: [['created_at', 'desc']] as const,
+          })
+          hasMore = rows.length > effectivePageSize
+          if (hasMore) rows.pop()
+        }
 
-      return renderAdminPage(
-        context.render,
-        'lists',
-        <AdminListsPage
-          lists={rows as any[]}
-          offset={offset}
-          hasMore={hasMore}
-          filter={filter}
-          prevOffset={Math.max(0, offset - effectivePageSize)}
-          nextOffset={offset + effectivePageSize}
-        />,
-      )
-    },
+        return renderAdminPage(
+          context.render,
+          'lists',
+          <AdminListsPage
+            lists={rows as any[]}
+            offset={offset}
+            hasMore={hasMore}
+            filter={filter}
+            prevOffset={Math.max(0, offset - effectivePageSize)}
+            nextOffset={offset + effectivePageSize}
+          />,
+        )
+      },
 
-    async destroy(context) {
-      let db = context.db
-      let listId = parseId(context.params.id)
+      async destroy(context) {
+        let db = context.db
+        let listId = parseId(context.params.id)
 
-      if (listId === undefined || listId < 1) {
-        return new Response('Invalid list ID', { status: 400 })
-      }
+        if (listId === undefined || listId < 1) {
+          return new Response('Invalid list ID', { status: 400 })
+        }
 
-      await db.delete(lists, { id: listId })
+        await db.delete(lists, { id: listId })
 
-      let authIdentity = getAdminIdentity(context.auth)
-      if (authIdentity) {
-        logAdminAction(context.db, {
-          admin_user_id: authIdentity.id,
-          admin_email: authIdentity.email,
-          action_type: 'destroy',
-          target_type: 'lists',
-          target_id: listId,
-        })
-      }
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'destroy',
+            target_type: 'lists',
+            target_id: listId,
+          })
+        }
 
-      let filter = context.url.searchParams.get('filter')
-      let offset = context.url.searchParams.get('offset')
-      let params = new URLSearchParams()
-      if (offset) params.set('offset', offset)
-      if (filter) params.set('filter', filter)
-      let qs = params.toString()
+        let filter = context.url.searchParams.get('filter')
+        let offset = context.url.searchParams.get('offset')
+        let params = new URLSearchParams()
+        if (offset) params.set('offset', offset)
+        if (filter) params.set('filter', filter)
+        let qs = params.toString()
 
-      return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''))
+        return redirect(routes.admin.lists.index.href() + (qs ? '?' + qs : ''))
+      },
     },
   },
-})
+)

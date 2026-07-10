@@ -3,9 +3,18 @@ import * as assert from 'remix/assert'
 
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
-import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser, createAuthCookieWithPendingBooking } from '../../test-utils.ts'
+import {
+  createAuthCookieWithCsrf,
+  createAuthCookieWithCsrfForUser,
+  createAuthCookieWithPendingBooking,
+} from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestCustomerAgent, customerChat, chatRateLimiter, bookingRateLimiter } from './controller.tsx'
+import {
+  __setTestCustomerAgent,
+  customerChat,
+  chatRateLimiter,
+  bookingRateLimiter,
+} from './controller.tsx'
 
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.chat.index.href()}`
@@ -84,7 +93,10 @@ describe('Customer Chat controller', () => {
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
       headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ message: 'Ich brauche einen ruhigen Raum', _csrf: session.csrfToken }),
+      body: new URLSearchParams({
+        message: 'Ich brauche einen ruhigen Raum',
+        _csrf: session.csrfToken,
+      }),
       redirect: 'manual',
     })
 
@@ -106,7 +118,8 @@ describe('Customer Chat controller', () => {
       assert.ok(session?.cookie, 'Failed to create auth session')
 
       let adminResult = await pool.query(
-        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'],
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+        ['admin'],
       )
       if (adminResult.rows.length > 0) {
         chatRateLimiter.reset(adminResult.rows[0].id as number)
@@ -152,33 +165,40 @@ describe('Customer Chat controller', () => {
         { date_epoch_ms: day3, date_display: 'Do, 16.07.', start_min: 600, end_min: 660 },
       ]
 
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Hier sind die verfügbaren Termine.',
-          toolCalls: [{
-            type: 'tool-call',
-            payload: {
-              toolCallId: 'call-1',
-              toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
-            },
-          }],
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolCallId: 'call-1',
-              toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
-              result: {
-                slots,
-                resource_id: 1,
-                resource_name: 'Test Ressource',
-                title: 'Test Termin',
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Hier sind die verfügbaren Termine.',
+            toolCalls: [
+              {
+                type: 'tool-call',
+                payload: {
+                  toolCallId: 'call-1',
+                  toolName: 'findNextAvailableSlots',
+                  args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
+                },
               },
-            },
-          }],
-        }),
-      }, 'Zeig mir Termine')
+            ],
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolCallId: 'call-1',
+                  toolName: 'findNextAvailableSlots',
+                  args: { resourceId: 1, daysAhead: 30, title: 'Test Termin' },
+                  result: {
+                    slots,
+                    resource_id: 1,
+                    resource_name: 'Test Ressource',
+                    title: 'Test Termin',
+                  },
+                },
+              },
+            ],
+          }),
+        },
+        'Zeig mir Termine',
+      )
 
       assert.ok(html.includes('Termin buchen'), 'form button should be rendered')
       assert.ok(html.includes('Test Ressource'), 'resource name should appear in form')
@@ -188,46 +208,62 @@ describe('Customer Chat controller', () => {
       assert.ok(!html.includes('Do, 16.07.'), 'third day should be paginated away')
       assert.ok(html.includes('1/3'), 'page indicator should show 1 of 3')
       assert.ok(html.includes('aria-label="Nächster Tag"'), 'next arrow should appear')
-      assert.ok(!html.includes('aria-label="Vorheriger Tag"'), 'prev arrow should not appear on first page')
+      assert.ok(
+        !html.includes('aria-label="Vorheriger Tag"'),
+        'prev arrow should not appear on first page',
+      )
     })
 
     it('POST /chat does not save pendingBooking when agent returns empty slots', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Aktuell sind leider keine Termine verfügbar.',
-          toolCalls: [{
-            type: 'tool-call',
-            payload: {
-              toolCallId: 'call-1',
-              toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 30, title: '' },
-            },
-          }],
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolCallId: 'call-1',
-              toolName: 'findNextAvailableSlots',
-              args: { resourceId: 1, daysAhead: 30, title: '' },
-              result: { slots: [], resource_id: 1, resource_name: 'Test', title: '' },
-            },
-          }],
-        }),
-      }, 'Termine anzeigen')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Aktuell sind leider keine Termine verfügbar.',
+            toolCalls: [
+              {
+                type: 'tool-call',
+                payload: {
+                  toolCallId: 'call-1',
+                  toolName: 'findNextAvailableSlots',
+                  args: { resourceId: 1, daysAhead: 30, title: '' },
+                },
+              },
+            ],
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolCallId: 'call-1',
+                  toolName: 'findNextAvailableSlots',
+                  args: { resourceId: 1, daysAhead: 30, title: '' },
+                  result: { slots: [], resource_id: 1, resource_name: 'Test', title: '' },
+                },
+              },
+            ],
+          }),
+        },
+        'Termine anzeigen',
+      )
 
       assert.ok(html.includes('Beratung'), 'chat page should still render')
       assert.ok(!html.includes('Termin buchen'), 'should NOT include booking form when slots empty')
     })
 
     it('POST /chat does not save pendingBooking when agent makes no tool calls', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Ich kann Ihnen helfen. Bitte beschreiben Sie Ihr Anliegen genauer.',
-        }),
-      }, 'Ich brauche Hilfe')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Ich kann Ihnen helfen. Bitte beschreiben Sie Ihr Anliegen genauer.',
+          }),
+        },
+        'Ich brauche Hilfe',
+      )
 
       assert.ok(html.includes('Beratung'), 'chat page should still render')
-      assert.ok(!html.includes('Termin buchen'), 'should NOT include booking form when no tool calls')
+      assert.ok(
+        !html.includes('Termin buchen'),
+        'should NOT include booking form when no tool calls',
+      )
     })
   })
 
@@ -248,7 +284,8 @@ describe('Customer Chat controller', () => {
       assert.ok(session?.cookie, 'Failed to create auth session')
 
       let adminResult = await pool.query(
-        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'],
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+        ['admin'],
       )
       if (adminResult.rows.length > 0) {
         chatRateLimiter.reset(adminResult.rows[0].id as number)
@@ -280,87 +317,112 @@ describe('Customer Chat controller', () => {
     }
 
     it('shows bookingResult success when triggerBookingWorkflow succeeds', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Termin wurde gebucht!',
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolName: 'triggerBookingWorkflow',
-              result: { success: true, appointmentId: 123, workflowRunId: 'r-1' },
-            },
-          }],
-        }),
-      }, 'Buch den Termin')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Termin wurde gebucht!',
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolName: 'triggerBookingWorkflow',
+                  result: { success: true, appointmentId: 123, workflowRunId: 'r-1' },
+                },
+              },
+            ],
+          }),
+        },
+        'Buch den Termin',
+      )
 
       assert.ok(html.includes('Termin #123'), 'should show booking success with id')
       assert.ok(html.includes('erfolgreich gebucht'), 'should show success message')
     })
 
     it('shows collision message when triggerBookingWorkflow returns collision', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Der Termin ist leider nicht mehr frei.',
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolName: 'triggerBookingWorkflow',
-              result: { success: false, error: 'collision' },
-            },
-          }],
-        }),
-      }, 'Buch den Termin')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Der Termin ist leider nicht mehr frei.',
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolName: 'triggerBookingWorkflow',
+                  result: { success: false, error: 'collision' },
+                },
+              },
+            ],
+          }),
+        },
+        'Buch den Termin',
+      )
 
       assert.ok(html.includes('nicht mehr frei'), 'should show collision message')
     })
 
     it('shows cancellation success when cancelBooking succeeds', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Termin wurde storniert!',
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolName: 'cancelBooking',
-              result: { success: true, workflowRunId: 'r-2' },
-            },
-          }],
-        }),
-      }, 'Storniere meinen Termin')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Termin wurde storniert!',
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolName: 'cancelBooking',
+                  result: { success: true, workflowRunId: 'r-2' },
+                },
+              },
+            ],
+          }),
+        },
+        'Storniere meinen Termin',
+      )
 
       assert.ok(html.includes('wurde storniert'), 'should show cancellation success')
     })
 
     it('shows not_owner message when cancelBooking returns not_owner', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Stornierung fehlgeschlagen.',
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolName: 'cancelBooking',
-              result: { success: false, error: 'not_owner' },
-            },
-          }],
-        }),
-      }, 'Storniere Termin 42')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Stornierung fehlgeschlagen.',
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolName: 'cancelBooking',
+                  result: { success: false, error: 'not_owner' },
+                },
+              },
+            ],
+          }),
+        },
+        'Storniere Termin 42',
+      )
 
       assert.ok(html.includes('gehört Ihnen nicht'), 'should show not_owner message')
     })
 
     it('shows already_cancelled message when cancelBooking returns already_cancelled', async () => {
-      let { html } = await postChatAndFollow({
-        generate: async (_message: string, _opts?: any) => ({
-          text: 'Bereits storniert.',
-          toolResults: [{
-            type: 'tool-result',
-            payload: {
-              toolName: 'cancelBooking',
-              result: { success: false, error: 'already_cancelled' },
-            },
-          }],
-        }),
-      }, 'Storniere Termin 42')
+      let { html } = await postChatAndFollow(
+        {
+          generate: async (_message: string, _opts?: any) => ({
+            text: 'Bereits storniert.',
+            toolResults: [
+              {
+                type: 'tool-result',
+                payload: {
+                  toolName: 'cancelBooking',
+                  result: { success: false, error: 'already_cancelled' },
+                },
+              },
+            ],
+          }),
+        },
+        'Storniere Termin 42',
+      )
 
       assert.ok(html.includes('bereits storniert'), 'should show already_cancelled message')
     })
@@ -370,7 +432,9 @@ describe('Customer Chat controller', () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      slots: [
+        { date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 },
+      ],
       resource_id: 1,
       resource_name: 'Test Ressource',
       title: 'Test Termin',
@@ -412,7 +476,10 @@ describe('Customer Chat controller', () => {
   it('confirm_booking keeps form open with remaining slots on success', async () => {
     let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
     await seedOffering(testDayMs)
-    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let rateLimiterAdmin = await pool.query(
+      'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+      ['admin'],
+    )
     if (rateLimiterAdmin.rows.length > 0) {
       bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
     }
@@ -452,18 +519,26 @@ describe('Customer Chat controller', () => {
 
     assert.ok(html.includes('Termin buchen'), 'booking form should still be visible')
     assert.ok(html.includes('11:00'), 'remaining slot should be shown in form')
-    assert.ok(!html.includes('day_start" value="' + String(testDayMs) + ':600'), 'booked slot should not be in form')
+    assert.ok(
+      !html.includes('day_start" value="' + String(testDayMs) + ':600'),
+      'booked slot should not be in form',
+    )
   })
 
   it('confirm_booking clears pendingBooking on last slot', async () => {
     let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
     await seedOffering(testDayMs)
-    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let rateLimiterAdmin = await pool.query(
+      'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+      ['admin'],
+    )
     if (rateLimiterAdmin.rows.length > 0) {
       bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
     }
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 720, end_min: 780 }],
+      slots: [
+        { date_epoch_ms: testDayMs, date_display: 'Di, 21.07.', start_min: 720, end_min: 780 },
+      ],
       resource_id: 1,
       resource_name: 'Test Ressource',
       title: 'Test Termin',
@@ -500,7 +575,9 @@ describe('Customer Chat controller', () => {
   it('confirm_booking preserves pendingBooking on non-collision error', async () => {
     let pastEpochMs = 0
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: pastEpochMs, date_display: 'Do, 01.01.', start_min: 600, end_min: 660 }],
+      slots: [
+        { date_epoch_ms: pastEpochMs, date_display: 'Do, 01.01.', start_min: 600, end_min: 660 },
+      ],
       resource_id: 1,
       resource_name: 'Test Ressource',
       title: 'Test Termin',
@@ -528,13 +605,19 @@ describe('Customer Chat controller', () => {
     let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
     let html = await getResponse.text()
 
-    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible on non-collision error')
+    assert.ok(
+      html.includes('Termin buchen'),
+      'booking form should still be visible on non-collision error',
+    )
   })
 
   it('confirm_booking removes colliding slot on exclusion constraint', async () => {
     let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
     await seedOffering(testDayMs)
-    let rateLimiterAdmin = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let rateLimiterAdmin = await pool.query(
+      'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+      ['admin'],
+    )
     if (rateLimiterAdmin.rows.length > 0) {
       bookingRateLimiter.reset(rateLimiterAdmin.rows[0].id as number)
     }
@@ -577,9 +660,18 @@ describe('Customer Chat controller', () => {
     let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
     let html = await getResponse.text()
 
-    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible after collision')
-    assert.ok(!html.includes('day_start" value="' + String(testDayMs) + ':480'), 'collided slot should be removed from form')
-    assert.ok(html.includes('day_start" value="' + String(testDayMs) + ':540'), 'other slot should still be in form')
+    assert.ok(
+      html.includes('Termin buchen'),
+      'booking form should still be visible after collision',
+    )
+    assert.ok(
+      !html.includes('day_start" value="' + String(testDayMs) + ':480'),
+      'collided slot should be removed from form',
+    )
+    assert.ok(
+      html.includes('day_start" value="' + String(testDayMs) + ':540'),
+      'other slot should still be in form',
+    )
   })
 
   it('POST /chat with _action=confirm_booking and missing params returns error', async () => {
@@ -631,7 +723,9 @@ describe('Customer Chat controller', () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      slots: [
+        { date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 },
+      ],
       resource_id: 1,
       resource_name: 'Test Ressource',
       title: 'Test Termin',
@@ -663,16 +757,22 @@ describe('Customer Chat controller', () => {
     let futureDateMs = new Date(Date.now() + 7 * 86_400_000).setUTCHours(0, 0, 0, 0)
     let staleBooking = JSON.stringify({
       slots: [{ date_epoch_ms: futureDateMs, date_display: 'Test', start_min: 600, end_min: 660 }],
-      resource_id: 1, resource_name: 'Test', title: 'Test',
+      resource_id: 1,
+      resource_name: 'Test',
+      title: 'Test',
     })
     let session = await createAuthCookieWithPendingBooking(staleBooking)
     assert.ok(session?.cookie, 'Failed to create auth session')
 
-    let adminResult = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let adminResult = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', [
+      'admin',
+    ])
     if (adminResult.rows.length > 0) chatRateLimiter.reset(adminResult.rows[0].id as number)
 
     let mockAgent = {
-      generate: async () => ({ text: 'Ich verstehe. Kannst du dein Anliegen genauer beschreiben?' }),
+      generate: async () => ({
+        text: 'Ich verstehe. Kannst du dein Anliegen genauer beschreiben?',
+      }),
     }
     __setTestCustomerAgent(mockAgent)
     try {
@@ -697,7 +797,9 @@ describe('Customer Chat controller', () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      slots: [
+        { date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 },
+      ],
       resource_id: 1,
       resource_name: 'Test Ressource',
       title: 'Test Termin',
@@ -710,13 +812,19 @@ describe('Customer Chat controller', () => {
       redirect: 'manual',
     })
     assert.equal(response.status, 302)
-    assert.ok(!response.headers.get('Location')?.includes('cancel'), 'redirect should not contain cancel param')
+    assert.ok(
+      !response.headers.get('Location')?.includes('cancel'),
+      'redirect should not contain cancel param',
+    )
 
     // Follow redirect — booking form should be gone
     let followUrl = response.headers.get('Location')!
-    let followResponse = await router.fetch(followUrl.startsWith('http') ? followUrl : `${BASE}${followUrl}`, {
-      headers: { Cookie: session.cookie },
-    })
+    let followResponse = await router.fetch(
+      followUrl.startsWith('http') ? followUrl : `${BASE}${followUrl}`,
+      {
+        headers: { Cookie: session.cookie },
+      },
+    )
     let html = await followResponse.text()
     assert.ok(!html.includes('Termin buchen'), 'booking form should be gone after cancel')
   })
@@ -726,7 +834,9 @@ describe('Customer Chat controller', () => {
     let futureDate = Date.now() + 7 * 86_400_000
     let futureDayMs = new Date(futureDate).setUTCHours(0, 0, 0, 0)
     let pendingBookingJson = JSON.stringify({
-      slots: [{ date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 }],
+      slots: [
+        { date_epoch_ms: futureDayMs, date_display: 'Di, 14.07.', start_min: 600, end_min: 660 },
+      ],
       resource_id: 1,
       resource_name: 'Test',
       title: 'Test',
@@ -734,10 +844,13 @@ describe('Customer Chat controller', () => {
     let session = await createAuthCookieWithPendingBooking(pendingBookingJson)
     assert.ok(session?.cookie, 'Failed to create auth session')
 
-    let response = await router.fetch(CHAT_INDEX_URL + '?cancel=1&threadId=' + encodeURIComponent(threadId), {
-      headers: { Cookie: session.cookie },
-      redirect: 'manual',
-    })
+    let response = await router.fetch(
+      CHAT_INDEX_URL + '?cancel=1&threadId=' + encodeURIComponent(threadId),
+      {
+        headers: { Cookie: session.cookie },
+        redirect: 'manual',
+      },
+    )
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
     assert.ok(location.includes(threadId), 'redirect should preserve threadId')
@@ -749,7 +862,9 @@ describe('Customer Chat controller', () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
-    let adminResult = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
+    let adminResult = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', [
+      'admin',
+    ])
     if (adminResult.rows.length > 0) {
       chatRateLimiter.reset(adminResult.rows[0].id as number)
     }

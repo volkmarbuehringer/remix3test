@@ -7,6 +7,7 @@ The hermes service accepts POST requests with `{ "id": "<uuid>", "payload": { ..
 ## Goals / Non-Goals
 
 **Goals:**
+
 - New `POST /app-webhook/:token` route that inserts payloads with RETURNING UUID and forwards to hermes
 - Token-based authentication (reuse `WEBHOOK_TOKEN` env var or add `APP_WEBHOOK_TOKEN`)
 - Non-blocking hermes forward: failure to reach hermes does not break the API response
@@ -14,6 +15,7 @@ The hermes service accepts POST requests with `{ "id": "<uuid>", "payload": { ..
 - Return the hermes `delivery_id` in the response alongside the local UUID
 
 **Non-Goals:**
+
 - No new database table — reuse `webhook_requests`
 - No retry/queue for failed hermes deliveries (hermes accepts synchronously)
 - No changes to the existing `POST /webhook/:token` endpoint behavior

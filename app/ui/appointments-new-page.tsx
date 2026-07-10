@@ -16,11 +16,7 @@ import { formatDateDE } from '../utils/date-utils.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
-import type {
-  AppointmentsNewRow,
-  ResourceOption,
-  DayWithSlots,
-} from '../data/appointments.ts'
+import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 import { AppointmentsScrollLock } from '../assets/appointments-scroll-lock.tsx'
 
@@ -220,21 +216,25 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
                   if (status === 'expired') {
                     return (
-                      <span mix={css({
-                        '& button': {
-                          paddingLeft: theme.space.xs,
-                          paddingRight: theme.space.xs,
-                          borderTopLeftRadius: isFirst ? undefined : '0',
-                          borderBottomLeftRadius: isFirst ? undefined : '0',
-                          borderTopRightRadius: isLast ? undefined : '0',
-                          borderBottomRightRadius: isLast ? undefined : '0',
-                          borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                          opacity: 0.4,
-                          cursor: 'not-allowed',
-                          pointerEvents: 'none',
-                        },
-                      })}>
-                        <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
+                      <span
+                        mix={css({
+                          '& button': {
+                            paddingLeft: theme.space.xs,
+                            paddingRight: theme.space.xs,
+                            borderTopLeftRadius: isFirst ? undefined : '0',
+                            borderBottomLeftRadius: isFirst ? undefined : '0',
+                            borderTopRightRadius: isLast ? undefined : '0',
+                            borderBottomRightRadius: isLast ? undefined : '0',
+                            borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
+                            opacity: 0.4,
+                            cursor: 'not-allowed',
+                            pointerEvents: 'none',
+                          },
+                        })}
+                      >
+                        <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                          {label}
+                        </button>
                       </span>
                     )
                   }
@@ -253,7 +253,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         },
                       })}
                     >
-                      <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
+                      <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                        {label}
+                      </button>
                     </a>
                   )
                 },
@@ -298,7 +300,9 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                       },
                     })}
                   >
-                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>{label}</button>
+                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                      {label}
+                    </button>
                   </a>
                 )
               })}
@@ -424,11 +428,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    mix={table.row}
-                    data-row-id={row.id}
-                  >
+                  <tr key={row.id} mix={table.row} data-row-id={row.id}>
                     <td mix={[table.td, compactTd]} title={row.title}>
                       {row.title}
                     </td>
@@ -446,7 +446,10 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     </td>
                     <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
                       {row.blocked ? (
-                        <span mix={lockedIconStyle} title="Nicht löschbar — weniger als 24 Stunden bis zum Beginn">
+                        <span
+                          mix={lockedIconStyle}
+                          title="Nicht löschbar — weniger als 24 Stunden bis zum Beginn"
+                        >
                           {'\u2014'}
                         </span>
                       ) : (
@@ -542,7 +545,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
-               {deletingRow ? (
+              {deletingRow ? (
                 <div mix={table.panel}>
                   <div mix={table.panelHeader}>
                     <span mix={table.panelTitle}>Termin löschen</span>
@@ -560,76 +563,79 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         Beginn verbleiben.
                       </p>
                     ) : (
-                    <>
-                    <p
-                      mix={css({
-                        margin: 0,
-                        marginBottom: theme.space.md,
-                        fontSize: theme.fontSize.sm,
-                        color: theme.colors.text.secondary,
-                      })}
-                    >
-                      Möchten Sie diesen Termin wirklich löschen?
-                    </p>
-                    <div
-                      mix={css({
-                        padding: theme.space.sm,
-                        marginBottom: theme.space.md,
-                        background: theme.surface.lvl2,
-                        borderRadius: theme.radius.md,
-                        fontSize: theme.fontSize.sm,
-                      })}
-                    >
-                      <div>{deletingRow.title || '(kein Titel)'}</div>
-                      <div
-                        mix={css({
-                          color: theme.colors.text.secondary,
-                          fontSize: theme.fontSize.xs,
-                          marginTop: theme.space.xs,
-                        })}
-                      >
-                        {formatDateDE(Number(deletingRow.date))} –{' '}
-                        {formatDuring(deletingRow.during)}
-                      </div>
-                    </div>
-                    <RestfulForm method="DELETE" action={`${BASE}/${deletingRow.id}`}>
-                      <GridStateHiddenInputs
-                        state={{
-                          offset: String(offset),
-                          sort: sortColumn,
-                          order: sortDirection,
-                          filter: filter ?? '',
-                          period: period ?? '',
-                          status: status ?? '',
-                        }}
-                      />
-                      <div mix={table.actions}>
-                        <button type="submit" mix={[button({ tone: 'danger' }), table.spacer]}>
-                          Ja, löschen
-                        </button>
-                        <a
-                          href={buildCancelUrl(
-                            BASE,
-                            String(offset),
-                            sortColumn,
-                            sortDirection,
-                            filter,
-                            period,
-                            status,
-                          )}
-                          mix={table.linkPlain}
+                      <>
+                        <p
+                          mix={css({
+                            margin: 0,
+                            marginBottom: theme.space.md,
+                            fontSize: theme.fontSize.sm,
+                            color: theme.colors.text.secondary,
+                          })}
                         >
-                          <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
-                            Abbrechen
-                          </button>
-                        </a>
-                      </div>
-                    </RestfulForm>
-                    </>
+                          Möchten Sie diesen Termin wirklich löschen?
+                        </p>
+                        <div
+                          mix={css({
+                            padding: theme.space.sm,
+                            marginBottom: theme.space.md,
+                            background: theme.surface.lvl2,
+                            borderRadius: theme.radius.md,
+                            fontSize: theme.fontSize.sm,
+                          })}
+                        >
+                          <div>{deletingRow.title || '(kein Titel)'}</div>
+                          <div
+                            mix={css({
+                              color: theme.colors.text.secondary,
+                              fontSize: theme.fontSize.xs,
+                              marginTop: theme.space.xs,
+                            })}
+                          >
+                            {formatDateDE(Number(deletingRow.date))} –{' '}
+                            {formatDuring(deletingRow.during)}
+                          </div>
+                        </div>
+                        <RestfulForm method="DELETE" action={`${BASE}/${deletingRow.id}`}>
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                              period: period ?? '',
+                              status: status ?? '',
+                            }}
+                          />
+                          <div mix={table.actions}>
+                            <button type="submit" mix={[button({ tone: 'danger' }), table.spacer]}>
+                              Ja, löschen
+                            </button>
+                            <a
+                              href={buildCancelUrl(
+                                BASE,
+                                String(offset),
+                                sortColumn,
+                                sortDirection,
+                                filter,
+                                period,
+                                status,
+                              )}
+                              mix={table.linkPlain}
+                            >
+                              <button
+                                type="button"
+                                mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                              >
+                                Abbrechen
+                              </button>
+                            </a>
+                          </div>
+                        </RestfulForm>
+                      </>
                     )}
                   </div>
                 </div>
-               ) : creating ? (
+              ) : creating ? (
                 <AppointmentsNewCreatePage
                   resources={resources}
                   offset={String(offset)}

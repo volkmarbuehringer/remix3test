@@ -7,7 +7,11 @@ import {
   type AppointmentLayoutBlock,
   type LayoutResult,
 } from './schedule-layout.ts'
-import { getTypeDragState, setTypeDragState, setPanelDropActive } from '../utils/appointtype-drag.ts'
+import {
+  getTypeDragState,
+  setTypeDragState,
+  setPanelDropActive,
+} from '../utils/appointtype-drag.ts'
 import { interactionState } from './appointment-interaction-state.ts'
 import { showToast } from './toast.ts'
 import { clamp } from '../utils/math.ts'
@@ -171,9 +175,21 @@ export const AppointmentGrid = clientEntry(
       // Compute the set of bookable minutes across all visible days.
       // Only rows with at least one bookable slot on any day are rendered.
       // Exclude the currently-dragged/resized block for self-exclusion.
-      let excludeApptId = activeGesture === 'drag' ? dragState?.blockId : activeGesture === 'resize' ? resizeState?.blockId : undefined
-      let bookableAppts = excludeApptId !== undefined ? data.appointments.filter((a) => a.id !== excludeApptId) : data.appointments
-      let { allBookableMinutes, bookableByDay } = computeBookableSlots(offerings, visibleDays, bookableAppts)
+      let excludeApptId =
+        activeGesture === 'drag'
+          ? dragState?.blockId
+          : activeGesture === 'resize'
+            ? resizeState?.blockId
+            : undefined
+      let bookableAppts =
+        excludeApptId !== undefined
+          ? data.appointments.filter((a) => a.id !== excludeApptId)
+          : data.appointments
+      let { allBookableMinutes, bookableByDay } = computeBookableSlots(
+        offerings,
+        visibleDays,
+        bookableAppts,
+      )
       let offeringRange = computeOfferingTimeRange(offerings)
 
       // Store visible days and offering range for event handler access
@@ -299,7 +315,8 @@ export const AppointmentGrid = clientEntry(
                   {groups[dayIdx].map((appt) => {
                     let isEditing = editingId === appt.id
                     let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
-                    let isCurrentUser = data.currentUserId > 0 && appt.user_id === data.currentUserId
+                    let isCurrentUser =
+                      data.currentUserId > 0 && appt.user_id === data.currentUserId
                     let isRestrictedBlock = isForeign && !data.isAdmin
                     // Position relative to offering start — grid rows begin at currentOfferingStartMin
                     let topPx = ((appt.start_min - currentOfferingStartMin) / 60) * SLOT_HEIGHT

@@ -11,12 +11,14 @@ Previous attempts to move `/nutzer` under `/admin` failed because form validatio
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Move `/nutzer` route under `/admin/nutzer` with the sidebar Frame layout
 - Preserve render-on-error with inline field errors inside the Frame
 - Keep the same UI (two-column grid + edit panel, sorting, pagination, filtering, context menu)
 - All existing tests pass after URL updates
 
 **Non-Goals:**
+
 - Changing the nutzer page UI or behavior
 - Refactoring other admin pages to use render-on-error
 - Changing the admin Frame architecture
@@ -28,6 +30,7 @@ Previous attempts to move `/nutzer` under `/admin` failed because form validatio
 The nutzer controller currently renders full HTML pages via `context.render(<Layout title="Nutzer">...)`. The admin Frame expects HTML fragments when `X-Remix-Target` is set.
 
 `renderAdminPage()` wraps content in `ShellOrFragment`, which checks `X-Remix-Target`:
+
 - **Present** → renders only the sidebar + content fragment
 - **Absent** → renders the full page shell with `<Frame>` for initial page loads
 
@@ -47,8 +50,8 @@ Exceptions: The `ADMIN_BASE` constant in `admin-nutzer-page.tsx` can be set to `
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| **Render-on-error + `{ status: 400 }` inside a Frame is untested** — no existing admin page does this | The `ShellOrFragment` code is agnostic to status codes; it only checks `X-Remix-Target`. Verified by tracing the render path. |
-| **Controller tests break** — ~40 `/nutzer` references + new `rmx-target` assertions | Mechanical find-and-replace. Tests change URL expectations and add `rmx-target` assertions matching the admin-users-page pattern. |
-| **`nutzer-table-interactive.tsx` JSON fetch URLs** — 5 hardcoded paths in a `clientEntry` component | Straightforward string replacements; the API contract doesn't change, only the URL. |
+| Risk                                                                                                  | Mitigation                                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Render-on-error + `{ status: 400 }` inside a Frame is untested** — no existing admin page does this | The `ShellOrFragment` code is agnostic to status codes; it only checks `X-Remix-Target`. Verified by tracing the render path.     |
+| **Controller tests break** — ~40 `/nutzer` references + new `rmx-target` assertions                   | Mechanical find-and-replace. Tests change URL expectations and add `rmx-target` assertions matching the admin-users-page pattern. |
+| **`nutzer-table-interactive.tsx` JSON fetch URLs** — 5 hardcoded paths in a `clientEntry` component   | Straightforward string replacements; the API contract doesn't change, only the URL.                                               |

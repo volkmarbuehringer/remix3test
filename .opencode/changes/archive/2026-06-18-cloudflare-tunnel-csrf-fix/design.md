@@ -6,8 +6,8 @@ Add tunnel-compatible origin to `csrf()` in `app/middleware/root.ts`.
 
 ## File changes
 
-| File | Change |
-|------|--------|
+| File                     | Change                                                 |
+| ------------------------ | ------------------------------------------------------ |
 | `app/middleware/root.ts` | Add `origin: /\.trycloudflare\.com$/` to `csrf()` call |
 
 ## How it works
@@ -24,5 +24,6 @@ if (configuredOrigin instanceof RegExp) {
 
 Passing `/\.trycloudflare\.com$/` allows any tunnel URL like
 `https://word-word-word.trycloudflare.com` while still:
+
 - Requiring a valid CSRF token in the POST
 - Validating same-origin for all other environments (localhost, production)

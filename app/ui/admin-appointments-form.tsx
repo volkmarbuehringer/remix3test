@@ -11,7 +11,11 @@ import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
-import type { AppointmentRow, AppointmentResourceOption, AppointmentUserOption } from '../data/appointments.ts'
+import type {
+  AppointmentRow,
+  AppointmentResourceOption,
+  AppointmentUserOption,
+} from '../data/appointments.ts'
 
 // ── Shared constants ─────────────────────────────────────────────
 
@@ -76,20 +80,47 @@ export interface AdminAppointmentsFormProps {
 
 export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>) {
   return () => {
-    let { mode, resources, users, gridState, row, defaultStartMin = 480, defaultEndMin = 1020, fieldErrors, formError, formValues } = handle.props
+    let {
+      mode,
+      resources,
+      users,
+      gridState,
+      row,
+      defaultStartMin = 480,
+      defaultEndMin = 1020,
+      fieldErrors,
+      formError,
+      formValues,
+    } = handle.props
     let isEdit = mode === 'edit'
     let { offset, sort, order, filter = '', period = '', status = '' } = gridState
 
     // Value priority: formValues (submitted on error) > row (from DB) > defaults
-    let resolvedResourceId = formValues?.resource_id ?? (isEdit && row ? row.resource_id : undefined)
+    let resolvedResourceId =
+      formValues?.resource_id ?? (isEdit && row ? row.resource_id : undefined)
     let resolvedUserId = formValues?.user_id ?? (isEdit && row ? row.user_id : undefined)
     let resolvedTitle = formValues?.title ?? (isEdit && row ? row.title : undefined)
-    let resolvedDate = formValues?.date ?? (isEdit && row ? new Date(Number(row.date)).toISOString().split('T')[0] : '')
-    let resolvedStartMin = formValues?.start_min !== undefined ? Number(formValues.start_min) : (isEdit && row ? Number(row.start_min) : defaultStartMin)
-    let resolvedEndMin = formValues?.end_min !== undefined ? Number(formValues.end_min) : (isEdit && row ? Number(row.end_min) : defaultEndMin)
+    let resolvedDate =
+      formValues?.date ??
+      (isEdit && row ? new Date(Number(row.date)).toISOString().split('T')[0] : '')
+    let resolvedStartMin =
+      formValues?.start_min !== undefined
+        ? Number(formValues.start_min)
+        : isEdit && row
+          ? Number(row.start_min)
+          : defaultStartMin
+    let resolvedEndMin =
+      formValues?.end_min !== undefined
+        ? Number(formValues.end_min)
+        : isEdit && row
+          ? Number(row.end_min)
+          : defaultEndMin
 
-    let method = isEdit ? 'PUT' as const : 'POST' as const
-    let action = isEdit && row ? routes.verwaltung.appointments.update.href({ id: row.id }) : routes.verwaltung.appointments.create.href()
+    let method = isEdit ? ('PUT' as const) : ('POST' as const)
+    let action =
+      isEdit && row
+        ? routes.verwaltung.appointments.update.href({ id: row.id })
+        : routes.verwaltung.appointments.create.href()
     let panelTitle = isEdit ? 'Termin bearbeiten' : 'Neuer Termin'
     let submitLabel = isEdit ? 'Speichern' : 'Anlegen'
     let resourcePlaceholder = isEdit ? undefined : 'Ressource auswählen...'
@@ -112,57 +143,85 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
 
               {/* Resource dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-resource' : 'ac-resource'}>Ressource</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-resource' : 'ac-resource'}>
+                  Ressource
+                </label>
                 <select
                   id={isEdit ? 'ae-resource' : 'ac-resource'}
                   name="resource_id"
                   required
-                  mix={[input.base, input.focus, table.select, fieldErrors?.resource_id ? input.error : undefined]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    table.select,
+                    fieldErrors?.resource_id ? input.error : undefined,
+                  ]}
                 >
                   {resourcePlaceholder ? (
-                    <option value="" disabled selected={resolvedResourceId == null}>{resourcePlaceholder}</option>
+                    <option value="" disabled selected={resolvedResourceId == null}>
+                      {resourcePlaceholder}
+                    </option>
                   ) : null}
                   {resources.map((res) => (
                     <option
                       key={res.id}
                       value={res.id}
-                      selected={resolvedResourceId != null && String(resolvedResourceId) === String(res.id)}
+                      selected={
+                        resolvedResourceId != null && String(resolvedResourceId) === String(res.id)
+                      }
                     >
                       {res.name}
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.resource_id ? <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span> : null}
+                {fieldErrors?.resource_id ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.resource_id}</span>
+                ) : null}
               </div>
 
               {/* User dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-user' : 'ac-user'}>Benutzer</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-user' : 'ac-user'}>
+                  Benutzer
+                </label>
                 <select
                   id={isEdit ? 'ae-user' : 'ac-user'}
                   name="user_id"
                   required
-                  mix={[input.base, input.focus, table.select, fieldErrors?.user_id ? input.error : undefined]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    table.select,
+                    fieldErrors?.user_id ? input.error : undefined,
+                  ]}
                 >
                   {userPlaceholder ? (
-                    <option value="" disabled selected={resolvedUserId == null}>{userPlaceholder}</option>
+                    <option value="" disabled selected={resolvedUserId == null}>
+                      {userPlaceholder}
+                    </option>
                   ) : null}
                   {users.map((user) => (
                     <option
                       key={user.id}
                       value={user.id}
-                      selected={resolvedUserId != null && String(resolvedUserId) === String(user.id)}
+                      selected={
+                        resolvedUserId != null && String(resolvedUserId) === String(user.id)
+                      }
                     >
                       {user.name}
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.user_id ? <span mix={inlineErrorStyle}>{fieldErrors.user_id}</span> : null}
+                {fieldErrors?.user_id ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.user_id}</span>
+                ) : null}
               </div>
 
               {/* Title input */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-title' : 'ac-title'}>Titel</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-title' : 'ac-title'}>
+                  Titel
+                </label>
                 <input
                   id={isEdit ? 'ae-title' : 'ac-title'}
                   name="title"
@@ -172,12 +231,16 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                   mix={[input.base, input.focus, fieldErrors?.title ? input.error : undefined]}
                   value={resolvedTitle}
                 />
-                {fieldErrors?.title ? <span mix={inlineErrorStyle}>{fieldErrors.title}</span> : null}
+                {fieldErrors?.title ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.title}</span>
+                ) : null}
               </div>
 
               {/* Date input */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-date' : 'ac-date'}>Datum</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-date' : 'ac-date'}>
+                  Datum
+                </label>
                 <input
                   id={isEdit ? 'ae-date' : 'ac-date'}
                   name="date"
@@ -191,12 +254,19 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
 
               {/* Start time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-start' : 'ac-start'}>Startzeit</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-start' : 'ac-start'}>
+                  Startzeit
+                </label>
                 <select
                   id={isEdit ? 'ae-start' : 'ac-start'}
                   name="start_min"
                   required
-                  mix={[input.base, input.focus, table.select, fieldErrors?.start_min ? input.error : undefined]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    table.select,
+                    fieldErrors?.start_min ? input.error : undefined,
+                  ]}
                 >
                   {START_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedStartMin}>
@@ -204,17 +274,26 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.start_min ? <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span> : null}
+                {fieldErrors?.start_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.start_min}</span>
+                ) : null}
               </div>
 
               {/* End time dropdown */}
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor={isEdit ? 'ae-end' : 'ac-end'}>Endzeit</label>
+                <label mix={table.label} htmlFor={isEdit ? 'ae-end' : 'ac-end'}>
+                  Endzeit
+                </label>
                 <select
                   id={isEdit ? 'ae-end' : 'ac-end'}
                   name="end_min"
                   required
-                  mix={[input.base, input.focus, table.select, fieldErrors?.end_min ? input.error : undefined]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    table.select,
+                    fieldErrors?.end_min ? input.error : undefined,
+                  ]}
                 >
                   {END_MIN_OPTIONS.map((min) => (
                     <option key={min} value={min} selected={min === resolvedEndMin}>
@@ -222,15 +301,31 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
                     </option>
                   ))}
                 </select>
-                {fieldErrors?.end_min ? <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span> : null}
+                {fieldErrors?.end_min ? (
+                  <span mix={inlineErrorStyle}>{fieldErrors.end_min}</span>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   {submitLabel}
                 </button>
-                <a href={buildCancelUrl(routes.verwaltung.appointments.index.href(), offset, sort, order, filter, period, status)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.verwaltung.appointments.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                    period,
+                    status,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

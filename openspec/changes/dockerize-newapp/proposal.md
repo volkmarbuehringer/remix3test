@@ -12,6 +12,7 @@ The newapp project currently runs only in local development mode. Dockerizing it
 ## Capabilities
 
 ### New Capabilities
+
 - `container-deployment`: Docker container build, configuration, and deployment for running newapp on a public Docker host with Neon database connectivity
 
 ### Modified Capabilities

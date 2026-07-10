@@ -5,6 +5,7 @@ The `my_app` project has a fully functional workflow engine with types, registry
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Copy the complete workflow engine from my_app to newapp (types, registry, engine, tools, definitions)
 - Wire it at `/ai/workflow` as a sub-route under the existing AI section
 - Adapt all UI to use newapp's theme token system (`app/theme.tsx`) and `Button` from `remix/ui/button`
@@ -13,6 +14,7 @@ The `my_app` project has a fully functional workflow engine with types, registry
 - Add `workflow_runs` table to the database schema
 
 **Non-Goals:**
+
 - No changes to the workflow engine logic itself (straight port)
 - No new workflow definitions beyond what my_app has
 - No changes to existing AI routes (Chat, Agent)
@@ -21,28 +23,34 @@ The `my_app` project has a fully functional workflow engine with types, registry
 ## Decisions
 
 **Decision 1: Port engine files verbatim, only adapt imports**
+
 - `app/workflows/types.ts`, `registry.ts`, `engine.ts`, `tools.ts` are pure logic with no UI dependencies — they can be copied as-is with minor import path adjustments
 - The engine uses `ai` SDK's `tool()` and `generateText` which newapp already depends on
 
 **Decision 2: Route at `/ai/workflow` using existing aiRoutes pattern**
+
 ```ts
 workflow: route('workflow', {
   index: get('/'),
   action: post('/'),
 })
 ```
+
 Mounted under the `ai` prefix via `routes.ai.workflow`, giving `/ai/workflow`.
 
 **Decision 3: Controller uses `renderAiPage` for AI sidebar integration**
+
 - Workflow controller wraps pages in `renderAiPage(render, 'workflow', ...)` instead of the old `<Layout>` wrapper
 - This ensures frame-based navigation works within the AI section
 
 **Decision 4: Adapt page CSS from my_app's inline styles to newapp's theme token system**
+
 - my_app's workflow pages define CSS with hardcoded color values
 - These need conversion to use `theme.colors.*`, `theme.surface.*`, `theme.space.*`, etc. from `app/theme.tsx`
 - Buttons use `<Button>` from `remix/ui/button` with proper `tone` prop instead of raw `<button>` elements
 
 **Decision 5: Client entry for workflow parameters**
+
 - `AppUiWorkflowParameters` from my_app (`/home/lucky/alpha4/my_app/app/ui/workflow-parameters.tsx`) needs to be ported as-is
 - It needs to be allowed in the asset server's `allow` list
 

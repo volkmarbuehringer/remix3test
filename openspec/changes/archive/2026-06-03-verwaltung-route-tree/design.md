@@ -3,6 +3,7 @@
 The current `/admin` route tree under `adminRoutes.admin` in `app/routes.ts` hosts all administrative functionality in a single sidebar-based layout. Admin pages use a `createSidebarLayout` factory (`app/ui/admin-layout.tsx`) that renders a sticky left sidebar with nav groups and a content area on the right. All admin controllers include `[requireAuth(), requireAdmin()]` middleware.
 
 Four routes manage operational data:
+
 - `/admin/offerings` — offering CRUD + config save + week generation
 - `/admin/appointments` — appointment CRUD + SSE events
 - `/admin/resources` — resource CRUD (resources helper)
@@ -13,6 +14,7 @@ A future change will upgrade form handling in these routes to remove URL-encoded
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create a new `/verwaltung` route tree with a simple card-based dashboard (no sidebar)
 - Move offerings, appointments, resources, and offering-configs routes under `/verwaltung`
 - Each of the four moved routes retains identical controller logic, form behavior, and middleware
@@ -20,6 +22,7 @@ A future change will upgrade form handling in these routes to remove URL-encoded
 - Remove the four nav items from the admin sidebar nav groups
 
 **Non-Goals:**
+
 - Changing form validation patterns in the four controllers (that is a separate change)
 - Changing the sidebar layout factory or frame architecture for `/admin`
 - Adding new features to the dashboard beyond navigation cards

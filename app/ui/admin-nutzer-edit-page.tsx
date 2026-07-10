@@ -87,26 +87,38 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
 
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ne-vorname">Vorname</label>
+                <label mix={table.label} htmlFor="ne-vorname">
+                  Vorname
+                </label>
                 <input
                   id="ne-vorname"
                   name="vorname"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.vorname ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.vorname ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.vorname ?? row.n_vorname ?? ''}
                   placeholder="Vorname"
                   maxLength={100}
                 />
-                {fieldErrors?.vorname ? <div mix={fieldErrorStyle}>{fieldErrors.vorname}</div> : null}
+                {fieldErrors?.vorname ? (
+                  <div mix={fieldErrorStyle}>{fieldErrors.vorname}</div>
+                ) : null}
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ne-name">Name</label>
+                <label mix={table.label} htmlFor="ne-name">
+                  Name
+                </label>
                 <input
                   id="ne-name"
                   name="name"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
+                    Boolean,
+                  )}
                   value={formValues?.name ?? row.n_name ?? ''}
                   placeholder="Name"
                   maxLength={100}
@@ -115,12 +127,18 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ne-email">Email</label>
+                <label mix={table.label} htmlFor="ne-email">
+                  Email
+                </label>
                 <input
                   id="ne-email"
                   name="email"
                   type="email"
-                  mix={[input.base, input.focus, fieldErrors?.email ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.email ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.email ?? row.n_email ?? ''}
                   placeholder="email@example.com"
                   maxLength={200}
@@ -134,7 +152,11 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                   name="verpflichtung"
                   type="checkbox"
                   mix={checkboxStyle}
-                  checked={formValues?.verpflichtung !== undefined ? formValues.verpflichtung === 'on' : row.n_verpflichtung}
+                  checked={
+                    formValues?.verpflichtung !== undefined
+                      ? formValues.verpflichtung === 'on'
+                      : row.n_verpflichtung
+                  }
                 />
                 <label mix={checkboxLabelStyle} htmlFor="ne-verpflichtung">
                   Verpflichtung
@@ -142,12 +164,18 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
               </div>
 
               <div mix={table.fieldGroup}>
-                <label mix={table.label} htmlFor="ne-login">Login</label>
+                <label mix={table.label} htmlFor="ne-login">
+                  Login
+                </label>
                 <input
                   id="ne-login"
                   name="login"
                   type="text"
-                  mix={[input.base, input.focus, fieldErrors?.login ? inputErrorStyle : null].filter(Boolean)}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.login ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                   value={formValues?.login ?? row.l_login}
                   placeholder="Loginname"
                   maxLength={100}
@@ -161,9 +189,13 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                   name="aktiv"
                   type="checkbox"
                   mix={checkboxStyle}
-                  checked={formValues?.aktiv !== undefined ? formValues.aktiv === 'on' : row.l_aktiv}
+                  checked={
+                    formValues?.aktiv !== undefined ? formValues.aktiv === 'on' : row.l_aktiv
+                  }
                 />
-                <label mix={checkboxLabelStyle} htmlFor="ne-aktiv">Aktiv</label>
+                <label mix={checkboxLabelStyle} htmlFor="ne-aktiv">
+                  Aktiv
+                </label>
               </div>
 
               <div mix={checkboxRowStyle}>
@@ -172,17 +204,35 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
                   name="gesperrt"
                   type="checkbox"
                   mix={checkboxStyle}
-                  checked={formValues?.gesperrt !== undefined ? formValues.gesperrt === 'on' : row.l_gesperrt}
+                  checked={
+                    formValues?.gesperrt !== undefined
+                      ? formValues.gesperrt === 'on'
+                      : row.l_gesperrt
+                  }
                 />
-                <label mix={checkboxLabelStyle} htmlFor="ne-gesperrt">Gesperrt</label>
+                <label mix={checkboxLabelStyle} htmlFor="ne-gesperrt">
+                  Gesperrt
+                </label>
               </div>
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Speichern
                 </button>
-                <a href={buildCancelUrl(routes.admin.nutzer.index.href(), offset, sort, order, filter)} mix={[table.spacer, table.linkPlain]}>
-                  <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                <a
+                  href={buildCancelUrl(
+                    routes.admin.nutzer.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[table.spacer, table.linkPlain]}
+                >
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
+                  >
                     Abbrechen
                   </button>
                 </a>

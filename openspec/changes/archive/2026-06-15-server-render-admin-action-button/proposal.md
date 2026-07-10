@@ -12,10 +12,10 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `server-render-admin-action-button`: Replace per-row clientEntry action buttons in admin pages with server-rendered submit buttons
 
 ### Modified Capabilities
-
 
 ## Impact
 

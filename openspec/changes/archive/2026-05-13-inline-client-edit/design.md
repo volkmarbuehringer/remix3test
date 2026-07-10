@@ -7,6 +7,7 @@ This design places the edit form inline alongside the grid, so both are visible 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Grid and edit form visible side-by-side on the same page
 - All grid state preserved through edit → save → redirect cycle
 - Zero new JavaScript — standard HTML form POST, server-rendered frames
@@ -14,6 +15,7 @@ This design places the edit form inline alongside the grid, so both are visible 
 - Remove standalone `/client/edit/:rowId` route
 
 **Non-Goals:**
+
 - Client-side save or optimistic updates — form POST + 302 redirect is sufficient
 - Drag-to-reorder or inline cell editing — this is form-panel editing, not spreadsheet-style
 - Mobile-responsive layout — the two-column grid is desktop-first (can be added later)
@@ -21,19 +23,24 @@ This design places the edit form inline alongside the grid, so both are visible 
 ## Decisions
 
 ### Query param over frame for edit panel
+
 `?editing=` param drives edit panel visibility rather than a second `<Frame>`. Rationale:
+
 - Form POST + 302 redirect naturally clears `?editing=`, removing the panel
 - No additional frame lifecycle to manage
 - Edit panel is server-rendered alongside the grid frame, no extra network request
 - Grid frame preserves its state independently across page navigations
 
 ### target="_top" for frame exit
+
 Edit button inside the grid frame must navigate the top-level page. `target="_top"` is the established pattern in the admin layout — consistent and reliable.
 
 ### Single edit component, no standalone path
+
 Since the standalone route is removed, `ClientEditPage` is always inline. No prop to toggle between modes, no dual-rendering logic. Simpler to maintain.
 
 ### Filter preserved through URL
+
 The filter param flows through every step: grid → edit (in URL) → save (hidden form field) → redirect back to grid. This prevents losing the user's search context.
 
 ## Risks / Trade-offs

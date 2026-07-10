@@ -3,18 +3,21 @@
 Two admin pages — offerings and appointments — share the same table pattern: sortable columns, pagination, inline editing, and action buttons per row. The appointments page already has a context menu (from a prior change) but still displays the old Edit/Delete glyph buttons. The offerings page has no context menu at all.
 
 This change:
+
 1. Adds a context menu to the offerings page following the exact same pattern as `admin-appointments-context-menu.tsx`
 2. Removes the now-redundant action buttons from the appointments page
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add right-click context menu to admin offerings table with Edit and Delete actions
 - Remove the Edit/Delete glyph button group from admin appointments table (the context menu is now the sole action mechanism)
 - Remove unused CSS mixins from appointments page (`actionCellStyle`, `btnGroupStyle`, `editBtnStyle`, `delBtnStyle`)
 - Adjust appointments table `colgroup` to redistribute the freed action column width
 
 **Non-Goals:**
+
 - Not adding extra actions beyond Edit/Delete to the offerings context menu (config, add-week remain as toolbar buttons)
 - Not changing the controller logic on either page
 - Not retrofitting the offerings delete to use `.requestSubmit()` if it already works via form (it already uses RestfulForm)
@@ -39,8 +42,8 @@ This change:
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|-----------|
-| Removing appointments action buttons may confuse users accustomed to visible buttons | The context menu already exists and has been working; this only removes the redundant visual duplicate |
-| Offerings context menu may not trigger if the row's `oncontextmenu` is intercepted by browser | Already prevented via `event.preventDefault()` in the event delegation handler |
-| Column width redistribution may cause visual shift | `table-layout: fixed` distributes remaining width proportionally; the freed 100px spreads across 8 remaining columns (~12px each) — barely noticeable |
+| Risk                                                                                          | Mitigation                                                                                                                                            |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Removing appointments action buttons may confuse users accustomed to visible buttons          | The context menu already exists and has been working; this only removes the redundant visual duplicate                                                |
+| Offerings context menu may not trigger if the row's `oncontextmenu` is intercepted by browser | Already prevented via `event.preventDefault()` in the event delegation handler                                                                        |
+| Column width redistribution may cause visual shift                                            | `table-layout: fixed` distributes remaining width proportionally; the freed 100px spreads across 8 remaining columns (~12px each) — barely noticeable |

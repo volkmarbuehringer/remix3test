@@ -17,7 +17,11 @@ export function ListsIndexPage(handle: Handle<ListsIndexPageProps>) {
     let { initialState } = handle.props
     return (
       <>
-        <div id="lists-initial-state" hidden data-state={initialState ? JSON.stringify(initialState) : ''} />
+        <div
+          id="lists-initial-state"
+          hidden
+          data-state={initialState ? JSON.stringify(initialState) : ''}
+        />
         <ListsClient initialState={initialState ?? null} />
       </>
     )

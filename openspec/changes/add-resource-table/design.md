@@ -7,6 +7,7 @@ There is no concept of a "resource" (room, equipment, staff member). The appoint
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create a `resources` table as a lightweight entity with `id`, `description`, `created_at`, `updated_at`
 - Add `resource_id` (NOT NULL FK) to `appointments` — existing data is truncated on startup
 - Scope the exclusion constraint to per-resource: `(resource_id WITH =, date WITH =, during WITH &&)` so two appointments for different resources CAN overlap
@@ -15,6 +16,7 @@ There is no concept of a "resource" (room, equipment, staff member). The appoint
 - Update appointment CRUD to accept/return `resource_id`
 
 **Non-Goals:**
+
 - Full resource CRUD UI (no create/edit/delete of resources in the UI; only seed + dropdown selection)
 - Multi-resource assignment per appointment
 - Resource availability / booking rules beyond overlap prevention
@@ -22,14 +24,18 @@ There is no concept of a "resource" (room, equipment, staff member). The appoint
 ## Decisions
 
 ### Decision: resource_id as NOT NULL FK
+
 **Rationale**: The appointments table will be dropped and recreated (all existing data is truncated). This makes `resource_id` NOT NULL straightforward — no migration of existing rows needed. Every new appointment MUST belong to a resource.
 
-**Alternatives considered**: 
+**Alternatives considered**:
+
 - Nullable FK → unnecessary complexity; no existing data to preserve.
 - Not adding resource_id → blocks don't know which resource they belong to.
 
 ### Decision: Use `btree_gist` extension for the combined constraint
+
 **Rationale**: PostgreSQL's GiST indexes support btree-included columns via the `btree_gist` extension (already enabled in setup.ts). The new constraint will be:
+
 ```sql
 CONSTRAINT no_overlapping_seats EXCLUDE USING GIST (
   resource_id WITH =,
@@ -39,9 +45,11 @@ CONSTRAINT no_overlapping_seats EXCLUDE USING GIST (
 ```
 
 ### Decision: Resource dropdown in sidebar, not the grid header
+
 **Rationale**: The sidebar is where all week navigation lives (year, week pickers). Adding the resource filter there keeps all filtering in one place. The dropdown changes the current selection and reloads the page via URL param like `?resource_id=N`.
 
 ### Decision: Filter appointments by resource_id in the list query
+
 **Rationale**: The controller already calls `listAppointmentsByWeek()`. Adding an optional `resource_id` filter to that query (when selected) keeps the data layer simple.
 
 ## Risks / Trade-offs

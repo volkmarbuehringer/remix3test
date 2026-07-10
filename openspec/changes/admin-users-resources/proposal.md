@@ -12,15 +12,17 @@ The application already has `users` and `resources` tables defined in the schema
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-users`: Admin CRUD for the `users` table — list with pagination, sorting, search filter, inline create/edit/delete. Routes: GET `/admin/users` (index), POST `/admin/users` (create), PUT `/admin/users/:id` (update), DELETE `/admin/users/:id` (destroy).
 - `admin-resources`: Admin CRUD for the `resources` table — list with pagination, sorting, search filter, inline create/edit/delete. Routes: GET `/admin/resources` (index), POST `/admin/resources` (create), PUT `/admin/resources/:id` (update), DELETE `/admin/resources/:id` (destroy).
 
 ### Modified Capabilities
-*(No existing specs are modified — these are entirely new capabilities.)*
+
+_(No existing specs are modified — these are entirely new capabilities.)_
 
 ## Impact
 
-- **New files**: 
+- **New files**:
   - `app/actions/admin-users-controller.tsx` — controller for `/admin/users`
   - `app/actions/admin-resources-controller.tsx` — controller for `/admin/resources`
   - `app/ui/admin-users-page.tsx` — list + edit/create panels for users

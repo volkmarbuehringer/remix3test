@@ -26,6 +26,7 @@ secure: process.env.NODE_ENV === 'production',
 ```
 
 This means:
+
 - **Dev/HTTP** — `NODE_ENV` is not `production` → `secure: false` → cookies work over HTTP
 - **Production/HTTPS** — `NODE_ENV` is `production` → `secure: true` → cookies only sent over HTTPS
 

@@ -17,6 +17,7 @@ Remix 3's `timeboxer` demo pattern: `s.parseSafe(schema, formData)` → check `r
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Extract shared `issuesToFieldErrors()` and `readFormFieldValues()` utilities in `app/utils/schema-utils.ts`
 - Define declarative `offeringSaveSchema` in `app/utils/offering-schema.ts` using `coerce.number()` + `.refine()` — replaces `validateOfferingForm()` entirely
 - Define declarative `appointmentSaveSchema` in `app/utils/appointment-schema.ts` — replaces `validateAppointmentForm()` entirely
@@ -26,6 +27,7 @@ Remix 3's `timeboxer` demo pattern: `s.parseSafe(schema, formData)` → check `r
 - Business rule errors (holiday, past-date, exclusion, slot bookability) remain manual controller checks with redirects
 
 **Non-Goals:**
+
 - No changes to `destroy`, `configSave`, or `weekGenerate` actions in offerings controller
 - No changes to the Frame-based admin layout architecture (`ShellOrFragment`, `createSidebarLayout`)
 - No changes to the redirect + URL-param pattern for admin routes — this is the working strategy

@@ -68,7 +68,11 @@ describe('Auth Login controller', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
-      body: new URLSearchParams({ email: 'admin@newapp.com', password: process.env.SEED_ADMIN_PASSWORD!, _csrf: csrfToken }),
+      body: new URLSearchParams({
+        email: 'admin@newapp.com',
+        password: process.env.SEED_ADMIN_PASSWORD!,
+        _csrf: csrfToken,
+      }),
       redirect: 'manual',
     })
 
@@ -82,7 +86,11 @@ describe('Auth Login controller', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
-      body: new URLSearchParams({ email: 'user@newapp.com', password: process.env.SEED_USER_PASSWORD!, _csrf: csrfToken }),
+      body: new URLSearchParams({
+        email: 'user@newapp.com',
+        password: process.env.SEED_USER_PASSWORD!,
+        _csrf: csrfToken,
+      }),
       redirect: 'manual',
     })
 
@@ -100,7 +108,11 @@ describe('Auth Login controller', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
-      body: new URLSearchParams({ email: 'admin@newapp.com', password: 'wrongpassword', _csrf: csrfToken }),
+      body: new URLSearchParams({
+        email: 'admin@newapp.com',
+        password: 'wrongpassword',
+        _csrf: csrfToken,
+      }),
       redirect: 'manual',
     })
 
@@ -118,7 +130,11 @@ describe('Auth Login controller', () => {
     let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`, {
       method: 'POST',
       headers: { Cookie: cookie },
-      body: new URLSearchParams({ email: 'nonexistent@test.com', password: 'somepassword', _csrf: csrfToken }),
+      body: new URLSearchParams({
+        email: 'nonexistent@test.com',
+        password: 'somepassword',
+        _csrf: csrfToken,
+      }),
       redirect: 'manual',
     })
 

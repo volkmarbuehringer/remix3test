@@ -9,6 +9,7 @@ The project already has SSE infrastructure (`createChannel<EventMap>()` in `app/
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Catch PostgreSQL `23P01` exclusion violations in create/update actions
 - Return a structured JSON error `{ error: "Time slot already taken.", code: "collision" }` with status 409 Conflict
 - Client-side: when receiving a collision error, reload the page to show the blocking appointment
@@ -18,6 +19,7 @@ The project already has SSE infrastructure (`createChannel<EventMap>()` in `app/
 - All behaviors gated behind existing auth middleware
 
 **Non-Goals:**
+
 - No changes to the SSE infrastructure itself
 - No optimistic UI or in-place update — page reload is sufficient for this stage
 - No retry logic for failed writes — the user sees the collision and the refreshed page

@@ -7,12 +7,14 @@ The nutzer controller already demonstrates the pattern: a `?filter=` query param
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Allow filtering lists by partial match on item labels and description text
 - Use GIN indexes to keep the query fast as the table grows
 - Follow the existing nutzer controller pattern (text input, `?filter=` param, frame navigation)
 - Preserve filter state across pagination and delete actions
 
 **Non-Goals:**
+
 - Filtering by any other columns (ID, timestamps)
 - Regex or advanced search operators
 - Debounced/autocomplete client-side filtering (plain form submit like nutzer)
@@ -20,9 +22,11 @@ The nutzer controller already demonstrates the pattern: a `?filter=` query param
 ## Decisions
 
 ### Decision 1: Raw SQL over data-table for filtered queries
+
 The `data-table` abstraction doesn't expose `ILIKE` or JSONB containment queries. Following the nutzer pattern, we write raw SQL via `pool.query()` when a filter is present. For unfiltered queries, we keep using `db.findMany()`.
 
 ### Decision 2: Two GIN indexes (Option A from exploration)
+
 Using `jsonb_path_ops` for the JSONB column and `gin_trgm_ops` for description:
 
 ```sql
@@ -36,6 +40,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 - The query uses `jsonb_array_elements()` with ILIKE for partial label matching (sequential scan on the array, but array sizes are small).
 
 ### Decision 3: Combined query with OR
+
 ```sql
 SELECT * FROM lists
 WHERE description ILIKE $1
@@ -50,6 +55,7 @@ LIMIT $2 OFFSET $3
 The nutzer controller uses a simpler `ILIKE ANY(ARRAY[...])` pattern across text columns. We can't do that with JSONB, so we use the EXISTS subquery instead.
 
 ### Decision 4: Filter preserved across pagination and deletes
+
 Same pattern as nutzer: the filter value flows through `?filter=` param in pagination links and delete redirects.
 
 ## Risks / Trade-offs

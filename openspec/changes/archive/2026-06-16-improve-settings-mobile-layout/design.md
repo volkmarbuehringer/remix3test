@@ -7,12 +7,14 @@ The `css()` function supports `@media` queries (already used in `main-nav.tsx`, 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate excess vertical whitespace above the delete account panel on every viewport
 - Tighter padding and internal spacing for the delete account panel across all viewports
 - Additional mobile-specific tightening (≤768px) for the delete section and overall page feel
 - Keep all interactive elements comfortably tappable on mobile
 
 **Non-Goals:**
+
 - No layout restructuring (panels stay stacked vertically)
 - No changes to the password change panel or profile panel content
 - No changes to controller logic, data flow, or tests

@@ -12,10 +12,12 @@ The `offering_configs` table exists in the schema (`app/data/schema.ts`) with de
 ## Capabilities
 
 ### New Capabilities
+
 - `admin-offering-configs`: Admin CRUD for the `offering_configs` table — list with pagination, sorting (by resource, created_at, updated_at), search filter (by resource description), inline create/edit/delete. Routes: GET `/admin/offering-configs` (index), POST `/admin/offering-configs` (create), PUT `/admin/offering-configs/:id` (update), DELETE `/admin/offering-configs/:id` (destroy).
 
 ### Modified Capabilities
-*(No existing specs are modified — these are entirely new capabilities.)*
+
+_(No existing specs are modified — these are entirely new capabilities.)_
 
 ## Impact
 

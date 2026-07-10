@@ -15,7 +15,9 @@ function formatDate(date: string | number | null): string {
   let d = new Date(Number(date))
   if (isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   })
 }
 
@@ -51,8 +53,15 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
             pageMargins: [40, 60, 40, 60],
             content: [
               { text: 'Benutzerübersicht', style: 'header' },
-              { text: `Erstellt am ${new Date(now).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}`, style: 'subheader' },
-              { text: `Insgesamt ${rows.length} Benutzer`, style: 'subheader', margin: [0, 0, 0, 20] },
+              {
+                text: `Erstellt am ${new Date(now).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+                style: 'subheader',
+              },
+              {
+                text: `Insgesamt ${rows.length} Benutzer`,
+                style: 'subheader',
+                margin: [0, 0, 0, 20],
+              },
               {
                 table: {
                   headerRows: 1,
@@ -66,7 +75,7 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
                       { text: 'Erster Termin', bold: true },
                       { text: 'Letzter Termin', bold: true },
                     ],
-                    ...rows.map(row => [
+                    ...rows.map((row) => [
                       row.name ?? row.email,
                       row.email,
                       String(row.appointment_count),
@@ -95,7 +104,10 @@ export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
 
           let pdfHeaders = new SuperHeaders()
           pdfHeaders.contentType = 'application/pdf'
-          pdfHeaders.contentDisposition = { type: 'attachment', filename: `benutzeruebersicht-${new Date(now).toISOString().split('T')[0]}.pdf` }
+          pdfHeaders.contentDisposition = {
+            type: 'attachment',
+            filename: `benutzeruebersicht-${new Date(now).toISOString().split('T')[0]}.pdf`,
+          }
           pdfHeaders.contentLength = buffer.length
           return new Response(new Uint8Array(buffer), { headers: pdfHeaders })
         } catch {

@@ -27,16 +27,54 @@ const validateBookingStep = createStep({
   }),
   execute: async ({ inputData }) => {
     if (isDateInPast(inputData.date)) {
-      return { valid: false, resourceId: inputData.resourceId, date: inputData.date, startMin: inputData.startMin, endMin: inputData.startMin + 60, title: inputData.title, userId: inputData.userId }
+      return {
+        valid: false,
+        resourceId: inputData.resourceId,
+        date: inputData.date,
+        startMin: inputData.startMin,
+        endMin: inputData.startMin + 60,
+        title: inputData.title,
+        userId: inputData.userId,
+      }
     }
     if (inputData.startMin < 0 || inputData.startMin > 1380 || inputData.startMin % 15 !== 0) {
-      return { valid: false, resourceId: inputData.resourceId, date: inputData.date, startMin: inputData.startMin, endMin: inputData.startMin + 60, title: inputData.title, userId: inputData.userId }
+      return {
+        valid: false,
+        resourceId: inputData.resourceId,
+        date: inputData.date,
+        startMin: inputData.startMin,
+        endMin: inputData.startMin + 60,
+        title: inputData.title,
+        userId: inputData.userId,
+      }
     }
-    let bookable = await isSlotBookable(db, inputData.date, inputData.resourceId, inputData.startMin, inputData.startMin + 60)
+    let bookable = await isSlotBookable(
+      db,
+      inputData.date,
+      inputData.resourceId,
+      inputData.startMin,
+      inputData.startMin + 60,
+    )
     if (!bookable) {
-      return { valid: false, resourceId: inputData.resourceId, date: inputData.date, startMin: inputData.startMin, endMin: inputData.startMin + 60, title: inputData.title, userId: inputData.userId }
+      return {
+        valid: false,
+        resourceId: inputData.resourceId,
+        date: inputData.date,
+        startMin: inputData.startMin,
+        endMin: inputData.startMin + 60,
+        title: inputData.title,
+        userId: inputData.userId,
+      }
     }
-    return { valid: true, resourceId: inputData.resourceId, date: inputData.date, startMin: inputData.startMin, endMin: inputData.startMin + 60, title: inputData.title, userId: inputData.userId }
+    return {
+      valid: true,
+      resourceId: inputData.resourceId,
+      date: inputData.date,
+      startMin: inputData.startMin,
+      endMin: inputData.startMin + 60,
+      title: inputData.title,
+      userId: inputData.userId,
+    }
   },
 })
 
@@ -79,7 +117,11 @@ const createAppointmentStep = createStep({
         during,
         now,
       })
-      loggerVNext?.info('Appointment created', { appointmentId: id, resourceId: inputData.resourceId, userId: inputData.userId })
+      loggerVNext?.info('Appointment created', {
+        appointmentId: id,
+        resourceId: inputData.resourceId,
+        userId: inputData.userId,
+      })
       return { success: true, id }
     } catch (error: unknown) {
       if (isExclusionConstraintError(error)) {

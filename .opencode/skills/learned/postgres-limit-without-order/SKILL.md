@@ -1,6 +1,6 @@
 ---
 name: postgres-limit-without-order
-description: "SELECT LIMIT 1 without ORDER BY returns an arbitrary physical row in PostgreSQL, not the first inserted. Add ORDER BY or a filtering WHERE to make it deterministic."
+description: 'SELECT LIMIT 1 without ORDER BY returns an arbitrary physical row in PostgreSQL, not the first inserted. Add ORDER BY or a filtering WHERE to make it deterministic.'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -25,10 +25,7 @@ Always pair `LIMIT` with `ORDER BY` or a filtering `WHERE`:
 let result = await pool.query('SELECT id FROM users LIMIT 1')
 
 // ✅ Deterministic — always returns the first admin
-let result = await pool.query(
-  'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
-  ['admin']
-)
+let result = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', ['admin'])
 ```
 
 ## When to Use

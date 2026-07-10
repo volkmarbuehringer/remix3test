@@ -5,12 +5,14 @@ The app currently uses `http.createServer` via `remix/node-fetch-server`'s `crea
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Serve HTTPS in production (NODE_ENV=production) using self-signed certificates
 - Keep development workflow unchanged (HTTP on localhost)
 - Keep the single `server.ts` entry point — no separate server.new or server.prod.ts
 - Use existing cert files (`key.pem`, `cert.pem`) from project root
 
 **Non-Goals:**
+
 - HTTP→HTTPS redirect (not needed for narrow audience)
 - Let's Encrypt or ACME integration
 - Domain purchase or DNS configuration

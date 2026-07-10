@@ -1,6 +1,6 @@
 ---
 name: remix3-standalone-route-admin-sidebar
-description: "Add standalone routes to Remix 3 admin sidebar with SSE and client IP"
+description: 'Add standalone routes to Remix 3 admin sidebar with SSE and client IP'
 origin: auto-extracted
 ---
 
@@ -86,24 +86,21 @@ export function requireSseAuth(): Middleware {
 Usage on the SSE route:
 
 ```tsx
-export const mySseHandler = createAction<typeof mySseRoute, AppContext>(
-  mySseRoute,
-  {
-    middleware: [requireSseAuth()],
-    handler: async (context) => channel.subscribe(context.request),
-  },
-)
+export const mySseHandler = createAction<typeof mySseRoute, AppContext>(mySseRoute, {
+  middleware: [requireSseAuth()],
+  handler: async (context) => channel.subscribe(context.request),
+})
 ```
 
 **Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The `requireSseAuth()` middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint (EventSource, WebSocket).
 
 Auth state check behavior:
 
-| `auth` value | `context.get(Auth)` | Result |
-|---|---|---|
-| `loadAuth()` not installed | `undefined` | 401 |
-| No valid session | `{ ok: false }` (no `user` prop) | 401 |
-| Valid session | `{ user: {...} }` | passes through |
+| `auth` value               | `context.get(Auth)`              | Result         |
+| -------------------------- | -------------------------------- | -------------- |
+| `loadAuth()` not installed | `undefined`                      | 401            |
+| No valid session           | `{ ok: false }` (no `user` prop) | 401            |
+| Valid session              | `{ user: {...} }`                | passes through |
 
 ### 4. Client IP extraction with socket fallback
 

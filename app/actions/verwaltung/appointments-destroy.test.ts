@@ -3,7 +3,12 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/setup.ts'
-import { BASE, ADMIN_APPT_URL, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
+import {
+  BASE,
+  ADMIN_APPT_URL,
+  setupTestEnvironment,
+  teardownTestEnvironment,
+} from './controller.test-utils.ts'
 
 // Track IDs created during tests for cleanup
 const createdAppointmentIds: number[] = []
@@ -69,7 +74,10 @@ describe('Admin Appointments Controller', () => {
       // Assert
       assert.equal(response.status, 302, 'successful delete should redirect')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to /verwaltung/appointments')
+      assert.ok(
+        location.startsWith('/verwaltung/appointments'),
+        'should redirect to /verwaltung/appointments',
+      )
 
       // Verify deletion from database
       let checkResult = await pool.query('SELECT id FROM appointments WHERE id = $1', [deleteId])

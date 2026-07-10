@@ -12,10 +12,12 @@ The newapp has several auth gaps and inconsistencies discovered during a codebas
 ## Capabilities
 
 ### New Capabilities
+
 - `auth-policy`: Defines which routes require authentication and how auth enforcement is applied at the controller and action level.
 
 ### Modified Capabilities
-*(none — no existing specs to modify)*
+
+_(none — no existing specs to modify)_
 
 ## Impact
 

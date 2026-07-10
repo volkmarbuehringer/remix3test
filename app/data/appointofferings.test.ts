@@ -1,7 +1,13 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase, pool } from './setup.ts'
-import { parseDuring, isSlotBookable, computeFullHourSlots, listDaysWithOfferings, filterAvailableSlots } from './appointofferings.ts'
+import {
+  parseDuring,
+  isSlotBookable,
+  computeFullHourSlots,
+  listDaysWithOfferings,
+  filterAvailableSlots,
+} from './appointofferings.ts'
 
 // ---------------------------------------------------------------------------
 // parseDuring — pure function tests
@@ -240,7 +246,10 @@ describe('computeFullHourSlots', () => {
 
   it('returns correct slots for multiple offerings with gap [480,720)+[780,1080)', () => {
     // Arrange: two offerings with gap 12:00-13:00
-    let ranges = [{ startMin: 480, endMin: 720 }, { startMin: 780, endMin: 1080 }]
+    let ranges = [
+      { startMin: 480, endMin: 720 },
+      { startMin: 780, endMin: 1080 },
+    ]
 
     // Act
     let result = computeFullHourSlots(ranges)
@@ -352,7 +361,10 @@ describe('filterAvailableSlots', () => {
 
   it('handles multiple booked ranges blocking multiple slots', () => {
     let slots = [480, 540, 600, 660, 720, 780]
-    let booked = [{ startMin: 540, endMin: 600 }, { startMin: 660, endMin: 780 }]
+    let booked = [
+      { startMin: 540, endMin: 600 },
+      { startMin: 660, endMin: 780 },
+    ]
     let result = filterAvailableSlots(slots, booked)
     assert.deepEqual(result, [480, 600, 780])
   })

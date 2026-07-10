@@ -21,7 +21,9 @@ const D1 = utcDate(2024, 5, 22) // 2024-05-22
 const D2 = utcDate(2024, 5, 23) // 2024-05-23
 
 /** Build a minimal AppointmentLayoutBlock with defaults (60‑min duration). */
-function block(overrides: Partial<AppointmentLayoutBlock> & { id: number }): AppointmentLayoutBlock {
+function block(
+  overrides: Partial<AppointmentLayoutBlock> & { id: number },
+): AppointmentLayoutBlock {
   return {
     title: `Block ${overrides.id}`,
     user_id: 1,
@@ -73,9 +75,7 @@ describe('previewDeleteBlock', () => {
 
   it('includes a deleted change with a before snapshot of the removed block', () => {
     // Arrange
-    let blocks = [
-      block({ id: 1, title: 'Meeting', date: D1, start_min: 120, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, title: 'Meeting', date: D1, start_min: 120, end_min: 180 })]
 
     // Act
     let result = previewDeleteBlock(blocks, 1)
@@ -319,12 +319,7 @@ describe('previewMoveBlock', () => {
     ]
 
     // Act — try to move block3 to the full day with a compact policy
-    let result = previewMoveBlock(
-      blocks,
-      3,
-      { date: D1, startMinute: 60 },
-      { dayMinutes: 120 },
-    )
+    let result = previewMoveBlock(blocks, 3, { date: D1, startMinute: 60 }, { dayMinutes: 120 })
 
     // Assert
     assert.equal(result.unresolved, true)
@@ -332,9 +327,7 @@ describe('previewMoveBlock', () => {
 
   it('moves a block to minute 0 (midnight boundary)', () => {
     // Arrange
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 120, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 120, end_min: 180 })]
 
     // Act
     let result = previewMoveBlock(blocks, 1, { date: D1, startMinute: 0 })
@@ -347,9 +340,7 @@ describe('previewMoveBlock', () => {
 
   it('moves a block to the end‑of‑day boundary', () => {
     // Arrange — 60‑min block placed at the last possible slot
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 0, end_min: 60 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 0, end_min: 60 })]
 
     // Act — last slot starts at dayMinutes - duration = 1380
     let result = previewMoveBlock(blocks, 1, { date: D1, startMinute: 1380 })
@@ -362,9 +353,7 @@ describe('previewMoveBlock', () => {
 
   it('clamps block start_min when movement would exceed the day boundary', () => {
     // Arrange — a 180‑min block
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 0, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 0, end_min: 180 })]
 
     // Act — requesting start_min=1400, but 1400+180=1580 > 1440, clamped
     let result = previewMoveBlock(blocks, 1, { date: D1, startMinute: 1400 })
@@ -377,9 +366,7 @@ describe('previewMoveBlock', () => {
 
   it('does not change the block id or title', () => {
     // Arrange
-    let blocks = [
-      block({ id: 42, title: 'Standup', date: D1, start_min: 0, end_min: 60 }),
-    ]
+    let blocks = [block({ id: 42, title: 'Standup', date: D1, start_min: 0, end_min: 60 })]
 
     // Act
     let result = previewMoveBlock(blocks, 42, { date: D1, startMinute: 300 })
@@ -412,9 +399,7 @@ describe('previewMoveBlock', () => {
 
   it('produces no changes when a block is moved to its current position', () => {
     // Arrange
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 120, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 120, end_min: 180 })]
 
     // Act — same position
     let result = previewMoveBlock(blocks, 1, { date: D1, startMinute: 120 })
@@ -426,9 +411,7 @@ describe('previewMoveBlock', () => {
 
   it('snaps start_min to the nearest slot boundary', () => {
     // Arrange — slotMinutes = 15, so minutes snap to 15‑min boundaries
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 0, end_min: 60 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 0, end_min: 60 })]
 
     // Act — request a half‑hour offset (90 is already a 15‑min boundary)
     let result = previewMoveBlock(blocks, 1, { date: D1, startMinute: 90 })
@@ -456,8 +439,8 @@ describe('previewMoveBlock', () => {
       let b = result.blocks[i + 1]!
       assert.ok(
         a.date < b.date ||
-        (a.date === b.date && a.start_min < b.start_min) ||
-        (a.date === b.date && a.start_min === b.start_min && a.id < b.id),
+          (a.date === b.date && a.start_min < b.start_min) ||
+          (a.date === b.date && a.start_min === b.start_min && a.id < b.id),
         `blocks should be sorted (failed at index ${i}: id ${a.id} vs ${b.id})`,
       )
     }
@@ -471,9 +454,7 @@ describe('previewMoveBlock', () => {
 describe('previewResizeBlockTime', () => {
   it('resizes the start edge earlier (dragging upward), increasing duration', () => {
     // Arrange — 3‑hour block at 180‑360
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 180, end_min: 360 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 180, end_min: 360 })]
 
     // Act — pull start edge back to minute 60
     let result = previewResizeBlockTime(blocks, 1, { edge: 'start', minute: 60 })
@@ -487,9 +468,7 @@ describe('previewResizeBlockTime', () => {
 
   it('resizes the start edge later (dragging downward), decreasing duration', () => {
     // Arrange — block from 60‑240 (180 min)
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 240 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 240 })]
 
     // Act — pull start forward to 180 (leaves 60 min minimum)
     let result = previewResizeBlockTime(blocks, 1, { edge: 'start', minute: 180 })
@@ -503,9 +482,7 @@ describe('previewResizeBlockTime', () => {
 
   it('resizes the end edge later (dragging downward), increasing duration', () => {
     // Arrange — block from 60‑180 (120 min)
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 180 })]
 
     // Act — pull end edge to 300
     let result = previewResizeBlockTime(blocks, 1, { edge: 'end', minute: 300 })
@@ -519,9 +496,7 @@ describe('previewResizeBlockTime', () => {
 
   it('resizes the end edge earlier (dragging upward), decreasing duration', () => {
     // Arrange — block from 60‑240 (180 min)
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 240 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 240 })]
 
     // Act — pull end back to 120
     let result = previewResizeBlockTime(blocks, 1, { edge: 'end', minute: 120 })
@@ -535,9 +510,7 @@ describe('previewResizeBlockTime', () => {
 
   it('clamps resize to minimum duration when trying to go below it', () => {
     // Arrange — 60‑min block
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 120, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 120, end_min: 180 })]
 
     // Act — try to shrink start edge past minimum (can't go past end_min - 15)
     let result = previewResizeBlockTime(blocks, 1, { edge: 'start', minute: 200 })
@@ -551,9 +524,7 @@ describe('previewResizeBlockTime', () => {
 
   it('clamps start edge when resizing past end_min - minimumDuration', () => {
     // Arrange — block from 60‑240 (180 min)
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 240 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 240 })]
 
     // Act — try to move start edge past the minimum duration boundary
     // max allowed start = 240 - 15 = 225; requesting 300 → snapped to 300, clamped to 225
@@ -568,9 +539,7 @@ describe('previewResizeBlockTime', () => {
 
   it('clamps end edge to dayMinutes when moving past end of day', () => {
     // Arrange — block near end of day
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 1320, end_min: 1380 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 1320, end_min: 1380 })]
 
     // Act — extend past midnight
     let result = previewResizeBlockTime(blocks, 1, { edge: 'end', minute: 1500 })
@@ -620,9 +589,7 @@ describe('previewResizeBlockTime', () => {
 
   it('includes a resized change for the modified block', () => {
     // Arrange
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 180 })]
 
     // Act
     let result = previewResizeBlockTime(blocks, 1, { edge: 'end', minute: 300 })
@@ -639,9 +606,7 @@ describe('previewResizeBlockTime', () => {
 
   it('snaps the resized edge to slot boundaries', () => {
     // Arrange — block from 120‑240
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 120, end_min: 240 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 120, end_min: 240 })]
 
     // Act — request start edge at minute 127 (should snap to 120 → no change)
     let result = previewResizeBlockTime(blocks, 1, { edge: 'start', minute: 127 })
@@ -654,9 +619,7 @@ describe('previewResizeBlockTime', () => {
 
   it('does not mutate the original source blocks', () => {
     // Arrange
-    let blocks = [
-      block({ id: 1, date: D1, start_min: 60, end_min: 180 }),
-    ]
+    let blocks = [block({ id: 1, date: D1, start_min: 60, end_min: 180 })]
     let originalEnd = blocks[0]!.end_min
 
     // Act

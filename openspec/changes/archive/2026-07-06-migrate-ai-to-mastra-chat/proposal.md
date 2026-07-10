@@ -17,10 +17,12 @@ The app currently carries two parallel AI surfaces: a legacy `/ai` route tree (`
 ## Capabilities
 
 ### New Capabilities
+
 - `mastra-weather-tool`: A weather lookup tool added to the Mastra support agent, providing current temperature, condition, humidity, and wind speed for any location worldwide via the Open-Meteo API.
 - `mastra-chatlog-viewer`: Admin-only viewer at `/admin/chatlog` that reads conversation history from Mastra's threads/messages tables and renders all past dialogs without a chat/agent type distinction.
 
 ### Modified Capabilities
+
 <!-- No existing spec-level capabilities are modified; the legacy /ai routes and chat/agent distinction were never captured as specs in openspec/specs/. -->
 
 ## Impact

@@ -12,8 +12,6 @@ export const adminChannel = createChannel<{ invalidate: void }>()
 // Rate limiter for messages (per-user, 500ms window)
 export const messageRateLimiter = createRateLimiter({ windowMs: 500, perUser: true })
 
-
-
 export function broadcastInvalidate(): void {
   adminChannel.broadcast('invalidate')
 }
