@@ -8,7 +8,14 @@ export interface TestAgent {
   generate: (
     message: string,
     opts?: Record<string, unknown>,
-  ) => Promise<{ text: string; toolCalls?: unknown[]; toolResults?: unknown[]; finishReason?: string; runId?: string; suspendPayload?: unknown }>
+  ) => Promise<{
+    text: string
+    toolCalls?: unknown[]
+    toolResults?: unknown[]
+    finishReason?: string
+    runId?: string
+    suspendPayload?: unknown
+  }>
 }
 
 export interface CapturedToolCall {
@@ -16,6 +23,29 @@ export interface CapturedToolCall {
   input: Record<string, unknown>
   result: unknown
   timestamp: number
+}
+
+export interface MastraSuspendableResult {
+  finishReason?: string
+  suspendPayload?: unknown
+  text?: string
+  runId?: string
+  toolCalls?: unknown[]
+  toolResults?: unknown[]
+}
+
+export function extractLastSlotResult(result: {
+  toolResults?: unknown[]
+}): Record<string, unknown> | undefined {
+  for (let tr of (result.toolResults ?? []) as Array<Record<string, unknown>>) {
+    let payload = (tr?.payload as Record<string, unknown>) ?? tr
+    let toolName = payload?.toolName as string | undefined
+    if (toolName === 'find_next_available_slots' || toolName === 'findNextAvailableSlots') {
+      let r = payload?.result as Record<string, unknown> | undefined
+      if (r?.slots && Array.isArray(r.slots) && (r.slots as unknown[]).length > 0) return r
+    }
+  }
+  return undefined
 }
 
 // ── Schema ───────────────────────────────────────────────────────────
@@ -44,9 +74,7 @@ export function sanitizeLog(s: string): string {
 export function isAbortError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (error.name === 'AbortError' ||
-      error.name === 'TimeoutError' ||
-      /abort/i.test(error.message))
+    (error.name === 'AbortError' || error.name === 'TimeoutError' || /abort/i.test(error.message))
   )
 }
 
@@ -61,9 +89,10 @@ export function extractToolCalls(result: {
     )?.[i]
     return {
       name: typeof tcObj?.toolName === 'string' ? tcObj.toolName : '',
-      input: (typeof tcObj?.args === 'object' && tcObj.args != null
-        ? tcObj.args
-        : {}) as Record<string, unknown>,
+      input: (typeof tcObj?.args === 'object' && tcObj.args != null ? tcObj.args : {}) as Record<
+        string,
+        unknown
+      >,
       result: tr?.result,
       timestamp: Date.now(),
     }
@@ -91,35 +120,28 @@ export interface AgentCallResult {
   suspendPayload?: unknown
 }
 
-export async function callAgentWithTimeout(
-  options: CallAgentOptions,
-): Promise<AgentCallResult> {
-  let {
-    agent,
-    message,
-    threadId,
-    userId,
-    maxSteps = 10,
-    timeoutMs = AGENT_TIMEOUT_MS,
-  } = options
+export async function callAgentWithTimeout(options: CallAgentOptions): Promise<AgentCallResult> {
+  let { agent, message, threadId, userId, maxSteps = 10, timeoutMs = AGENT_TIMEOUT_MS } = options
 
   let startTime = Date.now()
   let abortController = new AbortController()
   let timeout = setTimeout(() => abortController.abort(), timeoutMs)
 
   try {
-    let result = await agent.generate(message, {
+    let result = (await agent.generate(message, {
       maxSteps,
       abortSignal: abortController.signal,
       memory: {
         thread: threadId,
         resource: String(userId),
       },
-    }) as Record<string, unknown>
+    })) as Record<string, unknown>
 
     let elapsed = Date.now() - startTime
     let responseText = (result.text as string) ?? ''
-    let capturedToolCalls = extractToolCalls(result as { toolCalls?: unknown[]; toolResults?: unknown[] })
+    let capturedToolCalls = extractToolCalls(
+      result as { toolCalls?: unknown[]; toolResults?: unknown[] },
+    )
     let rawToolResults = (result.toolResults as unknown[]) ?? []
 
     return {
@@ -140,9 +162,9 @@ export async function callAgentWithTimeout(
 
 export type ValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
 
-export function validateMessage(formData: FormData):
-  | { ok: true; message: string; threadId?: string }
-  | { ok: false; error: ValidationError } {
+export function validateMessage(
+  formData: FormData,
+): { ok: true; message: string; threadId?: string } | { ok: false; error: ValidationError } {
   let parsed = s.parseSafe(messageSchema, formData)
   if (!parsed.success) return { ok: false, error: 'missing' }
 

@@ -16,6 +16,14 @@ interface CustomerChatPageProps {
   pendingBooking?: PendingBookingData
   bookingResult?: string
   bookingPage: BookingPageInfo
+  approvalData?: {
+    runId?: string
+    toolCallId?: string
+    threadId?: string
+    responseText?: string
+    resourceName?: string
+    resourceDescription?: string
+  }
 }
 
 const containerStyle = css({
@@ -203,6 +211,47 @@ const actionRowStyle = css({
   marginTop: '0.75rem',
 })
 
+const approvalCardStyle = css({
+  padding: '1rem',
+  border: `2px solid ${theme.colors.action.primary.background}`,
+  borderRadius: theme.radius.lg,
+  background: theme.surface.lvl0,
+  marginBottom: '1rem',
+})
+
+const approvalTitleStyle = css({
+  color: theme.colors.action.primary.background,
+  fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.lg,
+  marginBottom: theme.space.md,
+})
+
+const approvalActionsStyle = css({
+  display: 'flex',
+  gap: theme.space.md,
+  marginTop: theme.space.lg,
+})
+
+const approveBtnStyle = css({
+  padding: '0.6rem 1.5rem',
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  border: 'none',
+  borderRadius: theme.radius.md,
+  fontSize: '1rem',
+  cursor: 'pointer',
+})
+
+const declineBtnStyle = css({
+  padding: '0.6rem 1.5rem',
+  background: theme.surface.lvl1,
+  color: theme.colors.text.primary,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  fontSize: '1rem',
+  cursor: 'pointer',
+})
+
 const cancelLinkStyle = css({
   padding: '0.6rem 1.5rem',
   border: `1px solid ${theme.colors.border.default}`,
@@ -221,7 +270,9 @@ const cancelLinkStyle = css({
 
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
-    let { messages, threadId, error, pendingBooking, bookingResult, bookingPage } = handle.props
+    let { messages, threadId, error, pendingBooking, bookingResult, bookingPage, approvalData } =
+      handle.props
+    let showApproval = approvalData?.runId != null
     return (
       <div mix={containerStyle}>
         <h2 mix={headingStyle}>Beratung</h2>
@@ -238,9 +289,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
                 borderRadius: theme.radius.lg,
                 maxWidth: '75%',
                 background:
-                  msg.role === 'user'
-                    ? theme.colors.action.primary.background
-                    : theme.surface.lvl1,
+                  msg.role === 'user' ? theme.colors.action.primary.background : theme.surface.lvl1,
                 color:
                   msg.role === 'user'
                     ? theme.colors.action.primary.foreground
@@ -250,9 +299,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
                 borderBottomRightRadius: msg.role === 'user' ? '4px' : theme.radius.lg,
               }}
             >
-              <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                {msg.content}
-              </p>
+              <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</p>
               <div
                 style={{
                   fontSize: theme.fontSize.xxs,
@@ -277,7 +324,40 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           <div id="chat-end" />
         </div>
 
-        {pendingBooking && pendingBooking.slots.length > 0 && (
+        {showApproval && (
+          <div mix={approvalCardStyle}>
+            <p mix={approvalTitleStyle}>
+              {approvalData!.resourceName
+                ? `${approvalData!.resourceName} — bestätigen?`
+                : 'Ressource bestätigen'}
+            </p>
+            <p style={{ marginBottom: theme.space.sm }}>
+              {approvalData!.resourceDescription || approvalData!.responseText || 'Soll diese Ressource verwendet werden?'}
+            </p>
+            <div mix={approvalActionsStyle}>
+              <form method="POST" action={routes.chat.approve.href()}>
+                <CsrfTokenInput />
+                <input type="hidden" name="runId" value={approvalData!.runId} />
+                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
+                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
+                <button type="submit" mix={approveBtnStyle}>
+                  ✔ Bestätigen
+                </button>
+              </form>
+              <form method="POST" action={routes.chat.decline.href()}>
+                <CsrfTokenInput />
+                <input type="hidden" name="runId" value={approvalData!.runId} />
+                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
+                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
+                <button type="submit" mix={declineBtnStyle}>
+                  ✖ Ablehnen
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {!showApproval && pendingBooking && pendingBooking.slots.length > 0 && (
           <form method="POST" action={routes.chat.action.href()} mix={bookingCardStyle}>
             <CsrfTokenInput />
             <input type="hidden" name="_action" value="confirm_booking" />
@@ -299,7 +379,11 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
               let dayMs = dayKeys[bookingPage.currentPage]
               let daySlots = groups.get(dayMs)!
               return (
-                <fieldset key={dayMs} mix={dayGroupStyle} style={{ border: 'none', padding: 0, margin: 0 }}>
+                <fieldset
+                  key={dayMs}
+                  mix={dayGroupStyle}
+                  style={{ border: 'none', padding: 0, margin: 0 }}
+                >
                   <legend mix={dayHeaderStyle}>{daySlots[0].date_display}</legend>
                   {daySlots.map((slot, idx) => (
                     <label key={`${dayMs}-${slot.start_min}`} mix={slotLabelStyle}>
@@ -356,31 +440,28 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           </form>
         )}
 
-        <form
-          method="POST"
-          action={routes.chat.action.href()}
-          autoComplete="off"
-          mix={formStyle}
-        >
-          <CsrfTokenInput />
-          {threadId && <input type="hidden" name="threadId" value={threadId} />}
-          <label htmlFor="msg" mix={labelStyle}>
-            Dein Anliegen
-          </label>
-          <textarea
-            id="msg"
-            name="message"
-            rows={3}
-            required
-            maxLength={MAX_MESSAGE_LENGTH}
-            mix={textareaStyle}
-          />
-          <div style={{ marginTop: '0.75rem' }}>
-            <button type="submit" mix={buttonStyle}>
-              Senden
-            </button>
-          </div>
-        </form>
+        {!showApproval && (
+          <form method="POST" action={routes.chat.action.href()} autoComplete="off" mix={formStyle}>
+            <CsrfTokenInput />
+            {threadId && <input type="hidden" name="threadId" value={threadId} />}
+            <label htmlFor="msg" mix={labelStyle}>
+              Dein Anliegen
+            </label>
+            <textarea
+              id="msg"
+              name="message"
+              rows={3}
+              required
+              maxLength={MAX_MESSAGE_LENGTH}
+              mix={textareaStyle}
+            />
+            <div style={{ marginTop: '0.75rem' }}>
+              <button type="submit" mix={buttonStyle}>
+                Senden
+              </button>
+            </div>
+          </form>
+        )}
 
         {threadId && <p mix={threadIdStyle}>Konversation-ID: {threadId}</p>}
 

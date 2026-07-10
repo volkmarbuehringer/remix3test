@@ -1,37 +1,143 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import { pool } from '../../../data/connection.ts'
-import { computeFullHourSlots, filterAvailableSlots, parseDuring } from '../../../data/appointofferings.ts'
+import {
+  computeFullHourSlots,
+  filterAvailableSlots,
+  parseDuring,
+} from '../../../data/appointofferings.ts'
 import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils/date-utils.ts'
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
 import { createAsyncStorage } from '../../../utils/async-storage.ts'
 
-export const { runWithId: runWithUserId, requireId: requireCurrentUserId } = createAsyncStorage('customer')
+export const { runWithId: runWithUserId, requireId: requireCurrentUserId } =
+  createAsyncStorage('customer')
 
 // German stop words that add no search value
 const STOP_WORDS = new Set([
-  'ich', 'du', 'er', 'sie', 'es', 'wir', 'ihr',
-  'der', 'die', 'das', 'den', 'dem', 'des',
-  'ein', 'eine', 'einen', 'einem', 'eines',
-  'mein', 'dein', 'sein', 'unser', 'euer',
-  'dieser', 'diese', 'dieses',
-  'und', 'oder', 'aber', 'denn', 'doch', 'sondern', 'auch',
-  'für', 'auf', 'an', 'in', 'über', 'unter', 'neben', 'zwischen',
-  'mit', 'von', 'zu', 'nach', 'bei', 'aus', 'durch', 'um',
-  'ist', 'sind', 'war', 'wird', 'werden', 'wurde', 'bin', 'bist',
-  'hat', 'haben', 'hast', 'habe',
-  'nicht', 'kein', 'keine',
-  'mal', 'schon', 'noch', 'bereits', 'bitte', 'danke',
-  'einfach', 'gerne', 'gern', 'sehr', 'viel', 'wenig',
-  'man', 'kann', 'können', 'muss', 'müssen', 'soll', 'sollen',
-  'will', 'wollen', 'darf', 'dürfen', 'mag', 'mögen',
-  'brauche', 'brauchen', 'möchte', 'möchtest',
-  'würde', 'würden', 'hätte', 'hätten',
-  'wenn', 'weil', 'dass', 'da', 'als', 'wie',
-  'etwas', 'alles', 'nichts', 'jemand', 'niemand',
-  'hier', 'dort', 'dahin', 'dorthin',
-  'jetzt', 'sofort', 'später', 'heute', 'morgen', 'gestern',
-  'ihnen', 'ihm', 'ihn', 'uns', 'euch',
+  'ich',
+  'du',
+  'er',
+  'sie',
+  'es',
+  'wir',
+  'ihr',
+  'der',
+  'die',
+  'das',
+  'den',
+  'dem',
+  'des',
+  'ein',
+  'eine',
+  'einen',
+  'einem',
+  'eines',
+  'mein',
+  'dein',
+  'sein',
+  'unser',
+  'euer',
+  'dieser',
+  'diese',
+  'dieses',
+  'und',
+  'oder',
+  'aber',
+  'denn',
+  'doch',
+  'sondern',
+  'auch',
+  'für',
+  'auf',
+  'an',
+  'in',
+  'über',
+  'unter',
+  'neben',
+  'zwischen',
+  'mit',
+  'von',
+  'zu',
+  'nach',
+  'bei',
+  'aus',
+  'durch',
+  'um',
+  'ist',
+  'sind',
+  'war',
+  'wird',
+  'werden',
+  'wurde',
+  'bin',
+  'bist',
+  'hat',
+  'haben',
+  'hast',
+  'habe',
+  'nicht',
+  'kein',
+  'keine',
+  'mal',
+  'schon',
+  'noch',
+  'bereits',
+  'bitte',
+  'danke',
+  'einfach',
+  'gerne',
+  'gern',
+  'sehr',
+  'viel',
+  'wenig',
+  'man',
+  'kann',
+  'können',
+  'muss',
+  'müssen',
+  'soll',
+  'sollen',
+  'will',
+  'wollen',
+  'darf',
+  'dürfen',
+  'mag',
+  'mögen',
+  'brauche',
+  'brauchen',
+  'möchte',
+  'möchtest',
+  'würde',
+  'würden',
+  'hätte',
+  'hätten',
+  'wenn',
+  'weil',
+  'dass',
+  'da',
+  'als',
+  'wie',
+  'etwas',
+  'alles',
+  'nichts',
+  'jemand',
+  'niemand',
+  'hier',
+  'dort',
+  'dahin',
+  'dorthin',
+  'jetzt',
+  'sofort',
+  'später',
+  'heute',
+  'morgen',
+  'gestern',
+  'ihnen',
+  'ihm',
+  'ihn',
+  'uns',
+  'euch',
 ])
 
 function formatDateDisplay(epochMs: number): string {
@@ -45,20 +151,42 @@ function formatDateDisplay(epochMs: number): string {
 export const customerTools = {
   findNextAvailableSlots: createTool({
     id: 'find_next_available_slots',
-    description: 'Findet die nächsten verfügbaren Terminslots für eine Ressource. Parameter: resourceId (Pflicht), daysAhead (optional, Standard 180, maximal 180), offsetDays (optional, Standard 0, maximal 365), title (optional, vom Gespräch abgeleiteter Titel). offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen (z.B. offsetDays=30 für Termine ab Tag 31). Gibt bis zu 10 Tage mit allen verfügbaren Slots + resource_id + resource_name + title zurück.',
+    description:
+      'Findet die nächsten verfügbaren Terminslots für eine Ressource. Parameter: resourceId (Pflicht), daysAhead (optional, Standard 180, maximal 180), offsetDays (optional, Standard 0, maximal 365), title (optional, vom Gespräch abgeleiteter Titel). offsetDays gibt an, wie viele Tage ab heute übersprungen werden sollen (z.B. offsetDays=30 für Termine ab Tag 31). Gibt bis zu 10 Tage mit allen verfügbaren Slots + resource_id + resource_name + title zurück.',
     inputSchema: z.object({
-      resourceId: z.number().int().positive().describe('Die ID der Ressource, für die freie Slots gesucht werden sollen'),
-      daysAhead: z.number().int().min(1).max(180).default(180).describe('Wie viele Tage im Voraus gesucht werden soll (maximal 180)'),
-      offsetDays: z.number().int().min(0).max(365).default(0).describe('Wie viele Tage ab heute übersprungen werden sollen (für später liegende Termine)'),
-      title: z.string().max(200).default('').describe('Vom Gesprächskontext abgeleiteter Titel für den Termin'),
+      resourceId: z
+        .number()
+        .int()
+        .positive()
+        .describe('Die ID der Ressource, für die freie Slots gesucht werden sollen'),
+      daysAhead: z
+        .number()
+        .int()
+        .min(1)
+        .max(180)
+        .default(180)
+        .describe('Wie viele Tage im Voraus gesucht werden soll (maximal 180)'),
+      offsetDays: z
+        .number()
+        .int()
+        .min(0)
+        .max(365)
+        .default(0)
+        .describe(
+          'Wie viele Tage ab heute übersprungen werden sollen (für später liegende Termine)',
+        ),
+      title: z
+        .string()
+        .max(200)
+        .default('')
+        .describe('Vom Gesprächskontext abgeleiteter Titel für den Termin'),
     }),
     execute: async ({ resourceId, daysAhead, offsetDays, title }) => {
       let client = await pool.connect()
       try {
-        let resourceResult = await client.query(
-          'SELECT name FROM resources WHERE id = $1',
-          [resourceId],
-        )
+        let resourceResult = await client.query('SELECT name FROM resources WHERE id = $1', [
+          resourceId,
+        ])
         let resourceName = resourceResult.rows[0]?.name ?? 'Unbekannt'
 
         let todayMidnight = getTodayUtcMidnight()
@@ -127,13 +255,16 @@ export const customerTools = {
         for (let s of allSlots) {
           if (byDay.size >= 10) break
           let arr = byDay.get(s.date_epoch_ms)
-          if (!arr) { arr = []; byDay.set(s.date_epoch_ms, arr) }
+          if (!arr) {
+            arr = []
+            byDay.set(s.date_epoch_ms, arr)
+          }
           arr.push(s)
         }
         let top = [...byDay.values()].flat()
 
         return {
-          slots: top.map(s => ({
+          slots: top.map((s) => ({
             date_epoch_ms: s.date_epoch_ms,
             date_display: formatDateDisplay(s.date_epoch_ms),
             start_min: s.start_min,
@@ -151,9 +282,16 @@ export const customerTools = {
 
   searchResourcesByCapability: createTool({
     id: 'search_resources_by_capability',
-    description: 'Search resources by their capabilities. Accepts a free-text problem description and returns matching resources whose capabilities best match the query. Returns resource id, name, description, and capabilities text.',
+    description:
+      'Search resources by their capabilities. Accepts a free-text problem description and returns matching resources whose capabilities best match the query. Returns resource id, name, description, and capabilities text.',
     inputSchema: z.object({
-      query: z.string().min(1).max(500).describe('The customer problem description or search terms to match against resource capabilities'),
+      query: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe(
+          'The customer problem description or search terms to match against resource capabilities',
+        ),
     }),
     execute: async ({ query }) => {
       let client = await pool.connect()
@@ -162,8 +300,8 @@ export const customerTools = {
           .toLowerCase()
           .split(/\s+/)
           .filter(Boolean)
-          .map(t => t.replace(/[^a-zA-Zäöüß0-9-]/g, ''))
-          .filter(t => t.length > 1 && !STOP_WORDS.has(t))
+          .map((t) => t.replace(/[^a-zA-Zäöüß0-9-]/g, ''))
+          .filter((t) => t.length > 1 && !STOP_WORDS.has(t))
 
         if (terms.length === 0) {
           return { count: 0, resources: [] }
@@ -189,7 +327,7 @@ export const customerTools = {
 
         return {
           count: result.rows.length,
-          resources: result.rows.map(r => ({
+          resources: result.rows.map((r) => ({
             id: r.id,
             name: r.name,
             description: r.description,
@@ -204,12 +342,22 @@ export const customerTools = {
 
   triggerBookingWorkflow: createTool({
     id: 'trigger_booking_workflow',
-    description: 'Startet den Buchungs-Workflow für einen Kunden. Parameter: resourceId (Pflicht), title (optional), date (Pflicht, epoch ms), startMin (Pflicht, Minuten seit Mitternacht). Die Buchung wird im Workflow validiert und erstellt. Gibt den Workflow-Status und ggf. die Buchungs-ID zurück.',
+    description:
+      'Startet den Buchungs-Workflow für einen Kunden. Parameter: resourceId (Pflicht), title (optional), date (Pflicht, epoch ms), startMin (Pflicht, Minuten seit Mitternacht). Die Buchung wird im Workflow validiert und erstellt. Gibt den Workflow-Status und ggf. die Buchungs-ID zurück.',
     inputSchema: z.object({
-      resourceId: z.number().int().positive().describe('Die ID der Ressource, die gebucht werden soll'),
+      resourceId: z
+        .number()
+        .int()
+        .positive()
+        .describe('Die ID der Ressource, die gebucht werden soll'),
       title: z.string().max(200).default('').describe('Titel oder Beschreibung des Termins'),
       date: z.number().describe('Gewünschter Tag als epoch ms'),
-      startMin: z.number().int().min(0).max(1380).describe('Gewünschte Startzeit in Minuten seit Mitternacht'),
+      startMin: z
+        .number()
+        .int()
+        .min(0)
+        .max(1380)
+        .describe('Gewünschte Startzeit in Minuten seit Mitternacht'),
     }),
     execute: async ({ resourceId, title, date, startMin }) => {
       let customerId = requireCurrentUserId()
@@ -219,7 +367,8 @@ export const customerTools = {
 
   cancelBooking: createTool({
     id: 'cancel_booking',
-    description: 'Bricht einen bestehenden Termin ab. Parameter: appointmentId (Pflicht). Stellt sicher, dass der Termin dem aktuell eingeloggten Kunden gehört, löscht ihn und sendet eine Benachrichtigung.',
+    description:
+      'Bricht einen bestehenden Termin ab. Parameter: appointmentId (Pflicht). Stellt sicher, dass der Termin dem aktuell eingeloggten Kunden gehört, löscht ihn und sendet eine Benachrichtigung.',
     inputSchema: z.object({
       appointmentId: z.number().int().positive().describe('Die ID des zu stornierenden Termins'),
     }),
@@ -231,7 +380,8 @@ export const customerTools = {
 
   listMyAppointments: createTool({
     id: 'list_my_appointments',
-    description: 'Zeigt die eigenen bevorstehenden Termine des Kunden an. Parameter: keine. Gibt eine Liste aller zukünftigen Termine des aktuell eingeloggten Kunden zurück mit ID, Datum, Uhrzeit, Ressourcenname und Titel.',
+    description:
+      'Zeigt die eigenen bevorstehenden Termine des Kunden an. Parameter: keine. Gibt eine Liste aller zukünftigen Termine des aktuell eingeloggten Kunden zurück mit ID, Datum, Uhrzeit, Ressourcenname und Titel.',
     inputSchema: z.object({}),
     execute: async () => {
       let userId = requireCurrentUserId()
@@ -247,7 +397,7 @@ export const customerTools = {
           [userId, todayMidnight],
         )
         return {
-          appointments: result.rows.map(r => {
+          appointments: result.rows.map((r) => {
             let parsed = parseDuring(r.during)
             return {
               id: r.id,
@@ -271,7 +421,8 @@ export const customerTools = {
 
   cancelAllAppointments: createTool({
     id: 'cancel_all_appointments',
-    description: 'Bricht ALLE eigenen bevorstehenden Termine des Kunden ab. Parameter: keine. Vor dem Aufruf MÜSSEN dem Kunden die betroffenen Termine gezeigt werden (list_my_appointments) und der Kunde muss explizit zustimmen. Gibt eine Zusammenfassung mit Anzahl stornierter, fehlgeschlagener und bereits stornierter Termine zurück.',
+    description:
+      'Bricht ALLE eigenen bevorstehenden Termine des Kunden ab. Parameter: keine. Vor dem Aufruf MÜSSEN dem Kunden die betroffenen Termine gezeigt werden (list_my_appointments) und der Kunde muss explizit zustimmen. Gibt eine Zusammenfassung mit Anzahl stornierter, fehlgeschlagener und bereits stornierter Termine zurück.',
     inputSchema: z.object({}),
     execute: async () => {
       let userId = requireCurrentUserId()
@@ -287,7 +438,7 @@ export const customerTools = {
            ORDER BY a.date ASC`,
           [userId, todayMidnight],
         )
-        appointmentIds = result.rows.map(r => r.id as number)
+        appointmentIds = result.rows.map((r) => r.id as number)
       } finally {
         client.release()
       }
@@ -321,5 +472,32 @@ export const customerTools = {
       }
       return { cancelled, failed, skipped, details }
     },
+  }),
+
+  confirmResource: createTool({
+    id: 'confirm_resource',
+    description:
+      'Legt dem Kunden eine Resource zur Bestätigung vor. ' +
+      'Bei Bestätigung wird mit find_next_available_slots fortgefahren. ' +
+      'Bei Ablehnung die nächstbeste Resource vorschlagen.',
+    requireApproval: true,
+    inputSchema: z.object({
+      resourceId: z
+        .number()
+        .int()
+        .positive()
+        .describe('Die ID der Resource, die bestätigt werden soll'),
+      resourceName: z.string().min(1).max(200).describe('Der Name der Resource zur Anzeige'),
+      description: z
+        .string()
+        .min(1)
+        .max(500)
+        .describe('PFLICHTFELD: Beschreibe kurz in 1-2 Sätzen, warum diese Resource zum Kundenanliegen passt'),
+      previousResourceIds: z
+        .array(z.number().int())
+        .optional()
+        .describe('Bereits abgelehnte Resource-IDs'),
+    }),
+    execute: async ({ resourceId, resourceName }) => ({ success: true, resourceId, resourceName }),
   }),
 }

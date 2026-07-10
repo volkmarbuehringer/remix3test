@@ -54,7 +54,12 @@ export const routes = route({
 
   settings: form('settings'),
   uploads: form('uploads'),
-  chat: form('chat'),
+  chat: route('chat', {
+    index: get('/'),
+    action: post('/'),
+    approve: post('/approve'),
+    decline: post('/decline'),
+  }),
 
   appointment: route('appointment', {
     index: get('/'),

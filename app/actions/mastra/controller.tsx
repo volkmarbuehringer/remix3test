@@ -66,7 +66,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             }
           }
         }
-        let approvalData: { runId?: string; toolCallId?: string; threadId?: string; responseText?: string } | undefined
+        let approvalData:
+          | { runId?: string; toolCallId?: string; threadId?: string; responseText?: string }
+          | undefined
         let session = context.session
         if (session) {
           approvalData = session.get('toolApproval') as typeof approvalData | undefined
@@ -76,13 +78,25 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           return renderAdminPage(
             context.render,
             'support',
-            <MastraChatPage messages={chatMessages} threadId={threadId} error={error} pending={pending} approvalData={approvalData} />,
+            <MastraChatPage
+              messages={chatMessages}
+              threadId={threadId}
+              error={error}
+              pending={pending}
+              approvalData={approvalData}
+            />,
           )
         }
         return context.render(
           <Layout>
             <AdminLayout activeItem="support">
-              <MastraChatPage messages={chatMessages} threadId={threadId} error={error} pending={pending} approvalData={approvalData} />
+              <MastraChatPage
+                messages={chatMessages}
+                threadId={threadId}
+                error={error}
+                pending={pending}
+                approvalData={approvalData}
+              />
             </AdminLayout>
           </Layout>,
         )
@@ -186,7 +200,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
                 threadId,
               })
             }
-            return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end')
+            return redirect(
+              CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
+            )
           }
 
           let responseText = result.text
@@ -273,9 +289,14 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
         try {
           let agent = mastra.getAgent('supportAgent')
-          await runWithAdminId(user.id, () =>
+          let result = (await runWithAdminId(user.id, () =>
             agent.approveToolCallGenerate({ runId, toolCallId }),
-          )
+          )) as {
+            finishReason?: string
+            suspendPayload?: { toolCallId?: string }
+            text?: string
+            runId?: string
+          }
 
           let authIdentity = getAdminIdentity(context.auth)
           if (authIdentity) {
@@ -288,14 +309,36 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             })
           }
 
+          if (result.finishReason === 'suspended') {
+            let sp = result.suspendPayload as { toolCallId?: string } | undefined
+            let session = context.session
+            if (session) {
+              session.flash('toolApproval', {
+                runId: result.runId,
+                toolCallId: sp?.toolCallId,
+                threadId,
+                responseText: result.text,
+              })
+            }
+            log('approval caused re-suspension')
+            return redirect(
+              CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
+            )
+          }
+
           log('approval complete')
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
-          log('approval error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
+          log(
+            'approval error: ' +
+              sanitizeLog(error instanceof Error ? error.message : String(error)),
+          )
           return redirect(
             CHAT_INDEX +
-              '?threadId=' + encodeURIComponent(threadId) +
-              '&error=' + encodeURIComponent('Fehler bei der Bestätigung.'),
+              '?threadId=' +
+              encodeURIComponent(threadId) +
+              '&error=' +
+              encodeURIComponent('Fehler bei der Bestätigung.'),
           )
         }
       },
@@ -317,17 +360,44 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
         try {
           let agent = mastra.getAgent('supportAgent')
-          await runWithAdminId(user.id, () =>
+          let result = (await runWithAdminId(user.id, () =>
             agent.declineToolCallGenerate({ runId, toolCallId }),
-          )
+          )) as {
+            finishReason?: string
+            suspendPayload?: { toolCallId?: string }
+            text?: string
+            runId?: string
+          }
+
+          if (result.finishReason === 'suspended') {
+            let sp = result.suspendPayload as { toolCallId?: string } | undefined
+            let session = context.session
+            if (session) {
+              session.flash('toolApproval', {
+                runId: result.runId,
+                toolCallId: sp?.toolCallId,
+                threadId,
+                responseText: result.text,
+              })
+            }
+            log('decline caused re-suspension')
+            return redirect(
+              CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
+            )
+          }
+
           log('decline complete')
           return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
         } catch (error) {
-          log('decline error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)))
+          log(
+            'decline error: ' + sanitizeLog(error instanceof Error ? error.message : String(error)),
+          )
           return redirect(
             CHAT_INDEX +
-              '?threadId=' + encodeURIComponent(threadId) +
-              '&error=' + encodeURIComponent('Fehler beim Ablehnen.'),
+              '?threadId=' +
+              encodeURIComponent(threadId) +
+              '&error=' +
+              encodeURIComponent('Fehler beim Ablehnen.'),
           )
         }
       },
