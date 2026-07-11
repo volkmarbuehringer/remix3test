@@ -17,7 +17,9 @@ type FileEntry = {
   mtime: number
 }
 
-function resolveSafe(subdir: string): { ok: true; resolved: string } | { ok: false; error: string } {
+function resolveSafe(
+  subdir: string,
+): { ok: true; resolved: string } | { ok: false; error: string } {
   let resolved = path.resolve(projectRoot, subdir)
   let rel = path.relative(projectRoot, resolved)
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
@@ -26,11 +28,7 @@ function resolveSafe(subdir: string): { ok: true; resolved: string } | { ok: fal
   return { ok: true, resolved }
 }
 
-async function collectEntries(
-  dir: string,
-  recursive: boolean,
-  ext?: string,
-): Promise<FileEntry[]> {
+async function collectEntries(dir: string, recursive: boolean, ext?: string): Promise<FileEntry[]> {
   let entries = await fs.readdir(dir, { withFileTypes: true })
   let result: FileEntry[] = []
 
@@ -80,6 +78,19 @@ async function collectEntries(
   return result
 }
 
+function humanFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '\u2014'
+  if (bytes < 1024) return `${bytes} B`
+  let units = ['KiB', 'MiB', 'GiB', 'TiB']
+  let unitIndex = -1
+  let value = bytes
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  return `${value.toFixed(value < 10 ? 2 : 1)} ${units[unitIndex]}`
+}
+
 function sortEntries(entries: FileEntry[], sort: string, order: string): FileEntry[] {
   let sorted = [...entries]
   sorted.sort((a, b) => {
@@ -109,7 +120,7 @@ export const testTools = {
   listTestFiles: createTool({
     id: 'list_test_files',
     description:
-      'List files and directories in the project directory. Returns names, sizes (bytes), and modification times (Unix ms). Supports sorting, filtering, and recursive traversal.',
+      'List files and directories in the project directory. Returns names, sizes (bytes), modification times (Unix ms), and display hints (formattedSize, type, icon). Supports sorting, filtering, and recursive traversal.',
     inputSchema: z.object({
       subdir: z
         .string()
@@ -120,7 +131,9 @@ export const testTools = {
         .enum(['name', 'size', 'mtime', 'ext'])
         .optional()
         .default('name')
-        .describe('Sort field: name, size (bytes), mtime (modification time), ext (file extension)'),
+        .describe(
+          'Sort field: name, size (bytes), mtime (modification time), ext (file extension)',
+        ),
       order: z
         .enum(['asc', 'desc'])
         .optional()
@@ -161,8 +174,7 @@ export const testTools = {
         return { error: 'Path traversal detected (symlink)' }
       }
 
-      let effectiveOrder =
-        order ?? (sort === 'size' || sort === 'mtime' ? 'desc' : 'asc')
+      let effectiveOrder = order ?? (sort === 'size' || sort === 'mtime' ? 'desc' : 'asc')
 
       let entries = await collectEntries(real, recursive, ext || undefined)
       entries = sortEntries(entries, sort, effectiveOrder)
@@ -177,6 +189,11 @@ export const testTools = {
           isDirectory: e.isDirectory,
           size: e.size,
           mtime: e.mtime,
+          display: {
+            formattedSize: humanFileSize(e.size),
+            type: e.isDirectory ? 'directory' : 'file',
+            icon: e.isDirectory ? '\uD83D\uDCC1' : '\uD83D\uDCC4',
+          },
         })),
       }
     },

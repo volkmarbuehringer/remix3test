@@ -144,10 +144,8 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
 
-  // Test Agent route (no auth, SSE streaming prototype, dev only)
-  if (process.env.NODE_ENV !== 'production') {
-    router.map(routes.testAgent, testAgent)
-  }
+  // Test Agent route (auth-gated, SSE streaming)
+  router.map(routes.testAgent, testAgent)
 
   // Admin routes
   router.map(routes.admin, adminController)
