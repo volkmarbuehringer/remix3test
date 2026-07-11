@@ -14,7 +14,7 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
 const MAX_MESSAGE_LENGTH = 5000
 const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
-const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'readTestFile'
+const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'mastra_workspace_read_file'
 const sseEncoder = new TextEncoder()
 
 function completedStream(text: string, runId?: string): StoredStream {
