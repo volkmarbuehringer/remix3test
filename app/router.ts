@@ -16,6 +16,7 @@ import {
 } from './actions/auth/controller.tsx'
 import { mastraChat } from './actions/mastra/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
+import { testAgent } from './actions/test-agent/controller.tsx'
 import clientController from './actions/client/controller.tsx'
 import {
   adminController,
@@ -142,6 +143,11 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
+
+  // Test Agent route (no auth, SSE streaming prototype, dev only)
+  if (process.env.NODE_ENV !== 'production') {
+    router.map(routes.testAgent, testAgent)
+  }
 
   // Admin routes
   router.map(routes.admin, adminController)

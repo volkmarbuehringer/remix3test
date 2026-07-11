@@ -12,7 +12,9 @@ export function skipCsrf(): Middleware {
       context.url.pathname === '/webhook' ||
       context.url.pathname === '/app-webhook' ||
       context.url.pathname === '/callback' ||
-      context.url.pathname.startsWith('/api/')
+      context.url.pathname.startsWith('/api/') ||
+      context.url.pathname === '/testagent' ||
+      context.url.pathname.startsWith('/testagent/')
     ) {
       return next()
     }

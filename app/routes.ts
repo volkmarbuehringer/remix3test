@@ -179,4 +179,12 @@ export const routes = route({
       decline: post('/decline'),
     }),
   }),
+
+  testAgent: route('testagent', {
+    index: get('/'),
+    action: post('/'),
+    stream: get('/stream/:runId'),
+    approve: post('/approve'),
+    decline: post('/decline'),
+  }),
 })
