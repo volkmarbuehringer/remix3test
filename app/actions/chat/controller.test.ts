@@ -473,7 +473,7 @@ describe('Customer Chat controller', () => {
     }
   }
 
-  it('confirm_booking keeps form open with remaining slots on success', async () => {
+  it('confirm_booking shows routing card on success instead of remaining slots', async () => {
     let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
     await seedOffering(testDayMs)
     let rateLimiterAdmin = await pool.query(
@@ -517,15 +517,13 @@ describe('Customer Chat controller', () => {
     let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
     let html = await getResponse.text()
 
-    assert.ok(html.includes('Termin buchen'), 'booking form should still be visible')
-    assert.ok(html.includes('11:00'), 'remaining slot should be shown in form')
-    assert.ok(
-      !html.includes('day_start" value="' + String(testDayMs) + ':600'),
-      'booked slot should not be in form',
-    )
+    assert.ok(!html.includes('confirm_booking'), 'booking form should be replaced by routing card')
+    assert.ok(html.includes('Noch einen Termin'), 'routing card should offer to book another')
+    assert.ok(html.includes('Fertig'), 'routing card should offer to finish')
+    assert.ok(html.includes('Termin #'), 'routing card should show booking confirmation')
   })
 
-  it('confirm_booking clears pendingBooking on last slot', async () => {
+  it('confirm_booking shows routing card on last slot instead of form', async () => {
     let testDayMs = new Date(Date.UTC(2026, 6, 21)).getTime()
     await seedOffering(testDayMs)
     let rateLimiterAdmin = await pool.query(
@@ -568,8 +566,10 @@ describe('Customer Chat controller', () => {
     let getResponse = await router.fetch(getUrl, { headers: { Cookie: session.cookie } })
     let html = await getResponse.text()
 
-    assert.ok(!html.includes('Termin buchen'), 'booking form should be gone after last slot')
-    assert.ok(html.includes('Termin #'), 'booking confirmation should be visible')
+    assert.ok(!html.includes('confirm_booking'), 'booking form should be gone after last slot')
+    assert.ok(html.includes('Noch einen Termin'), 'routing card should offer to book another')
+    assert.ok(html.includes('Fertig'), 'routing card should offer to finish')
+    assert.ok(html.includes('Termin #'), 'routing card should show booking confirmation')
   })
 
   it('confirm_booking preserves pendingBooking on non-collision error', async () => {
@@ -606,7 +606,7 @@ describe('Customer Chat controller', () => {
     let html = await getResponse.text()
 
     assert.ok(
-      html.includes('Termin buchen'),
+      html.includes('confirm_booking'),
       'booking form should still be visible on non-collision error',
     )
   })
@@ -854,6 +854,235 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
     assert.ok(location.includes(threadId), 'redirect should preserve threadId')
+  })
+
+  it('POST /chat with _action=finish redirects to home', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ _action: 'finish', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.equal(location, '/', 'should redirect to home')
+  })
+
+  it('POST /chat with _action=continue redirects to chat', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let threadId = crypto.randomUUID()
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _action: 'continue',
+        _csrf: session.csrfToken,
+        threadId,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.includes(threadId), 'should redirect to chat with threadId')
+  })
+
+  describe('cancellation approval suspension', () => {
+    async function postChatAndFollow(
+      mockAgent: Parameters<typeof __setTestCustomerAgent>[0],
+      message: string,
+    ): Promise<{ html: string }> {
+      let session = await createAuthCookieWithCsrf()
+      assert.ok(session?.cookie, 'Failed to create auth session')
+
+      let adminResult = await pool.query(
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+        ['admin'],
+      )
+      if (adminResult.rows.length > 0) {
+        chatRateLimiter.reset(adminResult.rows[0].id as number)
+      }
+
+      __setTestCustomerAgent(mockAgent)
+      try {
+        let postResponse = await router.fetch(CHAT_ACTION_URL, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({ message, _csrf: session.csrfToken }),
+          redirect: 'manual',
+        })
+        assert.equal(postResponse.status, 302)
+        let location = postResponse.headers.get('Location')
+        assert.ok(location, 'response should have Location header')
+        if (location!.includes('error=')) {
+          assert.ok(false, 'redirect contains error: ' + location)
+        }
+        let getUrl = location!.startsWith('http') ? location! : `${BASE}${location!}`
+        let getResponse = await router.fetch(getUrl, {
+          headers: { Cookie: session.cookie },
+        })
+        let html = await getResponse.text()
+        return { html }
+      } finally {
+        __setTestCustomerAgent(undefined)
+      }
+    }
+
+    it('suspends with cancelBooking args and shows cancel approval card', async () => {
+      let { html } = await postChatAndFollow(
+        {
+          generate: async () => ({
+            text: 'Termin wird storniert.',
+            finishReason: 'suspended' as const,
+            runId: 'run-1',
+            suspendPayload: {
+              toolCallId: 'call-1',
+              args: {
+                appointmentId: 42,
+                appointmentSummary: 'Massage, 15.07.2026, 14:00–15:00 Uhr',
+              },
+            },
+          }),
+        },
+        'Storniere meinen Termin',
+      )
+
+      assert.ok(html.includes('Termin stornieren?'), 'should show cancel approval title')
+      assert.ok(html.includes('Massage, 15.07.2026'), 'should show appointment summary')
+      assert.ok(html.includes('Ja, stornieren'), 'should show approve button')
+      assert.ok(html.includes('Nein'), 'should show decline button')
+    })
+
+    it('suspends with cancelAllAppointments args and shows count', async () => {
+      let { html } = await postChatAndFollow(
+        {
+          generate: async () => ({
+            text: 'Alle Termine werden storniert.',
+            finishReason: 'suspended' as const,
+            runId: 'run-2',
+            suspendPayload: {
+              toolCallId: 'call-2',
+              args: {
+                count: 3,
+                appointmentSummaries: [
+                  'Massage, 15.07. 14:00',
+                  'Physio, 16.07. 10:00',
+                  'Beratung, 18.07. 09:00',
+                ],
+              },
+            },
+          }),
+        },
+        'Storniere alle Termine',
+      )
+
+      assert.ok(html.includes('3 Termine stornieren?'), 'should show cancel count')
+      assert.ok(html.includes('Massage, 15.07.'), 'should show first summary')
+      assert.ok(html.includes('Physio, 16.07.'), 'should show second summary')
+      assert.ok(html.includes('Beratung, 18.07.'), 'should show third summary')
+    })
+
+    it('approve handler processes cancelBooking result and shows success', async () => {
+      let session = await createAuthCookieWithCsrf()
+      assert.ok(session?.cookie, 'Failed to create auth session')
+
+      let adminResult = await pool.query(
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+        ['admin'],
+      )
+      if (adminResult.rows.length > 0) {
+        chatRateLimiter.reset(adminResult.rows[0].id as number)
+      }
+
+      let mockAgent = {
+        generate: async () => ({ text: 'ok' }),
+        approveToolCallGenerate: async () => ({
+          finishReason: 'stop' as const,
+          text: 'Termin wurde storniert.',
+          runId: 'run-3',
+          rawToolResults: [
+            {
+              type: 'tool-result',
+              payload: {
+                toolName: 'cancelBooking',
+                result: { success: true, appointmentId: 42 },
+              },
+            },
+          ],
+        }),
+      }
+      __setTestCustomerAgent(mockAgent)
+      try {
+        let approveUrl = `${BASE}${routes.chat.approve.href()}`
+        let response = await router.fetch(approveUrl, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({
+            runId: 'run-3',
+            toolCallId: 'call-3',
+            threadId: crypto.randomUUID(),
+            _csrf: session.csrfToken,
+          }),
+          redirect: 'manual',
+        })
+        assert.equal(response.status, 302)
+        let location = response.headers.get('Location')
+        assert.ok(location, 'should redirect to chat')
+        assert.ok(!location?.includes('error='), 'should not have error, got location: ' + location)
+      } finally {
+        __setTestCustomerAgent(undefined)
+      }
+    })
+
+    it('decline handler returns to chat without error', async () => {
+      let session = await createAuthCookieWithCsrf()
+      assert.ok(session?.cookie, 'Failed to create auth session')
+
+      let adminResult = await pool.query(
+        'SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1',
+        ['admin'],
+      )
+      if (adminResult.rows.length > 0) {
+        chatRateLimiter.reset(adminResult.rows[0].id as number)
+      }
+
+      let mockAgent = {
+        generate: async () => ({ text: 'ok' }),
+        declineToolCallGenerate: async () => ({
+          finishReason: 'stop' as const,
+          text: 'Stornierung abgebrochen.',
+          runId: 'run-4',
+          rawToolResults: [],
+        }),
+      }
+      __setTestCustomerAgent(mockAgent)
+      try {
+        let declineUrl = `${BASE}${routes.chat.decline.href()}`
+        let response = await router.fetch(declineUrl, {
+          method: 'POST',
+          headers: { Cookie: session.cookie },
+          body: new URLSearchParams({
+            runId: 'run-4',
+            toolCallId: 'call-4',
+            threadId: crypto.randomUUID(),
+            _csrf: session.csrfToken,
+          }),
+          redirect: 'manual',
+        })
+        assert.equal(response.status, 302)
+        let location = response.headers.get('Location')
+        assert.ok(location, 'should redirect to chat')
+        assert.ok(!location?.includes('error='), 'should not have error, got location: ' + location)
+      } finally {
+        __setTestCustomerAgent(undefined)
+      }
+    })
   })
 
   it('POST /chat continues an existing thread when threadId is provided', async () => {

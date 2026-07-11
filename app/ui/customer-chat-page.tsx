@@ -15,6 +15,8 @@ interface CustomerChatPageProps {
   error?: string
   pendingBooking?: PendingBookingData
   bookingResult?: string
+  bookingResultText?: string
+  postBookingDecision?: boolean
   bookingPage: BookingPageInfo
   approvalData?: {
     runId?: string
@@ -23,6 +25,10 @@ interface CustomerChatPageProps {
     responseText?: string
     resourceName?: string
     resourceDescription?: string
+    type?: 'resource' | 'cancel_single' | 'cancel_all'
+    cancelSummary?: string
+    cancelCount?: number
+    cancelSummaries?: string[]
   }
 }
 
@@ -268,11 +274,64 @@ const cancelLinkStyle = css({
   },
 })
 
+const cancelApprovalCardStyle = css({
+  padding: '1rem',
+  border: `2px solid ${theme.colors.action.danger.background}`,
+  borderRadius: theme.radius.lg,
+  background: theme.surface.lvl0,
+  marginBottom: '1rem',
+})
+
+const cancelApprovalTitleStyle = css({
+  color: theme.colors.action.danger.background,
+  fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.lg,
+  marginBottom: theme.space.md,
+})
+
+const cancelBtnStyle = css({
+  padding: '0.6rem 1.5rem',
+  background: theme.colors.action.danger.background,
+  color: theme.colors.action.danger.foreground,
+  border: 'none',
+  borderRadius: theme.radius.md,
+  fontSize: '1rem',
+  cursor: 'pointer',
+})
+
+const postBookingCardStyle = css({
+  padding: '1rem',
+  border: `2px solid ${theme.colors.action.primary.background}`,
+  borderRadius: theme.radius.lg,
+  background: theme.surface.lvl0,
+  marginBottom: '1rem',
+})
+
+const postBookingTitleStyle = css({
+  color: theme.colors.action.primary.background,
+  fontWeight: theme.fontWeight.semibold,
+  fontSize: theme.fontSize.lg,
+  marginBottom: theme.space.md,
+})
+
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
-    let { messages, threadId, error, pendingBooking, bookingResult, bookingPage, approvalData } =
-      handle.props
+    let {
+      messages,
+      threadId,
+      error,
+      pendingBooking,
+      bookingResult,
+      bookingResultText,
+      postBookingDecision,
+      bookingPage,
+      approvalData,
+    } = handle.props
     let showApproval = approvalData?.runId != null
+    let showCancelApproval =
+      showApproval &&
+      (approvalData?.type === 'cancel_single' || approvalData?.type === 'cancel_all')
+    let showResourceApproval = showApproval && approvalData?.type === 'resource'
     return (
       <div mix={containerStyle}>
         <h2 mix={headingStyle}>Beratung</h2>
@@ -324,7 +383,47 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           <div id="chat-end" />
         </div>
 
-        {showApproval && (
+        {showCancelApproval && (
+          <div mix={cancelApprovalCardStyle}>
+            <p mix={cancelApprovalTitleStyle}>
+              {approvalData!.type === 'cancel_all'
+                ? `${approvalData!.cancelCount} Termine stornieren?`
+                : 'Termin stornieren?'}
+            </p>
+            {approvalData!.type === 'cancel_single' && (
+              <p style={{ marginBottom: theme.space.sm }}>{approvalData!.cancelSummary}</p>
+            )}
+            {approvalData!.type === 'cancel_all' && approvalData!.cancelSummaries && (
+              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: theme.space.sm }}>
+                {approvalData!.cancelSummaries.map((s, i) => (
+                  <p key={i} style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>{s}</p>
+                ))}
+              </div>
+            )}
+            <div mix={approvalActionsStyle}>
+              <form method="POST" action={routes.chat.approve.href()}>
+                <CsrfTokenInput />
+                <input type="hidden" name="runId" value={approvalData!.runId} />
+                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
+                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
+                <button type="submit" mix={cancelBtnStyle}>
+                  Ja, stornieren
+                </button>
+              </form>
+              <form method="POST" action={routes.chat.decline.href()}>
+                <CsrfTokenInput />
+                <input type="hidden" name="runId" value={approvalData!.runId} />
+                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
+                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
+                <button type="submit" mix={declineBtnStyle}>
+                  Nein
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showResourceApproval && (
           <div mix={approvalCardStyle}>
             <p mix={approvalTitleStyle}>
               {approvalData!.resourceName
@@ -357,7 +456,35 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           </div>
         )}
 
-        {!showApproval && pendingBooking && pendingBooking.slots.length > 0 && (
+        {postBookingDecision && bookingResultText && (
+          <div mix={postBookingCardStyle}>
+            <p mix={postBookingTitleStyle}>
+              {bookingResultText}
+            </p>
+            <p style={{ marginBottom: theme.space.md, color: theme.colors.text.secondary }}>
+              Möchtest du einen weiteren Termin buchen?
+            </p>
+            <div mix={approvalActionsStyle}>
+              <form method="POST" action={routes.chat.action.href()}>
+                <CsrfTokenInput />
+                <input type="hidden" name="_action" value="finish" />
+                <button type="submit" mix={approveBtnStyle}>
+                  Fertig
+                </button>
+              </form>
+              <form method="POST" action={routes.chat.action.href()}>
+                <CsrfTokenInput />
+                {threadId && <input type="hidden" name="threadId" value={threadId} />}
+                <input type="hidden" name="_action" value="continue" />
+                <button type="submit" mix={declineBtnStyle}>
+                  Noch einen Termin
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {!showApproval && !postBookingDecision && pendingBooking && pendingBooking.slots.length > 0 && (
           <form method="POST" action={routes.chat.action.href()} mix={bookingCardStyle}>
             <CsrfTokenInput />
             <input type="hidden" name="_action" value="confirm_booking" />
@@ -440,7 +567,7 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
           </form>
         )}
 
-        {!showApproval && (
+        {!showApproval && !postBookingDecision && (
           <form method="POST" action={routes.chat.action.href()} autoComplete="off" mix={formStyle}>
             <CsrfTokenInput />
             {threadId && <input type="hidden" name="threadId" value={threadId} />}

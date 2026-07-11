@@ -368,9 +368,17 @@ export const customerTools = {
   cancelBooking: createTool({
     id: 'cancel_booking',
     description:
-      'Bricht einen bestehenden Termin ab. Parameter: appointmentId (Pflicht). Stellt sicher, dass der Termin dem aktuell eingeloggten Kunden gehört, löscht ihn und sendet eine Benachrichtigung.',
+      'Bricht einen bestehenden Termin ab. Parameter: appointmentId (Pflicht), appointmentSummary (Pflicht, zur Anzeige im Bestätigungsdialog). Stellt sicher, dass der Termin dem aktuell eingeloggten Kunden gehört, löscht ihn und sendet eine Benachrichtigung. Dieses Tool benötigt eine System-Bestätigung — der Kunde sieht einen Bestätigungs-Button. Frage NICHT zusätzlich im Chat nach Bestätigung.',
+    requireApproval: true,
     inputSchema: z.object({
       appointmentId: z.number().int().positive().describe('Die ID des zu stornierenden Termins'),
+      appointmentSummary: z
+        .string()
+        .min(1)
+        .max(300)
+        .describe(
+          'PFLICHTFELD: Beschreibe den Termin kurz zur Anzeige im Bestätigungsdialog (z.B. "Massage, 15.07.2026, 14:00–15:00 Uhr")',
+        ),
     }),
     execute: async ({ appointmentId }) => {
       let requestingUserId = requireCurrentUserId()
@@ -422,8 +430,22 @@ export const customerTools = {
   cancelAllAppointments: createTool({
     id: 'cancel_all_appointments',
     description:
-      'Bricht ALLE eigenen bevorstehenden Termine des Kunden ab. Parameter: keine. Vor dem Aufruf MÜSSEN dem Kunden die betroffenen Termine gezeigt werden (list_my_appointments) und der Kunde muss explizit zustimmen. Gibt eine Zusammenfassung mit Anzahl stornierter, fehlgeschlagener und bereits stornierter Termine zurück.',
-    inputSchema: z.object({}),
+      'Bricht ALLE eigenen bevorstehenden Termine des Kunden ab. Parameter: count (Pflicht, Anzahl der zu stornierenden Termine), appointmentSummaries (Pflicht, Liste der Terminbeschreibungen zur Anzeige). Vor dem Aufruf MÜSSEN dem Kunden die betroffenen Termine gezeigt werden (list_my_appointments). Gibt eine Zusammenfassung mit Anzahl stornierter, fehlgeschlagener und bereits stornierter Termine zurück. Dieses Tool benötigt eine System-Bestätigung — der Kunde sieht einen Bestätigungs-Button.',
+    requireApproval: true,
+    inputSchema: z.object({
+      count: z
+        .number()
+        .int()
+        .nonnegative()
+        .default(0)
+        .describe('Anzahl der zu stornierenden Termine (für die Anzeige im Bestätigungsdialog)'),
+      appointmentSummaries: z
+        .array(z.string())
+        .default([])
+        .describe(
+          'PFLICHTFELD: Liste der Terminbeschreibungen zur Anzeige im Bestätigungsdialog (z.B. ["Massage, 15.07. 14:00", "Physio, 16.07. 10:00"])',
+        ),
+    }),
     execute: async () => {
       let userId = requireCurrentUserId()
       let todayMidnight = getTodayUtcMidnight()

@@ -16,6 +16,14 @@ export interface TestAgent {
     runId?: string
     suspendPayload?: unknown
   }>
+  approveToolCallGenerate?: (opts: {
+    runId: string
+    toolCallId?: string
+  }) => Promise<MastraSuspendableResult>
+  declineToolCallGenerate?: (opts: {
+    runId: string
+    toolCallId?: string
+  }) => Promise<MastraSuspendableResult>
 }
 
 export interface CapturedToolCall {

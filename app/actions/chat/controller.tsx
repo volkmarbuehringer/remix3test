@@ -51,15 +51,41 @@ export interface BookingPageInfo {
   totalDays: number
 }
 
-function extractResourceApproval(
-  suspendPayload: unknown,
-): { resourceName?: string; description?: string } {
+type ApprovalData = {
+  type: 'resource' | 'cancel_single' | 'cancel_all'
+  resourceName?: string
+  resourceDescription?: string
+  cancelSummary?: string
+  cancelCount?: number
+  cancelSummaries?: string[]
+}
+
+// Infers approval card type from suspend payload args.
+// cancel_booking has appointmentSummary, cancel_all_appointments has count/appointmentSummaries.
+// Falls through to resource confirmation if neither cancel field is present.
+// This is fragile if future tools share field names — prefer explicit toolName when
+// Mastra includes it in the suspend payload.
+function extractApprovalData(suspendPayload: unknown): ApprovalData {
   let sp = suspendPayload as { args?: Record<string, unknown>; toolCallId?: string } | undefined
-  let args = sp?.args
-  if (!args) return {}
+  let args = sp?.args ?? {}
+
+  if ('appointmentSummary' in args) {
+    return {
+      type: 'cancel_single',
+      cancelSummary: String(args.appointmentSummary ?? ''),
+    }
+  }
+  if ('count' in args || 'appointmentSummaries' in args) {
+    return {
+      type: 'cancel_all',
+      cancelCount: Number(args.count ?? 0),
+      cancelSummaries: (args.appointmentSummaries as string[]) ?? [],
+    }
+  }
   return {
+    type: 'resource',
     resourceName: String(args.resourceName ?? ''),
-    description: String(args.description ?? ''),
+    resourceDescription: String(args.description ?? ''),
   }
 }
 
@@ -67,7 +93,7 @@ function flashToolApproval(
   session: AppContext['session'],
   result: MastraSuspendableResult,
   threadId: string,
-  extra: { resourceName?: string; resourceDescription?: string } = {},
+  approval: ApprovalData,
 ) {
   let sp = result.suspendPayload as { toolCallId?: string } | undefined
   if (session) {
@@ -76,8 +102,7 @@ function flashToolApproval(
       toolCallId: sp?.toolCallId,
       threadId,
       responseText: result.text ?? '',
-      resourceName: extra.resourceName,
-      resourceDescription: extra.resourceDescription,
+      ...approval,
     })
   }
 }
@@ -98,6 +123,44 @@ function populatePendingBooking(
       title: lastSlotResult.title ?? '',
     }),
   )
+}
+
+function scanAndStoreWorkflowResult(
+  toolRes: unknown[],
+  session: AppContext['session'] | undefined,
+): void {
+  if (!session) return
+  for (let tr of toolRes) {
+    let entry = tr as Record<string, unknown> | undefined
+    let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
+    let toolName = payload?.toolName as string | undefined
+    let trResult = payload?.result as Record<string, unknown> | undefined
+    if (!trResult) continue
+    let isBooking = toolName === 'trigger_booking_workflow' || toolName === 'triggerBookingWorkflow'
+    let isCancel = toolName === 'cancel_booking' || toolName === 'cancelBooking'
+    if (!isBooking && !isCancel) continue
+
+    let msg: string
+    if (isCancel) {
+      if (trResult.success) {
+        msg = 'Termin #' + String(trResult.appointmentId ?? '') + ' wurde storniert.'
+      } else {
+        let err = String(trResult.error ?? 'unknown')
+        if (err === 'not_owner') msg = 'Dieser Termin gehört Ihnen nicht und kann nicht storniert werden.'
+        else if (err === 'already_cancelled') msg = 'Dieser Termin wurde bereits storniert.'
+        else msg = 'Bei der Stornierung ist ein Fehler aufgetreten.'
+      }
+    } else if (trResult.success) {
+      msg = 'Termin #' + String(trResult.appointmentId ?? '') + ' wurde erfolgreich gebucht.'
+      session.unset('pendingBooking')
+      session.flash('postBookingDecision', '1')
+    } else {
+      let err = String(trResult.error ?? 'unknown')
+      if (err === 'collision') msg = 'Dieser Zeitraum ist leider nicht mehr frei. Bitte versuche es mit einem anderen Slot.'
+      else msg = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
+    }
+    session.set('bookingResult', msg)
+  }
 }
 
 function safeTitle(raw: string): string {
@@ -137,6 +200,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
 
       let pendingBooking: PendingBookingData | undefined
       let bookingResult: string | undefined
+      let postBookingDecision: string | undefined
       let session = context.session
       if (session) {
         let raw = session.get('pendingBooking') as string | undefined
@@ -149,6 +213,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
             }
           }
         }
+        postBookingDecision = session.get('postBookingDecision') as string | undefined
       }
 
       let approvalData:
@@ -168,10 +233,10 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         return redirect(cancelUrl)
       }
 
-      // Read bookingResult after cancel check to avoid consuming it on cancel redirect
+      // Read bookingResult — keep it alive if postBookingDecision is active
       if (session) {
         bookingResult = session.get('bookingResult') as string | undefined
-        if (bookingResult) {
+        if (bookingResult && !postBookingDecision) {
           session.unset('bookingResult')
         }
       }
@@ -203,7 +268,9 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
             threadId={threadId}
             error={error}
             pendingBooking={pendingBooking}
-            bookingResult={bookingResult}
+            bookingResult={postBookingDecision ? undefined : bookingResult}
+            bookingResultText={postBookingDecision ? bookingResult : undefined}
+            postBookingDecision={!!postBookingDecision}
             bookingPage={bookingPage}
             approvalData={approvalData}
           />
@@ -215,6 +282,22 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
       let user = getCurrentUser()
 
       let _action = (context.formData.get('_action') as string | undefined) ?? 'message'
+      let session = context.session
+
+      if (_action === 'finish') {
+        session?.unset('postBookingDecision')
+        session?.unset('pendingBooking')
+        session?.unset('bookingResult')
+        return redirect('/')
+      }
+
+      if (_action === 'continue') {
+        session?.unset('postBookingDecision')
+        session?.unset('bookingResult')
+        let threadId = (context.formData.get('threadId') as string) || ''
+        if (threadId && !validateThreadId(threadId)) threadId = ''
+        return redirect(CHAT_INDEX + (threadId ? '?threadId=' + encodeURIComponent(threadId) : '') + '#chat-end')
+      }
 
       if (_action === 'confirm_booking') {
         if (!bookingRateLimiter.attempt(user.id)) {
@@ -258,7 +341,6 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         }
 
         // Validate submitted slot matches what the agent offered
-        let session = context.session
         let pending: PendingBookingData | undefined
         if (session) {
           let pendingRaw = session.get('pendingBooking') as string | undefined
@@ -334,6 +416,9 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
 
         if (session) {
           session.set('bookingResult', messageText)
+          if (bookingSucceeded) {
+            session.flash('postBookingDecision', '1')
+          }
           if (slotToRemove) {
             let remaining = pending.slots.filter(
               (slot) =>
@@ -384,9 +469,9 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
       }
 
       // Clear stale booking data from previous turns — agent will re-set it if it finds slots
-      let session = context.session
       if (session) {
         session.unset('pendingBooking')
+        session.unset('postBookingDecision')
       }
 
       try {
@@ -407,11 +492,8 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         )
 
           if (result.finishReason === 'suspended') {
-            let resource = extractResourceApproval(result.suspendPayload)
-            flashToolApproval(context.session, result, threadId, {
-              resourceName: resource.resourceName,
-              resourceDescription: resource.description,
-            })
+            let approval = extractApprovalData(result.suspendPayload)
+            flashToolApproval(context.session, result, threadId, approval)
           return redirect(
             CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
           )
@@ -429,62 +511,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         // Process tool results from the agent run
         let toolRes = result.rawToolResults
         let lastSlotResult = extractLastSlotResult({ toolResults: result.rawToolResults })
-        let workflowResult: Record<string, unknown> | undefined
-        let workflowToolName: string | undefined
-
-        for (let tr of toolRes) {
-          let entry = tr as Record<string, unknown> | undefined
-          let payload = (entry?.payload as Record<string, unknown> | undefined) ?? entry
-          let toolName = payload?.toolName as string | undefined
-
-          if (
-            toolName === 'trigger_booking_workflow' ||
-            toolName === 'triggerBookingWorkflow' ||
-            toolName === 'cancel_booking' ||
-            toolName === 'cancelBooking'
-          ) {
-            let trResult = payload?.result as Record<string, unknown> | undefined
-            if (trResult) {
-              workflowResult = trResult
-              workflowToolName = toolName
-            }
-          }
-        }
 
         // Store pending booking slots in session for the old booking form
         populatePendingBooking(context.session, lastSlotResult)
 
         // Store workflow trigger result in session for display
-        if (workflowResult && session) {
-          let msg: string
-          if (workflowToolName === 'cancel_booking' || workflowToolName === 'cancelBooking') {
-            if (workflowResult.success) {
-              msg = 'Termin #' + String(workflowResult.appointmentId ?? '') + ' wurde storniert.'
-            } else {
-              let err = String(workflowResult.error ?? 'unknown')
-              if (err === 'not_owner')
-                msg = 'Dieser Termin gehört Ihnen nicht und kann nicht storniert werden.'
-              else if (err === 'already_cancelled') msg = 'Dieser Termin wurde bereits storniert.'
-              else msg = 'Bei der Stornierung ist ein Fehler aufgetreten.'
-            }
-          } else {
-            if (workflowResult.success) {
-              msg =
-                'Termin #' +
-                String(workflowResult.appointmentId ?? '') +
-                ' wurde erfolgreich gebucht.'
-              // Booking succeeded via workflow — clear the pending slot form
-              session.unset('pendingBooking')
-            } else {
-              let err = String(workflowResult.error ?? 'unknown')
-              if (err === 'collision')
-                msg =
-                  'Dieser Zeitraum ist leider nicht mehr frei. Bitte versuche es mit einem anderen Slot.'
-              else msg = 'Bei der Buchung ist ein Fehler aufgetreten. Bitte versuche es erneut.'
-            }
-          }
-          session.set('bookingResult', msg)
-        }
+        scanAndStoreWorkflowResult(toolRes, session)
 
         let url = CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end'
         return redirect(url)
@@ -520,23 +552,26 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
       }
 
       try {
-        let agent = mastra.getAgent('customerAgent')
+        let agent: TestAgent | typeof _testAgent =
+          process.env.NODE_ENV === 'test' && _testAgent
+            ? _testAgent
+            : mastra.getAgent('customerAgent')
+
         let result = (await runWithUserId(user.id, () =>
-          agent.approveToolCallGenerate({ runId, toolCallId }),
+          (agent as any).approveToolCallGenerate({ runId, toolCallId }),
         )) as MastraSuspendableResult
 
         if (result.finishReason === 'suspended') {
-          let resource = extractResourceApproval(result.suspendPayload)
-          flashToolApproval(context.session, result, threadId, {
-            resourceName: resource.resourceName,
-            resourceDescription: resource.description,
-          })
+          let approval = extractApprovalData(result.suspendPayload)
+          flashToolApproval(context.session, result, threadId, approval)
           return redirect(
             CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
           )
         }
 
         let lastSlotResult = extractLastSlotResult(result as { toolResults?: unknown[] })
+        let toolRes = (result as { rawToolResults?: unknown[] }).rawToolResults ?? []
+        scanAndStoreWorkflowResult(toolRes, context.session)
         populatePendingBooking(context.session, lastSlotResult)
         return redirect(CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '#chat-end')
       } catch (error) {
@@ -567,17 +602,18 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
       }
 
       try {
-        let agent = mastra.getAgent('customerAgent')
+        let agent: TestAgent | typeof _testAgent =
+          process.env.NODE_ENV === 'test' && _testAgent
+            ? _testAgent
+            : mastra.getAgent('customerAgent')
+
         let result = (await runWithUserId(user.id, () =>
-          agent.declineToolCallGenerate({ runId, toolCallId }),
+          (agent as any).declineToolCallGenerate({ runId, toolCallId }),
         )) as MastraSuspendableResult
 
         if (result.finishReason === 'suspended') {
-          let resource = extractResourceApproval(result.suspendPayload)
-          flashToolApproval(context.session, result, threadId, {
-            resourceName: resource.resourceName,
-            resourceDescription: resource.description,
-          })
+          let approval = extractApprovalData(result.suspendPayload)
+          flashToolApproval(context.session, result, threadId, approval)
           return redirect(
             CHAT_INDEX + '?threadId=' + encodeURIComponent(threadId) + '&pending=true#chat-end',
           )
