@@ -2,7 +2,6 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
 export interface StoredStream {
   runId: string
-  textStream: NodeReadableStream<string>
   fullStream: NodeReadableStream<unknown>
   getFullOutput: () => Promise<{
     text: string
@@ -15,7 +14,7 @@ export interface StoredStream {
 
 const STORE_TTL_MS = 5 * 60 * 1000
 
-let store = new Map<string, { entry: StoredStream; timer: ReturnType<typeof setTimeout> }>()
+const store = new Map<string, { entry: StoredStream; timer: ReturnType<typeof setTimeout> }>()
 
 export function setStream(runId: string, stream: StoredStream) {
   let existing = store.get(runId)

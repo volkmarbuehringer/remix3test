@@ -12,20 +12,19 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
 const MAX_MESSAGE_LENGTH = 5000
 const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
+const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'readTestFile'
+const sseEncoder = new TextEncoder()
 
 function completedStream(text: string, runId?: string): StoredStream {
   let id = runId || crypto.randomUUID()
   return {
     runId: id,
-    textStream: new ReadableStream<string>({
-      start(controller) {
-        controller.enqueue(text)
-        controller.close()
-      },
-    }) as unknown as NodeReadableStream<string>,
     fullStream: new ReadableStream({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode(text))
+        if (text) {
+          controller.enqueue({ type: 'text-delta', textDelta: text })
+        }
+        controller.enqueue({ type: 'finish', payload: {} })
         controller.close()
       },
     }) as unknown as NodeReadableStream<unknown>,
@@ -47,7 +46,8 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
       },
 
       async action(context) {
-        let ip = context.request.headers.get('x-forwarded-for') || 'anon'
+        let rawIp = context.request.headers.get('X-Forwarded-For') || ''
+        let ip = rawIp.split(',')[0].trim() || 'anon'
         if (!testRateLimiter.attempt(ip)) {
           return context.json({ error: 'Too many requests' }, { status: 429 })
         }
@@ -67,19 +67,18 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
           let agent = mastra.getAgent('testAgent')
           let output = await agent.stream(message, {
             memory: { thread: threadId, resource: 'test-user' },
-            requireToolApproval: (ctx) => ctx.toolName === 'read_test_file',
+            requireToolApproval: requireApproval,
           })
-
           setStream(output.runId, {
             runId: output.runId,
-            textStream: output.textStream as unknown as NodeReadableStream<string>,
             fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
             getFullOutput: () => output.getFullOutput(),
           })
 
           return context.json({ runId: output.runId, threadId })
         } catch (err) {
-          return context.json({ error: String(err), threadId }, { status: 500 })
+          console.error('[testAgent] action error:', err)
+          return context.json({ error: 'Failed to process request' }, { status: 500 })
         }
       },
 
@@ -101,64 +100,59 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
         headers.connection = 'keep-alive'
         headers.set('X-Accel-Buffering', 'no')
 
-        let reader: ReadableStreamDefaultReader<string> | undefined
+        let reader: ReadableStreamDefaultReader<unknown> | undefined
+        let controller: ReadableStreamDefaultController
+        let closed = false
+        function closeOnce() {
+          if (closed) return
+          closed = true
+          try { controller?.close() } catch { /* already closed */ }
+        }
+
         let sseStream = new ReadableStream({
-          async start(controller) {
-            reader = stored.textStream.getReader()
+          async start(c) {
+            controller = c
+            reader = stored.fullStream.getReader()
+
             request.signal.addEventListener('abort', () => {
               reader?.cancel().catch(() => {})
-              try { controller.close() } catch { /* already closed */ }
+              closeOnce()
             }, { once: true })
+
             try {
-              try {
-                while (true) {
-                  let { done, value } = await reader.read()
-                  if (done) break
-                  if (request.signal.aborted) return
-                  controller.enqueue(
-                    new TextEncoder().encode(
-                      `event: message\ndata: ${JSON.stringify({ text: value })}\n\n`,
-                    ),
-                  )
+              while (true) {
+                let { done, value } = await reader.read()
+                if (done) break
+                if (request.signal.aborted) {
+                  closeOnce()
+                  return
                 }
-              } finally {
-                reader.releaseLock()
-              }
 
-              if (request.signal.aborted) return
-
-              let output = await stored.getFullOutput()
-              if (output.finishReason === 'suspended') {
-                let sp = output.suspendPayload as
-                  | { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
-                  | undefined
-                controller.enqueue(
-                  new TextEncoder().encode(
-                    `event: suspension\ndata: ${JSON.stringify({
-                      runId: stored.runId,
-                      toolCallId: sp?.toolCallId,
-                      toolName: sp?.toolName,
-                      args: sp?.args,
-                    })}\n\n`,
-                  ),
-                )
-              } else {
-                controller.enqueue(
-                  new TextEncoder().encode(`event: complete\ndata: {}\n\n`),
-                )
+                if (!value || typeof value !== 'object') continue
+                let chunk = value as Record<string, unknown>
+                if (chunk.type === 'text-delta') {
+                  let text = String((chunk.payload as Record<string, unknown> | undefined)?.text ?? chunk.textDelta ?? '')
+                  if (text) {
+                    controller.enqueue(sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`))
+                  }
+                } else if (chunk.type === 'tool-call-approval') {
+                  let p = chunk.payload as Record<string, unknown> | undefined
+                  controller.enqueue(sseEncoder.encode(`event: suspension\ndata: ${JSON.stringify({
+                    runId: stored.runId,
+                    toolCallId: p?.toolCallId,
+                    toolName: p?.toolName,
+                    args: p?.args,
+                  })}\n\n`))
+                } else if (chunk.type === 'finish') {
+                  controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                }
               }
-              controller.close()
+              closeOnce()
             } catch (err) {
               try {
-                controller.enqueue(
-                  new TextEncoder().encode(
-                    `event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`,
-                  ),
-                )
-                controller.close()
-              } catch {
-                /* already closed */
-              }
+                controller.enqueue(sseEncoder.encode(`event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`))
+              } catch { /* controller already errored */ }
+              closeOnce()
             }
           },
           cancel() {
@@ -181,10 +175,11 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
         let result = (await agent.approveToolCallGenerate({
           runId,
           toolCallId,
+          requireToolApproval: requireApproval,
         })) as {
           text?: string
           finishReason?: string
-          suspendPayload?: { toolCallId?: string }
+          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
           runId?: string
         }
 
@@ -192,13 +187,14 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
         let responseText = result.text || ''
 
         if (result.finishReason === 'suspended') {
-          let sp = result.suspendPayload as { toolCallId?: string } | undefined
-          setStream(newRunId, completedStream(responseText, newRunId))
+          let sp = result.suspendPayload
           return context.json({
-            runId: newRunId,
             requiresApproval: true,
             text: responseText,
+            runId: newRunId,
             toolCallId: sp?.toolCallId,
+            toolName: sp?.toolName,
+            args: sp?.args,
           })
         }
 
@@ -218,24 +214,26 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(
         let result = (await agent.declineToolCallGenerate({
           runId,
           toolCallId,
+          requireToolApproval: requireApproval,
         })) as {
           text?: string
           finishReason?: string
-          suspendPayload?: { toolCallId?: string }
+          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
           runId?: string
         }
 
         let newRunId = result.runId || crypto.randomUUID()
-        let responseText = result.text || ''
+        let responseText = result.text || 'The file read request was declined.'
 
         if (result.finishReason === 'suspended') {
-          let sp = result.suspendPayload as { toolCallId?: string } | undefined
-          setStream(newRunId, completedStream(responseText, newRunId))
+          let sp = result.suspendPayload
           return context.json({
-            runId: newRunId,
             requiresApproval: true,
             text: responseText,
+            runId: newRunId,
             toolCallId: sp?.toolCallId,
+            toolName: sp?.toolName,
+            args: sp?.args,
           })
         }
 

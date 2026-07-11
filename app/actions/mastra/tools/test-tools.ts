@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import { realpathSync } from 'node:fs'
 
-let projectRoot = realpathSync(process.cwd())
+const projectRoot = realpathSync(process.cwd())
 
 function resolveSafe(subdir: string): { ok: true; resolved: string } | { ok: false; error: string } {
   let resolved = path.resolve(projectRoot, subdir)

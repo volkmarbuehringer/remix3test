@@ -96,7 +96,7 @@ export const TestAgentStream = clientEntry(
         declineBtn.dataset.toolCallId = data.toolCallId || ''
         declineBtn.disabled = false
       }
-      card.style.display = ''
+      card.style.display = 'block'
     }
 
     function hideApproval() {
@@ -159,6 +159,16 @@ export const TestAgentStream = clientEntry(
 
       es.addEventListener('complete', streamEnded)
 
+      es.addEventListener('stream-error', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          appendMessage('Stream error: ' + (data.error || 'unknown'), 'error')
+        } catch {
+          appendMessage('Stream error', 'error')
+        }
+        streamEnded()
+      })
+
       es.addEventListener('error', streamEnded)
     }
 
@@ -219,7 +229,9 @@ export const TestAgentStream = clientEntry(
         }
         let data = await res.json()
         hideApproval()
-        if (data.runId) {
+        if (data.requiresApproval) {
+          showApproval({ runId: data.runId, toolCallId: data.toolCallId, toolName: data.toolName, args: data.args })
+        } else if (data.runId) {
           startStream(data.runId)
         }
       } catch (err) {
