@@ -34,7 +34,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.5.0",
+    "@fission-ai/openspec": "^1.6.0",
     "@oxlint/plugins": "^1.73.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "latest",

@@ -1,12 +1,13 @@
 ---
 name: openspec-new-change
 description: Start a new OpenSpec change using the experimental artifact workflow. Use when the user wants to create a new feature, fix, or modification with a structured step-by-step approach.
+allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
   author: openspec
-  version: '1.0'
-  generatedBy: '1.5.0'
+  version: "1.0"
+  generatedBy: "1.6.0"
 ---
 
 Start a new change using the experimental artifact-driven approach.
@@ -20,7 +21,6 @@ Start a new change using the experimental artifact-driven approach.
 1. **If no clear input provided, ask what they want to build**
 
    Use the **AskUserQuestion tool** (open-ended, no preset options) to ask:
-
    > "What change do you want to work on? Describe what you want to build or fix."
 
    From their description, derive a kebab-case name (e.g., "add user authentication" → `add-user-auth`).
@@ -38,30 +38,24 @@ Start a new change using the experimental artifact-driven approach.
    **Otherwise**: Omit `--schema` to use the default.
 
 3. **Create the change directory**
-
    ```bash
    openspec new change "<name>"
    ```
-
    Add `--schema <name>` only if the user requested a specific workflow.
    This creates a scaffolded change in the planning home resolved by the CLI.
 
 4. **Show the artifact status**
-
    ```bash
    openspec status --change "<name>" --json
    ```
-
    Use the returned `planningHome`, `changeRoot`, `artifactPaths`, and `nextSteps` instead of assuming repo-local paths.
 
 5. **Get instructions for the first artifact**
    The first artifact depends on the schema (e.g., `proposal` for spec-driven).
    Check the status output to find the first artifact with status "ready".
-
    ```bash
    openspec instructions <first-artifact-id> --change "<name>"
    ```
-
    This outputs the template and context for creating the first artifact.
 
 6. **STOP and wait for user direction**
@@ -69,7 +63,6 @@ Start a new change using the experimental artifact-driven approach.
 **Output**
 
 After completing the steps, summarize:
-
 - Change name and location
 - Schema/workflow being used and its artifact sequence
 - Current status (0/N artifacts complete)
@@ -77,7 +70,6 @@ After completing the steps, summarize:
 - Prompt: "Ready to create the first artifact? Just describe what this change is about and I'll draft it, or ask me to continue."
 
 **Guardrails**
-
 - Do NOT create any artifacts yet - just show the instructions
 - Do NOT advance beyond showing the first artifact template
 - If the name is invalid (not kebab-case), ask for a valid name
