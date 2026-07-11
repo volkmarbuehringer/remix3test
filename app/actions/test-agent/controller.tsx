@@ -7,7 +7,8 @@ import { setStream, getStream } from '../../utils/stream-store.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { TestAgentPage } from '../../ui/test-agent-page.tsx'
-import { routes } from '../../routes.ts'
+import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
+import { routes, frames } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
@@ -40,9 +41,15 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
   actions: {
     async index(context) {
       let error = context.url.searchParams.get('error') ?? undefined
+      let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
+      if (isFrameRequest) {
+        return renderAdminPage(context.render, 'testagent', <TestAgentPage error={error} />)
+      }
       return context.render(
         <Layout title="Test Agent">
-          <TestAgentPage error={error} />
+          <AdminLayout activeItem="testagent">
+            <TestAgentPage error={error} />
+          </AdminLayout>
         </Layout>,
       )
     },

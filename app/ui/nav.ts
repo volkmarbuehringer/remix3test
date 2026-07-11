@@ -31,7 +31,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
       { label: 'Admin', href: '/admin', adminOnly: true },
       { label: 'Beratung', href: '/chat' },
-      { label: 'Test-Agent', href: '/testagent' },
     ],
   },
 ]
@@ -39,5 +38,4 @@ export const NAV_SECTIONS: NavSection[] = [
 export const MOBILE_ITEMS: MobileNavItem[] = [
   { label: 'Neuer Termin', href: '/appointments/new', requireAuth: true, cta: true },
   { label: 'Einstellungen', href: '/settings', requireAuth: true },
-  { label: 'Test-Agent', href: '/testagent', requireAuth: true },
 ]

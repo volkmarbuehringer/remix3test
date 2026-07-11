@@ -57,8 +57,8 @@ describe('NAV_SECTIONS', () => {
 })
 
 describe('MOBILE_ITEMS', () => {
-  it('has three items', () => {
-    assert.equal(MOBILE_ITEMS.length, 3)
+  it('has two items', () => {
+    assert.equal(MOBILE_ITEMS.length, 2)
   })
 
   it('has Neuer Termin as CTA', () => {
@@ -75,14 +75,6 @@ describe('MOBILE_ITEMS', () => {
     assert.equal(settings!.requireAuth, true)
     assert.equal(settings!.cta, undefined)
     assert.equal(settings!.href, '/settings')
-  })
-
-  it('has Test-Agent as plain link', () => {
-    let testAgent = MOBILE_ITEMS.find((i) => i.label === 'Test-Agent')
-    assert.ok(testAgent, 'should have Test-Agent')
-    assert.equal(testAgent!.requireAuth, true)
-    assert.equal(testAgent!.cta, undefined)
-    assert.equal(testAgent!.href, '/testagent')
   })
 
   it('every mobile item has required fields', () => {
