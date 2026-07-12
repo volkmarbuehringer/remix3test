@@ -29,6 +29,28 @@ const CHAT_INDEX = routes.chat.index.href()
 export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
 const sseEncoder = new TextEncoder()
 
+async function drainAndRebuild(stream: unknown): Promise<ReadableStream<unknown>> {
+  let parts: unknown[] = []
+  let reader = (stream as ReadableStream<unknown>).getReader()
+  try {
+    while (true) {
+      let { done, value } = await reader.read()
+      if (done) break
+      parts.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return new ReadableStream({
+    start(controller) {
+      for (let part of parts) {
+        controller.enqueue(part)
+      }
+      controller.close()
+    },
+  })
+}
+
 function completedStream(text: string, userId: string | number, runId?: string): StoredStream {
   let id = runId || crypto.randomUUID()
   return {
@@ -124,10 +146,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
           }),
         )
 
+        let bufferedStream = await drainAndRebuild(output.fullStream)
+
         setStream(output.runId, {
           runId: output.runId,
           userId: user.id,
-          fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
+          fullStream: bufferedStream as unknown as NodeReadableStream<unknown>,
           getFullOutput: () => output.getFullOutput(),
         })
 
@@ -476,10 +500,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
           agent.resumeStream(resumeData, { runId, toolCallId }),
         )
 
+        let bufferedStream = await drainAndRebuild(output.fullStream)
+
         setStream(output.runId, {
           runId: output.runId,
           userId: user.id,
-          fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
+          fullStream: bufferedStream as unknown as NodeReadableStream<unknown>,
           getFullOutput: () => output.getFullOutput(),
         })
 
