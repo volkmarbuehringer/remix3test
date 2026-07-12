@@ -190,6 +190,16 @@ export function TestAgentPage(handle: Handle<TestAgentPageProps>) {
           </div>
         </div>
 
+        <div id="test-question" mix={[approvalCardStyle, hiddenStyle]}>
+          <div id="test-question-text" mix={approvalTitleStyle}></div>
+          <div id="test-question-options" mix={approvalInfoStyle}></div>
+          <div mix={approvalBtnRowStyle}>
+            <button id="test-answer-btn" type="button" mix={approveBtnStyle}>
+              Answer
+            </button>
+          </div>
+        </div>
+
         <form id="test-form" mix={formStyle}>
           <textarea
             id="test-input"

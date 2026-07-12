@@ -104,6 +104,91 @@ export const TestAgentStream = clientEntry(
       if (card) card.style.display = 'none'
     }
 
+    let pendingQuestion: {
+      runId: string
+      toolCallId?: string
+      selectionMode: string
+    } | null = null
+
+    function showQuestion(data: {
+      runId: string
+      toolCallId?: string
+      question: string
+      options?: { label: string; description?: string }[] | null
+      selectionMode: string
+    }) {
+      pendingQuestion = {
+        runId: data.runId,
+        toolCallId: data.toolCallId,
+        selectionMode: data.selectionMode,
+      }
+      let card = document.getElementById('test-question')
+      let textEl = document.getElementById('test-question-text')
+      let optionsEl = document.getElementById('test-question-options')
+      if (!card || !textEl || !optionsEl) return
+      textEl.textContent = data.question
+
+      if (data.options && data.options.length > 0) {
+        if (data.selectionMode === 'multi_select') {
+          optionsEl.innerHTML = data.options
+            .map(
+              (o) =>
+                `<label style="display:block;margin:4px 0;cursor:pointer">` +
+                `<input type="checkbox" name="q_option" value="${esc(o.label)}" /> ` +
+                esc(o.label) +
+                (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
+                `</label>`,
+            )
+            .join('')
+        } else {
+          optionsEl.innerHTML = data.options
+            .map(
+              (o, i) =>
+                `<label style="display:block;margin:4px 0;cursor:pointer">` +
+                `<input type="radio" name="q_option" value="${esc(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
+                esc(o.label) +
+                (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
+                `</label>`,
+            )
+            .join('')
+        }
+      } else {
+        optionsEl.innerHTML =
+          `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Type your answer..." />`
+        setTimeout(() => {
+          let input = document.getElementById('q-free-text')
+          if (input) {
+            input.addEventListener('keydown', (e) => {
+              if ((e as KeyboardEvent).key === 'Enter') handleAnswer()
+            })
+          }
+        }, 0)
+      }
+
+      card.style.display = 'block'
+    }
+
+    function hideQuestion() {
+      pendingQuestion = null
+      let card = document.getElementById('test-question')
+      if (card) card.style.display = 'none'
+    }
+
+    function getAnswer(): string {
+      let optionsEl = document.getElementById('test-question-options')
+      if (!optionsEl) return ''
+      let freeText = document.getElementById('q-free-text') as HTMLInputElement | null
+      if (freeText) return freeText.value
+
+      let checked = optionsEl.querySelectorAll('input[type="checkbox"]:checked') as NodeListOf<HTMLInputElement>
+      if (checked.length > 0) {
+        return JSON.stringify(Array.from(checked).map((cb) => cb.value))
+      }
+
+      let selected = optionsEl.querySelector('input[type="radio"]:checked') as HTMLInputElement | null
+      return selected?.value || ''
+    }
+
     function setFormEnabled(enabled: boolean) {
       let textarea = document.getElementById('test-input') as HTMLTextAreaElement | null
       let submitBtn = document.getElementById('test-submit') as HTMLButtonElement | null
@@ -116,6 +201,7 @@ export const TestAgentStream = clientEntry(
       streamingAssistant = null
       suspended = false
       currentRunId = runId
+      hideQuestion()
 
       let url = `/testagent/stream/${encodeURIComponent(runId)}`
       let es = new EventSource(url)
@@ -137,6 +223,21 @@ export const TestAgentStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           showApproval(data)
+        } catch {
+          /* ignore parse errors */
+        }
+        es.close()
+        currentEventSource = null
+        currentRunId = null
+        finalizeAssistantBubble()
+        setFormEnabled(true)
+      })
+
+      es.addEventListener('question', (event) => {
+        suspended = true
+        try {
+          let data = JSON.parse(event.data)
+          showQuestion(data)
         } catch {
           /* ignore parse errors */
         }
@@ -206,6 +307,48 @@ export const TestAgentStream = clientEntry(
       }
     }
 
+    async function handleAnswer() {
+      if (!pendingQuestion) return
+      let answer = getAnswer()
+      if (!answer) return
+
+      let btn = document.getElementById('test-answer-btn') as HTMLButtonElement | null
+      if (btn) {
+        btn.disabled = true
+        btn.textContent = 'Submitting...'
+      }
+
+      try {
+        let body = new FormData()
+        body.set('runId', pendingQuestion.runId)
+        body.set('answer', answer)
+        body.set('selectionMode', pendingQuestion.selectionMode)
+        if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+
+        setFormEnabled(false)
+
+        let res = await fetch('/testagent/answer', {
+          method: 'POST',
+          body,
+        })
+        if (!res.ok) {
+          appendMessage('Failed to submit answer', 'error')
+          if (btn) { btn.disabled = false; btn.textContent = 'Answer' }
+          setFormEnabled(true)
+          return
+        }
+        hideQuestion()
+        let data = await res.json()
+        if (data.runId) {
+          startStream(data.runId)
+        }
+      } catch (err) {
+        appendMessage('Answer error: ' + String(err), 'error')
+        if (btn) { btn.disabled = false; btn.textContent = 'Answer' }
+        setFormEnabled(true)
+      }
+    }
+
     async function handleApproval(action: 'approve' | 'decline', e: Event) {
       let btn = e.currentTarget as HTMLButtonElement
       btn.disabled = true
@@ -254,6 +397,7 @@ export const TestAgentStream = clientEntry(
             }
             let approveBtn = document.getElementById('test-approve-btn')
             let declineBtn = document.getElementById('test-decline-btn')
+            let answerBtn = document.getElementById('test-answer-btn')
             if (approveBtn) {
               approveBtn.addEventListener(
                 'click',
@@ -265,6 +409,13 @@ export const TestAgentStream = clientEntry(
               declineBtn.addEventListener(
                 'click',
                 (e) => handleApproval('decline', e),
+                { signal: handle.signal },
+              )
+            }
+            if (answerBtn) {
+              answerBtn.addEventListener(
+                'click',
+                handleAnswer,
                 { signal: handle.signal },
               )
             }

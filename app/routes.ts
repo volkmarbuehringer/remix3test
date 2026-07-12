@@ -186,5 +186,6 @@ export const routes = route({
     stream: get('/stream/:runId'),
     approve: post('/approve'),
     decline: post('/decline'),
+    answer: post('/answer'),
   }),
 })

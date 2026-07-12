@@ -178,6 +178,27 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
                     })}\n\n`,
                   ),
                 )
+              } else if (chunk.type === 'tool-call-suspended') {
+                let p = chunk.payload as Record<string, unknown> | undefined
+                let sp = p?.suspendPayload as
+                  | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+                  | undefined
+                if (sp?.question) {
+                  controller.enqueue(
+                    sseEncoder.encode(
+                      `event: question\ndata: ${JSON.stringify({
+                        runId: stored.runId,
+                        toolCallId: p?.toolCallId,
+                        question: sp.question,
+                        options: sp.options ?? null,
+                        selectionMode: sp.selectionMode ?? 'single_select',
+                      })}\n\n`,
+                    ),
+                  )
+                }
+                closeOnce()
+                reader?.cancel().catch(() => {})
+                return
               } else if (chunk.type === 'finish') {
                 controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
               }
@@ -280,6 +301,55 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
 
       setStream(newRunId, completedStream(responseText, newRunId))
       return context.json({ runId: newRunId, text: responseText })
+    },
+
+    async answer(context) {
+      let rawIp = context.request.headers.get('X-Forwarded-For') || ''
+      let ip = rawIp.split(',')[0].trim() || 'anon'
+      if (!testRateLimiter.attempt(ip)) {
+        return context.json({ error: 'Too many requests' }, { status: 429 })
+      }
+
+      let runId = context.formData.get('runId')?.toString()
+      let answerRaw = context.formData.get('answer')?.toString()
+      let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
+      let selectionMode = context.formData.get('selectionMode')?.toString()
+
+      if (!runId || !answerRaw) {
+        return context.json({ error: 'Missing runId or answer' }, { status: 400 })
+      }
+
+      if (answerRaw.length > MAX_MESSAGE_LENGTH) {
+        return context.json(
+          { error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` },
+          { status: 400 },
+        )
+      }
+
+      let resumeData: unknown = answerRaw
+      if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
+        try {
+          resumeData = JSON.parse(answerRaw)
+        } catch {
+          /* keep as string */
+        }
+      }
+
+      try {
+        let agent = mastra.getAgent('testAgent')
+        let output = await agent.resumeStream(resumeData, { runId, toolCallId })
+
+        setStream(output.runId, {
+          runId: output.runId,
+          fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
+          getFullOutput: () => output.getFullOutput(),
+        })
+
+        return context.json({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })
+      } catch (err) {
+        console.error('[testAgent] answer error:', err)
+        return context.json({ error: 'Failed to resume agent' }, { status: 500 })
+      }
     },
   },
 })
