@@ -155,52 +155,122 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
 
               if (!value || typeof value !== 'object') continue
               let chunk = value as Record<string, unknown>
-              if (chunk.type === 'text-delta') {
-                let text = String(
-                  (chunk.payload as Record<string, unknown> | undefined)?.text ??
-                    chunk.textDelta ??
-                    '',
-                )
-                if (text) {
-                  controller.enqueue(
-                    sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`),
-                  )
+              let p = chunk.payload as Record<string, unknown> | undefined
+
+              let MAX_SSE_PAYLOAD = 65536
+
+              function fwd(type: string, data: unknown) {
+                let payload: string
+                try {
+                  payload = JSON.stringify(data)
+                } catch {
+                  payload = JSON.stringify({ _serializeError: true, type })
                 }
-              } else if (chunk.type === 'tool-call-approval') {
-                let p = chunk.payload as Record<string, unknown> | undefined
-                controller.enqueue(
-                  sseEncoder.encode(
-                    `event: suspension\ndata: ${JSON.stringify({
-                      runId: stored.runId,
-                      toolCallId: p?.toolCallId,
-                      toolName: p?.toolName,
-                      args: p?.args,
-                    })}\n\n`,
-                  ),
-                )
-              } else if (chunk.type === 'tool-call-suspended') {
-                let p = chunk.payload as Record<string, unknown> | undefined
+                if (payload.length > MAX_SSE_PAYLOAD) {
+                  payload = JSON.stringify({ _truncated: true, type })
+                }
+                controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${payload}\n\n`))
+              }
+
+              let type = chunk.type as string
+
+              if (type === 'text-delta') {
+                let text = String(p?.text ?? chunk.textDelta ?? '')
+                if (text) fwd('message', { text })
+              } else if (type === 'tool-call-approval') {
+                fwd('suspension', {
+                  runId: stored.runId,
+                  toolCallId: p?.toolCallId,
+                  toolName: p?.toolName,
+                  args: p?.args,
+                })
+              } else if (type === 'tool-call-suspended') {
                 let sp = p?.suspendPayload as
                   | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
                   | undefined
                 if (sp?.question) {
-                  controller.enqueue(
-                    sseEncoder.encode(
-                      `event: question\ndata: ${JSON.stringify({
-                        runId: stored.runId,
-                        toolCallId: p?.toolCallId,
-                        question: sp.question,
-                        options: sp.options ?? null,
-                        selectionMode: sp.selectionMode ?? 'single_select',
-                      })}\n\n`,
-                    ),
-                  )
+                  fwd('question', {
+                    runId: stored.runId,
+                    toolCallId: p?.toolCallId,
+                    question: sp.question,
+                    options: sp.options ?? null,
+                    selectionMode: sp.selectionMode ?? 'single_select',
+                  })
                 }
                 closeOnce()
                 reader?.cancel().catch(() => {})
                 return
-              } else if (chunk.type === 'finish') {
-                controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+              } else if (type === 'finish') {
+                fwd('complete', {})
+              } else if (type === 'tool-call-input-streaming-start') {
+                fwd(type, { toolCallId: p?.toolCallId, toolName: p?.toolName })
+              } else if (type === 'tool-call-delta') {
+                fwd(type, {
+                  toolCallId: p?.toolCallId,
+                  toolName: p?.toolName,
+                  argsTextDelta: p?.argsTextDelta,
+                })
+              } else if (type === 'tool-call-input-streaming-end') {
+                fwd(type, { toolCallId: p?.toolCallId })
+              } else if (type === 'tool-call') {
+                fwd(type, {
+                  toolCallId: p?.toolCallId,
+                  toolName: p?.toolName,
+                  args: p?.args,
+                })
+              } else if (type === 'tool-result') {
+                let result = p?.result as Record<string, unknown> | undefined
+                let truncated = false
+                let truncatedCount = 0
+                if (
+                  result &&
+                  typeof result === 'object' &&
+                  !Array.isArray(result) &&
+                  Array.isArray(result.files) &&
+                  result.files.length > 20
+                ) {
+                  truncatedCount = result.files.length
+                  result = { ...result, files: result.files.slice(0, 20) }
+                  truncated = true
+                }
+                fwd(type, {
+                  toolCallId: p?.toolCallId,
+                  toolName: p?.toolName,
+                  result,
+                  isError: p?.isError,
+                  ...(truncated ? { _truncated: true, _truncatedCount: truncatedCount } : {}),
+                })
+              } else if (type === 'tool-error') {
+                fwd(type, {
+                  toolCallId: p?.toolCallId,
+                  toolName: p?.toolName,
+                  args: p?.args,
+                  error: p?.error,
+                })
+              } else if (type === 'step-start') {
+                fwd(type, { messageId: p?.messageId })
+              } else if (type === 'step-finish') {
+                let output = p?.output as Record<string, unknown> | undefined
+                fwd(type, {
+                  reason: (p?.stepResult as Record<string, unknown> | undefined)?.reason,
+                  usage: output?.usage,
+                })
+              } else if (type === 'start') {
+                fwd(type, { runId: stored.runId })
+              } else if (type === 'error') {
+                fwd(type, { error: p?.error })
+              } else if (type === 'abort') {
+                fwd(type, {})
+              } else if (type === 'reasoning-start') {
+                fwd(type, { id: p?.id })
+              } else if (type === 'reasoning-delta') {
+                fwd(type, { text: p?.text })
+              } else if (type === 'reasoning-end') {
+                fwd(type, {})
+              } else if (type === 'text-start') {
+                fwd(type, { id: p?.id })
+              } else if (type === 'text-end') {
+                fwd(type, {})
               }
             }
             closeOnce()

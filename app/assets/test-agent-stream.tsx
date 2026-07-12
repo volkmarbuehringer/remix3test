@@ -9,6 +9,12 @@ export const TestAgentStream = clientEntry(
     let streamingAssistant: HTMLDivElement | null = null
     let suspended = false
 
+    // Tool lifecycle tracking
+    let toolCards: Record<string, HTMLDivElement> = {}
+    let toolArgsAcc: Record<string, string> = {}
+    let reasoningBlock: HTMLDetailsElement | null = null
+    let reasoningBody: HTMLDivElement | null = null
+
     function abortStream() {
       if (currentEventSource) {
         currentEventSource.close()
@@ -38,6 +44,10 @@ export const TestAgentStream = clientEntry(
         .join('')
     }
 
+    function getTimeline(): HTMLElement | null {
+      return document.getElementById('test-timeline')
+    }
+
     let bubbleStyles: Record<string, [string, string, string]> = {
       user: ['#3b82f6', '#ffffff', 'flex-end'],
       assistant: ['transparent', 'inherit', 'flex-start'],
@@ -45,7 +55,7 @@ export const TestAgentStream = clientEntry(
     }
 
     function appendMessage(text: string, role: string, accumulate?: boolean) {
-      let container = document.getElementById('test-messages')
+      let container = getTimeline()
       if (!container) return
       if (accumulate && streamingAssistant) {
         streamingAssistant.textContent += text
@@ -61,6 +71,196 @@ export const TestAgentStream = clientEntry(
         if (role === 'assistant') streamingAssistant = bubble
       }
       container.scrollTop = container.scrollHeight
+    }
+
+    // ── Tool lifecycle helpers ──────────────────────────────────
+
+    function cardHeaderHtml(icon: string, title: string): string {
+      return `<span>${icon}</span><span style="font-weight:600">${esc(title)}</span><span style="margin-left:auto;font-size:0.75rem;transition:transform 0.15s">▾</span>`
+    }
+
+    function appendToolCard(toolName: string, toolCallId: string) {
+      let container = getTimeline()
+      if (!container || toolCards[toolCallId]) return
+
+      let card = document.createElement('div')
+      card.style.cssText =
+        `border:1px solid var(--border-color, #ddd);border-radius:8px;overflow:hidden;`
+
+      let header = document.createElement('div')
+      header.style.cssText =
+        `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
+        `cursor:pointer;user-select:none;font-size:0.875rem;background:var(--surface-lvl1, #f5f5f5);`
+      header.innerHTML = cardHeaderHtml('🔧', toolName)
+      header.onclick = () => {
+        let body = card.querySelector('.tl-card-body') as HTMLElement | null
+        let toggle = header.querySelector('span:last-child') as HTMLElement | null
+        if (body) {
+          let hidden = body.style.display === 'none'
+          body.style.display = hidden ? '' : 'none'
+          if (toggle) toggle.style.transform = hidden ? '' : 'rotate(-90deg)'
+        }
+      }
+
+      let body = document.createElement('div')
+      body.className = 'tl-card-body'
+      body.style.cssText =
+        `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
+        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--text-secondary, #666);`
+      body.textContent = 'Waiting for arguments...'
+
+      card.appendChild(header)
+      card.appendChild(body)
+      container.appendChild(card)
+      toolCards[toolCallId] = card
+      toolArgsAcc[toolCallId] = ''
+
+      container.scrollTop = container.scrollHeight
+    }
+
+    function updateToolArgs(toolCallId: string, argsTextDelta: string) {
+      if (!toolArgsAcc.hasOwnProperty(toolCallId)) return
+      toolArgsAcc[toolCallId] += argsTextDelta
+      let card = toolCards[toolCallId]
+      if (!card) return
+      let body = card.querySelector('.tl-card-body') as HTMLElement | null
+      if (!body) return
+      let acc = toolArgsAcc[toolCallId]
+      try {
+        let parsed = JSON.parse(acc)
+        body.textContent = JSON.stringify(parsed, null, 2)
+      } catch {
+        body.textContent = acc
+      }
+    }
+
+    function finalizeToolArgs(toolCallId: string, args: Record<string, unknown>) {
+      if (!toolCards[toolCallId]) return
+      let card = toolCards[toolCallId]
+      let body = card.querySelector('.tl-card-body') as HTMLElement | null
+      if (!body) return
+      body.textContent = JSON.stringify(args, null, 2)
+    }
+
+    function appendToolResult(toolCallId: string, result: unknown, isError?: boolean) {
+      let card = toolCards[toolCallId]
+      if (!card) return
+      removeResultOrError(card)
+      let div = document.createElement('div')
+      div.className = 'tl-card-result'
+      if (isError) {
+        div.style.cssText =
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:#fff;` +
+          `background:#ef4444;border-top:1px solid var(--border-color, #ddd);`
+        div.textContent = typeof result === 'string' ? result : 'Error: ' + JSON.stringify(result)
+      } else {
+        div.style.cssText =
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--text-primary, #333);` +
+          `border-top:1px solid var(--border-color, #ddd);`
+        if (result && typeof result === 'object' && !Array.isArray(result)) {
+          let r = result as Record<string, unknown>
+          if (Array.isArray(r.files)) {
+            let count = (r as Record<string, unknown>)._truncated
+              ? `${r.files.length}+ (truncated)`
+              : `${r.files.length}`
+            div.innerHTML =
+              `<div style="font-weight:500">${r.files.length} file${r.files.length !== 1 ? 's' : ''} found</div>` +
+              r.files
+                .slice(0, 10)
+                .map(
+                  (f: unknown) =>
+                    `<div style="display:flex;justify-content:space-between;padding:2px 0;font-family:monospace;font-size:0.75rem">` +
+                    `<span>${esc((f as Record<string, unknown>).name as string)}</span>` +
+                    `<span>${esc(String(((f as Record<string, unknown>).display as Record<string, unknown> | undefined)?.formattedSize ?? ''))}</span>` +
+                    `</div>`,
+                )
+                .join('')
+            if (r.files.length > 10) {
+              div.innerHTML += `<div style="font-size:0.75rem;color:var(--text-secondary,#666);padding-top:4px">and ${r.files.length - 10} more...</div>`
+            }
+          } else {
+            div.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2).slice(0, 500) : String(result)
+          }
+        } else {
+          div.textContent = typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500)
+        }
+      }
+      card.appendChild(div)
+      let tl = getTimeline()
+      if (tl) tl.scrollTop = tl.scrollHeight
+    }
+
+    function appendToolError(toolCallId: string, error: unknown) {
+      appendToolResult(toolCallId, error, true)
+    }
+
+    function removeResultOrError(card: HTMLElement) {
+      let toRemove: HTMLElement[] = []
+      for (let i = 0; i < card.children.length; i++) {
+        let el = card.children[i] as HTMLElement
+        if (el.classList.contains('tl-card-result')) toRemove.push(el)
+      }
+      for (let el of toRemove) el.remove()
+    }
+
+    function appendStepStats(reason: string, usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) {
+      let container = getTimeline()
+      if (!container) return
+      let div = document.createElement('div')
+      div.style.cssText =
+        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--text-secondary,#666);` +
+        `background:var(--surface-lvl1,#f5f5f5);border-radius:4px;align-self:flex-start;`
+      let parts: string[] = []
+      if (usage?.totalTokens != null) {
+        parts.push(`⚡ ${usage.totalTokens} tokens`)
+        if (usage.promptTokens != null && usage.completionTokens != null) {
+          parts.push(`(${usage.promptTokens}→${usage.completionTokens})`)
+        }
+      }
+      if (reason) parts.push(`reason: ${reason}`)
+      div.textContent = parts.join(' · ') || 'step finished'
+      container.appendChild(div)
+      container.scrollTop = container.scrollHeight
+    }
+
+    function startReasoning() {
+      if (reasoningBlock) return
+      let container = getTimeline()
+      if (!container) return
+      let details = document.createElement('details')
+      details.style.cssText =
+        `border:1px solid var(--border-color,#ddd);border-radius:8px;overflow:hidden;`
+
+      let summary = document.createElement('summary')
+      summary.style.cssText =
+        `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
+        `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
+        `background:var(--surface-lvl1,#f5f5f5);`
+      summary.innerHTML = `<span>💭</span><span>Reasoning</span>`
+
+      let body = document.createElement('div')
+      body.style.cssText =
+        `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
+        `color:var(--text-secondary,#666);white-space:pre-wrap;word-break:break-word;`
+
+      details.appendChild(summary)
+      details.appendChild(body)
+      container.appendChild(details)
+      reasoningBlock = details
+      reasoningBody = body
+      container.scrollTop = container.scrollHeight
+    }
+
+    function appendReasoning(text: string) {
+      if (!reasoningBody) return
+      reasoningBody.textContent += text
+      let tl = getTimeline()
+      if (tl) tl.scrollTop = tl.scrollHeight
+    }
+
+    function endReasoning() {
+      reasoningBlock = null
+      reasoningBody = null
     }
 
     function finalizeAssistantBubble() {
@@ -201,6 +401,10 @@ export const TestAgentStream = clientEntry(
       streamingAssistant = null
       suspended = false
       currentRunId = runId
+      toolCards = {}
+      toolArgsAcc = {}
+      reasoningBlock = null
+      reasoningBody = null
       hideQuestion()
 
       let url = `/testagent/stream/${encodeURIComponent(runId)}`
@@ -271,6 +475,81 @@ export const TestAgentStream = clientEntry(
       })
 
       es.addEventListener('error', streamEnded)
+
+      // ── Tool lifecycle event handlers ────────────────────────
+
+      es.addEventListener('tool-call-input-streaming-start', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          appendToolCard(data.toolName || 'unknown', data.toolCallId || '')
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('tool-call-delta', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.toolCallId && data.argsTextDelta != null) {
+            updateToolArgs(data.toolCallId, data.argsTextDelta as string)
+          }
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('tool-call-input-streaming-end', () => {
+        /* args streaming complete — tool-call event follows */
+      })
+
+      es.addEventListener('tool-call', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.toolCallId && data.args) {
+            finalizeToolArgs(data.toolCallId, data.args as Record<string, unknown>)
+          }
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('tool-result', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.toolCallId) {
+            appendToolResult(data.toolCallId, data.result, data.isError)
+          }
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('tool-error', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.toolCallId) {
+            appendToolError(data.toolCallId, data.error)
+          }
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('step-finish', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.usage || data.reason) {
+            appendStepStats(data.reason || '', data.usage || {})
+          }
+        } catch { /* ignore */ }
+      })
+
+      // ── Reasoning event handlers ─────────────────────────────
+
+      es.addEventListener('reasoning-start', () => {
+        startReasoning()
+      })
+
+      es.addEventListener('reasoning-delta', (event) => {
+        try {
+          let data = JSON.parse(event.data)
+          if (data.text) appendReasoning(data.text as string)
+        } catch { /* ignore */ }
+      })
+
+      es.addEventListener('reasoning-end', () => {
+        endReasoning()
+      })
     }
 
     async function handleFormSubmit(e: Event) {

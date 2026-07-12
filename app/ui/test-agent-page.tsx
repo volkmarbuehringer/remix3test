@@ -84,6 +84,88 @@ const errorBoxStyle = css({
   fontSize: '0.875rem',
 })
 
+const timelineStyle = css({
+  minHeight: '40vh',
+  maxHeight: '60vh',
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem',
+  marginBottom: '1rem',
+  padding: '0.75rem',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.lg,
+  background: theme.surface.lvl0,
+})
+
+const tlCardStyle = css({
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  overflow: 'hidden',
+})
+
+const tlCardHeaderStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  padding: '0.5rem 0.75rem',
+  cursor: 'pointer',
+  userSelect: 'none',
+  fontSize: '0.875rem',
+  fontWeight: 500,
+  background: theme.surface.lvl1,
+  '&:hover': { opacity: 0.85 },
+})
+
+const tlCardBodyStyle = css({
+  padding: '0.5rem 0.75rem',
+  fontSize: '0.8125rem',
+  lineHeight: '1.5',
+  fontFamily: 'monospace',
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  color: theme.colors.text.secondary,
+})
+
+const tlCardResultStyle = css({
+  padding: '0.5rem 0.75rem',
+  fontSize: '0.8125rem',
+  lineHeight: '1.5',
+  color: theme.colors.text.primary,
+  borderTop: `1px solid ${theme.colors.border.default}`,
+})
+
+const tlCardErrorStyle = css({
+  padding: '0.5rem 0.75rem',
+  fontSize: '0.8125rem',
+  color: theme.colors.action.danger.foreground,
+  background: theme.colors.action.danger.background,
+  borderTop: `1px solid ${theme.colors.border.default}`,
+})
+
+const tlCardStatsStyle = css({
+  padding: '0.25rem 0.75rem',
+  fontSize: '0.75rem',
+  color: theme.colors.text.secondary,
+  background: theme.surface.lvl1,
+  borderTop: `1px solid ${theme.colors.border.default}`,
+})
+
+const tlReasoningStyle = css({
+  fontSize: '0.8125rem',
+  lineHeight: '1.5',
+  color: theme.colors.text.secondary,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  padding: '0.5rem 0.75rem',
+})
+
+const tlToggleStyle = css({
+  marginLeft: 'auto',
+  fontSize: '0.75rem',
+  transition: 'transform 0.15s',
+})
+
 const approvalCardStyle = css({
   marginTop: '1rem',
   padding: '1rem',
@@ -173,7 +255,7 @@ export function TestAgentPage(handle: Handle<TestAgentPageProps>) {
         <h1 mix={headingStyle}>Test Agent</h1>
         <p mix={subtitleStyle}>Streaming SSE prototype. Try "list files" or "read package.json".</p>
 
-        <div id="test-messages" mix={messagesStyle}></div>
+        <div id="test-timeline" mix={timelineStyle}></div>
 
         {error && <div mix={errorBoxStyle}>{error}</div>}
 
