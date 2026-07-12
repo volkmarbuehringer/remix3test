@@ -85,12 +85,12 @@ export const TestAgentStream = clientEntry(
 
       let card = document.createElement('div')
       card.style.cssText =
-        `border:1px solid var(--border-color, #ddd);border-radius:8px;overflow:hidden;`
+        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
 
       let header = document.createElement('div')
       header.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
-        `cursor:pointer;user-select:none;font-size:0.875rem;background:var(--surface-lvl1, #f5f5f5);`
+        `cursor:pointer;user-select:none;font-size:0.875rem;background:var(--rmx-surface-lvl1);`
       header.innerHTML = cardHeaderHtml('🔧', toolName)
       header.onclick = () => {
         let body = card.querySelector('.tl-card-body') as HTMLElement | null
@@ -106,7 +106,7 @@ export const TestAgentStream = clientEntry(
       body.className = 'tl-card-body'
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--text-secondary, #666);`
+        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--rmx-color-text-secondary);`
       body.textContent = 'Waiting for arguments...'
 
       card.appendChild(header)
@@ -151,12 +151,12 @@ export const TestAgentStream = clientEntry(
       if (isError) {
         div.style.cssText =
           `padding:0.5rem 0.75rem;font-size:0.8125rem;color:#fff;` +
-          `background:#ef4444;border-top:1px solid var(--border-color, #ddd);`
+          `background:#ef4444;border-top:1px solid var(--rmx-color-border-default);`
         div.textContent = typeof result === 'string' ? result : 'Error: ' + JSON.stringify(result)
       } else {
         div.style.cssText =
-          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--text-primary, #333);` +
-          `border-top:1px solid var(--border-color, #ddd);`
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--rmx-color-text-primary);` +
+          `border-top:1px solid var(--rmx-color-border-default);`
         if (result && typeof result === 'object' && !Array.isArray(result)) {
           let r = result as Record<string, unknown>
           if (Array.isArray(r.files)) {
@@ -176,7 +176,7 @@ export const TestAgentStream = clientEntry(
                 )
                 .join('')
             if (r.files.length > 10) {
-              div.innerHTML += `<div style="font-size:0.75rem;color:var(--text-secondary,#666);padding-top:4px">and ${r.files.length - 10} more...</div>`
+              div.innerHTML += `<div style="font-size:0.75rem;color:var(--rmx-color-text-secondary);padding-top:4px">and ${r.files.length - 10} more...</div>`
             }
           } else {
             div.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2).slice(0, 500) : String(result)
@@ -208,8 +208,8 @@ export const TestAgentStream = clientEntry(
       if (!container) return
       let div = document.createElement('div')
       div.style.cssText =
-        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--text-secondary,#666);` +
-        `background:var(--surface-lvl1,#f5f5f5);border-radius:4px;align-self:flex-start;`
+        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--rmx-color-text-secondary);` +
+        `background:var(--rmx-surface-lvl1);border-radius:4px;align-self:flex-start;`
       let parts: string[] = []
       if (usage?.totalTokens != null) {
         parts.push(`⚡ ${usage.totalTokens} tokens`)
@@ -229,19 +229,19 @@ export const TestAgentStream = clientEntry(
       if (!container) return
       let details = document.createElement('details')
       details.style.cssText =
-        `border:1px solid var(--border-color,#ddd);border-radius:8px;overflow:hidden;`
+        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
 
       let summary = document.createElement('summary')
       summary.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
         `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-        `background:var(--surface-lvl1,#f5f5f5);`
+        `background:var(--rmx-surface-lvl1);`
       summary.innerHTML = `<span>💭</span><span>Reasoning</span>`
 
       let body = document.createElement('div')
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `color:var(--text-secondary,#666);white-space:pre-wrap;word-break:break-word;`
+        `color:var(--rmx-color-text-secondary);white-space:pre-wrap;word-break:break-word;`
 
       details.appendChild(summary)
       details.appendChild(body)

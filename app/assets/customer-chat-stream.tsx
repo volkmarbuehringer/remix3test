@@ -56,7 +56,7 @@ export const CustomerChatStream = clientEntry(
         bubble.style.cssText =
           `padding:0.75rem;border-radius:12px;max-width:75%;` +
           `line-height:1.5;font-size:0.9375rem;` +
-          `background:${isUser ? '#3b82f6' : 'var(--surface-lvl1,#f5f5f5)'};` +
+          `background:${isUser ? '#3b82f6' : 'var(--rmx-surface-lvl1)'};` +
           `color:${isUser ? '#fff' : 'inherit'};` +
           `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
           `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
@@ -74,13 +74,13 @@ export const CustomerChatStream = clientEntry(
 
       let card = document.createElement('div')
       card.style.cssText =
-        `border:1px solid var(--border-color,#ddd);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let header = document.createElement('div')
       header.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
         `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-        `background:var(--surface-lvl1,#f5f5f5);`
+        `background:var(--rmx-surface-lvl1);`
       header.innerHTML = `<span style="opacity:0.6;font-size:1em">&#9881;</span><span>${esc(toolName)}</span><span style="margin-left:auto;font-size:0.75rem;transition:transform 0.15s">&#9662;</span>`
       header.onclick = () => {
         let body = card.querySelector('.tl-card-body') as HTMLElement | null
@@ -96,7 +96,7 @@ export const CustomerChatStream = clientEntry(
       body.className = 'tl-card-body'
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--text-secondary,#666);`
+        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--rmx-color-text-secondary);`
       body.textContent = 'Warte auf Argumente...'
 
       card.appendChild(header)
@@ -151,12 +151,12 @@ export const CustomerChatStream = clientEntry(
       if (isError) {
         div.style.cssText =
           `padding:0.5rem 0.75rem;font-size:0.8125rem;color:#fff;` +
-          `background:#ef4444;border-top:1px solid var(--border-color,#ddd);`
+          `background:#ef4444;border-top:1px solid var(--rmx-color-border-default);`
         div.textContent = typeof result === 'string' ? result : 'Fehler: ' + JSON.stringify(result)
       } else {
         div.style.cssText =
-          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--text-primary,#333);` +
-          `border-top:1px solid var(--border-color,#ddd);`
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--rmx-color-text-primary);` +
+          `border-top:1px solid var(--rmx-color-border-default);`
         if (result && typeof result === 'object') {
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
@@ -176,9 +176,9 @@ export const CustomerChatStream = clientEntry(
     }
 
     function appendSlotPicker(result: Record<string, unknown>) {
+      let SLOTS_PER_PAGE = 10
       let container = getChatArea()
       if (!container) return
-      // Remove any old slot picker
       let old = document.getElementById('chat-slot-picker')
       if (old) old.remove()
 
@@ -186,39 +186,90 @@ export const CustomerChatStream = clientEntry(
       if (!slots || slots.length === 0) return
 
       let resourceName = esc(String(result.resource_name ?? ''))
-      let groups = new Map<string, typeof slots>()
-      for (let s of slots) {
-        let day = String(s.date_display ?? '')
-        if (!groups.has(day)) groups.set(day, [])
-        groups.get(day)!.push(s)
+
+      let pages: typeof slots[] = []
+      for (let i = 0; i < slots.length; i += SLOTS_PER_PAGE) {
+        pages.push(slots.slice(i, i + SLOTS_PER_PAGE))
       }
 
       let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.5rem">Termin buchen — ${resourceName}</div>`
-      for (let [day, daySlots] of groups) {
-        html += `<div style="font-size:0.85rem;font-weight:600;margin:0.5rem 0 0.25rem">${esc(day)}</div>`
-        for (let s of daySlots) {
-          let startMin = Number(s.start_min ?? 0)
-          let endMin = Number(s.end_min ?? 60)
-          let label = `${formatMin(startMin)}–${formatMin(endMin)}`
-          let data = JSON.stringify({
-            resourceId: result.resource_id,
-            dateEpochMs: s.date_epoch_ms,
-            startMin,
-            label,
-            resourceName: result.resource_name,
-          })
-          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.5rem 1rem;background:var(--surface-lvl1,#f5f5f5);border:1px solid var(--border-color,#ddd);border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:500">${esc(label)}</button>`
+
+      for (let pi = 0; pi < pages.length; pi++) {
+        let pageSlots = pages[pi]
+        let display = pi === 0 ? '' : 'none'
+        html += `<div id="slot-page-${pi}" style="display:${display}">`
+        let groups = new Map<string, typeof slots>()
+        for (let s of pageSlots) {
+          let day = String(s.date_display ?? '')
+          if (!groups.has(day)) groups.set(day, [])
+          groups.get(day)!.push(s)
         }
+        for (let [day, daySlots] of groups) {
+          html += `<div style="font-size:0.85rem;font-weight:600;margin:0.5rem 0 0.25rem">${esc(day)}</div>`
+          for (let s of daySlots) {
+            let startMin = Number(s.start_min ?? 0)
+            let endMin = Number(s.end_min ?? 60)
+            let label = `${formatMin(startMin)}–${formatMin(endMin)}`
+            let data = JSON.stringify({
+              resourceId: result.resource_id,
+              dateEpochMs: s.date_epoch_ms,
+              startMin,
+              label,
+              resourceName: result.resource_name,
+            })
+            html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.5rem 1rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:500">${esc(label)}</button>`
+          }
+        }
+        html += `</div>`
+      }
+
+      if (pages.length > 1) {
+        html += `<div id="slot-pagination" style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin-top:0.75rem;font-size:0.85rem">`
+        html += `<button type="button" class="page-prev-btn" style="padding:0.3rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:4px;cursor:pointer;font-size:0.85rem;opacity:0.5" disabled>← Zurück</button>`
+        html += `<span id="slot-page-indicator">Seite 1 von ${pages.length}</span>`
+        html += `<button type="button" class="page-next-btn" style="padding:0.3rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:4px;cursor:pointer;font-size:0.85rem">Weiter →</button>`
+        html += `</div>`
       }
 
       let picker = document.createElement('div')
       picker.id = 'chat-slot-picker'
       picker.style.cssText =
-        `padding:1rem;border:2px solid var(--border-color,#ddd);border-radius:12px;` +
-        `background:var(--surface-lvl0,#fff);align-self:stretch;width:100%;margin-top:0.5rem;`
+        `padding:1rem;border:2px solid var(--rmx-color-border-default);border-radius:12px;` +
+        `background:var(--rmx-surface-lvl0);align-self:stretch;width:100%;margin-top:0.5rem;`
       picker.innerHTML = html
       container.appendChild(picker)
       container.scrollTop = container.scrollHeight
+
+      if (pages.length <= 1) return
+
+      let currentPage = 0
+      let prevBtn = picker.querySelector('.page-prev-btn') as HTMLButtonElement | null
+      let nextBtn = picker.querySelector('.page-next-btn') as HTMLButtonElement | null
+
+      function showPage(n: number) {
+        for (let pi = 0; pi < pages.length; pi++) {
+          let pageEl = document.getElementById(`slot-page-${pi}`)
+          if (pageEl) pageEl.style.display = pi === n ? '' : 'none'
+        }
+        if (prevBtn) {
+          prevBtn.disabled = n === 0
+          prevBtn.style.opacity = n === 0 ? '0.5' : '1'
+        }
+        if (nextBtn) {
+          nextBtn.disabled = n >= pages.length - 1
+          nextBtn.style.opacity = n >= pages.length - 1 ? '0.5' : '1'
+        }
+        let indicator = document.getElementById('slot-page-indicator')
+        if (indicator) indicator.textContent = `Seite ${n + 1} von ${pages.length}`
+        currentPage = n
+      }
+
+      prevBtn?.addEventListener('click', () => {
+        if (currentPage > 0) showPage(currentPage - 1)
+      })
+      nextBtn?.addEventListener('click', () => {
+        if (currentPage < pages.length - 1) showPage(currentPage + 1)
+      })
     }
 
     function formatMin(m: number): string {
@@ -252,7 +303,7 @@ export const CustomerChatStream = clientEntry(
             label,
             resourceName: result.resource_name,
           })
-          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.4rem 0.75rem;background:var(--surface-lvl1,#f5f5f5);border:1px solid var(--border-color,#ddd);border-radius:6px;cursor:pointer;font-size:0.85rem">${esc(label)}</button>`
+          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.4rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">${esc(label)}</button>`
         }
       }
       return html
@@ -263,8 +314,8 @@ export const CustomerChatStream = clientEntry(
       if (!container) return
       let div = document.createElement('div')
       div.style.cssText =
-        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--text-secondary,#666);` +
-        `background:var(--surface-lvl1,#f5f5f5);border-radius:4px;align-self:flex-start;`
+        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--rmx-color-text-secondary);` +
+        `background:var(--rmx-surface-lvl1);border-radius:4px;align-self:flex-start;`
       let parts: string[] = []
       if (usage?.totalTokens != null) {
         parts.push(`${usage.totalTokens} Tokens`)
@@ -284,19 +335,19 @@ export const CustomerChatStream = clientEntry(
       if (!container) return
       let details = document.createElement('details')
       details.style.cssText =
-        `border:1px solid var(--border-color,#ddd);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let summary = document.createElement('summary')
       summary.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
         `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-        `background:var(--surface-lvl1,#f5f5f5);`
+        `background:var(--rmx-surface-lvl1);`
       summary.innerHTML = `<span>[...]</span><span>Überlege...</span>`
 
       let body = document.createElement('div')
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `color:var(--text-secondary,#666);white-space:pre-wrap;word-break:break-word;`
+        `color:var(--rmx-color-text-secondary);white-space:pre-wrap;word-break:break-word;`
 
       details.appendChild(summary)
       details.appendChild(body)
@@ -347,7 +398,7 @@ export const CustomerChatStream = clientEntry(
       card.id = 'chat-approval'
       card.style.cssText =
         `padding:1rem;border:2px solid #ef4444;border-radius:12px;` +
-        `background:var(--surface-lvl0,#fff);align-self:flex-start;width:100%;`
+        `background:var(--rmx-surface-lvl0);align-self:flex-start;width:100%;`
 
       let args = data.args || {}
       let isCancelSingle = 'appointmentSummary' in args
@@ -368,10 +419,10 @@ export const CustomerChatStream = clientEntry(
 
       card.innerHTML =
         `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#ef4444">${esc(title)}</div>` +
-        (description ? `<div style="font-size:0.875rem;color:var(--text-secondary,#666);margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>` : '') +
+        (description ? `<div style="font-size:0.875rem;color:var(--rmx-color-text-secondary);margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>` : '') +
         `<div style="display:flex;gap:0.75rem">` +
         `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
-        `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:var(--surface-lvl1,#f5f5f5);color:inherit;border:1px solid var(--border-color,#ddd);border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
+        `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:var(--rmx-surface-lvl1);color:inherit;border:1px solid var(--rmx-color-border-default);border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
         `</div>`
 
       container.appendChild(card)
@@ -411,7 +462,7 @@ export const CustomerChatStream = clientEntry(
       card.id = 'chat-question'
       card.style.cssText =
         `padding:1rem;border:2px solid #f59e0b;border-radius:12px;` +
-        `background:var(--surface-lvl0,#fff);align-self:flex-start;width:100%;margin-top:0.5rem;`
+        `background:var(--rmx-surface-lvl0);align-self:flex-start;width:100%;margin-top:0.5rem;`
 
       let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#b45309">${esc(data.question)}</div>`
 
