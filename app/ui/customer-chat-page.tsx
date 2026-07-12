@@ -4,8 +4,7 @@ import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import type { ChatMessage } from '../types/chatlog.ts'
-import type { PendingBookingData, SlotItem, BookingPageInfo } from '../actions/chat/controller.tsx'
-import { formatMinOption } from '../utils/date-utils.ts'
+import { CustomerChatStream } from '../assets/customer-chat-stream.tsx'
 
 const MAX_MESSAGE_LENGTH = 5000
 
@@ -13,23 +12,7 @@ interface CustomerChatPageProps {
   messages: ChatMessage[]
   threadId?: string
   error?: string
-  pendingBooking?: PendingBookingData
-  bookingResult?: string
-  bookingResultText?: string
-  postBookingDecision?: boolean
-  bookingPage: BookingPageInfo
-  approvalData?: {
-    runId?: string
-    toolCallId?: string
-    threadId?: string
-    responseText?: string
-    resourceName?: string
-    resourceDescription?: string
-    type?: 'resource' | 'cancel_single' | 'cancel_all'
-    cancelSummary?: string
-    cancelCount?: number
-    cancelSummaries?: string[]
-  }
+  csrfToken?: string
 }
 
 const containerStyle = css({
@@ -117,221 +100,10 @@ const errorBoxStyle = css({
   fontSize: '0.875rem',
 })
 
-const bookingCardStyle = css({
-  padding: '1rem',
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  marginBottom: '1rem',
-  maxHeight: '40vh',
-  overflowY: 'auto',
-})
-
-const bookingCardTitle = css({
-  fontSize: '1rem',
-  fontWeight: 600,
-  marginBottom: '0.75rem',
-  color: theme.colors.text.primary,
-})
-
-const dayGroupStyle = css({
-  marginBottom: '0.75rem',
-})
-
-const dayHeaderStyle = css({
-  fontSize: '0.9rem',
-  fontWeight: 600,
-  marginBottom: '0.25rem',
-  color: theme.colors.text.primary,
-})
-
-const slotLabelStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  padding: '0.25rem 0.5rem 0.25rem 1.25rem',
-  marginBottom: '0.15rem',
-  borderRadius: theme.radius.md,
-  cursor: 'pointer',
-  fontSize: '0.9rem',
-})
-
-const bookButtonStyle = css({
-  marginTop: '0.75rem',
-  padding: '0.6rem 1.5rem',
-  background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
-  border: 'none',
-  borderRadius: theme.radius.md,
-  fontSize: '1rem',
-  cursor: 'pointer',
-  width: '100%',
-})
-
-const bookingResultStyle = css({
-  padding: '0.75rem',
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  color: theme.colors.text.primary,
-  lineHeight: 1.5,
-  whiteSpace: 'pre-wrap',
-})
-
-const navRowStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '0.75rem',
-  marginTop: '0.5rem',
-})
-
-const navLinkStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '32px',
-  height: '32px',
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl1,
-  color: theme.colors.text.primary,
-  fontSize: '1rem',
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': {
-    background: theme.surface.lvl2,
-  },
-})
-
-const pageLabelStyle = css({
-  fontSize: '0.85rem',
-  color: theme.colors.text.secondary,
-  fontWeight: 600,
-})
-
-const actionRowStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  marginTop: '0.75rem',
-})
-
-const approvalCardStyle = css({
-  padding: '1rem',
-  border: `2px solid ${theme.colors.action.primary.background}`,
-  borderRadius: theme.radius.lg,
-  background: theme.surface.lvl0,
-  marginBottom: '1rem',
-})
-
-const approvalTitleStyle = css({
-  color: theme.colors.action.primary.background,
-  fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.lg,
-  marginBottom: theme.space.md,
-})
-
-const approvalActionsStyle = css({
-  display: 'flex',
-  gap: theme.space.md,
-  marginTop: theme.space.lg,
-})
-
-const approveBtnStyle = css({
-  padding: '0.6rem 1.5rem',
-  background: theme.colors.action.primary.background,
-  color: theme.colors.action.primary.foreground,
-  border: 'none',
-  borderRadius: theme.radius.md,
-  fontSize: '1rem',
-  cursor: 'pointer',
-})
-
-const declineBtnStyle = css({
-  padding: '0.6rem 1.5rem',
-  background: theme.surface.lvl1,
-  color: theme.colors.text.primary,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  fontSize: '1rem',
-  cursor: 'pointer',
-})
-
-const cancelLinkStyle = css({
-  padding: '0.6rem 1.5rem',
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl1,
-  color: theme.colors.text.secondary,
-  fontSize: '1rem',
-  cursor: 'pointer',
-  textDecoration: 'none',
-  textAlign: 'center',
-  '&:hover': {
-    background: theme.surface.lvl2,
-    color: theme.colors.text.primary,
-  },
-})
-
-const cancelApprovalCardStyle = css({
-  padding: '1rem',
-  border: `2px solid ${theme.colors.action.danger.background}`,
-  borderRadius: theme.radius.lg,
-  background: theme.surface.lvl0,
-  marginBottom: '1rem',
-})
-
-const cancelApprovalTitleStyle = css({
-  color: theme.colors.action.danger.background,
-  fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.lg,
-  marginBottom: theme.space.md,
-})
-
-const cancelBtnStyle = css({
-  padding: '0.6rem 1.5rem',
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-  border: 'none',
-  borderRadius: theme.radius.md,
-  fontSize: '1rem',
-  cursor: 'pointer',
-})
-
-const postBookingCardStyle = css({
-  padding: '1rem',
-  border: `2px solid ${theme.colors.action.primary.background}`,
-  borderRadius: theme.radius.lg,
-  background: theme.surface.lvl0,
-  marginBottom: '1rem',
-})
-
-const postBookingTitleStyle = css({
-  color: theme.colors.action.primary.background,
-  fontWeight: theme.fontWeight.semibold,
-  fontSize: theme.fontSize.lg,
-  marginBottom: theme.space.md,
-})
-
 export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
   return () => {
-    let {
-      messages,
-      threadId,
-      error,
-      pendingBooking,
-      bookingResult,
-      bookingResultText,
-      postBookingDecision,
-      bookingPage,
-      approvalData,
-    } = handle.props
-    let showApproval = approvalData?.runId != null
-    let showCancelApproval =
-      showApproval &&
-      (approvalData?.type === 'cancel_single' || approvalData?.type === 'cancel_all')
-    let showResourceApproval = showApproval && approvalData?.type === 'resource'
+    let { messages, threadId, error, csrfToken } = handle.props
+
     return (
       <div mix={containerStyle}>
         <h2 mix={headingStyle}>Beratung</h2>
@@ -378,221 +150,43 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
             </div>
           ))}
 
-          {bookingResult && <div mix={bookingResultStyle}>{bookingResult}</div>}
-
           <div id="chat-end" />
         </div>
 
-        {showCancelApproval && (
-          <div mix={cancelApprovalCardStyle}>
-            <p mix={cancelApprovalTitleStyle}>
-              {approvalData!.type === 'cancel_all'
-                ? `${approvalData!.cancelCount} Termine stornieren?`
-                : 'Termin stornieren?'}
-            </p>
-            {approvalData!.type === 'cancel_single' && (
-              <p style={{ marginBottom: theme.space.sm }}>{approvalData!.cancelSummary}</p>
-            )}
-            {approvalData!.type === 'cancel_all' && approvalData!.cancelSummaries && (
-              <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: theme.space.sm }}>
-                {approvalData!.cancelSummaries.map((s, i) => (
-                  <p key={i} style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>{s}</p>
-                ))}
-              </div>
-            )}
-            <div mix={approvalActionsStyle}>
-              <form method="POST" action={routes.chat.approve.href()}>
-                <CsrfTokenInput />
-                <input type="hidden" name="runId" value={approvalData!.runId} />
-                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
-                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={cancelBtnStyle}>
-                  Ja, stornieren
-                </button>
-              </form>
-              <form method="POST" action={routes.chat.decline.href()}>
-                <CsrfTokenInput />
-                <input type="hidden" name="runId" value={approvalData!.runId} />
-                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
-                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={declineBtnStyle}>
-                  Nein
-                </button>
-              </form>
-            </div>
+        <form
+          id="chat-form"
+          method="POST"
+          action={routes.chat.action.href()}
+          autoComplete="off"
+          mix={formStyle}
+        >
+          <CsrfTokenInput />
+          {threadId && <input type="hidden" name="threadId" value={threadId} />}
+          <label htmlFor="msg" mix={labelStyle}>
+            Dein Anliegen
+          </label>
+          <textarea
+            id="msg"
+            name="message"
+            rows={3}
+            required
+            maxLength={MAX_MESSAGE_LENGTH}
+            mix={textareaStyle}
+          />
+          <div style={{ marginTop: '0.75rem' }}>
+            <button id="chat-submit" type="submit" mix={buttonStyle}>
+              Senden
+            </button>
           </div>
-        )}
-
-        {showResourceApproval && (
-          <div mix={approvalCardStyle}>
-            <p mix={approvalTitleStyle}>
-              {approvalData!.resourceName
-                ? `${approvalData!.resourceName} — bestätigen?`
-                : 'Ressource bestätigen'}
-            </p>
-            <p style={{ marginBottom: theme.space.sm }}>
-              {approvalData!.resourceDescription || approvalData!.responseText || 'Soll diese Ressource verwendet werden?'}
-            </p>
-            <div mix={approvalActionsStyle}>
-              <form method="POST" action={routes.chat.approve.href()}>
-                <CsrfTokenInput />
-                <input type="hidden" name="runId" value={approvalData!.runId} />
-                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
-                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={approveBtnStyle}>
-                  ✔ Bestätigen
-                </button>
-              </form>
-              <form method="POST" action={routes.chat.decline.href()}>
-                <CsrfTokenInput />
-                <input type="hidden" name="runId" value={approvalData!.runId} />
-                <input type="hidden" name="toolCallId" value={approvalData!.toolCallId ?? ''} />
-                <input type="hidden" name="threadId" value={threadId ?? approvalData!.threadId} />
-                <button type="submit" mix={declineBtnStyle}>
-                  ✖ Ablehnen
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {postBookingDecision && bookingResultText && (
-          <div mix={postBookingCardStyle}>
-            <p mix={postBookingTitleStyle}>
-              {bookingResultText}
-            </p>
-            <p style={{ marginBottom: theme.space.md, color: theme.colors.text.secondary }}>
-              Möchtest du einen weiteren Termin buchen?
-            </p>
-            <div mix={approvalActionsStyle}>
-              <form method="POST" action={routes.chat.action.href()}>
-                <CsrfTokenInput />
-                <input type="hidden" name="_action" value="finish" />
-                <button type="submit" mix={approveBtnStyle}>
-                  Fertig
-                </button>
-              </form>
-              <form method="POST" action={routes.chat.action.href()}>
-                <CsrfTokenInput />
-                {threadId && <input type="hidden" name="threadId" value={threadId} />}
-                <input type="hidden" name="_action" value="continue" />
-                <button type="submit" mix={declineBtnStyle}>
-                  Noch einen Termin
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {!showApproval && !postBookingDecision && pendingBooking && pendingBooking.slots.length > 0 && (
-          <form method="POST" action={routes.chat.action.href()} mix={bookingCardStyle}>
-            <CsrfTokenInput />
-            <input type="hidden" name="_action" value="confirm_booking" />
-            <input type="hidden" name="title" value={pendingBooking.title} />
-            <input type="hidden" name="resource_id" value={String(pendingBooking.resource_id)} />
-            {threadId && <input type="hidden" name="threadId" value={threadId} />}
-            <p mix={bookingCardTitle}>{pendingBooking.resource_name}</p>
-            {(() => {
-              let sorted = [...pendingBooking.slots].sort(
-                (a, b) => a.date_epoch_ms - b.date_epoch_ms || a.start_min - b.start_min,
-              )
-              let groups = new Map<number, SlotItem[]>()
-              for (let slot of sorted) {
-                let day = slot.date_epoch_ms
-                if (!groups.has(day)) groups.set(day, [])
-                groups.get(day)!.push(slot)
-              }
-              let dayKeys = [...groups.keys()]
-              let dayMs = dayKeys[bookingPage.currentPage]
-              let daySlots = groups.get(dayMs)!
-              return (
-                <fieldset
-                  key={dayMs}
-                  mix={dayGroupStyle}
-                  style={{ border: 'none', padding: 0, margin: 0 }}
-                >
-                  <legend mix={dayHeaderStyle}>{daySlots[0].date_display}</legend>
-                  {daySlots.map((slot, idx) => (
-                    <label key={`${dayMs}-${slot.start_min}`} mix={slotLabelStyle}>
-                      <input
-                        type="radio"
-                        name="day_start"
-                        value={`${slot.date_epoch_ms}:${slot.start_min}`}
-                        defaultChecked={idx === 0}
-                        required
-                        aria-label={`${daySlots[0].date_display}, ${formatMinOption(slot.start_min)}–${formatMinOption(slot.end_min)} Uhr`}
-                      />
-                      {formatMinOption(slot.start_min)}–{formatMinOption(slot.end_min)} Uhr
-                    </label>
-                  ))}
-                </fieldset>
-              )
-            })()}
-            {bookingPage.totalDays > 1 && (
-              <nav aria-label="Verfügbare Tage" mix={navRowStyle}>
-                {bookingPage.currentPage > 0 && (
-                  <a
-                    href={`?page=${bookingPage.currentPage - 1}${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
-                    mix={navLinkStyle}
-                    aria-label="Vorheriger Tag"
-                  >
-                    ←
-                  </a>
-                )}
-                <span mix={pageLabelStyle} aria-current="page">
-                  {bookingPage.currentPage + 1}/{bookingPage.totalDays}
-                </span>
-                {bookingPage.currentPage < bookingPage.totalDays - 1 && (
-                  <a
-                    href={`?page=${bookingPage.currentPage + 1}${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
-                    mix={navLinkStyle}
-                    aria-label="Nächster Tag"
-                  >
-                    →
-                  </a>
-                )}
-              </nav>
-            )}
-            <div mix={actionRowStyle}>
-              <button type="submit" mix={bookButtonStyle}>
-                Termin buchen
-              </button>
-              <a
-                href={`?cancel=1${threadId ? `&threadId=${encodeURIComponent(threadId)}` : ''}`}
-                mix={cancelLinkStyle}
-              >
-                Abbrechen
-              </a>
-            </div>
-          </form>
-        )}
-
-        {!showApproval && !postBookingDecision && (
-          <form method="POST" action={routes.chat.action.href()} autoComplete="off" mix={formStyle}>
-            <CsrfTokenInput />
-            {threadId && <input type="hidden" name="threadId" value={threadId} />}
-            <label htmlFor="msg" mix={labelStyle}>
-              Dein Anliegen
-            </label>
-            <textarea
-              id="msg"
-              name="message"
-              rows={3}
-              required
-              maxLength={MAX_MESSAGE_LENGTH}
-              mix={textareaStyle}
-            />
-            <div style={{ marginTop: '0.75rem' }}>
-              <button type="submit" mix={buttonStyle}>
-                Senden
-              </button>
-            </div>
-          </form>
-        )}
+        </form>
 
         {threadId && <p mix={threadIdStyle}>Konversation-ID: {threadId}</p>}
 
         {error && <div mix={errorBoxStyle}>{error}</div>}
+
+        <div id="chat-csrf-token" data-token={csrfToken ?? ''} style="display:none"></div>
+
+        <CustomerChatStream />
       </div>
     )
   }

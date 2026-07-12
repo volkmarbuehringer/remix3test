@@ -7,6 +7,7 @@ import type { StoredStream } from './stream-store.ts'
 function makeFakeStream(runId: string): StoredStream {
   return {
     runId,
+    userId: 'test-user',
     fullStream: new ReadableStream({
       start(controller) {
         controller.enqueue({ type: 'text-delta', textDelta: 'hello world' })

@@ -18,10 +18,11 @@ const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
 const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'mastra_workspace_read_file'
 const sseEncoder = new TextEncoder()
 
-function completedStream(text: string, runId?: string): StoredStream {
+function completedStream(text: string, userId: string | number, runId?: string): StoredStream {
   let id = runId || crypto.randomUUID()
   return {
     runId: id,
+    userId,
     fullStream: new ReadableStream({
       start(controller) {
         if (text) {
@@ -76,6 +77,8 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
       let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
 
       try {
+        let auth = context.get(Auth)
+        let userId = auth?.ok ? auth.identity.id : 'test-user'
         let agent = mastra.getAgent('testAgent')
         let output = await agent.stream(message, {
           memory: { thread: threadId, resource: 'test-user' },
@@ -83,6 +86,7 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
         })
         setStream(output.runId, {
           runId: output.runId,
+          userId,
           fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
           getFullOutput: () => output.getFullOutput(),
         })
@@ -315,6 +319,8 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
         runId?: string
       }
 
+      let auth = context.get(Auth)
+      let userId = auth?.ok ? auth.identity.id : 'test-user'
       let newRunId = result.runId || crypto.randomUUID()
       let responseText = result.text || ''
 
@@ -330,7 +336,7 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
         })
       }
 
-      setStream(newRunId, completedStream(responseText, newRunId))
+      setStream(newRunId, completedStream(responseText, userId, newRunId))
       return context.json({ runId: newRunId, text: responseText })
     },
 
@@ -354,6 +360,8 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
         runId?: string
       }
 
+      let auth = context.get(Auth)
+      let userId = auth?.ok ? auth.identity.id : 'test-user'
       let newRunId = result.runId || crypto.randomUUID()
       let responseText = result.text || 'The file read request was declined.'
 
@@ -369,7 +377,7 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
         })
       }
 
-      setStream(newRunId, completedStream(responseText, newRunId))
+      setStream(newRunId, completedStream(responseText, userId, newRunId))
       return context.json({ runId: newRunId, text: responseText })
     },
 
@@ -406,11 +414,14 @@ export const testAgent = createController<typeof routes.testAgent, AppContext>(r
       }
 
       try {
+        let auth = context.get(Auth)
+        let userId = auth?.ok ? auth.identity.id : 'test-user'
         let agent = mastra.getAgent('testAgent')
         let output = await agent.resumeStream(resumeData, { runId, toolCallId })
 
         setStream(output.runId, {
           runId: output.runId,
+          userId,
           fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
           getFullOutput: () => output.getFullOutput(),
         })

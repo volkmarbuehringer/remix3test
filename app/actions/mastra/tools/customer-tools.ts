@@ -253,9 +253,9 @@ export const customerTools = {
 
         let byDay = new Map<number, typeof allSlots>()
         for (let s of allSlots) {
-          if (byDay.size >= 10) break
           let arr = byDay.get(s.date_epoch_ms)
           if (!arr) {
+            if (byDay.size >= 10) break
             arr = []
             byDay.set(s.date_epoch_ms, arr)
           }
@@ -467,59 +467,33 @@ export const customerTools = {
       if (appointmentIds.length === 0) {
         return { cancelled: 0, failed: 0, skipped: 0, details: [] }
       }
+      let results = await Promise.allSettled(
+        appointmentIds.map((id) =>
+          executeCancellationWorkflow({ appointmentId: id, requestingUserId: userId }),
+        ),
+      )
       let cancelled = 0
       let failed = 0
       let skipped = 0
       let details: { id: number; status: string; error?: string }[] = []
-      for (let id of appointmentIds) {
-        try {
-          let wfResult = await executeCancellationWorkflow({
-            appointmentId: id,
-            requestingUserId: userId,
-          })
-          if (wfResult.success) {
-            cancelled++
-            details.push({ id, status: 'cancelled' })
-          } else if (wfResult.error === 'already_cancelled') {
-            skipped++
-            details.push({ id, status: 'already_cancelled' })
-          } else {
-            failed++
-            details.push({ id, status: 'failed', error: wfResult.error })
-          }
-        } catch (e) {
+      for (let i = 0; i < results.length; i++) {
+        let id = appointmentIds[i]
+        let r = results[i]
+        if (r.status === 'rejected') {
           failed++
-          details.push({ id, status: 'failed', error: e instanceof Error ? e.message : String(e) })
+          details.push({ id, status: 'failed', error: r.reason instanceof Error ? r.reason.message : String(r.reason) })
+        } else if (r.value.success) {
+          cancelled++
+          details.push({ id, status: 'cancelled' })
+        } else if (r.value.error === 'already_cancelled') {
+          skipped++
+          details.push({ id, status: 'already_cancelled' })
+        } else {
+          failed++
+          details.push({ id, status: 'failed', error: r.value.error })
         }
       }
       return { cancelled, failed, skipped, details }
     },
-  }),
-
-  confirmResource: createTool({
-    id: 'confirm_resource',
-    description:
-      'Legt dem Kunden eine Resource zur Bestätigung vor. ' +
-      'Bei Bestätigung wird mit find_next_available_slots fortgefahren. ' +
-      'Bei Ablehnung die nächstbeste Resource vorschlagen.',
-    requireApproval: true,
-    inputSchema: z.object({
-      resourceId: z
-        .number()
-        .int()
-        .positive()
-        .describe('Die ID der Resource, die bestätigt werden soll'),
-      resourceName: z.string().min(1).max(200).describe('Der Name der Resource zur Anzeige'),
-      description: z
-        .string()
-        .min(1)
-        .max(500)
-        .describe('PFLICHTFELD: Beschreibe kurz in 1-2 Sätzen, warum diese Resource zum Kundenanliegen passt'),
-      previousResourceIds: z
-        .array(z.number().int())
-        .optional()
-        .describe('Bereits abgelehnte Resource-IDs'),
-    }),
-    execute: async ({ resourceId, resourceName }) => ({ success: true, resourceId, resourceName }),
   }),
 }

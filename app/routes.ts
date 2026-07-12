@@ -57,8 +57,10 @@ export const routes = route({
   chat: route('chat', {
     index: get('/'),
     action: post('/'),
+    stream: get('/stream/:runId'),
     approve: post('/approve'),
     decline: post('/decline'),
+    answer: post('/answer'),
   }),
 
   appointment: route('appointment', {
