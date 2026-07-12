@@ -3,6 +3,7 @@ import { z } from 'zod/v4'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import { realpathSync } from 'node:fs'
+import { errorEnvelope, successData } from './errors.ts'
 
 export const PROJECT_ROOT = realpathSync(process.cwd())
 const projectRoot = PROJECT_ROOT
@@ -117,6 +118,29 @@ function sortEntries(entries: FileEntry[], sort: string, order: string): FileEnt
   return sorted
 }
 
+const fileEntrySchema = z.object({
+  name: z.string().describe('Filename with extension. Directories end with "/"'),
+  isDirectory: z.boolean().describe('True for directory entries'),
+  size: z.number().describe('File size in bytes — use for sorting and comparison'),
+  mtime: z.number().describe('Last modification time as Unix milliseconds'),
+  display: z.object({
+    formattedSize: z.string().describe('Human-readable file size (e.g. "1.23 KiB") — safe to show users directly'),
+    type: z.enum(['file', 'directory']).describe('Entry type as readable string'),
+    icon: z.string().describe('Single emoji character for visual display'),
+  }).describe('Display hints for formatting file listings for the user'),
+})
+
+export const listTestFilesOutput = z.discriminatedUnion('success', [
+  z.object({
+    success: z.literal(true),
+    data: z.object({
+      path: z.string().describe('Directory listed, relative to project root'),
+      files: z.array(fileEntrySchema),
+    }),
+  }),
+  errorEnvelope,
+])
+
 export const listTestFiles = createTool({
   id: 'list_test_files',
   description:
@@ -150,7 +174,6 @@ export const listTestFiles = createTool({
       .string()
       .max(20)
       .optional()
-      .refine((s) => !s || s.startsWith('.'), 'ext must start with "." (e.g. ".ts")')
       .describe('Filter by file extension (e.g. ".ts", ".json"). Excludes directories.'),
     recursive: z
       .boolean()
@@ -158,43 +181,68 @@ export const listTestFiles = createTool({
       .default(false)
       .describe('Traverse subdirectories recursively. Excludes .git and node_modules.'),
   }),
+  outputSchema: listTestFilesOutput,
   execute: async ({ subdir, sort, order, limit, ext, recursive }) => {
-    let resolved = resolveSafe(subdir)
-    if (!resolved.ok) return { error: resolved.error }
-    if (ext && !ext.startsWith('.')) return { error: 'ext must start with "." (e.g. ".ts")' }
-
-    let real: string
     try {
-      real = await fs.realpath(resolved.resolved)
+      let resolved = resolveSafe(subdir)
+      if (!resolved.ok) {
+        return { success: false as const, error: { code: 'VALIDATION' as const, message: resolved.error } }
+      }
+      if (ext && !ext.startsWith('.')) {
+        return { success: false as const, error: { code: 'VALIDATION' as const, message: 'ext must start with "." (e.g. ".ts")' } }
+      }
+
+      let real: string
+      try {
+        real = await fs.realpath(resolved.resolved)
+      } catch (err) {
+        let isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT'
+        let code = isNotFound ? 'NOT_FOUND' as const : 'DEPENDENCY' as const
+        return {
+          success: false as const,
+          error: {
+            code,
+            message: isNotFound
+              ? `Directory not found: ${subdir}`
+              : `Failed to resolve path: ${err}`,
+          },
+        }
+      }
+      let relReal = path.relative(projectRoot, real)
+      if (relReal.startsWith('..') || path.isAbsolute(relReal)) {
+        return { success: false as const, error: { code: 'VALIDATION' as const, message: 'Path traversal detected (symlink)' } }
+      }
+
+      let effectiveOrder = order ?? (sort === 'size' || sort === 'mtime' ? 'desc' : 'asc')
+
+      let entries = await collectEntries(real, recursive, ext || undefined)
+      entries = sortEntries(entries, sort, effectiveOrder)
+
+      let effectiveLimit = Math.min(limit > 0 ? limit : HARD_CAP, HARD_CAP)
+      entries = entries.slice(0, effectiveLimit)
+
+      return successData({
+        path: subdir || '/',
+        files: entries.map((e) => ({
+          name: e.name,
+          isDirectory: e.isDirectory,
+          size: e.size,
+          mtime: e.mtime,
+          display: {
+            formattedSize: humanFileSize(e.size),
+            type: e.isDirectory ? 'directory' as const : 'file' as const,
+            icon: e.isDirectory ? '\uD83D\uDCC1' as const : '\uD83D\uDCC4' as const,
+          },
+        })),
+      })
     } catch (err) {
-      return { error: `Failed to resolve path: ${err}` }
-    }
-    let relReal = path.relative(projectRoot, real)
-    if (relReal.startsWith('..') || path.isAbsolute(relReal)) {
-      return { error: 'Path traversal detected (symlink)' }
-    }
-
-    let effectiveOrder = order ?? (sort === 'size' || sort === 'mtime' ? 'desc' : 'asc')
-
-    let entries = await collectEntries(real, recursive, ext || undefined)
-    entries = sortEntries(entries, sort, effectiveOrder)
-
-    let effectiveLimit = Math.min(limit > 0 ? limit : HARD_CAP, HARD_CAP)
-    entries = entries.slice(0, effectiveLimit)
-
-    return {
-      path: subdir || '/',
-      files: entries.map((e) => ({
-        name: e.name,
-        isDirectory: e.isDirectory,
-        size: e.size,
-        mtime: e.mtime,
-        display: {
-          formattedSize: humanFileSize(e.size),
-          type: e.isDirectory ? 'directory' : 'file',
-          icon: e.isDirectory ? '\uD83D\uDCC1' : '\uD83D\uDCC4',
+      return {
+        success: false as const,
+        error: {
+          code: 'INTERNAL' as const,
+          message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
         },
-      })),
+      }
     }
   },
 })
