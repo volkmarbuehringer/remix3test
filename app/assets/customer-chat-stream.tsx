@@ -160,8 +160,7 @@ export const CustomerChatStream = clientEntry(
         if (result && typeof result === 'object') {
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
-            div.innerHTML = renderSlotButtons(r)
-            // Also render a standalone visible slot picker outside the tool card
+            div.innerHTML = '<div style="font-size:0.8125rem;color:var(--rmx-color-text-secondary)">Verfügbare Termine werden unten angezeigt.</div>'
             appendSlotPicker(r)
           } else {
             div.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2).slice(0, 500) : String(result)
@@ -230,6 +229,11 @@ export const CustomerChatStream = clientEntry(
         html += `<button type="button" class="page-next-btn" style="padding:0.3rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:4px;cursor:pointer;font-size:0.85rem">Weiter →</button>`
         html += `</div>`
       }
+
+      html += `<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--rmx-color-border-default)">`
+      html += `<button type="button" class="slot-other-resource-btn" style="padding:0.4rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">Andere Ressource</button>`
+      html += `<button type="button" class="slot-close-btn" style="padding:0.4rem 0.75rem;background:transparent;color:var(--rmx-color-text-secondary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">Schließen</button>`
+      html += `</div>`
 
       let picker = document.createElement('div')
       picker.id = 'chat-slot-picker'
@@ -700,6 +704,13 @@ export const CustomerChatStream = clientEntry(
       }
     }
 
+    function handleSlotCancel() {
+      abortStream()
+      let picker = document.getElementById('chat-slot-picker')
+      if (picker) picker.remove()
+      setFormEnabled(true)
+    }
+
     async function handleSlotClick(e: Event) {
       let btn = e.target as HTMLButtonElement
       let raw = btn.dataset.slot
@@ -726,7 +737,8 @@ export const CustomerChatStream = clientEntry(
           body: formData,
         })
         if (!res.ok) {
-          appendMessage('Fehler bei der Buchungsanfrage', 'error')
+          let err = await res.json().catch(() => ({ error: 'Buchungsanfrage fehlgeschlagen' }))
+          appendMessage('Fehler: ' + (err.error || res.statusText), 'error')
           setFormEnabled(true)
           return
         }
@@ -738,6 +750,49 @@ export const CustomerChatStream = clientEntry(
       } catch (err) {
         appendMessage('Fehler: ' + String(err), 'error')
         setFormEnabled(true)
+      }
+    }
+
+    let submittingOtherResource = false
+
+    async function handleOtherResource() {
+      if (submittingOtherResource) return
+      submittingOtherResource = true
+      abortStream()
+      let picker = document.getElementById('chat-slot-picker')
+      if (picker) picker.remove()
+
+      let message = 'Ich möchte eine andere Ressource ausprobieren.'
+      appendMessage(message, 'user')
+      setFormEnabled(false)
+
+      let formData = new FormData()
+      if (currentThreadId) formData.set('threadId', currentThreadId)
+      formData.set('message', message)
+      formData.set('_csrf', getCsrfToken())
+
+      try {
+        let res = await fetch('/chat', {
+          method: 'POST',
+          body: formData,
+        })
+        if (!res.ok) {
+          let err = await res.json().catch(() => ({ error: 'Anfrage fehlgeschlagen' }))
+          appendMessage('Fehler: ' + (err.error || res.statusText), 'error')
+          setFormEnabled(true)
+          submittingOtherResource = false
+          return
+        }
+        let data = await res.json()
+        if (data.threadId) currentThreadId = data.threadId
+        if (data.runId) {
+          startStream(data.runId)
+        }
+        submittingOtherResource = false
+      } catch (err) {
+        appendMessage('Fehler: ' + String(err), 'error')
+        setFormEnabled(true)
+        submittingOtherResource = false
       }
     }
 
@@ -840,6 +895,10 @@ export const CustomerChatStream = clientEntry(
                   handleApproval('decline', e)
                 } else if (target.classList.contains('q-answer-btn')) {
                   handleAnswer()
+                } else if (target.classList.contains('slot-other-resource-btn')) {
+                  handleOtherResource()
+                } else if (target.classList.contains('slot-close-btn')) {
+                  handleSlotCancel()
                 }
               }, { signal: lifecycleSignal })
             }
