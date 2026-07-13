@@ -25,6 +25,8 @@ export type NavGroup<ID extends string> = {
 export type SidebarLayoutConfig<ID extends string> = {
   /** The frame target name used for X-Remix-Target header matching. */
   frameTarget: string
+  /** Additional frame targets that also trigger frame-only rendering. */
+  acceptFrameTargets?: string[]
   /** Navigation groups to render in the sidebar. */
   navGroups: NavGroup<ID>[]
   /** Function that returns an icon RemixNode for a given nav item ID. */
@@ -40,10 +42,15 @@ export type SidebarLayoutConfig<ID extends string> = {
 // ── Factory ─────────────────────────────────────────────────────
 
 export function createSidebarLayout<ID extends string>(config: SidebarLayoutConfig<ID>) {
-  let { frameTarget, navGroups, navIcon, headerIcon, headerLabel, sidebarExtras } = config
+  let { frameTarget, acceptFrameTargets, navGroups, navIcon, headerIcon, headerLabel, sidebarExtras } = config
+
+  let acceptedTargets = acceptFrameTargets
+    ? new Set([frameTarget, ...acceptFrameTargets])
+    : new Set([frameTarget])
 
   function isFrameRequest(): boolean {
-    return getContext().request.headers.get('X-Remix-Target') === frameTarget
+    let target = getContext().request.headers.get('X-Remix-Target')
+    return target != null && acceptedTargets.has(target)
   }
 
   type PageProps = {

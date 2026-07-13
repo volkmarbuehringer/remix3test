@@ -195,6 +195,7 @@ function webhookSvg(): RemixNode {
 export const { renderPage: renderAdminPage, Layout: AdminLayout } =
   createSidebarLayout<AdminNavItem>({
     frameTarget: frames.adminContent,
+    acceptFrameTargets: [frames.listsContent],
     navGroups: NAV_GROUPS,
     navIcon,
     headerIcon: sidebarHeaderIcon(),

@@ -44,15 +44,97 @@ export const RouteAgentStream = clientEntry(
         toolCallId: data.toolCallId,
         selectionMode: data.selectionMode,
       }
-      setBarText('Agent asks: ' + data.question)
 
       let bar = document.getElementById('agent-bar')
       if (!bar) return
-      bar.style.cursor = 'pointer'
-      bar.title = 'Click to answer...'
-      bar.onclick = () => {
-        let answer = prompt(data.question)
-        if (answer) handleAnswer(answer)
+
+      if (!data.options || data.options.length === 0) {
+        bar.textContent = 'Agent asks: ' + data.question
+        bar.style.cursor = 'pointer'
+        bar.title = 'Click to answer...'
+        bar.onclick = () => {
+          let answer = prompt(data.question)
+          if (answer) handleAnswer(answer)
+        }
+        return
+      }
+
+      try {
+        bar.innerHTML = ''
+        bar.style.cursor = ''
+        bar.title = ''
+        bar.onclick = null
+
+        let questionEl = document.createElement('div')
+        questionEl.textContent = data.question
+        questionEl.style.fontWeight = '600'
+        questionEl.style.marginBottom = '8px'
+        questionEl.style.fontSize = '0.875rem'
+        bar.appendChild(questionEl)
+
+        let isMulti = data.selectionMode === 'multi_select'
+        let inputType = isMulti ? 'checkbox' : 'radio'
+
+        let MAX_OPTIONS = 50
+        let options = data.options.slice(0, MAX_OPTIONS)
+
+        for (let opt of options) {
+          let label = document.createElement('label')
+          label.style.display = 'flex'
+          label.style.alignItems = 'center'
+          label.style.gap = '6px'
+          label.style.cursor = 'pointer'
+          label.style.fontSize = '0.8125rem'
+          label.style.padding = '2px 0'
+
+          let input = document.createElement('input')
+          input.type = inputType
+          input.name = 'q-option'
+          input.value = opt.label
+
+          let span = document.createElement('span')
+          span.textContent = opt.label
+
+          label.appendChild(input)
+          label.appendChild(span)
+
+          if (opt.description) {
+            let desc = document.createElement('span')
+            desc.textContent = '— ' + opt.description
+            desc.style.color = 'var(--rmx-color-text-muted, #888)'
+            desc.style.fontSize = '0.75rem'
+            label.appendChild(desc)
+          }
+
+          bar.appendChild(label)
+        }
+
+        let btn = document.createElement('button')
+        btn.textContent = 'Bestätigen'
+        btn.style.padding = '4px 14px'
+        btn.style.marginTop = '6px'
+        btn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+        btn.style.borderRadius = '4px'
+        btn.style.cursor = 'pointer'
+        btn.style.background = 'var(--rmx-surface-lvl1, #fff)'
+        btn.style.color = 'var(--rmx-color-text-primary, #333)'
+        btn.style.fontSize = '0.8125rem'
+        btn.style.alignSelf = 'flex-start'
+        btn.onclick = () => {
+          let checked = bar.querySelectorAll('input[name="q-option"]:checked') as NodeListOf<HTMLInputElement>
+          if (checked.length === 0) return
+
+          let selected = [...checked].map(el => el.value)
+          let answer = isMulti ? JSON.stringify(selected) : selected[0]
+
+          bar.innerHTML = ''
+          handleAnswer(answer)
+        }
+        bar.appendChild(btn)
+      } catch (err) {
+        pendingQuestion = null
+        bar.innerHTML = ''
+        bar.textContent = 'Error rendering question: ' + String(err)
       }
     }
 
@@ -60,6 +142,7 @@ export const RouteAgentStream = clientEntry(
       pendingQuestion = null
       let bar = document.getElementById('agent-bar')
       if (bar) {
+        bar.innerHTML = ''
         bar.style.cursor = ''
         bar.title = ''
         bar.onclick = null
@@ -75,7 +158,9 @@ export const RouteAgentStream = clientEntry(
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
         frame.src = href
-        frame.reload().catch(() => {})
+        frame.reload().catch((err) => {
+          setBarText('Navigation failed: ' + String(err))
+        })
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
             window.history.replaceState({}, '', href)
@@ -90,14 +175,15 @@ export const RouteAgentStream = clientEntry(
 
     async function handleAnswer(answer: string) {
       if (!pendingQuestion || !answer) return
+      let pq = pendingQuestion
       setFormEnabled(false)
       hideQuestion()
 
       let body = new FormData()
-      body.set('runId', pendingQuestion.runId)
+      body.set('runId', pq.runId)
       body.set('answer', answer)
-      body.set('selectionMode', pendingQuestion.selectionMode)
-      if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+      body.set('selectionMode', pq.selectionMode)
+      if (pq.toolCallId) body.set('toolCallId', pq.toolCallId)
       if (currentThreadId) body.set('threadId', currentThreadId)
 
       startStream('/route-agent/answer', { method: 'POST', body })

@@ -23,10 +23,12 @@ const agentBarStyle = css({
   color: theme.colors.text.secondary,
   background: theme.surface.lvl0,
   borderTop: `1px solid ${theme.colors.border.default}`,
-  maxHeight: '3rem',
+  maxHeight: '12rem',
   overflowY: 'auto',
   whiteSpace: 'normal',
   wordBreak: 'break-word',
+  display: 'flex',
+  flexDirection: 'column',
 })
 
 const inputBarStyle = css({

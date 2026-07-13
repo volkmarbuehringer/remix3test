@@ -14,7 +14,7 @@ import type { AppContext } from '../../types/context.ts'
 const MAX_MESSAGE_LENGTH = 5000
 const sseEncoder = new TextEncoder()
 
-const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
+const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perKey: true, maxAttempts: 5 })
 
 function sseHeaders() {
   let headers = new SuperHeaders()
