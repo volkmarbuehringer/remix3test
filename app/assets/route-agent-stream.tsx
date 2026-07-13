@@ -299,6 +299,29 @@ export const RouteAgentStream = clientEntry(
       startStream('/route-agent', { method: 'POST', body: formData })
     }
 
+    async function handleFrameFormSubmit(e: Event) {
+      let form = (e.target as HTMLElement).closest('form')
+      if (!form || form.id === 'route-agent-form') return
+      e.preventDefault()
+
+      setBarText('Submitting form...')
+
+      try {
+        await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+        })
+      } catch (err) {
+        console.error('Form submission failed:', err)
+      }
+
+      let frame = handle.frames.get('lists-content')
+      if (frame) {
+        frame.src = form.action
+        await frame.reload()
+      }
+    }
+
     return () => (
       <div
         mix={[
@@ -307,6 +330,11 @@ export const RouteAgentStream = clientEntry(
             let form = document.getElementById('route-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })
+            }
+
+            let container = document.getElementById('route-agent-frame-container')
+            if (container) {
+              container.addEventListener('submit', handleFrameFormSubmit, { signal: handle.signal })
             }
           }),
         ]}
