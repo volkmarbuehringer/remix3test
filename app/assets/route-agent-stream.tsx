@@ -317,7 +317,6 @@ export const RouteAgentStream = clientEntry(
 
       let frame = handle.frames.get('lists-content')
       if (frame) {
-        frame.src = form.action
         await frame.reload()
       }
     }
