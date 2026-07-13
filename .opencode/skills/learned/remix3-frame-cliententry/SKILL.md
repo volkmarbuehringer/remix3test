@@ -13,6 +13,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 
 - [Frame Direct Render — Avoid Double-Load Crash](#frame-direct-render--avoid-double-load-crash)
 - [Post Form Submissions in Frames](#post-form-submissions-in-frames)
+- [Generic Form Interception for Frames](#generic-form-interception-for-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
 - [Post-Navigation Data Loading in clientEntry](#post-navigation-data-loading-in-cliententry)
@@ -188,6 +189,71 @@ return renderAdminPage(
 - Understanding why `rmx-target` on `<form>` elements is ignored
 
 (Consolidated from `remix3-frame-post-uninterceptable`)
+
+---
+
+## Generic Form Interception for Frames
+
+# Remix 3: Intercept All Frame Form Submissions via Event Delegation
+
+**Context:** A route-agent page uses a `<Frame>` to show target routes. Any `<form method="POST">` inside the frame causes a full-page navigation, destroying the parent page (agent input bar, message history). Affects all server-rendered forms inside any Frame.
+
+### Problem
+
+Remix 3's `<Frame>` does **not** intercept HTML form submissions:
+
+1. `<Frame>` is a DOM region (comment markers + DOM diffing), not an `<iframe>` — form submissions are normal browser navigations
+2. The Navigation API (`window.navigation`) sets `event.canIntercept === false` for all non-GET navigations per spec — POST/PUT/DELETE form submissions are never captured
+3. `rmx-target` attribute is only read from `<a>`/`<area>` elements (`navigation.ts`), never from `<form>` elements
+
+Result: any `<form method="POST">` inside a Frame navigates the **main window** to the action URL. For the route-agent page, this replaces the entire agent interface with the target page.
+
+### Solution
+
+Add a single `submit` event listener on the frame container element using **event delegation**. This catches all forms inside the frame with one listener:
+
+```typescript
+// In the route-agent's clientEntry (RouteAgentStream):
+let container = document.getElementById('route-agent-frame-container')
+if (container) {
+  container.addEventListener('submit', async (e) => {
+    let form = (e.target as HTMLElement).closest('form')
+    if (!form || form.id === 'route-agent-form') return  // skip agent's own form
+    e.preventDefault()
+
+    // Submit the form server-side via fetch
+    await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+    })
+
+    // Reload the frame to show updated content
+    let frame = handle.frames.get('lists-content')
+    if (frame) {
+      await frame.reload()
+    }
+  })
+}
+```
+
+The server still renders and processes everything. The only client-side change is swapping "browser navigates away" for `fetch` + `frame.reload()`.
+
+#### Why `handle.frame.reload()` not `handle.frame.replace()`
+
+- `reload()` re-fetches the frame's current `src` via the Frame's `resolveFrame` pipeline, which sets `X-Remix-Target`, `X-Remix-Frame`, and Cookie headers correctly
+- `replace()` takes raw HTML and diffs it into the frame DOM — but the Fetch POST response is the full page-wrapped HTML (with `<Layout>`, `<html>`, etc.), which breaks when parsed as a fragment inside a child frame
+- Using `reload()` avoids needing to reconstruct the correct response format
+
+#### Why per-form `clientEntry` is not ideal
+
+A per-form clientEntry (one per form inside the frame) duplicates interception logic and requires each form to have an `id` or specific selector. Event delegation on the container is a single, generic handler.
+
+### When to Use
+
+- Any Remix 3 app where a parent page uses `<Frame>` to show content with server-rendered forms
+- The route-agent page (or similar "agent/command bar" pattern) where forms inside the frame must not destroy the parent interface
+- Debugging "why does this form navigate away from my parent page?" inside a Frame
+- Before adding per-form `clientEntry` handlers — check if event delegation suffices
 
 ---
 
