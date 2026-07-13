@@ -11,6 +11,7 @@ import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../utils/context.ts'
 import type { AppContext } from '../../types/context.ts'
+import { UploadFormHandler } from '../../assets/upload-form-handler.tsx'
 
 export default createController<typeof routes.uploads, AppContext>(routes.uploads, {
   middleware: [requireAuth()],
@@ -109,12 +110,14 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             </p>
           ) : null}
           <form
+            id="upload-form"
             action={routes.uploads.action.href()}
             method="POST"
             encType="multipart/form-data"
             mix={formCss}
           >
             <CsrfTokenInput />
+            <UploadFormHandler />
             <input type="file" name="file" required mix={fileInputCss} />
             <button type="submit" mix={submitCss}>
               Hochladen
