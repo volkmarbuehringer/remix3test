@@ -101,6 +101,22 @@ export async function getAllLists(
   return { data: rows, hasMore, offset }
 }
 
+export async function getListsByIds(
+  db: Database,
+  ids: number[],
+  userId?: number,
+): Promise<ListRow[]> {
+  if (ids.length === 0) return []
+  let ownerClause = userId != null ? 'AND user_id = $2' : ''
+  let params: unknown[] = userId != null ? [ids, userId] : [ids]
+  let result = await db.exec(
+    `SELECT * FROM lists WHERE id = ANY($1::integer[]) ${ownerClause} ORDER BY array_position($1::integer[], id)`,
+    params,
+  )
+  let parsed = (result.rows ?? []).map((r: Record<string, unknown>) => parseRow(r))
+  return parsed
+}
+
 export async function getListById(
   db: Database,
   id: number,

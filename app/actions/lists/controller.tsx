@@ -11,12 +11,13 @@ import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getListById, getAllLists, createList, patchList, deleteList } from '../../data/lists.ts'
+import { getListById, getAllLists, getListsByIds, createList, patchList, deleteList } from '../../data/lists.ts'
 import {
   renderListsPage,
   type ListsNavItem,
   type ListSidebarEntry,
   type ListInitialState,
+  type PaginationState,
 } from '../../ui/lists-layout.tsx'
 import { ListsIndexPage } from '../../ui/lists-index-page.tsx'
 import { getPageSize } from '../../utils/get-page-size.ts'
@@ -43,18 +44,35 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     async index(context) {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let pageSize = getPageSize(context.session, 15)
-      let filter = context.url.searchParams.get('filter') || undefined
 
-      let result = await getAllLists(context.db, { limit: pageSize, offset, filter }, listUserId)
+      let idsRaw = context.url.searchParams.get('ids')
+      let sidebarEntries: ListSidebarEntry[]
+      let listResult: PaginationState | undefined
 
-      let sidebarEntries: ListSidebarEntry[] = result.data.map((row) => ({
-        id: `list:${row.id}` as ListsNavItem,
-        label: row.description,
-        count: Array.isArray(row.list) ? row.list.length : 0,
-        updatedAt: row.updated_at,
-      }))
+      if (idsRaw?.trim()) {
+        let ids = [...new Set(idsRaw.split(',').map(Number).filter((n) => Number.isFinite(n) && n >= 1))]
+        let rows = await getListsByIds(context.db, ids, listUserId)
+        sidebarEntries = rows.map((row) => ({
+          id: `list:${row.id}` as ListsNavItem,
+          label: row.description,
+          count: Array.isArray(row.list) ? row.list.length : 0,
+          updatedAt: row.updated_at,
+        }))
+      } else {
+        let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+        let pageSize = getPageSize(context.session, 15)
+        let filter = context.url.searchParams.get('filter') || undefined
+
+        let result = await getAllLists(context.db, { limit: pageSize, offset, filter }, listUserId)
+
+        sidebarEntries = result.data.map((row) => ({
+          id: `list:${row.id}` as ListsNavItem,
+          label: row.description,
+          count: Array.isArray(row.list) ? row.list.length : 0,
+          updatedAt: row.updated_at,
+        }))
+        listResult = { offset: result.offset, hasMore: result.hasMore, limit: pageSize }
+      }
 
       let loadParam = context.url.searchParams.get('load')
       let activeItem: ListsNavItem
@@ -87,7 +105,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         activeItem,
         sidebarEntries,
         <ListsIndexPage initialState={initialState} />,
-        { offset: result.offset, hasMore: result.hasMore, limit: pageSize },
+        listResult,
       )
     },
 
