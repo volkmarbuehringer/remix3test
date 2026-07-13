@@ -25,6 +25,21 @@ function sseHeaders() {
   return headers
 }
 
+function getTarget(path: string): string {
+  let prefixes: [string, string][] = [
+    ['/admin', 'admin-content'],
+    ['/mastra', 'admin-content'],
+    ['/lists', 'lists-content'],
+  ]
+  let match: [string, string] | undefined
+  for (let [prefix, target] of prefixes) {
+    if (path === prefix || path.startsWith(prefix + '/') || path.startsWith(prefix + '?')) {
+      if (!match || prefix.length > match[0].length) match = [prefix, target]
+    }
+  }
+  return match?.[1] ?? 'lists-content'
+}
+
 function filterAndForward(
   chunk: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
@@ -82,7 +97,7 @@ function filterAndForward(
     if (result?.type === 'route' && typeof result.path === 'string') {
       fwd('navigate', {
         href: result.path,
-        target: 'lists-content',
+        target: getTarget(result.path),
         history: 'push',
       })
     } else {

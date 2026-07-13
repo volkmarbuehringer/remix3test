@@ -155,8 +155,26 @@ export const RouteAgentStream = clientEntry(
         setBarText('Invalid navigation path')
         return
       }
+
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
+        let container = document.getElementById('route-agent-frame-container')
+        if (container && target) {
+          let activeFrame = container.getAttribute('data-active-frame')
+          if (activeFrame && activeFrame !== target) {
+            let oldWrapper = document.getElementById('frame-' + activeFrame)
+            if (oldWrapper) oldWrapper.style.display = 'none'
+            let newWrapper = document.getElementById('frame-' + target)
+            if (newWrapper) newWrapper.style.display = 'block'
+            let oldFrame = handle.frames.get(activeFrame)
+            if (oldFrame) {
+              oldFrame.src = '/route-agent/panel'
+              oldFrame.reload().catch(() => {})
+            }
+            container.setAttribute('data-active-frame', target)
+          }
+        }
+
         frame.src = href
         frame.reload().catch((err) => {
           setBarText('Navigation failed: ' + String(err))
@@ -315,7 +333,9 @@ export const RouteAgentStream = clientEntry(
         console.error('Form submission failed:', err)
       }
 
-      let frame = handle.frames.get('lists-content')
+      let container = document.getElementById('route-agent-frame-container')
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
+      let frame = handle.frames.get(activeFrame)
       if (frame) {
         await frame.reload()
       }
