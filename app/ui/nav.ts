@@ -31,6 +31,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
       { label: 'Admin', href: '/admin', adminOnly: true },
       { label: 'Beratung', href: '/chat' },
+      { label: 'Route-Agent', href: '/route-agent', adminOnly: true },
     ],
   },
 ]
