@@ -190,4 +190,14 @@ export const routes = route({
     decline: post('/decline'),
     answer: post('/answer'),
   }),
+
+  routeAgent: route('route-agent', {
+    index: get('/'),
+    panel: get('/panel'),
+    action: post('/'),
+    stream: get('/stream/:runId'),
+    approve: post('/approve'),
+    decline: post('/decline'),
+    answer: post('/answer'),
+  }),
 })

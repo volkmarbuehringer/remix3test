@@ -14,7 +14,9 @@ export function skipCsrf(): Middleware {
       context.url.pathname === '/callback' ||
       context.url.pathname.startsWith('/api/') ||
       context.url.pathname === '/testagent' ||
-      context.url.pathname.startsWith('/testagent/')
+      context.url.pathname.startsWith('/testagent/') ||
+      context.url.pathname === '/route-agent' ||
+      context.url.pathname.startsWith('/route-agent/')
     ) {
       return next()
     }

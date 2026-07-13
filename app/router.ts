@@ -17,6 +17,7 @@ import {
 import { mastraChat } from './actions/mastra/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
 import { testAgent } from './actions/test-agent/controller.tsx'
+import { routeAgent } from './actions/route-agent/controller.tsx'
 import clientController from './actions/client/controller.tsx'
 import {
   adminController,
@@ -144,8 +145,11 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
 
-  // Test Agent route (auth-gated, SSE streaming)
-  router.map(routes.testAgent, testAgent)
+// Test Agent route (auth-gated, SSE streaming)
+router.map(routes.testAgent, testAgent)
+
+// Route Agent POC (auth-gated, SSE streaming, frame navigation)
+router.map(routes.routeAgent, routeAgent)
 
   // Admin routes
   router.map(routes.admin, adminController)
