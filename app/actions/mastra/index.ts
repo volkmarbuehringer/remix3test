@@ -4,6 +4,7 @@ import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mast
 import { supportAgent } from './agents/support-agent.ts'
 import { customerAgent } from './agents/customer-agent.ts'
 import { testAgent } from './agents/test-agent.ts'
+import { routeAgent } from './agents/route-agent.ts'
 import { bookingWorkflow } from './workflows/booking-workflow.ts'
 import { customerBookingWorkflow } from './workflows/customer-booking-workflow.ts'
 import { bookingCancellationWorkflow } from './workflows/booking-cancellation-workflow.ts'
@@ -16,7 +17,7 @@ import { consoleNotificationSender } from './notifications/sender.ts'
 import { setMastra } from './workflow-executor.ts'
 
 export const mastra = new Mastra({
-  agents: { supportAgent, customerAgent, testAgent },
+  agents: { supportAgent, customerAgent, testAgent, routeAgent },
   workflows: {
     bookingWorkflow,
     customerBookingWorkflow,

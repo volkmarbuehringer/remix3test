@@ -19,8 +19,6 @@ const sseEncoder = new TextEncoder()
 
 const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
 
-const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'mastra_workspace_read_file'
-
 export const routeAgent = createController<typeof routes.routeAgent, AppContext>(
   routes.routeAgent,
   {
@@ -74,10 +72,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         try {
           let auth = context.get(Auth)
           let userId = auth?.ok ? auth.identity.id : 'route-user'
-          let agent = mastra.getAgent('testAgent')
+          let agent = mastra.getAgent('routeAgent')
           let output = await agent.stream(message, {
             memory: { thread: threadId, resource: 'route-user' },
-            requireToolApproval: requireApproval,
           })
           setStream(output.runId, {
             runId: output.runId,
@@ -299,11 +296,10 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
           return context.json({ error: 'Missing runId' }, { status: 400 })
         }
 
-        let agent = mastra.getAgent('testAgent')
+        let agent = mastra.getAgent('routeAgent')
         let result = (await agent.approveToolCallGenerate({
           runId,
           toolCallId,
-          requireToolApproval: requireApproval,
         })) as {
           text?: string
           finishReason?: string
@@ -340,11 +336,10 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
           return context.json({ error: 'Missing runId' }, { status: 400 })
         }
 
-        let agent = mastra.getAgent('testAgent')
+        let agent = mastra.getAgent('routeAgent')
         let result = (await agent.declineToolCallGenerate({
           runId,
           toolCallId,
-          requireToolApproval: requireApproval,
         })) as {
           text?: string
           finishReason?: string
@@ -408,7 +403,7 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         try {
           let auth = context.get(Auth)
           let userId = auth?.ok ? auth.identity.id : 'route-user'
-          let agent = mastra.getAgent('testAgent')
+          let agent = mastra.getAgent('routeAgent')
           let output = await agent.resumeStream(resumeData, { runId, toolCallId })
 
           setStream(output.runId, {
