@@ -4,20 +4,162 @@ import { Auth } from 'remix/middleware/auth'
 import { SuperHeaders } from 'remix/headers'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
-import { setStream, getStream, verifyStreamOwner } from '../../utils/stream-store.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { RouteAgentPage } from '../../ui/route-agent-page.tsx'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
-import type { StoredStream } from '../../utils/stream-store.ts'
-import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
 const MAX_MESSAGE_LENGTH = 5000
 const sseEncoder = new TextEncoder()
 
 const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
+
+function sseHeaders() {
+  let headers = new SuperHeaders()
+  headers.contentType = { mediaType: 'text/event-stream' }
+  headers.cacheControl = { noCache: true, noStore: true }
+  headers.connection = 'keep-alive'
+  headers.set('X-Accel-Buffering', 'no')
+  return headers
+}
+
+function filterAndForward(
+  chunk: Record<string, unknown>,
+  controller: ReadableStreamDefaultController,
+  runId?: string,
+): 'suspended' | undefined {
+  let p = chunk.payload as Record<string, unknown> | undefined
+  let type = chunk.type as string
+
+  function fwd(type: string, data: unknown) {
+    let payload: string
+    try {
+      payload = JSON.stringify(data)
+    } catch {
+      payload = JSON.stringify({ _serializeError: true, type })
+    }
+    if (payload.length > 65536) {
+      if (type === 'message') {
+        let msg = JSON.parse(payload) as { text?: string }
+        msg.text = msg.text?.slice(0, 65536 - 50)
+        payload = JSON.stringify(msg)
+      } else {
+        payload = JSON.stringify({ _truncated: true, type })
+      }
+    }
+    controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${payload}\n\n`))
+  }
+
+  if (type === 'text-delta') {
+    let text = String(p?.text ?? chunk.textDelta ?? '')
+    if (text) fwd('message', { text })
+  } else if (type === 'tool-call-approval') {
+    fwd('suspension', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+      args: p?.args,
+    })
+  } else if (type === 'tool-call-suspended') {
+    let sp = p?.suspendPayload as
+      | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+      | undefined
+    if (sp?.question) {
+      fwd('question', {
+        runId,
+        toolCallId: p?.toolCallId,
+        question: sp.question,
+        options: sp.options ?? null,
+        selectionMode: sp.selectionMode ?? 'single_select',
+      })
+    }
+    return 'suspended'
+  } else if (type === 'finish') {
+    fwd('complete', {})
+  } else if (type === 'tool-result') {
+    let result = p?.result as Record<string, unknown> | undefined
+    if (result?.type === 'route' && typeof result.path === 'string') {
+      fwd('navigate', {
+        href: result.path,
+        target: 'lists-content',
+        history: 'push',
+      })
+    } else {
+      fwd('tool-result', {
+        toolCallId: p?.toolCallId,
+        toolName: p?.toolName,
+        result,
+        isError: p?.isError,
+      })
+    }
+  } else if (type === 'tool-error') {
+    fwd('tool-error', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+      args: p?.args,
+      error: p?.error,
+    })
+  } else if (type === 'error') {
+    fwd('agent-error', { error: p?.error })
+  }
+}
+
+function pipeStream(
+  fullStream: ReadableStream,
+  controller: ReadableStreamDefaultController,
+  signal: AbortSignal,
+  runId?: string,
+) {
+  let reader: ReadableStreamDefaultReader<unknown>
+  let closed = false
+
+  function closeOnce() {
+    if (closed) return
+    closed = true
+    try { controller.close() } catch { /* already closed */ }
+  }
+
+  ;(async () => {
+    reader = fullStream.getReader()
+    if (signal.aborted) {
+      reader.cancel().catch(() => {})
+      closeOnce()
+      return
+    }
+    signal.addEventListener('abort', () => {
+      reader?.cancel().catch(() => {})
+      closeOnce()
+    }, { once: true })
+
+    try {
+      while (true) {
+        let { done, value } = await reader.read()
+        if (done) break
+        if (signal.aborted) { closeOnce(); return }
+        if (!value || typeof value !== 'object') continue
+
+        let chunk = value as Record<string, unknown>
+        let result = filterAndForward(chunk, controller, runId)
+        if (result === 'suspended') {
+          reader?.cancel().catch(() => {})
+          closeOnce()
+          return
+        }
+      }
+      closeOnce()
+    } catch (err) {
+      try {
+        controller.enqueue(
+          sseEncoder.encode(`event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`),
+        )
+      } catch { /* controller already errored */ }
+      closeOnce()
+    }
+  })()
+
+  return () => reader?.cancel().catch(() => {})
+}
 
 export const routeAgent = createController<typeof routes.routeAgent, AppContext>(
   routes.routeAgent,
@@ -52,327 +194,68 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         let rawIp = context.request.headers.get('X-Forwarded-For') || ''
         let ip = rawIp.split(',')[0].trim() || 'anon'
         if (!routeAgentRateLimiter.attempt(ip)) {
-          return context.json({ error: 'Too many requests' }, { status: 429 })
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+            { status: 429, headers: sseHeaders() },
+          )
         }
 
         let rawMessage = context.formData.get('message')?.toString() ?? ''
         if (rawMessage.length > MAX_MESSAGE_LENGTH) {
-          return context.json(
-            { error: `Message too long (max ${MAX_MESSAGE_LENGTH})` },
-            { status: 400 },
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: `Message too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`),
+            { status: 400, headers: sseHeaders() },
           )
         }
         let message = rawMessage.trim()
         if (!message) {
-          return context.json({ error: 'Message is required' }, { status: 400 })
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`),
+            { status: 400, headers: sseHeaders() },
+          )
         }
 
         let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
 
-        try {
-          let auth = context.get(Auth)
-          let userId = auth?.ok ? auth.identity.id : 'route-user'
-          let agent = mastra.getAgent('routeAgent')
-          let output = await agent.stream(message, {
-            memory: { thread: threadId, resource: 'route-user' },
-          })
-          setStream(output.runId, {
-            runId: output.runId,
-            userId,
-            fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
-            getFullOutput: () => output.getFullOutput(),
-          })
-
-          return context.json({ runId: output.runId, threadId })
-        } catch (err) {
-          console.error('[routeAgent] action error:', err)
-          return context.json({ error: 'Failed to process request' }, { status: 500 })
-        }
-      },
-
-      async stream(context) {
-        let auth = context.get(Auth)
-        if (!auth?.ok || auth.identity?.role !== 'admin') {
-          return new Response('Unauthorized', { status: 401 })
-        }
-
-        let runId = context.params.runId
-        if (!runId) {
-          return new Response('Missing runId', { status: 400 })
-        }
-
-        let stored = getStream(runId)
-        if (!stored) {
-          return new Response('Stream not found', { status: 404 })
-        }
-
-        if (!verifyStreamOwner(runId, auth.identity.id)) {
-          return new Response('Forbidden', { status: 403 })
-        }
-
-        let request = context.request
-        let headers = new SuperHeaders()
-        headers.contentType = { mediaType: 'text/event-stream' }
-        headers.cacheControl = { noCache: true, noStore: true }
-        headers.connection = 'keep-alive'
-        headers.set('X-Accel-Buffering', 'no')
-
-        let reader: ReadableStreamDefaultReader<unknown> | undefined
-        let controller: ReadableStreamDefaultController
-        let closed = false
-        function closeOnce() {
-          if (closed) return
-          closed = true
-          try {
-            controller?.close()
-          } catch {
-            /* already closed */
-          }
-        }
-
-        let sseStream = new ReadableStream({
-          async start(c) {
-            controller = c
-            reader = stored.fullStream.getReader()
-
-            request.signal.addEventListener(
-              'abort',
-              () => {
-                reader?.cancel().catch(() => {})
-                closeOnce()
-              },
-              { once: true },
-            )
-
+        let body = new ReadableStream({
+          start: async (controller) => {
             try {
-              while (true) {
-                let { done, value } = await reader.read()
-                if (done) break
-                if (request.signal.aborted) {
-                  closeOnce()
-                  return
-                }
-
-                if (!value || typeof value !== 'object') continue
-                let chunk = value as Record<string, unknown>
-                let p = chunk.payload as Record<string, unknown> | undefined
-
-                let MAX_SSE_PAYLOAD = 65536
-
-                function fwd(type: string, data: unknown) {
-                  let payload: string
-                  try {
-                    payload = JSON.stringify(data)
-                  } catch {
-                    payload = JSON.stringify({ _serializeError: true, type })
-                  }
-                  if (payload.length > MAX_SSE_PAYLOAD) {
-                    if (type === 'message') {
-                      let msg = JSON.parse(payload) as { text?: string }
-                      let maxText = MAX_SSE_PAYLOAD - 50
-                      msg.text = msg.text?.slice(0, maxText)
-                      payload = JSON.stringify(msg)
-                    } else {
-                      payload = JSON.stringify({ _truncated: true, type })
-                    }
-                  }
-                  controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${payload}\n\n`))
-                }
-
-                let type = chunk.type as string
-
-                if (type === 'text-delta') {
-                  let text = String(p?.text ?? chunk.textDelta ?? '')
-                  if (text) fwd('message', { text })
-                } else if (type === 'tool-call-approval') {
-                  fwd('suspension', {
-                    runId: stored.runId,
-                    toolCallId: p?.toolCallId,
-                    toolName: p?.toolName,
-                    args: p?.args,
-                  })
-                } else if (type === 'tool-call-suspended') {
-                  let sp = p?.suspendPayload as
-                    | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
-                    | undefined
-                  if (sp?.question) {
-                    fwd('question', {
-                      runId: stored.runId,
-                      toolCallId: p?.toolCallId,
-                      question: sp.question,
-                      options: sp.options ?? null,
-                      selectionMode: sp.selectionMode ?? 'single_select',
-                    })
-                  }
-                  closeOnce()
-                  reader?.cancel().catch(() => {})
-                  return
-                } else if (type === 'finish') {
-                  fwd('complete', {})
-                } else if (type === 'tool-call-input-streaming-start') {
-                  fwd(type, { toolCallId: p?.toolCallId, toolName: p?.toolName })
-                } else if (type === 'tool-call-delta') {
-                  fwd(type, {
-                    toolCallId: p?.toolCallId,
-                    toolName: p?.toolName,
-                    argsTextDelta: p?.argsTextDelta,
-                  })
-                } else if (type === 'tool-call-input-streaming-end') {
-                  fwd(type, { toolCallId: p?.toolCallId })
-                } else if (type === 'tool-call') {
-                  fwd(type, {
-                    toolCallId: p?.toolCallId,
-                    toolName: p?.toolName,
-                    args: p?.args,
-                  })
-                } else if (type === 'tool-result') {
-                  let result = p?.result as Record<string, unknown> | undefined
-                  fwd(type, {
-                    toolCallId: p?.toolCallId,
-                    toolName: p?.toolName,
-                    result,
-                    isError: p?.isError,
-                  })
-                } else if (type === 'tool-error') {
-                  fwd(type, {
-                    toolCallId: p?.toolCallId,
-                    toolName: p?.toolName,
-                    args: p?.args,
-                    error: p?.error,
-                  })
-                } else if (type === 'step-start') {
-                  fwd(type, { messageId: p?.messageId })
-                } else if (type === 'step-finish') {
-                  let output = p?.output as Record<string, unknown> | undefined
-                  fwd(type, {
-                    reason: (p?.stepResult as Record<string, unknown> | undefined)?.reason,
-                    usage: output?.usage,
-                  })
-                } else if (type === 'start') {
-                  fwd(type, { runId: stored.runId })
-                } else if (type === 'error') {
-                  fwd('agent-error', { error: p?.error })
-                } else if (type === 'abort') {
-                  fwd(type, {})
-                } else if (type === 'reasoning-start') {
-                  fwd(type, { id: p?.id })
-                } else if (type === 'reasoning-delta') {
-                  fwd(type, { text: p?.text })
-                } else if (type === 'reasoning-end') {
-                  fwd(type, {})
-                } else if (type === 'text-start') {
-                  fwd(type, { id: p?.id })
-                } else if (type === 'text-end') {
-                  fwd(type, {})
-                }
-              }
-              closeOnce()
+              let agent = mastra.getAgent('routeAgent')
+              let output = await agent.stream(message, {
+                memory: { thread: threadId, resource: 'route-user' },
+              })
+              controller.enqueue(
+                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`),
+              )
+              pipeStream(
+                output.fullStream as unknown as ReadableStream,
+                controller,
+                context.request.signal,
+                output.runId,
+              )
             } catch (err) {
+              console.error('[routeAgent] action error:', err)
               try {
                 controller.enqueue(
-                  sseEncoder.encode(
-                    `event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`,
-                  ),
+                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process request' })}\n\n`),
                 )
-              } catch {
-                /* controller already errored */
-              }
-              closeOnce()
+              } catch { /* controller already errored */ }
+              try { controller.close() } catch { /* already closed */ }
             }
-          },
-          cancel() {
-            reader?.cancel().catch(() => {})
           },
         })
 
-        return new Response(sseStream, { headers })
-      },
-
-      async approve(context) {
-        let runId = context.formData.get('runId')?.toString()
-        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
-
-        if (!runId) {
-          return context.json({ error: 'Missing runId' }, { status: 400 })
-        }
-
-        let agent = mastra.getAgent('routeAgent')
-        let result = (await agent.approveToolCallGenerate({
-          runId,
-          toolCallId,
-        })) as {
-          text?: string
-          finishReason?: string
-          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
-          runId?: string
-        }
-
-        let auth = context.get(Auth)
-        let userId = auth?.ok ? auth.identity.id : 'route-user'
-        let newRunId = result.runId || crypto.randomUUID()
-        let responseText = result.text || ''
-
-        if (result.finishReason === 'suspended') {
-          let sp = result.suspendPayload
-          return context.json({
-            requiresApproval: true,
-            text: responseText,
-            runId: newRunId,
-            toolCallId: sp?.toolCallId,
-            toolName: sp?.toolName,
-            args: sp?.args,
-          })
-        }
-
-        setStream(newRunId, completedStream(responseText, userId, newRunId))
-        return context.json({ runId: newRunId, text: responseText })
-      },
-
-      async decline(context) {
-        let runId = context.formData.get('runId')?.toString()
-        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
-
-        if (!runId) {
-          return context.json({ error: 'Missing runId' }, { status: 400 })
-        }
-
-        let agent = mastra.getAgent('routeAgent')
-        let result = (await agent.declineToolCallGenerate({
-          runId,
-          toolCallId,
-        })) as {
-          text?: string
-          finishReason?: string
-          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
-          runId?: string
-        }
-
-        let auth = context.get(Auth)
-        let userId = auth?.ok ? auth.identity.id : 'route-user'
-        let newRunId = result.runId || crypto.randomUUID()
-        let responseText = result.text || 'The action was declined.'
-
-        if (result.finishReason === 'suspended') {
-          let sp = result.suspendPayload
-          return context.json({
-            requiresApproval: true,
-            text: responseText,
-            runId: newRunId,
-            toolCallId: sp?.toolCallId,
-            toolName: sp?.toolName,
-            args: sp?.args,
-          })
-        }
-
-        setStream(newRunId, completedStream(responseText, userId, newRunId))
-        return context.json({ runId: newRunId, text: responseText })
+        return new Response(body, { headers: sseHeaders() })
       },
 
       async answer(context) {
         let rawIp = context.request.headers.get('X-Forwarded-For') || ''
         let ip = rawIp.split(',')[0].trim() || 'anon'
         if (!routeAgentRateLimiter.attempt(ip)) {
-          return context.json({ error: 'Too many requests' }, { status: 429 })
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+            { status: 429, headers: sseHeaders() },
+          )
         }
 
         let runId = context.formData.get('runId')?.toString()
@@ -381,62 +264,133 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         let selectionMode = context.formData.get('selectionMode')?.toString()
 
         if (!runId || !answerRaw) {
-          return context.json({ error: 'Missing runId or answer' }, { status: 400 })
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId or answer' })}\n\n`),
+            { status: 400, headers: sseHeaders() },
+          )
         }
 
         if (answerRaw.length > MAX_MESSAGE_LENGTH) {
-          return context.json(
-            { error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` },
-            { status: 400 },
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`),
+            { status: 400, headers: sseHeaders() },
           )
         }
 
         let resumeData: unknown = answerRaw
         if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
-          try {
-            resumeData = JSON.parse(answerRaw)
-          } catch {
-            /* keep as string */
-          }
+          try { resumeData = JSON.parse(answerRaw) } catch { /* keep as string */ }
+        }
+
+        let body = new ReadableStream({
+          start: async (controller) => {
+            try {
+              let agent = mastra.getAgent('routeAgent')
+              let output = await agent.resumeStream(resumeData, { runId, toolCallId })
+              controller.enqueue(
+                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`),
+              )
+              pipeStream(
+                output.fullStream as unknown as ReadableStream,
+                controller,
+                context.request.signal,
+                output.runId,
+              )
+            } catch (err) {
+              console.error('[routeAgent] answer error:', err)
+              try {
+                controller.enqueue(
+                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to resume agent' })}\n\n`),
+                )
+              } catch { /* controller already errored */ }
+              try { controller.close() } catch { /* already closed */ }
+            }
+          },
+        })
+
+        return new Response(body, { headers: sseHeaders() })
+      },
+
+      async toolDecision(context) {
+        let runId = context.formData.get('runId')?.toString()
+        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
+        let decision = context.formData.get('decision')?.toString()
+
+        if (!runId) {
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId' })}\n\n`),
+            { status: 400, headers: sseHeaders() },
+          )
+        }
+
+        if (decision !== 'approve' && decision !== 'decline') {
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'decision must be "approve" or "decline"' })}\n\n`),
+            { status: 400, headers: sseHeaders() },
+          )
         }
 
         try {
-          let auth = context.get(Auth)
-          let userId = auth?.ok ? auth.identity.id : 'route-user'
           let agent = mastra.getAgent('routeAgent')
-          let output = await agent.resumeStream(resumeData, { runId, toolCallId })
+          let fn = decision === 'approve' ? agent.approveToolCallGenerate : agent.declineToolCallGenerate
+          let result = await fn({ runId, toolCallId }) as {
+            text?: string
+            finishReason?: string
+            runId?: string
+            suspendPayload?: Record<string, unknown>
+            fullStream?: ReadableStream
+          }
 
-          setStream(output.runId, {
-            runId: output.runId,
-            userId,
-            fullStream: output.fullStream as unknown as NodeReadableStream<unknown>,
-            getFullOutput: () => output.getFullOutput(),
+          if (result.finishReason === 'suspended') {
+            let sp = result.suspendPayload as
+              | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string; toolCallId?: string }
+              | undefined
+            if (sp?.question) {
+              let body2 = new ReadableStream({
+                start: (c) => {
+                  c.enqueue(sseEncoder.encode(`event: question\ndata: ${JSON.stringify({
+                    runId: result.runId || runId,
+                    toolCallId: sp?.toolCallId,
+                    question: sp.question,
+                    options: sp.options ?? null,
+                    selectionMode: sp.selectionMode ?? 'single_select',
+                  })}\n\n`))
+                  c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                  c.close()
+                },
+              })
+              return new Response(body2, { headers: sseHeaders() })
+            }
+          }
+
+          if (result.fullStream) {
+            let body3 = new ReadableStream({
+              start: async (controller) => {
+                pipeStream(result.fullStream!, controller, context.request.signal)
+              },
+            })
+            return new Response(body3, { headers: sseHeaders() })
+          }
+
+          let text = (result.text || (decision === 'approve' ? '' : 'The action was declined.')).trim()
+          let body4 = new ReadableStream({
+            start: (c) => {
+              if (text) {
+                c.enqueue(sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`))
+              }
+              c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+              c.close()
+            },
           })
-
-          return context.json({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })
+          return new Response(body4, { headers: sseHeaders() })
         } catch (err) {
-          console.error('[routeAgent] answer error:', err)
-          return context.json({ error: 'Failed to resume agent' }, { status: 500 })
+          console.error(`[routeAgent] toolDecision (${decision}) error:`, err)
+          return new Response(
+            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process tool decision' })}\n\n`),
+            { status: 500, headers: sseHeaders() },
+          )
         }
       },
     },
   },
 )
-
-function completedStream(text: string, userId: string | number, runId?: string): StoredStream {
-  let id = runId || crypto.randomUUID()
-  return {
-    runId: id,
-    userId,
-    fullStream: new ReadableStream({
-      start(controller) {
-        if (text) {
-          controller.enqueue({ type: 'text-delta', textDelta: text })
-        }
-        controller.enqueue({ type: 'finish', payload: {} })
-        controller.close()
-      },
-    }) as unknown as NodeReadableStream<unknown>,
-    getFullOutput: async () => ({ text, finishReason: 'stop' }),
-  }
-}

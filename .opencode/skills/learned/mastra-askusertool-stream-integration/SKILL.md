@@ -6,7 +6,7 @@ origin: auto-extracted
 
 # Mastra askUserTool Integration for Remix 3 Streaming Controllers
 
-**Extracted:** 2026-07-12
+**Extracted:** 2026-07-12 (updated 2026-07-13 for single-request streaming)
 **Context:** Remix 3 app with Mastra agent streaming via SSE. Adding `askUserTool` to an agent that already uses `requireApproval` for workspace tools.
 
 ## Problem
@@ -35,38 +35,65 @@ tools: { listTestFiles, askUserTool },
 
 No type cast needed — `tsc` accepts it directly.
 
-### 2. Handle `tool-call-suspended` in the SSE stream reader
+### 2. Handle `tool-call-suspended` in the stream reader (single-request pattern)
 
-In the stream handler, add a branch after the existing `tool-call-approval` branch:
+The single-request pattern pipes `agent.stream()` into a `filterAndForward()` function inside `pipeStream()`. The `tool-call-suspended` branch emits a `question` SSE event and returns `'suspended'` to signal the loop to stop:
 
 ```typescript
-} else if (chunk.type === 'tool-call-suspended') {
+function filterAndForward(
+  chunk: Record<string, unknown>,
+  controller: ReadableStreamDefaultController,
+  runId?: string,
+): 'suspended' | undefined {
   let p = chunk.payload as Record<string, unknown> | undefined
-  let sp = p?.suspendPayload as
-    | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
-    | undefined
-  if (sp?.question) {
-    controller.enqueue(
-      sseEncoder.encode(
-        `event: question\ndata: ${JSON.stringify({
-          runId: stored.runId,
-          toolCallId: p?.toolCallId,
-          question: sp.question,
-          options: sp.options ?? null,
-          selectionMode: sp.selectionMode ?? 'single_select',
-        })}\n\n`,
-      ),
-    )
+  let type = chunk.type as string
+
+  function fwd(type: string, data: unknown) {
+    controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
   }
-  closeOnce()
+
+  // ...
+  if (type === 'tool-call-approval') {
+    fwd('suspension', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+      args: p?.args,
+    })
+  } else if (type === 'tool-call-suspended') {
+    let sp = p?.suspendPayload as
+      | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+      | undefined
+    if (sp?.question) {
+      fwd('question', {
+        runId,
+        toolCallId: p?.toolCallId,
+        question: sp.question,
+        options: sp.options ?? null,
+        selectionMode: sp.selectionMode ?? 'single_select',
+      })
+    }
+    return 'suspended'  // signals pipeStream to close the loop
+  }
+  // ...
+}
+```
+
+`pipeStream` reads the return value and short-circuits:
+
+```typescript
+let result = filterAndForward(chunk, controller, runId)
+if (result === 'suspended') {
   reader?.cancel().catch(() => {})
-  return
+  closeOnce()
+  return  // stream paused — client will POST answer
 }
 ```
 
 Important: short-circuit the read loop after emitting `question` — the stream is paused, not finished.
 
-### 3. Build the answer resume endpoint
+### 3. Build the answer resume endpoint (single-request pattern)
+
+The answer handler uses the same single-request pattern: call `resumeStream` inside `ReadableStream.start`, emit a `start` event, then pipe the result:
 
 ```typescript
 async answer(context) {
@@ -76,25 +103,53 @@ async answer(context) {
   let selectionMode = context.formData.get('selectionMode')?.toString()
 
   if (!runId || !answerRaw) {
-    return context.json({ error: 'Missing runId or answer' }, { status: 400 })
+    return new Response(
+      sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId or answer' })}\n\n`),
+      { status: 400, headers: sseHeaders() },
+    )
   }
   if (answerRaw.length > MAX_MESSAGE_LENGTH) {
-    return context.json({ error: 'Answer too long' }, { status: 400 })
+    return new Response(
+      sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Answer too long' })}\n\n`),
+      { status: 400, headers: sseHeaders() },
+    )
   }
 
   // Parse multi-select JSON arrays. Only parse when selectionMode confirms it.
   let resumeData: unknown = answerRaw
   if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
-    try {
-      resumeData = JSON.parse(answerRaw)
-    } catch {
-      /* keep as string */
-    }
+    try { resumeData = JSON.parse(answerRaw) } catch { /* keep as string */ }
   }
 
-  let output = await agent.resumeStream(resumeData, { runId, toolCallId })
-  setStream(output.runId, { ... })
-  return context.json({ runId: output.runId })
+  let body = new ReadableStream({
+    start: async (controller) => {
+      try {
+        let output = await agent.resumeStream(resumeData, { runId, toolCallId })
+        controller.enqueue(
+          sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId })}\n\n`),
+        )
+        pipeStream(output.fullStream as unknown as ReadableStream, controller, context.request.signal)
+      } catch (err) {
+        controller.enqueue(sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to resume' })}\n\n`))
+        try { controller.close() } catch { /* already closed */ }
+      }
+    },
+  })
+
+  return new Response(body, { headers: sseHeaders() })
+}
+```
+
+The `sseHeaders()` helper:
+
+```typescript
+function sseHeaders() {
+  let headers = new SuperHeaders()
+  headers.contentType = { mediaType: 'text/event-stream' }
+  headers.cacheControl = { noCache: true, noStore: true }
+  headers.connection = 'keep-alive'
+  headers.set('X-Accel-Buffering', 'no')
+  return headers
 }
 ```
 
@@ -110,19 +165,24 @@ Use `textContent` not `innerHTML` for the question text (the model controls it).
 
 ### 5. Client-side answer flow
 
-The client POSTs to the answer endpoint with `selectionMode` so the server can correctly parse multi-select answers:
+The client POSTs to the answer endpoint with `selectionMode` so the server can correctly parse multi-select answers. The response is a stream (same single-request pattern), so the client calls `startStream()` which uses `fetch()` + `response.body.getReader()`:
 
 ```typescript
-let body = new FormData()
-body.set('runId', pendingQuestion.runId)
-body.set('answer', answer)
-body.set('selectionMode', pendingQuestion.selectionMode)
-if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+async function handleAnswer(answer: string) {
+  if (!pendingQuestion || !answer) return
 
-let res = await fetch('/testagent/answer', { method: 'POST', body })
+  let body = new FormData()
+  body.set('runId', pendingQuestion.runId)
+  body.set('answer', answer)
+  body.set('selectionMode', pendingQuestion.selectionMode)
+  if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+  if (currentThreadId) body.set('threadId', currentThreadId)
+
+  startStream('/agent/answer', { method: 'POST', body })
+}
 ```
 
-Only hide the question card and clear `pendingQuestion` **after** the fetch succeeds — otherwise a network error permanently strands the suspended agent run.
+Only hide the question card and clear `pendingQuestion` **after** `startStream` begins — otherwise a network error permanently strands the suspended agent run.
 
 ## When to Use
 

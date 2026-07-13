@@ -195,9 +195,7 @@ export const routes = route({
     index: get('/'),
     panel: get('/panel'),
     action: post('/'),
-    stream: get('/stream/:runId'),
-    approve: post('/approve'),
-    decline: post('/decline'),
     answer: post('/answer'),
+    toolDecision: post('/tool-decision'),
   }),
 })

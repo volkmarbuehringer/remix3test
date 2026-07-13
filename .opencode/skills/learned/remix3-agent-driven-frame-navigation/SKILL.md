@@ -7,16 +7,18 @@ origin: auto-extracted
 
 # Agent-Driven Frame Navigation via SSE Tool Results
 
-**Extracted:** 2026-07-13
-**Context:** Building a POC where a Mastra agent navigates a Remix 3 Frame to different routes. The agent has a `navigate` tool that returns `{ type: 'route', path: '...' }`. The SSE stream forwards this as a `tool-result` event, and the client catches it to navigate the frame.
+**Extracted:** 2026-07-13 (updated 2026-07-13 for single-request streaming + explicit navigate event)
+**Context:** Building a POC where a Mastra agent navigates a Remix 3 Frame to different routes. The agent has a `navigate` tool that returns `{ type: 'route', path: '...' }`. The SSE stream emits a dedicated `navigate` event, and the client catches it to navigate the frame + sync the URL bar.
 
 ## Problem
 
 Agents in Remix 3 web apps are confined to chat-bubble output. When the user asks "show me the lists", the agent can only respond with text — it cannot navigate the user to the actual `/lists` route with its full grid UI. This forces duplicate UIs (one for direct navigation, one rendered inline by the agent).
 
+Additionally, Frame-based Remix apps have a disconnect between internal Frame navigation and the browser URL bar — Frame content can change while the URL stays frozen on the agent page.
+
 ## Solution
 
-Give the agent a `navigate` tool that returns route data, then catch it client-side to programmatically navigate a Remix Frame.
+Give the agent a `navigate` tool that returns route data. The server-side SSE forwarder translates `tool-result` chunks with `type: 'route'` into a dedicated `navigate` SSE event. The clientEntry handles this event by navigating the Frame AND updating the URL bar via `history.pushState`.
 
 ### 1. Server: Define the navigate tool
 
@@ -55,12 +57,12 @@ export const routeNavigate = createTool({
 ### 2. Register the tool in the agent
 
 ```ts
-// app/actions/mastra/agents/test-agent.ts
+// app/actions/mastra/agents/route-agent.ts
 import { routeNavigate } from '../tools/route-navigate.ts'
 
-export const testAgent = new Agent({
+export const routeAgent = new Agent({
   // ...
-  tools: { routeNavigate, /* other tools */ },
+  tools: { routeNavigate, findList, askUserTool },
 })
 ```
 
@@ -77,47 +79,108 @@ instructions: `
 `,
 ```
 
-### 3. SSE controller: forward tool-result events
+### 3. SSE controller: emit `navigate` event (single-request pattern)
 
-The server action calls `agent.stream(message)` and stores the stream. The SSE endpoint reads from the stored stream and forwards chunks as SSE events. The `tool-result` event is forwarded as-is — the client discriminates by checking `result.type`.
+In the `filterAndForward()` function (called from `pipeStream()` which reads the agent's fullStream inline), detect tool results with `type: 'route'` and emit a dedicated `navigate` SSE event instead of forwarding the raw `tool-result`:
 
 ```ts
-// Inside the SSE stream forwarder:
-if (type === 'tool-result') {
-  let result = p?.result as Record<string, unknown> | undefined
-  fwd('tool-result', {
-    toolCallId: p?.toolCallId,
-    toolName: p?.toolName,
-    result,
-    isError: p?.isError,
-  })
+function filterAndForward(
+  chunk: Record<string, unknown>,
+  controller: ReadableStreamDefaultController,
+): 'suspended' | undefined {
+  let p = chunk.payload as Record<string, unknown> | undefined
+  let type = chunk.type as string
+
+  function fwd(type: string, data: unknown) {
+    controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
+  }
+
+  // ...other event types...
+
+  if (type === 'tool-result') {
+    let result = p?.result as Record<string, unknown> | undefined
+    if (result?.type === 'route' && typeof result.path === 'string') {
+      fwd('navigate', {
+        href: result.path,
+        target: 'lists-content',   // the Frame's name prop
+        history: 'push',           // pushState or replace
+      })
+    } else {
+      fwd('tool-result', { toolCallId, toolName, result, isError })
+    }
+  }
 }
 ```
 
-### 4. Client: catch and navigate
+The `navigate` event carries three fields:
 
-The `clientEntry` listens for `tool-result` SSE events. When `result.type === 'route'`, it navigates the named frame:
+| Field | Purpose |
+|-------|---------|
+| `href` | The path to navigate to (e.g. `/lists?ids=5`) |
+| `target` | The Frame name (`lists-content`, `admin-content`, etc.) |
+| `history` | `'push'` (default), `'replace'`, or `'skip'` (no URL bar change) |
+
+### 4. Client: catch `navigate` event, reload frame, sync URL bar
+
+The client uses `fetch()` + `response.body.getReader()` (single-request pattern, not EventSource). The SSE parsing loop dispatches by event type:
 
 ```ts
-// app/assets/route-agent-stream.tsx (clientEntry)
-es.addEventListener('tool-result', (event) => {
-  try {
-    let data = JSON.parse(event.data)
-    let result = data.result as Record<string, unknown> | undefined
-    if (result?.type === 'route' && typeof result.path === 'string') {
-      // Validate path on the client too (defense in depth)
-      if (result.path.startsWith('/') && !result.path.startsWith('//')) {
-        navigateFrame(result.path)
+async function startStream(url: string, init: RequestInit) {
+  let res = await fetch(url, { ...init })
+  let reader = res.body!.getReader()
+  let decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    let parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+
+    for (let part of parts) {
+      let lines = part.split('\n')
+      let eventType = ''
+      let data = ''
+      for (let line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7)
+        else if (line.startsWith('data: ')) data = line.slice(6)
+      }
+      if (!data || !eventType) continue
+
+      let parsed = JSON.parse(data)
+
+      if (eventType === 'navigate') {
+        handleNavigate(parsed)   // frame reload + URL sync
+      } else if (eventType === 'message') {
+        // append text
+      }
+      // other events: question, suspension, complete, etc.
+    }
+  }
+}
+
+function handleNavigate(data: { href: string; target?: string; history?: string }) {
+  let { href, target, history: historyMode } = data
+
+  // Validate path (defense in depth)
+  if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
+    return
+  }
+
+  let frame = target ? handle.frames.get(target) : handle.frame
+  if (frame) {
+    frame.src = href
+    frame.reload().catch(() => {})
+    // Sync the URL bar
+    if (!historyMode || historyMode !== 'skip') {
+      if (historyMode === 'replace') {
+        window.history.replaceState({}, '', href)
+      } else {
+        window.history.pushState({}, '', href)
       }
     }
-  } catch { /* ignore */ }
-})
-
-function navigateFrame(path: string) {
-  let frame = handle.frames.get('lists-content')  // the Frame's name prop
-  if (frame) {
-    frame.src = path
-    frame.reload().catch(() => {})
   }
 }
 ```
@@ -138,13 +201,11 @@ The `name` prop must match what the client uses in `handle.frames.get()`. The `X
 
 ### 6. Security: CSRF and requireToolApproval
 
-Agent action/stream endpoints must be exempt from CSRF if the agent doesn't send CSRF tokens. Add them to the skip list:
+Agent action endpoints must be exempt from CSRF if the agent doesn't send CSRF tokens. Add them to the skip list:
 
 ```ts
 // app/middleware/skip-csrf.ts
 if (
-  context.url.pathname === '/testagent' ||
-  context.url.pathname.startsWith('/testagent/') ||
   context.url.pathname === '/route-agent' ||
   context.url.pathname.startsWith('/route-agent/')
 ) {
@@ -162,14 +223,17 @@ let output = await agent.stream(message, {
 
 ### 7. Rate limit agent endpoints
 
-Agent actions call LLMs which cost money. Add rate limiting:
+Agent actions call LLMs which cost money. Add rate limiting. Return SSE error events (not JSON) since the client expects `text/event-stream`:
 
 ```ts
 const agentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
 
 // In action:
 if (!agentRateLimiter.attempt(ip)) {
-  return context.json({ error: 'Too many requests' }, { status: 429 })
+  return new Response(
+    sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+    { status: 429, headers: sseHeaders() },
+  )
 }
 ```
 
@@ -177,11 +241,17 @@ if (!agentRateLimiter.attempt(ip)) {
 
 - You have a Remix 3 app with a Mastra agent and want the agent to navigate users to existing routes instead of rendering inline chat bubbles
 - You're building a "command bar" interface where the agent serves as a routing layer
-- The `navigate` tool result pattern is more appropriate when the agent should show the full route UI (grids, forms, pagination) rather than inline text
+- You need the browser URL bar to stay in sync with the Frame's internal navigation
+
+## Related Skills
+
+- `mastra-agent-single-request-streaming` — the transport layer this pattern builds on (piping agent fullStream directly into POST response)
+- `mastra-askusertool-stream-integration` — adding question/answer flows alongside navigation
 
 ## Caveats
 
 - **Path validation is critical.** Without it, a user can inject data that an LLM reads as a tool-call instruction, navigating the frame to an arbitrary URL. Validate on both server (in the tool's `execute`) and client (before assigning to `frame.src`).
 - **The question handler must be implemented.** If the agent uses `ask_user`, the SSE stream emits a `question` event. The client must listen for it and provide an answer UI, or the agent hangs.
+- **historyMode choice matters.** `'push'` creates a new history entry for each navigation; `'replace'` replaces the current entry (good for the first navigation from the agent page so back skips the agent).
 - **Not supported by Remix Frame `target` navigation of `<a>`/`<form>` elements.** This pattern navigates the frame programmatically via `handle.frames.get(name)`. Some Frame navigation patterns use `target="frameName"` on `<a>` links — those are separate mechanisms.
 - **Rate limit ALL agent endpoints** (action + answer) to prevent unbounded LLM costs.

@@ -3,10 +3,9 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 export const RouteAgentStream = clientEntry(
   import.meta.url + '#RouteAgentStream',
   function RouteAgentStream(handle: Handle) {
-    let currentEventSource: EventSource | null = null
+    let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
-    let streamingText = ''
 
     let pendingQuestion: {
       runId: string
@@ -15,9 +14,9 @@ export const RouteAgentStream = clientEntry(
     } | null = null
 
     function abortStream() {
-      if (currentEventSource) {
-        currentEventSource.close()
-        currentEventSource = null
+      if (abortController) {
+        abortController.abort()
+        abortController = null
       }
     }
 
@@ -33,33 +32,15 @@ export const RouteAgentStream = clientEntry(
       if (submit) submit.disabled = !enabled
     }
 
-    function navigateFrame(path: string) {
-      if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
-        setBarText('Invalid navigation path')
-        return
-      }
-      let frame = handle.frames.get('lists-content')
-      if (frame) {
-        frame.src = path
-        frame.reload().catch(() => {})
-      } else {
-        setBarText('Error: frame not found')
-      }
-    }
-
-    function esc(s: string): string {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    }
-
     function showQuestion(data: {
-      runId: string
+      runId?: string
       toolCallId?: string
       question: string
       options?: { label: string; description?: string }[] | null
       selectionMode: string
     }) {
       pendingQuestion = {
-        runId: data.runId,
+        runId: data.runId || currentRunId || '',
         toolCallId: data.toolCallId,
         selectionMode: data.selectionMode,
       }
@@ -85,130 +66,135 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
+    function handleNavigate(data: { href: string; target?: string; history?: string }) {
+      let { href, target, history: historyMode } = data
+      if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
+        setBarText('Invalid navigation path')
+        return
+      }
+      let frame = target ? handle.frames.get(target) : handle.frame
+      if (frame) {
+        frame.src = href
+        frame.reload().catch(() => {})
+        if (!historyMode || historyMode !== 'skip') {
+          if (historyMode === 'replace') {
+            window.history.replaceState({}, '', href)
+          } else {
+            window.history.pushState({}, '', href)
+          }
+        }
+      } else {
+        setBarText('Error: frame not found')
+      }
+    }
+
     async function handleAnswer(answer: string) {
       if (!pendingQuestion || !answer) return
       setFormEnabled(false)
       hideQuestion()
 
-      try {
-        let body = new FormData()
-        body.set('runId', pendingQuestion.runId)
-        body.set('answer', answer)
-        body.set('selectionMode', pendingQuestion.selectionMode)
-        if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-        if (currentThreadId) body.set('threadId', currentThreadId)
+      let body = new FormData()
+      body.set('runId', pendingQuestion.runId)
+      body.set('answer', answer)
+      body.set('selectionMode', pendingQuestion.selectionMode)
+      if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+      if (currentThreadId) body.set('threadId', currentThreadId)
 
-        let res = await fetch('/route-agent/answer', {
-          method: 'POST',
-          body,
-        })
+      startStream('/route-agent/answer', { method: 'POST', body })
+    }
+
+    async function startStream(url: string, init: RequestInit) {
+      abortStream()
+      abortController = new AbortController()
+      let signal = abortController.signal
+      let streamingText = ''
+
+      try {
+        let res = await fetch(url, { ...init, signal })
         if (!res.ok) {
-          setBarText('Failed to submit answer')
+          let text = await res.text().catch(() => '')
+          let match = text.match(/data: (.*)\n/)
+          let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
+          setBarText('Error: ' + msg)
           setFormEnabled(true)
           return
         }
-        let data = await res.json()
-        if (data.runId) {
-          startStream(data.runId)
+
+        let reader = res.body?.getReader()
+        if (!reader) {
+          setBarText('Error: no response body')
+          setFormEnabled(true)
+          return
+        }
+
+        let decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          let { done, value } = await reader.read()
+          if (done) break
+          if (signal.aborted) { reader.cancel().catch(() => {}); return }
+
+          buffer += decoder.decode(value, { stream: true })
+          let parts = buffer.split('\n\n')
+          buffer = parts.pop() || ''
+
+          for (let part of parts) {
+            let lines = part.split('\n')
+            let eventType = ''
+            let data = ''
+            for (let line of lines) {
+              if (line.startsWith('event: ')) eventType = line.slice(7)
+              else if (line.startsWith('data: ')) data = line.slice(6)
+            }
+            if (!data) continue
+
+            try {
+              let parsed = JSON.parse(data)
+
+              if (eventType === 'start') {
+                if (parsed.runId) currentRunId = parsed.runId
+                if (parsed.threadId) currentThreadId = parsed.threadId
+              } else if (eventType === 'message') {
+                streamingText += parsed.text || ''
+                setBarText(streamingText)
+              } else if (eventType === 'navigate') {
+                setBarText('Navigating to ' + parsed.href + '...')
+                handleNavigate(parsed)
+              } else if (eventType === 'question') {
+                showQuestion(parsed)
+                reader.cancel().catch(() => {})
+                return
+              } else if (eventType === 'suspension') {
+                setBarText('Tool requires approval: ' + (parsed.toolName || 'unknown'))
+                reader.cancel().catch(() => {})
+                return
+              } else if (eventType === 'tool-error') {
+                setBarText('Tool error: ' + (parsed.error || 'unknown'))
+              } else if (eventType === 'stream-error') {
+                setBarText('Stream error: ' + (parsed.error || 'unknown'))
+              } else if (eventType === 'complete') {
+                if (pendingQuestion) return
+              } else if (eventType === 'agent-error') {
+                setBarText('Error: ' + (parsed.error || 'unknown'))
+              }
+            } catch {
+              if (eventType === 'message') {
+                streamingText += data
+                setBarText(streamingText)
+              }
+            }
+          }
+        }
+
+        if (!pendingQuestion) {
+          setFormEnabled(true)
         }
       } catch (err) {
-        setBarText('Answer error: ' + String(err))
+        if ((err as Error)?.name === 'AbortError') return
+        setBarText('Error: ' + String(err))
         setFormEnabled(true)
       }
-    }
-
-    function startStream(runId: string) {
-      abortStream()
-      streamingText = ''
-      currentRunId = runId
-
-      let url = `/route-agent/stream/${encodeURIComponent(runId)}`
-      let es = new EventSource(url)
-      currentEventSource = es
-
-      es.addEventListener('message', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.text) {
-            streamingText += data.text
-            setBarText(streamingText)
-          }
-        } catch {
-          streamingText += event.data
-          setBarText(streamingText)
-        }
-      })
-
-      es.addEventListener('tool-result', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          let result = data.result as Record<string, unknown> | undefined
-          if (result?.type === 'route' && typeof result.path === 'string') {
-            setBarText('Navigating to ' + result.path + '...')
-            navigateFrame(result.path)
-          }
-        } catch {
-          /* ignore parse errors */
-        }
-      })
-
-      es.addEventListener('tool-error', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          setBarText('Tool error: ' + (data.error || 'unknown'))
-        } catch {
-          setBarText('A tool error occurred.')
-        }
-      })
-
-      es.addEventListener('suspension', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          setBarText('Tool requires approval: ' + (data.toolName || 'unknown'))
-        } catch {
-          setBarText('Tool requires approval.')
-        }
-        es.close()
-        currentEventSource = null
-        currentRunId = null
-        streamingText = ''
-        setFormEnabled(true)
-      })
-
-      es.addEventListener('question', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          showQuestion(data)
-        } catch {
-          /* ignore parse errors */
-        }
-        es.close()
-        currentEventSource = null
-        currentRunId = null
-        streamingText = ''
-        setFormEnabled(true)
-      })
-
-      function streamEnded() {
-        if (pendingQuestion) return
-        es.close()
-        currentEventSource = null
-        currentRunId = null
-        setFormEnabled(true)
-      }
-
-      es.addEventListener('complete', streamEnded)
-      es.addEventListener('stream-error', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          setBarText('Stream error: ' + (data.error || 'unknown'))
-        } catch {
-          setBarText('Stream error.')
-        }
-        streamEnded()
-      })
-
-      es.addEventListener('error', streamEnded)
     }
 
     async function handleFormSubmit(e: Event) {
@@ -224,26 +210,7 @@ export const RouteAgentStream = clientEntry(
       if (input) input.value = ''
       setFormEnabled(false)
 
-      try {
-        let res = await fetch('/route-agent', {
-          method: 'POST',
-          body: formData,
-        })
-        if (!res.ok) {
-          let err = await res.json().catch(() => ({ error: 'Request failed' }))
-          setBarText('Error: ' + (err.error || res.statusText))
-          setFormEnabled(true)
-          return
-        }
-        let data = await res.json()
-        if (data.threadId) currentThreadId = data.threadId
-        if (data.runId) {
-          startStream(data.runId)
-        }
-      } catch (err) {
-        setBarText('Error: ' + String(err))
-        setFormEnabled(true)
-      }
+      startStream('/route-agent', { method: 'POST', body: formData })
     }
 
     return () => (
