@@ -182,7 +182,6 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
       async create(context) {
         let db = context.db
         let formData = context.formData
-        let gridValues = gridStateFromFormData(formData)
 
         let threadId = context.request.headers.get('X-Agent-Thread')
         if (threadId) {
@@ -200,6 +199,21 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
             },
             { returnRow: true },
           )
+          let authIdentity = getAdminIdentity(context.auth)
+          if (authIdentity) {
+            logAdminAction(context.db, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'create',
+              target_type: 'resources',
+              target_id: row.id as number,
+              details: {
+                name: parsed.name.trim(),
+                description: parsed.description.trim(),
+                capabilities: parsed.capabilities.trim(),
+              },
+            })
+          }
           return context.json({
             status: 'created',
             data: { id: row.id, name: row.name, description: row.description, capabilities: row.capabilities },
@@ -207,6 +221,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           })
         }
 
+        let gridValues = gridStateFromFormData(formData)
         let result = s.parseSafe(resourceSaveSchema, formData)
 
         if (!result.success) {

@@ -279,6 +279,8 @@ export const RouteAgentStream = clientEntry(
                 setBarText('Stream error: ' + (parsed.error || 'unknown'))
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
+                currentRunId = null
+                currentThreadId = null
               } else if (eventType === 'agent-error') {
                 setBarText('Error: ' + (parsed.error || 'unknown'))
               }
@@ -318,6 +320,7 @@ export const RouteAgentStream = clientEntry(
     }
 
     async function handleFrameFormSubmit(e: Event) {
+      if (!pendingQuestion || !currentThreadId) return
       let form = (e.target as HTMLElement).closest('form')
       if (!form || form.id === 'route-agent-form') return
       e.preventDefault()
@@ -326,9 +329,7 @@ export const RouteAgentStream = clientEntry(
 
       try {
         let headers: Record<string, string> = {}
-        if (currentThreadId) {
-          headers['X-Agent-Thread'] = currentThreadId
-        }
+        headers['X-Agent-Thread'] = currentThreadId
         let res = await fetch(form.action, {
           method: 'POST',
           headers,
