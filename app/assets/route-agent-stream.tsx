@@ -338,11 +338,9 @@ export const RouteAgentStream = clientEntry(
         if (ct.includes('json')) {
           let data = await res.json()
           let body = new FormData()
-          body.set('runId', currentRunId || '')
-          body.set('answer', JSON.stringify(data))
-          body.set('selectionMode', 'single_select')
-          if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-          startStream('/route-agent/answer', { method: 'POST', body })
+          body.set('message', 'Form result: ' + JSON.stringify(data))
+          if (currentThreadId) body.set('threadId', currentThreadId)
+          startStream('/route-agent', { method: 'POST', body })
           return
         }
       } catch (err) {
