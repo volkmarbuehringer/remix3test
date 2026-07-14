@@ -9,7 +9,6 @@ import { pool } from '../../data/connection.ts'
 export const mastraStorage = new PostgresStoreVNext({
   id: 'mastra',
   pool,
-  disableInit: true,
   observability: { pool },
 })
 
