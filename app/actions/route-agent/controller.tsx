@@ -29,6 +29,7 @@ function getTarget(path: string): string {
   let prefixes: [string, string][] = [
     ['/admin', 'admin-content'],
     ['/mastra', 'admin-content'],
+    ['/verwaltung', 'admin-content'],
     ['/lists', 'lists-content'],
   ]
   let match: [string, string] | undefined

@@ -184,6 +184,29 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         let formData = context.formData
         let gridValues = gridStateFromFormData(formData)
 
+        let threadId = context.request.headers.get('X-Agent-Thread')
+        if (threadId) {
+          let result = s.parseSafe(resourceSaveSchema, formData)
+          if (!result.success) {
+            return context.json({ status: 'validation_error', issues: result.issues, threadId }, { status: 400 })
+          }
+          let parsed = result.value as Record<string, string>
+          let row = await db.create(
+            resources,
+            {
+              name: parsed.name.trim(),
+              description: parsed.description.trim(),
+              capabilities: parsed.capabilities.trim(),
+            },
+            { returnRow: true },
+          )
+          return context.json({
+            status: 'created',
+            data: { id: row.id, name: row.name, description: row.description, capabilities: row.capabilities },
+            threadId,
+          })
+        }
+
         let result = s.parseSafe(resourceSaveSchema, formData)
 
         if (!result.success) {

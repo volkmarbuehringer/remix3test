@@ -325,10 +325,26 @@ export const RouteAgentStream = clientEntry(
       setBarText('Submitting form...')
 
       try {
-        await fetch(form.action, {
+        let headers: Record<string, string> = {}
+        if (currentThreadId) {
+          headers['X-Agent-Thread'] = currentThreadId
+        }
+        let res = await fetch(form.action, {
           method: 'POST',
+          headers,
           body: new FormData(form),
         })
+        let ct = res.headers.get('content-type') || ''
+        if (ct.includes('json')) {
+          let data = await res.json()
+          let body = new FormData()
+          body.set('runId', currentRunId || '')
+          body.set('answer', JSON.stringify(data))
+          body.set('selectionMode', 'single_select')
+          if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+          startStream('/route-agent/answer', { method: 'POST', body })
+          return
+        }
       } catch (err) {
         console.error('Form submission failed:', err)
       }
