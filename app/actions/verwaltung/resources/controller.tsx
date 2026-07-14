@@ -30,6 +30,7 @@ import {
   gridStateFilter,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
+import { readAgentPrefill } from '../../../utils/agent-prefill.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Resources
@@ -175,7 +176,9 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
 
     actions: {
       async index(context) {
-        let data = await loadResourcePageData(context)
+        let prefill = readAgentPrefill(context.request)
+        let overrides = prefill ? { formValues: prefill } : undefined
+        let data = await loadResourcePageData(context, overrides)
         return renderResourcePage(context, data)
       },
 

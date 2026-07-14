@@ -7,8 +7,9 @@ export const routeNavigate = createTool({
   inputSchema: z.object({
     path: z.string().describe('Route path, e.g. /lists or /admin/nutzer'),
     query: z.record(z.string(), z.string()).optional().describe('Query parameters, e.g. { load: "5", filter: "active" }'),
+    data: z.record(z.string(), z.string()).optional().describe('Form field values to prefill on the target page, e.g. { name: "Meeting Room A" }'),
   }),
-  execute: async ({ path, query }) => {
+  execute: async ({ path, query, data }) => {
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
       return { type: 'error', error: 'path must be a relative route starting with /' }
     }
@@ -19,6 +20,6 @@ export const routeNavigate = createTool({
     let params = new URLSearchParams(query)
     let qs = params.toString()
     let separator = path.includes('?') ? '&' : '?'
-    return { type: 'route', path: qs ? `${path}${separator}${qs}` : path }
+    return { type: 'route', path: qs ? `${path}${separator}${qs}` : path, data }
   },
 })

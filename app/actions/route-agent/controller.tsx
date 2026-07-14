@@ -96,10 +96,12 @@ function filterAndForward(
   } else if (type === 'tool-result') {
     let result = p?.result as Record<string, unknown> | undefined
     if (result?.type === 'route' && typeof result.path === 'string') {
+      let prefill = result.data as Record<string, string> | undefined
       fwd('navigate', {
         href: result.path,
         target: getTarget(result.path),
         history: 'push',
+        ...(prefill ? { prefill } : {}),
       })
     } else {
       fwd('tool-result', {

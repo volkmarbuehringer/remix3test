@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { agentPrefillMap } from './agent-prefill-store.ts'
 
 export const RouteAgentStream = clientEntry(
   import.meta.url + '#RouteAgentStream',
@@ -149,11 +150,15 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
-    function handleNavigate(data: { href: string; target?: string; history?: string }) {
+    function handleNavigate(data: { href: string; target?: string; history?: string; prefill?: Record<string, string> }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
         setBarText('Invalid navigation path')
         return
+      }
+
+      if (data.prefill) {
+        agentPrefillMap.set(href, data.prefill)
       }
 
       let frame = target ? handle.frames.get(target) : handle.frame
@@ -325,6 +330,10 @@ export const RouteAgentStream = clientEntry(
       if (!form || form.id === 'route-agent-form') return
       e.preventDefault()
 
+      let container = document.getElementById('route-agent-frame-container')
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
+      let frame = handle.frames.get(activeFrame)
+
       setBarText('Submitting form...')
 
       try {
@@ -344,15 +353,16 @@ export const RouteAgentStream = clientEntry(
           body.set('selectionMode', 'single_select')
           if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
           startStream('/route-agent/answer', { method: 'POST', body })
+          if (frame && data.status === 'created') {
+            frame.src = new URL(form.action, location.origin).pathname
+            frame.reload().catch(() => {})
+          }
           return
         }
       } catch (err) {
         console.error('Form submission failed:', err)
       }
 
-      let container = document.getElementById('route-agent-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
-      let frame = handle.frames.get(activeFrame)
       if (frame) {
         await frame.reload()
       }

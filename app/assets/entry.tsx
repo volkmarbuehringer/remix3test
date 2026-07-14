@@ -5,6 +5,7 @@ import { Accept, SuperHeaders } from 'remix/headers'
 import { theme } from '../ui/theme/theme.ts'
 
 import { routes } from '../routes.ts'
+import { agentPrefillMap } from './agent-prefill-store.ts'
 
 const app = run({
   async loadModule(moduleUrl, exportName) {
@@ -33,7 +34,19 @@ async function resolveFrameResponse(
     headers.set('X-Remix-Target', target)
   }
 
+  let prefillKey = url.pathname + url.search
+  let prefill = agentPrefillMap.get(prefillKey)
+  if (prefill) {
+    let encoded = new TextEncoder().encode(JSON.stringify(prefill))
+    let binary = String.fromCharCode(...new Uint8Array(encoded))
+    headers.set('X-Agent-Prefill', btoa(binary))
+  }
+
   let response = await fetch(url, { headers, signal })
+
+  if (prefill && response.ok) {
+    agentPrefillMap.delete(prefillKey)
+  }
 
   if (response.status === 401) {
     window.location.assign(routes.auth.login.index.href())
