@@ -344,7 +344,7 @@ export const RouteAgentStream = clientEntry(
           headers,
           body: new FormData(form),
         })
-        let ct = res.headers.get('content-type') || ''
+        let ct = res.headers.get('Content-Type') || ''
         if (ct.includes('json')) {
           let data = await res.json()
           let body = new FormData()
