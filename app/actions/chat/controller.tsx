@@ -165,11 +165,7 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
     },
 
     async stream(context) {
-      let auth = context.get(Auth)
-      if (!auth?.ok) {
-        return new Response('Unauthorized', { status: 401 })
-      }
-
+      let auth = context.get(Auth) as { identity: { id: number } }
       let runId = context.params.runId
       if (!runId) {
         return new Response('Missing runId', { status: 400 })

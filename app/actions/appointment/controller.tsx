@@ -127,13 +127,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
 
     actions: {
       async index(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return Response.redirect(
-            new URL(routes.auth.login.index.href(), context.request.url),
-            302,
-          )
-        }
+        let auth = context.auth as { identity: User }
         let currentUser = auth.identity as User
         let currentUserId = currentUser.id
         let isAdmin = currentUser.role === 'admin'
@@ -203,10 +197,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
       },
 
       async create(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
 
         if (process.env.NODE_ENV !== 'test' && !appointmentCreateLimiter.attempt(userId)) {
@@ -326,10 +317,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
       },
 
       async update(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let currentUser = auth.identity as User
         let userId = currentUser.id
         let isAdmin = currentUser.role === 'admin'
@@ -419,10 +407,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
       },
 
       async destroy(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let currentUser = auth.identity as User
         let userId = currentUser.id
         let isAdmin = currentUser.role === 'admin'
@@ -480,10 +465,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
 
     actions: {
       async index(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return new Response(null, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
 
         let types = await listAppointTypes(context.db, userId)
@@ -507,10 +489,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
       },
 
       async create(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
 
         let body = context.get(JsonBody)
@@ -532,10 +511,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
       },
 
       async update(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
         let typeId = parseId(context.params.id)
         if (typeId === undefined) {
@@ -568,10 +544,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
       },
 
       async destroy(context) {
-        let auth = context.auth
-        if (!auth?.ok) {
-          return context.json({ error: 'Authentication required.' }, { status: 401 })
-        }
+        let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
         let typeId = parseId(context.params.id)
         if (typeId === undefined) {

@@ -341,17 +341,15 @@ export default createController<typeof routes.appointmentsNew, AppContext>(route
 
   actions: {
     async index(context) {
-      let auth = context.auth
-      if (!auth?.ok) return redirectToLogin(context)
-      let userId = (auth.identity as { id: number }).id
+      let auth = context.auth as { identity: { id: number; role: string } }
+      let userId = auth.identity.id
       let data = await loadAppointmentsNewPageData(context, userId)
       return renderAppointmentsNewPage(context, data)
     },
 
     async create(context) {
-      let auth = context.auth
-      if (!auth?.ok) return redirectToLogin(context)
-      let userId = (auth.identity as { id: number }).id
+      let auth = context.auth as { identity: { id: number; role: string } }
+      let userId = auth.identity.id
       let formData = context.formData
       let formValues = readFormFieldValues(APPOINTMENTS_NEW_FORM_KEYS, formData)
       let gridValues = gridStateFromFormData(formData)
@@ -544,9 +542,8 @@ export default createController<typeof routes.appointmentsNew, AppContext>(route
     },
 
     async destroy(context) {
-      let auth = context.auth
-      if (!auth?.ok) return redirectToLogin(context)
-      let userId = (auth.identity as { id: number }).id
+      let auth = context.auth as { identity: { id: number; role: string } }
+      let userId = auth.identity.id
       let id = context.params.id
       let formData = context.formData
 
