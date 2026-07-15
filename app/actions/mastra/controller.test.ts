@@ -13,6 +13,64 @@ import { __setTestAgent, chatRateLimiter } from './controller.tsx'
 
 import { supportTools } from './tools/support-tools.ts'
 import { runWithAdminId } from './tools/admin-context.ts'
+import type { AgentStreamOutput } from './shared-agent.ts'
+
+// ── SSE response parser ──
+
+async function parseSSEResponse(response: Response): Promise<{ events: Array<{ type: string; data: string }>; text: string }> {
+  let events: Array<{ type: string; data: string }> = []
+  let text = ''
+  let body = response.body
+  if (!body) return { events, text }
+
+  let reader = body.getReader()
+  let decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+    for (let part of parts) {
+      let lines = part.split('\n')
+      let eventType = 'message'
+      let data = ''
+      for (let line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7)
+        else if (line.startsWith('data: ')) data = line.slice(6)
+      }
+      events.push({ type: eventType, data })
+      if (eventType === 'message') {
+        try {
+          let parsed = JSON.parse(data)
+          text += parsed.text || ''
+        } catch {
+          text += data
+        }
+      }
+    }
+  }
+  return { events, text }
+}
+
+function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput {
+  let id = runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        if (text) {
+          controller.enqueue({ type: 'text-delta', textDelta: text })
+        }
+        controller.enqueue({ type: 'finish', payload: {} })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text, finishReason: 'stop' }),
+  }
+}
 
 // ── Weather tool mock helpers ──
 
@@ -100,7 +158,7 @@ describe('Mastra Chat controller', () => {
     assert.equal(response.status, 403)
   })
 
-  it('POST /mastra/chat with empty message returns 400', async () => {
+  it('POST /mastra/chat with empty message returns SSE error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -112,11 +170,14 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 400)
-    let json = (await response.json()) as { error?: string }
-    assert.ok(json.error, 'response should include an error message')
+    let { events } = await parseSSEResponse(response)
+    let errorEvent = events.find(e => e.type === 'agent-error')
+    assert.ok(errorEvent, 'response should include an agent-error event')
+    let data = JSON.parse(errorEvent!.data)
+    assert.ok(data.error, 'error event should include an error message')
   })
 
-  it('POST /mastra/chat with whitespace-only message returns 400', async () => {
+  it('POST /mastra/chat with whitespace-only message returns SSE error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -128,15 +189,15 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 400)
-    let json = (await response.json()) as { error?: string }
-    assert.ok(json.error, 'response should include an error message')
+    let { events } = await parseSSEResponse(response)
+    let errorEvent = events.find(e => e.type === 'agent-error')
+    assert.ok(errorEvent, 'response should include an agent-error event')
   })
 
   it('POST /mastra/chat triggers rate limit on rapid requests', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
-    // First POST consumes a rate-limit token (fails at agent call since no API key, but rate limit is consumed)
     await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
       headers: { Cookie: session.cookie, ...JSON_HEADERS },
@@ -152,11 +213,12 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(second.status, 429)
-    let json = (await second.json()) as { error?: string }
-    assert.ok(json.error, '429 response should include an error message')
+    let { events } = await parseSSEResponse(second)
+    let errorEvent = events.find(e => e.type === 'agent-error')
+    assert.ok(errorEvent, '429 response should include an agent-error event')
   })
 
-  it('POST /mastra/chat with valid message returns 200 and response text using mock agent', async () => {
+  it('POST /mastra/chat with valid message returns SSE stream with response text', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
@@ -165,9 +227,9 @@ describe('Mastra Chat controller', () => {
     assert.ok(session?.cookie, 'Failed to create auth session')
 
     let mockAgent = {
-      generate: async (_message: string, _opts?: any) => ({
-        text: 'Here is the user data you requested.',
-      }),
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput('Here is the user data you requested.'),
+      resumeStream: async () => createMockStreamOutput(''),
     }
     __setTestAgent(mockAgent)
 
@@ -179,15 +241,18 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 200)
-    let json = (await response.json()) as { response?: string; threadId?: string }
-    assert.equal(json.response, 'Here is the user data you requested.')
-    assert.ok(json.threadId, 'response should include a threadId')
-    assert.ok(json.threadId!.length > 0, 'threadId should be a non-empty string')
+    assert.equal(response.headers.get('Content-Type'), 'text/event-stream')
+
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.ok(JSON.parse(events[0].data).runId, 'start event should include runId')
+    assert.equal(text, 'Here is the user data you requested.')
+    assert.ok(events.find(e => e.type === 'complete'), 'should have a complete event')
 
     __setTestAgent(undefined)
   })
 
-  it('POST /mastra/chat continues an existing thread when threadId is provided', async () => {
+  it('POST /mastra/chat passes threadId to agent stream options', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
@@ -198,11 +263,13 @@ describe('Mastra Chat controller', () => {
     assert.ok(session?.cookie, 'Failed to create auth session')
 
     let mockAgent = {
-      generate: async (_message: string, opts?: any) => {
+      generate: async () => ({ text: '' }),
+      stream: async (_message: string, opts?: any) => {
         assert.equal(opts?.memory?.thread, existingThreadId, 'threadId should be passed to memory')
         assert.equal(opts?.memory?.resource, String(adminId), 'resource should be scoped to user')
-        return { text: 'Continuing conversation.' }
+        return createMockStreamOutput('Continuing conversation.')
       },
+      resumeStream: async () => createMockStreamOutput(''),
     }
     __setTestAgent(mockAgent)
 
@@ -218,9 +285,9 @@ describe('Mastra Chat controller', () => {
     })
 
     assert.equal(response.status, 200)
-    let json = (await response.json()) as { response?: string; threadId?: string }
-    assert.equal(json.response, 'Continuing conversation.')
-    assert.equal(json.threadId, existingThreadId, 'should echo back the provided threadId')
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.equal(text, 'Continuing conversation.')
 
     __setTestAgent(undefined)
   })

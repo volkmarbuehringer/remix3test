@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent'
 import { Memory } from '@mastra/memory'
+import { askUserTool } from '@mastra/core/tools'
 import { supportTools } from '../tools/support-tools.ts'
 import { completenessScorer } from '../scorers/support-scorers.ts'
 import { mastraStorage } from '../storage.ts'
@@ -30,6 +31,8 @@ Available tools:
 - generate_pdf_report: Generate a PDF report (appointment-list or user-list)
 - cancel_user_account: Cancel a user account by ID — deletes all future appointments, disables login, and prevents re-registration with the same email. This tool requires system-level approval — the admin will see an approval button. Do NOT ask for additional confirmation in the chat.
 
+- ask_user: Ask the admin a clarifying question with optional selection options. Use this when input is ambiguous (e.g., multiple users matching a search, unclear date range, multiple resources with the same name). Pass 'question' (required), 'options' (optional array of '{ label, description }'), and 'selectionMode' ("single_select" or "multi_select", default "single_select").
+
 Rules:
 - Only answer using the tools above.
 - Keep responses concise and factual.
@@ -46,7 +49,7 @@ Rules:
     url: OPENCODE_API_URL,
     apiKey: process.env.OPENCODE_API_KEY,
   },
-  tools: supportTools,
+  tools: { ...supportTools, askUserTool },
   memory: new Memory({
     storage: mastraStorage,
     options: {

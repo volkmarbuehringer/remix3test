@@ -177,8 +177,8 @@ export const routes = route({
     chat: route('chat', {
       index: get('/'),
       action: post('/'),
-      approve: post('/approve'),
-      decline: post('/decline'),
+      toolDecision: post('/tool-decision'),
+      answer: post('/answer'),
     }),
   }),
 

@@ -1,9 +1,8 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { agentPrefillMap } from './agent-prefill-store.ts'
 
-export const RouteAgentStream = clientEntry(
-  import.meta.url + '#RouteAgentStream',
-  function RouteAgentStream(handle: Handle) {
+export const SupportAgentStream = clientEntry(
+  import.meta.url + '#SupportAgentStream',
+  function SupportAgentStream(handle: Handle) {
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
@@ -28,8 +27,8 @@ export const RouteAgentStream = clientEntry(
     }
 
     function setFormEnabled(enabled: boolean) {
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
-      let submit = document.getElementById('route-agent-submit') as HTMLButtonElement | null
+      let input = document.getElementById('support-agent-input') as HTMLInputElement | null
+      let submit = document.getElementById('support-agent-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
       if (submit) submit.disabled = !enabled
     }
@@ -51,9 +50,9 @@ export const RouteAgentStream = clientEntry(
       if (!bar) return
 
       if (!data.options || data.options.length === 0) {
-        bar.textContent = 'Agent asks: ' + data.question
+        bar.textContent = 'Frage: ' + data.question
         bar.style.cursor = 'pointer'
-        bar.title = 'Click to answer...'
+        bar.title = 'Klicken zum Antworten...'
         bar.onclick = () => {
           let answer = prompt(data.question)
           if (answer) handleAnswer(answer)
@@ -136,8 +135,80 @@ export const RouteAgentStream = clientEntry(
       } catch (err) {
         pendingQuestion = null
         bar.innerHTML = ''
-        bar.textContent = 'Error rendering question: ' + String(err)
+        bar.textContent = 'Fehler beim Anzeigen der Frage: ' + String(err)
       }
+    }
+
+    function showSuspension(data: {
+      toolCallId?: string
+      toolName?: string
+      args?: Record<string, unknown>
+    }) {
+      let bar = document.getElementById('agent-bar')
+      if (!bar) return
+
+      bar.innerHTML = ''
+      bar.style.cursor = ''
+      bar.title = ''
+      bar.onclick = null
+
+      let isCancelUser = data.toolName === 'cancel_user_account'
+
+      let warning = document.createElement('div')
+      warning.textContent = isCancelUser
+        ? '⚠ Benutzerkonto löschen?'
+        : 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
+      warning.style.fontWeight = '600'
+      warning.style.marginBottom = '8px'
+      warning.style.fontSize = '0.875rem'
+      if (isCancelUser) {
+        warning.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+      }
+      bar.appendChild(warning)
+
+      if (isCancelUser && data.args?.targetUserId) {
+        let info = document.createElement('div')
+        info.textContent = 'Benutzer #' + data.args.targetUserId + ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
+        info.style.fontSize = '0.75rem'
+        info.style.color = 'var(--rmx-color-text-muted, #888)'
+        info.style.marginBottom = '8px'
+        bar.appendChild(info)
+      }
+
+      let actions = document.createElement('div')
+      actions.style.display = 'flex'
+      actions.style.gap = '8px'
+
+      let approveBtn = document.createElement('button')
+      approveBtn.textContent = isCancelUser ? '✔ Bestätigen' : '✔ Zulassen'
+      approveBtn.style.padding = '4px 14px'
+      approveBtn.style.border = 'none'
+      approveBtn.style.borderRadius = '4px'
+      approveBtn.style.cursor = 'pointer'
+      if (isCancelUser) {
+        approveBtn.style.background = '#dc3545'
+        approveBtn.style.color = '#fff'
+      } else {
+        approveBtn.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
+        approveBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      }
+      approveBtn.style.fontSize = '0.8125rem'
+      approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
+      actions.appendChild(approveBtn)
+
+      let declineBtn = document.createElement('button')
+      declineBtn.textContent = '✖ Ablehnen'
+      declineBtn.style.padding = '4px 14px'
+      declineBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+      declineBtn.style.borderRadius = '4px'
+      declineBtn.style.cursor = 'pointer'
+      declineBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
+      declineBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+      declineBtn.style.fontSize = '0.8125rem'
+      declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
+      actions.appendChild(declineBtn)
+
+      bar.appendChild(actions)
     }
 
     function hideQuestion() {
@@ -151,20 +222,16 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
-    function handleNavigate(data: { href: string; target?: string; history?: string; prefill?: Record<string, string> }) {
+    function handleNavigate(data: { href: string; target?: string; history?: string }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
-        setBarText('Invalid navigation path')
+        setBarText('Ungültiger Navigationspfad')
         return
-      }
-
-      if (data.prefill) {
-        agentPrefillMap.set(href, data.prefill)
       }
 
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
-        let container = document.getElementById('route-agent-frame-container')
+        let container = document.getElementById('support-agent-frame-container')
         if (container && target) {
           let activeFrame = container.getAttribute('data-active-frame')
           if (activeFrame && activeFrame !== target) {
@@ -172,18 +239,13 @@ export const RouteAgentStream = clientEntry(
             if (oldWrapper) oldWrapper.style.display = 'none'
             let newWrapper = document.getElementById('frame-' + target)
             if (newWrapper) newWrapper.style.display = 'block'
-            let oldFrame = handle.frames.get(activeFrame)
-            if (oldFrame) {
-              oldFrame.src = '/route-agent/panel'
-              oldFrame.reload().catch(() => {})
-            }
             container.setAttribute('data-active-frame', target)
           }
         }
 
         frame.src = href
         frame.reload().catch((err) => {
-          setBarText('Navigation failed: ' + String(err))
+          setBarText('Navigation fehlgeschlagen: ' + String(err))
         })
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
@@ -193,8 +255,21 @@ export const RouteAgentStream = clientEntry(
           }
         }
       } else {
-        setBarText('Error: frame not found')
+        setBarText('Fehler: Frame nicht gefunden')
       }
+    }
+
+    async function handleToolDecision(decision: string, toolCallId?: string) {
+      if (!currentRunId) return
+      setFormEnabled(false)
+
+      let body = new FormData()
+      body.set('runId', currentRunId)
+      body.set('decision', decision)
+      if (toolCallId) body.set('toolCallId', toolCallId)
+      if (currentThreadId) body.set('threadId', currentThreadId)
+
+      startStream('/mastra/chat/tool-decision', { method: 'POST', body })
     }
 
     async function handleAnswer(answer: string) {
@@ -210,7 +285,7 @@ export const RouteAgentStream = clientEntry(
       if (pq.toolCallId) body.set('toolCallId', pq.toolCallId)
       if (currentThreadId) body.set('threadId', currentThreadId)
 
-      startStream('/route-agent/answer', { method: 'POST', body })
+      startStream('/mastra/chat/answer', { method: 'POST', body })
     }
 
     async function startStream(url: string, init: RequestInit) {
@@ -226,14 +301,14 @@ export const RouteAgentStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
-          setBarText('Error: ' + msg)
+          setBarText('Fehler: ' + msg)
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          setBarText('Error: no response body')
+          setBarText('Fehler: Kein Antwortstream')
           setFormEnabled(true)
           return
         }
@@ -272,32 +347,32 @@ export const RouteAgentStream = clientEntry(
                 setBarText(streamingText)
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                setBarText('Navigating to ' + parsed.href + '...')
+                setBarText('Navigiere zu ' + parsed.href + '...')
                 handleNavigate(parsed)
               } else if (eventType === 'question') {
                 showQuestion(parsed)
                 reader.cancel().catch(() => {})
                 return
               } else if (eventType === 'suspension') {
-                setBarText('Tool requires approval: ' + (parsed.toolName || 'unknown'))
+                showSuspension(parsed)
                 reader.cancel().catch(() => {})
                 return
               } else if (eventType === 'tool-error') {
-                setBarText('Tool error: ' + (parsed.error || 'unknown'))
+                setBarText('Tool-Fehler: ' + (parsed.error || 'unbekannt'))
               } else if (eventType === 'stream-error') {
-                setBarText('Stream error: ' + (parsed.error || 'unknown'))
+                setBarText('Stream-Fehler: ' + (parsed.error || 'unbekannt'))
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
                 currentRunId = null
                 currentThreadId = null
                 if (!didNavigate) {
-                  let container = document.getElementById('route-agent-frame-container')
-                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
+                  let container = document.getElementById('support-agent-frame-container')
+                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'support-content'
                   let theFrame = handle.frames.get(activeFrame)
                   if (theFrame) theFrame.reload().catch(() => {})
                 }
               } else if (eventType === 'agent-error') {
-                setBarText('Error: ' + (parsed.error || 'unknown'))
+                setBarText('Fehler: ' + (parsed.error || 'unbekannt'))
               }
             } catch {
               if (eventType === 'message') {
@@ -313,7 +388,7 @@ export const RouteAgentStream = clientEntry(
         }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
-        setBarText('Error: ' + String(err))
+        setBarText('Fehler: ' + String(err))
         setFormEnabled(true)
       }
     }
@@ -326,52 +401,12 @@ export const RouteAgentStream = clientEntry(
       if (!message) return
 
       if (currentThreadId) formData.set('threadId', currentThreadId)
-      setBarText('Sending: ' + message)
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
+      setBarText('Sende: ' + message)
+      let input = document.getElementById('support-agent-input') as HTMLInputElement | null
       if (input) input.value = ''
       setFormEnabled(false)
 
-      startStream('/route-agent', { method: 'POST', body: formData })
-    }
-
-    async function handleFrameFormSubmit(e: Event) {
-      if (!pendingQuestion || !currentThreadId) return
-      let form = (e.target as HTMLElement).closest('form')
-      if (!form || form.id === 'route-agent-form') return
-      e.preventDefault()
-
-      let container = document.getElementById('route-agent-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
-      let frame = handle.frames.get(activeFrame)
-
-      setBarText('Submitting form...')
-
-      try {
-        let headers: Record<string, string> = {}
-        headers['X-Agent-Thread'] = currentThreadId
-        let res = await fetch(form.action, {
-          method: 'POST',
-          headers,
-          body: new FormData(form),
-        })
-        let ct = res.headers.get('Content-Type') || ''
-        if (ct.includes('json')) {
-          let data = await res.json()
-          let body = new FormData()
-          body.set('runId', currentRunId || '')
-          body.set('answer', JSON.stringify(data))
-          body.set('selectionMode', 'single_select')
-          if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-          startStream('/route-agent/answer', { method: 'POST', body })
-          return
-        }
-      } catch (err) {
-        console.error('Form submission failed:', err)
-      }
-
-      if (frame) {
-        await frame.reload()
-      }
+      startStream('/mastra/chat', { method: 'POST', body: formData })
     }
 
     return () => (
@@ -379,14 +414,9 @@ export const RouteAgentStream = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((el) => {
-            let form = document.getElementById('route-agent-form') as HTMLFormElement | null
+            let form = document.getElementById('support-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })
-            }
-
-            let container = document.getElementById('route-agent-frame-container')
-            if (container) {
-              container.addEventListener('submit', handleFrameFormSubmit, { signal: handle.signal })
             }
           }),
         ]}
