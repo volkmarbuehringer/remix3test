@@ -234,9 +234,10 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           start: async (controller) => {
             try {
               let agent = mastra.getAgent('supportAgent')
-              let fn = decision === 'approve' ? agent.approveToolCallGenerate : agent.declineToolCallGenerate
               let result = await runWithAdminId(user.id, () =>
-                fn!({ runId, toolCallId }),
+                decision === 'approve'
+                  ? agent.approveToolCallGenerate({ runId, toolCallId })
+                  : agent.declineToolCallGenerate({ runId, toolCallId }),
               ) as {
                 text?: string
                 finishReason?: string

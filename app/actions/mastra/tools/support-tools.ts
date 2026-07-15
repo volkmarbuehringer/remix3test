@@ -10,7 +10,7 @@ export const supportTools = {
   lookupUser: createTool({
     id: 'lookup_user',
     description:
-      'Look up a user by ID or email address. Returns id, name, email, role, and account status.',
+      'Look up a user by ID or email address. Returns id, name, email, role, disabled status (disabledAt timestamp, null if active), and created_at.',
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Numeric user ID or email address'),
     }),
@@ -21,12 +21,12 @@ export const supportTools = {
         let result
         if (isNumeric) {
           result = await client.query(
-            'SELECT id, email, name, role, email_verified, created_at FROM users WHERE id = $1 OR email = $2 LIMIT 1',
+            'SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE id = $1 OR email = $2 LIMIT 1',
             [Number(query), query],
           )
         } else {
           result = await client.query(
-            'SELECT id, email, name, role, email_verified, created_at FROM users WHERE email = $1 LIMIT 1',
+            'SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE email = $1 LIMIT 1',
             [query],
           )
         }
@@ -41,6 +41,7 @@ export const supportTools = {
             name: user.name,
             role: user.role,
             emailVerified: user.email_verified === 1 ? 'yes' : 'no',
+            disabledAt: user.disabled_at,
             createdAt: user.created_at,
           },
         }
@@ -787,6 +788,79 @@ export const supportTools = {
         let result = await client.query('SELECT email FROM users WHERE id = $1', [adminUserId])
         let adminEmail = result.rows[0]?.email ?? 'unknown'
         return executeCancelUserWorkflow({ targetUserId, adminUserId, adminEmail })
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  lockUserAccount: createTool({
+    id: 'lock_user_account',
+    description:
+      'Lock a user account by ID. Sets disabled_at to now to prevent login. Non-destructive — does not delete appointments or data. Use cancelUserAccount for full account cancellation.',
+    requireApproval: true,
+    inputSchema: z.object({
+      targetUserId: z.number().int().positive().describe('The user ID to lock'),
+    }),
+    execute: async ({ targetUserId }) => {
+      let adminUserId = requireAdminId()
+      if (adminUserId === targetUserId) {
+        return { success: false, error: 'Cannot lock your own account' }
+      }
+      let client = await pool.connect()
+      try {
+        let existing = await client.query(
+          'SELECT id, disabled_at FROM users WHERE id = $1 LIMIT 1',
+          [targetUserId],
+        )
+        if (existing.rows.length === 0) {
+          return { found: false, message: 'No user found with that ID' }
+        }
+        if (existing.rows[0].disabled_at !== null) {
+          return { success: true, message: 'User account is already locked' }
+        }
+        let now = Date.now()
+        await client.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [
+          now,
+          targetUserId,
+        ])
+        return { success: true, message: 'User account locked' }
+      } finally {
+        client.release()
+      }
+    },
+  }),
+
+  unlockUserAccount: createTool({
+    id: 'unlock_user_account',
+    description:
+      'Unlock a user account by ID. Clears disabled_at, allowing the user to log in again, and increments token_version to invalidate existing sessions. Requires admin approval.',
+    requireApproval: true,
+    inputSchema: z.object({
+      targetUserId: z.number().int().positive().describe('The user ID to unlock'),
+    }),
+    execute: async ({ targetUserId }) => {
+      let adminUserId = requireAdminId()
+      if (adminUserId === targetUserId) {
+        return { success: false, error: 'Cannot unlock your own account' }
+      }
+      let client = await pool.connect()
+      try {
+        let existing = await client.query(
+          'SELECT id, disabled_at FROM users WHERE id = $1 LIMIT 1',
+          [targetUserId],
+        )
+        if (existing.rows.length === 0) {
+          return { found: false, message: 'No user found with that ID' }
+        }
+        if (existing.rows[0].disabled_at === null) {
+          return { success: true, message: 'User account is already active' }
+        }
+        await client.query(
+          'UPDATE users SET disabled_at = NULL, token_version = token_version + 1 WHERE id = $1',
+          [targetUserId],
+        )
+        return { success: true, message: 'User account unlocked' }
       } finally {
         client.release()
       }

@@ -204,8 +204,10 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
 
         try {
           let agent = mastra.getAgent('routeAgent')
-          let fn = decision === 'approve' ? agent.approveToolCallGenerate : agent.declineToolCallGenerate
-          let result = await fn({ runId, toolCallId }) as {
+          let result = await (decision === 'approve'
+            ? agent.approveToolCallGenerate({ runId, toolCallId })
+            : agent.declineToolCallGenerate({ runId, toolCallId })
+          ) as {
             text?: string
             finishReason?: string
             runId?: string

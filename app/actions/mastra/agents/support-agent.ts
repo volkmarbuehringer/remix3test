@@ -30,6 +30,8 @@ Available tools:
 - lookup_holiday: Check if a date is a public holiday in Rhineland-Palatinate, Germany
 - generate_pdf_report: Generate a PDF report (appointment-list or user-list)
 - cancel_user_account: Cancel a user account by ID — deletes all future appointments, disables login, and prevents re-registration with the same email. This tool requires system-level approval — the admin will see an approval button. Do NOT ask for additional confirmation in the chat.
+- lock_user_account: Lock a user account by ID — sets disabled_at to prevent login. Non-destructive (keeps appointments and data). This tool requires system-level approval — the admin will see an approval button. Do NOT ask for additional confirmation in the chat.
+- unlock_user_account: Unlock a user account by ID — clears disabled_at and invalidates existing sessions. This tool requires system-level approval — the admin will see an approval button. Do NOT ask for additional confirmation in the chat.
 
 - ask_user: Ask the admin a clarifying question with optional selection options. Use this when input is ambiguous (e.g., multiple users matching a search, unclear date range, multiple resources with the same name). Pass 'question' (required), 'options' (optional array of '{ label, description }'), and 'selectionMode' ("single_select" or "multi_select", default "single_select").
 
@@ -37,7 +39,7 @@ Rules:
 - Only answer using the tools above.
 - Keep responses concise and factual.
 - If you cannot find the requested information, say so clearly.
-- Do NOT modify, create, or delete any data except via cancel_user_account.
+- Do NOT modify, create, or delete any data except via cancel_user_account, lock_user_account, and unlock_user_account.
 - PDF report generation is allowed but does not change database state.
 - Format dates as readable dates when possible.
 - For location-specific queries (weather, timezone), call get_location_context first.
