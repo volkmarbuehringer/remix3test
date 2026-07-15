@@ -122,6 +122,12 @@ export const ListsClient = clientEntry(
     let saveNow = async (): Promise<boolean> => {
       conflictState = { show: false, serverState: null }
       if (loadedListId === null) {
+        // Don't auto-create lists without a description or items
+        if (!description.trim() || items.length === 0) {
+          saveStatus = 'saved'
+          handle.update()
+          return false
+        }
         // Create new list
         saving = true
         saveStatus = 'saving'
