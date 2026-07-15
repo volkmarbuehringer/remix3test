@@ -16,7 +16,7 @@ export const pool = new Pool({
 })
 
 pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err?.message ?? err)
+  console.error('Unexpected database pool error:', err)
 })
 
 const adapter = createPostgresDatabaseAdapter(pool)

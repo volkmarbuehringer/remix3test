@@ -14,6 +14,7 @@ export async function listUserSummariesByDateRange(
   db: Database,
   startMs: number,
   endMs: number,
+  limit: number = 10000,
 ): Promise<UserSummaryRow[]> {
   let result = await db.exec(
     `SELECT u.id AS user_id, u.name, u.email,
@@ -25,8 +26,9 @@ export async function listUserSummariesByDateRange(
      INNER JOIN appointments a ON a.user_id = u.id
      WHERE a.date >= $1 AND a.date < $2
      GROUP BY u.id, u.name, u.email
-     ORDER BY u.name ASC`,
-    [startMs, endMs],
+     ORDER BY u.name ASC
+     LIMIT $3`,
+    [startMs, endMs, limit],
   )
   return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     user_id: Number(row.user_id),

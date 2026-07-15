@@ -76,8 +76,8 @@ const validateTargetStep = createStep({
   },
 })
 
-const deleteFutureAppointmentsStep = createStep({
-  id: 'delete-future-appointments',
+const deleteAndDisableAccountStep = createStep({
+  id: 'delete-and-disable-account',
   inputSchema: z.object({
     valid: z.boolean(),
     targetUserId: z.number(),
@@ -85,56 +85,6 @@ const deleteFutureAppointmentsStep = createStep({
     adminEmail: z.string(),
     userEmail: z.string().optional(),
     userName: z.string().optional(),
-    error: z.string().optional(),
-  }),
-  outputSchema: z.object({
-    valid: z.boolean(),
-    targetUserId: z.number(),
-    adminUserId: z.number(),
-    adminEmail: z.string(),
-    userEmail: z.string().optional(),
-    userName: z.string().optional(),
-    deletedAppointments: z.number(),
-    error: z.string().optional(),
-  }),
-  execute: async ({ inputData }) => {
-    if (!inputData.valid) {
-      return {
-        valid: false,
-        targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail,
-        deletedAppointments: 0,
-        error: inputData.error,
-      }
-    }
-    let todayMidnight = getTodayUtcMidnight()
-    let result = await db.exec('DELETE FROM appointments WHERE user_id = $1 AND date >= $2', [
-      inputData.targetUserId,
-      todayMidnight,
-    ])
-    return {
-      valid: true,
-      targetUserId: inputData.targetUserId,
-      adminUserId: inputData.adminUserId,
-      adminEmail: inputData.adminEmail,
-      userEmail: inputData.userEmail,
-      userName: inputData.userName,
-      deletedAppointments: result.affectedRows ?? 0,
-    }
-  },
-})
-
-const disableAccountStep = createStep({
-  id: 'disable-account',
-  inputSchema: z.object({
-    valid: z.boolean(),
-    targetUserId: z.number(),
-    adminUserId: z.number(),
-    adminEmail: z.string(),
-    userEmail: z.string().optional(),
-    userName: z.string().optional(),
-    deletedAppointments: z.number(),
     error: z.string().optional(),
   }),
   outputSchema: z.object({
@@ -156,43 +106,56 @@ const disableAccountStep = createStep({
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
+        userEmail: inputData.userEmail,
+        userName: inputData.userName,
         deletedAppointments: 0,
         error: inputData.error,
       }
     }
     let now = Date.now()
-    let result = await db.exec(
-      'UPDATE users SET disabled_at = $1, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NULL',
-      [now, inputData.targetUserId],
-    )
-    if ((result.affectedRows ?? 0) === 0) {
+    let todayMidnight = getTodayUtcMidnight()
+
+    return await db.transaction(async (tx) => {
+      let delResult = await tx.exec(
+        'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
+        [inputData.targetUserId, todayMidnight],
+      )
+      let deletedAppointments = delResult.affectedRows ?? 0
+
+      let disableResult = await tx.exec(
+        'UPDATE users SET disabled_at = $1, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NULL',
+        [now, inputData.targetUserId],
+      )
+      if ((disableResult.affectedRows ?? 0) === 0) {
+        return {
+          valid: false,
+          disabled: false,
+          targetUserId: inputData.targetUserId,
+          adminUserId: inputData.adminUserId,
+          adminEmail: inputData.adminEmail,
+          userEmail: inputData.userEmail,
+          userName: inputData.userName,
+          deletedAppointments,
+          error: 'Account already disabled',
+        }
+      }
+
+      await tx.exec(
+        'UPDATE api_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL',
+        [now, inputData.targetUserId],
+      )
+
       return {
-        valid: false,
-        disabled: false,
+        valid: true,
+        disabled: true,
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
         userEmail: inputData.userEmail,
         userName: inputData.userName,
-        deletedAppointments: inputData.deletedAppointments,
-        error: 'Account already disabled',
+        deletedAppointments,
       }
-    }
-    // Revoke any outstanding API tokens
-    await db.exec(
-      'UPDATE api_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL',
-      [now, inputData.targetUserId],
-    )
-    return {
-      valid: true,
-      disabled: true,
-      targetUserId: inputData.targetUserId,
-      adminUserId: inputData.adminUserId,
-      adminEmail: inputData.adminEmail,
-      userEmail: inputData.userEmail,
-      userName: inputData.userName,
-      deletedAppointments: inputData.deletedAppointments,
-    }
+    })
   },
 })
 
@@ -369,8 +332,7 @@ export const cancelUserWorkflow = createWorkflow({
   }),
 })
   .then(validateTargetStep)
-  .then(deleteFutureAppointmentsStep)
-  .then(disableAccountStep)
+  .then(deleteAndDisableAccountStep)
   .then(auditLogStep)
   .then(notifyUserStep)
   .commit()

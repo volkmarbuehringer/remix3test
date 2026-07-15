@@ -10,7 +10,10 @@ export interface UserSummaryRow {
   last_date: number | null
 }
 
-export async function listUserSummaries(db: Database): Promise<UserSummaryRow[]> {
+export async function listUserSummaries(
+  db: Database,
+  limit: number = 10000,
+): Promise<UserSummaryRow[]> {
   let result = await db.exec(
     `SELECT u.id AS user_id, u.name, u.email,
             COUNT(a.id)::int AS appointment_count,
@@ -20,7 +23,9 @@ export async function listUserSummaries(db: Database): Promise<UserSummaryRow[]>
      FROM users u
      LEFT JOIN appointments a ON a.user_id = u.id
      GROUP BY u.id, u.name, u.email
-     ORDER BY u.name ASC`,
+     ORDER BY u.name ASC
+     LIMIT $1`,
+    [limit],
   )
   return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     user_id: Number(row.user_id),

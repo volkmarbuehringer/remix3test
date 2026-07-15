@@ -1,10 +1,7 @@
 import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { pool } from './data/setup.ts'
-// Direct pool.query is intentional here — test seeding/lookup needs raw SQL
-// access that doesn't route through repository modules (which would create
-// circular dependencies with the test router).
+import { db } from './data/setup.ts'
 import { router } from './test-router.ts'
 
 /**
@@ -56,14 +53,15 @@ export async function createAuthCookieWithCsrf(): Promise<{
   csrfToken: string
 } | null> {
   try {
-    let result = await pool.query(
+    let result = await db.exec(
       'SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1',
       ['admin'],
     )
-    if (result.rows.length === 0) return null
+    let rows = (result.rows ?? []) as { id: number; token_version: number }[]
+    if (rows.length === 0) return null
 
-    let userId = result.rows[0].id as number
-    let tv = (result.rows[0] as { token_version: number }).token_version ?? 1
+    let userId = rows[0].id as number
+    let tv = rows[0].token_version ?? 1
     let csrfToken = generateCsrfToken()
 
     let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
@@ -87,12 +85,13 @@ export async function createAuthCookieWithCsrfForUser(
   email: string,
 ): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query('SELECT id, role, token_version FROM users WHERE email = $1', [
+    let result = await db.exec('SELECT id, role, token_version FROM users WHERE email = $1', [
       email,
     ])
-    if (result.rows.length === 0) return null
+    let rows = (result.rows ?? []) as { id: number; role: string; token_version: number }[]
+    if (rows.length === 0) return null
 
-    let user = result.rows[0] as { id: number; role: string; token_version: number }
+    let user = rows[0]
     let csrfToken = generateCsrfToken()
 
     let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
@@ -123,14 +122,15 @@ export async function createAuthCookieWithPendingBooking(
   pendingBooking: string,
 ): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await pool.query(
+    let result = await db.exec(
       'SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1',
       ['admin'],
     )
-    if (result.rows.length === 0) return null
+    let rows = (result.rows ?? []) as { id: number; token_version: number }[]
+    if (rows.length === 0) return null
 
-    let userId = result.rows[0].id as number
-    let tv = (result.rows[0] as { token_version: number }).token_version ?? 1
+    let userId = rows[0].id as number
+    let tv = rows[0].token_version ?? 1
     let csrfToken = generateCsrfToken()
 
     let session = createSession()
@@ -158,11 +158,12 @@ export async function createAuthCookieWithPendingBooking(
 export async function createTestUser(email?: string): Promise<number | null> {
   try {
     let testEmail = email ?? `test-${Date.now()}@example.com`
-    let result = await pool.query(
+    let result = await db.exec(
       'INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at) VALUES ($1, $2, $3, $4, 1, 1, $5) RETURNING id',
       [testEmail, 'hashed-password-for-testing', 'Test User', 'customer', Date.now()],
     )
-    return (result.rows[0]?.id as number) ?? null
+    let rows = (result.rows ?? []) as { id: number }[]
+    return (rows[0]?.id as number) ?? null
   } catch {
     return null
   }
