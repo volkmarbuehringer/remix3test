@@ -26,6 +26,7 @@ import {
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
+import { readAgentPrefill } from '../../../utils/agent-prefill.ts'
 
 import { AdminOfferingConfigsPage } from '../../../ui/admin-offering-configs-page.tsx'
 
@@ -267,6 +268,66 @@ function rulesFromParsed(parsed: Record<string, string>): Record<string, [number
   return rules
 }
 
+interface CreateValidationSuccess {
+  ok: true
+  parsed: Record<string, string>
+  resourceId: number
+  rules: Record<string, [number, number]>
+}
+
+interface CreateValidationFailure {
+  ok: false
+  status: number
+  formValues: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+  issues?: readonly { path: readonly string[]; message: string; code?: string }[]
+}
+
+type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure
+
+async function validateCreate(
+  db: AppContext['db'],
+  schema: typeof offeringConfigSchema,
+  formData: FormData,
+): Promise<CreateValidationResult> {
+  let result = s.parseSafe(schema, formData)
+  if (!result.success) {
+    return {
+      ok: false,
+      status: 400,
+      formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+      fieldErrors: issuesToFieldErrors(result.issues),
+      issues: result.issues as unknown as CreateValidationFailure['issues'],
+    }
+  }
+
+  let parsed = result.value as Record<string, string>
+  let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+
+  let resourceId = Number(parsed.resource_id)
+  if (!resourceId || !Number.isFinite(resourceId)) {
+    return { ok: false, status: 400, formValues, formError: 'Ressource ist erforderlich' }
+  }
+
+  let resource = await db.findOne(resources, { where: { id: resourceId } })
+  if (!resource) {
+    return { ok: false, status: 404, formValues, formError: 'Ressource nicht gefunden' }
+  }
+
+  let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
+  if (existing) {
+    return { ok: false, status: 400, formValues, formError: 'Diese Ressource hat bereits eine Konfiguration' }
+  }
+
+  let rules = rulesFromParsed(parsed)
+  if (Object.keys(rules).length === 0) {
+    return { ok: false, status: 400, formValues, formError: 'Mindestens ein Tag muss einen Zeitraum haben' }
+  }
+
+  return { ok: true, parsed, resourceId, rules }
+}
+
 export default createController<typeof routes.verwaltung.offeringConfigs, AppContext>(
   routes.verwaltung.offeringConfigs,
   {
@@ -274,93 +335,89 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
 
     actions: {
       async index(context) {
-        let data = await loadOfferingConfigPageData(context)
+        let prefill = readAgentPrefill(context.request)
+        let overrides = prefill ? { formValues: prefill, creating: true } : undefined
+        let data = await loadOfferingConfigPageData(context, overrides)
         return renderOfferingConfigPage(context, data)
       },
 
       async create(context) {
         let db = context.db
         let formData = context.formData
+
+        let threadId = context.request.headers.get('X-Agent-Thread')
+        if (threadId) {
+          let validation = await validateCreate(db, offeringConfigSchema, formData)
+          if (!validation.ok) {
+            let issues = validation.issues
+              ? validation.issues
+              : [{ message: validation.formError!, path: ['resource_id'] as const }]
+            return context.json({ status: 'validation_error', issues, threadId }, { status: validation.status })
+          }
+
+          let { parsed: _parsed, resourceId, rules } = validation
+
+          let row: Record<string, unknown>
+          try {
+            row = await db.create(
+              offeringConfigs,
+              { resource_id: resourceId, rules: JSON.stringify(rules) },
+              { returnRow: true },
+            )
+          } catch (error) {
+            if (isConstraintViolation(error)) {
+              if (process.env.NODE_ENV !== 'test')
+                context.get(Logger)?.(
+                  'Constraint violation during offering config creation: ' +
+                    JSON.stringify({ code: (error as { code?: string }).code }),
+                )
+              return context.json({
+                status: 'validation_error',
+                issues: [{ message: 'Ressource wurde gelöscht', path: ['resource_id'] }],
+                threadId,
+              }, { status: 409 })
+            }
+            throw error
+          }
+
+          let authIdentity = getAdminIdentity(context.auth)
+          if (authIdentity) {
+            logAdminAction(context.db, {
+              admin_user_id: authIdentity.id,
+              admin_email: authIdentity.email,
+              action_type: 'create',
+              target_type: 'offering_configs',
+              target_id: row.id as number,
+              details: { resource_id: resourceId, rules },
+            })
+          }
+
+          return context.json({
+            status: 'created',
+            data: { id: row.id, resource_id: resourceId, rules },
+            threadId,
+          })
+        }
+
         let gridValues = gridStateFromFormData(formData)
 
-        let result = s.parseSafe(offeringConfigSchema, formData)
+        let validation = await validateCreate(db, offeringConfigSchema, formData)
 
-        if (!result.success) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let fieldErrors = issuesToFieldErrors(result.issues)
+        if (!validation.ok) {
           let data = await loadOfferingConfigPageData(context, {
             creating: true,
-            formValues,
-            fieldErrors,
+            formValues: validation.formValues,
+            fieldErrors: validation.fieldErrors,
+            formError: validation.formError,
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
           })
-          return renderOfferingConfigPage(context, data, { status: 400 })
+          return renderOfferingConfigPage(context, data, { status: validation.status })
         }
 
-        let parsed = result.value as Record<string, string>
-
-        let resourceId = Number(parsed.resource_id)
-        if (!resourceId || !Number.isFinite(resourceId)) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            creating: true,
-            formValues,
-            fieldErrors: { resource_id: 'Ressource ist erforderlich' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
-
-        let resource = await db.findOne(resources, { where: { id: resourceId } })
-        if (!resource) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'Ressource nicht gefunden',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 404 })
-        }
-
-        let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
-        if (existing) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'Diese Ressource hat bereits eine Konfiguration',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
-
-        let rules = rulesFromParsed(parsed)
-        if (Object.keys(rules).length === 0) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'Mindestens ein Tag muss einen Zeitraum haben',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
+        let { parsed, resourceId, rules } = validation
 
         let row: Record<string, unknown>
         try {

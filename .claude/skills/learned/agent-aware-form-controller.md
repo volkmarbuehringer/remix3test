@@ -33,6 +33,60 @@ Agent → navigate → ask_user (suspends stream)
 
 Add early-return JSON path behind an `X-Agent-Thread` header check:
 
+#### Validation Deduplication
+
+When the human and agent branches run the same validation logic (resource existence, duplicate checks, field constraints), extract a shared validation function instead of duplicating the checks in each branch:
+
+```ts
+interface CreateValidationResult {
+  ok: true
+  resourceId: number
+  rules: Record<string, [number, number]>
+  parsed: Record<string, string>
+} | {
+  ok: false
+  status: number
+  formValues: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+  issues?: readonly { path: readonly string[]; message: string }[]
+}
+
+async function validateCreate(db, schema, formData): Promise<CreateValidationResult> {
+  let result = s.parseSafe(schema, formData)
+  if (!result.success) {
+    return { ok: false, status: 400, formValues, fieldErrors, issues: result.issues }
+  }
+  // ... existence, duplicate, business rule checks ...
+  if (!resource) return { ok: false, status: 404, formValues, formError: 'Not found' }
+  return { ok: true, parsed, resourceId, rules }
+}
+```
+
+Both branches call the same function and format the response differently:
+```ts
+if (threadId) {
+  let validation = await validateCreate(db, schema, formData)
+  if (!validation.ok) {
+    let issues = validation.issues ?? [{ message: validation.formError!, path: ['field'] }]
+    return context.json({ status: 'validation_error', issues, threadId }, { status: validation.status })
+  }
+  // ... create row, log audit, return JSON ...
+}
+// Human branch below
+let validation = await validateCreate(db, schema, formData)
+if (!validation.ok) {
+  return renderPage(context, {
+    formValues: validation.formValues,
+    fieldErrors: validation.fieldErrors,
+    formError: validation.formError,
+  }, { status: validation.status })
+}
+// ... create row, log audit, redirect ...
+```
+
+Use `issues` from `parseSafe` for schema errors (structured), and `issues: [{ message, path }]` for custom errors (normalized shape).
+
 ```ts
 let threadId = context.request.headers.get('X-Agent-Thread')
 if (threadId) {
@@ -117,8 +171,80 @@ export function renderVerwaltungPage(render, content, init?) {
 - The route-agent's `getTarget()` frame prefix matcher must include the path prefix mapping to the correct frame
 - `pendingQuestion`, `currentRunId`, and `currentThreadId` must be cleared on stream `complete` event to prevent stale state leaking across sessions
 
+### Multi-Form Chaining
+
+To chain multiple forms sequentially (e.g., create resource → configure offerings), the agent continues the stream after the first form's JSON response and navigates to the second form with prefill data:
+
+#### Agent Instructions
+
+```
+- Resource creation chaining protocol — after successfully creating a resource, continue with:
+  Step 7: Navigate to the second form with prefill: navigate({
+    path: "/verwaltung/offering-configs",
+    query: { creating: "true" },
+    data: { resource_id: String(data.id), ... }
+  })
+  Step 8: Call ask_user with "Please configure and submit."
+  Step 9: Parse the JSON result.
+  Step 10: Report success or validation errors.
+```
+
+#### Controller — Auto-Open on Prefill
+
+In the second form's `index` action, force `creating: true` when agent prefill is detected, so the create panel opens regardless of URL params:
+
+```ts
+async index(context) {
+  let prefill = readAgentPrefill(context.request)
+  let overrides = prefill ? { formValues: prefill, creating: true } : undefined
+  let data = await loadPageData(context, overrides)
+  return renderPage(context, data)
+}
+```
+
+Do the same in the first form's controller for consistency.
+
+## Pitfalls and Race Conditions
+
+### Frame reload after JSON response races with agent's next navigate
+
+In the client frame intercept handler (`handleFrameFormSubmit`), **do not** reload the frame after a successful JSON response:
+
+```ts
+// ❌ BAD — this reload races with the agent's subsequent SSE navigate
+if (data.status === 'created') {
+  frame.src = new URL(form.action, location.origin).pathname
+  frame.reload().catch(() => {})
+}
+
+// ✅ GOOD — remove it entirely; the agent will navigate where needed
+// return immediately after starting the answer stream
+startStream('/route-agent/answer', { method: 'POST', body })
+return
+```
+
+The agent receives the JSON via SSE, processes it, and sends a `navigate` event. If the frame reloads in between, the navigate targets a mid-load frame, and the second form's create panel never opens.
+
+### Frame stays on submitted form when agent completes without navigating
+
+Track whether a navigate occurred during the stream, and reload the frame on `complete` if not:
+
+```ts
+let didNavigate = false  // reset on 'start' event
+
+// in 'navigate' handler:
+didNavigate = true
+
+// in 'complete' handler:
+if (!didNavigate) {
+  let theFrame = handle.frames.get(activeFrame)
+  if (theFrame) theFrame.reload().catch(() => {})
+}
+```
+
 ## When to Use
 
 - You have an existing HTML form controller that you want to participate in an agent-driven workflow
 - The agent navigates the user to a page and needs to know the form submission result
 - You want to preserve the existing HTML form behavior for non-agent users (single controller, dual path)
+- You need to chain multiple form submissions (multi-step workflows) through agent-guided navigation

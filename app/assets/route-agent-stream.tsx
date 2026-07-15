@@ -7,6 +7,7 @@ export const RouteAgentStream = clientEntry(
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
+    let didNavigate: boolean = false
 
     let pendingQuestion: {
       runId: string
@@ -262,12 +263,14 @@ export const RouteAgentStream = clientEntry(
               let parsed = JSON.parse(data)
 
               if (eventType === 'start') {
+                didNavigate = false
                 if (parsed.runId) currentRunId = parsed.runId
                 if (parsed.threadId) currentThreadId = parsed.threadId
               } else if (eventType === 'message') {
                 streamingText += parsed.text || ''
                 setBarText(streamingText)
               } else if (eventType === 'navigate') {
+                didNavigate = true
                 setBarText('Navigating to ' + parsed.href + '...')
                 handleNavigate(parsed)
               } else if (eventType === 'question') {
@@ -286,6 +289,12 @@ export const RouteAgentStream = clientEntry(
                 if (pendingQuestion) return
                 currentRunId = null
                 currentThreadId = null
+                if (!didNavigate) {
+                  let container = document.getElementById('route-agent-frame-container')
+                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
+                  let theFrame = handle.frames.get(activeFrame)
+                  if (theFrame) theFrame.reload().catch(() => {})
+                }
               } else if (eventType === 'agent-error') {
                 setBarText('Error: ' + (parsed.error || 'unknown'))
               }
@@ -353,10 +362,6 @@ export const RouteAgentStream = clientEntry(
           body.set('selectionMode', 'single_select')
           if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
           startStream('/route-agent/answer', { method: 'POST', body })
-          if (frame && data.status === 'created') {
-            frame.src = new URL(form.action, location.origin).pathname
-            frame.reload().catch(() => {})
-          }
           return
         }
       } catch (err) {

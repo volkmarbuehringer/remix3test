@@ -177,7 +177,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
     actions: {
       async index(context) {
         let prefill = readAgentPrefill(context.request)
-        let overrides = prefill ? { formValues: prefill } : undefined
+        let overrides = prefill ? { formValues: prefill, creating: true } : undefined
         let data = await loadResourcePageData(context, overrides)
         return renderResourcePage(context, data)
       },

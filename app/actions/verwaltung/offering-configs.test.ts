@@ -434,4 +434,201 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 403)
     })
   })
+
+  describe('agent mode (X-Agent-Thread) for two-form chain', () => {
+    it('creates a resource via seed, then creates an offering config via agent protocol', async () => {
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+        [`Agent Config Res ${now}`, `Agent config test resource ${now}`, now, now],
+      )
+      let resourceId = resResult.rows[0].id as number
+
+      let configBody = new URLSearchParams({
+        resource_id: String(resourceId),
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        wednesday_enabled: '1',
+        wednesday_start: '540',
+        wednesday_end: '1200',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let configRes = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Agent-Thread': 'test-thread-42',
+        },
+        body: configBody.toString(),
+      })
+      assert.equal(configRes.status, 200)
+      let json = await configRes.json()
+      assert.equal(json.status, 'created')
+      assert.equal(json.data.resource_id, resourceId)
+      assert.ok(json.data.id > 0, 'Should have a valid config ID')
+      assert.ok(json.data.rules.monday, 'Should have monday rules')
+      assert.equal(json.data.rules.monday[0], 480)
+      assert.equal(json.data.rules.monday[1], 1020)
+      assert.equal(json.threadId, 'test-thread-42')
+
+      let configCheck = await pool.query(
+        'SELECT id, resource_id FROM offering_configs WHERE resource_id = $1',
+        [resourceId],
+      )
+      assert.equal(configCheck.rows.length, 1)
+      assert.equal(configCheck.rows[0].resource_id, resourceId)
+    })
+
+    it('returns validation_error for missing resource_id via agent protocol', async () => {
+      let body = new URLSearchParams({
+        resource_id: '',
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Agent-Thread': 'test-thread-validation',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400)
+      let json = await response.json()
+      assert.equal(json.status, 'validation_error')
+      assert.ok(json.issues.length > 0)
+      assert.equal(json.threadId, 'test-thread-validation')
+    })
+
+    it('returns validation_error for non-existent resource_id via agent protocol', async () => {
+      let body = new URLSearchParams({
+        resource_id: '9999999',
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Agent-Thread': 'test-thread-notfound',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 404)
+      let json = await response.json()
+      assert.equal(json.status, 'validation_error')
+      assert.ok(json.issues.length > 0)
+      assert.equal(json.threadId, 'test-thread-notfound')
+    })
+
+    it('returns validation_error for duplicate resource via agent protocol', async () => {
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+        [`Agent Dup Res ${now}`, `Agent duplicate test resource ${now}`, now, now],
+      )
+      let resourceId = resResult.rows[0].id as number
+
+      // First create a config via human flow
+      let createBody = new URLSearchParams({
+        resource_id: String(resourceId),
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let createRes = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: createBody.toString(),
+      })
+      assert.equal(createRes.status, 302)
+
+      // Then try agent-mode duplicate
+      let dupBody = new URLSearchParams({
+        resource_id: String(resourceId),
+        monday_enabled: '1',
+        monday_start: '480',
+        monday_end: '1020',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Agent-Thread': 'test-thread-duplicate',
+        },
+        body: dupBody.toString(),
+      })
+      assert.equal(response.status, 400)
+      let json = await response.json()
+      assert.equal(json.status, 'validation_error')
+      assert.ok(json.issues.length > 0)
+      assert.equal(json.threadId, 'test-thread-duplicate')
+    })
+
+    it('returns validation_error for empty rules via agent protocol', async () => {
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (name, description, created_at, updated_at) VALUES ($1, $2, $3, $4) RETURNING id',
+        [`Agent Empty Rules Res ${now}`, `Agent empty rules test ${now}`, now, now],
+      )
+      let resourceId = resResult.rows[0].id as number
+
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(CONFIGS_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Agent-Thread': 'test-thread-empty-rules',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 400)
+      let json = await response.json()
+      assert.equal(json.status, 'validation_error')
+      assert.ok(json.issues.length > 0)
+      assert.equal(json.threadId, 'test-thread-empty-rules')
+    })
+  })
 })
