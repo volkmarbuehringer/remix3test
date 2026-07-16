@@ -1,7 +1,8 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
 import { appWebhookRoute } from '../../routes.ts'
-import { insertAppWebhookRequest, updateHermesStatus } from '../../data/app-webhook.ts'
+import { insertAppWebhookRequest } from '../../data/app-webhook.ts'
+import { updateWebhookRequestHermesStatus } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
@@ -72,7 +73,7 @@ export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext
       hermesStatusText = 'error'
     }
 
-    await updateHermesStatus(context.db, id, hermesStatusText)
+    await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)
 
     let responseHeaders = new SuperHeaders()
     responseHeaders.contentType = { mediaType: 'application/json' }
