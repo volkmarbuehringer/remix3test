@@ -145,11 +145,11 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
 
-// Test Agent route (auth-gated, SSE streaming)
-router.map(routes.testAgent, testAgent)
+  // Test Agent route (auth-gated, SSE streaming)
+  router.map(routes.testAgent, testAgent)
 
-// Route Agent POC (auth-gated, SSE streaming, frame navigation)
-router.map(routes.routeAgent, routeAgent)
+  // Route Agent POC (auth-gated, SSE streaming, frame navigation)
+  router.map(routes.routeAgent, routeAgent)
 
   // Admin routes
   router.map(routes.admin, adminController)

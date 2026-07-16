@@ -7,11 +7,13 @@ The existing `handleFrameFormSubmit` in `route-agent-stream.tsx` already interce
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Make the `verwaltung/resources` create controller return structured JSON when an `X-Agent-Thread` header is present
 - Wire the JSON response back into the agent's stream via the existing `/route-agent/answer` endpoint
 - Add agent instructions so the agent can participate in form-driven flows
 
 **Non-Goals:**
+
 - Not modifying other controllers (this is a pattern experiment with one controller)
 - Not changing the existing HTML form behavior
 - Not adding new agent tools (only modifying the controller response path + client intercept)
@@ -28,6 +30,7 @@ The agent navigates to the form, then calls `ask_user("Please fill out the form 
 This reuses the existing suspend/resume mechanism without any changes to the streaming infrastructure.
 
 Flow:
+
 ```
 agent: navigate(/resources?creating=true)
 agent: ask_user("Please fill out the form and submit it.")

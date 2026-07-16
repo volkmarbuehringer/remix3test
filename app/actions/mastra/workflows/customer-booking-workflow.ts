@@ -1,11 +1,11 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../data/connection.ts'
+import { sql } from 'remix/data-table'
 import { createAppointmentRecord } from '../../../data/appointments.ts'
 import { isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable } from '../../../data/appointofferings.ts'
-import { pool } from '../../../data/connection.ts'
 import { consoleNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 import { formatMinOption } from '../../../utils/date-utils.ts'
@@ -48,35 +48,29 @@ const findAvailableSlotsStep = createStep({
       return { hasSlots: true, resourceId, customerId, title, date, startMin }
     }
 
-    let client = await pool.connect()
-    try {
-      let todayMidnight = new Date()
-      todayMidnight.setUTCHours(0, 0, 0, 0)
-      let startDate = todayMidnight.getTime()
-      let endDate = startDate + 180 * 86_400_000
+    let todayMidnight = new Date()
+    todayMidnight.setUTCHours(0, 0, 0, 0)
+    let startDate = todayMidnight.getTime()
+    let endDate = startDate + 180 * 86_400_000
 
-      let offeringResult = await client.query(
-        `SELECT day, during::text AS during
-         FROM appointoffering
-         WHERE resource_id = $1 AND day >= $2 AND day < $3
-         ORDER BY day ASC, during ASC`,
-        [resourceId, startDate, endDate],
-      )
+    let offeringResult = await db.exec(sql`
+      SELECT day, during::text AS during
+      FROM appointoffering
+      WHERE resource_id = ${resourceId} AND day >= ${startDate} AND day < ${endDate}
+      ORDER BY day ASC, during ASC
+    `)
 
-      if (offeringResult.rows.length === 0) {
-        return {
-          hasSlots: false,
-          resourceId,
-          customerId,
-          title,
-          error: 'Keine freien Termine verfügbar',
-        }
+    if ((offeringResult.rows ?? []).length === 0) {
+      return {
+        hasSlots: false,
+        resourceId,
+        customerId,
+        title,
+        error: 'Keine freien Termine verfügbar',
       }
-
-      return { hasSlots: true, resourceId, customerId, title }
-    } finally {
-      client.release()
     }
+
+    return { hasSlots: true, resourceId, customerId, title }
   },
 })
 

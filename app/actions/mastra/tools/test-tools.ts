@@ -123,11 +123,15 @@ const fileEntrySchema = z.object({
   isDirectory: z.boolean().describe('True for directory entries'),
   size: z.number().describe('File size in bytes — use for sorting and comparison'),
   mtime: z.number().describe('Last modification time as Unix milliseconds'),
-  display: z.object({
-    formattedSize: z.string().describe('Human-readable file size (e.g. "1.23 KiB") — safe to show users directly'),
-    type: z.enum(['file', 'directory']).describe('Entry type as readable string'),
-    icon: z.string().describe('Single emoji character for visual display'),
-  }).describe('Display hints for formatting file listings for the user'),
+  display: z
+    .object({
+      formattedSize: z
+        .string()
+        .describe('Human-readable file size (e.g. "1.23 KiB") — safe to show users directly'),
+      type: z.enum(['file', 'directory']).describe('Entry type as readable string'),
+      icon: z.string().describe('Single emoji character for visual display'),
+    })
+    .describe('Display hints for formatting file listings for the user'),
 })
 
 export const listTestFilesOutput = z.discriminatedUnion('success', [
@@ -155,9 +159,7 @@ export const listTestFiles = createTool({
       .enum(['name', 'size', 'mtime', 'ext'])
       .optional()
       .default('name')
-      .describe(
-        'Sort field: name, size (bytes), mtime (modification time), ext (file extension)',
-      ),
+      .describe('Sort field: name, size (bytes), mtime (modification time), ext (file extension)'),
     order: z
       .enum(['asc', 'desc'])
       .optional()
@@ -186,10 +188,16 @@ export const listTestFiles = createTool({
     try {
       let resolved = resolveSafe(subdir)
       if (!resolved.ok) {
-        return { success: false as const, error: { code: 'VALIDATION' as const, message: resolved.error } }
+        return {
+          success: false as const,
+          error: { code: 'VALIDATION' as const, message: resolved.error },
+        }
       }
       if (ext && !ext.startsWith('.')) {
-        return { success: false as const, error: { code: 'VALIDATION' as const, message: 'ext must start with "." (e.g. ".ts")' } }
+        return {
+          success: false as const,
+          error: { code: 'VALIDATION' as const, message: 'ext must start with "." (e.g. ".ts")' },
+        }
       }
 
       let real: string
@@ -197,7 +205,7 @@ export const listTestFiles = createTool({
         real = await fs.realpath(resolved.resolved)
       } catch (err) {
         let isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT'
-        let code = isNotFound ? 'NOT_FOUND' as const : 'DEPENDENCY' as const
+        let code = isNotFound ? ('NOT_FOUND' as const) : ('DEPENDENCY' as const)
         return {
           success: false as const,
           error: {
@@ -210,7 +218,10 @@ export const listTestFiles = createTool({
       }
       let relReal = path.relative(projectRoot, real)
       if (relReal.startsWith('..') || path.isAbsolute(relReal)) {
-        return { success: false as const, error: { code: 'VALIDATION' as const, message: 'Path traversal detected (symlink)' } }
+        return {
+          success: false as const,
+          error: { code: 'VALIDATION' as const, message: 'Path traversal detected (symlink)' },
+        }
       }
 
       let effectiveOrder = order ?? (sort === 'size' || sort === 'mtime' ? 'desc' : 'asc')
@@ -230,8 +241,8 @@ export const listTestFiles = createTool({
           mtime: e.mtime,
           display: {
             formattedSize: humanFileSize(e.size),
-            type: e.isDirectory ? 'directory' as const : 'file' as const,
-            icon: e.isDirectory ? '\uD83D\uDCC1' as const : '\uD83D\uDCC4' as const,
+            type: e.isDirectory ? ('directory' as const) : ('file' as const),
+            icon: e.isDirectory ? ('\uD83D\uDCC1' as const) : ('\uD83D\uDCC4' as const),
           },
         })),
       })

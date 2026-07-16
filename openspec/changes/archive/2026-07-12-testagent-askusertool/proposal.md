@@ -17,9 +17,11 @@ This is an experiment to evaluate whether intra-turn questions provide a meaning
 ## Capabilities
 
 ### New Capabilities
+
 - `intra-turn-question`: The agent can suspend its turn, present a structured question to the user (free-text, single-select, or multi-select), receive the answer, and continue execution in the same run. Questions carry typed options with descriptions and a selection mode.
 
 ### Modified Capabilities
+
 - `testagent-workspace-tools`: The test agent's toolset gains `askUserTool`. The instruction set learns when to use it.
 
 ## Impact

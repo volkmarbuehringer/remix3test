@@ -9,12 +9,14 @@ The SSE handler (app/actions/test-agent/controller.tsx) processes three stream c
 ## Goals / Non-Goals
 
 **Goals:**
+
 - The test agent can present structured questions to the user mid-turn (free-text, single-select, multi-select)
 - The user's answer resumes the same agent run, preserving internal state
 - The existing approve/decline flow for requireApproval tools is unaffected
 - The UI renders a question card appropriate for the selection mode
 
 **Non-Goals:**
+
 - Adding askUserTool to other agents (support, customer) — scoped to test agent only
 - Replacing the turn-based pattern — askUserTool is additive for cases where the agent needs clarification
 - Sophisticated question card styling — functional first
@@ -26,6 +28,7 @@ The SSE handler (app/actions/test-agent/controller.tsx) processes three stream c
 The existing `approve` action calls `approveToolCallGenerate` and stores the resulting stream. The `resume` action will follow the same pattern: call `agent.resumeStream(answer, { runId })`, store the returned stream, and return `{ runId }` to the client for SSE consumption. This reuses `setStream`, `getStream`, the `StoredStream` interface, and the SSE endpoint without modification.
 
 **Alternatives considered:**
+
 - Using `resumeGenerate` instead — would lose streaming UX for the continuation
 - Inline resume without stream-store — would break the existing SSE architecture
 

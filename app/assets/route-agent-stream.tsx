@@ -123,10 +123,12 @@ export const RouteAgentStream = clientEntry(
         btn.style.fontSize = '0.8125rem'
         btn.style.alignSelf = 'flex-start'
         btn.onclick = () => {
-          let checked = bar.querySelectorAll('input[name="q-option"]:checked') as NodeListOf<HTMLInputElement>
+          let checked = bar.querySelectorAll(
+            'input[name="q-option"]:checked',
+          ) as NodeListOf<HTMLInputElement>
           if (checked.length === 0) return
 
-          let selected = [...checked].map(el => el.value)
+          let selected = [...checked].map((el) => el.value)
           let answer = isMulti ? JSON.stringify(selected) : selected[0]
 
           bar.innerHTML = ''
@@ -151,7 +153,12 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
-    function handleNavigate(data: { href: string; target?: string; history?: string; prefill?: Record<string, string> }) {
+    function handleNavigate(data: {
+      href: string
+      target?: string
+      history?: string
+      prefill?: Record<string, string>
+    }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
         setBarText('Invalid navigation path')
@@ -244,7 +251,10 @@ export const RouteAgentStream = clientEntry(
         while (true) {
           let { done, value } = await reader.read()
           if (done) break
-          if (signal.aborted) { reader.cancel().catch(() => {}); return }
+          if (signal.aborted) {
+            reader.cancel().catch(() => {})
+            return
+          }
 
           buffer += decoder.decode(value, { stream: true })
           let parts = buffer.split('\n\n')

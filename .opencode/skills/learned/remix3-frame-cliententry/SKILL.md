@@ -218,7 +218,7 @@ let container = document.getElementById('route-agent-frame-container')
 if (container) {
   container.addEventListener('submit', async (e) => {
     let form = (e.target as HTMLElement).closest('form')
-    if (!form || form.id === 'route-agent-form') return  // skip agent's own form
+    if (!form || form.id === 'route-agent-form') return // skip agent's own form
     e.preventDefault()
 
     // Submit the form server-side via fetch

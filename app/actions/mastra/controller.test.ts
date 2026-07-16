@@ -17,7 +17,9 @@ import type { AgentStreamOutput } from './shared-agent.ts'
 
 // ── SSE response parser ──
 
-async function parseSSEResponse(response: Response): Promise<{ events: Array<{ type: string; data: string }>; text: string }> {
+async function parseSSEResponse(
+  response: Response,
+): Promise<{ events: Array<{ type: string; data: string }>; text: string }> {
   let events: Array<{ type: string; data: string }> = []
   let text = ''
   let body = response.body
@@ -171,7 +173,7 @@ describe('Mastra Chat controller', () => {
 
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    let errorEvent = events.find(e => e.type === 'agent-error')
+    let errorEvent = events.find((e) => e.type === 'agent-error')
     assert.ok(errorEvent, 'response should include an agent-error event')
     let data = JSON.parse(errorEvent!.data)
     assert.ok(data.error, 'error event should include an error message')
@@ -190,7 +192,7 @@ describe('Mastra Chat controller', () => {
 
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    let errorEvent = events.find(e => e.type === 'agent-error')
+    let errorEvent = events.find((e) => e.type === 'agent-error')
     assert.ok(errorEvent, 'response should include an agent-error event')
   })
 
@@ -214,7 +216,7 @@ describe('Mastra Chat controller', () => {
 
     assert.equal(second.status, 429)
     let { events } = await parseSSEResponse(second)
-    let errorEvent = events.find(e => e.type === 'agent-error')
+    let errorEvent = events.find((e) => e.type === 'agent-error')
     assert.ok(errorEvent, '429 response should include an agent-error event')
   })
 
@@ -247,7 +249,10 @@ describe('Mastra Chat controller', () => {
     assert.equal(events[0].type, 'start', 'first event should be start')
     assert.ok(JSON.parse(events[0].data).runId, 'start event should include runId')
     assert.equal(text, 'Here is the user data you requested.')
-    assert.ok(events.find(e => e.type === 'complete'), 'should have a complete event')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'should have a complete event',
+    )
 
     __setTestAgent(undefined)
   })

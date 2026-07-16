@@ -317,12 +317,22 @@ async function validateCreate(
 
   let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
   if (existing) {
-    return { ok: false, status: 400, formValues, formError: 'Diese Ressource hat bereits eine Konfiguration' }
+    return {
+      ok: false,
+      status: 400,
+      formValues,
+      formError: 'Diese Ressource hat bereits eine Konfiguration',
+    }
   }
 
   let rules = rulesFromParsed(parsed)
   if (Object.keys(rules).length === 0) {
-    return { ok: false, status: 400, formValues, formError: 'Mindestens ein Tag muss einen Zeitraum haben' }
+    return {
+      ok: false,
+      status: 400,
+      formValues,
+      formError: 'Mindestens ein Tag muss einen Zeitraum haben',
+    }
   }
 
   return { ok: true, parsed, resourceId, rules }
@@ -352,7 +362,10 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
             let issues = validation.issues
               ? validation.issues
               : [{ message: validation.formError!, path: ['resource_id'] as const }]
-            return context.json({ status: 'validation_error', issues, threadId }, { status: validation.status })
+            return context.json(
+              { status: 'validation_error', issues, threadId },
+              { status: validation.status },
+            )
           }
 
           let { parsed: _parsed, resourceId, rules } = validation
@@ -371,11 +384,14 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
                   'Constraint violation during offering config creation: ' +
                     JSON.stringify({ code: (error as { code?: string }).code }),
                 )
-              return context.json({
-                status: 'validation_error',
-                issues: [{ message: 'Ressource wurde gelöscht', path: ['resource_id'] }],
-                threadId,
-              }, { status: 409 })
+              return context.json(
+                {
+                  status: 'validation_error',
+                  issues: [{ message: 'Ressource wurde gelöscht', path: ['resource_id'] }],
+                  threadId,
+                },
+                { status: 409 },
+              )
             }
             throw error
           }

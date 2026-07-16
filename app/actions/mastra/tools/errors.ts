@@ -1,11 +1,6 @@
 import { z } from 'zod/v4'
 
-export const ErrorCode = z.enum([
-  'VALIDATION',
-  'NOT_FOUND',
-  'DEPENDENCY',
-  'INTERNAL',
-])
+export const ErrorCode = z.enum(['VALIDATION', 'NOT_FOUND', 'DEPENDENCY', 'INTERNAL'])
 
 export const errorEnvelope = z.object({
   success: z.literal(false),

@@ -7,8 +7,11 @@ if (!databaseUrl) {
   throw new Error('DATABASE_URL environment variable is required. Set it in .env')
 }
 
+const localeUrl =
+  databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
+
 export const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString: localeUrl,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

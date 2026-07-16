@@ -14,6 +14,7 @@ The test agent's `listTestFiles` tool only returns file names and directory flag
 ## Capabilities
 
 ### New Capabilities
+
 - `file-directory-enumeration`: Enriched directory listing with metadata, sorting, filtering, and recursion limits
 
 ### Modified Capabilities

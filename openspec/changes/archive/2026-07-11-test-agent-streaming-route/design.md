@@ -5,6 +5,7 @@ The app currently uses `agent.generate()` in its Mastra chat controllers, blocki
 ## Goals / Non-Goals
 
 **Goals:**
+
 - New top-level `/testagent` route with no auth
 - Mastra `testAgent` with `list_test_files` (no approval) and `read_test_file` (requires approval)
 - SSE streaming of agent tokens from `agent.stream().textStream`
@@ -13,6 +14,7 @@ The app currently uses `agent.generate()` in its Mastra chat controllers, blocki
 - All new code follows existing patterns (createTool, createController, clientEntry)
 
 **Non-Goals:**
+
 - No changes to production agents (supportAgent, customerAgent)
 - No database schema changes
 - No auth middleware (test route is open)
@@ -22,16 +24,21 @@ The app currently uses `agent.generate()` in its Mastra chat controllers, blocki
 ## Decisions
 
 ### Decision: In-memory Map as stream store
+
 A simple `Map<runId, MastraModelOutput>` in a shared module. The POST action stores the output, the SSE handler retrieves and deletes it (one-consumer semantics). TTL cleanup via `setTimeout` prevents leaks if the client disconnects before reading. This avoids adding a dependency (Redis, DB) for a prototype.
 
 ### Decision: No Memory config on testAgent
+
 The test agent is stateless — no `Memory`, no thread persistence. Each message is a fresh conversation. This keeps the prototype simple and avoids coupling to the database-backed storage that production agents use.
 
 ### Decision: Multi-phase SSE per approval
+
 Each `agent.stream()` call produces one `MastraModelOutput` with its own `runId`. When the stream suspends (tool approval), the SSE endpoint sends a `suspension` event and closes. The client POSTs to the approve/decline action, which calls `agent.approveToolCallGenerate()`, producing a new output. The client opens a new SSE to the new `runId`. This maps cleanly to the existing `approve`/`decline` action pattern.
 
 ### Decision: clientEntry manages the full lifecycle
+
 A single `clientEntry` in the test chat page:
+
 1. Intercepts form submit via `fetch` POST
 2. Opens `EventSource` to the SSE endpoint
 3. Appends token text to a DOM container
@@ -42,6 +49,7 @@ A single `clientEntry` in the test chat page:
 Alternative considered: Using two separate forms (one for message, one for approval). Rejected because the clientEntry approach gives us a single, cohesive UX (streaming text + inline approval buttons) inside a single page. The forms approach would cause page reloads on every action.
 
 ### Decision: Tool-approval payload includes tool name and args
+
 The suspension payload from Mastra's `approveToolCallGenerate` includes `toolCallId`, `toolName`, and `args`. The SSE suspension event sends these to the client so the approval card can show "Allow reading package.json?" instead of a generic prompt.
 
 ## Risks / Trade-offs

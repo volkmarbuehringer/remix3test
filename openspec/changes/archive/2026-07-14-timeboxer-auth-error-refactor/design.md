@@ -17,11 +17,11 @@ This appears in 7 action handlers across `auth/controller.tsx`, `home/controller
 
 Three different error shapes are returned by the schedules controller:
 
-| Shape | Source | Example |
-|---|---|---|
-| `{ error, fieldErrors, issues }` | `validationError()` helper | `POST /schedules` validation fail |
-| `{ error, fieldErrors }` | `fieldError()` helper, `handleCreateScheduleError()` | duplicate name |
-| `{ error }` | `handleScheduleError()`, `unauthorized()` | schedule not found, auth failure |
+| Shape                            | Source                                               | Example                           |
+| -------------------------------- | ---------------------------------------------------- | --------------------------------- |
+| `{ error, fieldErrors, issues }` | `validationError()` helper                           | `POST /schedules` validation fail |
+| `{ error, fieldErrors }`         | `fieldError()` helper, `handleCreateScheduleError()` | duplicate name                    |
+| `{ error }`                      | `handleScheduleError()`, `unauthorized()`            | schedule not found, auth failure  |
 
 The `issues` array exposes internal `data-schema` types to the API contract. The `fieldErrors` helper has ad-hoc field name mapping logic (`fieldMessage()`).
 
@@ -60,9 +60,9 @@ router.map(routes.auth, auth)
 
 **Alternatives considered:**
 
-- *Global auth middleware as a blanket check* — rejected because auth routes (login, signup) should be accessible without authentication.
-- *Decorator/per-route config* — over-engineered for a demo; the middleware factory pattern is idiomatic Remix 3.
-- *Continue with inline checks* — the status quo; this is what we're fixing.
+- _Global auth middleware as a blanket check_ — rejected because auth routes (login, signup) should be accessible without authentication.
+- _Decorator/per-route config_ — over-engineered for a demo; the middleware factory pattern is idiomatic Remix 3.
+- _Continue with inline checks_ — the status quo; this is what we're fixing.
 
 **Why this approach:** It's the same pattern already established in the codebase (see `loadDatabase()`, `loadAuth()`). Middleware is the natural home for cross-cutting concerns in Remix 3's fetch-router architecture. Zero new concepts.
 
@@ -107,9 +107,10 @@ A new file `app/data/api-error.ts` (or `app/utils/api-error.ts`) will contain:
 - Uses the existing `fieldErrorsFromIssues()` logic from `schedules/controller.tsx`
 
 **Alternatives considered:**
-- *A module named `errors.ts` in `app/data/`* — rejected because errors are an API concern, not data.
-- *Inline in `schedules/controller.tsx`* — leaves the duplication partially unfixed (still private to one controller).
-- *A separate `app/api/` directory* — over-engineered for a demo; `app/utils/` already exists for this.
+
+- _A module named `errors.ts` in `app/data/`_ — rejected because errors are an API concern, not data.
+- _Inline in `schedules/controller.tsx`_ — leaves the duplication partially unfixed (still private to one controller).
+- _A separate `app/api/` directory_ — over-engineered for a demo; `app/utils/` already exists for this.
 
 ### Decision 5: `home` controller unchanged
 

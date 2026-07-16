@@ -24,10 +24,12 @@ The existing form reuse pattern (X-Agent-Thread header, JSON response on success
 ### Decision 1: Prefill data carried via request header, not URL query params
 
 **Option A — URL query params**: `/verwaltung/resources?creating=true&name=Meeting+Room+A`
+
 - Pro: visible, debuggable, stateless
 - Con: visible in URL bar (leaks data), length limits, encoding edge cases
 
 **Option B — X-Agent-Prefill header on Frame GET**:
+
 - Pro: invisible to URL, arbitrary size, one mechanism
 - Con: needs minimal client state (prefill store keyed by threadId)
 
@@ -36,10 +38,12 @@ The existing form reuse pattern (X-Agent-Thread header, JSON response on success
 ### Decision 2: No agent tool change — prefill is part of the SSE navigate event
 
 **Option A — New agent tool `navigateWithData`**: Separate tool definition with a `data` field.
+
 - Pro: explicit contract in the agent's tool schema
 - Con: two navigate tools, agent must choose the right one
 
 **Option B — Extend existing `routeNavigate` tool to accept optional `data`**:
+
 - Pro: single navigate tool, `data` is optional, agent includes it when it has values
 - Con: tool output already returns `{ type: 'route', path }` — needs a new field for prefill
 

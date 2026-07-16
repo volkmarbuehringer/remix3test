@@ -13,6 +13,7 @@ The `listTestFiles` tool returns its output as an untyped JSON blob with no sche
 ## Capabilities
 
 ### New Capabilities
+
 - `structured-tool-output`: Typed output schemas with discriminated error unions for Mastra tools, starting with `listTestFiles` as the proving ground
 
 ### Modified Capabilities

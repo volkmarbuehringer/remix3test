@@ -11,9 +11,11 @@ The test-agent page unconditionally wraps its content in `<Layout>` (which inclu
 ## Capabilities
 
 ### New Capabilities
+
 None — existing functionality, layout fix only.
 
 ### Modified Capabilities
+
 None — no spec-level behavior changes.
 
 ## Impact

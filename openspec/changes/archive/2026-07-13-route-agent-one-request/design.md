@@ -9,6 +9,7 @@ The only clientEntry component (RouteAgentStream) manages: EventSource lifecycle
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Single POST request for each agent interaction — stream consumed in the response
 - Remove stream-store.ts and /stream/:runId entirely
 - Consolidate approve/decline into one /tool-decision endpoint
@@ -16,6 +17,7 @@ The only clientEntry component (RouteAgentStream) manages: EventSource lifecycle
 - Add a typed `navigate` event so frame navigation + URL bar sync is explicit
 
 **Non-Goals:**
+
 - Changing the Mastra agent definition or tools
 - Altering the route-agent page layout or Frame structure
 - Adding new UI capabilities — only refactoring the transport layer

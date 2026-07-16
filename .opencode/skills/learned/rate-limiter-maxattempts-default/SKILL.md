@@ -1,6 +1,6 @@
 ---
 name: rate-limiter-maxattempts-default
-description: "Default maxAttempts=1 in createRateLimiter blocks follow-up requests in multi-step flows"
+description: 'Default maxAttempts=1 in createRateLimiter blocks follow-up requests in multi-step flows'
 origin: auto-extracted
 ---
 
@@ -34,12 +34,13 @@ Always set `maxAttempts` explicitly when you expect more than one request per wi
 // Good — allows up to 5 requests per 10s window
 const routeAgentRateLimiter = createRateLimiter({
   windowMs: 10_000,
-  perKey: true,         // track per-IP instead of global
-  maxAttempts: 5,       // explicit: action + answer + toolDecision = ~3
+  perKey: true, // track per-IP instead of global
+  maxAttempts: 5, // explicit: action + answer + toolDecision = ~3
 })
 ```
 
 When choosing a value:
+
 - `perKey: true` (per-IP) or `perUser: true` instead of the default global tracking — prevents one user from starving another
 - `maxAttempts`: count the expected request waterfall (e.g. initial POST + answer POST + tool decision = at least 3)
 - If requests are truly independent (not a waterfall), count expected usage per window

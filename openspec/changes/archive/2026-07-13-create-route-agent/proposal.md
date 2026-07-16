@@ -14,9 +14,11 @@ A dedicated route agent with a minimal toolset (routeNavigate, findList, askUser
 ## Capabilities
 
 ### New Capabilities
+
 - `dedicated-route-agent`: A minimal Mastra agent with only routeNavigate, findList, and askUserTool — no workspace tools, no file-system access.
 
 ### Modified Capabilities
+
 <!-- No existing specs need modification — this is purely an implementation change -->
 
 ## Impact

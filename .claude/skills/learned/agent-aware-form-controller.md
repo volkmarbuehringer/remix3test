@@ -1,6 +1,6 @@
 ---
 name: agent-aware-form-controller
-description: "Make existing HTML form controllers return structured JSON when called from a Mastra agent, enabling agent-driven form workflows"
+description: 'Make existing HTML form controllers return structured JSON when called from a Mastra agent, enabling agent-driven form workflows'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -64,23 +64,31 @@ async function validateCreate(db, schema, formData): Promise<CreateValidationRes
 ```
 
 Both branches call the same function and format the response differently:
+
 ```ts
 if (threadId) {
   let validation = await validateCreate(db, schema, formData)
   if (!validation.ok) {
     let issues = validation.issues ?? [{ message: validation.formError!, path: ['field'] }]
-    return context.json({ status: 'validation_error', issues, threadId }, { status: validation.status })
+    return context.json(
+      { status: 'validation_error', issues, threadId },
+      { status: validation.status },
+    )
   }
   // ... create row, log audit, return JSON ...
 }
 // Human branch below
 let validation = await validateCreate(db, schema, formData)
 if (!validation.ok) {
-  return renderPage(context, {
-    formValues: validation.formValues,
-    fieldErrors: validation.fieldErrors,
-    formError: validation.formError,
-  }, { status: validation.status })
+  return renderPage(
+    context,
+    {
+      formValues: validation.formValues,
+      fieldErrors: validation.fieldErrors,
+      formError: validation.formError,
+    },
+    { status: validation.status },
+  )
 }
 // ... create row, log audit, redirect ...
 ```
@@ -109,9 +117,9 @@ In the route-agent's client entry, intercept frame form submissions and sniff fo
 
 ```ts
 async function handleFrameFormSubmit(e: Event) {
-  if (!pendingQuestion || !currentThreadId) return  // only when agent expects form
+  if (!pendingQuestion || !currentThreadId) return // only when agent expects form
   let form = (e.target as HTMLElement).closest('form')
-  if (!form || form.id === 'route-agent-form') return  // don't intercept own form
+  if (!form || form.id === 'route-agent-form') return // don't intercept own form
   e.preventDefault()
 
   let headers: Record<string, string> = {}
@@ -230,7 +238,7 @@ The agent receives the JSON via SSE, processes it, and sends a `navigate` event.
 Track whether a navigate occurred during the stream, and reload the frame on `complete` if not:
 
 ```ts
-let didNavigate = false  // reset on 'start' event
+let didNavigate = false // reset on 'start' event
 
 // in 'navigate' handler:
 didNavigate = true

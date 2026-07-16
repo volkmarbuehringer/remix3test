@@ -3,11 +3,18 @@ import { z } from 'zod/v4'
 
 export const routeNavigate = createTool({
   id: 'navigate',
-  description: 'Navigate the user to a page in the app. Use when the user wants to see a specific view like lists, appointments, settings, etc.',
+  description:
+    'Navigate the user to a page in the app. Use when the user wants to see a specific view like lists, appointments, settings, etc.',
   inputSchema: z.object({
     path: z.string().describe('Route path, e.g. /lists or /admin/nutzer'),
-    query: z.record(z.string(), z.string()).optional().describe('Query parameters, e.g. { load: "5", filter: "active" }'),
-    data: z.record(z.string(), z.string()).optional().describe('Form field values to prefill on the target page, e.g. { name: "Meeting Room A" }'),
+    query: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Query parameters, e.g. { load: "5", filter: "active" }'),
+    data: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Form field values to prefill on the target page, e.g. { name: "Meeting Room A" }'),
   }),
   execute: async ({ path, query, data }) => {
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {

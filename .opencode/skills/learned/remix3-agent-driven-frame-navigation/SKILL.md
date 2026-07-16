@@ -1,6 +1,6 @@
 ---
 name: remix3-agent-driven-frame-navigation
-description: "Navigate Remix 3 Frames from agent SSE tool-result events in Mastra"
+description: 'Navigate Remix 3 Frames from agent SSE tool-result events in Mastra'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -102,8 +102,8 @@ function filterAndForward(
     if (result?.type === 'route' && typeof result.path === 'string') {
       fwd('navigate', {
         href: result.path,
-        target: 'lists-content',   // the Frame's name prop
-        history: 'push',           // pushState or replace
+        target: 'lists-content', // the Frame's name prop
+        history: 'push', // pushState or replace
       })
     } else {
       fwd('tool-result', { toolCallId, toolName, result, isError })
@@ -114,10 +114,10 @@ function filterAndForward(
 
 The `navigate` event carries three fields:
 
-| Field | Purpose |
-|-------|---------|
-| `href` | The path to navigate to (e.g. `/lists?ids=5`) |
-| `target` | The Frame name (`lists-content`, `admin-content`, etc.) |
+| Field     | Purpose                                                          |
+| --------- | ---------------------------------------------------------------- |
+| `href`    | The path to navigate to (e.g. `/lists?ids=5`)                    |
+| `target`  | The Frame name (`lists-content`, `admin-content`, etc.)          |
 | `history` | `'push'` (default), `'replace'`, or `'skip'` (no URL bar change) |
 
 ### 4. Client: catch `navigate` event, reload frame, sync URL bar
@@ -152,7 +152,7 @@ async function startStream(url: string, init: RequestInit) {
       let parsed = JSON.parse(data)
 
       if (eventType === 'navigate') {
-        handleNavigate(parsed)   // frame reload + URL sync
+        handleNavigate(parsed) // frame reload + URL sync
       } else if (eventType === 'message') {
         // append text
       }
@@ -190,11 +190,7 @@ function handleNavigate(data: { href: string; target?: string; history?: string 
 ### 5. The Frame in the page
 
 ```tsx
-<Frame
-  name="lists-content"
-  src="/some-initial-route"
-  fallback={<div>Loading...</div>}
-/>
+<Frame name="lists-content" src="/some-initial-route" fallback={<div>Loading...</div>} />
 ```
 
 The `name` prop must match what the client uses in `handle.frames.get()`. The `X-Remix-Target` header, set automatically by the Frame, will contain this name — which the server uses to determine if a request is a fragment request.
@@ -205,10 +201,7 @@ Agent action endpoints must be exempt from CSRF if the agent doesn't send CSRF t
 
 ```ts
 // app/middleware/skip-csrf.ts
-if (
-  context.url.pathname === '/route-agent' ||
-  context.url.pathname.startsWith('/route-agent/')
-) {
+if (context.url.pathname === '/route-agent' || context.url.pathname.startsWith('/route-agent/')) {
   return next()
 }
 ```
@@ -231,7 +224,9 @@ const agentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
 // In action:
 if (!agentRateLimiter.attempt(ip)) {
   return new Response(
-    sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+    sseEncoder.encode(
+      `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
+    ),
     { status: 429, headers: sseHeaders() },
   )
 }

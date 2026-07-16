@@ -13,12 +13,12 @@ origin: auto-extracted
 
 Mastra's `askUserTool` (from `@mastra/core/tools`) lets an agent suspend mid-turn and ask the user a structured question. But it uses a different suspension mechanism than `requireApproval`:
 
-| Aspect | `requireApproval` | `askUserTool` |
-|--------|------------------|---------------|
-| Stream chunk type | `tool-call-approval` | `tool-call-suspended` |
-| Payload shape | `{ toolCallId, toolName, args }` | `{ toolCallId, toolName, suspendPayload: { question, options?, selectionMode? } }` |
-| Resume method | `approveToolCallGenerate` | `resumeStream(resumeData, { runId })` |
-| Resume data | binary approve/decline | `string` or `string[]` |
+| Aspect            | `requireApproval`                | `askUserTool`                                                                      |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
+| Stream chunk type | `tool-call-approval`             | `tool-call-suspended`                                                              |
+| Payload shape     | `{ toolCallId, toolName, args }` | `{ toolCallId, toolName, suspendPayload: { question, options?, selectionMode? } }` |
+| Resume method     | `approveToolCallGenerate`        | `resumeStream(resumeData, { runId })`                                              |
+| Resume data       | binary approve/decline           | `string` or `string[]`                                                             |
 
 The SSE handler in a Remix 3 controller needs to handle both chunk types differently. The `answer` endpoint must call `resumeStream` not `approveToolCallGenerate`.
 
@@ -61,7 +61,11 @@ function filterAndForward(
     })
   } else if (type === 'tool-call-suspended') {
     let sp = p?.suspendPayload as
-      | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+      | {
+          question?: string
+          options?: { label: string; description?: string }[]
+          selectionMode?: string
+        }
       | undefined
     if (sp?.question) {
       fwd('question', {
@@ -72,7 +76,7 @@ function filterAndForward(
         selectionMode: sp.selectionMode ?? 'single_select',
       })
     }
-    return 'suspended'  // signals pipeStream to close the loop
+    return 'suspended' // signals pipeStream to close the loop
   }
   // ...
 }
@@ -85,7 +89,7 @@ let result = filterAndForward(chunk, controller, runId)
 if (result === 'suspended') {
   reader?.cancel().catch(() => {})
   closeOnce()
-  return  // stream paused — client will POST answer
+  return // stream paused — client will POST answer
 }
 ```
 
@@ -193,9 +197,9 @@ Only hide the question card and clear `pendingQuestion` **after** `startStream` 
 
 ## Key Differences from requireApproval
 
-| | requireApproval | askUserTool |
-|---|---|---|
-| Chunk | `tool-call-approval` | `tool-call-suspended` |
-| Resume | `approveToolCallGenerate({ runId, toolCallId })` | `resumeStream(resumeData, { runId, toolCallId })` |
-| Client sends | nothing extra | `answer` + `selectionMode` fields |
-| Data direction | binary (approve/decline) | user-provided string or string[] |
+|                | requireApproval                                  | askUserTool                                       |
+| -------------- | ------------------------------------------------ | ------------------------------------------------- |
+| Chunk          | `tool-call-approval`                             | `tool-call-suspended`                             |
+| Resume         | `approveToolCallGenerate({ runId, toolCallId })` | `resumeStream(resumeData, { runId, toolCallId })` |
+| Client sends   | nothing extra                                    | `answer` + `selectionMode` fields                 |
+| Data direction | binary (approve/decline)                         | user-provided string or string[]                  |

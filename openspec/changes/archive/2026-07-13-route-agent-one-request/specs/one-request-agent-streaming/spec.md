@@ -39,7 +39,7 @@ The route agent controller SHALL only forward SSE event types that the clientEnt
 
 #### Scenario: Unused event types are omitted
 
-- **WHEN** the Mastra agent produces events like step-start, step-finish, reasoning-*, text-*, tool-call-*
+- **WHEN** the Mastra agent produces events like step-start, step-finish, reasoning-_, text-_, tool-call-*
 - **THEN** the route agent controller SHALL NOT forward these to the client unless the clientEntry explicitly handles them
 
 ### Requirement: Unified tool decision endpoint

@@ -2,7 +2,6 @@
   "name": "newapp",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --import remix/node-tsx server.ts",
     "start": "NODE_ENV=production node --env-file-if-exists=.env --import remix/node-tsx server.ts",
@@ -11,21 +10,18 @@
     "lint": "oxlint --max-warnings=0 --ignore-pattern=.mastra",
     "dev:mastra": "mastra dev -d app/actions/mastra",
     "lint:fix": "oxlint --fix --max-warnings=0",
-    "format": "prettier --check app/",
-    "format:fix": "prettier --write app/",
+    "format": "oxfmt . --check",
+    "format:fix": "oxfmt . --write",
     "sync-skills": "node ./scripts/sync-skills.ts",
     "postinstall": "node ./scripts/postinstall.ts"
   },
-  "engines": {
-    "node": ">=26.2.0"
-  },
   "dependencies": {
-    "@mastra/core": "^1.50.1",
+    "@mastra/core": "^1.51.0",
     "@mastra/evals": "^1.5.1",
     "@mastra/loggers": "^1.2.0",
-    "@mastra/memory": "^1.22.2",
-    "@mastra/observability": "^1.16.0",
-    "@mastra/pg": "^1.15.1",
+    "@mastra/memory": "^1.23.0",
+    "@mastra/observability": "^1.16.1",
+    "@mastra/pg": "^1.16.0",
     "date-holidays": "^3.33.0",
     "nodemailer": "^9.0.3",
     "pdfmake": "^0.3.11",
@@ -35,18 +31,22 @@
   },
   "devDependencies": {
     "@fission-ai/openspec": "^1.6.0",
-    "@oxlint/plugins": "^1.73.0",
+    "@oxlint/plugins": "^1.74.0",
     "@playwright/test": "^1.61.1",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.20.0",
-    "mastra": "^1.18.2",
+    "mastra": "^1.19.0",
     "openspec": "^0.0.0",
-    "oxlint": "^1.73.0",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^0.24.0",
     "playwright": "^1.61.1",
-    "prettier": "^3.9.5",
     "typescript": "7.0.2"
-  }
+  },
+  "engines": {
+    "node": ">=26.2.0"
+  },
+  "packageManager": "pnpm@11.9.0"
 }

@@ -9,12 +9,14 @@ The resource controller's agent branch at `controller.tsx:189-224` serves as the
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add agent mode to the offering config controller's `create` action, mirroring the resource controller pattern
 - When agent mode is active, return JSON responses for both success and validation failure
 - Integration test that validates the two-form chain: resource create → offering config create
 - Update route agent instructions to include the chaining pattern
 
 **Non-Goals:**
+
 - No changes to the offering config controller's `update`, `destroy`, or `index` actions
 - No changes to the offering config UI or human flow
 - No changes to the resource controller
@@ -36,6 +38,7 @@ The human path (else branch) remains unchanged — same grid state, redirects, e
 Schema validation failures (returned by `s.parseSafe`) already produce structured `issues` arrays — these pass through directly as `{ status: "validation_error", issues, threadId }`.
 
 Custom validations (resource existence check, duplicate check, empty rules check) don't have structured issue types. For these, the agent mode branch returns:
+
 ```json
 { "status": "validation_error", "issues": [{ "message": "..." }], "threadId": "<id>" }
 ```

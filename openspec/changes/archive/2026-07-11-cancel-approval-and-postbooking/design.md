@@ -10,12 +10,14 @@ The existing `confirmResource` tool demonstrates the `requireApproval` pattern �
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `requireApproval: true` to `cancelBooking` and `cancelAllAppointments`
 - Show a confirmation card for cancellations with appointment summary
 - Show a routing card after successful booking with "Fertig" and "Noch einen Termin" options
 - Simplify agent instructions to remove chat-level double-check for cancellations
 
 **Non-Goals:**
+
 - Adding approval to `triggerBookingWorkflow` or the legacy booking form (the radio-button form is the interaction, not a gate)
 - Changing the resource confirmation flow (`confirmResource`)
 - Reworking the slot selection UI
@@ -45,7 +47,7 @@ After a booking succeeds (detected via `workflowResult.success`), the controller
 
 ### Agent instructions simplified
 
-The current instruction for `cancelAllAppointments` says: *"Rufe ZUERST list_my_appointments auf, zeige dem Kunden die Liste, und frage dann explizit..."* With `requireApproval`, the approval card replaces the chat-level ask. The instruction becomes: *"Rufe list_my_appointments auf, um die Termine zu zeigen. Bei Zustimmung rufe cancelAllAppointments auf — das System fordert die finale Bestätigung an."*
+The current instruction for `cancelAllAppointments` says: _"Rufe ZUERST list_my_appointments auf, zeige dem Kunden die Liste, und frage dann explizit..."_ With `requireApproval`, the approval card replaces the chat-level ask. The instruction becomes: _"Rufe list_my_appointments auf, um die Termine zu zeigen. Bei Zustimmung rufe cancelAllAppointments auf — das System fordert die finale Bestätigung an."_
 
 ## Risks / Trade-offs
 

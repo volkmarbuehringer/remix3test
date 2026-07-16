@@ -85,7 +85,12 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
           chatMessages = await recallChatMessages(agent, threadId, String(user.id))
         } catch (error) {
           if (process.env.NODE_ENV !== 'test') {
-            console.error('[CustomerChat] recall failed for ' + sanitizeLog(threadId) + ': ' + sanitizeLog(String(error)))
+            console.error(
+              '[CustomerChat] recall failed for ' +
+                sanitizeLog(threadId) +
+                ': ' +
+                sanitizeLog(String(error)),
+            )
           }
         }
       }
@@ -263,7 +268,11 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
                 })
               } else if (type === 'tool-call-suspended') {
                 let sp = p?.suspendPayload as
-                  | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+                  | {
+                      question?: string
+                      options?: { label: string; description?: string }[]
+                      selectionMode?: string
+                    }
                   | undefined
                 if (sp?.question) {
                   fwd('question', {
@@ -380,7 +389,11 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         )) as {
           text?: string
           finishReason?: string
-          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
+          suspendPayload?: {
+            toolCallId?: string
+            toolName?: string
+            args?: Record<string, unknown>
+          }
           runId?: string
         }
 
@@ -429,7 +442,11 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
         )) as {
           text?: string
           finishReason?: string
-          suspendPayload?: { toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
+          suspendPayload?: {
+            toolCallId?: string
+            toolName?: string
+            args?: Record<string, unknown>
+          }
           runId?: string
         }
 
@@ -505,7 +522,10 @@ export const customerChat = createController<typeof routes.chat, AppContext>(rou
           getFullOutput: () => output.getFullOutput(),
         })
 
-        return context.json({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })
+        return context.json({
+          runId: output.runId,
+          threadId: context.formData.get('threadId')?.toString(),
+        })
       } catch (err) {
         if (process.env.NODE_ENV !== 'test') {
           console.error('[CustomerChat] answer error:', sanitizeLog(String(err)))

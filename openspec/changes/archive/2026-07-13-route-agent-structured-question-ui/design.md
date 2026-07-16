@@ -9,6 +9,7 @@ The gap is exclusively in the client-side rendering of `showQuestion` and the `#
 ## Goals / Non-Goals
 
 **Goals:**
+
 - `showQuestion` renders `data.options` as interactive radio buttons (single_select) or checkboxes (multi_select)
 - Each option shows its `label` and optional `description`
 - User confirms selection with a button; the selected label(s) are sent to `handleAnswer`
@@ -17,6 +18,7 @@ The gap is exclusively in the client-side rendering of `showQuestion` and the `#
 - CSS additions are scoped to `route-agent-page.tsx` styles (no new CSS files)
 
 **Non-Goals:**
+
 - No changes to the SSE protocol, controller, or server-side streaming
 - No changes to `handleAnswer` or the `POST /answer` endpoint
 - No changes to other agents (test-agent, support-agent, customer-agent) — only route-agent
@@ -28,6 +30,7 @@ The gap is exclusively in the client-side rendering of `showQuestion` and the `#
 **1. Inline question card inside `#agent-bar` rather than a separate overlay/modal**
 
 Chosen over a modal or separate panel because:
+
 - The bar is already the agent's output area for messages, tool results, and questions
 - A modal would block interaction with the frame content unnecessarily
 - The existing `showQuestion` already modifies the bar's content (`setBarText`, click handler) — extending this pattern is consistent
@@ -36,6 +39,7 @@ Chosen over a modal or separate panel because:
 **2. Pure innerHTML construction rather than clientEntry component**
 
 Chosen over creating a separate clientEntry component because:
+
 - `showQuestion` lives inside the existing `clientEntry`, which owns the stream lifecycle
 - A separate component would need to communicate back to the stream handler for the answer flow
 - The question card is ephemeral — shown when a question arrives, destroyed when answered
@@ -44,6 +48,7 @@ Chosen over creating a separate clientEntry component because:
 **3. Confirm button rather than auto-submit on radio selection**
 
 Chosen because:
+
 - `single_select` with auto-submit could be accidentally triggered
 - The confirm button pattern works for both `single_select` and `multi_select` uniformly
 - Matches user expectation: select an option, then confirm
@@ -51,6 +56,7 @@ Chosen because:
 **4. Only route-agent gets the new question UI pattern**
 
 Chosen because:
+
 - The route-agent is the primary user-facing agent; test-agent and support-agent are internal
 - The structured question UI is identical per SSE protocol — other agents can adopt later
 - Scoping reduces risk and review surface

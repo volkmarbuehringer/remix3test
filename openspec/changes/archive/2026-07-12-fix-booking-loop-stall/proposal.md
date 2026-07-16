@@ -18,7 +18,7 @@ This is caused by two independent issues: a technical race condition where `resu
 
 ### Modified Capabilities
 
-*(No existing capabilities have requirement changes — this is a bugfix within the existing customer-agent streaming design.)*
+_(No existing capabilities have requirement changes — this is a bugfix within the existing customer-agent streaming design.)_
 
 ## Impact
 

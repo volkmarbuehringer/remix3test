@@ -190,7 +190,10 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         if (threadId) {
           let result = s.parseSafe(resourceSaveSchema, formData)
           if (!result.success) {
-            return context.json({ status: 'validation_error', issues: result.issues, threadId }, { status: 400 })
+            return context.json(
+              { status: 'validation_error', issues: result.issues, threadId },
+              { status: 400 },
+            )
           }
           let parsed = result.value as Record<string, string>
           let row = await db.create(
@@ -219,7 +222,12 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           }
           return context.json({
             status: 'created',
-            data: { id: row.id, name: row.name, description: row.description, capabilities: row.capabilities },
+            data: {
+              id: row.id,
+              name: row.name,
+              description: row.description,
+              capabilities: row.capabilities,
+            },
             threadId,
           })
         }

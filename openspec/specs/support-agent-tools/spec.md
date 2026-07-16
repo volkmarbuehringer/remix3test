@@ -5,18 +5,22 @@
 The system SHALL provide a `lookup_user` tool that looks up a user by ID (integer) or email (string). Returns id, email, name, role, email_verified, disabled_at, and created_at. If `disabled_at` is not null, the account is disabled/locked.
 
 #### Scenario: Look up user by ID
+
 - **WHEN** the admin asks "tell me about user 42"
 - **THEN** the agent calls `lookup_user` with id=42 and returns the user's details including disabled status
 
 #### Scenario: Look up user by email
+
 - **WHEN** the admin asks "find user with email test@example.com"
 - **THEN** the agent calls `lookup_user` with email="test@example.com" and returns the user's details
 
 #### Scenario: User not found
+
 - **WHEN** the admin queries a non-existent user ID or email
 - **THEN** the tool returns `{ found: false, message: "No user found..." }`
 
 #### Scenario: Locked account shows disabled_at
+
 - **WHEN** the user exists but has a non-null disabled_at timestamp
 - **THEN** the tool returns the disabled_at value so the agent can report the account is locked
 
@@ -25,14 +29,17 @@ The system SHALL provide a `lookup_user` tool that looks up a user by ID (intege
 The system SHALL provide a `lock_user_account` tool that locks a user account by setting `disabled_at` to the current timestamp. This is a non-destructive lock — it does not delete appointments or data. Requires admin approval.
 
 #### Scenario: Lock an active user
+
 - **WHEN** the admin asks "lock user 42"
 - **THEN** the agent calls `lock_user_account` with userId=42 and the tool sets disabled_at to now, then returns `{ success: true, message: "User account locked" }`
 
 #### Scenario: User already locked
+
 - **WHEN** the admin tries to lock an already-locked user
 - **THEN** the tool returns `{ success: true, message: "User account is already locked" }` (idempotent)
 
 #### Scenario: User not found
+
 - **WHEN** the admin tries to lock a non-existent user
 - **THEN** the tool returns `{ found: false, message: "No user found with id..." }`
 
@@ -41,14 +48,17 @@ The system SHALL provide a `lock_user_account` tool that locks a user account by
 The system SHALL provide an `unlock_user_account` tool that re-enables a locked user account by setting `disabled_at` to null and incrementing `token_version` (invalidating existing sessions). Requires admin approval.
 
 #### Scenario: Unlock a disabled user
+
 - **WHEN** the admin asks "unlock user 42"
 - **THEN** the agent calls `unlock_user_account` with userId=42 and the tool clears disabled_at and increments token_version, then returns `{ success: true, message: "User account unlocked" }`
 
 #### Scenario: User is already active
+
 - **WHEN** the admin tries to unlock a user that is not locked (disabled_at is null)
 - **THEN** the tool returns `{ success: true, message: "User account is already active" }` (idempotent)
 
 #### Scenario: User not found
+
 - **WHEN** the admin tries to unlock a non-existent user
 - **THEN** the tool returns `{ found: false, message: "No user found with id..." }`
 

@@ -122,10 +122,12 @@ export const SupportAgentStream = clientEntry(
         btn.style.fontSize = '0.8125rem'
         btn.style.alignSelf = 'flex-start'
         btn.onclick = () => {
-          let checked = bar.querySelectorAll('input[name="q-option"]:checked') as NodeListOf<HTMLInputElement>
+          let checked = bar.querySelectorAll(
+            'input[name="q-option"]:checked',
+          ) as NodeListOf<HTMLInputElement>
           if (checked.length === 0) return
 
-          let selected = [...checked].map(el => el.value)
+          let selected = [...checked].map((el) => el.value)
           let answer = isMulti ? JSON.stringify(selected) : selected[0]
 
           bar.innerHTML = ''
@@ -168,7 +170,10 @@ export const SupportAgentStream = clientEntry(
 
       if (isCancelUser && data.args?.targetUserId) {
         let info = document.createElement('div')
-        info.textContent = 'Benutzer #' + data.args.targetUserId + ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
+        info.textContent =
+          'Benutzer #' +
+          data.args.targetUserId +
+          ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
         info.style.fontSize = '0.75rem'
         info.style.color = 'var(--rmx-color-text-muted, #888)'
         info.style.marginBottom = '8px'
@@ -319,7 +324,10 @@ export const SupportAgentStream = clientEntry(
         while (true) {
           let { done, value } = await reader.read()
           if (done) break
-          if (signal.aborted) { reader.cancel().catch(() => {}); return }
+          if (signal.aborted) {
+            reader.cancel().catch(() => {})
+            return
+          }
 
           buffer += decoder.decode(value, { stream: true })
           let parts = buffer.split('\n\n')
@@ -367,7 +375,8 @@ export const SupportAgentStream = clientEntry(
                 currentThreadId = null
                 if (!didNavigate) {
                   let container = document.getElementById('support-agent-frame-container')
-                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'support-content'
+                  let activeFrame =
+                    container?.getAttribute('data-active-frame') ?? 'support-content'
                   let theFrame = handle.frames.get(activeFrame)
                   if (theFrame) theFrame.reload().catch(() => {})
                 }

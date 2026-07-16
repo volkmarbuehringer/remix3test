@@ -45,10 +45,7 @@ export function getStream(runId: string): StoredStream | undefined {
   return existing.entry
 }
 
-export function verifyStreamOwner(
-  runId: string,
-  userId: string | number,
-): boolean {
+export function verifyStreamOwner(runId: string, userId: string | number): boolean {
   let existing = ownershipStore.get(runId)
   if (!existing) return false
   return String(existing.userId) === String(userId)

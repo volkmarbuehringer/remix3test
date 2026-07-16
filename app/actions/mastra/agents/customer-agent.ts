@@ -64,7 +64,7 @@ Regeln:
     }),
     new TokenLimiterProcessor({ limit: 10000 }),
     new CostGuardProcessor({
-      maxCost: 0.50,
+      maxCost: 0.5,
       scope: 'resource',
       window: '24h',
       strategy: 'block',
@@ -74,7 +74,9 @@ Regeln:
     providerId: 'opencode-go',
     modelId: 'deepseek-v4-flash',
     url: OPENCODE_API_URL,
-    get apiKey() { return requireApiKey() },
+    get apiKey() {
+      return requireApiKey()
+    },
   },
   tools: { ...customerTools, askUserTool },
   memory: new Memory({

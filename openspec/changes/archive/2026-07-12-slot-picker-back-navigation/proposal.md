@@ -12,10 +12,12 @@ When the customer agent shows available time slots for a resource, the user has 
 ## Capabilities
 
 ### New Capabilities
+
 - `slot-picker-back-navigation`: Cancel and back-navigation affordances on the chat slot picker, enabling users to return to resource selection or dismiss the picker without typing
 
 ### Modified Capabilities
-- *(none — existing specs cover the slot picker rendering and agent booking logic; this adds UI affordance and agent behavior without changing requirements)*
+
+- _(none — existing specs cover the slot picker rendering and agent booking logic; this adds UI affordance and agent behavior without changing requirements)_
 
 ## Impact
 

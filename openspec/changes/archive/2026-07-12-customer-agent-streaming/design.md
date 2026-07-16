@@ -5,6 +5,7 @@ The customer agent currently flows through four Remix3 controller actions (index
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace `agent.generate()` with `agent.stream()` in the customer chat controller
 - Add a `/chat/stream/:runId` SSE endpoint following the test agent pattern
 - Integrate `askUserTool` for structured resource selection, slot-fallback, and post-booking
@@ -14,6 +15,7 @@ The customer agent currently flows through four Remix3 controller actions (index
 - Add a `CustomerChatStream` clientEntry for real-time UI
 
 **Non-Goals:**
+
 - Converting the support agent (separate change)
 - Generalizing the stream store or creating a shared SSE abstraction (use existing `app/utils/stream-store.ts`)
 - Changing the auth model or thread-id validation
@@ -37,6 +39,7 @@ The current `confirm_booking` action and its `pendingBooking` session state go a
 ### 4. Controller actions consolidate
 
 Current: 4 actions (index, action, approve, decline). Proposed:
+
 - `index` — static page shell (messages loaded via recall + rendered by clientEntry on reconnect)
 - `action` — starts or continues a stream via `agent.stream()`, returns JSON `{ runId }`
 - `stream` — new SSE endpoint serving the stored stream (mirrors test agent)

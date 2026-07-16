@@ -12,10 +12,12 @@ When the route agent searches for lists via `findList`, it currently decides for
 ## Capabilities
 
 ### New Capabilities
+
 - `enriched-findlist`: The `findList` tool supports `search`, `sort`, `limit`, and `offset` parameters for richer list discovery queries
 - `lists-sidebar-agent-results`: The `/lists` route accepts an `?ids=` query parameter to show only specified lists in the sidebar
 
 ### Modified Capabilities
+
 - `dedicated-route-agent`: Route agent instructions change to prefer the `findList → routeNavigate("/lists?ids=...")` pattern, using `askUserTool` only when no lists are found or the search is ambiguous
 - `lists-search`: The lists controller's `index` action accepts an `ids` param alongside the existing `filter` param
 

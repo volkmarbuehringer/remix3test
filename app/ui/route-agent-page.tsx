@@ -79,24 +79,34 @@ const btnStyle = css({
 export function RouteAgentPage(handle: Handle) {
   return () => (
     <div mix={pageStyle}>
-      <div id="route-agent-frame-container" data-active-frame="lists-content" mix={frameContainerStyle}>
+      <div
+        id="route-agent-frame-container"
+        data-active-frame="lists-content"
+        mix={frameContainerStyle}
+      >
         <div id="frame-lists-content" mix={[frameWrapperStyle, frameVisibleStyle]}>
           <Frame
             name="lists-content"
             src={routes.routeAgent.panel.href()}
-            fallback={<div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Loading...</div>}
+            fallback={
+              <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Loading...</div>
+            }
           />
         </div>
         <div id="frame-admin-content" mix={frameWrapperStyle}>
           <Frame
             name="admin-content"
             src={routes.routeAgent.panel.href()}
-            fallback={<div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Loading...</div>}
+            fallback={
+              <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Loading...</div>
+            }
           />
         </div>
       </div>
 
-      <div id="agent-bar" mix={agentBarStyle}>Ask the agent to navigate...</div>
+      <div id="agent-bar" mix={agentBarStyle}>
+        Ask the agent to navigate...
+      </div>
 
       <form id="route-agent-form" mix={inputBarStyle}>
         <input

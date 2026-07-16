@@ -1,6 +1,6 @@
 ---
 name: remix3-theme-css-variable-prefix
-description: "Remix 3 theme variables use --rmx- prefix; bare var(--name, fallback) silently breaks dark mode"
+description: 'Remix 3 theme variables use --rmx- prefix; bare var(--name, fallback) silently breaks dark mode'
 origin: auto-extracted
 ---
 
@@ -50,21 +50,21 @@ border: 1px solid var(--rmx-color-border-default);
 
 ### Reference: Common theme variables
 
-| Bare name (broken) | Correct `--rmx-*` variable |
-|---|---|
-| `var(--surface-lvl0, #fff)` | `var(--rmx-surface-lvl0)` |
-| `var(--surface-lvl1, #f5f5f5)` | `var(--rmx-surface-lvl1)` |
-| `var(--text-primary, #333)` | `var(--rmx-color-text-primary)` |
-| `var(--text-secondary, #666)` | `var(--rmx-color-text-secondary)` |
-| `var(--border-color, #ddd)` | `var(--rmx-color-border-default)` |
+| Bare name (broken)             | Correct `--rmx-*` variable        |
+| ------------------------------ | --------------------------------- |
+| `var(--surface-lvl0, #fff)`    | `var(--rmx-surface-lvl0)`         |
+| `var(--surface-lvl1, #f5f5f5)` | `var(--rmx-surface-lvl1)`         |
+| `var(--text-primary, #333)`    | `var(--rmx-color-text-primary)`   |
+| `var(--text-secondary, #666)`  | `var(--rmx-color-text-secondary)` |
+| `var(--border-color, #ddd)`    | `var(--rmx-color-border-default)` |
 
 ### Light values (for reference)
 
-| Variable | Light | Dark |
-|---|---|---|
-| `--rmx-surface-lvl0` | `#f7fbff` | `#363a3e` |
-| `--rmx-surface-lvl1` | `#f0f4f7` | `#313539` |
-| `--rmx-color-text-primary` | `#313539` | `#dee2e6` |
+| Variable                     | Light     | Dark      |
+| ---------------------------- | --------- | --------- |
+| `--rmx-surface-lvl0`         | `#f7fbff` | `#363a3e` |
+| `--rmx-surface-lvl1`         | `#f0f4f7` | `#313539` |
+| `--rmx-color-text-primary`   | `#313539` | `#dee2e6` |
 | `--rmx-color-text-secondary` | `#5a5e62` | `#a0a4a8` |
 | `--rmx-color-border-default` | `#d0d4d8` | `#3d4145` |
 

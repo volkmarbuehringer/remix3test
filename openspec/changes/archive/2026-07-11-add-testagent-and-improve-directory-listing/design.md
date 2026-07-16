@@ -5,11 +5,13 @@ The `/testagent` route is currently gated at the router level by `NODE_ENV !== '
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Availability of `/testagent` in all environments behind auth
 - "Test-Agent" nav item in admin sidebar under "Daten" group
 - Agent directory listing output shows directories with distinct formatting, sizes in human-readable units, and visual grouping
 
 **Non-Goals:**
+
 - No changes to the streaming SSE protocol or approval flow
 - No changes to `readTestFile` behavior
 - No changes to production agents (supportAgent, customerAgent)
@@ -30,6 +32,7 @@ The `/testagent` routes use JSON API-style POST responses (not form redirects wi
 ### Decision: Enrich listTestFiles output with formatted display data
 
 Instead of returning raw bytes and plain names, add a `display` field to each file entry with:
+
 - `formattedSize`: human-readable size (e.g., "2.3 MB", "1.2 KB")
 - `type`: "directory" | "file" for agent prompt context
 - `icon`: Unicode icon (📁 for dirs, 📄 for files) so the LLM can render rich text

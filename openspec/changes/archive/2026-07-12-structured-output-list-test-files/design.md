@@ -9,6 +9,7 @@ The Mastra `ToolAction` interface supports `outputSchema?: PublicSchema<TSchemaO
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add `outputSchema` to `listTestFiles` with a `z.discriminatedUnion('success', [...])` defining success and error shapes
 - Every output field gets a `.describe()` so the LLM knows units (bytes, ms), semantics (what to use for sorting vs display), and purpose
 - Typed error codes (`VALIDATION`, `NOT_FOUND`, `DEPENDENCY`, `INTERNAL`) that the LLM can pattern-match for recovery
@@ -16,6 +17,7 @@ The Mastra `ToolAction` interface supports `outputSchema?: PublicSchema<TSchemaO
 - Extract shared error primitives to a module that other tools can import
 
 **Non-Goals:**
+
 - Changing the agent instructions — the LLM sees the same data, just with descriptions
 - Applying `outputSchema` to other tools — that's a follow-up after this pattern is proven
 - Changing `toModelOutput` — the envelope goes all the way to the LLM as-is
@@ -26,6 +28,7 @@ The Mastra `ToolAction` interface supports `outputSchema?: PublicSchema<TSchemaO
 ### Decision 1: Envelope goes to the LLM untransformed
 
 No `toModelOutput` hook. The discriminated union (`success: true | false`) is what the LLM receives. Reasoning:
+
 - Explicit is better than implicit — the LLM can check `success` before acting
 - One fewer abstraction to maintain
 - If we later want to strip the envelope, `toModelOutput` is zero-cost to add
@@ -33,6 +36,7 @@ No `toModelOutput` hook. The discriminated union (`success: true | false`) is wh
 ### Decision 2: Error codes over freeform strings
 
 A `z.enum(['VALIDATION', 'NOT_FOUND', 'DEPENDENCY', 'INTERNAL'])` instead of a bare `z.string()`. Reasoning:
+
 - The LLM can branch on `error.code` (e.g. "if DEPENDENCY, suggest retry; if VALIDATION, tell user what's wrong")
 - Enables typed error handling in agent instructions
 - Freeform strings drift; enums stay consistent
@@ -40,6 +44,7 @@ A `z.enum(['VALIDATION', 'NOT_FOUND', 'DEPENDENCY', 'INTERNAL'])` instead of a b
 ### Decision 3: Shared error module
 
 Extract error primitives into `app/actions/mastra/tools/errors.ts`:
+
 - `ErrorCode` Zod enum
 - `errorEnvelope` Zod object (the `{ success: false, error: { code, message } }` shape)
 - Optionally `successData<T>` helper for wrapping typed data into the success envelope

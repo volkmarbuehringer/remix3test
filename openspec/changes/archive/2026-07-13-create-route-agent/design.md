@@ -5,11 +5,13 @@ The existing route agent at `app/actions/route-agent/controller.tsx` uses `mastr
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Create a new `routeAgent` Mastra agent with only `routeNavigate`, `findList`, and `askUserTool`
 - Update the route-agent controller to use the new agent
 - Remove the `requireApproval` logic from the controller (no workspace tools to approve)
 
 **Non-Goals:**
+
 - No UI changes — the route agent page and stream client remain identical
 - No route changes — same endpoints at `/route-agent/*`
 - No behavioral changes from the user's perspective

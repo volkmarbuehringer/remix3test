@@ -3,6 +3,7 @@
 The support agent is a Mastra agent used by admin operators to query users, appointments, resources, and system data. It currently runs on `agent.generate()` with a synchronous request/response cycle: POST to `/mastra/chat` → blocks until complete → returns JSON or redirects to the chat page with query params.
 
 Three other agents in the codebase already use streaming:
+
 - **route-agent**: Direct pipe — `agent.stream()` → `ReadableStream` → SSE, proven in production
 - **test-agent**: Two-phase — POST stores stream, GET `/stream/:runId` reads it via EventSource
 - **customer-agent**: Same two-phase pattern as test-agent
@@ -12,6 +13,7 @@ The route-agent's direct-pipe pattern is the simplest and best-proven approach. 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace `agent.generate()` with `agent.stream()` with direct-pipe SSE
 - Inline tool approvals via SSE `suspension` events (no page redirects)
 - Add `ask_user` tool support for disambiguation
@@ -21,6 +23,7 @@ The route-agent's direct-pipe pattern is the simplest and best-proven approach. 
 - Per-user rate limiting, audit logging, validation (keep existing)
 
 **Non-Goals:**
+
 - Route navigation tools for the support agent (frame navigation is passive — agent tool results can opt-in to `event: navigate`, but no dedicated navigation tools are added)
 - Removing the `MastraChatPage` component entirely (it still renders initial chat history on GET)
 - Supporting JSON API consumers of the old endpoint (breaking change accepted per proposal)
@@ -30,19 +33,20 @@ The route-agent's direct-pipe pattern is the simplest and best-proven approach. 
 
 ### D1: Direct-pipe SSE (route-agent style) over two-phase
 
-| Criterion | Direct-pipe | Two-phase |
-|-----------|-------------|-----------|
-| Connection count | 1 POST | 2 (POST + GET/EventSource) |
-| Stream store | None | `stream-store.ts` with 5min TTL |
-| Reconnection | None needed | EventSource handles auto-reconnect |
-| Complexity | Lower | Higher |
-| Proven in codebase | Yes (route-agent) | Yes (test-agent, customer-agent) |
+| Criterion          | Direct-pipe       | Two-phase                          |
+| ------------------ | ----------------- | ---------------------------------- |
+| Connection count   | 1 POST            | 2 (POST + GET/EventSource)         |
+| Stream store       | None              | `stream-store.ts` with 5min TTL    |
+| Reconnection       | None needed       | EventSource handles auto-reconnect |
+| Complexity         | Lower             | Higher                             |
+| Proven in codebase | Yes (route-agent) | Yes (test-agent, customer-agent)   |
 
 The support agent's chat interactions are discrete queries, not long-lived sessions that benefit from reconnection. Direct-pipe is simpler and already proven.
 
 ### D2: Frame layout over page-reload layout
 
 The current support agent page reloads on every message (POST → redirect → GET). Frame layout means:
+
 - Chat history renders inside `<Frame name="support-content">`
 - Agent bar and input bar live outside the frame (unaffected by frame reloads)
 - On `event: complete`, the frame reloads to show updated chat history
@@ -56,17 +60,17 @@ Streaming text, questions, and approval buttons all render in the agent bar belo
 
 ### D4: SSE event contract (subset of route-agent)
 
-| SSE Event | Route Agent | Support Agent | Notes |
-|-----------|-------------|---------------|-------|
-| `start` | Yes | Yes | Same shape: `{ runId, threadId }` |
-| `message` | Yes | Yes | Same shape: `{ text }` |
-| `suspension` | Yes | Yes | Same shape: `{ toolCallId, toolName, args }` |
-| `question` | Yes | Yes | Same shape: `{ runId, toolCallId, question, options, selectionMode }` |
-| `navigate` | Yes | **Optional** | Only emitted if a tool result has `type: "route"` |
-| `complete` | Yes | Yes | Same shape: `{}` |
-| `agent-error` | Yes | Yes | Same shape: `{ error }` |
-| `tool-error` | Yes | Yes | Same shape |
-| `tool-result` | Yes | Yes | Same shape |
+| SSE Event     | Route Agent | Support Agent | Notes                                                                 |
+| ------------- | ----------- | ------------- | --------------------------------------------------------------------- |
+| `start`       | Yes         | Yes           | Same shape: `{ runId, threadId }`                                     |
+| `message`     | Yes         | Yes           | Same shape: `{ text }`                                                |
+| `suspension`  | Yes         | Yes           | Same shape: `{ toolCallId, toolName, args }`                          |
+| `question`    | Yes         | Yes           | Same shape: `{ runId, toolCallId, question, options, selectionMode }` |
+| `navigate`    | Yes         | **Optional**  | Only emitted if a tool result has `type: "route"`                     |
+| `complete`    | Yes         | Yes           | Same shape: `{}`                                                      |
+| `agent-error` | Yes         | Yes           | Same shape: `{ error }`                                               |
+| `tool-error`  | Yes         | Yes           | Same shape                                                            |
+| `tool-result` | Yes         | Yes           | Same shape                                                            |
 
 The `navigate` event is structurally the same but only included if a tool returns a route result. No dedicated navigation tools are added; if a support tool happens to return addressable page data, the pipe can emit `navigate`.
 
@@ -80,14 +84,19 @@ The route agent's `toolDecision` handler returns a new SSE stream from `approveT
 ### D6: `runWithAdminId` wraps `agent.stream()` not `agent.generate()`
 
 Current code:
+
 ```ts
-let result = await runWithAdminId(user.id, () => callAgentWithTimeout({ agent, message, threadId, userId, maxSteps, timeoutMs }))
+let result = await runWithAdminId(user.id, () =>
+  callAgentWithTimeout({ agent, message, threadId, userId, maxSteps, timeoutMs }),
+)
 ```
 
 New code — the `runWithAdminId` wraps the `agent.stream()` call, just as the route agent currently doesn't need it but the support agent does for its tools:
 
 ```ts
-let output = await runWithAdminId(user.id, () => agent.stream(message, { memory: { thread: threadId, resource: String(user.id) } }))
+let output = await runWithAdminId(user.id, () =>
+  agent.stream(message, { memory: { thread: threadId, resource: String(user.id) } }),
+)
 ```
 
 The async storage persists across tool execution boundaries within the same agent call, so `cancelUserAccount`'s `requireAdminId()` continues to work.
@@ -100,10 +109,10 @@ The SSE pipe already handles `tool-call-suspended` → `event: question`. The cl
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| **Cancel-user approval flow**: `cancelUserAccount` is intentionally scary; inline buttons in the agent bar may feel too casual | The suspension SSE event carries `{ toolName: "cancel_user_account", args: { targetUserId } }`. The client can render a more prominent red warning card instead of the generic inline buttons when `toolName === "cancel_user_account"`. The route-agent stream component already supports conditional rendering based on event data. |
-| **Frame reload loses agent bar state**: If the agent navigates to a slow page, the `complete` → frame reload may happen before the navigation finishes | The client waits for both: on `complete`, reload the frame. On `navigate`, set frame src and wait for frame load event before allowing new input. |
-| **Rate limiter becomes per-IP**: Route agent uses per-IP rate limiting; support agent currently uses per-user | Keep per-user rate limiting (it's session-based). The limiter implementation already supports `perUser: true`. |
-| **Breaking change for JSON consumers**: Old `wantsJson` callers will get SSE bytes instead of JSON | The proposal marks this as **BREAKING**. If a consumer exists, it needs updating. If none exists, no impact. |
-| **`agent.stream()` timeout**: `generate()` had a manual 60s timeout via AbortController. The stream pattern doesn't have an obvious equivalent. | Pass `abortSignal` to `agent.stream()` options — the same AbortController pattern works. Pipe the signal through `pipeStream()` to close the SSE response cleanly. |
+| Risk                                                                                                                                                   | Mitigation                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Cancel-user approval flow**: `cancelUserAccount` is intentionally scary; inline buttons in the agent bar may feel too casual                         | The suspension SSE event carries `{ toolName: "cancel_user_account", args: { targetUserId } }`. The client can render a more prominent red warning card instead of the generic inline buttons when `toolName === "cancel_user_account"`. The route-agent stream component already supports conditional rendering based on event data. |
+| **Frame reload loses agent bar state**: If the agent navigates to a slow page, the `complete` → frame reload may happen before the navigation finishes | The client waits for both: on `complete`, reload the frame. On `navigate`, set frame src and wait for frame load event before allowing new input.                                                                                                                                                                                     |
+| **Rate limiter becomes per-IP**: Route agent uses per-IP rate limiting; support agent currently uses per-user                                          | Keep per-user rate limiting (it's session-based). The limiter implementation already supports `perUser: true`.                                                                                                                                                                                                                        |
+| **Breaking change for JSON consumers**: Old `wantsJson` callers will get SSE bytes instead of JSON                                                     | The proposal marks this as **BREAKING**. If a consumer exists, it needs updating. If none exists, no impact.                                                                                                                                                                                                                          |
+| **`agent.stream()` timeout**: `generate()` had a manual 60s timeout via AbortController. The stream pattern doesn't have an obvious equivalent.        | Pass `abortSignal` to `agent.stream()` options — the same AbortController pattern works. Pipe the signal through `pipeStream()` to close the SSE response cleanly.                                                                                                                                                                    |

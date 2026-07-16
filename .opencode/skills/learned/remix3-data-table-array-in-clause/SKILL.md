@@ -1,6 +1,6 @@
 ---
 name: remix3-data-table-array-in-clause
-description: "Use db.exec with explicit IN ($1,$2) when querying by multiple IDs — db.findMany({where:{id:ids}}) silently breaks"
+description: 'Use db.exec with explicit IN ($1,$2) when querying by multiple IDs — db.findMany({where:{id:ids}}) silently breaks'
 origin: auto-extracted
 ---
 
@@ -44,6 +44,7 @@ export async function getListsByIds(
 ```
 
 Key points:
+
 - `= ANY($1::integer[])` replaces dynamic `IN ($1, $2, ..., $N)` — one parameter for the whole array
 - `array_position($1::integer[], id)` preserves input ID order by referencing the same parameter
 - The `::integer[]` cast ensures the array is treated as integers, not text

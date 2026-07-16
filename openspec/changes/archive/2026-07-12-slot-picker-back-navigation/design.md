@@ -7,12 +7,14 @@ There is currently no affordance to exit the slot picker other than clicking a s
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add an "Andere Ressource" button to the slot picker that triggers the agent to re-offer remaining resources from the previous search
 - Add a "Schließen" button that removes the picker and re-enables the text input (client-side only)
 - Add an agent instruction so the agent handles "other resource" requests by re-searching with the same query terms
 - Preserve all existing slot picker behavior (slot click, pagination, booking flow)
 
 **Non-Goals:**
+
 - Changing the slot picker's visual layout beyond adding two buttons
 - Caching resource lists client-side (the agent re-searches)
 - Multi-turn "back" navigation (only one level: back from slots to resource selection)
@@ -49,8 +51,9 @@ Both buttons sit below the pagination controls, right-aligned, with a subtle div
 ### 4. Agent instruction mirrors the post-booking pattern
 
 Existing post-booking instruction (line 51 of `customer-agent.ts`):
+
 ```
-Wenn der Kunde mit "Ja" antwortet: Durchsuche SOFORT search_resources_by_capability 
+Wenn der Kunde mit "Ja" antwortet: Durchsuche SOFORT search_resources_by_capability
 mit den GLEICHEN Suchbegriffen wie in der vorherigen Suche.
 ```
 

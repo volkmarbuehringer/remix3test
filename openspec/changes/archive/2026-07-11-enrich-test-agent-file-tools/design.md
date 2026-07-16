@@ -10,6 +10,7 @@ The agent can discover what files exist but cannot answer questions about file s
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Sort results by size, mtime, name, or extension
 - Filter by extension
 - Limit result count (max 100)
@@ -18,6 +19,7 @@ The agent can discover what files exist but cannot answer questions about file s
 - Update agent instructions to teach the new capabilities
 
 **Non-Goals:**
+
 - Content search or grep (use `readTestFile` for content)
 - Write/modify/delete files
 - Aggregate statistics (total size, file count by type — agent can derive these)
@@ -25,15 +27,15 @@ The agent can discover what files exist but cannot answer questions about file s
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| One tool vs many | Enrich `listTestFiles` with optional params | Avoids tool proliferation. Agent learns one tool, varies params |
-| Default sort | `name`, ascending | Backward compatible with current behavior (alphabetical listing) |
-| Stat approach | `readdir` + `stat` per entry | No native `ls --stat` in Node. Acceptable at this project's scale |
-| `node_modules` exclusion | Always excluded in recursive mode | Would dominate results. No opt-out needed |
-| `.git` exclusion | Always excluded in recursive mode | Implementation detail, not project content |
-| Return shape | Same `{ path, files: [...] }` — each entry gains `size`, `mtime` | Non-breaking addition; existing fields unchanged |
-| Input schema | Same subdir param, new optional: `sort`, `order`, `limit`, `ext`, `recursive` | Zod v4 optional fields | 
+| Decision                 | Choice                                                                        | Rationale                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| One tool vs many         | Enrich `listTestFiles` with optional params                                   | Avoids tool proliferation. Agent learns one tool, varies params   |
+| Default sort             | `name`, ascending                                                             | Backward compatible with current behavior (alphabetical listing)  |
+| Stat approach            | `readdir` + `stat` per entry                                                  | No native `ls --stat` in Node. Acceptable at this project's scale |
+| `node_modules` exclusion | Always excluded in recursive mode                                             | Would dominate results. No opt-out needed                         |
+| `.git` exclusion         | Always excluded in recursive mode                                             | Implementation detail, not project content                        |
+| Return shape             | Same `{ path, files: [...] }` — each entry gains `size`, `mtime`              | Non-breaking addition; existing fields unchanged                  |
+| Input schema             | Same subdir param, new optional: `sort`, `order`, `limit`, `ext`, `recursive` | Zod v4 optional fields                                            |
 
 ## Risks / Trade-offs
 

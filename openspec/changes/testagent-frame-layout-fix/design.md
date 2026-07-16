@@ -5,11 +5,13 @@ The test-agent controller at `app/actions/test-agent/controller.tsx` always rend
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Eliminate duplicate navbar when test-agent opens in admin frame
 - Keep test-agent working when accessed directly (though it'll be removed from the navbar)
 - Match mastra chat rendering pattern exactly
 
 **Non-Goals:**
+
 - No behavioral changes to the test-agent logic (streaming, approval, etc.)
 - No changes to admin-layout or sidebar-layout
 
@@ -18,6 +20,7 @@ The test-agent controller at `app/actions/test-agent/controller.tsx` always rend
 **Frame detection** — Use `context.request.headers.get('X-Remix-Target') === frames.adminContent`, exactly like mastra chat at `mastra/controller.tsx:76`.
 
 **Dual rendering path:**
+
 - Frame request → `renderAdminPage(context.render, 'testagent', <TestAgentPage />)`
 - Direct request → `context.render(<Layout><AdminLayout activeItem="testagent"><TestAgentPage /></AdminLayout></Layout>)`
 

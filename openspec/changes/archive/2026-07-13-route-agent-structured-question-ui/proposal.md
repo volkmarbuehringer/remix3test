@@ -11,9 +11,11 @@ The route-agent supports `askUserTool` which delivers structured options (labels
 ## Capabilities
 
 ### New Capabilities
+
 - `structured-question-ui`: The route-agent client entry renders structured question options (radio buttons for single_select, checkboxes for multi_select) instead of a plain text prompt. Options show labels and descriptions. The selected label is sent back to the agent as the answer.
 
 ### Modified Capabilities
+
 - `dedicated-route-agent`: Agent instructions extended to require MIME-type confirmation before navigating to `/uploads`, using the structured question pattern.
 
 ## Impact

@@ -11,6 +11,7 @@ The route-agent can navigate to pages and search lists, but it has no visibility
 ## Capabilities
 
 ### New Capabilities
+
 - `agent-aware-form-controller`: Makes existing HTML form controllers respond with structured JSON when called from an agent context, enabling the route-agent to see form submission results and errors
 
 ### Modified Capabilities

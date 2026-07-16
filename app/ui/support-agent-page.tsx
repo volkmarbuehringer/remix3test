@@ -83,24 +83,38 @@ interface SupportAgentPageProps {
 export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
   return () => (
     <div mix={pageStyle}>
-      <div id="support-agent-frame-container" data-active-frame="support-content" mix={frameContainerStyle}>
+      <div
+        id="support-agent-frame-container"
+        data-active-frame="support-content"
+        mix={frameContainerStyle}
+      >
         <div id="frame-support-content" mix={[frameWrapperStyle, frameVisibleStyle]}>
           <Frame
             name="support-content"
-            src={routes.mastra.chat.index.href(handle.props.threadId ? { threadId: handle.props.threadId } : {})}
-            fallback={<div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Lade Chats...</div>}
+            src={routes.mastra.chat.index.href(
+              handle.props.threadId ? { threadId: handle.props.threadId } : {},
+            )}
+            fallback={
+              <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
+                Lade Chats...
+              </div>
+            }
           />
         </div>
         <div id="frame-admin-content" mix={frameWrapperStyle}>
           <Frame
             name="admin-content"
             src={routes.mastra.chat.index.href()}
-            fallback={<div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Laden...</div>}
+            fallback={
+              <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>Laden...</div>
+            }
           />
         </div>
       </div>
 
-      <div id="agent-bar" mix={agentBarStyle}>Ich bin der Support-Agent. Wie kann ich helfen?</div>
+      <div id="agent-bar" mix={agentBarStyle}>
+        Ich bin der Support-Agent. Wie kann ich helfen?
+      </div>
 
       <form id="support-agent-form" mix={inputBarStyle}>
         <input

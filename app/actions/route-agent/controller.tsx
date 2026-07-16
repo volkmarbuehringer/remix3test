@@ -47,16 +47,18 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
 
       async panel(context) {
         return context.render(
-          <div mix={css({
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: theme.colors.text.muted,
-            fontSize: '1rem',
-          })}>
+          <div
+            mix={css({
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: theme.colors.text.muted,
+              fontSize: '1rem',
+            })}
+          >
             Ask the agent to navigate somewhere, e.g. "show me the lists"
-          </div>
+          </div>,
         )
       },
 
@@ -65,7 +67,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         let ip = rawIp.split(',')[0].trim() || 'anon'
         if (!routeAgentRateLimiter.attempt(ip)) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
+            ),
             { status: 429, headers: sseHeaders() },
           )
         }
@@ -73,14 +77,18 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         let rawMessage = context.formData.get('message')?.toString() ?? ''
         if (rawMessage.length > MAX_MESSAGE_LENGTH) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: `Message too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: `Message too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
         let message = rawMessage.trim()
         if (!message) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
@@ -95,7 +103,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
                 memory: { thread: threadId, resource: 'route-user' },
               })
               controller.enqueue(
-                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`),
+                sseEncoder.encode(
+                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`,
+                ),
               )
               await pipeStream(
                 output.fullStream as unknown as ReadableStream,
@@ -108,10 +118,18 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
               console.error('[routeAgent] action error:', err)
               try {
                 controller.enqueue(
-                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process request' })}\n\n`),
+                  sseEncoder.encode(
+                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process request' })}\n\n`,
+                  ),
                 )
-              } catch { /* controller already errored */ }
-              try { controller.close() } catch { /* already closed */ }
+              } catch {
+                /* controller already errored */
+              }
+              try {
+                controller.close()
+              } catch {
+                /* already closed */
+              }
             }
           },
         })
@@ -124,7 +142,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         let ip = rawIp.split(',')[0].trim() || 'anon'
         if (!routeAgentRateLimiter.attempt(ip)) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
+            ),
             { status: 429, headers: sseHeaders() },
           )
         }
@@ -136,21 +156,29 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
 
         if (!runId || !answerRaw) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId or answer' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId or answer' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         if (answerRaw.length > MAX_MESSAGE_LENGTH) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         let resumeData: unknown = answerRaw
         if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
-          try { resumeData = JSON.parse(answerRaw) } catch { /* keep as string */ }
+          try {
+            resumeData = JSON.parse(answerRaw)
+          } catch {
+            /* keep as string */
+          }
         }
 
         let body = new ReadableStream({
@@ -159,7 +187,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
               let agent = mastra.getAgent('routeAgent')
               let output = await agent.resumeStream(resumeData, { runId, toolCallId })
               controller.enqueue(
-                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`),
+                sseEncoder.encode(
+                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`,
+                ),
               )
               await pipeStream(
                 output.fullStream as unknown as ReadableStream,
@@ -172,10 +202,18 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
               console.error('[routeAgent] answer error:', err)
               try {
                 controller.enqueue(
-                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to resume agent' })}\n\n`),
+                  sseEncoder.encode(
+                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to resume agent' })}\n\n`,
+                  ),
                 )
-              } catch { /* controller already errored */ }
-              try { controller.close() } catch { /* already closed */ }
+              } catch {
+                /* controller already errored */
+              }
+              try {
+                controller.close()
+              } catch {
+                /* already closed */
+              }
             }
           },
         })
@@ -190,24 +228,27 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
 
         if (!runId) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         if (decision !== 'approve' && decision !== 'decline') {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'decision must be "approve" or "decline"' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'decision must be "approve" or "decline"' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         try {
           let agent = mastra.getAgent('routeAgent')
-          let result = await (decision === 'approve'
+          let result = (await (decision === 'approve'
             ? agent.approveToolCallGenerate({ runId, toolCallId })
-            : agent.declineToolCallGenerate({ runId, toolCallId })
-          ) as {
+            : agent.declineToolCallGenerate({ runId, toolCallId }))) as {
             text?: string
             finishReason?: string
             runId?: string
@@ -217,18 +258,27 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
 
           if (result.finishReason === 'suspended') {
             let sp = result.suspendPayload as
-              | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string; toolCallId?: string }
+              | {
+                  question?: string
+                  options?: { label: string; description?: string }[]
+                  selectionMode?: string
+                  toolCallId?: string
+                }
               | undefined
             if (sp?.question) {
               let body2 = new ReadableStream({
                 start: (c) => {
-                  c.enqueue(sseEncoder.encode(`event: question\ndata: ${JSON.stringify({
-                    runId: result.runId || runId,
-                    toolCallId: sp?.toolCallId,
-                    question: sp.question,
-                    options: sp.options ?? null,
-                    selectionMode: sp.selectionMode ?? 'single_select',
-                  })}\n\n`))
+                  c.enqueue(
+                    sseEncoder.encode(
+                      `event: question\ndata: ${JSON.stringify({
+                        runId: result.runId || runId,
+                        toolCallId: sp?.toolCallId,
+                        question: sp.question,
+                        options: sp.options ?? null,
+                        selectionMode: sp.selectionMode ?? 'single_select',
+                      })}\n\n`,
+                    ),
+                  )
                   c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
                   c.close()
                 },
@@ -240,17 +290,27 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
           if (result.fullStream) {
             let body3 = new ReadableStream({
               start: async (controller) => {
-                await pipeStream(result.fullStream!, controller, context.request.signal, undefined, getTarget)
+                await pipeStream(
+                  result.fullStream!,
+                  controller,
+                  context.request.signal,
+                  undefined,
+                  getTarget,
+                )
               },
             })
             return new Response(body3, { headers: sseHeaders() })
           }
 
-          let text = (result.text || (decision === 'approve' ? '' : 'The action was declined.')).trim()
+          let text = (
+            result.text || (decision === 'approve' ? '' : 'The action was declined.')
+          ).trim()
           let body4 = new ReadableStream({
             start: (c) => {
               if (text) {
-                c.enqueue(sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`))
+                c.enqueue(
+                  sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`),
+                )
               }
               c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
               c.close()
@@ -260,7 +320,9 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
         } catch (err) {
           console.error(`[routeAgent] toolDecision (${decision}) error:`, err)
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process tool decision' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process tool decision' })}\n\n`,
+            ),
             { status: 500, headers: sseHeaders() },
           )
         }

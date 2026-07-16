@@ -116,10 +116,10 @@ const deleteAndDisableAccountStep = createStep({
     let todayMidnight = getTodayUtcMidnight()
 
     return await db.transaction(async (tx) => {
-      let delResult = await tx.exec(
-        'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
-        [inputData.targetUserId, todayMidnight],
-      )
+      let delResult = await tx.exec('DELETE FROM appointments WHERE user_id = $1 AND date >= $2', [
+        inputData.targetUserId,
+        todayMidnight,
+      ])
       let deletedAppointments = delResult.affectedRows ?? 0
 
       let disableResult = await tx.exec(

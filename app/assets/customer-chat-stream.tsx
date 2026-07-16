@@ -73,8 +73,7 @@ export const CustomerChatStream = clientEntry(
       if (!container || toolCards[toolCallId]) return
 
       let card = document.createElement('div')
-      card.style.cssText =
-        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+      card.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let header = document.createElement('div')
       header.style.cssText =
@@ -160,10 +159,14 @@ export const CustomerChatStream = clientEntry(
         if (result && typeof result === 'object') {
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
-            div.innerHTML = '<div style="font-size:0.8125rem;color:var(--rmx-color-text-secondary)">Verfügbare Termine werden unten angezeigt.</div>'
+            div.innerHTML =
+              '<div style="font-size:0.8125rem;color:var(--rmx-color-text-secondary)">Verfügbare Termine werden unten angezeigt.</div>'
             appendSlotPicker(r)
           } else {
-            div.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2).slice(0, 500) : String(result)
+            div.textContent =
+              typeof result === 'object'
+                ? JSON.stringify(result, null, 2).slice(0, 500)
+                : String(result)
           }
         } else {
           div.textContent = String(result).slice(0, 500)
@@ -186,7 +189,7 @@ export const CustomerChatStream = clientEntry(
 
       let resourceName = esc(String(result.resource_name ?? ''))
 
-      let pages: typeof slots[] = []
+      let pages: (typeof slots)[] = []
       for (let i = 0; i < slots.length; i += SLOTS_PER_PAGE) {
         pages.push(slots.slice(i, i + SLOTS_PER_PAGE))
       }
@@ -313,7 +316,10 @@ export const CustomerChatStream = clientEntry(
       return html
     }
 
-    function appendStepStats(reason: string, usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) {
+    function appendStepStats(
+      reason: string,
+      usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
+    ) {
       let container = getChatArea()
       if (!container) return
       let div = document.createElement('div')
@@ -338,8 +344,7 @@ export const CustomerChatStream = clientEntry(
       let container = getChatArea()
       if (!container) return
       let details = document.createElement('details')
-      details.style.cssText =
-        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+      details.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let summary = document.createElement('summary')
       summary.style.cssText =
@@ -423,7 +428,9 @@ export const CustomerChatStream = clientEntry(
 
       card.innerHTML =
         `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#ef4444">${esc(title)}</div>` +
-        (description ? `<div style="font-size:0.875rem;color:var(--rmx-color-text-secondary);margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>` : '') +
+        (description
+          ? `<div style="font-size:0.875rem;color:var(--rmx-color-text-secondary);margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>`
+          : '') +
         `<div style="display:flex;gap:0.75rem">` +
         `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
         `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:var(--rmx-surface-lvl1);color:inherit;border:1px solid var(--rmx-color-border-default);border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
@@ -472,24 +479,36 @@ export const CustomerChatStream = clientEntry(
 
       if (data.options && data.options.length > 0) {
         if (data.selectionMode === 'multi_select') {
-          html += `<div id="q-options">` +
-            data.options.map((o) =>
-              `<label style="display:block;margin:4px 0;cursor:pointer">` +
-              `<input type="checkbox" class="q-option" value="${esc(o.label)}" /> ` +
-              esc(o.label) +
-              (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
-              `</label>`
-            ).join('') +
+          html +=
+            `<div id="q-options">` +
+            data.options
+              .map(
+                (o) =>
+                  `<label style="display:block;margin:4px 0;cursor:pointer">` +
+                  `<input type="checkbox" class="q-option" value="${esc(o.label)}" /> ` +
+                  esc(o.label) +
+                  (o.description
+                    ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
+                    : '') +
+                  `</label>`,
+              )
+              .join('') +
             `</div>`
         } else {
-          html += `<div id="q-options">` +
-            data.options.map((o, i) =>
-              `<label style="display:block;margin:4px 0;cursor:pointer">` +
-              `<input type="radio" class="q-option" name="q_option" value="${esc(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
-              esc(o.label) +
-              (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
-              `</label>`
-            ).join('') +
+          html +=
+            `<div id="q-options">` +
+            data.options
+              .map(
+                (o, i) =>
+                  `<label style="display:block;margin:4px 0;cursor:pointer">` +
+                  `<input type="radio" class="q-option" name="q_option" value="${esc(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
+                  esc(o.label) +
+                  (o.description
+                    ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
+                    : '') +
+                  `</label>`,
+              )
+              .join('') +
             `</div>`
         }
       } else {
@@ -516,12 +535,16 @@ export const CustomerChatStream = clientEntry(
 
       if (!optionsEl) return ''
 
-      let checked = optionsEl.querySelectorAll('input[type="checkbox"]:checked') as NodeListOf<HTMLInputElement>
+      let checked = optionsEl.querySelectorAll(
+        'input[type="checkbox"]:checked',
+      ) as NodeListOf<HTMLInputElement>
       if (checked.length > 0) {
         return JSON.stringify(Array.from(checked).map((cb) => cb.value))
       }
 
-      let selected = optionsEl.querySelector('input[type="radio"]:checked') as HTMLInputElement | null
+      let selected = optionsEl.querySelector(
+        'input[type="radio"]:checked',
+      ) as HTMLInputElement | null
       return selected?.value || ''
     }
 
@@ -558,7 +581,9 @@ export const CustomerChatStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           showApproval(data)
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         es.close()
         currentEventSource = null
         currentRunId = null
@@ -571,7 +596,9 @@ export const CustomerChatStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           showQuestion(data)
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         es.close()
         currentEventSource = null
         currentRunId = null
@@ -608,7 +635,9 @@ export const CustomerChatStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           appendToolCard(data.toolName || 'unbekannt', data.toolCallId || '')
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-call-delta', (event) => {
@@ -617,7 +646,9 @@ export const CustomerChatStream = clientEntry(
           if (data.toolCallId && data.argsTextDelta != null) {
             updateToolArgs(data.toolCallId, data.argsTextDelta as string)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-call', (event) => {
@@ -626,7 +657,9 @@ export const CustomerChatStream = clientEntry(
           if (data.toolCallId && data.args) {
             finalizeToolArgs(data.toolCallId, data.args as Record<string, unknown>)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-result', (event) => {
@@ -635,7 +668,9 @@ export const CustomerChatStream = clientEntry(
           if (data.toolCallId) {
             appendToolResult(data.toolCallId, data.result, data.isError)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-error', (event) => {
@@ -644,7 +679,9 @@ export const CustomerChatStream = clientEntry(
           if (data.toolCallId) {
             appendToolResult(data.toolCallId, data.error, true)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('step-finish', (event) => {
@@ -653,7 +690,9 @@ export const CustomerChatStream = clientEntry(
           if (data.usage || data.reason) {
             appendStepStats(data.reason || '', data.usage || {})
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('reasoning-start', () => startReasoning())
@@ -661,7 +700,9 @@ export const CustomerChatStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           if (data.text) appendReasoning(data.text as string)
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
       es.addEventListener('reasoning-end', () => endReasoning())
     }
@@ -716,12 +757,24 @@ export const CustomerChatStream = clientEntry(
       let raw = btn.dataset.slot
       if (!raw) return
 
-      let slot: { resourceId: number; dateEpochMs: number; startMin: number; label: string; resourceName: string }
+      let slot: {
+        resourceId: number
+        dateEpochMs: number
+        startMin: number
+        label: string
+        resourceName: string
+      }
       try {
         slot = JSON.parse(raw)
-      } catch { return }
+      } catch {
+        return
+      }
 
-      let dayStr = new Date(slot.dateEpochMs).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' })
+      let dayStr = new Date(slot.dateEpochMs).toLocaleDateString('de-DE', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+      })
       let message = `Ich möchte den Termin am ${dayStr} um ${slot.label} bei ${slot.resourceName} buchen.`
       appendMessage(message, 'user')
       setFormEnabled(false)
@@ -821,7 +874,12 @@ export const CustomerChatStream = clientEntry(
         let data = await res.json()
         hideApproval()
         if (data.requiresApproval) {
-          showApproval({ runId: data.runId, toolCallId: data.toolCallId, toolName: data.toolName, args: data.args })
+          showApproval({
+            runId: data.runId,
+            toolCallId: data.toolCallId,
+            toolName: data.toolName,
+            args: data.args,
+          })
         } else if (data.runId) {
           startStream(data.runId)
         }
@@ -838,7 +896,10 @@ export const CustomerChatStream = clientEntry(
       if (!answer) return
 
       let btn = document.getElementById('q-answer-btn') as HTMLButtonElement | null
-      if (btn) { btn.disabled = true; btn.textContent = 'Sende...' }
+      if (btn) {
+        btn.disabled = true
+        btn.textContent = 'Sende...'
+      }
 
       try {
         let body = new FormData()
@@ -857,7 +918,10 @@ export const CustomerChatStream = clientEntry(
         })
         if (!res.ok) {
           appendMessage('Antwort konnte nicht gesendet werden', 'error')
-          if (btn) { btn.disabled = false; btn.textContent = 'Antworten' }
+          if (btn) {
+            btn.disabled = false
+            btn.textContent = 'Antworten'
+          }
           setFormEnabled(true)
           return
         }
@@ -868,7 +932,10 @@ export const CustomerChatStream = clientEntry(
         }
       } catch (err) {
         appendMessage('Antwort-Fehler: ' + String(err), 'error')
-        if (btn) { btn.disabled = false; btn.textContent = 'Antworten' }
+        if (btn) {
+          btn.disabled = false
+          btn.textContent = 'Antworten'
+        }
         setFormEnabled(true)
       }
     }
@@ -885,25 +952,28 @@ export const CustomerChatStream = clientEntry(
 
             let chatArea = document.getElementById('chat-messages')
             if (chatArea) {
-              chatArea.addEventListener('click', (e) => {
-                let target = e.target as HTMLElement
-                if (target.classList.contains('slot-btn')) {
-                  handleSlotClick(e)
-                } else if (target.classList.contains('approve-btn')) {
-                  handleApproval('approve', e)
-                } else if (target.classList.contains('decline-btn')) {
-                  handleApproval('decline', e)
-                } else if (target.classList.contains('q-answer-btn')) {
-                  handleAnswer()
-                } else if (target.classList.contains('slot-other-resource-btn')) {
-                  handleOtherResource()
-                } else if (target.classList.contains('slot-close-btn')) {
-                  handleSlotCancel()
-                }
-              }, { signal: lifecycleSignal })
+              chatArea.addEventListener(
+                'click',
+                (e) => {
+                  let target = e.target as HTMLElement
+                  if (target.classList.contains('slot-btn')) {
+                    handleSlotClick(e)
+                  } else if (target.classList.contains('approve-btn')) {
+                    handleApproval('approve', e)
+                  } else if (target.classList.contains('decline-btn')) {
+                    handleApproval('decline', e)
+                  } else if (target.classList.contains('q-answer-btn')) {
+                    handleAnswer()
+                  } else if (target.classList.contains('slot-other-resource-btn')) {
+                    handleOtherResource()
+                  } else if (target.classList.contains('slot-close-btn')) {
+                    handleSlotCancel()
+                  }
+                },
+                { signal: lifecycleSignal },
+              )
             }
-
-              }),
+          }),
         ]}
       />
     )

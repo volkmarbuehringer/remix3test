@@ -9,11 +9,13 @@ Existing clientEntries in the codebase already use `handle.frame.reload()` and `
 ## Goals / Non-Goals
 
 **Goals:**
+
 - File uploads from within the route-agent's frame update in-place without navigating the main window
 - The route-agent's input bar, message history, and SSE stream remain intact after upload
 - Success/error feedback from the server (e.g., "Datei hochgeladen (ID: 123)") is preserved in the UI
 
 **Non-Goals:**
+
 - No changes to the route-agent page or its SSE stream handler
 - No changes to the upload data layer, middleware, or file processing logic
 - No new routes or API endpoints

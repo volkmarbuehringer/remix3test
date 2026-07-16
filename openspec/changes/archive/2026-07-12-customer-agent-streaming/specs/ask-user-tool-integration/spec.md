@@ -5,11 +5,13 @@
 The customer agent SHALL have access to `askUserTool` from `@mastra/core/tools` for presenting structured choices to the user.
 
 #### Scenario: askUserTool is in the agent's tool list
+
 - **WHEN** the customer agent is initialized
 - **THEN** `askUserTool` SHALL be included in the agent's `tools` object
 - **AND** the agent instructions SHALL describe when and how to use it
 
 #### Scenario: Agent instructions describe askUserTool usage
+
 - **WHEN** the agent instructions mention structured choices
 - **THEN** they SHALL instruct the agent to use `askUserTool` for:
   - Selecting between multiple matching resources
@@ -22,12 +24,14 @@ The customer agent SHALL have access to `askUserTool` from `@mastra/core/tools` 
 The `confirm_resource` tool SHALL no longer use `requireApproval: true`. Its function SHALL be replaced by the agent using `askUserTool` to present resource options to the customer.
 
 #### Scenario: confirm_resource has no requireApproval
+
 - **WHEN** the customer agent calls `confirm_resource`
 - **THEN** the tool SHALL NOT trigger a system suspend
 - **AND** the tool SHALL execute immediately
 - **AND** `confirm_resource` SHALL remain as a lightweight "acknowledge the selection" tool (or be removed if no longer needed)
 
 #### Scenario: Resource selection uses askUserTool instead
+
 - **WHEN** the agent finds multiple matching resources
 - **THEN** the agent SHALL use `askUserTool` with the matching resources as radio options
 - **AND** SHALL present a question like "Ich habe mehrere passende Ressourcen gefunden. Welche spricht Sie am meisten an?"
@@ -40,6 +44,7 @@ The `confirm_resource` tool SHALL no longer use `requireApproval: true`. Its fun
 After a successful booking, the agent SHALL use `askUserTool` to ask the customer if they want another booking, replacing the current `postBookingDecision` session flash mechanism.
 
 #### Scenario: Post-booking question via askUserTool
+
 - **WHEN** a booking succeeds
 - **THEN** the agent SHALL use `askUserTool` to present "Möchten Sie einen weiteren Termin buchen?" with options "Ja, weitermachen" and "Nein, fertig"
 - **AND** the controller SHALL NOT use `session.flash('postBookingDecision', ...)`
@@ -50,6 +55,7 @@ After a successful booking, the agent SHALL use `askUserTool` to ask the custome
 When a resource has no available slots, the agent SHALL use `askUserTool` to offer alternative resources instead of ending the conversation.
 
 #### Scenario: No-slot fallback with askUserTool
+
 - **WHEN** `find_next_available_slots` returns no slots
 - **THEN** the agent SHALL check if there are other matching resources from the previous search
 - **AND** SHALL use `askUserTool` to ask "Leider keine freien Termine für [Resource]. Möchten Sie eine andere probieren?" with the remaining resources as options

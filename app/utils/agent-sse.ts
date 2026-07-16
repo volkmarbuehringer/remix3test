@@ -50,7 +50,11 @@ export function filterAndForward(
     })
   } else if (type === 'tool-call-suspended') {
     let sp = p?.suspendPayload as
-      | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string }
+      | {
+          question?: string
+          options?: { label: string; description?: string }[]
+          selectionMode?: string
+        }
       | undefined
     if (sp?.question) {
       fwd('question', {
@@ -106,7 +110,11 @@ export function pipeStream(
   function closeOnce() {
     if (closed) return
     closed = true
-    try { controller.close() } catch { /* already closed */ }
+    try {
+      controller.close()
+    } catch {
+      /* already closed */
+    }
   }
 
   return new Promise<void>((resolve) => {
@@ -117,18 +125,26 @@ export function pipeStream(
       resolve()
       return
     }
-    signal.addEventListener('abort', () => {
-      reader?.cancel().catch(() => {})
-      closeOnce()
-      resolve()
-    }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        reader?.cancel().catch(() => {})
+        closeOnce()
+        resolve()
+      },
+      { once: true },
+    )
 
     ;(async () => {
       try {
         while (true) {
           let { done, value } = await reader!.read()
           if (done) break
-          if (signal.aborted) { closeOnce(); resolve(); return }
+          if (signal.aborted) {
+            closeOnce()
+            resolve()
+            return
+          }
           if (!value || typeof value !== 'object') continue
 
           let chunk = value as Record<string, unknown>
@@ -144,9 +160,13 @@ export function pipeStream(
       } catch (err) {
         try {
           controller.enqueue(
-            sseEncoder.encode(`event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`),
+            sseEncoder.encode(
+              `event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`,
+            ),
           )
-        } catch { /* controller already errored */ }
+        } catch {
+          /* controller already errored */
+        }
         closeOnce()
       }
       resolve()

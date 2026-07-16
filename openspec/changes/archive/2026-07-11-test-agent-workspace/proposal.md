@@ -13,10 +13,12 @@ Move the test-agent's file reading from a custom tool to Mastra's built-in works
 ## Capabilities
 
 ### New Capabilities
+
 - `test-agent-workspace`: Workspace-backed file read for the test-agent with built-in containment and tool-approval integration
 
 ### Modified Capabilities
-- *None*
+
+- _None_
 
 ## Impact
 

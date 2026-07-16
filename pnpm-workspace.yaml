@@ -38,3 +38,4 @@ minimumReleaseAgeExclude:
   - '@opencode-ai/sdk@1.17.3'
   - ecc-universal@2.0.0
   - nodemailer@9.0.3
+patchedDependencies: {}

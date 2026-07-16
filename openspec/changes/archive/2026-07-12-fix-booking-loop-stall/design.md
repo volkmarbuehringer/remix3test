@@ -9,11 +9,13 @@ The client-side `handleAnswer()` sends `POST /chat/answer` which calls `agent.re
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Reliable stream delivery from `resumeStream` — the client receives the agent's full response after answering "yes"
 - Agent automatically searches for resources using the previous search query and presents options via `askUserTool` — no free-text input required from the user
 - Preserve existing flow for the first booking (no regression)
 
 **Non-Goals:**
+
 - Changing Mastra framework internals (the fix is in our controller, not in node_modules)
 - Multi-session or cross-thread search memory (only same-conversation context reuse)
 
@@ -49,11 +51,13 @@ This guarantees all stream events are captured regardless of `startBroadcast` ti
 ### 2. Sharpen the agent instruction
 
 Replace:
+
 ```
 - Wenn eine Buchung erfolgreich war: Frage den Kunden mit ask_user "Möchten Sie einen weiteren Termin buchen?" mit den Optionen "Ja, weitermachen" und "Nein, fertig". Bei "Ja" starte eine neue Suche.
 ```
 
 With:
+
 ```
 - Wenn eine Buchung erfolgreich war: Frage den Kunden mit ask_user "Möchten Sie einen weiteren Termin buchen?" mit den Optionen "Ja, weitermachen" und "Nein, fertig". Wenn der Kunde mit "Ja" antwortet: Durchsuche SOFORT search_resources_by_capability mit den GLEICHEN Suchbegriffen wie in der vorherigen Suche. Präsentiere die Ergebnisse mit ask_user zur Auswahl. Wenn keine weiteren Ressourcen verfügbar sind, informiere den Kunden freundlich.
 ```

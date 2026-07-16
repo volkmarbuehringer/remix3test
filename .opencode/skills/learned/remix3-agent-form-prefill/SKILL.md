@@ -1,6 +1,6 @@
 ---
 name: remix3-agent-form-prefill
-description: "Prefill Remix 3 forms from Mastra agent SSE navigate events via client store and HTTP header"
+description: 'Prefill Remix 3 forms from Mastra agent SSE navigate events via client store and HTTP header'
 user-invocable: false
 origin: auto-extracted
 ---

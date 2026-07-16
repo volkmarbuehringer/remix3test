@@ -16,7 +16,7 @@ When the route-agent page navigates a Frame to the uploads page and the user sub
 
 ### Modified Capabilities
 
-*(none — no spec-level requirement changes)*
+_(none — no spec-level requirement changes)_
 
 ## Impact
 

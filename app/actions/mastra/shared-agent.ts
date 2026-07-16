@@ -28,14 +28,8 @@ export interface TestAgent {
     runId?: string
     suspendPayload?: unknown
   }>
-  stream: (
-    message: string,
-    opts?: any,
-  ) => Promise<AgentStreamOutput>
-  resumeStream: (
-    data: unknown,
-    opts?: any,
-  ) => Promise<AgentStreamOutput>
+  stream: (message: string, opts?: any) => Promise<AgentStreamOutput>
+  resumeStream: (data: unknown, opts?: any) => Promise<AgentStreamOutput>
   approveToolCallGenerate?: (opts: {
     runId: string
     toolCallId?: string

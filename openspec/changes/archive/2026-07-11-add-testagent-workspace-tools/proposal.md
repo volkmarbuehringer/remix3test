@@ -6,17 +6,17 @@ The testAgent currently has only 2 tools (`listTestFiles` + `mastra_workspace_re
 
 - `app/actions/mastra/agents/test-agent.ts` — expand the `tools` config on the `Workspace` constructor to enable these filesystem tools with `requireApproval: true`:
 
-  | Tool | Setting |
-  |------|---------|
-  | `mastra_workspace_read_file` | keep enabled, `requireApproval: true` |
+  | Tool                          | Setting                                                         |
+  | ----------------------------- | --------------------------------------------------------------- |
+  | `mastra_workspace_read_file`  | keep enabled, `requireApproval: true`                           |
   | `mastra_workspace_write_file` | enable, `requireApproval: true`, `requireReadBeforeWrite: true` |
-  | `mastra_workspace_edit_file` | enable, `requireApproval: true` |
-  | `mastra_workspace_delete` | enable, `requireApproval: true` |
-  | `mastra_workspace_mkdir` | enable, `requireApproval: true` |
-  | `mastra_workspace_grep` | enable, `requireApproval: true` |
-  | `mastra_workspace_file_stat` | enable, **no approval** (read-only, harmless) |
-  | `mastra_workspace_list_files` | stay disabled (replaced by custom `listTestFiles`) |
-  | `mastra_workspace_ast_edit` | stay disabled (niche, not needed) |
+  | `mastra_workspace_edit_file`  | enable, `requireApproval: true`                                 |
+  | `mastra_workspace_delete`     | enable, `requireApproval: true`                                 |
+  | `mastra_workspace_mkdir`      | enable, `requireApproval: true`                                 |
+  | `mastra_workspace_grep`       | enable, `requireApproval: true`                                 |
+  | `mastra_workspace_file_stat`  | enable, **no approval** (read-only, harmless)                   |
+  | `mastra_workspace_list_files` | stay disabled (replaced by custom `listTestFiles`)              |
+  | `mastra_workspace_ast_edit`   | stay disabled (niche, not needed)                               |
 
 - Update the agent's `instructions` string to document the new tools.
 

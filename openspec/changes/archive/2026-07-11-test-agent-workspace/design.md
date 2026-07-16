@@ -7,12 +7,14 @@ The workspace `list_files` outputs a tree structure without inline size/mtime, s
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Replace `readTestFile` with workspace `read_file` (with approval)
 - Keep custom `listTestFiles` for directory listing with inline size/mtime
 - Add a workspace to the test-agent for future extensibility
 - Share a single `PROJECT_ROOT` constant between both tools
 
 **Non-Goals:**
+
 - Replacing `listTestFiles` with workspace `list_files` (lacks inline stat data)
 - Adding sandbox/command execution
 - Enabling write/edit/delete/grep tools

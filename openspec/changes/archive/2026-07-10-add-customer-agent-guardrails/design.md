@@ -7,12 +7,14 @@ Mastra provides a `inputProcessors` array on the Agent constructor. These proces
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Add Unicode normalization as the first processing step
 - Block PII, secrets, and URLs via zero-cost regex matching
 - Limit per-step context to 10,000 tokens
 - Enforce a $0.50 per-user per-24h cost cap via observability metrics
 
 **Non-Goals:**
+
 - LLM-based guardrails (no PromptInjectionDetector, ModerationProcessor, or PIIDetector)
 - Output-side processors (no SystemPromptScrubber, no output moderation)
 - Changes to the support agent or any other agent

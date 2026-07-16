@@ -7,12 +7,14 @@ The lists page (`/lists`) already has a full sidebar UI with search/filter, pagi
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Extend `findList` tool with `sort`, `limit`, `offset` params for richer queries
 - Add `?ids=` query param to the lists controller's `index` action for showing specific lists in the sidebar
 - Update route agent instructions to use the pattern: `findList` → `routeNavigate("/lists?ids=...")` for multi-result, direct `routeNavigate("/lists?load=...")` for single-result
 - Keep the existing `?filter=` search working independently — `ids` is agent-driven, `filter` is user-driven
 
 **Non-Goals:**
+
 - No new UI components or route changes
 - No changes to list editing, autosave, or resource-oriented write actions
 - No changes to the lists client component (`ListsClient`)

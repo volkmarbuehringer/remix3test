@@ -29,7 +29,11 @@ export const TestAgentStream = clientEntry(
     }
 
     function esc(s: string): string {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+      return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
     }
 
     function formatFilenames(text: string): string {
@@ -84,8 +88,7 @@ export const TestAgentStream = clientEntry(
       if (!container || toolCards[toolCallId]) return
 
       let card = document.createElement('div')
-      card.style.cssText =
-        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
+      card.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
 
       let header = document.createElement('div')
       header.style.cssText =
@@ -179,10 +182,14 @@ export const TestAgentStream = clientEntry(
               div.innerHTML += `<div style="font-size:0.75rem;color:var(--rmx-color-text-secondary);padding-top:4px">and ${r.files.length - 10} more...</div>`
             }
           } else {
-            div.textContent = typeof result === 'object' ? JSON.stringify(result, null, 2).slice(0, 500) : String(result)
+            div.textContent =
+              typeof result === 'object'
+                ? JSON.stringify(result, null, 2).slice(0, 500)
+                : String(result)
           }
         } else {
-          div.textContent = typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500)
+          div.textContent =
+            typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500)
         }
       }
       card.appendChild(div)
@@ -203,7 +210,10 @@ export const TestAgentStream = clientEntry(
       for (let el of toRemove) el.remove()
     }
 
-    function appendStepStats(reason: string, usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number }) {
+    function appendStepStats(
+      reason: string,
+      usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
+    ) {
       let container = getTimeline()
       if (!container) return
       let div = document.createElement('div')
@@ -228,8 +238,7 @@ export const TestAgentStream = clientEntry(
       let container = getTimeline()
       if (!container) return
       let details = document.createElement('details')
-      details.style.cssText =
-        `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
+      details.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;`
 
       let summary = document.createElement('summary')
       summary.style.cssText =
@@ -336,7 +345,9 @@ export const TestAgentStream = clientEntry(
                 `<label style="display:block;margin:4px 0;cursor:pointer">` +
                 `<input type="checkbox" name="q_option" value="${esc(o.label)}" /> ` +
                 esc(o.label) +
-                (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
+                (o.description
+                  ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
+                  : '') +
                 `</label>`,
             )
             .join('')
@@ -347,14 +358,15 @@ export const TestAgentStream = clientEntry(
                 `<label style="display:block;margin:4px 0;cursor:pointer">` +
                 `<input type="radio" name="q_option" value="${esc(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
                 esc(o.label) +
-                (o.description ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>` : '') +
+                (o.description
+                  ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
+                  : '') +
                 `</label>`,
             )
             .join('')
         }
       } else {
-        optionsEl.innerHTML =
-          `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Type your answer..." />`
+        optionsEl.innerHTML = `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Type your answer..." />`
         setTimeout(() => {
           let input = document.getElementById('q-free-text')
           if (input) {
@@ -380,12 +392,16 @@ export const TestAgentStream = clientEntry(
       let freeText = document.getElementById('q-free-text') as HTMLInputElement | null
       if (freeText) return freeText.value
 
-      let checked = optionsEl.querySelectorAll('input[type="checkbox"]:checked') as NodeListOf<HTMLInputElement>
+      let checked = optionsEl.querySelectorAll(
+        'input[type="checkbox"]:checked',
+      ) as NodeListOf<HTMLInputElement>
       if (checked.length > 0) {
         return JSON.stringify(Array.from(checked).map((cb) => cb.value))
       }
 
-      let selected = optionsEl.querySelector('input[type="radio"]:checked') as HTMLInputElement | null
+      let selected = optionsEl.querySelector(
+        'input[type="radio"]:checked',
+      ) as HTMLInputElement | null
       return selected?.value || ''
     }
 
@@ -482,7 +498,9 @@ export const TestAgentStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           appendToolCard(data.toolName || 'unknown', data.toolCallId || '')
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-call-delta', (event) => {
@@ -491,7 +509,9 @@ export const TestAgentStream = clientEntry(
           if (data.toolCallId && data.argsTextDelta != null) {
             updateToolArgs(data.toolCallId, data.argsTextDelta as string)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-call-input-streaming-end', () => {
@@ -504,7 +524,9 @@ export const TestAgentStream = clientEntry(
           if (data.toolCallId && data.args) {
             finalizeToolArgs(data.toolCallId, data.args as Record<string, unknown>)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-result', (event) => {
@@ -513,7 +535,9 @@ export const TestAgentStream = clientEntry(
           if (data.toolCallId) {
             appendToolResult(data.toolCallId, data.result, data.isError)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('tool-error', (event) => {
@@ -522,7 +546,9 @@ export const TestAgentStream = clientEntry(
           if (data.toolCallId) {
             appendToolError(data.toolCallId, data.error)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('step-finish', (event) => {
@@ -531,7 +557,9 @@ export const TestAgentStream = clientEntry(
           if (data.usage || data.reason) {
             appendStepStats(data.reason || '', data.usage || {})
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       // ── Reasoning event handlers ─────────────────────────────
@@ -544,7 +572,9 @@ export const TestAgentStream = clientEntry(
         try {
           let data = JSON.parse(event.data)
           if (data.text) appendReasoning(data.text as string)
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       })
 
       es.addEventListener('reasoning-end', () => {
@@ -612,7 +642,10 @@ export const TestAgentStream = clientEntry(
         })
         if (!res.ok) {
           appendMessage('Failed to submit answer', 'error')
-          if (btn) { btn.disabled = false; btn.textContent = 'Answer' }
+          if (btn) {
+            btn.disabled = false
+            btn.textContent = 'Answer'
+          }
           setFormEnabled(true)
           return
         }
@@ -623,7 +656,10 @@ export const TestAgentStream = clientEntry(
         }
       } catch (err) {
         appendMessage('Answer error: ' + String(err), 'error')
-        if (btn) { btn.disabled = false; btn.textContent = 'Answer' }
+        if (btn) {
+          btn.disabled = false
+          btn.textContent = 'Answer'
+        }
         setFormEnabled(true)
       }
     }
@@ -652,7 +688,12 @@ export const TestAgentStream = clientEntry(
         let data = await res.json()
         hideApproval()
         if (data.requiresApproval) {
-          showApproval({ runId: data.runId, toolCallId: data.toolCallId, toolName: data.toolName, args: data.args })
+          showApproval({
+            runId: data.runId,
+            toolCallId: data.toolCallId,
+            toolName: data.toolName,
+            args: data.args,
+          })
         } else if (data.runId) {
           startStream(data.runId)
         }
@@ -678,25 +719,17 @@ export const TestAgentStream = clientEntry(
             let declineBtn = document.getElementById('test-decline-btn')
             let answerBtn = document.getElementById('test-answer-btn')
             if (approveBtn) {
-              approveBtn.addEventListener(
-                'click',
-                (e) => handleApproval('approve', e),
-                { signal: handle.signal },
-              )
+              approveBtn.addEventListener('click', (e) => handleApproval('approve', e), {
+                signal: handle.signal,
+              })
             }
             if (declineBtn) {
-              declineBtn.addEventListener(
-                'click',
-                (e) => handleApproval('decline', e),
-                { signal: handle.signal },
-              )
+              declineBtn.addEventListener('click', (e) => handleApproval('decline', e), {
+                signal: handle.signal,
+              })
             }
             if (answerBtn) {
-              answerBtn.addEventListener(
-                'click',
-                handleAnswer,
-                { signal: handle.signal },
-              )
+              answerBtn.addEventListener('click', handleAnswer, { signal: handle.signal })
             }
           }),
         ]}

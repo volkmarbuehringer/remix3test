@@ -65,17 +65,15 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             }
           }
           return context.render(
-            <div mix={css({
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              background: theme.surface.lvl0,
-            })}>
-              <MastraChatPage
-                messages={chatMessages}
-                threadId={threadId}
-                error={error}
-              />
+            <div
+              mix={css({
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                background: theme.surface.lvl0,
+              })}
+            >
+              <MastraChatPage messages={chatMessages} threadId={threadId} error={error} />
             </div>,
           )
         }
@@ -107,7 +105,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
             errorMsg = 'Bitte gib eine Nachricht ein.'
           }
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: errorMsg })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: errorMsg })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
@@ -118,7 +118,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         if (!chatRateLimiter.attempt(user.id)) {
           log('rate limited')
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.' })}\n\n`,
+            ),
             { status: 429, headers: sseHeaders() },
           )
         }
@@ -154,7 +156,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               )
 
               controller.enqueue(
-                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`),
+                sseEncoder.encode(
+                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`,
+                ),
               )
 
               await pipeStream(
@@ -184,10 +188,18 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               log('error: ' + msg)
               try {
                 controller.enqueue(
-                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: msg })}\n\n`),
+                  sseEncoder.encode(
+                    `event: agent-error\ndata: ${JSON.stringify({ error: msg })}\n\n`,
+                  ),
                 )
-              } catch { /* controller already errored */ }
-              try { controller.close() } catch { /* already closed */ }
+              } catch {
+                /* controller already errored */
+              }
+              try {
+                controller.close()
+              } catch {
+                /* already closed */
+              }
             }
           },
         })
@@ -205,7 +217,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         if (!chatRateLimiter.attempt(user.id)) {
           log('rate limited')
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment.' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment.' })}\n\n`,
+            ),
             { status: 429, headers: sseHeaders() },
           )
         }
@@ -216,14 +230,18 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
         if (!runId) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Fehlende runId' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Fehlende runId' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         if (decision !== 'approve' && decision !== 'decline') {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'decision muss "approve" oder "decline" sein' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'decision muss "approve" oder "decline" sein' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
@@ -234,11 +252,11 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           start: async (controller) => {
             try {
               let agent = mastra.getAgent('supportAgent')
-              let result = await runWithAdminId(user.id, () =>
+              let result = (await runWithAdminId(user.id, () =>
                 decision === 'approve'
                   ? agent.approveToolCallGenerate({ runId, toolCallId })
                   : agent.declineToolCallGenerate({ runId, toolCallId }),
-              ) as {
+              )) as {
                 text?: string
                 finishReason?: string
                 runId?: string
@@ -259,16 +277,25 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
               if (result.finishReason === 'suspended') {
                 let sp = result.suspendPayload as
-                  | { question?: string; options?: { label: string; description?: string }[]; selectionMode?: string; toolCallId?: string }
+                  | {
+                      question?: string
+                      options?: { label: string; description?: string }[]
+                      selectionMode?: string
+                      toolCallId?: string
+                    }
                   | undefined
                 if (sp?.question) {
-                  controller.enqueue(sseEncoder.encode(`event: question\ndata: ${JSON.stringify({
-                    runId: result.runId || runId,
-                    toolCallId: sp?.toolCallId,
-                    question: sp.question,
-                    options: sp.options ?? null,
-                    selectionMode: sp.selectionMode ?? 'single_select',
-                  })}\n\n`))
+                  controller.enqueue(
+                    sseEncoder.encode(
+                      `event: question\ndata: ${JSON.stringify({
+                        runId: result.runId || runId,
+                        toolCallId: sp?.toolCallId,
+                        question: sp.question,
+                        options: sp.options ?? null,
+                        selectionMode: sp.selectionMode ?? 'single_select',
+                      })}\n\n`,
+                    ),
+                  )
                   controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
                   controller.close()
                   return
@@ -284,9 +311,13 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
                 return
               }
 
-              let text = (result.text || (decision === 'approve' ? '' : 'Die Aktion wurde abgelehnt.')).trim()
+              let text = (
+                result.text || (decision === 'approve' ? '' : 'Die Aktion wurde abgelehnt.')
+              ).trim()
               if (text) {
-                controller.enqueue(sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`))
+                controller.enqueue(
+                  sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`),
+                )
               }
               controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
               controller.close()
@@ -294,10 +325,18 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               log('error: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
               try {
                 controller.enqueue(
-                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Fehler bei der Verarbeitung der Entscheidung.' })}\n\n`),
+                  sseEncoder.encode(
+                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Fehler bei der Verarbeitung der Entscheidung.' })}\n\n`,
+                  ),
                 )
-              } catch { /* controller already errored */ }
-              try { controller.close() } catch { /* already closed */ }
+              } catch {
+                /* controller already errored */
+              }
+              try {
+                controller.close()
+              } catch {
+                /* already closed */
+              }
             }
           },
         })
@@ -315,7 +354,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         if (!chatRateLimiter.attempt(user.id)) {
           log('rate limited')
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment.' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Bitte warte einen Moment.' })}\n\n`,
+            ),
             { status: 429, headers: sseHeaders() },
           )
         }
@@ -327,21 +368,29 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
 
         if (!runId || !answerRaw) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Fehlende runId oder Antwort' })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Fehlende runId oder Antwort' })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         if (answerRaw.length > MAX_MESSAGE_LENGTH) {
           return new Response(
-            sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: `Antwort zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen)` })}\n\n`),
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: `Antwort zu lang (maximal ${MAX_MESSAGE_LENGTH} Zeichen)` })}\n\n`,
+            ),
             { status: 400, headers: sseHeaders() },
           )
         }
 
         let resumeData: unknown = answerRaw
         if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
-          try { resumeData = JSON.parse(answerRaw) } catch { /* keep as string */ }
+          try {
+            resumeData = JSON.parse(answerRaw)
+          } catch {
+            /* keep as string */
+          }
         }
 
         log('resuming stream: ' + sanitizeLog(runId))
@@ -355,7 +404,9 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               )
 
               controller.enqueue(
-                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`),
+                sseEncoder.encode(
+                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`,
+                ),
               )
 
               await pipeStream(
@@ -366,15 +417,25 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
               )
               try {
                 controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
-              } catch { /* already closed/sent */ }
+              } catch {
+                /* already closed/sent */
+              }
             } catch (err) {
               log('error: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
               try {
                 controller.enqueue(
-                  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Fehler beim Fortsetzen des Agents.' })}\n\n`),
+                  sseEncoder.encode(
+                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Fehler beim Fortsetzen des Agents.' })}\n\n`,
+                  ),
                 )
-              } catch { /* controller already errored */ }
-              try { controller.close() } catch { /* already closed */ }
+              } catch {
+                /* controller already errored */
+              }
+              try {
+                controller.close()
+              } catch {
+                /* already closed */
+              }
             }
           },
         })

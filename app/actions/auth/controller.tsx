@@ -455,7 +455,8 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
         }
 
         let currentUser = (await context.db.find(users, result.user.id)) as
-          { token_version: number } | undefined
+          | { token_version: number }
+          | undefined
 
         await context.db.update(users, result.user.id, {
           password_hash: await hashPassword(parsed.value.password),

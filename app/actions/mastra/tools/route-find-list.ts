@@ -1,15 +1,35 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
-import { pool } from '../../../data/connection.ts'
+import { db } from '../../../data/connection.ts'
 
 export const findList = createTool({
   id: 'find_list',
-  description: 'Search for lists by description or item labels. Returns matching list IDs and descriptions with pagination info.',
+  description:
+    'Search for lists by description or item labels. Returns matching list IDs and descriptions with pagination info.',
   inputSchema: z.object({
-    search: z.string().optional().describe('Text to search for in list descriptions or item labels (e.g. "abx", "shopping", "todo")'),
-    sort: z.enum(['newest', 'oldest']).optional().describe('Sort order: "newest" (updated_at DESC, default) or "oldest" (updated_at ASC)'),
-    limit: z.number().int().min(1).max(50).optional().describe('Maximum results to return (default 10, max 50)'),
-    offset: z.number().int().min(0).optional().describe('Number of results to skip for pagination (default 0)'),
+    search: z
+      .string()
+      .optional()
+      .describe(
+        'Text to search for in list descriptions or item labels (e.g. "abx", "shopping", "todo")',
+      ),
+    sort: z
+      .enum(['newest', 'oldest'])
+      .optional()
+      .describe('Sort order: "newest" (updated_at DESC, default) or "oldest" (updated_at ASC)'),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .optional()
+      .describe('Maximum results to return (default 10, max 50)'),
+    offset: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('Number of results to skip for pagination (default 0)'),
   }),
   execute: async ({ search, sort, limit, offset }) => {
     let safeLimit = Math.min(Math.max(limit ?? 10, 1), 50)
@@ -20,7 +40,10 @@ export const findList = createTool({
     let params: unknown[] = []
 
     if (search && search.trim()) {
-      let esc = search.trim().replace(/[%_\\]/g, '\\$&').slice(0, 200)
+      let esc = search
+        .trim()
+        .replace(/[%_\\]/g, '\\$&')
+        .slice(0, 200)
       let pattern = `%${esc}%`
       whereClause = `WHERE description ILIKE $1 OR EXISTS (SELECT 1 FROM jsonb_array_elements(list) item WHERE item->>'label' ILIKE $1)`
       params.push(pattern)
@@ -34,9 +57,9 @@ export const findList = createTool({
 
     try {
       let query = `SELECT id, description, updated_at FROM lists ${whereClause} ${orderClause} LIMIT $${orderPos} OFFSET $${orderPos + 1}`
-      let result = await pool.query(query, params)
+      let result = await db.exec(query, params)
 
-      let rows = result.rows.map((r: Record<string, unknown>) => ({
+      let rows = (result.rows ?? []).map((r: Record<string, unknown>) => ({
         id: Number(r.id),
         description: String(r.description ?? ''),
         updatedAt: Number(r.updated_at),

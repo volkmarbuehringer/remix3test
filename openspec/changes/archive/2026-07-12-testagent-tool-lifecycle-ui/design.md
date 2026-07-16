@@ -1,12 +1,13 @@
 ## Context
 
-The test agent (`/testagent`) uses Mastra's `agent.stream()` which returns a `fullStream` (ReadableStream) emitting typed chunks (`ChunkType`). The controller reads this stream and translates chunks to Server-Sent Events (SSE) for the browser client. Currently only 4 chunk types are forwarded: `text-delta` → `message`, `tool-call-approval` → `suspension`, `tool-call-suspended` → `question`, and `finish` → `complete`. The remaining ~12 chunk types (tool-call, tool-result, tool-error, step-start, step-finish, reasoning-*, tool-call-delta, tool-call-input-streaming-*, text-start/end, start) are silently dropped.
+The test agent (`/testagent`) uses Mastra's `agent.stream()` which returns a `fullStream` (ReadableStream) emitting typed chunks (`ChunkType`). The controller reads this stream and translates chunks to Server-Sent Events (SSE) for the browser client. Currently only 4 chunk types are forwarded: `text-delta` → `message`, `tool-call-approval` → `suspension`, `tool-call-suspended` → `question`, and `finish` → `complete`. The remaining ~12 chunk types (tool-call, tool-result, tool-error, step-start, step-finish, reasoning-_, tool-call-delta, tool-call-input-streaming-_, text-start/end, start) are silently dropped.
 
 The client-side `TestAgentStream` component (`app/assets/test-agent-stream.tsx`) is a Remix 3 `clientEntry` that attaches SSE event listeners in a `ref` callback. It currently handles 6 SSE event types.
 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Forward every native Mastra stream chunk type as an identically-named SSE event from the controller
 - Render tool lifecycle information in the test agent UI: tool calls, arguments, results, errors, step stats
 - Show reasoning chain-of-thought when the model emits it (expandable)
@@ -14,6 +15,7 @@ The client-side `TestAgentStream` component (`app/assets/test-agent-stream.tsx`)
 - All data must come from existing stream chunks — no changes to agent definition or tools
 
 **Non-Goals:**
+
 - No `beforeToolCall`/`afterToolCall` hooks (they're side-effect callbacks, not stream-injectable — separate concern)
 - No `context.writer` custom chunks in `listTestTools` (execute-phase progress is additive, not required for this change)
 - No changes to `test-agent.ts`, `test-tools.ts`, or workspace tool config
@@ -44,6 +46,7 @@ for each chunk in fullStream:
 ```
 
 Special cases that need transforms (not raw forwarding):
+
 - `tool-call-approval` → `suspension` event (already done — keeps existing behavior)
 - `tool-call-suspended` → `question` event if question payload exists (already done)
 - `tool-result.payload.result` may need truncation if very large
@@ -56,6 +59,7 @@ Everything else: forward with the chunk type as the SSE event name. This keeps t
 The client registers SSE event listeners via `es.addEventListener(type, handler)`. Currently 6 handlers. Add handlers for:
 
 **Tool lifecycle events:**
+
 - `tool-call-input-streaming-start` → create a tool card element, show tool name
 - `tool-call-delta` → append argsTextDelta to a growing partial-JSON display
 - `tool-call-input-streaming-end` → finalize the partial args display
@@ -64,13 +68,16 @@ The client registers SSE event listeners via `es.addEventListener(type, handler)
 - `tool-error` → show error state on tool card
 
 **Step events:**
+
 - `step-start` → optional step marker (can be subtle)
 - `step-finish` → append token usage badge to the last tool card or as a separate line
 
 **Reasoning events (if model emits them):**
+
 - `reasoning-start/delta/end` → accumulate reasoning text into an expandable details element
 
 **Text and stream events:**
+
 - `text-start`/`text-end` → bookend the message bubble (minor — text-delta already works)
 - `start` → clear previous state, show "agent starting..."
 - `error` → show error state
@@ -103,6 +110,7 @@ Each interaction produces vertically-stacked timeline cards:
 ```
 
 New DOM containers needed in `test-agent-page.tsx`:
+
 - `<div id="test-agent-timeline">` — container for the timeline
 
 The existing `test-messages` div can be replaced or complemented by the timeline. The form and approval/question cards stay unchanged.
@@ -111,14 +119,14 @@ The existing `test-messages` div can be replaced or complemented by the timeline
 
 Some `fullStream` chunks carry large payloads not suitable for SSE forwarding:
 
-| Chunk | Forward | Truncate |
-|---|---|---|
-| `tool-result` | `{ toolName, toolCallId, result, isError }` | `result` — if file list > 20 entries, truncate and add `_truncated: true` |
-| `tool-call` | `{ toolName, toolCallId, args }` | None — args are small |
-| `finish` | `{ stepResult: { reason }, output: { usage } }` | Strip `messages`, `response` |
-| `step-finish` | `{ stepResult: { reason }, output: { usage } }` | Same as finish |
-| `tool-call-delta` | `{ toolName, toolCallId, argsTextDelta }` | None |
-| `error` | `{ error }` | None — include full error message |
+| Chunk             | Forward                                         | Truncate                                                                  |
+| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `tool-result`     | `{ toolName, toolCallId, result, isError }`     | `result` — if file list > 20 entries, truncate and add `_truncated: true` |
+| `tool-call`       | `{ toolName, toolCallId, args }`                | None — args are small                                                     |
+| `finish`          | `{ stepResult: { reason }, output: { usage } }` | Strip `messages`, `response`                                              |
+| `step-finish`     | `{ stepResult: { reason }, output: { usage } }` | Same as finish                                                            |
+| `tool-call-delta` | `{ toolName, toolCallId, argsTextDelta }`       | None                                                                      |
+| `error`           | `{ error }`                                     | None — include full error message                                         |
 
 ## Decisions
 

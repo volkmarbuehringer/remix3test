@@ -7,12 +7,14 @@ Additionally, the project has 42 typecheck errors in `app/actions/mastra/tools/t
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Fix `requireToolApproval` to match the correct tool name so approvals trigger
 - Fix all 42 typecheck errors in `test-tools.test.ts`
 - Fix all lint violations (2 errors, 1 warning)
 - Confirm no regressions with `npm run typecheck && npm run lint`
 
 **Non-Goals:**
+
 - No architectural changes to the approval flow (stream → approve → resume pattern stays)
 - No changes to the UI or client-side code
 

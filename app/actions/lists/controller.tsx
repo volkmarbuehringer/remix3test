@@ -11,7 +11,14 @@ import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { getListById, getAllLists, getListsByIds, createList, patchList, deleteList } from '../../data/lists.ts'
+import {
+  getListById,
+  getAllLists,
+  getListsByIds,
+  createList,
+  patchList,
+  deleteList,
+} from '../../data/lists.ts'
 import {
   renderListsPage,
   type ListsNavItem,
@@ -50,7 +57,14 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       let listResult: PaginationState | undefined
 
       if (idsRaw?.trim()) {
-        let ids = [...new Set(idsRaw.split(',').map(Number).filter((n) => Number.isFinite(n) && n >= 1))]
+        let ids = [
+          ...new Set(
+            idsRaw
+              .split(',')
+              .map(Number)
+              .filter((n) => Number.isFinite(n) && n >= 1),
+          ),
+        ]
         let rows = await getListsByIds(context.db, ids, listUserId)
         sidebarEntries = rows.map((row) => ({
           id: `list:${row.id}` as ListsNavItem,

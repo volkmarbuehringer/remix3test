@@ -42,7 +42,15 @@ export type SidebarLayoutConfig<ID extends string> = {
 // ── Factory ─────────────────────────────────────────────────────
 
 export function createSidebarLayout<ID extends string>(config: SidebarLayoutConfig<ID>) {
-  let { frameTarget, acceptFrameTargets, navGroups, navIcon, headerIcon, headerLabel, sidebarExtras } = config
+  let {
+    frameTarget,
+    acceptFrameTargets,
+    navGroups,
+    navIcon,
+    headerIcon,
+    headerLabel,
+    sidebarExtras,
+  } = config
 
   let acceptedTargets = acceptFrameTargets
     ? new Set([frameTarget, ...acceptFrameTargets])

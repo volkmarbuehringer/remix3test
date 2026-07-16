@@ -12,9 +12,11 @@ The test agent is a diagnostic tool for exploring the codebase via an AI agent, 
 ## Capabilities
 
 ### New Capabilities
+
 - `tool-lifecycle-visibility`: forward all Mastra stream chunk types as SSE events and render them in the test agent UI as structured, collapsible tool lifecycle cards
 
 ### Modified Capabilities
+
 <!-- No existing specs change — this is a new feature in the test agent -->
 
 ## Impact

@@ -1,6 +1,6 @@
 ---
 name: remix-sse-endpoint-csrf-bypass
-description: "Skip CSRF middleware for SSE streaming endpoints in Remix 3 to prevent 403 on client-side fetch()"
+description: 'Skip CSRF middleware for SSE streaming endpoints in Remix 3 to prevent 403 on client-side fetch()'
 origin: auto-extracted
 ---
 
@@ -14,6 +14,7 @@ origin: auto-extracted
 When you add an SSE streaming endpoint (POST handler that returns `text/event-stream`) and the app has CSRF middleware, the client receives HTTP 403 on every POST. The SSE streaming endpoint uses `fetch()` with `FormData` or JSON body — there's no way to include a CSRF token in an SSE-initiated fetch (tokens are embedded in HTML forms via `CsrfTokenInput`).
 
 The error:
+
 ```
 [HTTP/1.1 403]
 ```
@@ -45,10 +46,7 @@ export function skipCsrf(): Middleware {
 Since skipping CSRF entirely opens the endpoint to `<form>` CSRF attacks, add a custom header check that blocks requests without the expected header (forms can't set custom headers):
 
 ```typescript
-if (
-  context.url.pathname === '/mastra/chat' ||
-  context.url.pathname.startsWith('/mastra/chat/')
-) {
+if (context.url.pathname === '/mastra/chat' || context.url.pathname.startsWith('/mastra/chat/')) {
   if (context.request.headers.get('X-SSE-Request') !== '1') {
     return new Response('Forbidden', { status: 403 })
   }
@@ -57,6 +55,7 @@ if (
 ```
 
 Then ensure the client sends the header:
+
 ```typescript
 fetch('/mastra/chat', {
   method: 'POST',

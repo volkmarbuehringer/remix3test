@@ -9,6 +9,8 @@ npm i
 npm run start
 npm test
 npm run typecheck
+npm run format
+npm run format:fix
 npm run dev:mastra
 ```
 

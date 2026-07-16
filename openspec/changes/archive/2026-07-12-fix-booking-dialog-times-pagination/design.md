@@ -14,11 +14,13 @@ Constraints: no server changes, no tool contract changes, no new API surface. Th
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Slot button text is legible in light and dark mode
 - The slot picker shows a fixed number of "pages" with prev/next navigation
 - Only the selected slot (with its full data) reaches the agent — pagination is purely client-side
 
 **Non-Goals:**
+
 - No server-side changes (no tool param changes, no API endpoints)
 - No changes to the tool result format or SSE event contract
 - No changes to the agent instructions or behavior
@@ -30,10 +32,13 @@ Constraints: no server changes, no tool contract changes, no new API surface. Th
 **Decision:** Replace the bare CSS variable references with the correct `--rmx-` prefixed ones, and add an explicit `color` so buttons don't inherit from body in dark mode.
 
 Before:
+
 ```
 background: var(--surface-lvl1, #f5f5f5);
 ```
+
 After:
+
 ```
 background: var(--rmx-surface-lvl1);
 color: var(--rmx-color-text-primary);

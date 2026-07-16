@@ -16,11 +16,13 @@ The support agent currently uses `agent.generate()` which blocks the HTTP respon
 ## Capabilities
 
 ### New Capabilities
+
 - `support-agent-streaming`: Real-time SSE streaming for support agent conversations — text deltas, inline tool approvals, and ask_user questions delivered over a single POST connection
 - `support-agent-frame-ux`: Frame-based chat UI with agent bar, inline approval buttons, and optional frame navigation for agent-driven admin page display
 - `support-agent-ask-user`: Clarifying question tool that lets the support agent ask the admin for disambiguation mid-conversation
 
 ### Modified Capabilities
+
 - (none — this is a new reimplementation of the existing chat UI, no existing specs change)
 
 ## Impact

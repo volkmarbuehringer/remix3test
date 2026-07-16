@@ -11,9 +11,11 @@ The customer agent's booking dialog has two visual bugs that prevent users from 
 ## Capabilities
 
 ### New Capabilities
+
 - `booking-dialog-pagination`: Client-side pagination controls for the slot picker in the customer chat stream
 
 ### Modified Capabilities
+
 - (none — slot picker UI lives entirely in the clientEntry, no spec-level behavior change)
 
 ## Impact

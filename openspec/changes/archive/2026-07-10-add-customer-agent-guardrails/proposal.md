@@ -11,6 +11,7 @@ The customer agent has destructive capabilities (cancel bookings, trigger workfl
 ## Capabilities
 
 ### New Capabilities
+
 - `customer-agent-processors`: Input-level guardrail pipeline for the customer agent — Unicode sanitization, regex-based blocking (PII/secrets/URLs), token limit enforcement per step, and per-user cost cap
 
 ### Modified Capabilities

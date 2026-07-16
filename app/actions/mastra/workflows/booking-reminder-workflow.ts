@@ -1,6 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
-import { pool } from '../../../data/connection.ts'
+import { db } from '../../../data/connection.ts'
+import { sql } from 'remix/data-table'
 import { consoleNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 
@@ -26,27 +27,21 @@ const queryUpcomingAppointmentsStep = createStep({
     let windowMs = REMINDER_WINDOW_HOURS * 3_600_000
     let end = now + windowMs
 
-    let client = await pool.connect()
-    try {
-      let result = await client.query(
-        `SELECT a.id, a.user_id, COALESCE(r.name, 'Unknown') AS resource_name, a.date, a.title
-         FROM appointments a
-         LEFT JOIN resources r ON r.id = a.resource_id
-         WHERE a.date >= $1 AND a.date <= $2
-         ORDER BY a.date ASC`,
-        [now, end],
-      )
-      let appointments = result.rows.map((r) => ({
-        id: r.id,
-        userId: r.user_id,
-        resourceName: r.resource_name,
-        date: Number(r.date),
-        title: r.title,
-      }))
-      return { appointments, count: appointments.length }
-    } finally {
-      client.release()
-    }
+    let result = await db.exec(sql`
+      SELECT a.id, a.user_id, COALESCE(r.name, 'Unknown') AS resource_name, a.date, a.title
+      FROM appointments a
+      LEFT JOIN resources r ON r.id = a.resource_id
+      WHERE a.date >= ${now} AND a.date <= ${end}
+      ORDER BY a.date ASC
+    `)
+    let appointments = (result.rows ?? []).map((r: any) => ({
+      id: r.id,
+      userId: r.user_id,
+      resourceName: r.resource_name,
+      date: Number(r.date),
+      title: r.title,
+    }))
+    return { appointments, count: appointments.length }
   },
 })
 
@@ -75,15 +70,10 @@ const sendRemindersStep = createStep({
     let skipped = 0
 
     for (let appt of inputData.appointments) {
-      let client = await pool.connect()
-      try {
-        let check = await client.query('SELECT 1 FROM appointments WHERE id = $1', [appt.id])
-        if (check.rows.length === 0) {
-          skipped++
-          continue
-        }
-      } finally {
-        client.release()
+      let check = await db.exec(sql`SELECT 1 FROM appointments WHERE id = ${appt.id}`)
+      if ((check.rows ?? []).length === 0) {
+        skipped++
+        continue
       }
 
       try {

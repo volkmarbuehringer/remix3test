@@ -16,6 +16,7 @@ This means any frame-based route already works as a fragment when loaded with th
 ## Goals / Non-Goals
 
 **Goals:**
+
 - The route-agent can navigate admin pages (e.g., `/admin/chatlog`, `/admin/messages`, `/admin/users`)
 - The route-agent can navigate lists pages (existing behavior preserved)
 - The correct frame target is determined automatically from the path
@@ -23,6 +24,7 @@ This means any frame-based route already works as a fragment when loaded with th
 - No changes to admin layout, chatlog controller, or any target route
 
 **Non-Goals:**
+
 - No changes to the Mastra route-agent agent definition or tools (the tool returns `path`, the controller maps to `target`)
 - No support for routes that don't use frames (e.g., full-page routes like `/auth/login`) — the agent should only navigate frame-compatible routes
 - No multi-frame simultaneous display (only one frame visible at a time)
@@ -140,14 +142,14 @@ This already works for the `admin-content` target — the admin layout's createS
 
 ## Risks / Trade-offs
 
-| Risk | Mitigation |
-|------|------------|
-| Frame visibility toggle causes layout shift | Both frames share the same container; `display: none` removes from layout cleanly; container has fixed `flex: 1; min-height: 0` |
-| Two frames with independent scroll positions confuse users | Only one visible at a time; scroll resets to top on navigation via `frame.reload()` |
-| Frame re-mount when shown again triggers network fetch | Acceptable — the frame needs to load the new content anyway; hidden frame has `src` set to placeholder to prevent stale state |
-| Agent navigates to a path that doesn't match any known target | Default to `lists-content` (backward compatible); `navigate` event validation already rejects non-`/` paths |
-| Form submission inside admin-content frame needs the active frame reload | `handleFrameFormSubmit` changed from hardcoded `lists-content` to read `data-active-frame` attribute |
-| Agent memory/thread ID lost when navigating between frames | `currentThreadId` persists on the client across navigations; frame navigation doesn't affect the parent page's JS state |
+| Risk                                                                     | Mitigation                                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Frame visibility toggle causes layout shift                              | Both frames share the same container; `display: none` removes from layout cleanly; container has fixed `flex: 1; min-height: 0` |
+| Two frames with independent scroll positions confuse users               | Only one visible at a time; scroll resets to top on navigation via `frame.reload()`                                             |
+| Frame re-mount when shown again triggers network fetch                   | Acceptable — the frame needs to load the new content anyway; hidden frame has `src` set to placeholder to prevent stale state   |
+| Agent navigates to a path that doesn't match any known target            | Default to `lists-content` (backward compatible); `navigate` event validation already rejects non-`/` paths                     |
+| Form submission inside admin-content frame needs the active frame reload | `handleFrameFormSubmit` changed from hardcoded `lists-content` to read `data-active-frame` attribute                            |
+| Agent memory/thread ID lost when navigating between frames               | `currentThreadId` persists on the client across navigations; frame navigation doesn't affect the parent page's JS state         |
 
 ## Open Questions
 

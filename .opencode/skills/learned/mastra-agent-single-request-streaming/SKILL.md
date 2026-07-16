@@ -1,6 +1,6 @@
 ---
 name: mastra-agent-single-request-streaming
-description: "Pipe Mastra agent fullStream directly into POST response, replacing two-connection POST+SSE protocol"
+description: 'Pipe Mastra agent fullStream directly into POST response, replacing two-connection POST+SSE protocol'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -104,7 +104,11 @@ function pipeStream(
   function closeOnce() {
     if (closed) return
     closed = true
-    try { controller.close() } catch { /* already closed */ }
+    try {
+      controller.close()
+    } catch {
+      /* already closed */
+    }
   }
 
   ;(async () => {
@@ -114,16 +118,23 @@ function pipeStream(
       closeOnce()
       return
     }
-    signal.addEventListener('abort', () => {
-      reader?.cancel().catch(() => {})
-      closeOnce()
-    }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        reader?.cancel().catch(() => {})
+        closeOnce()
+      },
+      { once: true },
+    )
 
     try {
       while (true) {
         let { done, value } = await reader.read()
         if (done) break
-        if (signal.aborted) { closeOnce(); return }
+        if (signal.aborted) {
+          closeOnce()
+          return
+        }
         if (!value || typeof value !== 'object') continue
 
         let chunk = value as Record<string, unknown>
@@ -131,7 +142,7 @@ function pipeStream(
         if (result === 'suspended') {
           reader?.cancel().catch(() => {})
           closeOnce()
-          return  // Stream paused — client will POST answer/approve
+          return // Stream paused — client will POST answer/approve
         }
       }
       closeOnce()
@@ -162,7 +173,9 @@ All error responses should return `text/event-stream` content type so the client
 
 ```typescript
 return new Response(
-  sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`),
+  sseEncoder.encode(
+    `event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`,
+  ),
   { status: 400, headers: sseHeaders() },
 )
 ```
@@ -217,20 +230,20 @@ async function startStream(url: string, init: RequestInit) {
 
 ### SSE event types to forward
 
-Only forward event types the UI actually consumes. Drop Mastra internal events (step-start/end, reasoning-*, text-*, tool-call-*, etc.):
+Only forward event types the UI actually consumes. Drop Mastra internal events (step-start/end, reasoning-_, text-_, tool-call-*, etc.):
 
-| Event | Payload | Client action |
-|-------|---------|---------------|
-| `start` | `{ runId, threadId }` | Store for question/answer flow |
-| `message` | `{ text }` | Append to streaming text |
-| `navigate` | `{ href, target, history }` | `frame.src = href; frame.reload(); history.pushState()` |
-| `question` | `{ runId, toolCallId, question, options, selectionMode }` | Show question UI |
-| `suspension` | `{ toolCallId, toolName, args }` | Show approval UI; POST to tool-decision |
-| `tool-result` | `{ toolCallId, toolName, result }` | Optional display |
-| `tool-error` | `{ toolCallId, toolName, error }` | Show error |
-| `complete` | `{}` | Stream ended, re-enable form |
-| `agent-error` | `{ error }` | Show error |
-| `stream-error` | `{ error }` | Show error |
+| Event          | Payload                                                   | Client action                                           |
+| -------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| `start`        | `{ runId, threadId }`                                     | Store for question/answer flow                          |
+| `message`      | `{ text }`                                                | Append to streaming text                                |
+| `navigate`     | `{ href, target, history }`                               | `frame.src = href; frame.reload(); history.pushState()` |
+| `question`     | `{ runId, toolCallId, question, options, selectionMode }` | Show question UI                                        |
+| `suspension`   | `{ toolCallId, toolName, args }`                          | Show approval UI; POST to tool-decision                 |
+| `tool-result`  | `{ toolCallId, toolName, result }`                        | Optional display                                        |
+| `tool-error`   | `{ toolCallId, toolName, error }`                         | Show error                                              |
+| `complete`     | `{}`                                                      | Stream ended, re-enable form                            |
+| `agent-error`  | `{ error }`                                               | Show error                                              |
+| `stream-error` | `{ error }`                                               | Show error                                              |
 
 ### Answer and tool-decision endpoints
 
@@ -259,15 +272,15 @@ async answer(context) {
 
 ## Key Differences from Two-Connection Pattern
 
-| Aspect | Two-connection | Single-request |
-|--------|---------------|----------------|
-| Requests | POST (start) + GET (SSE stream) | One POST |
-| Server state | stream-store.ts with TTL | None — consumed inline |
-| Client protocol | fetch + EventSource | `fetch()` + reader |
-| Error handling | JSON for errors, SSE for stream | SSE for everything |
-| Auth checks | Separate check on each endpoint | Single check in action |
-| Orphan cleanup | TTL timers, memory pressure | Stream dies with request |
-| Proxy timeout | SSE open indefinitely | Same — open for agent duration |
+| Aspect          | Two-connection                  | Single-request                 |
+| --------------- | ------------------------------- | ------------------------------ |
+| Requests        | POST (start) + GET (SSE stream) | One POST                       |
+| Server state    | stream-store.ts with TTL        | None — consumed inline         |
+| Client protocol | fetch + EventSource             | `fetch()` + reader             |
+| Error handling  | JSON for errors, SSE for stream | SSE for everything             |
+| Auth checks     | Separate check on each endpoint | Single check in action         |
+| Orphan cleanup  | TTL timers, memory pressure     | Stream dies with request       |
+| Proxy timeout   | SSE open indefinitely           | Same — open for agent duration |
 
 ## Related Skills
 

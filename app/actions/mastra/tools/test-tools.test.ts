@@ -7,10 +7,7 @@ import type { listTestFilesOutput } from './test-tools.ts'
 
 type ListTestFilesResult = z.infer<typeof listTestFilesOutput>
 
-function call(
-  fn: any,
-  input: Record<string, unknown>,
-): Promise<ListTestFilesResult> {
+function call(fn: any, input: Record<string, unknown>): Promise<ListTestFilesResult> {
   return fn(input, {}) as Promise<ListTestFilesResult>
 }
 
@@ -22,7 +19,10 @@ describe('test-tools', () => {
       let files = result.data.files
       assert.ok(Array.isArray(files), 'should return files array')
       assert.ok(files.length > 0, 'should find files')
-      assert.ok(files.some((f) => f.name === 'package.json'), 'should find package.json')
+      assert.ok(
+        files.some((f) => f.name === 'package.json'),
+        'should find package.json',
+      )
     })
 
     it('lists files in a subdirectory', async () => {
@@ -37,7 +37,10 @@ describe('test-tools', () => {
       let result = await call(listTestFiles.execute, { subdir: '../etc' })
       assert.ok(result.success === false)
       assert.equal(result.error.code, 'VALIDATION')
-      assert.ok(result.error.message.includes('Path traversal'), 'error should mention path traversal')
+      assert.ok(
+        result.error.message.includes('Path traversal'),
+        'error should mention path traversal',
+      )
     })
 
     it('rejects absolute path', async () => {
@@ -65,7 +68,10 @@ describe('test-tools', () => {
       for (let i = 1; i < files.length; i++) {
         let prev = files[i - 1].name.toLowerCase()
         let curr = files[i].name.toLowerCase()
-        assert.ok(prev <= curr, `should be sorted by name ascending: ${files[i - 1].name} > ${files[i].name}`)
+        assert.ok(
+          prev <= curr,
+          `should be sorted by name ascending: ${files[i - 1].name} > ${files[i].name}`,
+        )
       }
     })
 
@@ -91,7 +97,9 @@ describe('test-tools', () => {
 
     it('sorts by ext ascending', async () => {
       let result = await call(listTestFiles.execute, {
-        subdir: 'app', sort: 'ext', order: 'asc',
+        subdir: 'app',
+        sort: 'ext',
+        order: 'asc',
       })
       assert.ok(result.success === true)
       let files = result.data.files
@@ -113,7 +121,9 @@ describe('test-tools', () => {
 
     it('caps limit at 100 via recursive mode', async () => {
       let result = await call(listTestFiles.execute, {
-        subdir: '', recursive: true, limit: 999,
+        subdir: '',
+        recursive: true,
+        limit: 999,
       })
       assert.ok(result.success === true, `should not error: ${JSON.stringify(result)}`)
       let files = result.data.files
@@ -125,20 +135,29 @@ describe('test-tools', () => {
       assert.ok(result.success === true)
       let files = result.data.files
       assert.ok(files.length > 0, 'should find .json files')
-      assert.ok(files.every((f) => f.name.endsWith('.json')), 'all files should end with .json')
+      assert.ok(
+        files.every((f) => f.name.endsWith('.json')),
+        'all files should end with .json',
+      )
     })
 
     it('excludes directories when ext filter is set', async () => {
       let result = await call(listTestFiles.execute, { subdir: '', ext: '.ts' })
       assert.ok(result.success === true)
       let files = result.data.files
-      assert.ok(files.every((f) => !f.isDirectory), 'no directories should appear with ext filter')
+      assert.ok(
+        files.every((f) => !f.isDirectory),
+        'no directories should appear with ext filter',
+      )
     })
 
     it('rejects ext without leading dot', async () => {
       let result = await call(listTestFiles.execute, { subdir: '', ext: 'ts' })
       assert.ok(result.success === false)
-      assert.ok(result.error.message.includes('ext must start'), `error should mention leading dot, got: ${JSON.stringify(result)}`)
+      assert.ok(
+        result.error.message.includes('ext must start'),
+        `error should mention leading dot, got: ${JSON.stringify(result)}`,
+      )
     })
 
     it('returns display fields', async () => {
@@ -160,7 +179,8 @@ describe('test-tools', () => {
   describe('list_test_files recursive', () => {
     it('discovers files recursively', async () => {
       let recursive = await call(listTestFiles.execute, {
-        subdir: 'app', recursive: true,
+        subdir: 'app',
+        recursive: true,
       })
       assert.ok(recursive.success === true)
       let files = recursive.data.files
@@ -172,7 +192,8 @@ describe('test-tools', () => {
 
     it('excludes .git in recursive mode', async () => {
       let result = await call(listTestFiles.execute, {
-        subdir: '', recursive: true,
+        subdir: '',
+        recursive: true,
       })
       assert.ok(result.success === true)
       let files = result.data.files
@@ -181,11 +202,15 @@ describe('test-tools', () => {
 
     it('excludes node_modules in recursive mode', async () => {
       let result = await call(listTestFiles.execute, {
-        subdir: '', recursive: true,
+        subdir: '',
+        recursive: true,
       })
       assert.ok(result.success === true)
       let files = result.data.files
-      assert.ok(!files.some((f) => f.name === '.modules.yaml'), 'node_modules .modules.yaml should be excluded')
+      assert.ok(
+        !files.some((f) => f.name === '.modules.yaml'),
+        'node_modules .modules.yaml should be excluded',
+      )
     })
   })
 })
