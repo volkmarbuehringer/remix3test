@@ -1,4 +1,4 @@
-import { ilike, or } from 'remix/data-table'
+import { ilike, isNull, notNull, or } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { email, minLength } from 'remix/data-schema/checks'
@@ -14,7 +14,7 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
-import { gridStateFromForm, gridStateToParams } from '../../../utils/grid-state.ts'
+import { gridStateFromForm, gridStateFromFormData, gridStateToParams } from '../../../utils/grid-state.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { validatePasswordComplexity } from '../../../utils/password-complexity.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -28,7 +28,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 
 type SafeUser = Pick<
   User,
-  'id' | 'email' | 'name' | 'role' | 'email_verified' | 'created_at' | 'updated_at'
+  'id' | 'email' | 'name' | 'role' | 'email_verified' | 'disabled_at' | 'created_at' | 'updated_at'
 >
 
 const USERS_PAGE_SIZE = 15
@@ -51,6 +51,7 @@ const userUpdateSchema = f.object({
   email: f.field(s.defaulted(s.string(), '').pipe(email())),
   role: f.field(s.defaulted(s.string(), '')),
   password: f.field(s.defaulted(s.string(), '')),
+  disabled: f.field(s.defaulted(s.string(), '')),
   _offset: f.field(s.defaulted(s.string(), '')),
   _sort: f.field(s.defaulted(s.string(), '')),
   _order: f.field(s.defaulted(s.string(), '')),
@@ -76,15 +77,20 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           defaultDirection: 'asc',
         })
 
-        let filterPredicate = filter
-          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-          : undefined
+        let filterPredicate =
+          filter === 'enabled'
+            ? isNull('disabled_at')
+            : filter === 'disabled'
+              ? notNull('disabled_at')
+              : filter
+                ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+                : undefined
 
         let { items: page, hasMore } = await paginate(db, users, {
           pageSize: effectivePageSize,
           page: pageNum,
           orderBy: [[column, direction]],
-          where: filterPredicate as Record<string, unknown>,
+          where: filterPredicate,
         })
 
         let rows: SafeUser[] = (page as User[]).map((u) => ({
@@ -93,6 +99,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           name: u.name,
           role: u.role,
           email_verified: u.email_verified,
+          disabled_at: u.disabled_at,
           created_at: u.created_at,
           updated_at: u.updated_at,
         }))
@@ -110,6 +117,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
               name: u.name,
               role: u.role,
               email_verified: u.email_verified,
+              disabled_at: u.disabled_at,
               created_at: u.created_at!,
               updated_at: u.updated_at!,
             }
@@ -223,6 +231,11 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
         if (fields.name?.trim()) changes.name = fields.name.trim()
         if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
         if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role
+        if (fields.disabled === 'true') {
+          changes.disabled_at = Date.now()
+        } else if (fields.disabled !== undefined) {
+          changes.disabled_at = null
+        }
         if (fields.password) {
           let complexityError = validatePasswordComplexity(fields.password)
           if (complexityError) {
@@ -322,23 +335,45 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
           })
         }
 
-        let parseResult = s.parseSafe(userUpdateSchema, formData)
-        let fields = parseResult.success
-          ? parseResult.value
-          : {
-              name: '',
-              email: '',
-              role: '',
-              password: '',
-              _offset: '',
-              _sort: '',
-              _order: '',
-              _filter: '',
-            }
-        let params = gridStateToParams(gridStateFromForm(fields))
+        let params = gridStateToParams(gridStateFromFormData(formData))
         let qs = params.toString()
         let baseUrl = routes.admin.users.index.href()
         return redirect(baseUrl + (qs ? '?' + qs : ''))
+      },
+
+      async toggleDisabled(context) {
+        let db = context.db
+        let id = parseId(context.params.id)
+        if (id === undefined || id < 1) {
+          return context.json({ error: 'Invalid id' }, { status: 400 })
+        }
+
+        let existing = await db.findOne(users, { where: { id } })
+        if (!existing) {
+          return context.json({ error: 'User not found' }, { status: 404 })
+        }
+
+        let user = existing as User
+        let now = user.disabled_at ? null : Date.now()
+        await db.exec(
+          `UPDATE users SET disabled_at = $1, token_version = token_version + 1 WHERE id = $2`,
+          [now, id],
+        )
+
+        let newDisabledState = now !== null
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          await logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'users',
+            target_id: id,
+            details: { disabled_at: newDisabledState ? 'set' : 'cleared' },
+          })
+        }
+
+        return context.json({ ok: true, disabled: newDisabledState })
       },
     },
   },

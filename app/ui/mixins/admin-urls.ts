@@ -104,6 +104,24 @@ export function buildCancelUrl(
   return base + (qs ? '?' + qs : '')
 }
 
+export function buildFilterParams(
+  filterValue: string,
+  sort: string,
+  order: string,
+  offset: number,
+  period?: string,
+  status?: string,
+): string {
+  let params = new URLSearchParams()
+  if (filterValue) params.set('filter', filterValue)
+  params.set('sort', sort)
+  params.set('order', order)
+  if (offset > 0) params.set('offset', String(offset))
+  if (period) params.set('period', period)
+  if (status) params.set('status', status)
+  return params.toString()
+}
+
 export function formatTimestamp(ts: number | string | null | undefined): string {
   if (ts == null) return '\u2014'
   return new Date(Number(ts)).toLocaleString('de-DE', {

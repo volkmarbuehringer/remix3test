@@ -16,6 +16,7 @@ import {
   buildPaginationUrl,
   buildCreateUrl,
   buildCancelUrl,
+  buildFilterParams,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 import { AdminUsersContextMenu } from '../assets/admin-users-context-menu.tsx'
@@ -29,6 +30,7 @@ type DisplayUser = {
   email: string
   name: string
   role: string
+  disabled_at: number | null
   created_at: number | null
   updated_at: number | null
 }
@@ -74,11 +76,34 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
+          <div mix={table.filterGroup}>
+            <a
+              href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, offset)}
+              rmx-target={frames.adminContent}
+              mix={[table.filterTab, !filter || (filter !== 'enabled' && filter !== 'disabled') ? table.filterTabActive : undefined]}
+            >
+              Alle
+            </a>
+            <a
+              href={ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)}
+              rmx-target={frames.adminContent}
+              mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
+            >
+              Aktiv
+            </a>
+            <a
+              href={ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)}
+              rmx-target={frames.adminContent}
+              mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
+            >
+              Deaktiviert
+            </a>
+          </div>
           <input
             type="text"
             name="filter"
             placeholder="Suche nach Name oder E-Mail..."
-            defaultValue={filter ?? ''}
+            defaultValue={filter && filter !== 'enabled' && filter !== 'disabled' ? filter : ''}
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
@@ -118,7 +143,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <col />
                 <col />
                 <col mix={css({ width: '100px' })} />
-                <col mix={css({ width: '160px' })} />
+                <col mix={css({ width: '80px' })} />
+                <col mix={css({ width: '120px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -198,6 +224,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}>Status</th>
                   <th mix={table.thSortable}>
                     <a
                       href={buildSortUrl(
@@ -225,8 +252,13 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 {rows.map((row) => (
                   <tr
                     key={row.id}
-                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    mix={[
+                      table.row,
+                      editRow?.id === row.id ? table.editingRow : undefined,
+                      row.disabled_at ? table.disabledRow : undefined,
+                    ]}
                     data-row-id={row.id}
+                    data-disabled-at={row.disabled_at ?? ''}
                   >
                     <td mix={table.td} title={String(row.id)}>
                       {row.id}
@@ -238,6 +270,16 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       {row.email}
                     </td>
                     <td mix={table.td}>{row.role}</td>
+                    <td mix={table.td}>
+                      <span
+                        mix={[
+                          table.statusBadge,
+                          row.disabled_at ? table.statusBadgeDisabled : table.statusBadgeActive,
+                        ]}
+                      >
+                        {row.disabled_at ? 'Deaktiviert' : 'Aktiv'}
+                      </span>
+                    </td>
                     <td mix={table.td} title={formatTimestamp(row.created_at)}>
                       {formatTimestamp(row.created_at)}
                     </td>
@@ -450,6 +492,19 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                     Admin
                   </option>
                 </select>
+              </div>
+
+              <div mix={table.fieldGroup}>
+                <label mix={table.label}>
+                  <input
+                    type="checkbox"
+                    name="disabled"
+                    value="true"
+                    defaultChecked={!!row.disabled_at}
+                    mix={css({ marginRight: '6px' })}
+                  />
+                  Deaktiviert
+                </label>
               </div>
 
               <div mix={table.actions}>

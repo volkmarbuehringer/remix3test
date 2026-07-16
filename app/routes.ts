@@ -121,7 +121,13 @@ export const routes = route({
       destroy: post("/:id/delete"),
     }),
 
-    users: resources("users", { exclude: ["new", "show", "edit"] }),
+    users: route("users", {
+      index: get("/"),
+      create: post("/"),
+      update: put("/:id"),
+      destroy: del("/:id"),
+      toggleDisabled: post("/:id/toggle-disabled"),
+    }),
 
     fragments: route("fragments", {
       stats: get("/stats"),

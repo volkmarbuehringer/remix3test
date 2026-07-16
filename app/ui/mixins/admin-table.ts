@@ -54,6 +54,47 @@ export const table = {
     textDecoration: 'none',
     '&:hover': { color: theme.colors.text.primary, textDecoration: 'underline' },
   }),
+  filterGroup: css({
+    display: 'inline-flex',
+    gap: '1px',
+    background: theme.colors.border.subtle,
+    borderRadius: theme.radius.md,
+    overflow: 'hidden',
+  }),
+  filterTab: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: `${theme.space.xs} ${theme.space.sm}`,
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.text.secondary,
+    background: theme.surface.lvl1,
+    textDecoration: 'none',
+    whiteSpace: 'nowrap',
+    '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  }),
+  filterTabActive: css({
+    background: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.foreground,
+    '&:hover': { background: theme.colors.action.primary.background, opacity: 0.9 },
+  }),
+  disabledRow: css({
+    opacity: 0.5,
+  }),
+  statusBadge: css({
+    display: 'inline-block',
+    padding: `2px ${theme.space.sm}`,
+    borderRadius: theme.radius.full,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
+  }),
+  statusBadgeActive: css({
+    background: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.foreground,
+  }),
+  statusBadgeDisabled: css({
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  }),
 
   wrap: css({
     marginBottom: theme.space.xl,

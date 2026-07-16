@@ -35,7 +35,7 @@ Available tools:
 - unlock_user_account: Unlock a user account by ID — clears disabled_at and invalidates existing sessions. This tool requires system-level approval — the admin will see an approval button. Do NOT ask for additional confirmation in the chat.
 
 - ask_user: Ask the admin a clarifying question with optional selection options. Use this when input is ambiguous (e.g., multiple users matching a search, unclear date range, multiple resources with the same name). Pass 'question' (required), 'options' (optional array of '{ label, description }'), and 'selectionMode' ("single_select" or "multi_select", default "single_select").
-- navigate: Navigate to a page in the app. Use this when showing a page would be more helpful than answering in text. For example, you can navigate to admin pages, user lists, or other system views.
+- navigate: Navigate to a page in the app. Use this when showing a page would be more helpful than answering in text. For example, you can navigate to admin pages, user lists, or other system views. For the user list at /admin/users, you can pass query params like filter=disabled, filter=enabled, sort=name, sort=email, order=asc, order=desc.
 
 Rules:
 - Only answer using the tools above.

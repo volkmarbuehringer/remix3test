@@ -98,6 +98,34 @@ describe('Admin Users Controller', () => {
       let text = await response.text()
       assert.ok(!text.includes('password_hash'))
     })
+
+    it('filters by enabled users (?filter=enabled)', async () => {
+      let disabledEmail = `test-filter-disabled-${Date.now()}@example.com`
+      let disabledId = await createTestUser(disabledEmail)
+      assert.ok(disabledId, 'test user for disabled filter must be created')
+      await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), disabledId])
+
+      let response = await router.fetch(`${USERS_URL}?filter=enabled`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(!text.includes(disabledEmail), 'disabled user should not appear in enabled filter')
+    })
+
+    it('filters by disabled users (?filter=disabled)', async () => {
+      let disabledEmail = `test-filter-disabled2-${Date.now()}@example.com`
+      let disabledId = await createTestUser(disabledEmail)
+      assert.ok(disabledId, 'test user for disabled filter must be created')
+      await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), disabledId])
+
+      let response = await router.fetch(`${USERS_URL}?filter=disabled`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes(disabledEmail), 'disabled user should appear in disabled filter')
+    })
   })
 
   describe('create (POST /admin/users)', () => {
@@ -350,6 +378,70 @@ describe('Admin Users Controller', () => {
     })
   })
 
+  describe('toggle-disabled (POST /admin/users/:id/toggle-disabled)', () => {
+    it('disables an active user', async () => {
+      let email = `test-toggle-off-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+
+      let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: '{}',
+      })
+      assert.equal(response.status, 200)
+      let json = await response.json()
+      assert.equal(json.ok, true)
+      assert.equal(json.disabled, true)
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
+      assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
+    })
+
+    it('enables a disabled user', async () => {
+      let email = `test-toggle-on-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+      await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), id])
+
+      let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: '{}',
+      })
+      assert.equal(response.status, 200)
+      let json = await response.json()
+      assert.equal(json.ok, true)
+      assert.equal(json.disabled, false)
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
+      assert.equal(result.rows[0]?.disabled_at, null, 'disabled_at should be null')
+    })
+
+    it('returns 404 for non-existent user', async () => {
+      let response = await router.fetch(`${BASE}/admin/users/9999999/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: '{}',
+      })
+      assert.equal(response.status, 404)
+      let json = await response.json()
+      assert.equal(json.error, 'User not found')
+    })
+  })
+
   describe('destroy (DELETE /admin/users/:id)', () => {
     it('deletes an existing user', async () => {
       let id = await createTestUser(`test-delete-${Date.now()}@example.com`)
@@ -392,6 +484,33 @@ describe('Admin Users Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 404)
+    })
+
+    it('preserves filter=disabled after delete', async () => {
+      let email = `test-del-filter-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+      await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), id])
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: 'disabled',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.includes('filter=disabled'), 'redirect should preserve filter=disabled, got: ' + location)
     })
 
     it('denies delete for non-admin users', async () => {

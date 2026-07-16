@@ -5,6 +5,7 @@ import { MenuItem, MenuList } from 'remix/ui/menu'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../ui/theme/separator/separator.ts'
 import { theme } from '../ui/theme/theme.ts'
+import { showToast } from '../ui/toast.ts'
 
 interface GridState {
   offset: string
@@ -14,83 +15,95 @@ interface GridState {
   baseHref?: string
 }
 
-/**
- * ClientEntry that adds a right-click context menu to admin users table rows.
- *
- * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
- * mouse coordinates of the right-click. Event delegation on the table container
- * captures `contextmenu` events from server-rendered rows and dispatches a
- * synthetic event to the hidden trigger.
- */
 export const AdminUsersContextMenu = clientEntry(
   import.meta.url + '#AdminUsersContextMenu',
   function AdminUsersContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
+    let rightClickedRowDisabledAt: string | null = null
 
-    return () => (
-      <menu.Context label="Benutzeraktionen">
-        <div
-          mix={[
-            menu.contextTrigger(),
-            ref((el) => {
-              let table = document.querySelector('[data-users-table]')
-              if (!table) return
+    return () => {
+      let isDisabled = rightClickedRowDisabledAt !== null && rightClickedRowDisabledAt !== ''
 
-              function onContextMenu(event: Event) {
-                let mouseEvent = event as MouseEvent
-                mouseEvent.preventDefault()
+      return (
+        <menu.Context label="Benutzeraktionen">
+          <div
+            mix={[
+              menu.contextTrigger(),
+              ref((el) => {
+                let table = document.querySelector('[data-users-table]')
+                if (!table) return
 
-                let target = mouseEvent.target as HTMLElement | null
-                let row = target?.closest?.('[data-row-id]') as HTMLElement | null
-                if (!row) return
+                function onContextMenu(event: Event) {
+                  let mouseEvent = event as MouseEvent
+                  mouseEvent.preventDefault()
 
-                rightClickedRowId = row.dataset.rowId ?? null
+                  let target = mouseEvent.target as HTMLElement | null
+                  let row = target?.closest?.('[data-row-id]') as HTMLElement | null
+                  if (!row) return
 
-                el.style.left = mouseEvent.clientX + 'px'
-                el.style.top = mouseEvent.clientY + 'px'
+                  rightClickedRowId = row.dataset.rowId ?? null
+                  rightClickedRowDisabledAt = row.getAttribute('data-disabled-at')
+                  handle.update()
 
-                el.dispatchEvent(
-                  new MouseEvent('contextmenu', {
-                    clientX: mouseEvent.clientX,
-                    clientY: mouseEvent.clientY,
-                    bubbles: true,
-                    cancelable: true,
-                  }),
-                )
+                  el.style.left = mouseEvent.clientX + 'px'
+                  el.style.top = mouseEvent.clientY + 'px'
+
+                  el.dispatchEvent(
+                    new MouseEvent('contextmenu', {
+                      clientX: mouseEvent.clientX,
+                      clientY: mouseEvent.clientY,
+                      bubbles: true,
+                      cancelable: true,
+                    }),
+                  )
+                }
+
+                table.addEventListener('contextmenu', onContextMenu)
+
+                handle.signal.addEventListener('abort', () => {
+                  table.removeEventListener('contextmenu', onContextMenu)
+                })
+              }),
+              css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
+            ]}
+          />
+
+          <MenuList
+            mix={onMenuSelect((event) => {
+              let rowId = rightClickedRowId
+              if (!rowId) return
+
+              switch (event.item.name) {
+                case 'edit':
+                  handleEditAction(rowId)
+                  break
+                case 'activate':
+                case 'deactivate':
+                  handleToggleDisabledAction(rowId, event.item.name === 'activate')
+                  break
+                case 'delete':
+                  handleDeleteAction(rowId)
+                  break
               }
-
-              table.addEventListener('contextmenu', onContextMenu)
-
-              handle.signal.addEventListener('abort', () => {
-                table.removeEventListener('contextmenu', onContextMenu)
-              })
-            }),
-            css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),
-          ]}
-        />
-
-        <MenuList
-          mix={onMenuSelect((event) => {
-            let rowId = rightClickedRowId
-            if (!rowId) return
-
-            if (event.item.name === 'edit') {
-              handleEditAction(rowId)
-            } else if (event.item.name === 'delete') {
-              handleDeleteAction(rowId)
-            }
-          })}
-        >
-          <MenuItem name="edit">
-            <Glyph name="edit" width={14} height={14} /> Bearbeiten
-          </MenuItem>
-          <Separator />
-          <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
-            <Glyph name="trash" width={14} height={14} /> Löschen
-          </MenuItem>
-        </MenuList>
-      </menu.Context>
-    )
+            })}
+          >
+            <MenuItem name="edit">
+              <Glyph name="edit" width={14} height={14} /> Bearbeiten
+            </MenuItem>
+            <Separator />
+            {isDisabled ? (
+              <MenuItem name="activate">Aktivieren</MenuItem>
+            ) : (
+              <MenuItem name="deactivate">Deaktivieren</MenuItem>
+            )}
+            <Separator />
+            <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
+              <Glyph name="trash" width={14} height={14} /> Löschen
+            </MenuItem>
+          </MenuList>
+        </menu.Context>
+      )
+    }
 
     function handleEditAction(rowId: string) {
       let dataEl = document.getElementById('users-grid-state')
@@ -109,6 +122,28 @@ export const AdminUsersContextMenu = clientEntry(
       } catch {
         window.location.href = '/admin/users?editing=' + rowId
       }
+    }
+
+    function handleToggleDisabledAction(rowId: string, activate: boolean) {
+      let csrfToken =
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+
+      fetch(`/admin/users/${rowId}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          'X-Csrf-Token': csrfToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error()
+          return r.json()
+        })
+        .then(() => {
+          window.location.reload()
+        })
+        .catch(() => showToast(activate ? 'Fehler beim Aktivieren.' : 'Fehler beim Deaktivieren.'))
     }
 
     function handleDeleteAction(rowId: string) {

@@ -1,10 +1,10 @@
-import type { Database } from 'remix/data-table'
+import type { Database, WhereInput } from 'remix/data-table'
 
 interface PaginateOptions {
   pageSize: number
   page: number
   orderBy: [string, 'asc' | 'desc'][]
-  where?: Record<string, unknown>
+  where?: WhereInput
 }
 
 interface PaginateResult<Row> {
