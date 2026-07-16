@@ -6,6 +6,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../ui/theme/separator/separator.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { showToast } from '../ui/toast.ts'
+import { safeNavigate, safeReload } from '../utils/frame-utils.ts'
 
 interface NutzerRow {
   n_id: string
@@ -89,6 +90,7 @@ export const NutzerTableInteractive = clientEntry(
                   sortColumn,
                   sortDirection,
                   filter,
+                  handle,
                 )
               }
             })}
@@ -131,6 +133,7 @@ function handleRowAction(
   sortColumn: string,
   sortDirection: 'asc' | 'desc',
   filter: string | undefined,
+  handle: Handle,
 ) {
   let csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
 
@@ -142,7 +145,7 @@ function handleRowAction(
       params.set('sort', sortColumn)
       params.set('order', sortDirection)
       if (filter) params.set('filter', filter)
-      window.location.href = '/admin/nutzer?' + params.toString()
+      safeNavigate('/admin/nutzer?' + params.toString(), handle)
       break
     }
     case 'reset-password': {
@@ -157,7 +160,7 @@ function handleRowAction(
         })
         .then(() => {
           showToast(`Passwort für ${row.n_name || row.n_l_login} wurde zurückgesetzt.`, 'success')
-          window.location.reload()
+          safeReload(handle)
         })
         .catch(() => showToast('Fehler beim Zurücksetzen des Passworts.'))
       break
@@ -174,7 +177,7 @@ function handleRowAction(
         body: JSON.stringify({ locked: newValue }),
       })
         .then((r) => {
-          if (r.ok) window.location.reload()
+          if (r.ok) safeReload(handle)
           else showToast('Fehler beim Ändern des Sperrstatus.')
         })
         .catch(() => showToast('Fehler beim Ändern des Sperrstatus.'))
@@ -192,7 +195,7 @@ function handleRowAction(
         body: JSON.stringify({ active: newValue }),
       })
         .then((r) => {
-          if (r.ok) window.location.reload()
+          if (r.ok) safeReload(handle)
           else showToast('Fehler beim Ändern des Aktiv-Status.')
         })
         .catch(() => showToast('Fehler beim Ändern des Aktiv-Status.'))
@@ -223,7 +226,7 @@ function handleRowAction(
         }).toString(),
       })
         .then((r) => {
-          if (r.ok) window.location.reload()
+          if (r.ok) safeReload(handle)
           else showToast('Fehler beim Löschen.')
         })
         .catch(() => showToast('Fehler beim Löschen.'))

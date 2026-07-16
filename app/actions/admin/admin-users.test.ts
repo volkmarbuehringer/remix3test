@@ -510,7 +510,10 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 302)
       let location = response.headers.get('Location') || ''
-      assert.ok(location.includes('filter=disabled'), 'redirect should preserve filter=disabled, got: ' + location)
+      assert.ok(
+        location.includes('filter=disabled'),
+        'redirect should preserve filter=disabled, got: ' + location,
+      )
     })
 
     it('denies delete for non-admin users', async () => {

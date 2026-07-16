@@ -80,19 +80,28 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, offset)}
               rmx-target={frames.adminContent}
-              mix={[table.filterTab, !filter || (filter !== 'enabled' && filter !== 'disabled') ? table.filterTabActive : undefined]}
+              mix={[
+                table.filterTab,
+                !filter || (filter !== 'enabled' && filter !== 'disabled')
+                  ? table.filterTabActive
+                  : undefined,
+              ]}
             >
               Alle
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)}
+              href={
+                ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)
+              }
               rmx-target={frames.adminContent}
               mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)}
+              href={
+                ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)
+              }
               rmx-target={frames.adminContent}
               mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
             >

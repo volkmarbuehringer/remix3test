@@ -14,5 +14,3 @@ export async function insertAppWebhookRequest(
   if (!row) throw new Error('insertAppWebhookRequest: INSERT … RETURNING produced no row')
   return String(row.id)
 }
-
-

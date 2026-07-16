@@ -6,6 +6,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../ui/theme/separator/separator.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { showToast } from '../ui/toast.ts'
+import { safeNavigate, safeReload } from '../utils/frame-utils.ts'
 
 interface GridState {
   offset: string
@@ -118,9 +119,9 @@ export const AdminUsersContextMenu = clientEntry(
         params.set('sort', state.sort || 'name')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = baseHref + '?' + params.toString()
+        safeNavigate(baseHref + '?' + params.toString(), handle)
       } catch {
-        window.location.href = '/admin/users?editing=' + rowId
+        safeNavigate('/admin/users?editing=' + rowId, handle)
       }
     }
 
@@ -141,7 +142,7 @@ export const AdminUsersContextMenu = clientEntry(
           return r.json()
         })
         .then(() => {
-          window.location.reload()
+          safeReload(handle)
         })
         .catch(() => showToast(activate ? 'Fehler beim Aktivieren.' : 'Fehler beim Deaktivieren.'))
     }

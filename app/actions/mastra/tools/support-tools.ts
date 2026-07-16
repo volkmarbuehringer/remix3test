@@ -3,7 +3,15 @@ import { z } from 'zod/v4'
 import Holidays from 'date-holidays'
 import { db } from '../../../data/connection.ts'
 import { sql } from 'remix/data-table'
-import { users, appointments, resources, messages, appointofferings, offeringConfigs, appointtypes } from '../../../data/schema.ts'
+import {
+  users,
+  appointments,
+  resources,
+  messages,
+  appointofferings,
+  offeringConfigs,
+  appointtypes,
+} from '../../../data/schema.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import { requireAdminId } from './admin-context.ts'
 import { executeCancelUserWorkflow } from '../workflow-executor.ts'
@@ -21,10 +29,18 @@ export const supportTools = {
       let rows = await db.exec(
         isNumeric
           ? sql`SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE id = ${Number(query)} OR email = ${query} LIMIT 1`
-          : sql`SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE email = ${query} LIMIT 1`
+          : sql`SELECT id, email, name, role, email_verified, disabled_at, created_at FROM users WHERE email = ${query} LIMIT 1`,
       )
       let user = (rows.rows ?? [])[0] as
-        | { id: number; email: string; name: string; role: string; email_verified: number; disabled_at: number | null; created_at: number }
+        | {
+            id: number
+            email: string
+            name: string
+            role: string
+            email_verified: number
+            disabled_at: number | null
+            created_at: number
+          }
         | undefined
       if (!user) return { found: false, message: 'No user found matching that query' }
       return {
@@ -62,7 +78,7 @@ export const supportTools = {
         sql`SELECT a.id, a.title, a.date, a.during, a.user_id, u.name as user_name
           FROM appointments a LEFT JOIN users u ON a.user_id = u.id
           ${userId !== undefined ? sql`WHERE a.user_id = ${userId}` : sql``}
-          ORDER BY a.created_at DESC LIMIT ${limit}`
+          ORDER BY a.created_at DESC LIMIT ${limit}`,
       )
       let rows = result.rows ?? []
       return {
@@ -89,7 +105,7 @@ export const supportTools = {
       let result = await db.exec(
         role
           ? sql`SELECT role, count(*)::int as count FROM users WHERE role = ${role} GROUP BY role ORDER BY role`
-          : sql`SELECT role, count(*)::int as count FROM users GROUP BY role ORDER BY role`
+          : sql`SELECT role, count(*)::int as count FROM users GROUP BY role ORDER BY role`,
       )
       let byRole: Record<string, number> = {}
       for (let r of (result.rows ?? []) as { role: string; count: number }[]) {
@@ -219,7 +235,7 @@ export const supportTools = {
       let rows = await db.exec(
         isNumeric
           ? sql`SELECT id, name, description, created_at, updated_at FROM resources WHERE id = ${Number(query)} OR name = ${query} LIMIT 1`
-          : sql`SELECT id, name, description, created_at, updated_at FROM resources WHERE name = ${query} LIMIT 1`
+          : sql`SELECT id, name, description, created_at, updated_at FROM resources WHERE name = ${query} LIMIT 1`,
       )
       let r = (rows.rows ?? [])[0] as
         | { id: number; name: string; description: string; created_at: number; updated_at: number }
@@ -451,7 +467,7 @@ export const supportTools = {
           : sql`SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
                FROM messages m LEFT JOIN users u ON m.sender_id = u.id
                WHERE m.content ILIKE ${pattern}
-               ORDER BY m.created_at DESC LIMIT 50`
+               ORDER BY m.created_at DESC LIMIT 50`,
       )
       let rows = result.rows ?? []
       return {
@@ -482,7 +498,9 @@ export const supportTools = {
         .describe('Optional end date (YYYY-MM-DD) to filter appointments'),
     }),
     execute: async ({ startDate, endDate }) => {
-      let userResult = await db.exec(sql`SELECT role, count(*)::int AS count FROM users GROUP BY role ORDER BY role`)
+      let userResult = await db.exec(
+        sql`SELECT role, count(*)::int AS count FROM users GROUP BY role ORDER BY role`,
+      )
       let byRole: Record<string, number> = {}
       for (let r of (userResult.rows ?? []) as { role: string; count: number }[]) {
         byRole[r.role] = r.count
@@ -501,7 +519,9 @@ export const supportTools = {
         if (Number.isNaN(startTs) || Number.isNaN(endTs)) {
           return { error: 'Invalid date format. Use YYYY-MM-DD.' }
         }
-        let apptResult = await db.exec(sql`SELECT count(*)::int AS count FROM appointments WHERE date >= ${startTs} AND date <= ${endTs}`)
+        let apptResult = await db.exec(
+          sql`SELECT count(*)::int AS count FROM appointments WHERE date >= ${startTs} AND date <= ${endTs}`,
+        )
         apptCount = Number((apptResult.rows ?? [])[0]?.count ?? 0)
       } else {
         apptCount = await db.count(appointments)
@@ -729,7 +749,7 @@ export const supportTools = {
         return { success: true, message: 'User account is already active' }
       }
       await db.exec(
-        sql`UPDATE users SET disabled_at = NULL, token_version = token_version + 1 WHERE id = ${targetUserId}`
+        sql`UPDATE users SET disabled_at = NULL, token_version = token_version + 1 WHERE id = ${targetUserId}`,
       )
       return { success: true, message: 'User account unlocked' }
     },

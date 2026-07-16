@@ -218,7 +218,11 @@ export const customerTools = {
       `)
 
       let bookedByDay = new Map<number, { startMin: number; endMin: number }[]>()
-      for (let row of (bookingResult.rows ?? []) as { date: number; start_min: number; end_min: number }[]) {
+      for (let row of (bookingResult.rows ?? []) as {
+        date: number
+        start_min: number
+        end_min: number
+      }[]) {
         let d = Number(row.date)
         if (!bookedByDay.has(d)) bookedByDay.set(d, [])
         bookedByDay.get(d)!.push({ startMin: Number(row.start_min), endMin: Number(row.end_min) })
