@@ -152,6 +152,52 @@ let router = createRouter({
 })
 ```
 
+### SSE Streaming Endpoints Also Need CSRF Bypass
+
+SSE streaming endpoints (POST handlers returning `text/event-stream`) called via client-side `fetch()` also return 403 — the client can't embed a CSRF token in a `fetch()` POST the way HTML forms can.
+
+**Fix:** Add SSE endpoint paths to the CSRF skip list:
+
+```typescript
+// app/middleware/skip-csrf.ts
+export function skipCsrf(): Middleware {
+  return async (context, next) => {
+    if (
+      context.url.pathname.startsWith('/webhook/') ||
+      context.url.pathname.startsWith('/callback') ||
+      context.url.pathname === '/route-agent' ||
+      context.url.pathname.startsWith('/route-agent/') ||
+      context.url.pathname === '/mastra/chat' ||
+      context.url.pathname.startsWith('/mastra/chat/')
+    ) {
+      return next()
+    }
+    return csrfMiddleware(context, next)
+  }
+}
+```
+
+**Optional: Custom header check for extra safety.** Since skipping CSRF entirely opens the endpoint to `<form>` CSRF attacks, add a header check that blocks requests without the expected header (forms can't set custom headers):
+
+```typescript
+if (context.url.pathname === '/mastra/chat' || context.url.pathname.startsWith('/mastra/chat/')) {
+  if (context.request.headers.get('X-SSE-Request') !== '1') {
+    return new Response('Forbidden', { status: 403 })
+  }
+  return next()
+}
+```
+
+The client then sends the header:
+
+```typescript
+fetch('/mastra/chat', {
+  method: 'POST',
+  headers: { 'X-SSE-Request': '1' },
+  body: formData,
+})
+```
+
 ## References
 
 - `~/remix/packages/csrf-middleware/README.md` — CSRF token sources, origin validation, caveats

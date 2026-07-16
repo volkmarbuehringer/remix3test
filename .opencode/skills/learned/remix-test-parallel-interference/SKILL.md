@@ -1,5 +1,5 @@
 ---
-name: test-cleanup-pagination-parallel-interference
+name: remix-test-parallel-interference
 description: "Ephemeral test DBs don't eliminate within-run parallel pagination interference"
 user-invocable: false
 origin: auto-extracted

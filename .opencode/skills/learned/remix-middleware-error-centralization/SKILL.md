@@ -1,5 +1,5 @@
 ---
-name: middleware-error-centralization-test-shift
+name: remix-middleware-error-centralization
 description: 'Tests break when error handling moves from controllers to middleware — expect shifted error sources and formats'
 user-invocable: false
 origin: auto-extracted

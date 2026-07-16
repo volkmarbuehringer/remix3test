@@ -1,5 +1,5 @@
 ---
-name: storage-api-vs-raw-sql
+name: mastra-storage-api-vs-raw-sql
 description: 'Use storage API (e.g. Memory.deleteThread) instead of raw SQL for thread deletion'
 origin: auto-extracted
 ---
