@@ -10,6 +10,10 @@ function bigint(): ColumnBuilder<number> {
   return c.bigint() as unknown as ColumnBuilder<number>
 }
 
+function bigintNullable(): ColumnBuilder<number | null> {
+  return c.bigint().nullable() as unknown as ColumnBuilder<number | null>
+}
+
 function validateAppointmentTimes(
   start_min: unknown,
   end_min: unknown,
@@ -54,12 +58,12 @@ export const users = table({
     name: c.text(),
     role: c.enum(['customer', 'admin']),
     email_verified: c.integer(),
-    verification_token: c.text(),
-    verification_expires: bigint(),
-    password_reset_token: c.text(),
-    password_reset_expires: bigint(),
+    verification_token: c.text().nullable(),
+    verification_expires: bigintNullable(),
+    password_reset_token: c.text().nullable(),
+    password_reset_expires: bigintNullable(),
     token_version: c.integer(),
-    disabled_at: bigint(),
+    disabled_at: bigintNullable(),
     created_at: bigint(),
     updated_at: bigint(),
   },
@@ -281,8 +285,8 @@ export const appointments = table({
     created_at: bigint(),
     updated_at: bigint(),
     during: c.text(),
-    start_min: c.integer(),
-    end_min: c.integer(),
+    start_min: c.integer().computed('lower(during)', { stored: true }),
+    end_min: c.integer().computed('upper(during)', { stored: true }),
   },
   validate({ operation, value }) {
     let issues: Array<{ message: string; path?: Array<string | number> }> = []

@@ -263,6 +263,8 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
                   options?: { label: string; description?: string }[]
                   selectionMode?: string
                   toolCallId?: string
+                  toolName?: string
+                  args?: Record<string, unknown>
                 }
               | undefined
             if (sp?.question) {
@@ -276,6 +278,25 @@ export const routeAgent = createController<typeof routes.routeAgent, AppContext>
                         question: sp.question,
                         options: sp.options ?? null,
                         selectionMode: sp.selectionMode ?? 'single_select',
+                      })}\n\n`,
+                    ),
+                  )
+                  c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                  c.close()
+                },
+              })
+              return new Response(body2, { headers: sseHeaders() })
+            }
+            if (sp?.toolCallId || sp?.toolName) {
+              let body2 = new ReadableStream({
+                start: (c) => {
+                  c.enqueue(
+                    sseEncoder.encode(
+                      `event: suspension\ndata: ${JSON.stringify({
+                        runId: result.runId || runId,
+                        toolCallId: sp.toolCallId,
+                        toolName: sp.toolName,
+                        args: sp.args,
                       })}\n\n`,
                     ),
                   )

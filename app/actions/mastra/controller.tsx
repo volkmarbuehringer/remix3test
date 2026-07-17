@@ -244,6 +244,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         let runId = context.formData.get('runId')?.toString()
         let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
         let decision = context.formData.get('decision')?.toString()
+        let threadId = context.formData.get('threadId')?.toString()
 
         if (!runId) {
           return new Response(
@@ -268,6 +269,12 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
         let body = new ReadableStream({
           start: async (controller) => {
             try {
+              controller.enqueue(
+                sseEncoder.encode(
+                  `event: start\ndata: ${JSON.stringify({ runId, threadId })}\n\n`,
+                ),
+              )
+
               let agent = mastra.getAgent('supportAgent')
               let result = (await runWithAdminId(user.id, () =>
                 decision === 'approve'
@@ -299,6 +306,8 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
                       options?: { label: string; description?: string }[]
                       selectionMode?: string
                       toolCallId?: string
+                      toolName?: string
+                      args?: Record<string, unknown>
                     }
                   | undefined
                 if (sp?.question) {
@@ -310,6 +319,21 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
                         question: sp.question,
                         options: sp.options ?? null,
                         selectionMode: sp.selectionMode ?? 'single_select',
+                      })}\n\n`,
+                    ),
+                  )
+                  controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                  controller.close()
+                  return
+                }
+                if (sp?.toolCallId || sp?.toolName) {
+                  controller.enqueue(
+                    sseEncoder.encode(
+                      `event: suspension\ndata: ${JSON.stringify({
+                        runId: result.runId || runId,
+                        toolCallId: sp.toolCallId,
+                        toolName: sp.toolName,
+                        args: sp.args,
                       })}\n\n`,
                     ),
                   )

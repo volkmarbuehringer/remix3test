@@ -355,8 +355,10 @@ export async function listAppointments(
     params.push(todayMidnight)
   }
 
+  let adminOrderCol = ADMIN_ORDER_BY_COLUMNS[column]
+  if (!adminOrderCol) throw new Error(`Invalid sort column: ${column}`)
   paramIndex++
-  query += ` ORDER BY ${ADMIN_ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${adminOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 
@@ -528,8 +530,10 @@ export async function listAppointmentsNew(
     params.push(todayMidnight)
   }
 
+  let newOrderCol = APPOINTMENTS_NEW_ORDER_BY_COLUMNS[column]
+  if (!newOrderCol) throw new Error(`Invalid sort column: ${column}`)
   paramIndex++
-  query += ` ORDER BY ${APPOINTMENTS_NEW_ORDER_BY_COLUMNS[column] || 'a.date'} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.start_min ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${newOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.start_min ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 

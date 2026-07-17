@@ -172,12 +172,125 @@ fn() // undefined — not 'test'
 
 ---
 
+## Part 3: Sequential Tool Approval Chaining (Multiple `requireApproval` Tools)
+
+### Problem
+
+When the agent needs to call multiple `requireApproval` tools in sequence (e.g. lock two users), each tool call suspends. After approving the first tool via `approveToolCallGenerate`, the agent continues and immediately calls the second tool, which suspends again. The `approveToolCallGenerate` result has `finishReason: 'suspended'` but the `suspendPayload` contains `toolCallId`/`toolName`/`args` (**not** `question` — that's only for `askUserTool`). If the SSE response doesn't forward this suspension to the client, the second approval is silently lost.
+
+Additionally, `approveToolCallGenerate` returns a `FullOutput` (not a stream). It has **no** `runId` or `fullStream` properties. The client needs a `start` SSE event with the `runId` to re-establish its `currentRunId` — otherwise subsequent `handleToolDecision()` calls silently return because `currentRunId` is null.
+
+### Solution
+
+In the tool-decision SSE handler:
+
+1. Send an `event: start` with `runId` at the beginning of the response stream
+2. When `finishReason === 'suspended'`, check the `suspendPayload` for either:
+   - `sp?.question` → this is an `askUserTool` question → emit `event: question`
+   - `sp?.toolCallId || sp?.toolName` → this is a `requireApproval` suspension → emit `event: suspension` with `toolCallId`, `toolName`, `args`
+
+```typescript
+async function handleToolDecision(request, reply) {
+  let body = new ReadableStream({
+    start: async (controller) => {
+      // 1. Send start event FIRST so client re-establishes currentRunId
+      controller.enqueue(
+        sseEncoder.encode(
+          `event: start\ndata: ${JSON.stringify({ runId, threadId })}\n\n`,
+        ),
+      )
+
+      let result = await agent.approveToolCallGenerate({ runId, toolCallId })
+
+      // 2. Check for suspension (askUserTool vs requireApproval)
+      if (result.finishReason === 'suspended') {
+        let sp = result.suspendPayload as
+          | { question?: string; toolCallId?: string; toolName?: string; args?: Record<string, unknown> }
+          | undefined
+
+        // askUserTool suspension — has .question
+        if (sp?.question) {
+          controller.enqueue(
+            sseEncoder.encode(`event: question\ndata: ${JSON.stringify({
+              runId, toolCallId: sp.toolCallId,
+              question: sp.question,
+              options: sp.options ?? null,
+            })}\n\n`),
+          )
+          controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+          controller.close()
+          return
+        }
+
+        // requireApproval suspension — has .toolCallId / .toolName
+        if (sp?.toolCallId || sp?.toolName) {
+          controller.enqueue(
+            sseEncoder.encode(`event: suspension\ndata: ${JSON.stringify({
+              runId,
+              toolCallId: sp.toolCallId,
+              toolName: sp.toolName,
+              args: sp.args,
+            })}\n\n`),
+          )
+          controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+          controller.close()
+          return
+        }
+      }
+
+      // 3. Text response — no further suspension
+      let text = (result.text || '').trim()
+      if (text) {
+        controller.enqueue(
+          sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`),
+        )
+      }
+      controller.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+      controller.close()
+    },
+  })
+
+  return new Response(body, { headers: sseHeaders() })
+}
+```
+
+### Client-side flow
+
+The client's SSE handler already processes `event: suspension` by showing an approve/decline UI and canceling the reader. Since the `start` event re-sets `currentRunId`, the second `handleToolDecision()` call will pass the `if (!currentRunId) return` guard.
+
+```
+Initial stream:
+  event: start → currentRunId = "run-1"
+  event: suspension → show approve button, cancel reader
+  (user clicks approve)
+
+Tool-decision stream:
+  event: start → currentRunId = "run-1" (re-set)
+  event: suspension → show approve button, cancel reader
+  (user clicks approve — works because currentRunId is set)
+
+Tool-decision stream:
+  event: start → currentRunId = "run-1"
+  event: message → "Both users locked"
+  event: complete → done
+```
+
+### Key points
+
+- `approveToolCallGenerate` returns `FullOutput` — it has **no** `fullStream` or `runId` properties at the TypeScript level. The `runId` must be extracted from the original request or cast from the runtime result.
+- Always send `event: start` before handling the result. Without it, the client's `currentRunId` stays null from the previous `complete` handler, and subsequent `handleToolDecision()` calls silently no-op.
+- The `requireApproval` suspension payload contains `toolCallId`, `toolName`, `args` — NOT `question`. Don't check for `sp?.question` for requireApproval tools.
+- The client-side reader cancellation after `event: suspension` (line `reader.cancel().catch(() => {}); return;`) is correct — it stops the current SSE stream so the next user action creates a new stream.
+
+---
+
 ## When to Use
 
 - You have a Mastra agent with at least one destructive tool
 - You want a hard (non-bypassable) approval gate, not just LLM-instruction soft gating
 - Your agent calls use `agent.generate()` and you want to avoid refactoring to `stream()`
 - Calling `approveToolCallGenerate`/`declineToolCallGenerate` through a variable reference
+- The agent may call multiple `requireApproval` tools in a single run (sequential tool chaining)
 
 ## Related Skills
 

@@ -1,8 +1,5 @@
 import type { Database } from 'remix/data-table'
 
-/** Monotonically increasing counter of audit log write failures. */
-export let auditLogFailureCount = 0
-
 interface AuditLogEntry {
   admin_user_id: number
   admin_email: string
@@ -36,7 +33,6 @@ export async function logAdminAction(db: Database, entry: AuditLogEntry): Promis
       ],
     )
   } catch (error) {
-    auditLogFailureCount++
     if (process.env.NODE_ENV === 'development') throw error
     if (process.env.NODE_ENV !== 'test') {
       console.error('audit log write failed', error)

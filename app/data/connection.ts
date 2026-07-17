@@ -30,5 +30,9 @@ let appClosed = false
 export async function closeAppDatabase(): Promise<void> {
   if (appClosed) return
   appClosed = true
+  let timeout = setTimeout(() => {
+    console.error('Pool close timed out after 10s')
+  }, 10000)
   await pool.end().catch((err) => console.error('Error closing database pool:', err))
+  clearTimeout(timeout)
 }

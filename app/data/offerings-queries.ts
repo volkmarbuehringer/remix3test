@@ -103,7 +103,9 @@ export async function listOfferings(
   }
 
   paramIndex++
-  query += ` ORDER BY ${OFFERINGS_ORDER_BY_COLUMNS[column] || 'ao.day'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  let orderCol = OFFERINGS_ORDER_BY_COLUMNS[column]
+  if (!orderCol) throw new Error(`Invalid sort column: ${column}`)
+  query += ` ORDER BY ${orderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}`
   query += ` LIMIT $${paramIndex}`
   queryParams.push(pageSize + 1)
 

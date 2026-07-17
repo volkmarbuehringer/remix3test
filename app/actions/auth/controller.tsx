@@ -395,8 +395,8 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
             })
             if (userByToken) {
               await context.db.update(users, (userByToken as { id: number }).id, {
-                password_reset_token: null as unknown as string,
-                password_reset_expires: null as unknown as number,
+                password_reset_token: null,
+                password_reset_expires: null,
               })
             }
           } catch {
@@ -461,8 +461,8 @@ export const authForgottenReset = createController<typeof routes.auth.forgottenR
         await context.db.update(users, result.user.id, {
           password_hash: await hashPassword(parsed.value.password),
           token_version: (currentUser?.token_version ?? 0) + 1,
-          password_reset_token: null as unknown as string,
-          password_reset_expires: null as unknown as number,
+          password_reset_token: null,
+          password_reset_expires: null,
         })
         await context.db.deleteMany(apiTokens, { where: { user_id: result.user.id } })
 
@@ -560,8 +560,8 @@ export async function verify(context: AppContext) {
 
   await context.db.update(users, user.id, {
     email_verified: 1,
-    verification_token: null as unknown as string,
-    verification_expires: null as unknown as number,
+    verification_token: null,
+    verification_expires: null,
   })
 
   let session = context.session
