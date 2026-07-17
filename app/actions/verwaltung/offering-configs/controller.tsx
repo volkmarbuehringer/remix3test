@@ -302,7 +302,7 @@ async function validateCreate(
     }
   }
 
-  let parsed = result.value as Record<string, string>
+  let parsed = result.value
   let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
 
   let resourceId = Number(parsed.resource_id)
@@ -517,7 +517,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
           return renderOfferingConfigPage(context, data, { status: 400 })
         }
 
-        let parsed = result.value as Record<string, string>
+        let parsed = result.value
 
         let resourceId = Number(parsed.resource_id)
         if (!resourceId || !Number.isFinite(resourceId)) {

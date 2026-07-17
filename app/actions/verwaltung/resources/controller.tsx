@@ -195,7 +195,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
               { status: 400 },
             )
           }
-          let parsed = result.value as Record<string, string>
+          let parsed = result.value
           let row = await db.create(
             resources,
             {
@@ -250,7 +250,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           return renderResourcePage(context, data, { status: 400 })
         }
 
-        let parsed = result.value as Record<string, string>
+        let parsed = result.value
 
         let row = await db.create(
           resources,
@@ -312,7 +312,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
           return renderResourcePage(context, data, { status: 400 })
         }
 
-        let parsed = result.value as Record<string, string>
+        let parsed = result.value
 
         await db.updateMany(
           resources,
@@ -394,11 +394,9 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         }
 
         let result = s.parseSafe(resourceSaveSchema, formData)
-        let parsed = (
-          result.success
-            ? result.value
-            : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
-        ) as Record<string, string>
+        let parsed = result.success
+          ? result.value
+          : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
         let params = gridStateToParams(gridStateFromForm(parsed))
         let qs = params.toString()
         let baseUrl = routes.verwaltung.resources.index.href()
