@@ -10,11 +10,30 @@ export const SupportAgentStream = clientEntry(
 
     let submitting: boolean = false
 
+    let currentAgentMessageEl: HTMLElement | null = null
+
     let pendingQuestion: {
       runId: string
       toolCallId?: string
       selectionMode: string
     } | null = null
+
+    // ── Helpers ──────────────────────────────────────────────────────
+
+    function getChat() {
+      return document.getElementById('chat-messages')
+    }
+
+    function scrollToBottom(force?: boolean) {
+      let chat = getChat()
+      if (!chat) return
+      if (!force) {
+        let threshold = 50
+        let atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < threshold
+        if (!atBottom) return
+      }
+      chat.scrollTop = chat.scrollHeight
+    }
 
     function abortStream() {
       if (abortController) {
@@ -23,17 +42,92 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    function setBarText(text: string) {
-      let bar = document.getElementById('agent-bar')
-      if (bar) bar.textContent = text
-    }
-
     function setFormEnabled(enabled: boolean) {
-      let input = document.getElementById('support-agent-input') as HTMLInputElement | null
+      let input = document.getElementById('support-agent-input') as HTMLTextAreaElement | null
       let submit = document.getElementById('support-agent-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
       if (submit) submit.disabled = !enabled
     }
+
+    // ── Message rendering ────────────────────────────────────────────
+
+    function appendUserMessage(text: string) {
+      let chat = getChat()
+      if (!chat) return
+
+      let bubble = document.createElement('div')
+      bubble.textContent = text
+      bubble.style.maxWidth = '75%'
+      bubble.style.alignSelf = 'flex-end'
+      bubble.style.padding = '0.5rem 0.75rem'
+      bubble.style.borderRadius = '8px 8px 4px 8px'
+      bubble.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
+      bubble.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      bubble.style.fontSize = '0.875rem'
+      bubble.style.lineHeight = '1.4'
+      bubble.style.whiteSpace = 'pre-wrap'
+      bubble.style.wordBreak = 'break-word'
+
+      chat.appendChild(bubble)
+      scrollToBottom(true)
+    }
+
+    function appendAgentMessage(text?: string): HTMLElement {
+      let chat = getChat()
+      if (!chat) throw new Error('chat-messages container not found')
+
+      let bubble = document.createElement('div')
+      bubble.style.maxWidth = '75%'
+      bubble.style.alignSelf = 'flex-start'
+      bubble.style.padding = '0.5rem 0.75rem'
+      bubble.style.borderRadius = '8px 8px 8px 4px'
+      bubble.style.background = 'var(--rmx-surface-lvl1, #f5f5f5)'
+      bubble.style.border = '1px solid var(--rmx-color-border-subtle, #e0e0e0)'
+      bubble.style.fontSize = '0.875rem'
+      bubble.style.lineHeight = '1.4'
+      bubble.style.whiteSpace = 'pre-wrap'
+      bubble.style.wordBreak = 'break-word'
+      if (text) bubble.textContent = text
+
+      chat.appendChild(bubble)
+      currentAgentMessageEl = bubble
+      scrollToBottom(true)
+      return bubble
+    }
+
+    function updateLastAgentMessage(text: string) {
+      if (currentAgentMessageEl) {
+        currentAgentMessageEl.textContent = text
+        scrollToBottom()
+      }
+    }
+
+    function replaceAgentMessageContent(fn: (el: HTMLElement) => void) {
+      if (currentAgentMessageEl) {
+        currentAgentMessageEl.textContent = ''
+        fn(currentAgentMessageEl)
+        scrollToBottom(true)
+      }
+    }
+
+    function appendStatusMessage(text: string, isError?: boolean) {
+      let chat = getChat()
+      if (!chat) return
+
+      let el = document.createElement('div')
+      el.textContent = text
+      el.style.fontSize = '0.8125rem'
+      el.style.color = isError
+        ? 'var(--rmx-color-action-danger, #dc3545)'
+        : 'var(--rmx-color-text-muted, #888)'
+      el.style.padding = '0.25rem 0'
+      el.style.fontStyle = 'italic'
+
+      chat.appendChild(el)
+      scrollToBottom(true)
+    }
+
+    // ── Question rendering (inline in agent bubble) ───────────────────
 
     function showQuestion(data: {
       runId?: string
@@ -48,191 +142,186 @@ export const SupportAgentStream = clientEntry(
         selectionMode: data.selectionMode,
       }
 
-      let bar = document.getElementById('agent-bar')
-      if (!bar) return
-
       if (!data.options || data.options.length === 0) {
-        bar.textContent = 'Frage: ' + data.question
-        bar.style.cursor = 'pointer'
-        bar.title = 'Klicken zum Antworten...'
-        bar.onclick = () => {
-          let answer = prompt(data.question)
-          if (answer) handleAnswer(answer)
-        }
+        replaceAgentMessageContent((el) => {
+          let questionLine = document.createElement('div')
+          questionLine.textContent = '❓ ' + data.question
+          questionLine.style.fontWeight = '600'
+          questionLine.style.marginBottom = '8px'
+          el.appendChild(questionLine)
+
+          let promptBtn = document.createElement('button')
+          promptBtn.textContent = 'Klicken zum Antworten...'
+          promptBtn.style.padding = '4px 14px'
+          promptBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+          promptBtn.style.borderRadius = '4px'
+          promptBtn.style.cursor = 'pointer'
+          promptBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
+          promptBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+          promptBtn.style.fontSize = '0.8125rem'
+          promptBtn.style.alignSelf = 'flex-start'
+          promptBtn.onclick = () => {
+            let answer = prompt(data.question)
+            if (answer) handleAnswer(answer)
+          }
+          el.appendChild(promptBtn)
+        })
         return
       }
 
+      let isMulti = data.selectionMode === 'multi_select'
+      let inputType = isMulti ? 'checkbox' : 'radio'
+      let MAX_OPTIONS = 50
+      let optionList = data.options.slice(0, MAX_OPTIONS)
+
       try {
-        bar.innerHTML = ''
-        bar.style.cursor = ''
-        bar.title = ''
-        bar.onclick = null
+        replaceAgentMessageContent((el) => {
+          let questionEl = document.createElement('div')
+          questionEl.textContent = data.question
+          questionEl.style.fontWeight = '600'
+          questionEl.style.marginBottom = '8px'
+          questionEl.style.fontSize = '0.875rem'
+          el.appendChild(questionEl)
 
-        let questionEl = document.createElement('div')
-        questionEl.textContent = data.question
-        questionEl.style.fontWeight = '600'
-        questionEl.style.marginBottom = '8px'
-        questionEl.style.fontSize = '0.875rem'
-        bar.appendChild(questionEl)
+          for (let opt of optionList) {
+            let label = document.createElement('label')
+            label.style.display = 'flex'
+            label.style.alignItems = 'center'
+            label.style.gap = '6px'
+            label.style.cursor = 'pointer'
+            label.style.fontSize = '0.8125rem'
+            label.style.padding = '2px 0'
 
-        let isMulti = data.selectionMode === 'multi_select'
-        let inputType = isMulti ? 'checkbox' : 'radio'
+            let input = document.createElement('input')
+            input.type = inputType
+            input.name = 'q-option'
+            input.value = opt.label
 
-        let MAX_OPTIONS = 50
-        let options = data.options.slice(0, MAX_OPTIONS)
+            let span = document.createElement('span')
+            span.textContent = opt.label
 
-        for (let opt of options) {
-          let label = document.createElement('label')
-          label.style.display = 'flex'
-          label.style.alignItems = 'center'
-          label.style.gap = '6px'
-          label.style.cursor = 'pointer'
-          label.style.fontSize = '0.8125rem'
-          label.style.padding = '2px 0'
+            label.appendChild(input)
+            label.appendChild(span)
 
-          let input = document.createElement('input')
-          input.type = inputType
-          input.name = 'q-option'
-          input.value = opt.label
+            if (opt.description) {
+              let desc = document.createElement('span')
+              desc.textContent = '— ' + opt.description
+              desc.style.color = 'var(--rmx-color-text-muted, #888)'
+              desc.style.fontSize = '0.75rem'
+              label.appendChild(desc)
+            }
 
-          let span = document.createElement('span')
-          span.textContent = opt.label
-
-          label.appendChild(input)
-          label.appendChild(span)
-
-          if (opt.description) {
-            let desc = document.createElement('span')
-            desc.textContent = '— ' + opt.description
-            desc.style.color = 'var(--rmx-color-text-muted, #888)'
-            desc.style.fontSize = '0.75rem'
-            label.appendChild(desc)
+            el.appendChild(label)
           }
 
-          bar.appendChild(label)
-        }
+          let btn = document.createElement('button')
+          btn.textContent = 'Bestätigen'
+          btn.style.padding = '4px 14px'
+          btn.style.marginTop = '6px'
+          btn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+          btn.style.borderRadius = '4px'
+          btn.style.cursor = 'pointer'
+          btn.style.background = 'var(--rmx-surface-lvl1, #fff)'
+          btn.style.color = 'var(--rmx-color-text-primary, #333)'
+          btn.style.fontSize = '0.8125rem'
+          btn.style.alignSelf = 'flex-start'
+          btn.onclick = () => {
+            let checked = el.querySelectorAll(
+              'input[name="q-option"]:checked',
+            ) as NodeListOf<HTMLInputElement>
+            if (checked.length === 0) return
 
-        let btn = document.createElement('button')
-        btn.textContent = 'Bestätigen'
-        btn.style.padding = '4px 14px'
-        btn.style.marginTop = '6px'
-        btn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
-        btn.style.borderRadius = '4px'
-        btn.style.cursor = 'pointer'
-        btn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-        btn.style.color = 'var(--rmx-color-text-primary, #333)'
-        btn.style.fontSize = '0.8125rem'
-        btn.style.alignSelf = 'flex-start'
-        btn.onclick = () => {
-          let checked = bar.querySelectorAll(
-            'input[name="q-option"]:checked',
-          ) as NodeListOf<HTMLInputElement>
-          if (checked.length === 0) return
+            let selected = [...checked].map((el2) => el2.value)
+            let answer = isMulti ? JSON.stringify(selected) : selected[0]
 
-          let selected = [...checked].map((el) => el.value)
-          let answer = isMulti ? JSON.stringify(selected) : selected[0]
-
-          bar.innerHTML = ''
-          handleAnswer(answer)
-        }
-        bar.appendChild(btn)
+            el.innerHTML = ''
+            handleAnswer(answer)
+          }
+          el.appendChild(btn)
+        })
       } catch (err) {
         pendingQuestion = null
-        bar.innerHTML = ''
-        bar.textContent = 'Fehler beim Anzeigen der Frage: ' + String(err)
+        appendStatusMessage('Fehler beim Anzeigen der Frage: ' + String(err), true)
       }
     }
+
+    // ── Suspension rendering (inline in agent bubble) ────────────────
 
     function showSuspension(data: {
       toolCallId?: string
       toolName?: string
       args?: Record<string, unknown>
     }) {
-      let bar = document.getElementById('agent-bar')
-      if (!bar) return
-
-      bar.innerHTML = ''
-      bar.style.cursor = ''
-      bar.title = ''
-      bar.onclick = null
-
       let isCancelUser = data.toolName === 'cancel_user_account'
 
-      let warning = document.createElement('div')
-      warning.textContent = isCancelUser
-        ? '⚠ Benutzerkonto löschen?'
-        : 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
-      warning.style.fontWeight = '600'
-      warning.style.marginBottom = '8px'
-      warning.style.fontSize = '0.875rem'
-      if (isCancelUser) {
-        warning.style.color = 'var(--rmx-color-action-danger, #dc3545)'
-      }
-      bar.appendChild(warning)
+      replaceAgentMessageContent((el) => {
+        let warning = document.createElement('div')
+        warning.textContent = isCancelUser
+          ? '⚠ Benutzerkonto löschen?'
+          : 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
+        warning.style.fontWeight = '600'
+        warning.style.marginBottom = '8px'
+        warning.style.fontSize = '0.875rem'
+        if (isCancelUser) {
+          warning.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+        }
+        el.appendChild(warning)
 
-      if (isCancelUser && data.args?.targetUserId) {
-        let info = document.createElement('div')
-        info.textContent =
-          'Benutzer #' +
-          data.args.targetUserId +
-          ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
-        info.style.fontSize = '0.75rem'
-        info.style.color = 'var(--rmx-color-text-muted, #888)'
-        info.style.marginBottom = '8px'
-        bar.appendChild(info)
-      }
+        if (isCancelUser && data.args?.targetUserId) {
+          let info = document.createElement('div')
+          info.textContent =
+            'Benutzer #' +
+            data.args.targetUserId +
+            ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
+          info.style.fontSize = '0.75rem'
+          info.style.color = 'var(--rmx-color-text-muted, #888)'
+          info.style.marginBottom = '8px'
+          el.appendChild(info)
+        }
 
-      let actions = document.createElement('div')
-      actions.style.display = 'flex'
-      actions.style.gap = '8px'
+        let actions = document.createElement('div')
+        actions.style.display = 'flex'
+        actions.style.gap = '8px'
 
-      let approveBtn = document.createElement('button')
-      approveBtn.textContent = isCancelUser ? '✔ Bestätigen' : '✔ Zulassen'
-      approveBtn.style.padding = '4px 14px'
-      approveBtn.style.border = 'none'
-      approveBtn.style.borderRadius = '4px'
-      approveBtn.style.cursor = 'pointer'
-      if (isCancelUser) {
-        approveBtn.style.background = '#dc3545'
-        approveBtn.style.color = '#fff'
-      } else {
-        approveBtn.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
-        approveBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
-      }
-      approveBtn.style.fontSize = '0.8125rem'
-      approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
-      actions.appendChild(approveBtn)
+        let approveBtn = document.createElement('button')
+        approveBtn.textContent = isCancelUser ? '✔ Bestätigen' : '✔ Zulassen'
+        approveBtn.style.padding = '4px 14px'
+        approveBtn.style.border = 'none'
+        approveBtn.style.borderRadius = '4px'
+        approveBtn.style.cursor = 'pointer'
+        if (isCancelUser) {
+          approveBtn.style.background = '#dc3545'
+          approveBtn.style.color = '#fff'
+        } else {
+          approveBtn.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
+          approveBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+        }
+        approveBtn.style.fontSize = '0.8125rem'
+        approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
+        actions.appendChild(approveBtn)
 
-      let declineBtn = document.createElement('button')
-      declineBtn.textContent = '✖ Ablehnen'
-      declineBtn.style.padding = '4px 14px'
-      declineBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
-      declineBtn.style.borderRadius = '4px'
-      declineBtn.style.cursor = 'pointer'
-      declineBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-      declineBtn.style.color = 'var(--rmx-color-text-primary, #333)'
-      declineBtn.style.fontSize = '0.8125rem'
-      declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
-      actions.appendChild(declineBtn)
+        let declineBtn = document.createElement('button')
+        declineBtn.textContent = '✖ Ablehnen'
+        declineBtn.style.padding = '4px 14px'
+        declineBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+        declineBtn.style.borderRadius = '4px'
+        declineBtn.style.cursor = 'pointer'
+        declineBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
+        declineBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+        declineBtn.style.fontSize = '0.8125rem'
+        declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
+        actions.appendChild(declineBtn)
 
-      bar.appendChild(actions)
+        el.appendChild(actions)
+      })
     }
 
-    function hideQuestion() {
-      pendingQuestion = null
-      let bar = document.getElementById('agent-bar')
-      if (bar) {
-        bar.innerHTML = ''
-        bar.style.cursor = ''
-        bar.title = ''
-        bar.onclick = null
-      }
-    }
+    // ── Navigation ───────────────────────────────────────────────────
 
     function handleNavigate(data: { href: string; target?: string; history?: string }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
-        setBarText('Ungültiger Navigationspfad')
+        appendStatusMessage('Ungültiger Navigationspfad: ' + href)
         return
       }
 
@@ -240,7 +329,7 @@ export const SupportAgentStream = clientEntry(
       if (frame) {
         frame.src = href
         frame.reload().catch((err) => {
-          setBarText('Navigation fehlgeschlagen: ' + String(err))
+          appendStatusMessage('Navigation fehlgeschlagen: ' + String(err), true)
         })
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
@@ -250,13 +339,18 @@ export const SupportAgentStream = clientEntry(
           }
         }
       } else {
-        setBarText('Fehler: Frame nicht gefunden')
+        appendStatusMessage('Fehler: Frame nicht gefunden', true)
       }
     }
+
+    // ── Tool decision / Answer handlers ───────────────────────────────
 
     async function handleToolDecision(decision: string, toolCallId?: string) {
       if (!currentRunId) return
       setFormEnabled(false)
+
+      let label = decision === 'approve' ? 'Aktion genehmigt' : 'Aktion abgelehnt'
+      appendUserMessage(label)
 
       let body = new FormData()
       body.set('runId', currentRunId)
@@ -264,6 +358,7 @@ export const SupportAgentStream = clientEntry(
       if (toolCallId) body.set('toolCallId', toolCallId)
       if (currentThreadId) body.set('threadId', currentThreadId)
 
+      currentAgentMessageEl = null
       startStream('/mastra/chat/tool-decision', { method: 'POST', body })
     }
 
@@ -271,7 +366,8 @@ export const SupportAgentStream = clientEntry(
       if (!pendingQuestion || !answer) return
       let pq = pendingQuestion
       setFormEnabled(false)
-      hideQuestion()
+
+      appendUserMessage(answer)
 
       let body = new FormData()
       body.set('runId', pq.runId)
@@ -280,8 +376,11 @@ export const SupportAgentStream = clientEntry(
       if (pq.toolCallId) body.set('toolCallId', pq.toolCallId)
       if (currentThreadId) body.set('threadId', currentThreadId)
 
+      currentAgentMessageEl = null
       startStream('/mastra/chat/answer', { method: 'POST', body })
     }
+
+    // ── SSE Stream ───────────────────────────────────────────────────
 
     async function startStream(url: string, init: RequestInit) {
       pendingQuestion = null
@@ -296,14 +395,14 @@ export const SupportAgentStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
-          setBarText('Fehler: ' + msg)
+          appendStatusMessage('Fehler: ' + msg, true)
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          setBarText('Fehler: Kein Antwortstream')
+          appendStatusMessage('Fehler: Kein Antwortstream', true)
           setFormEnabled(true)
           return
         }
@@ -340,12 +439,14 @@ export const SupportAgentStream = clientEntry(
                 didNavigate = false
                 if (parsed.runId) currentRunId = parsed.runId
                 if (parsed.threadId) currentThreadId = parsed.threadId
+                appendAgentMessage()
+                streamingText = ''
               } else if (eventType === 'message') {
                 streamingText += parsed.text || ''
-                setBarText(streamingText)
+                updateLastAgentMessage(streamingText)
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                setBarText('Navigiere zu ' + parsed.href + '...')
+                appendStatusMessage('Navigiere zu ' + parsed.href + '...')
                 handleNavigate(parsed)
               } else if (eventType === 'question') {
                 showQuestion(parsed)
@@ -356,13 +457,14 @@ export const SupportAgentStream = clientEntry(
                 reader.cancel().catch(() => {})
                 return
               } else if (eventType === 'tool-error') {
-                setBarText('Tool-Fehler: ' + (parsed.error || 'unbekannt'))
+                appendStatusMessage('Tool-Fehler: ' + (parsed.error || 'unbekannt'), true)
               } else if (eventType === 'stream-error') {
-                setBarText('Stream-Fehler: ' + (parsed.error || 'unbekannt'))
+                appendStatusMessage('Stream-Fehler: ' + (parsed.error || 'unbekannt'), true)
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
                 currentRunId = null
                 currentThreadId = null
+                currentAgentMessageEl = null
                 if (!didNavigate) {
                   let container = document.getElementById('support-agent-frame-container')
                   let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
@@ -370,12 +472,12 @@ export const SupportAgentStream = clientEntry(
                   if (theFrame) theFrame.reload().catch(() => {})
                 }
               } else if (eventType === 'agent-error') {
-                setBarText('Fehler: ' + (parsed.error || 'unbekannt'))
+                appendStatusMessage('Fehler: ' + (parsed.error || 'unbekannt'), true)
               }
             } catch {
               if (eventType === 'message') {
                 streamingText += data
-                setBarText(streamingText)
+                updateLastAgentMessage(streamingText)
               }
             }
           }
@@ -386,16 +488,17 @@ export const SupportAgentStream = clientEntry(
         }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
-        setBarText('Fehler: ' + String(err))
+        appendStatusMessage('Fehler: ' + String(err), true)
         setFormEnabled(true)
       }
     }
+
+    // ── Frame form submit ─────────────────────────────────────────────
 
     async function handleFrameFormSubmit(e: Event) {
       let form = (e.target as HTMLElement).closest('form')
       if (!form || form.id === 'support-agent-form') return
 
-      // GET forms are handled by the Frame Navigation API via rmx-target
       if ((form.method || 'GET').toUpperCase() === 'GET') return
 
       if (submitting) return
@@ -406,7 +509,7 @@ export const SupportAgentStream = clientEntry(
       let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
       let frame = handle.frames.get(activeFrame)
 
-      setBarText('Formular wird gesendet...')
+      appendStatusMessage('Formular wird gesendet...')
 
       try {
         let headers: Record<string, string> = {}
@@ -434,7 +537,7 @@ export const SupportAgentStream = clientEntry(
           return
         }
       } catch (err) {
-        setBarText('Fehler: ' + String(err))
+        appendStatusMessage('Fehler: ' + String(err), true)
       } finally {
         submitting = false
       }
@@ -444,6 +547,8 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
+    // ── Main form submit ──────────────────────────────────────────────
+
     async function handleFormSubmit(e: Event) {
       e.preventDefault()
       let form = e.target as HTMLFormElement
@@ -452,13 +557,26 @@ export const SupportAgentStream = clientEntry(
       if (!message) return
 
       if (currentThreadId) formData.set('threadId', currentThreadId)
-      setBarText('Sende: ' + message)
-      let input = document.getElementById('support-agent-input') as HTMLInputElement | null
-      if (input) input.value = ''
+
+      appendUserMessage(message)
+
+      let textarea = document.getElementById('support-agent-input') as HTMLTextAreaElement | null
+      if (textarea) textarea.value = ''
       setFormEnabled(false)
+      currentAgentMessageEl = null
 
       startStream('/mastra/chat', { method: 'POST', body: formData })
     }
+
+    function handleTextareaKeydown(e: KeyboardEvent) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        let form = document.getElementById('support-agent-form') as HTMLFormElement | null
+        if (form) form.requestSubmit()
+      }
+    }
+
+    // ── Return (lifecycle) ───────────────────────────────────────────
 
     return () => (
       <div
@@ -468,6 +586,15 @@ export const SupportAgentStream = clientEntry(
             let form = document.getElementById('support-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, {
+                signal: handle.signal,
+              })
+            }
+
+            let textarea = document.getElementById(
+              'support-agent-input',
+            ) as HTMLTextAreaElement | null
+            if (textarea) {
+              textarea.addEventListener('keydown', handleTextareaKeydown, {
                 signal: handle.signal,
               })
             }

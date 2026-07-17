@@ -16,18 +16,20 @@ const frameContainerStyle = css({
   minHeight: 0,
 })
 
-const agentBarStyle = css({
+const chatMessagesStyle = css({
   padding: '0.5rem 1rem',
   fontSize: '0.8125rem',
   color: theme.colors.text.secondary,
   background: theme.surface.lvl0,
   borderTop: `1px solid ${theme.colors.border.default}`,
-  maxHeight: '12rem',
+  minHeight: '4.5rem',
+  maxHeight: '40vh',
   overflowY: 'auto',
   whiteSpace: 'normal',
   wordBreak: 'break-word',
   display: 'flex',
   flexDirection: 'column',
+  gap: '0.5rem',
 })
 
 const inputBarStyle = css({
@@ -39,7 +41,7 @@ const inputBarStyle = css({
   alignItems: 'center',
 })
 
-const inputStyle = css({
+const textareaStyle = css({
   flex: 1,
   padding: '0.6rem 0.75rem',
   border: `1px solid ${theme.colors.border.default}`,
@@ -50,6 +52,8 @@ const inputStyle = css({
   background: theme.surface.lvl1,
   outline: 'none',
   boxSizing: 'border-box',
+  resize: 'none',
+  lineHeight: '1.4',
 })
 
 const btnStyle = css({
@@ -84,18 +88,15 @@ export function SupportAgentPage(handle: Handle) {
         />
       </div>
 
-      <div id="agent-bar" mix={agentBarStyle}>
-        Ich bin der Support-Agent. Wie kann ich helfen?
-      </div>
+      <div id="chat-messages" mix={chatMessagesStyle} />
 
       <form id="support-agent-form" mix={inputBarStyle}>
-        <input
+        <textarea
           id="support-agent-input"
-          type="text"
           name="message"
+          rows={3}
           placeholder="Frage zu Benutzern, Terminen und Systemdaten..."
-          autoComplete="off"
-          mix={inputStyle}
+          mix={textareaStyle}
         />
         <button id="support-agent-submit" type="submit" mix={btnStyle}>
           Senden
