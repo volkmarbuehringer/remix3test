@@ -25,6 +25,7 @@
       "template": "{file:.opencode/commands/knowledge.md}\n\n$ARGUMENTS"
     }
   },
+  "lsp": true,
   "permission": {
     "/home/lucky/remix3test/node_modules/**": {
       "edit": "deny",
