@@ -6,7 +6,11 @@ import { db } from '../../../data/connection.ts'
 import { mastraStorage } from '../storage.ts'
 import { routeNavigate } from '../tools/route-navigate.ts'
 import { requireAdminId } from '../tools/admin-context.ts'
-import { executeCancelUserWorkflow, executeLockUserWorkflow, executeUnlockUserWorkflow } from '../workflow-executor.ts'
+import {
+  executeCancelUserWorkflow,
+  executeLockUserWorkflow,
+  executeUnlockUserWorkflow,
+} from '../workflow-executor.ts'
 import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
 
 const cancelUserWorkflow_v2 = createTool({
@@ -18,8 +22,16 @@ const cancelUserWorkflow_v2 = createTool({
     'call again with confirmed=true to execute the cancellation.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to cancel'),
-    confirmed: z.boolean().optional().default(false).describe('Set to true on second call to execute the workflow after admin confirmation'),
-    deleteAppointments: z.boolean().optional().default(true).describe('Whether to delete pending appointments'),
+    confirmed: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Set to true on second call to execute the workflow after admin confirmation'),
+    deleteAppointments: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Whether to delete pending appointments'),
   }),
   execute: async ({ targetUserId, confirmed, deleteAppointments }) => {
     let result = await db.exec(
@@ -39,6 +51,7 @@ const cancelUserWorkflow_v2 = createTool({
         targetUserId,
         adminUserId,
         adminEmail: admin.email,
+        deleteAppointments,
       })
       return {
         success: wfResult.success,
@@ -59,7 +72,7 @@ const cancelUserWorkflow_v2 = createTool({
         disabledAt: user.disabled_at,
       },
       navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to lock the account in the panel and confirm.`,
+      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the cancellation is executed on confirmation.`,
     }
   },
 })
@@ -69,10 +82,14 @@ const lockUserWorkflow_v2 = createTool({
   description:
     'Lock a user account — sets disabled_at to prevent login. Non-destructive, keeps appointments and data. ' +
     'Call this first to look up and navigate to the user. ' +
-    'After the admin confirms the lock in the panel, call again with confirmed=true to log the audit.',
+    'After the admin confirms, call again with confirmed=true to execute the lock.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to lock'),
-    confirmed: z.boolean().optional().default(false).describe('Set to true on second call to execute after admin confirmation'),
+    confirmed: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Set to true on second call to execute after admin confirmation'),
   }),
   execute: async ({ targetUserId, confirmed }) => {
     let result = await db.exec(
@@ -111,7 +128,7 @@ const lockUserWorkflow_v2 = createTool({
         disabledAt: user.disabled_at,
       },
       navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to lock the account in the panel and confirm.`,
+      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the lock is executed on confirmation.`,
     }
   },
 })
@@ -121,10 +138,14 @@ const unlockUserWorkflow_v2 = createTool({
   description:
     'Unlock a user account — clears disabled_at and invalidates existing sessions. ' +
     'Call this first to look up and navigate to the user. ' +
-    'After the admin confirms the unlock in the panel, call again with confirmed=true to execute.',
+    'After the admin confirms, call again with confirmed=true to execute the unlock.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to unlock'),
-    confirmed: z.boolean().optional().default(false).describe('Set to true on second call to execute after admin confirmation'),
+    confirmed: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Set to true on second call to execute after admin confirmation'),
   }),
   execute: async ({ targetUserId, confirmed }) => {
     let result = await db.exec(
@@ -163,7 +184,7 @@ const unlockUserWorkflow_v2 = createTool({
         disabledAt: user.disabled_at,
       },
       navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to unlock the account in the panel and confirm.`,
+      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the unlock is executed on confirmation.`,
     }
   },
 })
@@ -171,7 +192,7 @@ const unlockUserWorkflow_v2 = createTool({
 const checkPendingAppointments = createTool({
   id: 'check_pending_appointments',
   description:
-    'Check how many future appointments a user has. Call this after the admin confirms a lock to determine whether cancellation should delete appointments.',
+    'Check how many future appointments a user has. Call this in the cancellation flow before asking the admin whether pending appointments should be deleted.',
   inputSchema: z.object({
     userId: z.number().int().positive().describe('The user ID to check'),
   }),
@@ -221,8 +242,8 @@ Protocol for cancel_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call cancel_user_workflow_v2 with targetUserId only (confirmed=false).
           It returns user.name, user.email, and navigate.path.
   Step 2: Call navigate({ path: result.navigate.path }) to show the user in the admin content frame.
-  Step 3: Tell the admin: "User {user.name} ({user.email}) found. I've opened their profile. Please review and lock the account in the panel, then click Ready."
-  Step 4: Call ask_user({ question: "User {user.name} — have you locked the account?", options: [{ label: "Ready", description: "Account is locked" }] }). You MUST call ask_user. Do NOT respond with text instead.
+  Step 3: Tell the admin: "User {user.name} ({user.email}) found. I've opened their profile for review. Confirm and I'll cancel the account."
+  Step 4: Call ask_user({ question: "Cancel the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the cancellation" }] }). You MUST call ask_user. Do NOT respond with text instead.
   Step 5: After admin confirms, call check_pending_appointments({ userId: targetUserId }).
   Step 6: If count > 0, call ask_user({ question: "Delete {count} pending appointments?", options: [{ label: "Delete" }, { label: "Keep" }] }).
   Step 7: Call cancel_user_workflow_v2({ targetUserId, confirmed: true, deleteAppointments: true/false }).
@@ -231,14 +252,14 @@ Protocol for cancel_user_workflow_v2 — FOLLOW EXACTLY:
 Protocol for lock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call lock_user_workflow_v2 with targetUserId only (confirmed=false).
   Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call ask_user({ question: "User {user.name} — have you locked the account?", options: [{ label: "Ready" }] }).
+  Step 3: Call ask_user({ question: "Lock the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the lock" }] }).
   Step 4: Call lock_user_workflow_v2({ targetUserId, confirmed: true }).
   Step 5: Report the result.
 
 Protocol for unlock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call unlock_user_workflow_v2 with targetUserId only (confirmed=false).
   Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call ask_user({ question: "User {user.name} — have you unlocked the account?", options: [{ label: "Ready" }] }).
+  Step 3: Call ask_user({ question: "Unlock the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the unlock" }] }).
   Step 4: Call unlock_user_workflow_v2({ targetUserId, confirmed: true }).
   Step 5: Report the result.
 

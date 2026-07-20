@@ -54,6 +54,7 @@ export async function executeCancelUserWorkflow(input: {
   targetUserId: number
   adminUserId: number
   adminEmail: string
+  deleteAppointments?: boolean
 }): Promise<{
   workflowRunId: string
   success: boolean
@@ -92,14 +93,25 @@ export async function executeLockUserWorkflow(input: {
   targetUserId: number
   adminUserId: number
   adminEmail: string
-}): Promise<{ workflowRunId: string; success: boolean; error?: string; auditLogged: boolean }> {
+}): Promise<{
+  workflowRunId: string
+  success: boolean
+  error?: string
+  auditLogged: boolean
+  alreadyLocked?: boolean
+}> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('lockUserWorkflow')
   let run = await wf.createRun({ resourceId: String(input.adminUserId) })
   let result = await run.start({ inputData: input })
   let out =
     result.status === 'success' && result.result
-      ? (result.result as { success?: boolean; error?: string; auditLogged?: boolean })
+      ? (result.result as {
+          success?: boolean
+          error?: string
+          auditLogged?: boolean
+          alreadyLocked?: boolean
+        })
       : {
           success: false,
           error: result.status === 'failed' ? String(result.error) : 'unknown_error',
@@ -110,6 +122,7 @@ export async function executeLockUserWorkflow(input: {
     success: out.success ?? false,
     error: out.error,
     auditLogged: out.auditLogged ?? false,
+    alreadyLocked: out.alreadyLocked,
   }
 }
 
@@ -117,14 +130,25 @@ export async function executeUnlockUserWorkflow(input: {
   targetUserId: number
   adminUserId: number
   adminEmail: string
-}): Promise<{ workflowRunId: string; success: boolean; error?: string; auditLogged: boolean }> {
+}): Promise<{
+  workflowRunId: string
+  success: boolean
+  error?: string
+  auditLogged: boolean
+  alreadyUnlocked?: boolean
+}> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('unlockUserWorkflow')
   let run = await wf.createRun({ resourceId: String(input.adminUserId) })
   let result = await run.start({ inputData: input })
   let out =
     result.status === 'success' && result.result
-      ? (result.result as { success?: boolean; error?: string; auditLogged?: boolean })
+      ? (result.result as {
+          success?: boolean
+          error?: string
+          auditLogged?: boolean
+          alreadyUnlocked?: boolean
+        })
       : {
           success: false,
           error: result.status === 'failed' ? String(result.error) : 'unknown_error',
@@ -135,5 +159,6 @@ export async function executeUnlockUserWorkflow(input: {
     success: out.success ?? false,
     error: out.error,
     auditLogged: out.auditLogged ?? false,
+    alreadyUnlocked: out.alreadyUnlocked,
   }
 }

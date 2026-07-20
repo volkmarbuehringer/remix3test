@@ -203,7 +203,7 @@ describe('LockUserWorkflow', () => {
     assert.ok(result.error?.includes('own account'))
   })
 
-  it('is idempotent for already locked user', async () => {
+  it('treats an already locked account as idempotent success', async () => {
     let customerId = await getCustomerId()
     let adminId = await getAdminId()
     let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
@@ -218,8 +218,39 @@ describe('LockUserWorkflow', () => {
       adminUserId: adminId,
       adminEmail,
     })
+    assert.equal(result.success, true)
+    assert.equal(result.alreadyLocked, true)
+
+    // Restore unlocked state for other tests
+    await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
+  })
+
+  it('rejects locking admin accounts', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    // Create a second admin as the lock target (self-lock is a separate guard)
+    let otherAdminEmail = `wf-admin-${Date.now()}@example.com`
+    let created = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, $3, 'admin', 1, 1, $4) RETURNING id`,
+      [otherAdminEmail, 'hashed-password-for-testing', 'Other Admin', Date.now()],
+    )
+    let otherAdminId = created.rows[0]?.id as number
+
+    let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeLockUserWorkflow({
+      targetUserId: otherAdminId,
+      adminUserId: adminId,
+      adminEmail,
+    })
     assert.equal(result.success, false)
-    assert.ok(result.error?.includes('already locked'))
+    assert.ok(result.error?.includes('admin'), `expected admin guard error, got: ${result.error}`)
+
+    // Verify the admin account was not locked
+    let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [otherAdminId])
+    assert.equal(check.rows[0]?.disabled_at, null)
   })
 
   it('returns error for non-existent user', async () => {
@@ -280,7 +311,7 @@ describe('UnlockUserWorkflow', () => {
     assert.ok(result.error?.includes('own account'))
   })
 
-  it('is idempotent for already unlocked user', async () => {
+  it('treats an already unlocked account as idempotent success', async () => {
     let customerId = await getCustomerId()
     let adminId = await getAdminId()
     let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
@@ -295,7 +326,7 @@ describe('UnlockUserWorkflow', () => {
       adminUserId: adminId,
       adminEmail,
     })
-    assert.equal(result.success, false)
-    assert.ok(result.error?.includes('not locked'))
+    assert.equal(result.success, true)
+    assert.equal(result.alreadyUnlocked, true)
   })
 })

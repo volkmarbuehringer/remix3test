@@ -44,6 +44,15 @@ const validateTargetStep = createStep({
         error: 'User not found',
       }
     }
+    if (row.role === 'admin') {
+      return {
+        valid: false,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'Cannot lock admin accounts',
+      }
+    }
     return {
       valid: true,
       targetUserId: inputData.targetUserId,
@@ -73,6 +82,7 @@ const executeLockStep = createStep({
     adminEmail: z.string(),
     userName: z.string().optional(),
     userEmail: z.string().optional(),
+    alreadyLocked: z.boolean().optional(),
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
@@ -92,14 +102,15 @@ const executeLockStep = createStep({
       [Date.now(), inputData.targetUserId],
     )
     if ((result.affectedRows ?? 0) === 0) {
+      // Already in the desired state (e.g. locked via the admin panel) — treat as idempotent success.
       return {
-        success: false,
+        success: true,
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
         userName: inputData.userName,
         userEmail: inputData.userEmail,
-        error: 'Account already locked',
+        alreadyLocked: true,
       }
     }
     return {
@@ -122,11 +133,13 @@ const auditLogStep = createStep({
     adminEmail: z.string(),
     userName: z.string().optional(),
     userEmail: z.string().optional(),
+    alreadyLocked: z.boolean().optional(),
     error: z.string().optional(),
   }),
   outputSchema: z.object({
     success: z.boolean(),
     targetUserId: z.number(),
+    alreadyLocked: z.boolean().optional(),
     error: z.string().optional(),
     auditLogged: z.boolean(),
   }),
@@ -136,6 +149,16 @@ const auditLogStep = createStep({
         success: false,
         targetUserId: inputData.targetUserId,
         error: inputData.error,
+        auditLogged: false,
+      }
+    }
+    if (inputData.alreadyLocked) {
+      // No state change — skip the audit entry to avoid double-logging
+      // when the lock already happened via the admin panel.
+      return {
+        success: true,
+        targetUserId: inputData.targetUserId,
+        alreadyLocked: true,
         auditLogged: false,
       }
     }
@@ -168,6 +191,7 @@ export const lockUserWorkflow = createWorkflow({
   outputSchema: z.object({
     success: z.boolean(),
     targetUserId: z.number(),
+    alreadyLocked: z.boolean().optional(),
     error: z.string().optional(),
     auditLogged: z.boolean(),
   }),

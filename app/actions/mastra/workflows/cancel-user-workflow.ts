@@ -12,23 +12,27 @@ const validateTargetStep = createStep({
     targetUserId: z.number().positive(),
     adminUserId: z.number().positive(),
     adminEmail: z.string().email(),
+    deleteAppointments: z.boolean().optional(),
   }),
   outputSchema: z.object({
     valid: z.boolean(),
     targetUserId: z.number(),
     adminUserId: z.number(),
     adminEmail: z.string(),
+    deleteAppointments: z.boolean(),
     userEmail: z.string().optional(),
     userName: z.string().optional(),
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
+    let deleteAppointments = inputData.deleteAppointments ?? true
     if (inputData.targetUserId === inputData.adminUserId) {
       return {
         valid: false,
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
+        deleteAppointments,
         error: 'Cannot cancel your own account',
       }
     }
@@ -44,6 +48,7 @@ const validateTargetStep = createStep({
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
+        deleteAppointments,
         error: 'User not found',
       }
     }
@@ -53,6 +58,7 @@ const validateTargetStep = createStep({
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
+        deleteAppointments,
         error: 'Cannot cancel admin accounts',
       }
     }
@@ -62,6 +68,7 @@ const validateTargetStep = createStep({
         targetUserId: inputData.targetUserId,
         adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
+        deleteAppointments,
         error: 'Account already disabled',
       }
     }
@@ -70,6 +77,7 @@ const validateTargetStep = createStep({
       targetUserId: inputData.targetUserId,
       adminUserId: inputData.adminUserId,
       adminEmail: inputData.adminEmail,
+      deleteAppointments,
       userEmail: String(row.email ?? ''),
       userName: String(row.name ?? ''),
     }
@@ -83,6 +91,7 @@ const deleteAndDisableAccountStep = createStep({
     targetUserId: z.number(),
     adminUserId: z.number(),
     adminEmail: z.string(),
+    deleteAppointments: z.boolean(),
     userEmail: z.string().optional(),
     userName: z.string().optional(),
     error: z.string().optional(),
@@ -116,11 +125,14 @@ const deleteAndDisableAccountStep = createStep({
     let todayMidnight = getTodayUtcMidnight()
 
     return await db.transaction(async (tx) => {
-      let delResult = await tx.exec('DELETE FROM appointments WHERE user_id = $1 AND date >= $2', [
-        inputData.targetUserId,
-        todayMidnight,
-      ])
-      let deletedAppointments = delResult.affectedRows ?? 0
+      let deletedAppointments = 0
+      if (inputData.deleteAppointments) {
+        let delResult = await tx.exec(
+          'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
+          [inputData.targetUserId, todayMidnight],
+        )
+        deletedAppointments = delResult.affectedRows ?? 0
+      }
 
       let disableResult = await tx.exec(
         'UPDATE users SET disabled_at = $1, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NULL',
@@ -321,6 +333,7 @@ export const cancelUserWorkflow = createWorkflow({
     targetUserId: z.number().positive(),
     adminUserId: z.number().positive(),
     adminEmail: z.string().email(),
+    deleteAppointments: z.boolean().optional().default(true),
   }),
   outputSchema: z.object({
     success: z.boolean(),

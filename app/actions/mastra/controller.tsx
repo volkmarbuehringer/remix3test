@@ -270,9 +270,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
           start: async (controller) => {
             try {
               controller.enqueue(
-                sseEncoder.encode(
-                  `event: start\ndata: ${JSON.stringify({ runId, threadId })}\n\n`,
-                ),
+                sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId, threadId })}\n\n`),
               )
 
               let agent = mastra.getAgent('supportAgent')

@@ -33,7 +33,12 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
       { id: 'support', label: 'Support-Agent', route: routes.mastra.chat.index },
-      { id: 'workflow', label: 'Workflow-Agent', route: routes.workflowAgent.index, iframeNav: false },
+      {
+        id: 'workflow',
+        label: 'Workflow-Agent',
+        route: routes.workflowAgent.index,
+        iframeNav: false,
+      },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
@@ -159,7 +164,16 @@ function usersSvg(): RemixNode {
 
 function workflowSvg(): RemixNode {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
       <rect x="3" y="3" width="7" height="7" />
       <rect x="14" y="3" width="7" height="7" />
       <rect x="3" y="14" width="7" height="7" />

@@ -14,7 +14,14 @@ import type { AppContext } from '../../types/context.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 
-const workflowAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perKey: true, maxAttempts: 5 })
+// Keyed on the authenticated admin's user id — never on client-supplied
+// headers like X-Forwarded-For, which are spoofable (see remix3-two-tier-ip-trust-model).
+// Exported so tests can reset state between cases.
+export const workflowAgentRateLimiter = createRateLimiter({
+  windowMs: 10_000,
+  perUser: true,
+  maxAttempts: 5,
+})
 
 function getTarget(path: string): string {
   let prefixes: [string, string][] = [
@@ -65,9 +72,8 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
       },
 
       async action(context) {
-        let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-        let ip = rawIp.split(',')[0].trim() || 'anon'
-        if (!workflowAgentRateLimiter.attempt(ip)) {
+        let user = getCurrentUser()
+        if (!workflowAgentRateLimiter.attempt(user.id)) {
           return new Response(
             sseEncoder.encode(
               `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
@@ -95,7 +101,6 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
           )
         }
 
-        let user = getCurrentUser()
         let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
 
         let body = new ReadableStream({
@@ -143,9 +148,8 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
       },
 
       async answer(context) {
-        let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-        let ip = rawIp.split(',')[0].trim() || 'anon'
-        if (!workflowAgentRateLimiter.attempt(ip)) {
+        let user = getCurrentUser()
+        if (!workflowAgentRateLimiter.attempt(user.id)) {
           return new Response(
             sseEncoder.encode(
               `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
@@ -186,7 +190,6 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
           }
         }
 
-        let user = getCurrentUser()
         let body = new ReadableStream({
           start: async (controller) => {
             try {
@@ -230,6 +233,16 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
       },
 
       async toolDecision(context) {
+        let user = getCurrentUser()
+        if (!workflowAgentRateLimiter.attempt(user.id)) {
+          return new Response(
+            sseEncoder.encode(
+              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
+            ),
+            { status: 429, headers: sseHeaders() },
+          )
+        }
+
         let runId = context.formData.get('runId')?.toString()
         let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
         let decision = context.formData.get('decision')?.toString()
@@ -253,7 +266,6 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
         }
 
         try {
-          let user = getCurrentUser()
           let agent = mastra.getAgent('workflowAgent')
           let result = (await runWithAdminId(user.id, () =>
             decision === 'approve'

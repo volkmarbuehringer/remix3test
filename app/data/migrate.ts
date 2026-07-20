@@ -1,14 +1,14 @@
-import { Client } from "pg";
-import { pool } from "./connection.ts";
+import { Client } from 'pg'
+import { pool } from './connection.ts'
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL
 
 export async function migrate(): Promise<void> {
-  let client = new Client({ connectionString: databaseUrl, statement_timeout: 0 });
-  await client.connect();
+  let client = new Client({ connectionString: databaseUrl, statement_timeout: 0 })
+  await client.connect()
   try {
-    await client.query("BEGIN");
-    await client.query(`SELECT pg_advisory_lock(287140921)`);
+    await client.query('BEGIN')
+    await client.query(`SELECT pg_advisory_lock(287140921)`)
     // Use advisory lock so concurrent worker processes don't race on DDL
     await client.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -20,44 +20,32 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL DEFAULT 0
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS users_email_idx ON users (email)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS users_email_idx ON users (email)`)
     await client.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT 0
-  `);
+  `)
     let emailVerifiedColumn = await client.query(`
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'users' AND column_name = 'email_verified'
-  `);
+  `)
     await client.query(
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified INTEGER NOT NULL DEFAULT 0`,
-    );
-    await client.query(
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`,
-    );
-    await client.query(
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires BIGINT`,
-    );
-    await client.query(
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT`,
-    );
-    await client.query(
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires BIGINT`,
-    );
+    )
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`)
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires BIGINT`)
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT`)
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires BIGINT`)
     await client.query(
       `CREATE INDEX IF NOT EXISTS users_password_reset_token_idx ON users (password_reset_token)`,
-    );
+    )
     await client.query(
       `ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1`,
-    );
-    await client.query(
-      `ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_at BIGINT`,
-    );
+    )
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_at BIGINT`)
 
     if (emailVerifiedColumn.rows.length === 0) {
-      await client.query(`UPDATE users SET email_verified = 1`);
+      await client.query(`UPDATE users SET email_verified = 1`)
     }
 
     await client.query(`
@@ -67,16 +55,12 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS chatlog_created_at_idx ON chatlog (created_at)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS chatlog_created_at_idx ON chatlog (created_at)`)
     await client.query(`
     ALTER TABLE chatlog ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS chatlog_user_id_idx ON chatlog (user_id)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS chatlog_user_id_idx ON chatlog (user_id)`)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS workflow_runs (
@@ -93,16 +77,16 @@ export async function migrate(): Promise<void> {
       parent_run_id TEXT,
       chain_depth INTEGER NOT NULL DEFAULT 0
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS workflow_runs_status_idx ON workflow_runs (status)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS workflow_runs_created_at_idx ON workflow_runs (created_at)`,
-    );
+    )
     await client.query(
       `ALTER TABLE workflow_runs DROP CONSTRAINT IF EXISTS workflow_runs_created_by_fkey`,
-    );
+    )
     await client.query(`
     DO $$ BEGIN
       IF NOT EXISTS (
@@ -112,7 +96,7 @@ export async function migrate(): Promise<void> {
           FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
       END IF;
     END $$;
-  `);
+  `)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -121,19 +105,13 @@ export async function migrate(): Promise<void> {
       content TEXT NOT NULL,
       created_at BIGINT NOT NULL
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id)`)
     await client.query(
       `CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at)`,
-    );
-    await client.query(
-      `ALTER TABLE messages ALTER COLUMN sender_id DROP NOT NULL`,
-    );
-    await client.query(
-      `ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_sender_id_fkey`,
-    );
+    )
+    await client.query(`ALTER TABLE messages ALTER COLUMN sender_id DROP NOT NULL`)
+    await client.query(`ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_sender_id_fkey`)
     await client.query(`
     DO $$ BEGIN
       IF NOT EXISTS (
@@ -143,7 +121,7 @@ export async function migrate(): Promise<void> {
           FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL;
       END IF;
     END $$;
-  `);
+  `)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS clients (
@@ -154,16 +132,16 @@ export async function migrate(): Promise<void> {
       status TEXT NOT NULL DEFAULT 'Active',
       registered BIGINT NOT NULL
     )
-  `);
+  `)
 
-    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
-    await client.query(`CREATE EXTENSION IF NOT EXISTS btree_gist`);
+    await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`)
+    await client.query(`CREATE EXTENSION IF NOT EXISTS btree_gist`)
     await client.query(
       `CREATE INDEX IF NOT EXISTS users_name_trgm_idx ON users USING GIN (name gin_trgm_ops)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS users_email_trgm_idx ON users USING GIN (email gin_trgm_ops)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS lists (
@@ -173,23 +151,21 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS idx_lists_desc ON lists USING GIN (description gin_trgm_ops)`,
-    );
+    )
     await client.query(
       `ALTER TABLE lists ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id)`,
-    );
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id)`)
     await client.query(`
     DO $$ BEGIN
       ALTER TABLE lists DROP CONSTRAINT IF EXISTS lists_user_id_fkey;
       ALTER TABLE lists ADD CONSTRAINT lists_user_id_fkey
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
     END $$;
-  `);
+  `)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS resources (
@@ -199,17 +175,17 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
-  `);
+  `)
     await client.query(
       `ALTER TABLE resources ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT 'Unbenannt'`,
-    );
+    )
     await client.query(
       `ALTER TABLE resources ADD COLUMN IF NOT EXISTS capabilities TEXT DEFAULT ''`,
-    );
-    await client.query(`DROP INDEX IF EXISTS idx_resources_capabilities_fts`);
+    )
+    await client.query(`DROP INDEX IF EXISTS idx_resources_capabilities_fts`)
     await client.query(
       `CREATE INDEX IF NOT EXISTS idx_resources_capabilities_trgm ON resources USING GIN (capabilities gin_trgm_ops)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS appointments (
@@ -229,13 +205,13 @@ export async function migrate(): Promise<void> {
         during WITH &&
       )
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS appointments_user_date_idx ON appointments (user_id, date)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS appointments_resource_date_idx ON appointments (resource_id, date)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS appointtypes (
@@ -245,10 +221,8 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS appointtypes_user_idx ON appointtypes (user_id)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS appointtypes_user_idx ON appointtypes (user_id)`)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS appointoffering (
@@ -264,13 +238,13 @@ export async function migrate(): Promise<void> {
         during WITH &&
       )
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS appointoffering_resource_day_idx ON appointoffering (resource_id, day)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS appointoffering_day_idx ON appointoffering (day)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS offering_configs (
@@ -280,7 +254,7 @@ export async function migrate(): Promise<void> {
       created_at BIGINT NOT NULL,
       updated_at BIGINT NOT NULL
     )
-  `);
+  `)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -293,13 +267,11 @@ export async function migrate(): Promise<void> {
       details JSONB,
       created_at BIGINT NOT NULL
     )
-  `);
-    await client.query(
-      `ALTER TABLE audit_logs ALTER COLUMN admin_user_id DROP NOT NULL`,
-    );
+  `)
+    await client.query(`ALTER TABLE audit_logs ALTER COLUMN admin_user_id DROP NOT NULL`)
     await client.query(
       `ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_admin_user_id_fkey`,
-    );
+    )
     await client.query(`
     DO $$ BEGIN
       IF NOT EXISTS (
@@ -309,16 +281,16 @@ export async function migrate(): Promise<void> {
           FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE SET NULL;
       END IF;
     END $$;
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS audit_logs_admin_idx ON audit_logs (admin_user_id)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON audit_logs (action_type)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON audit_logs (created_at)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS uploads (
@@ -330,13 +302,13 @@ export async function migrate(): Promise<void> {
       uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at BIGINT NOT NULL
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS uploads_uploaded_by_idx ON uploads (uploaded_by)`,
-    );
+    )
     await client.query(
       `CREATE INDEX IF NOT EXISTS uploads_created_at_idx ON uploads (created_at DESC)`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS webhook_requests (
@@ -347,25 +319,19 @@ export async function migrate(): Promise<void> {
       source_ip TEXT NOT NULL DEFAULT '',
       created_at BIGINT NOT NULL
     )
-  `);
-    await client.query(
-      `ALTER TABLE webhook_requests ALTER COLUMN token DROP NOT NULL`,
-    );
-    await client.query(
-      `UPDATE webhook_requests SET token = NULL WHERE token IS NOT NULL`,
-    );
+  `)
+    await client.query(`ALTER TABLE webhook_requests ALTER COLUMN token DROP NOT NULL`)
+    await client.query(`UPDATE webhook_requests SET token = NULL WHERE token IS NOT NULL`)
     await client.query(
       `CREATE INDEX IF NOT EXISTS webhook_requests_created_at_idx ON webhook_requests (created_at DESC)`,
-    );
-    await client.query(
-      `ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS hermes_status TEXT`,
-    );
+    )
+    await client.query(`ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS hermes_status TEXT`)
     await client.query(
       `ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_response JSONB`,
-    );
+    )
     await client.query(
       `ALTER TABLE webhook_requests ADD COLUMN IF NOT EXISTS callback_received_at BIGINT`,
-    );
+    )
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS api_tokens (
@@ -376,13 +342,11 @@ export async function migrate(): Promise<void> {
       expires_at BIGINT NOT NULL,
       revoked_at BIGINT
     )
-  `);
+  `)
     await client.query(
       `CREATE INDEX IF NOT EXISTS api_tokens_token_hash_idx ON api_tokens (token_hash)`,
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS api_tokens_user_id_idx ON api_tokens (user_id)`,
-    );
+    )
+    await client.query(`CREATE INDEX IF NOT EXISTS api_tokens_user_id_idx ON api_tokens (user_id)`)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS login (
@@ -394,10 +358,8 @@ export async function migrate(): Promise<void> {
       l_tv INTEGER DEFAULT 0,
       l_letzte_login BIGINT
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS login_l_login_idx ON login (l_login)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS login_l_login_idx ON login (l_login)`)
 
     await client.query(`
     CREATE TABLE IF NOT EXISTS nutzer (
@@ -408,13 +370,9 @@ export async function migrate(): Promise<void> {
       n_verpflichtung BOOLEAN NOT NULL DEFAULT false,
       n_lid INTEGER NOT NULL REFERENCES login(l_id) ON DELETE CASCADE
     )
-  `);
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS nutzer_n_email_idx ON nutzer (n_email)`,
-    );
-    await client.query(
-      `CREATE INDEX IF NOT EXISTS nutzer_n_lid_idx ON nutzer (n_lid)`,
-    );
+  `)
+    await client.query(`CREATE INDEX IF NOT EXISTS nutzer_n_email_idx ON nutzer (n_email)`)
+    await client.query(`CREATE INDEX IF NOT EXISTS nutzer_n_lid_idx ON nutzer (n_lid)`)
 
     // Mastra workflow snapshot table — required by @mastra/pg WorkflowsPG
     // when disableInit:true is set on PostgresStoreVNext.
@@ -430,15 +388,15 @@ export async function migrate(): Promise<void> {
       "updatedAtZ" TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (workflow_name, run_id)
     )
-  `);
+  `)
 
-    console.log("[DB] Tables created/verified");
-    await client.query("COMMIT");
+    console.log('[DB] Tables created/verified')
+    await client.query('COMMIT')
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    await client.query(`SELECT pg_advisory_unlock(287140921)`).catch(() => {});
-    throw e;
+    await client.query('ROLLBACK').catch(() => {})
+    await client.query(`SELECT pg_advisory_unlock(287140921)`).catch(() => {})
+    throw e
   } finally {
-    await client.end().catch(() => {});
+    await client.end().catch(() => {})
   }
 }
