@@ -8,6 +8,7 @@ export const RouteAgentStream = clientEntry(
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
     let didNavigate: boolean = false
+    let lastFilterValue: string = ''
 
     let pendingQuestion: {
       runId: string
@@ -161,9 +162,13 @@ export const RouteAgentStream = clientEntry(
     }
 
     function restoreFilterValue(url: string) {
-      let filterValue = new URL(url, window.location.origin).searchParams.get('filter') ?? ''
+      let filterValue = new URL(url, window.location.origin).searchParams.get('filter')
+      if (filterValue !== null && filterValue !== 'enabled' && filterValue !== 'disabled') {
+        lastFilterValue = filterValue
+      }
+      let value = filterValue ?? lastFilterValue
       for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
-        input.value = filterValue
+        input.value = value
       }
     }
 
