@@ -238,6 +238,39 @@ if (container) {
 
 The server still renders and processes everything. The only client-side change is swapping "browser navigates away" for `fetch` + `frame.reload()`.
 
+#### GET form handling
+
+The code above only handles POST/PUT/DELETE. **GET forms** (search/filter forms with `method="GET"`) also navigate the full page when inside a Frame. The `rmx-target` attribute is never read from `<form>` elements, regardless of method.
+
+For GET forms, use `URLSearchParams` to serialize the form data and set the frame's `src` directly:
+
+```typescript
+container.addEventListener('submit', async (e) => {
+  let form = (e.target as HTMLElement).closest('form')
+  if (!form || form.id === 'my-agent-form') return
+  e.preventDefault()
+
+  let method = (form.method || 'GET').toUpperCase()
+  let action = form.getAttribute('action') || ''
+  let target = form.getAttribute('rmx-target')
+
+  let frame = target ? handle.frames.get(target) : handle.frame
+  if (!frame) return
+
+  if (method === 'GET') {
+    let params = new URLSearchParams(new FormData(form) as any)
+    let qs = params.toString()
+    frame.src = action + (qs ? '?' + qs : '')
+    frame.reload().catch(() => {})
+  } else {
+    await fetch(action, { method, body: new FormData(form) })
+    await frame.reload()
+  }
+})
+```
+
+This works for both GET (filter/search) and non-GET forms with the same event delegation pattern.
+
 #### Why `handle.frame.reload()` not `handle.frame.replace()`
 
 - `reload()` re-fetches the frame's current `src` via the Frame's `resolveFrame` pipeline, which sets `X-Remix-Target`, `X-Remix-Frame`, and Cookie headers correctly
