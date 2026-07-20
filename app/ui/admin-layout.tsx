@@ -12,6 +12,7 @@ export type AdminNavItem =
   | 'messages'
   | 'lists'
   | 'support'
+  | 'workflow'
   | 'client'
   | 'users'
   | 'nutzer'
@@ -32,6 +33,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
       { id: 'support', label: 'Support-Agent', route: routes.mastra.chat.index },
+      { id: 'workflow', label: 'Workflow-Agent', route: routes.workflowAgent.index, iframeNav: false },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
@@ -71,6 +73,8 @@ function navIcon(id: AdminNavItem): RemixNode {
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       )
+    case 'workflow':
+      return workflowSvg()
     case 'client':
       return usersSvg()
     case 'users':
@@ -149,6 +153,17 @@ function usersSvg(): RemixNode {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function workflowSvg(): RemixNode {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+      <rect x="14" y="14" width="7" height="7" />
     </svg>
   )
 }

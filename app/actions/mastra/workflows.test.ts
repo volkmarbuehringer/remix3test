@@ -2,6 +2,9 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
+import { db } from '../../data/connection.ts'
+// Side-effect: initializes Mastra instance with all workflows
+import {} from './index.ts'
 import { consoleNotificationSender } from './notifications/sender.ts'
 import {
   clearFailedNotifications,
@@ -9,7 +12,6 @@ import {
   getFailedNotifications,
 } from './notifications/queue.ts'
 import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments.ts'
-import { db } from '../../data/connection.ts'
 
 async function getAdminId(): Promise<number> {
   let r = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
@@ -156,5 +158,144 @@ describe('Booking mutation helpers', () => {
     })
     assert.equal(getFailedNotifications().length, 1)
     assert.equal(getFailedNotifications()[0].data.appointmentId, 999)
+  })
+})
+
+describe('LockUserWorkflow', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('locks a customer account', async () => {
+    let customerId = await getCustomerId()
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    // Ensure unlocked before test
+    await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
+
+    let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeLockUserWorkflow({
+      targetUserId: customerId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, true)
+
+    // Verify locked
+    let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [customerId])
+    assert.notEqual(check.rows[0]?.disabled_at, null)
+  })
+
+  it('rejects self-lock', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeLockUserWorkflow({
+      targetUserId: adminId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, false)
+    assert.ok(result.error?.includes('own account'))
+  })
+
+  it('is idempotent for already locked user', async () => {
+    let customerId = await getCustomerId()
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    // Ensure locked
+    await pool.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [Date.now(), customerId])
+
+    let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeLockUserWorkflow({
+      targetUserId: customerId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, false)
+    assert.ok(result.error?.includes('already locked'))
+  })
+
+  it('returns error for non-existent user', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeLockUserWorkflow({
+      targetUserId: 999999,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, false)
+    assert.ok(result.error?.includes('not found'))
+  })
+})
+
+describe('UnlockUserWorkflow', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('unlocks a locked customer account', async () => {
+    let customerId = await getCustomerId()
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    // Ensure locked first
+    await pool.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [Date.now(), customerId])
+
+    let { executeUnlockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeUnlockUserWorkflow({
+      targetUserId: customerId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, true)
+
+    // Verify unlocked
+    let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [customerId])
+    assert.equal(check.rows[0]?.disabled_at, null)
+  })
+
+  it('rejects self-unlock', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    let { executeUnlockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeUnlockUserWorkflow({
+      targetUserId: adminId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, false)
+    assert.ok(result.error?.includes('own account'))
+  })
+
+  it('is idempotent for already unlocked user', async () => {
+    let customerId = await getCustomerId()
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+
+    // Ensure unlocked
+    await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
+
+    let { executeUnlockUserWorkflow } = await import('./workflow-executor.ts')
+    let result = await executeUnlockUserWorkflow({
+      targetUserId: customerId,
+      adminUserId: adminId,
+      adminEmail,
+    })
+    assert.equal(result.success, false)
+    assert.ok(result.error?.includes('not locked'))
   })
 })

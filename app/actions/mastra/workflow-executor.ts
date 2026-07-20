@@ -87,3 +87,53 @@ export async function executeCancelUserWorkflow(input: {
     error: out.error,
   }
 }
+
+export async function executeLockUserWorkflow(input: {
+  targetUserId: number
+  adminUserId: number
+  adminEmail: string
+}): Promise<{ workflowRunId: string; success: boolean; error?: string; auditLogged: boolean }> {
+  if (!_mastra) throw new Error('Mastra not initialized')
+  let wf = _mastra.getWorkflow('lockUserWorkflow')
+  let run = await wf.createRun({ resourceId: String(input.adminUserId) })
+  let result = await run.start({ inputData: input })
+  let out =
+    result.status === 'success' && result.result
+      ? (result.result as { success?: boolean; error?: string; auditLogged?: boolean })
+      : {
+          success: false,
+          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          auditLogged: false,
+        }
+  return {
+    workflowRunId: run.runId,
+    success: out.success ?? false,
+    error: out.error,
+    auditLogged: out.auditLogged ?? false,
+  }
+}
+
+export async function executeUnlockUserWorkflow(input: {
+  targetUserId: number
+  adminUserId: number
+  adminEmail: string
+}): Promise<{ workflowRunId: string; success: boolean; error?: string; auditLogged: boolean }> {
+  if (!_mastra) throw new Error('Mastra not initialized')
+  let wf = _mastra.getWorkflow('unlockUserWorkflow')
+  let run = await wf.createRun({ resourceId: String(input.adminUserId) })
+  let result = await run.start({ inputData: input })
+  let out =
+    result.status === 'success' && result.result
+      ? (result.result as { success?: boolean; error?: string; auditLogged?: boolean })
+      : {
+          success: false,
+          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          auditLogged: false,
+        }
+  return {
+    workflowRunId: run.runId,
+    success: out.success ?? false,
+    error: out.error,
+    auditLogged: out.auditLogged ?? false,
+  }
+}

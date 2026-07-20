@@ -207,4 +207,12 @@ export const routes = route({
     answer: post('/answer'),
     toolDecision: post('/tool-decision'),
   }),
+
+  workflowAgent: route('workflow-agent', {
+    index: get('/'),
+    panel: get('/panel'),
+    action: post('/'),
+    answer: post('/answer'),
+    toolDecision: post('/tool-decision'),
+  }),
 })
