@@ -178,7 +178,7 @@ export const WorkflowAgentStream = clientEntry(
       history?: string
       prefill?: Record<string, string>
     }) {
-      let { href, target } = data
+      let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
         setBarText('Invalid navigation path')
         return
@@ -195,6 +195,13 @@ export const WorkflowAgentStream = clientEntry(
           () => restoreFilterValue(href),
           (err) => setBarText('Navigation failed: ' + String(err)),
         )
+        if (!historyMode || historyMode !== 'skip') {
+          if (historyMode === 'replace') {
+            window.history.replaceState({}, '', href)
+          } else {
+            window.history.pushState({}, '', href)
+          }
+        }
       } else {
         setBarText('Error: frame not found')
       }
@@ -339,6 +346,7 @@ export const WorkflowAgentStream = clientEntry(
           () => restoreFilterValue(url),
           () => {},
         )
+        window.history.replaceState({}, '', url)
       } else {
         try {
           let headers: Record<string, string> = {}
