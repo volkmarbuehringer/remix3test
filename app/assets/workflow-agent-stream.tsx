@@ -111,6 +111,13 @@ export const WorkflowAgentStream = clientEntry(
           bar.appendChild(label)
         }
 
+        if (options.length === 1 && !isMulti) {
+          let firstInput = bar.querySelector(
+            'input[name="q-option"]',
+          ) as HTMLInputElement | null
+          if (firstInput) firstInput.checked = true
+        }
+
         let btn = document.createElement('button')
         btn.textContent = 'Bestätigen'
         btn.style.padding = '4px 14px'
@@ -325,15 +332,14 @@ export const WorkflowAgentStream = clientEntry(
             headers,
             body: new FormData(form),
           })
-          if (res.ok && res.headers.get('Content-Type')?.includes('json')) {
-            let data = await res.json()
-            // Navigate to action URL to show updated state
-            frame.src = action + '?' + new URLSearchParams(new FormData(form) as any).toString()
-            frame.reload().catch(() => {})
-          } else {
-            frame.src = action
-            frame.reload().catch(() => {})
+          // Drain the body, then reload the frame's current location to show
+          // updated state. Never serialize form data into a URL — it would
+          // leak fields like _csrf into browser history and access logs.
+          await res.text().catch(() => '')
+          if (!res.ok) {
+            setBarText('Form submission failed: ' + res.status)
           }
+          frame.reload().catch(() => {})
         } catch {
           frame.reload().catch(() => {})
         }

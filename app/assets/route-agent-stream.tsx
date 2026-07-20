@@ -111,6 +111,13 @@ export const RouteAgentStream = clientEntry(
           bar.appendChild(label)
         }
 
+        if (options.length === 1 && !isMulti) {
+          let firstInput = bar.querySelector(
+            'input[name="q-option"]',
+          ) as HTMLInputElement | null
+          if (firstInput) firstInput.checked = true
+        }
+
         let btn = document.createElement('button')
         btn.textContent = 'Bestätigen'
         btn.style.padding = '4px 14px'
