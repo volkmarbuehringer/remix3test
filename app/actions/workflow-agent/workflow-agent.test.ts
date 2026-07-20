@@ -60,7 +60,7 @@ describe('WorkflowAgent tools', () => {
       assert.ok(result.user, 'should return user info')
       assert.equal(result.user.id, customerId)
       assert.ok(result.navigate, 'should include navigation')
-      assert.ok(result.navigate.path.includes(`editing=${customerId}`))
+      assert.ok(result.navigate.path.includes('filter='))
     })
 
     it('returns error for non-existent user', async () => {

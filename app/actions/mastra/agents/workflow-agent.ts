@@ -71,8 +71,8 @@ const cancelUserWorkflow_v2 = createTool({
         role: String(user.role ?? ''),
         disabledAt: user.disabled_at,
       },
-      navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the cancellation is executed on confirmation.`,
+      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(String(user.name))}` },
+      message: `User ${user.name} (${user.email}) found. Navigating to the user list filtered by their name. Ask the admin to review and confirm — the cancellation is executed on confirmation.`,
     }
   },
 })
@@ -127,8 +127,8 @@ const lockUserWorkflow_v2 = createTool({
         role: String(user.role ?? ''),
         disabledAt: user.disabled_at,
       },
-      navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the lock is executed on confirmation.`,
+      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(String(user.name))}` },
+      message: `User ${user.name} (${user.email}) found. Navigating to the user list filtered by their name. Ask the admin to review and confirm — the lock is executed on confirmation.`,
     }
   },
 })
@@ -183,8 +183,8 @@ const unlockUserWorkflow_v2 = createTool({
         role: String(user.role ?? ''),
         disabledAt: user.disabled_at,
       },
-      navigate: { type: 'route', path: `/admin/users?editing=${targetUserId}` },
-      message: `User ${user.name} (${user.email}) found. Navigated to profile. Ask the admin to review the profile and confirm — the unlock is executed on confirmation.`,
+      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(String(user.name))}` },
+      message: `User ${user.name} (${user.email}) found. Navigating to the user list filtered by their name. Ask the admin to review and confirm — the unlock is executed on confirmation.`,
     }
   },
 })
