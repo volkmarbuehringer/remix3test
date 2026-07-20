@@ -160,6 +160,13 @@ export const WorkflowAgentStream = clientEntry(
       }
     }
 
+    function restoreFilterValue(url: string) {
+      let filterValue = new URL(url, window.location.origin).searchParams.get('filter') ?? ''
+      for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
+        input.value = filterValue
+      }
+    }
+
     function handleNavigate(data: {
       href: string
       target?: string
@@ -179,9 +186,10 @@ export const WorkflowAgentStream = clientEntry(
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
         frame.src = href
-        frame.reload().catch((err) => {
-          setBarText('Navigation failed: ' + String(err))
-        })
+        frame.reload().then(
+          () => restoreFilterValue(href),
+          (err) => setBarText('Navigation failed: ' + String(err)),
+        )
       } else {
         setBarText('Error: frame not found')
       }
@@ -322,7 +330,10 @@ export const WorkflowAgentStream = clientEntry(
         let qs = params.toString()
         let url = action + (qs ? '?' + qs : '')
         frame.src = url
-        frame.reload().catch(() => {})
+        frame.reload().then(
+          () => restoreFilterValue(url),
+          () => {},
+        )
       } else {
         try {
           let headers: Record<string, string> = {}

@@ -160,6 +160,13 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
+    function restoreFilterValue(url: string) {
+      let filterValue = new URL(url, window.location.origin).searchParams.get('filter') ?? ''
+      for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
+        input.value = filterValue
+      }
+    }
+
     function handleNavigate(data: {
       href: string
       target?: string
@@ -196,9 +203,10 @@ export const RouteAgentStream = clientEntry(
         }
 
         frame.src = href
-        frame.reload().catch((err) => {
-          setBarText('Navigation failed: ' + String(err))
-        })
+        frame.reload().then(
+          () => restoreFilterValue(href),
+          (err) => setBarText('Navigation failed: ' + String(err)),
+        )
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
             window.history.replaceState({}, '', href)
