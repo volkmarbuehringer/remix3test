@@ -12,6 +12,7 @@ import {
   executeLockUserWorkflow,
   executeUnlockUserWorkflow,
 } from '../workflow-executor.ts'
+import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
 
 const cancelUserWorkflow_v2 = createTool({
@@ -223,6 +224,169 @@ const checkPendingAppointments = createTool({
   },
 })
 
+const generateActionReport = createTool({
+  id: 'generate_action_report',
+  description:
+    'Generate a PDF report after a cancel, lock, or unlock user action. ' +
+    'Call this after run_consistency_checks at the end of the user management protocol. ' +
+    'Returns a base64-encoded PDF with action details.',
+  inputSchema: z.object({
+    actionType: z
+      .enum(['cancel', 'lock', 'unlock'])
+      .describe('The type of action performed: cancel, lock, or unlock'),
+    targetUserName: z.string().describe('Name of the target user'),
+    targetUserEmail: z.string().describe('Email of the target user'),
+    targetUserId: z.number().int().positive().describe('ID of the target user'),
+    deletedAppointments: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Whether pending appointments were deleted (cancel only)'),
+    deletedCount: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .default(0)
+      .describe('Number of deleted appointments (cancel only)'),
+    lockedUsersCount: z
+      .number()
+      .int()
+      .min(0)
+      .describe('Number of locked users with pending appointments from consistency check'),
+    activeUsersCount: z
+      .number()
+      .int()
+      .min(0)
+      .describe('Number of active users with pending appointments from consistency check'),
+    actionedAt: z
+      .string()
+      .optional()
+      .describe('ISO date string of when the action occurred'),
+  }),
+  execute: async ({
+    actionType,
+    targetUserName,
+    targetUserEmail,
+    targetUserId,
+    deletedAppointments,
+    deletedCount,
+    lockedUsersCount,
+    activeUsersCount,
+    actionedAt,
+  }) => {
+    let adminUserId = requireAdminId()
+    let adminResult = await db.exec('SELECT name, email FROM users WHERE id = $1', [adminUserId])
+    let admin = (adminResult.rows ?? [])[0] as { name: string; email: string } | undefined
+    let adminName = admin?.name ?? 'Unknown'
+    let adminEmail = admin?.email ?? 'unknown@unknown'
+    let date = actionedAt ?? new Date().toISOString()
+    let dateFormatted = date.slice(0, 10)
+    let safeName = targetUserName.replace(/[^a-zA-Z0-9_-]/g, '_')
+
+    let titleText: string
+    let actionLabel: string
+    let actionDesc: string
+    if (actionType === 'cancel') {
+      titleText = 'Cancellation Report'
+      actionLabel = 'Account Cancelled'
+      actionDesc = 'Login disabled, API tokens revoked, future appointments deleted'
+    } else if (actionType === 'lock') {
+      titleText = 'Account Lock Report'
+      actionLabel = 'Account Locked'
+      actionDesc = 'Login disabled, all data and appointments preserved'
+    } else {
+      titleText = 'Account Unlock Report'
+      actionLabel = 'Account Unlocked'
+      actionDesc = 'Login re-enabled, existing sessions invalidated'
+    }
+
+    let docDef: any = {
+      content: [
+        { text: titleText, style: 'header' },
+        {
+          text: `Generated: ${dateFormatted}  |  Report: ${actionType}-${safeName}-${dateFormatted}`,
+          style: 'subheader',
+        },
+        { text: '', margin: [0, 10, 0, 0] },
+        { text: 'Admin', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['auto', '*'],
+            body: [
+              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              ['Name', adminName],
+              ['Email', adminEmail],
+            ],
+          },
+        },
+        { text: '', margin: [0, 10, 0, 0] },
+        { text: 'Target User', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['auto', '*'],
+            body: [
+              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              ['Name', targetUserName],
+              ['Email', targetUserEmail],
+              ['User ID', String(targetUserId)],
+            ],
+          },
+        },
+        { text: '', margin: [0, 10, 0, 0] },
+        { text: 'Action Summary', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['auto', '*'],
+            body: [
+              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              ['Action', actionLabel],
+              ['Details', actionDesc],
+              ...(actionType === 'cancel'
+                ? [['Appointments Deleted', deletedAppointments ? `Yes (${deletedCount})` : 'No']]
+                : []),
+            ],
+          },
+        },
+        { text: '', margin: [0, 10, 0, 0] },
+        { text: 'Post-Action Consistency Checks', style: 'sectionHeader' },
+        {
+          table: {
+            headerRows: 1,
+            widths: ['auto', '*'],
+            body: [
+              [{ text: 'Check', bold: true }, { text: 'Result', bold: true }],
+              [
+                'Locked users with pending appointments',
+                `${lockedUsersCount} user(s)`,
+              ],
+              [
+                'Active users with pending appointments',
+                `${activeUsersCount} user(s)`,
+              ],
+            ],
+          },
+        },
+      ],
+      styles: {
+        header: { fontSize: 18, bold: true, margin: [0, 0, 0, 10] },
+        subheader: { fontSize: 10, color: '#666', margin: [0, 0, 0, 20] },
+        sectionHeader: { fontSize: 14, bold: true, margin: [0, 10, 0, 4] },
+      },
+    }
+    let buf = await generatePdfBuffer(docDef)
+    return {
+      filename: `${actionType}-report-${safeName}-${dateFormatted}.pdf`,
+      data: buf.toString('base64'),
+      size: buf.length,
+      reportType: `${actionType}-summary`,
+    }
+  },
+})
+
 export const workflowAgent = new Agent({
   id: 'workflow-agent',
   name: 'Workflow Agent',
@@ -263,9 +427,11 @@ USER FLOW — use for ALL user management questions (lock, unlock, cancel, find 
       ask_user({ question: "What would you like to do?", options: [{ label: "Lock user 5" }, { label: "Ready" }] })
       ask_user({ question: "Ready?", options: [{ label: "Ready" }] })
   Step 3: If the admin clicked an action option, execute it (follow the protocol below).
+          After the protocol completes, continue with Step 4 below.
   Step 4: Call run_consistency_checks to run all consistency checks in parallel.
   Step 5: Present the actual consistency check numbers — if the result has users with pendingCount > 0, list each user with their count; if no users have pending appointments, say so explicitly. Do NOT invent a generic "all clear" message without referencing the data.
-  Step 6: Wait for the next question. Do NOT loop — the admin will ask something new.
+  Step 6: If the action was cancel, lock, or unlock, call generate_action_report now (see protocol for exact parameters).
+  Step 7: Wait for the next question. Do NOT loop — the admin will ask something new.
 
 AMBIGUOUS QUERIES: If the admin asks something that could be about both users and appointments (e.g., "show appointments for locked users"), prioritize the user flow since the consistency checks cover appointment overlap.
 
@@ -292,6 +458,11 @@ Available tools:
   Returns { lockedUsers: { id, name, email, pendingCount }[], lockedTotal, activeUsers: ..., activeTotal }.
   You MUST present the actual users and counts from the result — never invent a generic message.
 
+- generate_action_report: Generate a PDF report after a cancel, lock, or unlock action.
+  Call this after run_consistency_checks at the end of any user management protocol.
+  Pass actionType ("cancel"|"lock"|"unlock"), target user details, deletion info (for cancel), and consistency check results. Admin info is looked up internally.
+  Returns { filename, data (base64 PDF), size, reportType: 'cancel-summary'|'lock-summary'|'unlock-summary' }.
+
 - ask_user: Ask the admin a question with selection options. You MUST call this tool. The admin sees buttons they can click.
   Parameters: question (required, string), options (required, array of {label, description}), selectionMode ("single_select" or "multi_select", default "single_select").
 
@@ -308,6 +479,7 @@ Protocol for cancel_user_workflow_v2 — FOLLOW EXACTLY:
   Step 6: Call cancel_user_workflow_v2({ targetUserId, confirmed: true, deleteAppointments: true/false }).
   Step 7: Call run_consistency_checks.
   Step 8: Report the results.
+  Step 9: You MUST call generate_action_report — do not skip this. Pass actionType="cancel", targetUserName, targetUserEmail, targetUserId, deletedAppointments, deletedCount, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
 
 Protocol for lock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call lock_user_workflow_v2 with targetUserId only (confirmed=false).
@@ -316,6 +488,7 @@ Protocol for lock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 4: If admin clicks "Confirm", call lock_user_workflow_v2({ targetUserId, confirmed: true }).
   Step 5: Call run_consistency_checks.
   Step 6: Report the results.
+  Step 7: You MUST call generate_action_report — do not skip this. Pass actionType="lock", targetUserName, targetUserEmail, targetUserId, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
 
 Protocol for unlock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call unlock_user_workflow_v2 with targetUserId only (confirmed=false).
@@ -324,13 +497,15 @@ Protocol for unlock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 4: If admin clicks "Confirm", call unlock_user_workflow_v2({ targetUserId, confirmed: true }).
   Step 5: Call run_consistency_checks.
   Step 6: Report the results.
+  Step 7: You MUST call generate_action_report — do not skip this. Pass actionType="unlock", targetUserName, targetUserEmail, targetUserId, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
 
 CRITICAL RULES:
 - Always run consistency checks after every interaction (after action execution or Ready).
 - When presenting consistency check results: mention the actual numbers for both locked and active users from the tool output. If lockedUsers is empty say "No locked users have pending appointments." If activeUsers has entries say "Active user {name}: {pendingCount} pending" for each. Always include the total pending count for each category.
 - You MUST call navigate as a SEPARATE tool call. Do NOT rely on the first tool to navigate — call navigate explicitly.
 - Do NOT respond with text asking the admin to confirm — use ask_user with options.
-- Keep responses concise and factual.`,
+- Keep responses concise and factual.
+- CRITICAL: You MUST call generate_action_report as the FINAL step of every cancel, lock, and unlock protocol. Do NOT just mention the PDF report in text — you must actually call the tool. The tool returns the PDF data which the UI uses to show a download link. If you only say "PDF-Bericht wurde generiert" without calling the tool, the admin will not see a download button.`,
   model: {
     providerId: 'opencode-go',
     modelId: 'deepseek-v4-flash',
@@ -343,6 +518,7 @@ CRITICAL RULES:
     unlockUserWorkflow_v2,
     checkPendingAppointments,
     runConsistencyChecks,
+    generateActionReport,
     askUserTool,
     routeNavigate,
   },
@@ -362,4 +538,5 @@ export const workflowAgentTools = {
   unlockUserWorkflow_v2,
   checkPendingAppointments,
   runConsistencyChecks,
+  generateActionReport,
 }

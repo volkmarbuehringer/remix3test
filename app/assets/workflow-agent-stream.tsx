@@ -23,9 +23,35 @@ export const WorkflowAgentStream = clientEntry(
       }
     }
 
-    function setBarText(text: string) {
+    let pendingPdf: { filename: string; data: string } | null = null
+
+    function renderBar(text: string) {
       let bar = document.getElementById('agent-bar')
-      if (bar) bar.textContent = text
+      if (!bar) return
+      if (pendingPdf) {
+        bar.innerHTML = ''
+        let textEl = document.createElement('div')
+        textEl.textContent = text
+        textEl.style.marginBottom = '8px'
+        textEl.style.fontSize = '0.875rem'
+        textEl.style.whiteSpace = 'pre-wrap'
+        bar.appendChild(textEl)
+        let link = document.createElement('a')
+        link.href = 'data:application/pdf;base64,' + pendingPdf.data
+        link.download = pendingPdf.filename
+        link.textContent = '📄 ' + pendingPdf.filename + ' herunterladen'
+        link.style.display = 'inline-block'
+        link.style.padding = '6px 14px'
+        link.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
+        link.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+        link.style.borderRadius = '4px'
+        link.style.textDecoration = 'none'
+        link.style.fontSize = '0.8125rem'
+        link.style.cursor = 'pointer'
+        bar.appendChild(link)
+      } else {
+        bar.textContent = text
+      }
     }
 
     function setFormEnabled(enabled: boolean) {
@@ -52,7 +78,8 @@ export const WorkflowAgentStream = clientEntry(
       if (!bar) return
 
       if (!data.options || data.options.length === 0) {
-        bar.textContent = 'Agent asks: ' + data.question
+        pendingPdf = null
+      bar.textContent = 'Agent asks: ' + data.question
         bar.style.cursor = 'pointer'
         bar.title = 'Click to answer...'
         bar.onclick = () => {
@@ -180,7 +207,7 @@ export const WorkflowAgentStream = clientEntry(
     }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
-        setBarText('Invalid navigation path')
+        renderBar('Invalid navigation path')
         return
       }
 
@@ -193,7 +220,7 @@ export const WorkflowAgentStream = clientEntry(
         frame.src = href
         frame.reload().then(
           () => restoreFilterValue(href),
-          (err) => setBarText('Navigation failed: ' + String(err)),
+          (err) => renderBar('Navigation failed: ' + String(err)),
         )
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
@@ -203,7 +230,7 @@ export const WorkflowAgentStream = clientEntry(
           }
         }
       } else {
-        setBarText('Error: frame not found')
+        renderBar('Error: frame not found')
       }
     }
 
@@ -225,6 +252,7 @@ export const WorkflowAgentStream = clientEntry(
 
     async function startStream(url: string, init: RequestInit) {
       pendingQuestion = null
+      pendingPdf = null
       abortStream()
       abortController = new AbortController()
       let signal = abortController.signal
@@ -236,14 +264,14 @@ export const WorkflowAgentStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
-          setBarText('Error: ' + msg)
+          renderBar('Error: ' + msg)
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          setBarText('Error: no response body')
+          renderBar('Error: no response body')
           setFormEnabled(true)
           return
         }
@@ -282,34 +310,42 @@ export const WorkflowAgentStream = clientEntry(
                 if (parsed.threadId) currentThreadId = parsed.threadId
               } else if (eventType === 'message') {
                 streamingText += parsed.text || ''
-                setBarText(streamingText)
+                renderBar(streamingText)
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                setBarText('Navigating to ' + parsed.href + '...')
+                renderBar('Navigating to ' + parsed.href + '...')
                 handleNavigate(parsed)
               } else if (eventType === 'question') {
                 showQuestion(parsed)
                 reader.cancel().catch(() => {})
                 return
               } else if (eventType === 'suspension') {
-                setBarText('Tool requires approval: ' + (parsed.toolName || 'unknown'))
+                renderBar('Tool requires approval: ' + (parsed.toolName || 'unknown'))
                 reader.cancel().catch(() => {})
                 return
-              } else if (eventType === 'tool-error') {
-                setBarText('Tool error: ' + (parsed.error || 'unknown'))
+              } else if (eventType === 'tool-result') {
+                let result = parsed.result as Record<string, unknown> | undefined
+                if (result?.data && typeof result.data === 'string' && result.filename) {
+                  pendingPdf = { filename: result.filename as string, data: result.data as string }
+                } else {
+                  renderBar('Tool completed: ' + (parsed.toolName || 'unknown'))
+                }
               } else if (eventType === 'stream-error') {
-                setBarText('Stream error: ' + (parsed.error || 'unknown'))
+                renderBar('Stream error: ' + (parsed.error || 'unknown'))
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
+                if (pendingPdf) {
+                  renderBar(streamingText || '📄 ' + pendingPdf.filename)
+                }
                 currentRunId = null
                 currentThreadId = null
               } else if (eventType === 'agent-error') {
-                setBarText('Error: ' + (parsed.error || 'unknown'))
+                renderBar('Error: ' + (parsed.error || 'unknown'))
               }
             } catch {
               if (eventType === 'message') {
                 streamingText += data
-                setBarText(streamingText)
+                renderBar(streamingText)
               }
             }
           }
@@ -320,7 +356,7 @@ export const WorkflowAgentStream = clientEntry(
         }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
-        setBarText('Error: ' + String(err))
+        renderBar('Error: ' + String(err))
         setFormEnabled(true)
       }
     }
@@ -361,7 +397,7 @@ export const WorkflowAgentStream = clientEntry(
           // leak fields like _csrf into browser history and access logs.
           await res.text().catch(() => '')
           if (!res.ok) {
-            setBarText('Form submission failed: ' + res.status)
+            renderBar('Form submission failed: ' + res.status)
           }
           frame.reload().catch(() => {})
         } catch {
@@ -378,7 +414,7 @@ export const WorkflowAgentStream = clientEntry(
       if (!message) return
 
       if (currentThreadId) formData.set('threadId', currentThreadId)
-      setBarText('Sending: ' + message)
+      renderBar('Sending: ' + message)
       let input = document.getElementById('workflow-agent-input') as HTMLInputElement | null
       if (input) input.value = ''
       setFormEnabled(false)
