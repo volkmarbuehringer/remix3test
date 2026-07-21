@@ -89,6 +89,43 @@ export async function executeCancelUserWorkflow(input: {
   }
 }
 
+export async function executeConsistencyCheckWorkflow(): Promise<{
+  success: boolean
+  lockedUsers: { id: number; name: string; email: string; pendingCount: number }[]
+  lockedTotal: number
+  activeUsers: { id: number; name: string; email: string; pendingCount: number }[]
+  activeTotal: number
+  error?: string
+}> {
+  if (!_mastra) throw new Error('Mastra not initialized')
+  let wf = _mastra.getWorkflow('consistencyCheckWorkflow')
+  let run = await wf.createRun({ resourceId: 'consistency' })
+  let result = await run.start({ inputData: {} })
+  if (result.status === 'success' && result.result) {
+    let out = result.result as {
+      lockedUsers?: { id: number; name: string; email: string; pendingCount: number }[]
+      lockedTotal?: number
+      activeUsers?: { id: number; name: string; email: string; pendingCount: number }[]
+      activeTotal?: number
+    }
+    return {
+      success: true,
+      lockedUsers: out.lockedUsers ?? [],
+      lockedTotal: out.lockedTotal ?? 0,
+      activeUsers: out.activeUsers ?? [],
+      activeTotal: out.activeTotal ?? 0,
+    }
+  }
+  return {
+    success: false,
+    lockedUsers: [],
+    lockedTotal: 0,
+    activeUsers: [],
+    activeTotal: 0,
+    error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+  }
+}
+
 export async function executeLockUserWorkflow(input: {
   targetUserId: number
   adminUserId: number

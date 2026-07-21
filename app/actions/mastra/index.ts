@@ -13,6 +13,7 @@ import { bookingReminderWorkflow } from './workflows/booking-reminder-workflow.t
 import { cancelUserWorkflow } from './workflows/cancel-user-workflow.ts'
 import { lockUserWorkflow } from './workflows/lock-user-workflow.ts'
 import { unlockUserWorkflow } from './workflows/unlock-user-workflow.ts'
+import { consistencyCheckWorkflow } from './workflows/consistency-check-workflow.ts'
 import { completenessScorer } from './scorers/support-scorers.ts'
 import { appointmentCreatedScorer } from './scorers/booking-scorers.ts'
 import { mastraStorage } from './storage.ts'
@@ -29,6 +30,7 @@ export const mastra = new Mastra({
     cancelUserWorkflow,
     lockUserWorkflow,
     unlockUserWorkflow,
+    consistencyCheckWorkflow,
   },
   scorers: {
     completeness: completenessScorer,

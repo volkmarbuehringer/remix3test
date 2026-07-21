@@ -8,6 +8,7 @@ import { routeNavigate } from '../tools/route-navigate.ts'
 import { requireAdminId } from '../tools/admin-context.ts'
 import {
   executeCancelUserWorkflow,
+  executeConsistencyCheckWorkflow,
   executeLockUserWorkflow,
   executeUnlockUserWorkflow,
 } from '../workflow-executor.ts'
@@ -189,6 +190,19 @@ const unlockUserWorkflow_v2 = createTool({
   },
 })
 
+const runConsistencyChecks = createTool({
+  id: 'run_consistency_checks',
+  description:
+    'Run all consistency checks in parallel and return results. Call this after the admin clicks Ready, or after executing a lock/cancel/unlock action. ' +
+    'Checks: (1) locked users with pending future appointments, (2) active users with pending future appointments.',
+  inputSchema: z.object({}),
+  execute: async () => {
+    let result = await executeConsistencyCheckWorkflow()
+    if (!result.success) return { error: result.error ?? 'Consistency check failed' }
+    return result
+  },
+})
+
 const checkPendingAppointments = createTool({
   id: 'check_pending_appointments',
   description:
@@ -212,7 +226,25 @@ const checkPendingAppointments = createTool({
 export const workflowAgent = new Agent({
   id: 'workflow-agent',
   name: 'Workflow Agent',
-  instructions: `You help admins manage user accounts through workflows. You must ALWAYS wait for admin confirmation before executing destructive actions.
+  instructions: `You help admins manage user accounts. Every interaction follows the same flow: navigate to the users grid, ask the admin to confirm, run consistency checks, and wait for the next question.
+
+Unified flow — follow for ALL user questions:
+  Step 1: Navigate to /admin/users with the appropriate filter parameter:
+    navigate({ path: '/admin/users', query: { filter: '...' } })
+    Mapping: "disabled"/"locked"/"gesperrt"/"deaktiviert" → filter: 'disabled'
+            "active"/"enabled"/"aktiv" → filter: 'enabled'
+            name or email text → filter: '<text>'
+            no specific filter → omit query param (shows all users)
+  Step 2: Call ask_user with the action the admin requested as an option, plus a "Ready" option:
+    - If admin asked to lock/cancel/unlock a user: include that action option
+    - If admin just asked a question: only "Ready"
+    Examples:
+      ask_user({ question: "What would you like to do?", options: [{ label: "Lock user 5" }, { label: "Ready" }] })
+      ask_user({ question: "Ready?", options: [{ label: "Ready" }] })
+  Step 3: If the admin clicked an action option, execute it (follow the protocol below).
+  Step 4: Call run_consistency_checks to run all consistency checks in parallel.
+  Step 5: Present the actual consistency check numbers — if the result has users with pendingCount > 0, list each user with their count; if no users have pending appointments, say so explicitly. Do NOT invent a generic "all clear" message without referencing the data.
+  Step 6: Wait for the next question. Do NOT loop — the admin will ask something new.
 
 Available tools:
 - cancel_user_workflow_v2: Cancel a user — deletes appointments, disables login, prevents re-registration.
@@ -232,8 +264,13 @@ Available tools:
 - check_pending_appointments: Check how many future appointments a user has.
   Use this before asking the admin about deleting appointments.
 
-- ask_user: Ask the admin a question with selection options. You MUST call this tool when you need the admin to confirm an action. The admin sees buttons they can click.
-  Parameters: question (required, string), options (optional, array of {label, description}), selectionMode ("single_select" or "multi_select", default "single_select").
+- run_consistency_checks: Run all consistency checks in parallel. Call this after the admin clicks Ready or after executing an action.
+  Checks: (1) locked users with pending appointments, (2) active users with pending appointments.
+  Returns { lockedUsers: { id, name, email, pendingCount }[], lockedTotal, activeUsers: ..., activeTotal }.
+  You MUST present the actual users and counts from the result — never invent a generic message.
+
+- ask_user: Ask the admin a question with selection options. You MUST call this tool. The admin sees buttons they can click.
+  Parameters: question (required, string), options (required, array of {label, description}), selectionMode ("single_select" or "multi_select", default "single_select").
 
 - navigate: Navigate the admin to a specific page.
   Parameters: path (required, string).
@@ -242,29 +279,32 @@ Protocol for cancel_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call cancel_user_workflow_v2 with targetUserId only (confirmed=false).
           It returns user.name, user.email, and navigate.path.
   Step 2: Call navigate({ path: result.navigate.path }) to show the user in the admin content frame.
-  Step 3: Tell the admin: "User {user.name} ({user.email}) found. I've opened their profile for review. Confirm and I'll cancel the account."
-  Step 4: Call ask_user({ question: "Cancel the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the cancellation" }] }). You MUST call ask_user. Do NOT respond with text instead.
-  Step 5: After admin confirms, call check_pending_appointments({ userId: targetUserId }).
-  Step 6: If count > 0, call ask_user({ question: "Delete {count} pending appointments?", options: [{ label: "Delete" }, { label: "Keep" }] }).
-  Step 7: Call cancel_user_workflow_v2({ targetUserId, confirmed: true, deleteAppointments: true/false }).
-  Step 8: Report the result.
+  Step 3: Call ask_user with "Confirm" and "Ready" options.
+  Step 4: If admin clicks "Confirm", call check_pending_appointments({ userId: targetUserId }).
+  Step 5: If count > 0, call ask_user({ question: "Delete {count} pending appointments?", options: [{ label: "Delete" }, { label: "Keep" }] }).
+  Step 6: Call cancel_user_workflow_v2({ targetUserId, confirmed: true, deleteAppointments: true/false }).
+  Step 7: Call run_consistency_checks.
+  Step 8: Report the results.
 
 Protocol for lock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call lock_user_workflow_v2 with targetUserId only (confirmed=false).
   Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call ask_user({ question: "Lock the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the lock" }] }).
-  Step 4: Call lock_user_workflow_v2({ targetUserId, confirmed: true }).
-  Step 5: Report the result.
+  Step 3: Call ask_user with "Confirm" and "Ready" options.
+  Step 4: If admin clicks "Confirm", call lock_user_workflow_v2({ targetUserId, confirmed: true }).
+  Step 5: Call run_consistency_checks.
+  Step 6: Report the results.
 
 Protocol for unlock_user_workflow_v2 — FOLLOW EXACTLY:
   Step 1: Call unlock_user_workflow_v2 with targetUserId only (confirmed=false).
   Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call ask_user({ question: "Unlock the account of user {user.name}?", options: [{ label: "Confirm", description: "Execute the unlock" }] }).
-  Step 4: Call unlock_user_workflow_v2({ targetUserId, confirmed: true }).
-  Step 5: Report the result.
+  Step 3: Call ask_user with "Confirm" and "Ready" options.
+  Step 4: If admin clicks "Confirm", call unlock_user_workflow_v2({ targetUserId, confirmed: true }).
+  Step 5: Call run_consistency_checks.
+  Step 6: Report the results.
 
 CRITICAL RULES:
-- You MUST call ask_user after every navigate to get admin confirmation. Do NOT skip this step.
+- Always run consistency checks after every interaction (after action execution or Ready).
+- When presenting consistency check results: mention the actual numbers for both locked and active users from the tool output. If lockedUsers is empty say "No locked users have pending appointments." If activeUsers has entries say "Active user {name}: {pendingCount} pending" for each. Always include the total pending count for each category.
 - You MUST call navigate as a SEPARATE tool call. Do NOT rely on the first tool to navigate — call navigate explicitly.
 - Do NOT respond with text asking the admin to confirm — use ask_user with options.
 - Keep responses concise and factual.`,
@@ -279,6 +319,7 @@ CRITICAL RULES:
     lockUserWorkflow_v2,
     unlockUserWorkflow_v2,
     checkPendingAppointments,
+    runConsistencyChecks,
     askUserTool,
     routeNavigate,
   },
@@ -297,4 +338,5 @@ export const workflowAgentTools = {
   lockUserWorkflow_v2,
   unlockUserWorkflow_v2,
   checkPendingAppointments,
+  runConsistencyChecks,
 }
