@@ -4,7 +4,8 @@ import * as assert from 'remix/assert'
 import { pool, initializeAppDatabase } from '../../data/setup.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
-import { workflowAgentRateLimiter } from './controller.tsx'
+import { workflowAgentRateLimiter, __setTestAgent } from './controller.tsx'
+import type { AgentStreamOutput, TestAgent } from '../mastra/shared-agent.ts'
 
 const BASE = 'https://remix.run'
 const WORKFLOW_AGENT_URL = `${BASE}/workflow-agent`
@@ -79,6 +80,90 @@ describe('WorkflowAgent route (GET)', () => {
   })
 })
 
+// ── SSE response parser ──
+
+async function parseSSEResponse(
+  response: Response,
+): Promise<{ events: Array<{ type: string; data: string }>; text: string }> {
+  let events: Array<{ type: string; data: string }> = []
+  let text = ''
+  let body = response.body
+  if (!body) return { events, text }
+
+  let reader = body.getReader()
+  let decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+    for (let part of parts) {
+      let lines = part.split('\n')
+      let eventType = 'message'
+      let data = ''
+      for (let line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7)
+        else if (line.startsWith('data: ')) data = line.slice(6)
+      }
+      events.push({ type: eventType, data })
+      if (eventType === 'message') {
+        try {
+          let parsed = JSON.parse(data)
+          text += parsed.text || ''
+        } catch {
+          text += data
+        }
+      }
+    }
+  }
+  return { events, text }
+}
+
+function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput {
+  let id = runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        if (text) {
+          controller.enqueue({ type: 'text-delta', textDelta: text })
+        }
+        controller.enqueue({ type: 'finish', payload: {} })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text, finishReason: 'stop' }),
+  }
+}
+
+function createMockNavigateStream(
+  path: string,
+  runId?: string,
+): AgentStreamOutput {
+  let id = runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({
+          type: 'tool-result',
+          payload: {
+            toolCallId: 'mock-tool-call',
+            toolName: 'navigate',
+            result: { type: 'route', path },
+          },
+        })
+        controller.enqueue({ type: 'finish', payload: {} })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text: '', finishReason: 'stop' }),
+  }
+}
+
 describe('WorkflowAgent route (POST validation)', () => {
   let adminCookie: string
   let adminId: number
@@ -151,5 +236,95 @@ describe('WorkflowAgent route (POST validation)', () => {
     assert.ok(text.includes('Too many requests'), `unexpected body: ${text}`)
 
     workflowAgentRateLimiter.reset(adminId)
+  })
+})
+
+describe('WorkflowAgent appointment navigation', () => {
+  let adminCookie: string
+  let adminId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+    let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!session) throw new Error('Failed to create auth session')
+    adminCookie = session.cookie
+    adminId = await getAdminId()
+  })
+
+  it('navigates to /verwaltung/appointments when asked about appointments this week', async () => {
+    workflowAgentRateLimiter.reset(adminId)
+
+    let mockAgent: TestAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () =>
+        createMockNavigateStream('/verwaltung/appointments?period=this_week'),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await postForm(WORKFLOW_AGENT_URL, adminCookie, {
+      message: 'show me appointments this week',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let navigateEvent = events.find((e) => e.type === 'navigate')
+    assert.ok(navigateEvent, 'should have a navigate event')
+    let data = JSON.parse(navigateEvent!.data)
+    assert.ok(data.href.startsWith('/verwaltung/appointments'), `expected appointments path, got ${data.href}`)
+    assert.ok(data.href.includes('period='), `expected period param, got ${data.href}`)
+    assert.equal(data.target, 'admin-content')
+
+    __setTestAgent(undefined)
+  })
+
+  it('navigates to /verwaltung/appointments with filter for user appointments', async () => {
+    workflowAgentRateLimiter.reset(adminId)
+
+    let mockAgent2: TestAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () =>
+        createMockNavigateStream('/verwaltung/appointments?filter=5'),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent2)
+
+    let response = await postForm(WORKFLOW_AGENT_URL, adminCookie, {
+      message: 'what appointments does user 5 have',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let navigateEvent = events.find((e) => e.type === 'navigate')
+    assert.ok(navigateEvent, 'should have a navigate event')
+    let data = JSON.parse(navigateEvent!.data)
+    assert.ok(data.href.includes('filter='), `expected filter param, got ${data.href}`)
+
+    __setTestAgent(undefined)
+  })
+
+  it('navigates to plain /verwaltung/appointments without params for generic query', async () => {
+    workflowAgentRateLimiter.reset(adminId)
+
+    let mockAgent3: TestAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () =>
+        createMockNavigateStream('/verwaltung/appointments'),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent3)
+
+    let response = await postForm(WORKFLOW_AGENT_URL, adminCookie, {
+      message: 'show appointments',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let navigateEvent = events.find((e) => e.type === 'navigate')
+    assert.ok(navigateEvent, 'should have a navigate event')
+    let data = JSON.parse(navigateEvent!.data)
+    assert.equal(data.href, '/verwaltung/appointments')
+
+    __setTestAgent(undefined)
   })
 })

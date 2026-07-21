@@ -10,9 +10,22 @@ import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { runWithAdminId } from '../mastra/tools/admin-context.ts'
+import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
 import type { AppContext } from '../../types/context.ts'
+import type { TestAgent } from '../mastra/shared-agent.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
+
+// Test-only agent injection point — setter is a no-op outside test env
+let _testAgent: TestAgent | undefined
+export function __setTestAgent(agent: typeof _testAgent) {
+  if (process.env.NODE_ENV === 'test') {
+    _testAgent = agent
+  }
+}
+export function __getTestAgent() {
+  return _testAgent
+}
 
 // Keyed on the authenticated admin's user id — never on client-supplied
 // headers like X-Forwarded-For, which are spoofable (see remix3-two-tier-ip-trust-model).
@@ -106,9 +119,14 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              let agent = mastra.getAgent('workflowAgent')
+              let agent: TestAgent =
+                process.env.NODE_ENV === 'test' && _testAgent
+                  ? _testAgent
+                  : mastra.getAgent('workflowAgent')
               let output = await runWithAdminId(user.id, () =>
                 agent.stream(message, {
+                  maxSteps: 10,
+                  abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
                   memory: { thread: threadId, resource: String(user.id) },
                 }),
               )
@@ -193,7 +211,10 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              let agent = mastra.getAgent('workflowAgent')
+              let agent: TestAgent =
+                process.env.NODE_ENV === 'test' && _testAgent
+                  ? _testAgent
+                  : mastra.getAgent('workflowAgent')
               let output = await runWithAdminId(user.id, () =>
                 agent.resumeStream(resumeData, { runId, toolCallId }),
               )
@@ -266,11 +287,14 @@ export const workflowAgent = createController<typeof routes.workflowAgent, AppCo
         }
 
         try {
-          let agent = mastra.getAgent('workflowAgent')
+          let agent: TestAgent =
+            process.env.NODE_ENV === 'test' && _testAgent
+              ? _testAgent
+              : mastra.getAgent('workflowAgent')
           let result = (await runWithAdminId(user.id, () =>
             decision === 'approve'
-              ? agent.approveToolCallGenerate({ runId, toolCallId })
-              : agent.declineToolCallGenerate({ runId, toolCallId }),
+              ? agent.approveToolCallGenerate!({ runId, toolCallId })
+              : agent.declineToolCallGenerate!({ runId, toolCallId }),
           )) as {
             text?: string
             finishReason?: string
