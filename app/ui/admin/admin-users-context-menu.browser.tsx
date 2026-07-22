@@ -2,11 +2,11 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
-import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { Separator } from '../ui/theme/separator/separator.ts'
-import { theme } from '../ui/theme/theme.ts'
-import { showToast } from '../ui/toast.ts'
-import { safeNavigate } from '../utils/frame-utils.ts'
+import { Glyph } from '../theme/glyph/glyph.tsx'
+import { Separator } from '../theme/separator/separator.ts'
+import { theme } from '../theme/theme.ts'
+import { showToast } from '../toast.ts'
+import { safeNavigate } from '../../utils/frame-utils.ts'
 
 interface GridState {
   offset: string

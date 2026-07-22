@@ -10,7 +10,7 @@ import { DarkTheme, Theme } from '../theme.tsx'
 import { getCsrfToken } from 'remix/middleware/csrf'
 import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
-import { ThemeToggle } from '../assets/theme-toggle.tsx'
+import { ThemeToggle } from '../ui/theme-toggle.browser.tsx'
 
 export interface DocumentProps {
   children?: RemixNode

@@ -20,9 +20,9 @@ import { frames, routes } from '../routes.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
-import { AdminResourcesContextMenu } from '../assets/admin-resources-context-menu.tsx'
+import { AdminResourcesContextMenu } from '../ui/admin/admin-resources-context-menu.browser.tsx'
 
 interface AdminResourcesPageProps {
   rows: Resource[]

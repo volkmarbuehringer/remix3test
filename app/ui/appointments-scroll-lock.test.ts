@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { AppointmentsScrollLock } from '../assets/appointments-scroll-lock.tsx'
+import { AppointmentsScrollLock } from './appointments-scroll-lock.browser.tsx'
 
 describe('AppointmentsScrollLock', () => {
   let originalDocument: typeof globalThis.document

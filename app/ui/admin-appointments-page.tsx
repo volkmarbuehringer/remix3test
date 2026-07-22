@@ -18,9 +18,9 @@ import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { AdminAppointmentsContextMenu } from '../assets/admin-appointments-context-menu.tsx'
+import { AdminAppointmentsContextMenu } from '../ui/admin/admin-appointments-context-menu.browser.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
-import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
+import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import type {
   AppointmentRow,
   AppointmentResourceOption,

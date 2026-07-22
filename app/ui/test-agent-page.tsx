@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from './theme/theme.ts'
-import { TestAgentStream } from '../assets/test-agent-stream.tsx'
+import { TestAgentStream } from '../assets/streams/test-agent-stream.browser.tsx'
 
 interface TestAgentPageProps {
   error?: string

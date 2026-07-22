@@ -1,9 +1,9 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { agentPrefillMap } from './agent-prefill-store.ts'
+import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
 
-export const RouteAgentStream = clientEntry(
-  import.meta.url + '#RouteAgentStream',
-  function RouteAgentStream(handle: Handle) {
+export const WorkflowAgentStream = clientEntry(
+  import.meta.url + '#WorkflowAgentStream',
+  function WorkflowAgentStream(handle: Handle) {
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
@@ -23,14 +23,40 @@ export const RouteAgentStream = clientEntry(
       }
     }
 
-    function setBarText(text: string) {
+    let pendingPdf: { filename: string; data: string } | null = null
+
+    function renderBar(text: string) {
       let bar = document.getElementById('agent-bar')
-      if (bar) bar.textContent = text
+      if (!bar) return
+      if (pendingPdf) {
+        bar.innerHTML = ''
+        let textEl = document.createElement('div')
+        textEl.textContent = text
+        textEl.style.marginBottom = '8px'
+        textEl.style.fontSize = '0.875rem'
+        textEl.style.whiteSpace = 'pre-wrap'
+        bar.appendChild(textEl)
+        let link = document.createElement('a')
+        link.href = 'data:application/pdf;base64,' + pendingPdf.data
+        link.download = pendingPdf.filename
+        link.textContent = '📄 ' + pendingPdf.filename + ' herunterladen'
+        link.style.display = 'inline-block'
+        link.style.padding = '6px 14px'
+        link.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
+        link.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+        link.style.borderRadius = '4px'
+        link.style.textDecoration = 'none'
+        link.style.fontSize = '0.8125rem'
+        link.style.cursor = 'pointer'
+        bar.appendChild(link)
+      } else {
+        bar.textContent = text
+      }
     }
 
     function setFormEnabled(enabled: boolean) {
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
-      let submit = document.getElementById('route-agent-submit') as HTMLButtonElement | null
+      let input = document.getElementById('workflow-agent-input') as HTMLInputElement | null
+      let submit = document.getElementById('workflow-agent-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
       if (submit) submit.disabled = !enabled
     }
@@ -52,7 +78,8 @@ export const RouteAgentStream = clientEntry(
       if (!bar) return
 
       if (!data.options || data.options.length === 0) {
-        bar.textContent = 'Agent asks: ' + data.question
+        pendingPdf = null
+      bar.textContent = 'Agent asks: ' + data.question
         bar.style.cursor = 'pointer'
         bar.title = 'Click to answer...'
         bar.onclick = () => {
@@ -180,7 +207,7 @@ export const RouteAgentStream = clientEntry(
     }) {
       let { href, target, history: historyMode } = data
       if (typeof href !== 'string' || !href.startsWith('/') || href.startsWith('//')) {
-        setBarText('Invalid navigation path')
+        renderBar('Invalid navigation path')
         return
       }
 
@@ -190,27 +217,10 @@ export const RouteAgentStream = clientEntry(
 
       let frame = target ? handle.frames.get(target) : handle.frame
       if (frame) {
-        let container = document.getElementById('route-agent-frame-container')
-        if (container && target) {
-          let activeFrame = container.getAttribute('data-active-frame')
-          if (activeFrame && activeFrame !== target) {
-            let oldWrapper = document.getElementById('frame-' + activeFrame)
-            if (oldWrapper) oldWrapper.style.display = 'none'
-            let newWrapper = document.getElementById('frame-' + target)
-            if (newWrapper) newWrapper.style.display = 'block'
-            let oldFrame = handle.frames.get(activeFrame)
-            if (oldFrame) {
-              oldFrame.src = '/route-agent/panel'
-              oldFrame.reload().catch(() => {})
-            }
-            container.setAttribute('data-active-frame', target)
-          }
-        }
-
         frame.src = href
         frame.reload().then(
           () => restoreFilterValue(href),
-          (err) => setBarText('Navigation failed: ' + String(err)),
+          (err) => renderBar('Navigation failed: ' + String(err)),
         )
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
@@ -220,7 +230,7 @@ export const RouteAgentStream = clientEntry(
           }
         }
       } else {
-        setBarText('Error: frame not found')
+        renderBar('Error: frame not found')
       }
     }
 
@@ -237,11 +247,12 @@ export const RouteAgentStream = clientEntry(
       if (pq.toolCallId) body.set('toolCallId', pq.toolCallId)
       if (currentThreadId) body.set('threadId', currentThreadId)
 
-      startStream('/route-agent/answer', { method: 'POST', body })
+      startStream('/workflow-agent/answer', { method: 'POST', body })
     }
 
     async function startStream(url: string, init: RequestInit) {
       pendingQuestion = null
+      pendingPdf = null
       abortStream()
       abortController = new AbortController()
       let signal = abortController.signal
@@ -253,14 +264,14 @@ export const RouteAgentStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
-          setBarText('Error: ' + msg)
+          renderBar('Error: ' + msg)
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          setBarText('Error: no response body')
+          renderBar('Error: no response body')
           setFormEnabled(true)
           return
         }
@@ -299,40 +310,42 @@ export const RouteAgentStream = clientEntry(
                 if (parsed.threadId) currentThreadId = parsed.threadId
               } else if (eventType === 'message') {
                 streamingText += parsed.text || ''
-                setBarText(streamingText)
+                renderBar(streamingText)
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                setBarText('Navigating to ' + parsed.href + '...')
+                renderBar('Navigating to ' + parsed.href + '...')
                 handleNavigate(parsed)
               } else if (eventType === 'question') {
                 showQuestion(parsed)
                 reader.cancel().catch(() => {})
                 return
               } else if (eventType === 'suspension') {
-                setBarText('Tool requires approval: ' + (parsed.toolName || 'unknown'))
+                renderBar('Tool requires approval: ' + (parsed.toolName || 'unknown'))
                 reader.cancel().catch(() => {})
                 return
-              } else if (eventType === 'tool-error') {
-                setBarText('Tool error: ' + (parsed.error || 'unknown'))
+              } else if (eventType === 'tool-result') {
+                let result = parsed.result as Record<string, unknown> | undefined
+                if (result?.data && typeof result.data === 'string' && result.filename) {
+                  pendingPdf = { filename: result.filename as string, data: result.data as string }
+                } else {
+                  renderBar('Tool completed: ' + (parsed.toolName || 'unknown'))
+                }
               } else if (eventType === 'stream-error') {
-                setBarText('Stream error: ' + (parsed.error || 'unknown'))
+                renderBar('Stream error: ' + (parsed.error || 'unknown'))
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
+                if (pendingPdf) {
+                  renderBar(streamingText || '📄 ' + pendingPdf.filename)
+                }
                 currentRunId = null
                 currentThreadId = null
-                if (!didNavigate) {
-                  let container = document.getElementById('route-agent-frame-container')
-                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
-                  let theFrame = handle.frames.get(activeFrame)
-                  if (theFrame) theFrame.reload().catch(() => {})
-                }
               } else if (eventType === 'agent-error') {
-                setBarText('Error: ' + (parsed.error || 'unknown'))
+                renderBar('Error: ' + (parsed.error || 'unknown'))
               }
             } catch {
               if (eventType === 'message') {
                 streamingText += data
-                setBarText(streamingText)
+                renderBar(streamingText)
               }
             }
           }
@@ -343,8 +356,53 @@ export const RouteAgentStream = clientEntry(
         }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
-        setBarText('Error: ' + String(err))
+        renderBar('Error: ' + String(err))
         setFormEnabled(true)
+      }
+    }
+
+    async function handleFrameFormSubmit(e: Event) {
+      let form = (e.target as HTMLElement).closest('form')
+      if (!form || form.id === 'workflow-agent-form') return
+      e.preventDefault()
+
+      let action = form.getAttribute('action') || ''
+      let method = (form.method || 'GET').toUpperCase()
+      let target = form.getAttribute('rmx-target')
+
+      let frame = target ? handle.frames.get(target) : handle.frame
+      if (!frame) return
+
+      if (method === 'GET') {
+        let params = new URLSearchParams(new FormData(form) as any)
+        let qs = params.toString()
+        let url = action + (qs ? '?' + qs : '')
+        frame.src = url
+        frame.reload().then(
+          () => restoreFilterValue(url),
+          () => {},
+        )
+        window.history.replaceState({}, '', url)
+      } else {
+        try {
+          let headers: Record<string, string> = {}
+          if (currentThreadId) headers['X-Agent-Thread'] = currentThreadId
+          let res = await fetch(action, {
+            method,
+            headers,
+            body: new FormData(form),
+          })
+          // Drain the body, then reload the frame's current location to show
+          // updated state. Never serialize form data into a URL — it would
+          // leak fields like _csrf into browser history and access logs.
+          await res.text().catch(() => '')
+          if (!res.ok) {
+            renderBar('Form submission failed: ' + res.status)
+          }
+          frame.reload().catch(() => {})
+        } catch {
+          frame.reload().catch(() => {})
+        }
       }
     }
 
@@ -356,52 +414,12 @@ export const RouteAgentStream = clientEntry(
       if (!message) return
 
       if (currentThreadId) formData.set('threadId', currentThreadId)
-      setBarText('Sending: ' + message)
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
+      renderBar('Sending: ' + message)
+      let input = document.getElementById('workflow-agent-input') as HTMLInputElement | null
       if (input) input.value = ''
       setFormEnabled(false)
 
-      startStream('/route-agent', { method: 'POST', body: formData })
-    }
-
-    async function handleFrameFormSubmit(e: Event) {
-      if (!pendingQuestion || !currentThreadId) return
-      let form = (e.target as HTMLElement).closest('form')
-      if (!form || form.id === 'route-agent-form') return
-      e.preventDefault()
-
-      let container = document.getElementById('route-agent-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'lists-content'
-      let frame = handle.frames.get(activeFrame)
-
-      setBarText('Submitting form...')
-
-      try {
-        let headers: Record<string, string> = {}
-        headers['X-Agent-Thread'] = currentThreadId
-        let res = await fetch(form.action, {
-          method: 'POST',
-          headers,
-          body: new FormData(form),
-        })
-        let ct = res.headers.get('Content-Type') || ''
-        if (ct.includes('json')) {
-          let data = await res.json()
-          let body = new FormData()
-          body.set('runId', currentRunId || '')
-          body.set('answer', JSON.stringify(data))
-          body.set('selectionMode', 'single_select')
-          if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-          startStream('/route-agent/answer', { method: 'POST', body })
-          return
-        }
-      } catch (err) {
-        console.error('Form submission failed:', err)
-      }
-
-      if (frame) {
-        await frame.reload()
-      }
+      startStream('/workflow-agent', { method: 'POST', body: formData })
     }
 
     return () => (
@@ -409,12 +427,11 @@ export const RouteAgentStream = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((el) => {
-            let form = document.getElementById('route-agent-form') as HTMLFormElement | null
+            let form = document.getElementById('workflow-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })
             }
-
-            let container = document.getElementById('route-agent-frame-container')
+            let container = document.getElementById('workflow-agent-frame-container')
             if (container) {
               container.addEventListener('submit', handleFrameFormSubmit, { signal: handle.signal })
             }

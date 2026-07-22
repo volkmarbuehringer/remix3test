@@ -3,9 +3,9 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { routes, frames, webhookRequestsRoute } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
-import { AdminViewToggle } from '../assets/admin-view-toggle.tsx'
-import { PersistentAdminCounter } from '../assets/persistent-admin-counter.tsx'
+import { AdminViewToggle } from '../ui/admin/admin-view-toggle.browser.tsx'
 
+import { PersistentAdminCounter } from '../ui/admin/persistent-admin-counter.browser.tsx'
 export type AdminNavItem =
   | 'dashboard'
   | 'chatlog'

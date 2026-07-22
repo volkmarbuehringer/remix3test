@@ -1,6 +1,6 @@
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { WebhookComposer } from '../assets/webhook-composer.tsx'
+import { WebhookComposer } from '../ui/webhook-composer.browser.tsx'
 
 export function WebhookComposerPage() {
   return () => (

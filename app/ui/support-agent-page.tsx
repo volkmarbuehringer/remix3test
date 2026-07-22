@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
-import { SupportAgentStream } from '../assets/support-agent-stream.tsx'
+import { SupportAgentStream } from '../assets/streams/support-agent-stream.browser.tsx'
 
 const pageStyle = css({
   display: 'flex',

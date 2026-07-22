@@ -18,7 +18,7 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
 import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { parseDuring } from '../data/appointofferings.ts'
-import { AppointmentsScrollLock } from '../assets/appointments-scroll-lock.tsx'
+import { AppointmentsScrollLock } from '../ui/appointments-scroll-lock.browser.tsx'
 
 const BASE = '/appointments/new'
 

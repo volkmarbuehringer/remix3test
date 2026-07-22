@@ -6,7 +6,7 @@ import { Logger } from 'remix/middleware/logger'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { JsonBody } from '../../middleware/json-body.ts'
-import { ListsClient } from '../../assets/lists-client.tsx'
+import { ListsClient } from './lists-client.browser.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'

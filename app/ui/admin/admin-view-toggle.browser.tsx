@@ -1,6 +1,6 @@
 import { clientEntry, css, on, type Handle } from 'remix/ui'
-import { theme } from '../ui/theme/theme.ts'
-import { routes } from '../routes.ts'
+import { theme } from '../theme/theme.ts'
+import { routes } from '../../routes.ts'
 
 /**
  * Toggle that demonstrates root reload entry lifecycle.

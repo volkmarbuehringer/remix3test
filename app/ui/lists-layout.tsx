@@ -7,9 +7,9 @@ import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
-import { ListNameEdit } from '../assets/list-name-edit.tsx'
-import { ListsSearch } from '../assets/lists-search.tsx'
+import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
+import { ListNameEdit } from '../actions/lists/list-name-edit.browser.tsx'
+import { ListsSearch } from '../actions/lists/lists-search.browser.tsx'
 import {
   shellStyle,
   sidebarStyle,

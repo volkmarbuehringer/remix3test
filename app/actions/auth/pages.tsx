@@ -19,7 +19,7 @@ import type { AuthFormErrors } from '../../ui/auth-card.tsx'
 import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 import { PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
-import { passwordComplexityScript } from '../../assets/password-complexity-script.tsx'
+import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
 
 // ── Login ──
 

@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { NavToggle } from './nav-toggle.tsx'
+import { NavToggle } from './nav-toggle.browser.tsx'
 
 describe('NavToggle', () => {
   let originalDocument: typeof globalThis.document

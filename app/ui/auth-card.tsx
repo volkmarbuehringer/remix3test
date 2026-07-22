@@ -4,7 +4,7 @@ import button from '../ui/theme/button.ts'
 import { theme } from '../ui/theme/theme.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { PasswordToggle } from '../assets/password-toggle.tsx'
+import { PasswordToggle } from '../ui/password-toggle.browser.tsx'
 
 export type AuthFormErrors = {
   form?: string

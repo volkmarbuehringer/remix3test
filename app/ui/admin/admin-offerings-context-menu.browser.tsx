@@ -2,9 +2,11 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
-import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { Separator } from '../ui/theme/separator/separator.ts'
-import { theme } from '../ui/theme/theme.ts'
+import { Glyph } from '../theme/glyph/glyph.tsx'
+import { Separator } from '../theme/separator/separator.ts'
+import { theme } from '../theme/theme.ts'
+
+// ── Types ──
 
 interface GridState {
   offset: string
@@ -14,18 +16,31 @@ interface GridState {
   baseHref?: string
 }
 
-export const AdminResourcesContextMenu = clientEntry(
-  import.meta.url + '#AdminResourcesContextMenu',
-  function AdminResourcesContextMenu(handle: Handle) {
+/**
+ * ClientEntry that adds a right-click context menu to admin offerings table rows.
+ *
+ * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
+ * mouse coordinates of the right-click. Event delegation on the table container
+ * captures `contextmenu` events from server-rendered rows and dispatches a
+ * synthetic event to the hidden trigger.
+ */
+export const AdminOfferingsContextMenu = clientEntry(
+  import.meta.url + '#AdminOfferingsContextMenu',
+  function AdminOfferingsContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
 
     return () => (
-      <menu.Context label="Ressourcenaktionen">
+      <menu.Context label="Angebotsaktionen">
+        {/*
+          Hidden trigger element — positioned at right-click coordinates.
+          Uses `opacity: 0` (not `display: none`) so the synthetic `contextmenu`
+          event dispatches correctly and `getBoundingClientRect()` works.
+        */}
         <div
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              let table = document.querySelector('[data-resources-table]')
+              let table = document.querySelector('[data-offerings-table]')
               if (!table) return
 
               function onContextMenu(event: Event) {
@@ -85,21 +100,21 @@ export const AdminResourcesContextMenu = clientEntry(
     )
 
     function handleEditAction(rowId: string) {
-      let dataEl = document.getElementById('resources-grid-state')
+      let dataEl = document.getElementById('offerings-grid-state')
       if (!dataEl) return
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
-        let baseHref = state.baseHref || '/verwaltung/resources'
+        let baseHref = state.baseHref || '/verwaltung/offerings'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
-        params.set('sort', state.sort || 'name')
+        params.set('sort', state.sort || 'ao.id')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
         window.location.href = baseHref + '?' + params.toString()
       } catch {
-        window.location.href = '/verwaltung/resources?editing=' + rowId
+        window.location.href = '/verwaltung/offerings?editing=' + rowId
       }
     }
 

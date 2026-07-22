@@ -4,13 +4,13 @@ import { theme } from '../../ui/theme/theme.ts'
 import button from '../../ui/theme/button.ts'
 
 import type { Client } from '../../data/schema.ts'
-import { FrameRefreshButton } from '../../assets/grid-refresh-button.tsx'
-import { ConfirmDelete } from '../../assets/confirm-delete.tsx'
+import { FrameRefreshButton } from '../../ui/grid-refresh-button.browser.tsx'
+import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { routes } from '../../routes.ts'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { CsrfTokenInput, tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
 import { getCspNonce } from '../../middleware/security-headers.ts'
-import { ClientGridInlineEdit } from '../../assets/client-grid-inline-edit.tsx'
+import { ClientGridInlineEdit } from '../../ui/nutzer/client-grid-inline-edit.browser.tsx'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null

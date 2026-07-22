@@ -5,8 +5,8 @@ import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
+import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { formatTimestamp } from './mixins/admin-urls.ts'
 
 interface MessageRow {

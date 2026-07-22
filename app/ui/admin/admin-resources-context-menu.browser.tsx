@@ -2,49 +2,30 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
-import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { Separator } from '../ui/theme/separator/separator.ts'
-import { theme } from '../ui/theme/theme.ts'
-
-// ── Types ──
+import { Glyph } from '../theme/glyph/glyph.tsx'
+import { Separator } from '../theme/separator/separator.ts'
+import { theme } from '../theme/theme.ts'
 
 interface GridState {
   offset: string
   sort: string
   order: string
   filter: string
-  period: string
   baseHref?: string
 }
 
-/**
- * ClientEntry that adds a right-click context menu to admin appointments table rows.
- *
- * Uses a hidden trigger element with `menu.contextTrigger()` positioned at the
- * mouse coordinates of the right-click. Event delegation on the table container
- * captures `contextmenu` events from server-rendered rows and dispatches a
- * synthetic event to the hidden trigger — avoiding the fragile hidden-trigger
- * + setTimeout pattern used in `appointtype-panel.tsx`.
- */
-export const AdminAppointmentsContextMenu = clientEntry(
-  import.meta.url + '#AdminAppointmentsContextMenu',
-  function AdminAppointmentsContextMenu(handle: Handle) {
+export const AdminResourcesContextMenu = clientEntry(
+  import.meta.url + '#AdminResourcesContextMenu',
+  function AdminResourcesContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
 
-    // ── Render ──
-
     return () => (
-      <menu.Context label="Terminaktionen">
-        {/*
-          Hidden trigger element — positioned at right-click coordinates.
-          Uses `opacity: 0` (not `display: none`) so the synthetic `contextmenu`
-          event dispatches correctly and `getBoundingClientRect()` works.
-        */}
+      <menu.Context label="Ressourcenaktionen">
         <div
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              let table = document.querySelector('[data-appointments-table]')
+              let table = document.querySelector('[data-resources-table]')
               if (!table) return
 
               function onContextMenu(event: Event) {
@@ -53,16 +34,13 @@ export const AdminAppointmentsContextMenu = clientEntry(
 
                 let target = mouseEvent.target as HTMLElement | null
                 let row = target?.closest?.('[data-row-id]') as HTMLElement | null
-                if (!row) return // clicked header, pagination, or empty space
+                if (!row) return
 
                 rightClickedRowId = row.dataset.rowId ?? null
 
-                // Position the hidden trigger at the mouse coordinates
                 el.style.left = mouseEvent.clientX + 'px'
                 el.style.top = mouseEvent.clientY + 'px'
 
-                // Dispatch synthetic contextmenu — the contextTrigger mixin
-                // picks up the coordinates and opens the menu
                 el.dispatchEvent(
                   new MouseEvent('contextmenu', {
                     clientX: mouseEvent.clientX,
@@ -75,7 +53,6 @@ export const AdminAppointmentsContextMenu = clientEntry(
 
               table.addEventListener('contextmenu', onContextMenu)
 
-              // Cleanup on unmount
               handle.signal.addEventListener('abort', () => {
                 table.removeEventListener('contextmenu', onContextMenu)
               })
@@ -107,26 +84,22 @@ export const AdminAppointmentsContextMenu = clientEntry(
       </menu.Context>
     )
 
-    // ── Action handlers ──
-
     function handleEditAction(rowId: string) {
-      let dataEl = document.getElementById('appointments-grid-state')
+      let dataEl = document.getElementById('resources-grid-state')
       if (!dataEl) return
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
-        let baseHref = state.baseHref || '/verwaltung/appointments'
+        let baseHref = state.baseHref || '/verwaltung/resources'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
-        params.set('sort', state.sort || 'a.date')
+        params.set('sort', state.sort || 'name')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        if (state.period) params.set('period', state.period)
         window.location.href = baseHref + '?' + params.toString()
       } catch {
-        // Fallback: navigate without grid state
-        window.location.href = '/verwaltung/appointments?editing=' + rowId
+        window.location.href = '/verwaltung/resources?editing=' + rowId
       }
     }
 

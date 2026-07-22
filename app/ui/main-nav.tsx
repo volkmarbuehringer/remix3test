@@ -6,7 +6,7 @@ import { getCsrfToken } from 'remix/middleware/csrf'
 import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
 import { MOBILE_ITEMS, NAV_SECTIONS } from './nav.ts'
-import { NavToggle } from '../assets/nav-toggle.tsx'
+import { NavToggle } from '../ui/layout/nav-toggle.browser.tsx'
 
 const indigo = {
   500: '#6366f1',

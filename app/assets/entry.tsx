@@ -5,7 +5,7 @@ import { Accept, SuperHeaders } from 'remix/headers'
 import { theme } from '../ui/theme/theme.ts'
 
 import { routes } from '../routes.ts'
-import { agentPrefillMap } from './agent-prefill-store.ts'
+import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 
 const app = run({
   async loadModule(moduleUrl, exportName) {

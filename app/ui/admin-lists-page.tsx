@@ -6,7 +6,7 @@ import button from '../ui/theme/button.ts'
 import { routes, frames } from '../routes.ts'
 
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
+import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { buildPaginationUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
 interface ListRowData {

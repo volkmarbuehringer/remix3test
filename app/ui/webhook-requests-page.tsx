@@ -6,9 +6,9 @@ import type { WebhookRequestRow } from '../data/webhook-requests.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ConnectionIndicator } from '../assets/connection-indicator.tsx'
-import { ConfirmDelete } from '../assets/confirm-delete.tsx'
-import { WebhookComposer } from '../assets/webhook-composer.tsx'
+import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
+import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
+import { WebhookComposer } from '../ui/webhook-composer.browser.tsx'
 
 const BASE = webhookRequestsRoute.href()
 

@@ -1,8 +1,8 @@
 import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
-import { theme } from '../ui/theme/theme.ts'
-import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { theme } from '../../ui/theme/theme.ts'
+import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
-import button from '../ui/theme/button.ts'
+import button from '../../ui/theme/button.ts'
 
 type ListItem = {
   id: string

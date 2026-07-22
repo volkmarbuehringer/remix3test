@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
-import { WorkflowAgentStream } from '../assets/workflow-agent-stream.tsx'
+import { WorkflowAgentStream } from '../assets/streams/workflow-agent-stream.browser.tsx'
 
 const pageStyle = css({
   display: 'flex',

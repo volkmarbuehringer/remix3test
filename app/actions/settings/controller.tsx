@@ -33,8 +33,8 @@ import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { Logger } from 'remix/middleware/logger'
-import { PasswordToggle } from '../../assets/password-toggle.tsx'
-import { passwordComplexityScript } from '../../assets/password-complexity-script.tsx'
+import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
+import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
 
