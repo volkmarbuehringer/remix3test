@@ -9,8 +9,9 @@ export const assetServer = createAssetServer({
     'app/*path': 'app/*path',
     'node_modules/*path': 'node_modules/*path',
   },
-  allow: ['app/assets/**', 'app/routes.ts', 'app/ui/**', 'app/utils/**', 'node_modules/**'],
-  deny: ['app/**/*.server.*'],
+  allowFiles: ['app/assets/**', 'app/routes.ts', 'app/ui/**', 'app/utils/**'],
+  allowPackages: ['remix'],
+  denyFiles: ['app/**/*.server.*'],
   target: { es: '2022', chrome: '109', safari: '16.4' },
   sourceMaps: process.env.NODE_ENV === 'development' ? 'external' : undefined,
   scripts: {
