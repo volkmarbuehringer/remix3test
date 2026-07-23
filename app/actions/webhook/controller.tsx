@@ -1,7 +1,7 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
 import { webhookRoute } from '../../routes.ts'
-import { insertWebhookRequest } from '../../data/webhook.ts'
+import { insertWebhookRequest } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
@@ -31,7 +31,7 @@ export const webhookReceive = createAction<typeof webhookRoute, AppContext>(webh
 
     let serialized = JSON.stringify(body)
     let id = await insertWebhookRequest(context.db, {
-      serialized,
+      payload: serialized,
       headers: JSON.stringify(headers),
       sourceIp: sourceIp(context.request),
       now,

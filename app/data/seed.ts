@@ -121,7 +121,7 @@ export async function seed(): Promise<void> {
     let allResources = await db.query(resources).orderBy('id', 'asc').all()
     for (let res of allResources) {
       let rules: Record<string, [number, number]> =
-        res.description === 'resource2'
+        res.name === 'Raum 2'
           ? { tuesday: [540, 1020], thursday: [540, 1080] }
           : { monday: [540, 1020], wednesday: [540, 1200] }
       await pool.query(

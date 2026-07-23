@@ -117,10 +117,14 @@ export async function updateWebhookRequestHermesStatus(
 export async function insertWebhookRequest(
   db: Database,
   data: { payload: string; headers: string; sourceIp: string; now: number },
-): Promise<void> {
-  await db.exec(
+): Promise<string> {
+  let result = await db.exec(
     `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-     VALUES ($1, $2, $3, $4)`,
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
     [data.payload, data.headers, data.sourceIp, data.now],
   )
+  let row = result.rows?.[0] as { id: unknown } | undefined
+  if (!row) throw new Error('insertWebhookRequest: INSERT … RETURNING produced no row')
+  return String(row.id)
 }

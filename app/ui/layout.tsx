@@ -59,77 +59,11 @@ export function Layout(handle: Handle<LayoutProps>) {
   }
 }
 
-const logoutFormStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  margin: 0,
-  padding: 0,
-})
-
-const logoutIconStyle = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  color: theme.colors.text.secondary,
-  padding: theme.space.sm,
-  borderRadius: theme.radius.md,
-  transition: 'color 150ms ease, background-color 150ms ease',
-  '&:hover': {
-    color: theme.colors.text.primary,
-    background: theme.surface.lvl3,
-  },
-})
-
 const shellCss = css({
   display: 'flex',
   flexDirection: 'column',
   flex: 1,
   minHeight: 0,
-})
-
-const headerStyle = css({
-  position: 'sticky',
-  top: 0,
-  zIndex: 100,
-  borderBottom: `1px solid ${theme.colors.border.default}`,
-  background: theme.surface.lvl1,
-})
-
-const containerStyle = css({
-  maxWidth: '1200px',
-  margin: '0 auto',
-  padding: `0 ${theme.space.lg}`,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-})
-
-const navStyle = css({
-  display: 'flex',
-  gap: theme.space.md,
-  alignItems: 'center',
-})
-
-const navSectionGroupCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.xs,
-  '& + &': {
-    borderLeft: `1px solid ${theme.colors.border.subtle}`,
-    paddingLeft: theme.space.md,
-  },
-})
-
-const navSectionLabelCss = css({
-  fontSize: theme.fontSize.xxs,
-  fontWeight: theme.fontWeight.semibold,
-  letterSpacing: theme.letterSpacing.meta,
-  textTransform: 'uppercase',
-  color: theme.colors.text.muted,
-  marginRight: theme.space.xs,
 })
 
 const mainStyle = css({
@@ -151,131 +85,17 @@ const pageStyle = css({
   boxSizing: 'border-box',
 })
 
-const brandGroupCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.md,
+const footerStyle = css({
+  borderTop: `1px solid ${theme.colors.border.default}`,
+  padding: `2px 0`,
+  flexShrink: 0,
+  textAlign: 'center',
 })
 
-const logoStyle = css({
-  fontSize: theme.fontSize.lg,
-  fontWeight: theme.fontWeight.bold,
-  color: theme.colors.text.primary,
-  textDecoration: 'none',
-  padding: `6px 0`,
-  display: 'inline-block',
-})
-
-const userEmailCss = css({
-  fontSize: theme.fontSize.xs,
+const footerTextCss = css({
+  margin: 0,
+  fontSize: theme.fontSize.xxs,
   color: theme.colors.text.muted,
-  borderLeft: `1px solid ${theme.colors.border.default}`,
-  paddingLeft: theme.space.md,
-})
-
-const navLinkStyle = css({
-  color: theme.colors.text.secondary,
-  textDecoration: 'none',
-  fontSize: theme.fontSize.sm,
-  padding: `6px ${theme.space.md}`,
-  borderRadius: theme.radius.md,
-  transition: 'background-color 150ms ease, color 150ms ease',
-  '&:hover': {
-    background: theme.surface.lvl3,
-    color: theme.colors.text.primary,
-  },
-})
-
-const navActiveStyle = css({
-  color: theme.colors.text.primary,
-  fontWeight: theme.fontWeight.semibold,
-})
-
-const showcaseGroupStyle = css({
-  position: 'relative',
-  display: 'flex',
-  alignItems: 'center',
-})
-
-const showcaseButtonStyle = css({
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.secondary,
-  textDecoration: 'none',
-  padding: `6px ${theme.space.md}`,
-  borderRadius: theme.radius.md,
-  transition: 'background-color 150ms ease, color 150ms ease',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
-  '&:hover': {
-    background: theme.surface.lvl3,
-    color: theme.colors.text.primary,
-  },
-})
-
-const chevronStyle = css({
-  fontSize: '0.625rem',
-  lineHeight: 1,
-})
-
-const showcaseMenuStyle = css({
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  marginTop: theme.space.xs,
-  minWidth: '160px',
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.lg,
-  boxShadow: theme.shadow.md,
-  zIndex: 200,
-  padding: theme.space.xs,
-  display: 'none',
-  gap: '2px',
-  '&.is-open': {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-})
-
-const dropdownLinkStyle = css({
-  display: 'block',
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  color: theme.colors.text.secondary,
-  textDecoration: 'none',
-  fontSize: theme.fontSize.sm,
-  borderRadius: theme.radius.md,
-  whiteSpace: 'nowrap',
-  transition: 'background-color 150ms ease, color 150ms ease',
-  '&:hover': {
-    background: theme.surface.lvl3,
-    color: theme.colors.text.primary,
-  },
-})
-
-const dropdownActiveStyle = css({
-  color: theme.colors.text.primary,
-  fontWeight: theme.fontWeight.semibold,
-  background: theme.surface.lvl2,
-})
-
-const themeToggleStyle = css({
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  fontSize: '1.125rem',
-  lineHeight: '1',
-  padding: theme.space.xs,
-  color: theme.colors.text.secondary,
-  borderRadius: theme.radius.md,
-  transition: 'background-color 150ms ease',
-  '&:hover': {
-    background: theme.surface.lvl3,
-  },
 })
 
 const tooltipAnchorStyle = css({
@@ -310,19 +130,6 @@ const tooltipAnchorStyle = css({
     visibility: 'visible',
     transitionDelay: '0s',
   },
-})
-
-const footerStyle = css({
-  borderTop: `1px solid ${theme.colors.border.default}`,
-  padding: `2px 0`,
-  flexShrink: 0,
-  textAlign: 'center',
-})
-
-const footerTextCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.xxs,
-  color: theme.colors.text.muted,
 })
 
 const flashBase = {
