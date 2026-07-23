@@ -86,9 +86,11 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
             ? isNull('disabled_at')
             : filter === 'disabled'
               ? notNull('disabled_at')
-              : filter
-                ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-                : undefined
+              : filter && /^\d+$/.test(filter)
+                ? { id: Number(filter) }
+                : filter
+                  ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+                  : undefined
 
         let { items: page, hasMore } = await paginate(db, users, {
           pageSize: effectivePageSize,

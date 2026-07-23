@@ -111,7 +111,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <input
             type="text"
             name="filter"
-            placeholder="Suche nach Name oder E-Mail..."
+            placeholder="Suche nach Name, E-Mail oder ID..."
             defaultValue={filter && filter !== 'enabled' && filter !== 'disabled' ? filter : ''}
             mix={table.filterInput}
           />

@@ -126,6 +126,31 @@ describe('Admin Users Controller', () => {
       let text = await response.text()
       assert.ok(text.includes(disabledEmail), 'disabled user should appear in disabled filter')
     })
+
+    it('filters by numeric ID (?filter=<id>)', async () => {
+      let email = `test-filter-id-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user for ID filter must be created')
+
+      let response = await router.fetch(`${USERS_URL}?filter=${id}`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes(email), 'user should appear when filtering by their ID')
+    })
+
+    it('returns empty result for nonexistent ID (?filter=9999999)', async () => {
+      let response = await router.fetch(`${USERS_URL}?filter=9999999`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('Keine Benutzer'),
+        'should show empty state for nonexistent ID',
+      )
+    })
   })
 
   describe('create (POST /admin/users)', () => {
