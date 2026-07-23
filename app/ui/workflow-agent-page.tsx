@@ -16,7 +16,7 @@ const frameContainerStyle = css({
   minHeight: 0,
 })
 
-const agentBarStyle = css({
+const chatMessagesStyle = css({
   padding: '0.5rem 1rem',
   fontSize: '0.8125rem',
   color: theme.colors.text.secondary,
@@ -50,6 +50,9 @@ const inputStyle = css({
   background: theme.surface.lvl1,
   outline: 'none',
   boxSizing: 'border-box',
+  resize: 'none',
+  minHeight: '2.4rem',
+  lineHeight: '1.4',
 })
 
 const btnStyle = css({
@@ -84,18 +87,20 @@ export function WorkflowAgentPage(handle: Handle) {
         />
       </div>
 
-      <div id="agent-bar" mix={agentBarStyle}>
-        Ask the agent to manage a user account...
+      <div id="chat-messages" mix={chatMessagesStyle}>
+        <div style={{ padding: '0.25rem 0', fontSize: '0.8125rem', color: 'var(--rmx-color-text-muted, #888)', fontStyle: 'italic' }}>
+          Ask the agent to manage a user account...
+        </div>
       </div>
 
       <form id="workflow-agent-form" mix={inputBarStyle}>
-        <input
+        <textarea
           id="workflow-agent-input"
-          type="text"
           name="message"
           placeholder="e.g. 'cancel user 42' or 'lock user 5'"
           autoComplete="off"
           mix={inputStyle}
+          rows={1}
         />
         <button id="workflow-agent-submit" type="submit" mix={btnStyle}>
           Send

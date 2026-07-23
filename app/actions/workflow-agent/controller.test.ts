@@ -54,6 +54,8 @@ describe('WorkflowAgent route (GET)', () => {
     assert.ok(text.includes('workflow-agent-frame-container'), 'should have frame container')
     assert.ok(text.includes('workflow-agent-form'), 'should have form')
     assert.ok(text.includes('workflow-agent-input'), 'should have input')
+    assert.ok(text.includes('</textarea>'), 'input should be a textarea element')
+    assert.ok(text.includes('chat-messages'), 'should have chat-messages conversation container')
   })
 
   it('panel returns placeholder content', async () => {
@@ -198,6 +200,77 @@ describe('WorkflowAgent route (POST validation)', () => {
     assert.equal(response.status, 400)
     let text = await response.text()
     assert.ok(text.includes('Missing runId or answer'), `unexpected body: ${text}`)
+  })
+
+  it('toolDecision returns suspension event for tool approval', async () => {
+    workflowAgentRateLimiter.reset(adminId)
+
+    let mockAgent: TestAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({
+        finishReason: 'suspended',
+        suspendPayload: {
+          toolCallId: 'tool-call-123',
+          toolName: 'cancel_user_workflow_v2',
+          args: { targetUserId: 42 },
+        },
+      }),
+      declineToolCallGenerate: async () => ({ text: 'declined' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await postForm(WORKFLOW_AGENT_TOOL_DECISION_URL, adminCookie, {
+      runId: 'test-run',
+      decision: 'approve',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let suspensionEvent = events.find((e) => e.type === 'suspension')
+    assert.ok(suspensionEvent, 'should have a suspension event')
+    let data = JSON.parse(suspensionEvent!.data)
+    assert.equal(data.toolName, 'cancel_user_workflow_v2')
+    assert.equal(data.toolCallId, 'tool-call-123')
+
+    __setTestAgent(undefined)
+  })
+
+  it('toolDecision returns question event for question suspension', async () => {
+    workflowAgentRateLimiter.reset(adminId)
+
+    let mockAgent: TestAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({
+        finishReason: 'suspended',
+        suspendPayload: {
+          question: 'What would you like to do?',
+          options: [{ label: 'Lock user 5' }, { label: 'Ready' }],
+          selectionMode: 'single_select',
+        },
+      }),
+      declineToolCallGenerate: async () => ({ text: 'declined' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await postForm(WORKFLOW_AGENT_TOOL_DECISION_URL, adminCookie, {
+      runId: 'test-run',
+      decision: 'approve',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let questionEvent = events.find((e) => e.type === 'question')
+    assert.ok(questionEvent, 'should have a question event')
+    let data = JSON.parse(questionEvent!.data)
+    assert.equal(data.question, 'What would you like to do?')
+    assert.equal(data.options.length, 2)
+    assert.equal(data.options[0].label, 'Lock user 5')
+
+    __setTestAgent(undefined)
   })
 
   it('toolDecision rejects missing runId with 400', async () => {
