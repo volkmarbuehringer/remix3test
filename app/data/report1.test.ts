@@ -1,6 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { db, initializeAppDatabase, pool } from './setup.ts'
+import { db, initializeAppDatabase } from './setup.ts'
+import { pool } from './test-pool.ts'
 import { runReport1, listReport1Users } from './report1.ts'
 
 describe('report1', () => {

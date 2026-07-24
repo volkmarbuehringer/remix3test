@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
-import { pool } from '../../data/setup.ts'
+import { pool } from '../../data/test-pool.ts'
 import { BASE, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
 
 const ADMIN_OFFERINGS_URL = `${BASE}/verwaltung/offerings`

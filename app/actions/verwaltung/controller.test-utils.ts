@@ -1,4 +1,5 @@
-import { initializeAppDatabase, pool } from '../../data/setup.ts'
+import { initializeAppDatabase } from '../../data/setup.ts'
+import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 
 export const BASE = 'https://remix.run'

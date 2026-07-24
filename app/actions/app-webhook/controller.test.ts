@@ -4,7 +4,8 @@ import { createServer } from 'node:http'
 
 import { router } from '../../test-router.ts'
 import { appWebhookRoute } from '../../routes.ts'
-import { pool, initializeAppDatabase, db } from '../../data/setup.ts'
+import { initializeAppDatabase, db } from '../../data/setup.ts'
+import { pool } from '../../data/test-pool.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'
 import { users } from '../../data/schema.ts'
 

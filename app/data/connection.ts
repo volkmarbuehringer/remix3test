@@ -1,6 +1,7 @@
-import { Pool } from 'pg'
 import { createDatabase } from 'remix/data-table'
 import { createPostgresDatabaseAdapter } from 'remix/data-table/postgres'
+import { loadMigrations } from 'remix/data-table/migrations/node'
+import * as path from 'node:path'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) {
@@ -10,7 +11,7 @@ if (!databaseUrl) {
 const localeUrl =
   databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
-export const pool = new Pool({
+const adapter = createPostgresDatabaseAdapter({
   connectionString: localeUrl,
   max: 20,
   idleTimeoutMillis: 30000,
@@ -18,21 +19,13 @@ export const pool = new Pool({
   statement_timeout: 30000,
 })
 
-pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err)
-})
-
-const adapter = createPostgresDatabaseAdapter(pool)
-
 export const db = createDatabase(adapter)
+
+export const getMigrations = () =>
+  loadMigrations(path.join(import.meta.dirname, '../../db/migrations'))
 
 let appClosed = false
 export async function closeAppDatabase(): Promise<void> {
   if (appClosed) return
   appClosed = true
-  let timeout = setTimeout(() => {
-    console.error('Pool close timed out after 10s')
-  }, 10000)
-  await pool.end().catch((err) => console.error('Error closing database pool:', err))
-  clearTimeout(timeout)
 }

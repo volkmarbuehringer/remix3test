@@ -4,8 +4,9 @@ import { createSession } from 'remix/session'
 
 import { router } from '../test-router.ts'
 import { sessionCookie, sessionStorage } from '../middleware/session.ts'
-import { initializeAppDatabase, pool } from '../data/setup.ts'
+import { initializeAppDatabase } from '../data/setup.ts'
 
+import { pool } from '../data/test-pool.ts'
 // ---------------------------------------------------------------------------
 // Layout flash message tests
 // Verifies that values stored in the session via session.set() are rendered

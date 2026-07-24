@@ -1,20 +1,23 @@
+import { Pool } from 'pg'
 import { PostgresStoreVNext } from '@mastra/pg'
-import { pool } from '../../data/connection.ts'
+
+let url = process.env.DATABASE_URL
+if (!url) throw new Error('DATABASE_URL is required')
+let localeUrl =
+  url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
+
+const pool = new Pool({
+  connectionString: localeUrl,
+  max: 5,
+})
 
 // Shared storage instance used by both Mastra and Memory.
-// PostgresStoreVNext composes PostgresStore with the v-next observability
-// domain that supports log listing. The observability connection reuses
-// the same pool (safe for local dev — switch to a dedicated connection
-// in production if throughput exceeds ~1,500 spans/sec).
 export const mastraStorage = new PostgresStoreVNext({
   id: 'mastra',
   pool,
   observability: { pool },
 })
 
-// The bundled class uses internal name _ObservabilityStoragePostgresVNext but
-// the Studio frontend checks for the public name. Fix the constructor name
-// so metrics detection passes.
 {
   let obs = mastraStorage.stores?.observability
   if (obs && obs.constructor?.name?.startsWith('_ObservabilityStorage')) {

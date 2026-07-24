@@ -5,7 +5,7 @@ let adminDatabaseUrl = ''
 let testDbName = ''
 
 type AppSetupModule = {
-  initializeAppDatabase(): Promise<void>
+  resetTestDatabase(): Promise<void>
   closeAppDatabase(): Promise<void>
 }
 
@@ -49,7 +49,7 @@ export async function globalSetup() {
 
   appModule = await import('../app/data/setup.ts')
   try {
-    await appModule.initializeAppDatabase()
+    await appModule.resetTestDatabase()
   } catch (err) {
     console.error(`Setup failed for "${testDbName}":`, err)
     await appModule.closeAppDatabase().catch(() => {})

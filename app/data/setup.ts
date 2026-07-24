@@ -1,16 +1,15 @@
-export { pool, db, closeAppDatabase } from './connection.ts'
-import { migrate } from './migrate.ts'
+export { db, closeAppDatabase, getMigrations } from './connection.ts'
+import { db, getMigrations } from './connection.ts'
 import { seed } from './seed.ts'
 
-let initializePromise: Promise<void> | null = null
-
 export async function initializeAppDatabase(): Promise<void> {
-  if (!initializePromise) {
-    initializePromise = (async () => {
-      await migrate()
-      await seed()
-    })()
-  }
+  await db.migrate(await getMigrations())
+  await seed(db)
+}
 
-  await initializePromise
+export async function resetTestDatabase(): Promise<void> {
+  await db.reset({
+    migrations: await getMigrations(),
+    seed,
+  })
 }

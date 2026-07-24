@@ -1,7 +1,8 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { pool, initializeAppDatabase } from '../../data/setup.ts'
+import { initializeAppDatabase } from '../../data/setup.ts'
+import { pool } from '../../data/test-pool.ts'
 import { db } from '../../data/connection.ts'
 // Side-effect: initializes Mastra instance with all workflows
 import {} from '../mastra/index.ts'

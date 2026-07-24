@@ -1,6 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { db, initializeAppDatabase, pool } from './setup.ts'
+import { db, initializeAppDatabase } from './setup.ts'
+import { pool } from './test-pool.ts'
 import { listUploads, claimUpload, getUploadDownload, insertUpload } from './uploads.ts'
 
 describe('uploads', () => {
