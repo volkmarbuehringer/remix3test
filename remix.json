@@ -1,0 +1,21 @@
+{
+  "$schema": "https://remix.run/schemas/remix.json",
+  "test": {
+    "concurrency": 6,
+    "pool": "forks",
+    "files": ["**/*.test{,.browser,.e2e}.ts"],
+    "browserFiles": ["**/*.test.browser.ts"],
+    "e2eFiles": ["**/*.test.e2e.ts"],
+    "exclude": [],
+    "playwright": {
+      "echo": false,
+      "open": false,
+      "configFile": "./playwright.config.ts",
+      "projects": ["chromium"]
+    },
+    "reporter": "spec",
+    "setup": "./test/setup.ts",
+    "type": ["server", "browser", "e2e"],
+    "watch": false
+  }
+}
