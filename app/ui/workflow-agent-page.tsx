@@ -16,18 +16,17 @@ const frameContainerStyle = css({
   minHeight: 0,
 })
 
-const chatMessagesStyle = css({
+const statusBarStyle = css({
   padding: '0.5rem 1rem',
   fontSize: '0.8125rem',
   color: theme.colors.text.secondary,
   background: theme.surface.lvl0,
   borderTop: `1px solid ${theme.colors.border.default}`,
-  maxHeight: '12rem',
+  maxHeight: '14rem',
   overflowY: 'auto',
-  whiteSpace: 'normal',
-  wordBreak: 'break-word',
   display: 'flex',
   flexDirection: 'column',
+  gap: '0.25rem',
 })
 
 const inputBarStyle = css({
@@ -87,7 +86,7 @@ export function WorkflowAgentPage(handle: Handle) {
         />
       </div>
 
-      <div id="chat-messages" mix={chatMessagesStyle}>
+      <div id="wf-status-bar" mix={statusBarStyle}>
         <div style={{ padding: '0.25rem 0', fontSize: '0.8125rem', color: 'var(--rmx-color-text-muted, #888)', fontStyle: 'italic' }}>
           Ask the agent to manage a user account...
         </div>

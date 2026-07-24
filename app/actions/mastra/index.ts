@@ -15,6 +15,7 @@ import { lockUserWorkflow } from './workflows/lock-user-workflow.ts'
 import { unlockUserWorkflow } from './workflows/unlock-user-workflow.ts'
 import { consistencyCheckWorkflow } from './workflows/consistency-check-workflow.ts'
 import { userPreflightWorkflow } from './workflows/user-preflight-workflow.ts'
+import { userManagementWorkflow } from './workflows/user-management-workflow.ts'
 import { completenessScorer } from './scorers/support-scorers.ts'
 import { appointmentCreatedScorer } from './scorers/booking-scorers.ts'
 import { mastraStorage } from './storage.ts'
@@ -33,6 +34,7 @@ export const mastra = new Mastra({
     unlockUserWorkflow,
     consistencyCheckWorkflow,
     userPreflightWorkflow,
+    userManagementWorkflow,
   },
   scorers: {
     completeness: completenessScorer,

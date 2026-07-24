@@ -212,7 +212,7 @@ export const routes = route({
     index: get('/'),
     panel: get('/panel'),
     action: post('/'),
-    answer: post('/answer'),
-    toolDecision: post('/tool-decision'),
+    resume: post('/resume'),
+    stream: get('/stream'),
   }),
 })

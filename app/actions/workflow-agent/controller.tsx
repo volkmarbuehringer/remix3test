@@ -2,34 +2,37 @@ import { createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
-import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { sseEncoder, sseHeaders, sseErrorResponse, sseEvent, pipeStream } from '../../utils/agent-sse.ts'
+import { sseHeaders, sseErrorResponse, sseEvent } from '../../utils/agent-sse.ts'
+import { pipeWorkflowStream } from './workflow-sse.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { runWithAdminId } from '../mastra/tools/admin-context.ts'
+import { db } from '../../data/connection.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
-import type { TestAgent } from '../mastra/shared-agent.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 
-// Test-only agent injection point — setter is a no-op outside test env
-let _testAgent: TestAgent | undefined
-export function __setTestAgent(agent: typeof _testAgent) {
-  if (process.env.NODE_ENV === 'test') {
-    _testAgent = agent
+async function resolveTargetUser(query: string): Promise<{ targetUserId: number } | { error: string }> {
+  let targetId = Number(query)
+  if (!Number.isNaN(targetId) && Number.isInteger(targetId) && targetId > 0) {
+    let result = await db.exec('SELECT id FROM users WHERE id = $1', [targetId])
+    if ((result.rows ?? [])[0]) return { targetUserId: targetId }
+    return { error: `User with ID ${targetId} not found` }
   }
+  let pattern = `%${query}%`
+  let result = await db.exec(
+    'SELECT id, name, email FROM users WHERE name ILIKE $1 OR email ILIKE $1 ORDER BY name',
+    [pattern],
+  )
+  let rows = (result.rows ?? []) as Array<{ id: number; name: string; email: string }>
+  if (rows.length === 0) return { error: `No user found matching "${query}"` }
+  let names = rows.map((r) => `${r.name} (${r.email})`).join(', ')
+  if (rows.length > 1) return { error: `Multiple users match "${query}": ${names}. Please be more specific.` }
+  return { targetUserId: rows[0].id }
 }
-// Keyed on the authenticated admin's user id — never on client-supplied
-// headers like X-Forwarded-For, which are spoofable (see remix3-two-tier-ip-trust-model).
-// Exported so tests can reset state between cases.
-export const workflowAgentRateLimiter = createRateLimiter({
-  windowMs: 10_000,
-  perUser: true,
-  maxAttempts: 5,
-})
 
 function getTarget(path: string): string {
   let prefixes: [string, string][] = [
@@ -80,11 +83,6 @@ export const workflowAgent = createController(
       },
 
       async action(context) {
-        let user = getCurrentUser()
-        if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return sseErrorResponse('Too many requests', 429)
-        }
-
         let rawMessage = context.formData.get('message')?.toString() ?? ''
         if (rawMessage.length > MAX_MESSAGE_LENGTH) {
           return sseErrorResponse(`Message too long (max ${MAX_MESSAGE_LENGTH})`, 400)
@@ -94,46 +92,126 @@ export const workflowAgent = createController(
           return sseErrorResponse('Message is required', 400)
         }
 
-        let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
-
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              let agent: TestAgent =
-                process.env.NODE_ENV === 'test' && _testAgent
-                  ? _testAgent
-                  : mastra.getAgent('workflowAgent')
-              let output = await runWithAdminId(user.id, () =>
-                agent.stream(message, {
-                  maxSteps: 10,
+              // Phase 1: Intent resolution via agent
+              let agent = mastra.getAgent('workflowAgent')
+              let intentResult = await runWithAdminId(getCurrentUser().id, () =>
+                agent.generate(message, {
+                  maxSteps: 3,
                   abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
-                  memory: { thread: threadId, resource: String(user.id) },
                 }),
               )
-              controller.enqueue(sseEvent('start', { runId: output.runId, threadId }))
-              await pipeStream(
-                output.fullStream as unknown as ReadableStream,
-                controller,
-                context.request.signal,
-                output.runId,
-                getTarget,
-              )
+              let intentText = intentResult.text?.trim() || ''
+              let intent: Record<string, unknown> | null = null
+
+              try {
+                intent = JSON.parse(intentText)
+              } catch {
+                // Agent didn't return JSON — treating as clarifying question
+                controller.enqueue(sseEvent('message', { text: intentText || 'Could you clarify that?' }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+              }
+
+              if (!intent || typeof intent !== 'object') {
+                controller.enqueue(sseEvent('message', { text: 'Could not understand your request. Please try again.' }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+              }
+
+              // Handle appointment navigation
+              if (intent.type === 'appointment') {
+                let params = new URLSearchParams()
+                if (intent.filter) params.set('filter', String(intent.filter))
+                if (intent.period) params.set('period', String(intent.period))
+                if (intent.status) params.set('status', String(intent.status))
+                let qs = params.toString()
+                let href = '/verwaltung/appointments' + (qs ? '?' + qs : '')
+                controller.enqueue(sseEvent('navigate', {
+                  href,
+                  target: 'admin-content',
+                  history: 'push',
+                }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+              }
+
+              // Handle user actions
+              if (intent.type === 'user-action') {
+                let action = String(intent.action || '')
+                let targetQuery = String(intent.targetQuery || '')
+
+                if (!['cancel', 'lock', 'unlock', 'lookup'].includes(action)) {
+                  controller.enqueue(sseEvent('message', { text: `Unknown action: ${action}` }))
+                  controller.enqueue(sseEvent('complete', {}))
+                  safeClose(controller)
+                  return
+                }
+
+                if (!targetQuery) {
+                  controller.enqueue(sseEvent('message', { text: 'Which user? Please specify a name, email, or ID.' }))
+                  controller.enqueue(sseEvent('complete', {}))
+                  safeClose(controller)
+                  return
+                }
+
+                let resolved = await resolveTargetUser(targetQuery)
+                if ('error' in resolved) {
+                  controller.enqueue(sseEvent('message', { text: resolved.error }))
+                  controller.enqueue(sseEvent('complete', {}))
+                  safeClose(controller)
+                  return
+                }
+
+                let user = getCurrentUser()
+
+                // Navigate to admin users grid so admin can see the user
+                let navHref = '/admin/users?filter=' + encodeURIComponent(targetQuery)
+                controller.enqueue(sseEvent('navigate', {
+                  href: navHref,
+                  target: 'admin-content',
+                  history: 'push',
+                }))
+
+                // Handle lookup — just navigate, no workflow
+                if (action === 'lookup') {
+                  controller.enqueue(sseEvent('complete', {}))
+                  safeClose(controller)
+                  return
+                }
+
+                // Phase 2: Start workflow for cancel/lock/unlock
+                let wf = mastra.getWorkflow('userManagementWorkflow')
+                let run = await wf.createRun({ resourceId: String(resolved.targetUserId) })
+                let stream = run.stream({
+                  inputData: {
+                    action: action as 'cancel' | 'lock' | 'unlock',
+                    targetUserId: resolved.targetUserId,
+                    adminUserId: user.id,
+                    adminEmail: user.email,
+                  },
+                  closeOnSuspend: false,
+                })
+
+                controller.enqueue(sseEvent('start', { runId: stream.runId }))
+                await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+                return
+              }
+
+              controller.enqueue(sseEvent('message', { text: `Unrecognized intent type: ${intent.type}. Please try rephrasing.` }))
+              controller.enqueue(sseEvent('complete', {}))
+              safeClose(controller)
             } catch (err) {
               console.error('[workflowAgent] action error:', err)
               try {
-                controller.enqueue(
-                  sseEncoder.encode(
-                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process request' })}\n\n`,
-                  ),
-                )
-              } catch {
-                /* controller already errored */
-              }
-              try {
-                controller.close()
-              } catch {
-                /* already closed */
-              }
+                controller.enqueue(sseEvent('agent-error', { error: 'Failed to process request' }))
+              } catch { /* already errored */ }
+              safeClose(controller)
             }
           },
         })
@@ -141,185 +219,69 @@ export const workflowAgent = createController(
         return new Response(body, { headers: sseHeaders() })
       },
 
-      async answer(context) {
-        let user = getCurrentUser()
-        if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return sseErrorResponse('Too many requests', 429)
-        }
-
+      async resume(context) {
         let runId = context.formData.get('runId')?.toString()
-        let answerRaw = context.formData.get('answer')?.toString()
-        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
-        let selectionMode = context.formData.get('selectionMode')?.toString()
-
-        if (!runId || !answerRaw) {
-          return sseErrorResponse('Missing runId or answer', 400)
-        }
-
-        if (answerRaw.length > MAX_MESSAGE_LENGTH) {
-          return sseErrorResponse(`Answer too long (max ${MAX_MESSAGE_LENGTH})`, 400)
-        }
-
-        let resumeData: unknown = answerRaw
-        if (selectionMode === 'multi_select' && answerRaw.startsWith('[')) {
-          try {
-            resumeData = JSON.parse(answerRaw)
-          } catch {
-            /* keep as string */
-          }
-        }
-
-        let body = new ReadableStream({
-          start: async (controller) => {
-            try {
-              let agent: TestAgent =
-                process.env.NODE_ENV === 'test' && _testAgent
-                  ? _testAgent
-                  : mastra.getAgent('workflowAgent')
-              let output = await runWithAdminId(user.id, () =>
-                agent.resumeStream(resumeData, { runId, toolCallId }),
-              )
-              controller.enqueue(sseEvent('start', { runId: output.runId, threadId: context.formData.get('threadId')?.toString() }))
-              await pipeStream(
-                output.fullStream as unknown as ReadableStream,
-                controller,
-                context.request.signal,
-                output.runId,
-                getTarget,
-              )
-            } catch (err) {
-              console.error('[workflowAgent] answer error:', err)
-              try {
-                controller.enqueue(
-                  sseEncoder.encode(
-                    `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to resume agent' })}\n\n`,
-                  ),
-                )
-              } catch {
-                /* controller already errored */
-              }
-              try {
-                controller.close()
-              } catch {
-                /* already closed */
-              }
-            }
-          },
-        })
-
-        return new Response(body, { headers: sseHeaders() })
-      },
-
-      async toolDecision(context) {
-        let user = getCurrentUser()
-        if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return sseErrorResponse('Too many requests', 429)
-        }
-
-        let runId = context.formData.get('runId')?.toString()
-        let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
-        let decision = context.formData.get('decision')?.toString()
+        let confirmed = context.formData.get('confirmed')?.toString() === 'true'
 
         if (!runId) {
           return sseErrorResponse('Missing runId', 400)
         }
 
-        if (decision !== 'approve' && decision !== 'decline') {
-          return sseErrorResponse('decision must be "approve" or "decline"', 400)
+        let body = new ReadableStream({
+          start: async (controller) => {
+            try {
+              let wf = mastra.getWorkflow('userManagementWorkflow')
+              let run = await wf.createRun({ runId })
+              let stream = run.resumeStream({
+                resumeData: { confirmed },
+              })
+
+              controller.enqueue(sseEvent('start', { runId: stream.runId }))
+              await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+            } catch (err) {
+              console.error('[workflowAgent] resume error:', err)
+              try {
+                controller.enqueue(sseEvent('agent-error', { error: 'Failed to resume workflow' }))
+              } catch { /* already errored */ }
+              safeClose(controller)
+            }
+          },
+        })
+
+        return new Response(body, { headers: sseHeaders() })
+      },
+
+      async stream(context) {
+        let runId = context.url.searchParams.get('runId')
+        if (!runId) {
+          return sseErrorResponse('Missing runId', 400)
         }
 
-        try {
-          let agent: TestAgent =
-            process.env.NODE_ENV === 'test' && _testAgent
-              ? _testAgent
-              : mastra.getAgent('workflowAgent')
-          let result = (await runWithAdminId(user.id, () =>
-            decision === 'approve'
-              ? agent.approveToolCallGenerate!({ runId, toolCallId })
-              : agent.declineToolCallGenerate!({ runId, toolCallId }),
-          )) as {
-            text?: string
-            finishReason?: string
-            runId?: string
-            suspendPayload?: Record<string, unknown>
-            fullStream?: ReadableStream
-          }
+        let body = new ReadableStream({
+          start: async (controller) => {
+            try {
+              let wf = mastra.getWorkflow('userManagementWorkflow')
+              let run = await wf.createRun({ runId })
+              let stream = run.resumeStream({})
 
-          if (result.finishReason === 'suspended') {
-            let sp = result.suspendPayload as
-              | {
-                  question?: string
-                  options?: { label: string; description?: string }[]
-                  selectionMode?: string
-                  toolCallId?: string
-                  toolName?: string
-                  args?: Record<string, unknown>
-                }
-              | undefined
-            if (sp?.question) {
-              let body2 = new ReadableStream({
-                start: (c) => {
-                  c.enqueue(sseEvent('question', {
-                    runId: result.runId || runId,
-                    toolCallId: sp?.toolCallId,
-                    question: sp.question,
-                    options: sp.options ?? null,
-                    selectionMode: sp.selectionMode ?? 'single_select',
-                  }))
-                  c.enqueue(sseEvent('complete', {}))
-                  c.close()
-                },
-              })
-              return new Response(body2, { headers: sseHeaders() })
+              controller.enqueue(sseEvent('start', { runId: stream.runId }))
+              await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+            } catch (err) {
+              console.error('[workflowAgent] stream error:', err)
+              try {
+                controller.enqueue(sseEvent('agent-error', { error: 'Failed to stream workflow' }))
+              } catch { /* already errored */ }
+              safeClose(controller)
             }
-            if (sp?.toolCallId || sp?.toolName) {
-              let body2 = new ReadableStream({
-                start: (c) => {
-                  c.enqueue(sseEvent('suspension', {
-                    runId: result.runId || runId,
-                    toolCallId: sp.toolCallId,
-                    toolName: sp.toolName,
-                    args: sp.args,
-                  }))
-                  c.enqueue(sseEvent('complete', {}))
-                  c.close()
-                },
-              })
-              return new Response(body2, { headers: sseHeaders() })
-            }
-          }
+          },
+        })
 
-          if (result.fullStream) {
-            let body3 = new ReadableStream({
-              start: async (controller) => {
-                await pipeStream(
-                  result.fullStream!,
-                  controller,
-                  context.request.signal,
-                  undefined,
-                  getTarget,
-                )
-              },
-            })
-            return new Response(body3, { headers: sseHeaders() })
-          }
-
-          let text = (
-            result.text || (decision === 'approve' ? '' : 'The action was declined.')
-          ).trim()
-          let body4 = new ReadableStream({
-            start: (c) => {
-              if (text) c.enqueue(sseEvent('message', { text }))
-              c.enqueue(sseEvent('complete', {}))
-              c.close()
-            },
-          })
-          return new Response(body4, { headers: sseHeaders() })
-        } catch (err) {
-          console.error(`[workflowAgent] toolDecision (${decision}) error:`, err)
-          return sseErrorResponse('Failed to process tool decision', 500)
-        }
+        return new Response(body, { headers: sseHeaders() })
       },
     },
   },
 )
+
+function safeClose(controller: ReadableStreamDefaultController) {
+  try { controller.close() } catch { /* already closed */ }
+}
