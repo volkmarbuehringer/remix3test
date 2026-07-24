@@ -9,6 +9,7 @@ import {} from '../mastra/index.ts'
 import { workflowAgentTools } from '../mastra/agents/workflow-agent.ts'
 import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import { createAppointmentRecord } from '../../data/appointments.ts'
+import { executeUserPreflightWorkflow } from '../mastra/workflow-executor.ts'
 
 async function getCustomerId(): Promise<number> {
   let r = await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com'])
@@ -51,28 +52,65 @@ describe('WorkflowAgent tools', () => {
     await initializeAppDatabase()
   })
 
-  describe('cancelUserWorkflow_v2', () => {
-    it('looks up a user and returns navigation on first call', async () => {
+  describe('lookupUser', () => {
+    it('returns user data for valid ID', async () => {
       let customerId = await getCustomerId()
-      let tool = workflowAgentTools.cancelUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: customerId })
+      let tool = workflowAgentTools.lookupUser
+      let result = await (tool as any).execute({ query: String(customerId) })
 
       assert.equal(result.found, true)
-      assert.ok(result.user, 'should return user info')
-      assert.equal(result.user.id, customerId)
-      assert.ok(result.navigate, 'should include navigation')
-      assert.ok(result.navigate.path.includes('filter='))
+      assert.equal(result.users.length, 1)
+      assert.equal(result.users[0].id, customerId)
+      assert.ok(result.users[0].name)
+      assert.ok(result.users[0].email)
+      assert.equal(typeof result.users[0].pendingCount, 'number')
+      assert.ok(Array.isArray(result.lockedUsers))
+      assert.equal(typeof result.lockedTotal, 'number')
+      assert.ok(Array.isArray(result.activeUsers))
+      assert.equal(typeof result.activeTotal, 'number')
     })
 
-    it('returns error for non-existent user', async () => {
-      let tool = workflowAgentTools.cancelUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: 999999 })
+    it('returns user data for name search', async () => {
+      let tool = workflowAgentTools.lookupUser
+      let result = await (tool as any).execute({ query: 'admin' })
+
+      assert.equal(result.found, true)
+      assert.ok(result.users.length >= 1)
+    })
+
+    it('returns not found for unknown query', async () => {
+      let tool = workflowAgentTools.lookupUser
+      let result = await (tool as any).execute({ query: 'nonexistent-user-999999' })
 
       assert.equal(result.found, false)
+      assert.equal(result.users.length, 0)
+    })
+
+    it('returns consistency data even with no query match', async () => {
+      let tool = workflowAgentTools.lookupUser
+      let result = await (tool as any).execute({ query: 'nonexistent-user-999999' })
+
+      assert.equal(result.found, false)
+      assert.ok(Array.isArray(result.lockedUsers))
+      assert.equal(typeof result.lockedTotal, 'number')
+      assert.ok(Array.isArray(result.activeUsers))
+      assert.equal(typeof result.activeTotal, 'number')
+    })
+  })
+
+  describe('cancelUserWorkflow_v2', () => {
+    it('returns error for non-existent user', async () => {
+      let adminId = await getAdminId()
+      let tool = workflowAgentTools.cancelUserWorkflow_v2
+      let result = await runWithAdminId(adminId, () =>
+        (tool as any).execute({ targetUserId: 999999, deleteAppointments: true }),
+      )
+
+      assert.equal(result.success, false)
       assert.ok(result.error)
     })
 
-    it('confirmed call cancels the account and deletes future appointments when deleteAppointments=true', async () => {
+    it('cancels account and deletes future appointments', async () => {
       let targetId = await createFreshCustomer()
       let adminId = await getAdminId()
       let resourceId = await getAnyResourceId()
@@ -89,11 +127,7 @@ describe('WorkflowAgent tools', () => {
 
       let tool = workflowAgentTools.cancelUserWorkflow_v2
       let result = await runWithAdminId(adminId, () =>
-        (tool as any).execute({
-          targetUserId: targetId,
-          confirmed: true,
-          deleteAppointments: true,
-        }),
+        (tool as any).execute({ targetUserId: targetId, deleteAppointments: true }),
       )
 
       assert.equal(result.success, true, `expected success, got error: ${result.error}`)
@@ -103,7 +137,7 @@ describe('WorkflowAgent tools', () => {
       assert.equal(await countFutureAppointments(targetId), 0, 'appointments should be deleted')
     })
 
-    it('confirmed call keeps future appointments when deleteAppointments=false', async () => {
+    it('cancel keeps future appointments when deleteAppointments=false', async () => {
       let targetId = await createFreshCustomer()
       let adminId = await getAdminId()
       let resourceId = await getAnyResourceId()
@@ -120,11 +154,7 @@ describe('WorkflowAgent tools', () => {
 
       let tool = workflowAgentTools.cancelUserWorkflow_v2
       let result = await runWithAdminId(adminId, () =>
-        (tool as any).execute({
-          targetUserId: targetId,
-          confirmed: true,
-          deleteAppointments: false,
-        }),
+        (tool as any).execute({ targetUserId: targetId, deleteAppointments: false }),
       )
 
       assert.equal(result.success, true, `expected success, got error: ${result.error}`)
@@ -136,41 +166,56 @@ describe('WorkflowAgent tools', () => {
   })
 
   describe('lockUserWorkflow_v2', () => {
-    it('looks up a user and returns navigation on first call', async () => {
-      let customerId = await getCustomerId()
+    it('locks an existing user', async () => {
+      let targetId = await createFreshCustomer()
+      let adminId = await getAdminId()
       let tool = workflowAgentTools.lockUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: customerId })
+      let result = await runWithAdminId(adminId, () =>
+        (tool as any).execute({ targetUserId: targetId }),
+      )
 
-      assert.equal(result.found, true)
-      assert.ok(result.user)
-      assert.equal(result.user.id, customerId)
-      assert.ok(result.navigate)
+      assert.equal(result.success, true)
+      let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [targetId])
+      assert.notEqual(check.rows[0]?.disabled_at, null, 'account should be locked')
     })
 
     it('returns error for non-existent user', async () => {
+      let adminId = await getAdminId()
       let tool = workflowAgentTools.lockUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: 999999 })
-      assert.equal(result.found, false)
+      let result = await runWithAdminId(adminId, () =>
+        (tool as any).execute({ targetUserId: 999999 }),
+      )
+
+      assert.equal(result.success, false)
       assert.ok(result.error)
     })
   })
 
   describe('unlockUserWorkflow_v2', () => {
-    it('looks up a user and returns navigation on first call', async () => {
-      let customerId = await getCustomerId()
-      let tool = workflowAgentTools.unlockUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: customerId })
+    it('unlocks a locked user', async () => {
+      let targetId = await createFreshCustomer()
+      let adminId = await getAdminId()
 
-      assert.equal(result.found, true)
-      assert.ok(result.user)
-      assert.equal(result.user.id, customerId)
-      assert.ok(result.navigate)
+      await pool.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [Date.now(), targetId])
+
+      let tool = workflowAgentTools.unlockUserWorkflow_v2
+      let result = await runWithAdminId(adminId, () =>
+        (tool as any).execute({ targetUserId: targetId }),
+      )
+
+      assert.equal(result.success, true)
+      let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [targetId])
+      assert.equal(check.rows[0]?.disabled_at, null, 'account should be unlocked')
     })
 
     it('returns error for non-existent user', async () => {
+      let adminId = await getAdminId()
       let tool = workflowAgentTools.unlockUserWorkflow_v2
-      let result = await (tool as any).execute({ targetUserId: 999999 })
-      assert.equal(result.found, false)
+      let result = await runWithAdminId(adminId, () =>
+        (tool as any).execute({ targetUserId: 999999 }),
+      )
+
+      assert.equal(result.success, false)
       assert.ok(result.error)
     })
   })

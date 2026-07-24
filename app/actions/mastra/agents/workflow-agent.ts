@@ -10,68 +10,129 @@ import { protocolAdherenceScorer } from '../scorers/workflow-scorers.ts'
 import {
   executeCancelUserWorkflow,
   executeUserPreflightWorkflow,
+  executeConsistencyCheckWorkflow,
   executeLockUserWorkflow,
   executeUnlockUserWorkflow,
 } from '../workflow-executor.ts'
+import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
+
+const lookupUser = createTool({
+  id: 'lookup_user',
+  description:
+    'Look up a user by name, email, or ID. Returns matching user profiles, pending appointment counts, and system-wide consistency data. ' +
+    'Read-only — no action is taken. Call this before navigate() to get user data for the confirm gate.',
+  requireApproval: false,
+  inputSchema: z.object({
+    query: z.string().describe('Name, email, or ID of the user to look up'),
+  }),
+  execute: async ({ query }) => {
+    let targetId = Number(query)
+    let pattern = `%${query}%`
+    let todayMidnight = getTodayUtcMidnight()
+
+    if (!Number.isNaN(targetId) && Number.isInteger(targetId) && targetId > 0) {
+      let rowResult = await db.exec('SELECT id FROM users WHERE id = $1', [targetId])
+      let row = (rowResult.rows ?? [])[0] as { id: number } | undefined
+      if (row) {
+        let preflight = await executeUserPreflightWorkflow({ targetUserId: targetId })
+        if (preflight.found && preflight.user) {
+          return {
+            found: true,
+            users: [{
+              id: preflight.user.id,
+              name: preflight.user.name,
+              email: preflight.user.email,
+              role: preflight.user.role,
+              disabledAt: preflight.user.disabledAt,
+              pendingCount: preflight.pendingCount,
+            }],
+            totalPending: preflight.pendingCount,
+            lockedUsers: preflight.lockedUsers,
+            lockedTotal: preflight.lockedTotal,
+            activeUsers: preflight.activeUsers,
+            activeTotal: preflight.activeTotal,
+          }
+        }
+        return { found: false, users: [], totalPending: 0, lockedUsers: [], lockedTotal: 0, activeUsers: [], activeTotal: 0 }
+      }
+    }
+
+    let result = await db.exec(
+      'SELECT id, name, email, role, disabled_at FROM users WHERE name ILIKE $1 OR email ILIKE $1 ORDER BY name',
+      [pattern],
+    )
+    let matchingUsers = (result.rows ?? []) as Array<{
+      id: number; name: string; email: string; role: string; disabled_at: number | null
+    }>
+
+    if (matchingUsers.length === 0) {
+      return { found: false, users: [], totalPending: 0, lockedUsers: [], lockedTotal: 0, activeUsers: [], activeTotal: 0 }
+    }
+
+    let userIds = matchingUsers.map((u) => u.id)
+    let placeholder = userIds.map((_, i) => `$${i + 1}`).join(',')
+    let pendingResult = await db.exec(
+      `SELECT user_id, COUNT(*)::int as count FROM appointments WHERE user_id IN (${placeholder}) AND date >= $${userIds.length + 1} GROUP BY user_id`,
+      [...userIds, todayMidnight],
+    )
+    let pendingMap = new Map<number, number>()
+    for (let row of (pendingResult.rows ?? []) as Array<{ user_id: number; count: number }>) {
+      pendingMap.set(row.user_id, row.count)
+    }
+
+    let consistency = await executeConsistencyCheckWorkflow()
+
+    let users = matchingUsers.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      disabledAt: u.disabled_at,
+      pendingCount: pendingMap.get(u.id) ?? 0,
+    }))
+
+    let totalPending = users.reduce((sum, u) => sum + u.pendingCount, 0)
+
+    return {
+      found: true,
+      users,
+      totalPending,
+      lockedUsers: consistency.lockedUsers,
+      lockedTotal: consistency.lockedTotal,
+      activeUsers: consistency.activeUsers,
+      activeTotal: consistency.activeTotal,
+    }
+  },
+})
 
 const cancelUserWorkflow_v2 = createTool({
   id: 'cancel_user_workflow_v2',
   description:
     'Cancel a user account: deletes future appointments, disables login, prevents re-registration. ' +
-    'Call this first to look up and navigate to the user. ' +
-    'After the admin confirms the lock and decides about pending appointments, ' +
-    'call again with confirmed=true to execute the cancellation.',
+    'Call this after lookup_user and the confirm gate to execute the cancellation.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to cancel'),
-    confirmed: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe('Set to true on second call to execute the workflow after admin confirmation'),
-    deleteAppointments: z
-      .boolean()
-      .optional()
-      .default(true)
-      .describe('Whether to delete pending appointments'),
+    deleteAppointments: z.boolean().describe('Whether to delete pending appointments'),
   }),
-  execute: async ({ targetUserId, confirmed, deleteAppointments }) => {
-    let preflight = await executeUserPreflightWorkflow({ targetUserId })
-    if (!preflight.found) return { found: false, error: preflight.error ?? 'User not found' }
-    let user = preflight.user!
-
-    if (confirmed) {
-      let adminUserId = requireAdminId()
-      let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
-      let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
-      if (!admin) return { success: false, error: 'No admin context available' }
-      let wfResult = await executeCancelUserWorkflow({
-        targetUserId,
-        adminUserId,
-        adminEmail: admin.email,
-        deleteAppointments,
-      })
-      return {
-        success: wfResult.success,
-        targetUserId,
-        deletedAppointments: wfResult.deletedAppointments,
-        error: wfResult.error,
-        user: { name: user.name, email: user.email },
-      }
-    }
-
+  execute: async ({ targetUserId, deleteAppointments }) => {
+    let adminUserId = requireAdminId()
+    let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
+    let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
+    if (!admin) return { success: false, error: 'No admin context available' }
+    let wfResult = await executeCancelUserWorkflow({
+      targetUserId,
+      adminUserId,
+      adminEmail: admin.email,
+      deleteAppointments,
+    })
     return {
-      found: true,
-      user,
-      pendingCount: preflight.pendingCount,
-      lockedUsers: preflight.lockedUsers,
-      lockedTotal: preflight.lockedTotal,
-      activeUsers: preflight.activeUsers,
-      activeTotal: preflight.activeTotal,
-      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(user.name)}` },
-      message: `User ${user.name} (${user.email}) found. ${preflight.pendingCount} pending appointment(s). Navigating to the user list filtered by their name. Ask the admin to review and confirm — the cancellation is executed on confirmation.`,
+      success: wfResult.success,
+      targetUserId,
+      deletedAppointments: wfResult.deletedAppointments,
+      error: wfResult.error,
     }
   },
 })
@@ -80,49 +141,24 @@ const lockUserWorkflow_v2 = createTool({
   id: 'lock_user_workflow_v2',
   description:
     'Lock a user account — sets disabled_at to prevent login. Non-destructive, keeps appointments and data. ' +
-    'Call this first to look up and navigate to the user. ' +
-    'After the admin confirms, call again with confirmed=true to execute the lock.',
+    'Call this after lookup_user and the confirm gate to execute the lock.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to lock'),
-    confirmed: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe('Set to true on second call to execute after admin confirmation'),
   }),
-  execute: async ({ targetUserId, confirmed }) => {
-    let preflight = await executeUserPreflightWorkflow({ targetUserId })
-    if (!preflight.found) return { found: false, error: preflight.error ?? 'User not found' }
-    let user = preflight.user!
-
-    if (confirmed) {
-      let adminUserId = requireAdminId()
-      let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
-      let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
-      if (!admin) return { success: false, error: 'No admin context available' }
-      let wfResult = await executeLockUserWorkflow({
-        targetUserId,
-        adminUserId,
-        adminEmail: admin.email,
-      })
-      return {
-        success: wfResult.success,
-        targetUserId,
-        error: wfResult.error,
-        user: { name: user.name, email: user.email },
-      }
-    }
-
+  execute: async ({ targetUserId }) => {
+    let adminUserId = requireAdminId()
+    let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
+    let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
+    if (!admin) return { success: false, error: 'No admin context available' }
+    let wfResult = await executeLockUserWorkflow({
+      targetUserId,
+      adminUserId,
+      adminEmail: admin.email,
+    })
     return {
-      found: true,
-      user,
-      pendingCount: preflight.pendingCount,
-      lockedUsers: preflight.lockedUsers,
-      lockedTotal: preflight.lockedTotal,
-      activeUsers: preflight.activeUsers,
-      activeTotal: preflight.activeTotal,
-      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(user.name)}` },
-      message: `User ${user.name} (${user.email}) found. Navigating to the user list filtered by their name. Ask the admin to review and confirm — the lock is executed on confirmation.`,
+      success: wfResult.success,
+      targetUserId,
+      error: wfResult.error,
     }
   },
 })
@@ -131,49 +167,24 @@ const unlockUserWorkflow_v2 = createTool({
   id: 'unlock_user_workflow_v2',
   description:
     'Unlock a user account — clears disabled_at and invalidates existing sessions. ' +
-    'Call this first to look up and navigate to the user. ' +
-    'After the admin confirms, call again with confirmed=true to execute the unlock.',
+    'Call this after lookup_user and the confirm gate to execute the unlock.',
   inputSchema: z.object({
     targetUserId: z.number().int().positive().describe('The user ID to unlock'),
-    confirmed: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe('Set to true on second call to execute after admin confirmation'),
   }),
-  execute: async ({ targetUserId, confirmed }) => {
-    let preflight = await executeUserPreflightWorkflow({ targetUserId })
-    if (!preflight.found) return { found: false, error: preflight.error ?? 'User not found' }
-    let user = preflight.user!
-
-    if (confirmed) {
-      let adminUserId = requireAdminId()
-      let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
-      let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
-      if (!admin) return { success: false, error: 'No admin context available' }
-      let wfResult = await executeUnlockUserWorkflow({
-        targetUserId,
-        adminUserId,
-        adminEmail: admin.email,
-      })
-      return {
-        success: wfResult.success,
-        targetUserId,
-        error: wfResult.error,
-        user: { name: user.name, email: user.email },
-      }
-    }
-
+  execute: async ({ targetUserId }) => {
+    let adminUserId = requireAdminId()
+    let adminResult = await db.exec('SELECT email FROM users WHERE id = $1', [adminUserId])
+    let admin = (adminResult.rows ?? [])[0] as { email: string } | undefined
+    if (!admin) return { success: false, error: 'No admin context available' }
+    let wfResult = await executeUnlockUserWorkflow({
+      targetUserId,
+      adminUserId,
+      adminEmail: admin.email,
+    })
     return {
-      found: true,
-      user,
-      pendingCount: preflight.pendingCount,
-      lockedUsers: preflight.lockedUsers,
-      lockedTotal: preflight.lockedTotal,
-      activeUsers: preflight.activeUsers,
-      activeTotal: preflight.activeTotal,
-      navigate: { type: 'route', path: `/admin/users?filter=${encodeURIComponent(user.name)}` },
-      message: `User ${user.name} (${user.email}) found. Navigating to the user list filtered by their name. Ask the admin to review and confirm — the unlock is executed on confirmation.`,
+      success: wfResult.success,
+      targetUserId,
+      error: wfResult.error,
     }
   },
 })
@@ -369,36 +380,53 @@ APPOINTMENT FLOW — use when the admin asks about appointments:
   Combine filter, period, and status when multiple dimensions are specified. If no specific filter, period, or status is mentioned, navigate without query params (shows pending future appointments).
 
 USER FLOW — use for ALL user management questions (lock, unlock, cancel, find users, list users, disabled users, etc.):
-  Step 1: Navigate to /admin/users with the appropriate filter parameter:
-    navigate({ path: '/admin/users', query: { filter: '...' } })
-    Mapping: "disabled"/"locked"/"gesperrt"/"deaktiviert" → filter: 'disabled'
-            "active"/"enabled"/"aktiv" → filter: 'enabled'
-            name or email text → filter: '<text>'
-            no specific filter → omit query param (shows all users)
-  Step 2: Determine intent and act:
-          - If the admin explicitly asked for an action (lock/cancel/unlock a user), execute it directly (follow the protocol below). Do NOT ask "What would you like to do?" or ask for confirmation in the chat — the admin's stated intent IS the confirmation.
-          - If the admin just asked a question or browsed users without requesting an action, stop here — they will type their next instruction.
-          - If the intent is unclear (e.g., admin provided a user ID, name, or number without stating an action), use ask_user with action options as BUTTONS — do NOT ask in plain text. Example: ask_user({ question: "Was möchten Sie tun?", options: [{ label: "Sperren" }, { label: "Entsperren" }, { label: "Konto löschen" }, { label: "Nur ansehen" }] })
-  Step 3: If the action was cancel, lock, or unlock, present the consistency check numbers from the preflight output — if the result has users with pendingCount > 0, list each user with their count; if no users have pending appointments, say so explicitly. Do NOT invent a generic "all clear" message without referencing the data.
-  Step 4: If the action was cancel, lock, or unlock, call generate_action_report now (see protocol for exact parameters). Use the consistency data from the preflight output — no separate consistency check call is needed.
-  Step 5: End your response with the final results. Do NOT ask "Is there anything else?", "Any other questions?", or similar closing prompts. The admin will type their next request unprompted — trust the conversation to continue naturally.
+
+  The protocol has three phases: Lookup + Navigate → Confirm Gate → Execute.
+
+  Phase 1 — Lookup + Navigate:
+    Step 1: Call lookup_user({ query: "<name/email/id>" }) to search for the user.
+            Returns matching user profiles, pending counts, and system-wide consistency data.
+    Step 2: Navigate to /admin/users with the appropriate filter parameter:
+            navigate({ path: '/admin/users', query: { filter: '<name>' } })
+            Mapping: "disabled"/"locked"/"gesperrt"/"deaktiviert" → filter: 'disabled'
+                    "active"/"enabled"/"aktiv" → filter: 'enabled'
+                    name or email text → filter: '<text>'
+                    no specific filter → omit query param (shows all users)
+    If the admin just asked a question or browsed users without requesting an action, stop here.
+    If the intent is unclear (e.g., admin provided a name without stating an action), use ask_user with action options as BUTTONS.
+
+  Phase 2 — Confirm Gate:
+    Step 3: Call ask_user({ question: "Sperrung jetzt durchführen?" (or Löschung/Sperrung depending on action), options: [{ label: "Bestätigen" }, { label: "Abbrechen" }] }).
+            The admin sees the grid with the filtered results and can verify the correct user.
+            If the admin selects "Abbrechen", stop — do NOT call any execute tool.
+            If the admin selects "Bestätigen", proceed to Phase 3.
+
+  Phase 3 — Execute:
+    Step 4: Call the appropriate execute tool with targetUserId from the lookup_user result:
+            cancel_user_workflow_v2({ targetUserId, deleteAppointments: true/false })
+            — or — lock_user_workflow_v2({ targetUserId })
+            — or — unlock_user_workflow_v2({ targetUserId })
+    Step 5: Call navigate with the same filter path to refresh the user grid.
+    Step 6: Present the consistency check numbers from the lookup_user output — mention actual numbers for both locked and active users.
+    Step 7: You MUST call generate_action_report — do not skip this (see protocol for params).
+    Step 8: End your response. Do NOT ask "Is there anything else?" or similar closing prompts.
 
 Available tools:
-- cancel_user_workflow_v2: Cancel a user — deletes appointments, disables login, prevents re-registration.
-  First call: pass targetUserId (confirmed=false) to look up the user. Returns user info, pending appointment count, and system-wide consistency check data (lockedUsers, lockedTotal, activeUsers, activeTotal).
-  Second call: pass targetUserId with confirmed=true and deleteAppointments=true/false to execute.
+- lookup_user: Look up a user by name, email, or ID. Returns matching user profiles with pending appointment counts and system-wide consistency data. Read-only. Call this FIRST before any action.
+  Parameters: query (required, string — name, email, or ID).
 
-- lock_user_workflow_v2: Lock a user — prevents login, keeps all data and appointments.
-  First call: pass targetUserId (confirmed=false) to look up the user. Returns user info, pending appointment count, and system-wide consistency check data.
-  Second call: pass targetUserId with confirmed=true to execute.
+- cancel_user_workflow_v2: Cancel a user account — deletes future appointments, disables login, prevents re-registration.
+  Call this after the confirm gate to execute. Pass targetUserId and deleteAppointments (required).
 
-- unlock_user_workflow_v2: Unlock a user — re-enables login.
-  First call: pass targetUserId (confirmed=false) to look up the user. Returns user info, pending appointment count, and system-wide consistency check data.
-  Second call: pass targetUserId with confirmed=true to execute.
+- lock_user_workflow_v2: Lock a user account — sets disabled_at to prevent login. Non-destructive, keeps all data and appointments.
+  Call this after the confirm gate to execute.
+
+- unlock_user_workflow_v2: Unlock a user account — clears disabled_at and invalidates existing sessions.
+  Call this after the confirm gate to execute.
 
 - generate_action_report: Generate a PDF report after a cancel, lock, or unlock action.
-  Call this at the end of any user management protocol.
-  Pass actionType ("cancel"|"lock"|"unlock"), target user details, deletion info (for cancel), and consistency check results (lockedUsersCount, activeUsersCount). Consistency data is available from the preflight output — no separate consistency check call is needed. Admin info is looked up internally.
+  Call this at the end of any user management protocol (MUST NOT skip).
+  Pass actionType ("cancel"|"lock"|"unlock"), target user details, deletion info (for cancel), and consistency check results (lockedUsersCount, activeUsersCount). Consistency data is available from the lookup_user output — no separate consistency check call is needed. Admin info is looked up internally.
   Returns { filename, data (base64 PDF), size, reportType: 'cancel-summary'|'lock-summary'|'unlock-summary' }.
 
 - ask_user: Ask the admin a question with selection options. You MUST call this tool. The admin sees buttons they can click.
@@ -407,39 +435,11 @@ Available tools:
 - navigate: Navigate the admin to a specific page with optional query params.
   Parameters: path (required, string), query (optional, object e.g. { filter: "text", period: "this_week", status: "pending" }).
 
-Protocol for cancel_user_workflow_v2 — FOLLOW EXACTLY:
-  Step 1: Call cancel_user_workflow_v2 with targetUserId only (confirmed=false).
-          It returns user info, pendingCount, consistency data, and navigate.path.
-  Step 2: Call navigate({ path: result.navigate.path }) to show the user in the admin content frame.
-  Step 3: Use result.pendingCount. If count > 0, call ask_user({ question: "Delete {count} pending appointments?", options: [{ label: "Delete" }, { label: "Keep" }] }).
-  Step 4: Call cancel_user_workflow_v2({ targetUserId, confirmed: true, deleteAppointments: true/false }).
-  Step 5: Call navigate with the SAME path from Step 2 to refresh the user grid with updated state.
-  Step 6: Report the results using the consistency data from Step 1 (lockedUsers, lockedTotal, activeUsers, activeTotal — no separate consistency check call needed).
-  Step 7: You MUST call generate_action_report — do not skip this. Pass actionType="cancel", targetUserName, targetUserEmail, targetUserId, deletedAppointments, deletedCount, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
-
-Protocol for lock_user_workflow_v2 — FOLLOW EXACTLY:
-  Step 1: Call lock_user_workflow_v2 with targetUserId only (confirmed=false).
-          It returns user info, pendingCount, and consistency data.
-  Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call lock_user_workflow_v2({ targetUserId, confirmed: true }).
-  Step 4: Call navigate with the SAME path from Step 2 to refresh the user grid with updated state.
-  Step 5: Report the results using the consistency data from Step 1 (no separate consistency check call needed).
-  Step 6: You MUST call generate_action_report — do not skip this. Pass actionType="lock", targetUserName, targetUserEmail, targetUserId, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
-
-Protocol for unlock_user_workflow_v2 — FOLLOW EXACTLY:
-  Step 1: Call unlock_user_workflow_v2 with targetUserId only (confirmed=false).
-          It returns user info, pendingCount, and consistency data.
-  Step 2: Call navigate({ path: result.navigate.path }).
-  Step 3: Call unlock_user_workflow_v2({ targetUserId, confirmed: true }).
-  Step 4: Call navigate with the SAME path from Step 2 to refresh the user grid with updated state.
-  Step 5: Report the results using the consistency data from Step 1 (no separate consistency check call needed).
-  Step 6: You MUST call generate_action_report — do not skip this. Pass actionType="unlock", targetUserName, targetUserEmail, targetUserId, lockedUsersCount, activeUsersCount. Admin info is looked up internally.
-
 CRITICAL RULES:
-- When presenting consistency check results: use the data from the preflight output (result.lockedUsers, result.lockedTotal, result.activeUsers, result.activeTotal). Mention the actual numbers for both locked and active users. If lockedUsers is empty say "No locked users have pending appointments." If activeUsers has entries say "Active user {name}: {pendingCount} pending" for each. Always include the total pending count for each category.
-- You MUST call navigate as a SEPARATE tool call. Do NOT rely on the first tool to navigate — call navigate explicitly.
-- Carry the targetUserId forward between tool calls — use the SAME targetUserId from the lookup call in the execute call. NEVER ask the admin for the user ID again — you already have it.
-- When you need to ask the admin a question (e.g., unclear intent, delete appointments), you MUST use the ask_user tool with buttons. Do NOT ask in plain chat text — the admin needs clickable options to respond.
+- When presenting consistency check results: use the data from the lookup_user output. Mention the actual numbers for both locked and active users. If lockedUsers is empty say "No locked users have pending appointments." If activeUsers has entries say "Active user {name}: {pendingCount} pending" for each. Always include the total pending count for each category.
+- You MUST call navigate as a SEPARATE tool call. Do NOT rely on any other tool to navigate — call navigate explicitly.
+- Carry the targetUserId forward from the lookup_user result to the execute call. NEVER ask the admin for the user ID again — you already have it.
+- When you need to ask the admin a question (e.g., unclear intent, delete appointments decision), you MUST use the ask_user tool with buttons. Do NOT ask in plain chat text — the admin needs clickable options to respond.
 - Keep responses concise and factual.
 - CRITICAL: You MUST call generate_action_report as the FINAL step of every cancel, lock, and unlock protocol. Do NOT just mention the PDF report in text — you must actually call the tool. The tool returns the PDF data which the UI uses to show a download link. If you only say "PDF-Bericht wurde generiert" without calling the tool, the admin will not see a download button.`,
   model: {
@@ -452,6 +452,7 @@ CRITICAL RULES:
     cancelUserWorkflow_v2,
     lockUserWorkflow_v2,
     unlockUserWorkflow_v2,
+    lookupUser,
     generateActionReport,
     askUserTool,
     routeNavigate,
@@ -476,5 +477,6 @@ export const workflowAgentTools = {
   cancelUserWorkflow_v2,
   lockUserWorkflow_v2,
   unlockUserWorkflow_v2,
+  lookupUser,
   generateActionReport,
 }

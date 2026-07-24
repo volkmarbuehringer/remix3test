@@ -33,27 +33,6 @@ The system SHALL provide a `userPreflightWorkflow` Mastra Workflow that takes a 
 - **THEN** the locked users query and active users query SHALL run in parallel (not sequentially)
 - **AND** both SHALL complete before the workflow returns
 
-### Requirement: Preflight workflow replaces separate check tools
-
-The `cancelUserWorkflow_v2`, `lockUserWorkflow_v2`, and `unlockUserWorkflow_v2` tools SHALL use `userPreflightWorkflow` for their `confirmed=false` path instead of inline SQL queries.
-
-#### Scenario: Confirmed=false calls preflight workflow
-
-- **WHEN** `cancelUserWorkflow_v2` is called with `confirmed=false`
-- **THEN** the tool SHALL call `userPreflightWorkflow` instead of running inline `db.exec`
-- **AND** the tool SHALL return the full preflight output including user profile, pending count, and consistency data
-
-#### Scenario: Confirmed=true unchanged
-
-- **WHEN** `cancelUserWorkflow_v2` is called with `confirmed=true`
-- **THEN** the tool SHALL behave identically to the current implementation — delegate to the execution workflow via `executeCancelUserWorkflow`
-
-#### Scenario: Consistency data available without separate tool call
-
-- **WHEN** the agent calls `cancelUserWorkflow_v2` with `confirmed=false`
-- **THEN** the returned preflight data SHALL include consistency check results
-- **AND** the agent SHALL NOT need to call a separate `run_consistency_checks` tool to obtain this data
-
 ### Requirement: Consistency check steps are shared
 
 The `checkLockedUsersPendingAppointments` and `checkActiveUsersPendingAppointments` steps from `consistencyCheckWorkflow` SHALL be exported and reused by `userPreflightWorkflow`, not duplicated.
