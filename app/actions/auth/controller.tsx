@@ -3,7 +3,6 @@ import * as s from 'remix/data-schema'
 import { email, minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import { getContext } from 'remix/middleware/async-context'
-import { Logger } from 'remix/middleware/logger'
 import { createAction, createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
@@ -96,7 +95,7 @@ function resetFailedAttempts(email: string): void {
   longLimiter.reset(email)
 }
 
-export const authLogin = createController<typeof routes.auth.login, AppContext>(routes.auth.login, {
+export const authLogin = createController(routes.auth.login, {
   middleware: [],
   actions: {
     index(context) {
@@ -160,7 +159,7 @@ const registerSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authRegister = createController<typeof routes.auth.register, AppContext>(
+export const authRegister = createController(
   routes.auth.register,
   {
     middleware: [],
@@ -275,7 +274,7 @@ export const authRegister = createController<typeof routes.auth.register, AppCon
               verificationUrl,
             )
           } catch (err) {
-            context.get(Logger)?.('Failed to send verification email: ' + String(err))
+            context.logger?.('Failed to send verification email: ' + String(err))
             return context.render(
               <RegisterPage
                 error="Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
@@ -310,7 +309,7 @@ const passwordSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authForgotten = createController<typeof routes.auth.forgotten, AppContext>(
+export const authForgotten = createController(
   routes.auth.forgotten,
   {
     middleware: [],
@@ -358,7 +357,7 @@ export const authForgotten = createController<typeof routes.auth.forgotten, AppC
               resetUrl,
             )
           } catch (err) {
-            context.get(Logger)?.('Failed to send password reset email: ' + String(err))
+            context.logger?.('Failed to send password reset email: ' + String(err))
           }
         }
 
@@ -368,7 +367,7 @@ export const authForgotten = createController<typeof routes.auth.forgotten, AppC
   },
 )
 
-export const authForgottenReset = createController<typeof routes.auth.forgottenReset, AppContext>(
+export const authForgottenReset = createController(
   routes.auth.forgottenReset,
   {
     middleware: [],

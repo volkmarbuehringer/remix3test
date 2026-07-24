@@ -12,7 +12,6 @@ import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import {
   gridStateFromForm,
@@ -26,7 +25,7 @@ import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
 import { paginate } from '../../../utils/pagination.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
 import { sendAccountDeletionEmail } from '../../../utils/send-email.ts'
-import { Logger } from 'remix/middleware/logger'
+
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
@@ -62,7 +61,7 @@ const userUpdateSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-export const adminUsers = createController<typeof routes.admin.users, AppContext>(
+export const adminUsers = createController(
   routes.admin.users,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -327,7 +326,7 @@ export const adminUsers = createController<typeof routes.admin.users, AppContext
               'admin',
             )
           } catch (err) {
-            context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
+            context.logger?.('Failed to send account deletion email: ' + String(err))
           }
         }
 

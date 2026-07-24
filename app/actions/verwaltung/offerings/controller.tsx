@@ -97,7 +97,7 @@ interface OfferingPageData {
 }
 
 async function loadOfferingPageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<
     Pick<
       OfferingPageData,
@@ -194,7 +194,7 @@ async function loadOfferingPageData(
 }
 
 function renderOfferingsPage(
-  context: AppContext,
+  context: any,
   data: OfferingPageData,
   init?: ResponseInit,
 ): Response {
@@ -226,7 +226,7 @@ function renderOfferingsPage(
   )
 }
 
-export default createController<typeof routes.verwaltung.offerings, AppContext>(
+export default createController(
   routes.verwaltung.offerings,
   {
     middleware: [requireAuth(), requireAdmin()],

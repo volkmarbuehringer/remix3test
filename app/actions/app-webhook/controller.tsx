@@ -6,11 +6,8 @@ import { updateWebhookRequestHermesStatus } from '../../data/webhook-requests.ts
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
-import type { AppContext } from '../../types/context.ts'
-
 function hermesUrl(): string {
   return process.env.HERMES_URL ?? 'http://127.0.0.1:8644/webhooks/app-webhook'
 }
@@ -22,10 +19,10 @@ interface WebhookInsertResult {
   id: string
 }
 
-export const appWebhookReceive = createAction<typeof appWebhookRoute, AppContext>(appWebhookRoute, {
+export const appWebhookReceive = createAction(appWebhookRoute, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
-    let body = context.get(JsonBody)
+    let body = context.jsonBody
     if (!body) {
       return new Response('Expected application/json', { status: 400 })
     }

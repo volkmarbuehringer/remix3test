@@ -1,5 +1,4 @@
 import { createController } from 'remix/router'
-import { Logger } from 'remix/middleware/logger'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { minLength, email } from 'remix/data-schema/checks'
@@ -9,10 +8,8 @@ import { routes } from '../../routes.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
 import { AdminNutzerPage } from '../../ui/admin-nutzer-page.tsx'
-import type { AppContext } from '../../types/context.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
 import { parseSort } from '../../utils/sort-params.ts'
 import { gridStateToParams } from '../../utils/grid-state.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
@@ -79,7 +76,7 @@ function dbErrorMessage(error: unknown): string {
   return 'Ein Datenbankfehler ist aufgetreten.'
 }
 
-export default createController<typeof routes.admin.nutzer, AppContext>(routes.admin.nutzer, {
+export default createController(routes.admin.nutzer, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
@@ -227,7 +224,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         }
       } catch (error) {
         if (process.env.NODE_ENV !== 'test')
-          context.get(Logger)?.('DB error in nutzer update: ' + String(error))
+          context.logger?.('DB error in nutzer update: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'
@@ -365,7 +362,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return redirect(routes.admin.nutzer.index.href() + '?' + qp.toString())
       } catch (error) {
         if (process.env.NODE_ENV !== 'test')
-          context.get(Logger)?.('DB error in nutzer create: ' + String(error))
+          context.logger?.('DB error in nutzer create: ' + String(error))
 
         let gridOffset = Math.max(0, Number(rawValues._offset) || 0)
         let sortCol = rawValues._sort || 'n_name'
@@ -493,7 +490,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      let body = context.get(JsonBody) as { locked?: boolean } | undefined
+      let body = context.jsonBody as { locked?: boolean } | undefined
 
       if (!body || typeof body.locked !== 'boolean') {
         return context.json({ error: 'Expected boolean "locked" field' }, { status: 400 })
@@ -525,7 +522,7 @@ export default createController<typeof routes.admin.nutzer, AppContext>(routes.a
         return context.json({ error: 'Invalid id' }, { status: 400 })
       }
 
-      let body = context.get(JsonBody) as { active?: boolean } | undefined
+      let body = context.jsonBody as { active?: boolean } | undefined
 
       if (!body || typeof body.active !== 'boolean') {
         return context.json({ error: 'Expected boolean "active" field' }, { status: 400 })

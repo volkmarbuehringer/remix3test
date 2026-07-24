@@ -8,7 +8,11 @@ import type { User } from '../data/schema.ts'
 
 export const ApiUser = createContextKey<User>()
 
-export function apiTokenAuth(): Middleware {
+export function apiTokenAuth(): Middleware<{
+  key: typeof ApiUser
+  value: User
+  property: 'apiUser'
+}> {
   return async (context, next) => {
     let token = parseBearerToken(context.request)
     if (!token) {

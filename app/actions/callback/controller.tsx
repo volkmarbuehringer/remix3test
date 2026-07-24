@@ -4,13 +4,10 @@ import { callbackRoute } from '../../routes.ts'
 import { updateCallbackResponse, checkWebhookRequestExists } from '../../data/callback.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { connectionIp, isLocalhost } from '../../utils/request-ip.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
-import type { AppContext } from '../../types/context.ts'
-
 const MAX_PAYLOAD_BYTES = 256 * 1024
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const callbackReceive = createAction<typeof callbackRoute, AppContext>(callbackRoute, {
+export const callbackReceive = createAction(callbackRoute, {
   handler: async (context) => {
     let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Callback]') : () => {}
 
@@ -20,7 +17,7 @@ export const callbackReceive = createAction<typeof callbackRoute, AppContext>(ca
       return new Response('Forbidden', { status: 403 })
     }
 
-    let body = context.get(JsonBody) as Record<string, unknown> | undefined
+    let body = context.jsonBody as Record<string, unknown> | undefined
     if (!body) {
       log('Expected application/json')
       return new Response('Expected application/json', { status: 400 })

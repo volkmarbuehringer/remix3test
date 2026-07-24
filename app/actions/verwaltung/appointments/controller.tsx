@@ -133,7 +133,7 @@ function errorRedirectDestroy(formData: FormData, error: string): Response {
 }
 
 async function loadAppointmentPageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<
     Pick<
       AppointmentPageData,
@@ -259,7 +259,7 @@ async function loadAppointmentPageData(
 }
 
 function renderAppointmentsPage(
-  context: AppContext,
+  context: any,
   data: AppointmentPageData,
   init?: ResponseInit,
 ): Response {
@@ -291,7 +291,7 @@ function renderAppointmentsPage(
   )
 }
 
-export default createController<typeof routes.verwaltung.appointments, AppContext>(
+export default createController(
   routes.verwaltung.appointments,
   {
     middleware: [requireAuth(), requireAdmin()],

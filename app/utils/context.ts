@@ -25,7 +25,7 @@ export function getCurrentUserSafely(): User | null {
  * Returns undefined if auth is not OK (unauthenticated).
  */
 export function getAdminIdentity(
-  auth: AuthState<User> | undefined,
+  auth: AuthState<any> | undefined,
 ): { id: number; email: string } | undefined {
   return auth?.ok ? (auth.identity as unknown as { id: number; email: string }) : undefined
 }

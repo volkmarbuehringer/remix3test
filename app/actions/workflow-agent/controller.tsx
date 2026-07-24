@@ -11,7 +11,6 @@ import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
-import type { AppContext } from '../../types/context.ts'
 import type { TestAgent } from '../mastra/shared-agent.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
@@ -53,7 +52,7 @@ function getTarget(path: string): string {
   return match?.[1] ?? 'admin-content'
 }
 
-export const workflowAgent = createController<typeof routes.workflowAgent, AppContext>(
+export const workflowAgent = createController(
   routes.workflowAgent,
   {
     middleware: [requireAdmin()],

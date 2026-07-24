@@ -5,7 +5,7 @@ import { compression } from 'remix/middleware/compression'
 
 import { formData } from 'remix/middleware/form-data'
 import { uploadHandler } from './uploads.ts'
-import { logger, Logger } from 'remix/middleware/logger'
+import { logger, Logger, type LoggerFunction } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
 import type { SessionStorage } from 'remix/session'
@@ -26,7 +26,11 @@ import { mailer } from './mailer.ts'
  * Logs requests via the built-in logger for non-asset routes, suppresses
  * successful asset requests (status < 400), and warns on asset errors.
  */
-export function skipAssetsLogger(): Middleware {
+export function skipAssetsLogger(): Middleware<{
+  key: typeof Logger
+  value: LoggerFunction
+  property: 'logger'
+}> {
   return async (context, next) => {
     if (context.url.pathname.startsWith('/assets/')) {
       context.set(Logger, console.log, { property: 'logger' })

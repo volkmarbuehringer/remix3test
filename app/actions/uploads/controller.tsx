@@ -10,9 +10,7 @@ import { listUploads, claimUpload, getUploadDownload, type UploadRow } from '../
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../utils/context.ts'
-import type { AppContext } from '../../types/context.ts'
-
-export default createController<typeof routes.uploads, AppContext>(routes.uploads, {
+export default createController(routes.uploads, {
   middleware: [requireAuth()],
   actions: {
     async index(context) {

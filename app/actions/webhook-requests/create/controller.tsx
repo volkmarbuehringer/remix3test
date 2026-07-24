@@ -2,13 +2,12 @@ import { createController } from 'remix/router'
 import { webhookCreateRoute } from '../../../routes.ts'
 import { insertWebhookRequest } from '../../../data/webhook-requests.ts'
 import { sourceIp } from '../../../utils/request-ip.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { Document } from '../../../ui/document.tsx'
 import { Layout } from '../../../ui/layout.tsx'
 import { WebhookComposerPage } from '../../../ui/webhook-composer-page.tsx'
 
-export const webhookRequestsCreate = createController<typeof webhookCreateRoute, AppContext>(
+export const webhookRequestsCreate = createController(
   webhookCreateRoute,
   {
     middleware: [requireAuth()],

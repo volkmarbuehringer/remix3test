@@ -49,7 +49,7 @@ import {
   deleteAppointmentRecord,
 } from '../../data/appointments.ts'
 
-function redirectToLogin(context: AppContext): Response {
+function redirectToLogin(context: any): Response {
   let returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? context.url.pathname
   let location = returnTo
     ? `${routes.auth.login.index.href()}?returnTo=${encodeURIComponent(returnTo)}`
@@ -98,7 +98,7 @@ interface AppointmentsNewPageData {
 }
 
 async function loadAppointmentsNewPageData(
-  context: AppContext,
+  context: any,
   userId: number,
   overrides?: Partial<
     Pick<
@@ -301,7 +301,7 @@ async function loadAppointmentsNewPageData(
 }
 
 function renderAppointmentsNewPage(
-  context: AppContext,
+  context: any,
   data: AppointmentsNewPageData,
   init?: ResponseInit,
 ): Response {
@@ -336,7 +336,7 @@ function renderAppointmentsNewPage(
   )
 }
 
-export default createController<typeof routes.appointmentsNew, AppContext>(routes.appointmentsNew, {
+export default createController(routes.appointmentsNew, {
   middleware: [requireAuth()],
 
   actions: {

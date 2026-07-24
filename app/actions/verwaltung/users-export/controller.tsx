@@ -4,7 +4,6 @@ import * as f from 'remix/data-schema/form-data'
 import { SuperHeaders } from 'remix/headers'
 
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
@@ -42,7 +41,7 @@ interface UserSummaryRow {
   last_date: number | null
 }
 
-export default createController<typeof routes.verwaltung.usersExport, AppContext>(
+export default createController(
   routes.verwaltung.usersExport,
   {
     middleware: [requireAuth(), requireAdmin()],

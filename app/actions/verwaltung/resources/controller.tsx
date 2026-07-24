@@ -3,7 +3,7 @@ import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { minLength, maxLength } from 'remix/data-schema/checks'
 import { createController } from 'remix/router'
-import { Logger } from 'remix/middleware/logger'
+
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
@@ -61,7 +61,7 @@ interface ResourcePageData {
 }
 
 async function loadResourcePageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<
     Pick<
       ResourcePageData,
@@ -144,7 +144,7 @@ const resourceSaveSchema = f.object({
 })
 
 function renderResourcePage(
-  context: AppContext,
+  context: any,
   data: ResourcePageData,
   init?: ResponseInit,
 ): Response {
@@ -169,7 +169,7 @@ function renderResourcePage(
   )
 }
 
-export default createController<typeof routes.verwaltung.resources, AppContext>(
+export default createController(
   routes.verwaltung.resources,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -365,7 +365,7 @@ export default createController<typeof routes.verwaltung.resources, AppContext>(
         } catch (error: unknown) {
           if (isConstraintViolation(error)) {
             if (process.env.NODE_ENV !== 'test')
-              context.get(Logger)?.(
+              context.logger?.(
                 'Constraint violation during resource deletion: ' +
                   JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }),
               )

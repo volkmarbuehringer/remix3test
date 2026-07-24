@@ -5,17 +5,14 @@ import { insertWebhookRequest } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
-import type { AppContext } from '../../types/context.ts'
-
-export const webhookReceive = createAction<typeof webhookRoute, AppContext>(webhookRoute, {
+export const webhookReceive = createAction(webhookRoute, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
     let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Webhook]') : () => {}
 
-    let body = context.get(JsonBody)
+    let body = context.jsonBody
     if (!body) {
       return new Response('Expected application/json', { status: 400 })
     }

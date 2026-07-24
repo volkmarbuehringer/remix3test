@@ -18,7 +18,6 @@ import {
   isAbortError,
   sanitizeLog,
 } from '../mastra/shared-agent.ts'
-import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
@@ -69,7 +68,7 @@ function completedStream(text: string, userId: string | number, runId?: string):
   }
 }
 
-export const customerChat = createController<typeof routes.chat, AppContext>(routes.chat, {
+export const customerChat = createController(routes.chat, {
   middleware: [requireAuth()],
 
   actions: {

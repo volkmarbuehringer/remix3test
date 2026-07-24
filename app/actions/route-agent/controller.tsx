@@ -9,7 +9,6 @@ import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { RouteAgentPage } from '../../ui/route-agent-page.tsx'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 
@@ -31,7 +30,7 @@ function getTarget(path: string): string {
   return match?.[1] ?? 'lists-content'
 }
 
-export const routeAgent = createController<typeof routes.routeAgent, AppContext>(
+export const routeAgent = createController(
   routes.routeAgent,
   {
     middleware: [requireAdmin()],

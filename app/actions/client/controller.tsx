@@ -9,14 +9,12 @@ import { redirect } from 'remix/response/redirect'
 import { parseId } from '../../utils/ids.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
 import { routes } from '../../routes.ts'
 import { clients } from '../../data/schema.ts'
 import type { Client } from '../../data/schema.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { ClientPage } from './page.tsx'
 import { paginate } from '../../utils/pagination.ts'
-import type { AppContext } from '../../types/context.ts'
 import { parseSort } from '../../utils/sort-params.ts'
 import { isConstraintViolation } from '../../utils/db-errors.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
@@ -100,7 +98,7 @@ async function fetchGridData(
   return { rows: page, hasMore, effectivePageSize }
 }
 
-export default createController<typeof routes.admin.client, AppContext>(routes.admin.client, {
+export default createController(routes.admin.client, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     // ── GET /admin/client — Render main page ──
@@ -181,7 +179,7 @@ export default createController<typeof routes.admin.client, AppContext>(routes.a
       let isJson = contentType.includes('application/json')
 
       if (isJson) {
-        let body = context.get(JsonBody) as Record<string, unknown> | undefined
+        let body = context.jsonBody as Record<string, unknown> | undefined
         let emailVal = typeof body?.email === 'string' ? (body.email as string).trim() : ''
         if (!emailVal) {
           return context.json({ ok: false, error: 'Email is required' }, { status: 400 })

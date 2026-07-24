@@ -1,7 +1,7 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { createController } from 'remix/router'
-import { Logger } from 'remix/middleware/logger'
+
 import { redirect } from 'remix/response/redirect'
 
 import { parseId } from '../../../utils/ids.ts'
@@ -106,7 +106,7 @@ interface OfferingConfigPageData {
 }
 
 async function loadOfferingConfigPageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<
     Pick<
       OfferingConfigPageData,
@@ -179,7 +179,7 @@ async function loadOfferingConfigPageData(
 }
 
 function renderOfferingConfigPage(
-  context: AppContext,
+  context: any,
   data: OfferingConfigPageData,
   init?: ResponseInit,
 ): Response {
@@ -287,7 +287,7 @@ interface CreateValidationFailure {
 type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure
 
 async function validateCreate(
-  db: AppContext['db'],
+  db: any,
   schema: typeof offeringConfigSchema,
   formData: FormData,
 ): Promise<CreateValidationResult> {
@@ -338,7 +338,7 @@ async function validateCreate(
   return { ok: true, parsed, resourceId, rules }
 }
 
-export default createController<typeof routes.verwaltung.offeringConfigs, AppContext>(
+export default createController(
   routes.verwaltung.offeringConfigs,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -380,7 +380,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
           } catch (error) {
             if (isConstraintViolation(error)) {
               if (process.env.NODE_ENV !== 'test')
-                context.get(Logger)?.(
+                context.logger?.(
                   'Constraint violation during offering config creation: ' +
                     JSON.stringify({ code: (error as { code?: string }).code }),
                 )
@@ -448,7 +448,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         } catch (error) {
           if (isConstraintViolation(error)) {
             if (process.env.NODE_ENV !== 'test')
-              context.get(Logger)?.(
+              context.logger?.(
                 'Constraint violation during offering config creation: ' +
                   JSON.stringify({ code: (error as { code?: string }).code }),
               )
@@ -588,7 +588,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         } catch (error) {
           if (isConstraintViolation(error)) {
             if (process.env.NODE_ENV !== 'test')
-              context.get(Logger)?.(
+              context.logger?.(
                 'Constraint violation during offering config update: ' +
                   JSON.stringify({ code: (error as { code?: string }).code }),
               )
@@ -644,7 +644,7 @@ export default createController<typeof routes.verwaltung.offeringConfigs, AppCon
         } catch (error: unknown) {
           if (isConstraintViolation(error)) {
             if (process.env.NODE_ENV !== 'test')
-              context.get(Logger)?.(
+              context.logger?.(
                 'Constraint violation during offering config deletion: ' +
                   JSON.stringify({ code: (error as { code?: string }).code }),
               )

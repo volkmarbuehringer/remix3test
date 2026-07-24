@@ -6,7 +6,6 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../../middleware/render.tsx'
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { ChatLogPage } from '../../../ui/admin-chatlog-page.tsx'
@@ -23,7 +22,7 @@ import type { ChatMessage } from '../../../types/chatlog.ts'
 
 const CHATLOG_PAGE_SIZE = 5
 
-export const adminChatlog = createController<typeof routes.admin.chatlog, AppContext>(
+export const adminChatlog = createController(
   routes.admin.chatlog,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -99,10 +98,7 @@ export const adminChatlog = createController<typeof routes.admin.chatlog, AppCon
 
 // ── Chatlog Fragments ──
 
-export const adminChatlogFragments = createController<
-  typeof routes.admin.chatlog.fragments,
-  AppContext
->(routes.admin.chatlog.fragments, {
+export const adminChatlogFragments = createController(routes.admin.chatlog.fragments, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

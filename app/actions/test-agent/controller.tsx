@@ -9,7 +9,6 @@ import { Layout } from '../../ui/layout.tsx'
 import { TestAgentPage } from '../../ui/test-agent-page.tsx'
 import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
 import { routes, frames } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
@@ -36,7 +35,7 @@ function completedStream(text: string, userId: string | number, runId?: string):
   }
 }
 
-export const testAgent = createController<typeof routes.testAgent, AppContext>(routes.testAgent, {
+export const testAgent = createController(routes.testAgent, {
   middleware: [requireAdmin()],
 
   actions: {

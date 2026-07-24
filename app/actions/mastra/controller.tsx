@@ -1,5 +1,4 @@
 import { createController } from 'remix/router'
-import { Logger } from 'remix/middleware/logger'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes } from '../../routes.ts'
@@ -23,7 +22,6 @@ import { SupportAgentPage } from '../../ui/support-agent-page.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { recallChatMessages } from '../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../utils/thread-id.ts'
-import type { AppContext } from '../../types/context.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import type { TestAgent } from './shared-agent.ts'
 
@@ -42,7 +40,7 @@ export function __getTestAgent() {
   return _testAgent
 }
 
-export const mastraChat = createController<typeof routes.mastra.chat, AppContext>(
+export const mastraChat = createController(
   routes.mastra.chat,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -104,7 +102,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
       async action(context) {
         let user = getCurrentUser()
         let log = (...args: unknown[]) =>
-          context.get(Logger)?.(
+          context.logger?.(
             `[MastraChat] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 
@@ -227,7 +225,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
       async toolDecision(context) {
         let user = getCurrentUser()
         let log = (...args: unknown[]) =>
-          context.get(Logger)?.(
+          context.logger?.(
             `[MastraChat] [toolDecision] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 
@@ -386,7 +384,7 @@ export const mastraChat = createController<typeof routes.mastra.chat, AppContext
       async answer(context) {
         let user = getCurrentUser()
         let log = (...args: unknown[]) =>
-          context.get(Logger)?.(
+          context.logger?.(
             `[MastraChat] [answer] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
           )
 

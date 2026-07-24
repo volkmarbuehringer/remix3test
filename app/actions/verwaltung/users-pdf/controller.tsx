@@ -3,7 +3,6 @@ import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
@@ -31,7 +30,7 @@ interface UserSummaryRow {
   last_date: number | null
 }
 
-export default createController<typeof routes.verwaltung.usersPdf, AppContext>(
+export default createController(
   routes.verwaltung.usersPdf,
   {
     middleware: [requireAuth(), requireAdmin()],

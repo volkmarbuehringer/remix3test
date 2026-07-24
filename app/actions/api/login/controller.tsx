@@ -8,9 +8,6 @@ import { verifyPassword } from '../../../utils/password-hash.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../../utils/api-token.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { sourceIp } from '../../../utils/request-ip.ts'
-import { JsonBody } from '../../../middleware/json-body.ts'
-import type { AppContext } from '../../../types/context.ts'
-
 // Rate limiters are in-memory per-process. In multi-instance deployments,
 // each instance has independent state. Use a shared store (Redis, PostgreSQL)
 // if horizontal scaling is needed.
@@ -22,11 +19,11 @@ const loginSchema = s.object({
   password: s.string(),
 })
 
-export const apiLogin = createAction<typeof routes.api.login, AppContext>(routes.api.login, {
+export const apiLogin = createAction(routes.api.login, {
   middleware: [],
 
   async handler(context) {
-    let body = context.get(JsonBody)
+    let body = context.jsonBody
     if (!body) {
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
     }

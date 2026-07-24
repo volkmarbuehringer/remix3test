@@ -37,7 +37,7 @@ interface PageData {
 }
 
 async function loadPageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<Pick<PageData, 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
 ): Promise<PageData> {
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -71,7 +71,7 @@ async function loadPageData(
   }
 }
 
-export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, AppContext>(
+export const webhookRequestsIndex = createAction(
   webhookRequestsRoute,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -102,7 +102,7 @@ export const webhookRequestsIndex = createAction<typeof webhookRequestsRoute, Ap
   },
 )
 
-export const webhookRequestsEvents = createAction<typeof webhookRequestsEventsRoute, AppContext>(
+export const webhookRequestsEvents = createAction(
   webhookRequestsEventsRoute,
   {
     middleware: [requireSseAuth()],
@@ -117,7 +117,7 @@ function hermesUrl(): string {
 const HERMES_TIMEOUT_MS = 3_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRoute, AppContext>(
+export const webhookRequestsUpdate = createAction(
   webhookRequestsUpdateRoute,
   {
     middleware: [requireAuth(), requireAdmin()],
@@ -173,7 +173,7 @@ export const webhookRequestsUpdate = createAction<typeof webhookRequestsUpdateRo
   },
 )
 
-export const webhookRequestsResend = createAction<typeof webhookRequestsResendRoute, AppContext>(
+export const webhookRequestsResend = createAction(
   webhookRequestsResendRoute,
   {
     middleware: [requireAuth(), requireAdmin()],

@@ -34,9 +34,7 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { fragmentResponseInit } from '../../middleware/render.tsx'
-import { JsonBody } from '../../middleware/json-body.ts'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 
 const MINUTES_IN_DAY = 1440
 const MINIMUM_DURATION = 15
@@ -120,7 +118,7 @@ function weekDates(mondayMs: number): Array<{ dayName: string; date: number; dat
   return days
 }
 
-export const appointment = createController<typeof routes.appointment, AppContext>(
+export const appointment = createController(
   routes.appointment,
   {
     middleware: [requireAuth()],
@@ -207,7 +205,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
           )
         }
 
-        let body = context.get(JsonBody) as Record<string, unknown> | undefined
+        let body = context.jsonBody as Record<string, unknown> | undefined
 
         if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
@@ -334,7 +332,7 @@ export const appointment = createController<typeof routes.appointment, AppContex
           return context.json({ error: 'Invalid appointment ID.' }, { status: 400 })
         }
 
-        let body = context.get(JsonBody)
+        let body = context.jsonBody
 
         if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
@@ -458,7 +456,7 @@ const appointTypeUpdateSchema = s.object({
   title: s.optional(s.string().pipe(minLength(1), maxLength(80))),
 })
 
-export const appointmentTypes = createController<typeof routes.appointment.types, AppContext>(
+export const appointmentTypes = createController(
   routes.appointment.types,
   {
     middleware: [requireAuth()],
@@ -492,7 +490,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
         let auth = context.auth as { identity: User }
         let userId = (auth.identity as User).id
 
-        let body = context.get(JsonBody)
+        let body = context.jsonBody
 
         if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })
@@ -518,7 +516,7 @@ export const appointmentTypes = createController<typeof routes.appointment.types
           return context.json({ error: 'Invalid type ID.' }, { status: 400 })
         }
 
-        let body = context.get(JsonBody)
+        let body = context.jsonBody
 
         if (!body) {
           return context.json({ error: 'Expected a valid JSON request body.' }, { status: 400 })

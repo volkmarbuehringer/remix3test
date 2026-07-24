@@ -32,7 +32,7 @@ import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/pas
 import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
-import { Logger } from 'remix/middleware/logger'
+
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
 import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
 
@@ -46,9 +46,7 @@ const changePasswordSchema = f.object({
   confirmPassword: f.field(s.string()),
 })
 
-import type { AppContext } from '../../types/context.ts'
-
-export default createController<typeof routes.settings, AppContext>(routes.settings, {
+export default createController(routes.settings, {
   middleware: [requireAuth()],
   actions: {
     index(context) {
@@ -139,7 +137,7 @@ export default createController<typeof routes.settings, AppContext>(routes.setti
               'self',
             )
           } catch (err) {
-            context.get(Logger)?.('Failed to send account deletion email: ' + String(err))
+            context.logger?.('Failed to send account deletion email: ' + String(err))
           }
         }
 

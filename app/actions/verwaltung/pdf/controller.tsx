@@ -3,7 +3,6 @@ import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
@@ -32,7 +31,7 @@ interface AppointmentRow {
   end_min: number
 }
 
-export default createController<typeof routes.verwaltung.pdf, AppContext>(routes.verwaltung.pdf, {
+export default createController(routes.verwaltung.pdf, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

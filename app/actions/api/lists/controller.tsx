@@ -1,14 +1,12 @@
 import { createController, type Middleware } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
-import { Logger } from 'remix/middleware/logger'
 
-import { JsonBody } from '../../../middleware/json-body.ts'
+
 import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { getAllLists, getListById, createList, patchList, deleteList } from '../../../data/lists.ts'
 
 const apiListsLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 60 })
@@ -33,7 +31,7 @@ const listsSaveSchema = s.object({
   items: s.array(listItemSchema),
 })
 
-export default createController<typeof routes.apiLists, AppContext>(routes.apiLists, {
+export default createController(routes.apiLists, {
   middleware: [apiTokenAuth(), requireApiAuth(), apiListsRateLimit()],
 
   actions: {
@@ -42,13 +40,13 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       let limit = Math.max(1, Math.min(Number(context.url.searchParams.get('limit')) || 20, 100))
       let filter = context.url.searchParams.get('filter') || undefined
 
-      let apiUser = context.get(ApiUser)!
+      let apiUser = context.apiUser!
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let result = await getAllLists(context.db, { offset, limit, filter }, listUserId)
       return context.json(result)
     },
     async show(context) {
-      let apiUser = context.get(ApiUser)!
+      let apiUser = context.apiUser!
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
@@ -75,8 +73,8 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       })
     },
     async create(context) {
-      let userId = context.get(ApiUser)!.id
-      let body = context.get(JsonBody)
+      let userId = context.apiUser!.id
+      let body = context.jsonBody
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
@@ -107,13 +105,13 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json({ id: row.id, description: row.description })
     },
     async update(context) {
-      let apiUser = context.get(ApiUser)!
+      let apiUser = context.apiUser!
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {
         listId = s.parse(s.number(), Number(context.params.id))
       } catch (error) {
-        context.get(Logger)?.('Invalid list ID in api/lists/update: ' + String(error))
+        context.logger?.('Invalid list ID in api/lists/update: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -121,7 +119,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let body = context.get(JsonBody)
+      let body = context.jsonBody
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
@@ -156,7 +154,7 @@ export default createController<typeof routes.apiLists, AppContext>(routes.apiLi
       return context.json({ id: listId, description })
     },
     async destroy(context) {
-      let apiUser = context.get(ApiUser)!
+      let apiUser = context.apiUser!
       let listUserId = apiUser.role === 'admin' ? undefined : apiUser.id
       let listId: number
       try {

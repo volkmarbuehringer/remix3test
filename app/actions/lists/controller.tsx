@@ -2,14 +2,13 @@ import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
-import { Logger } from 'remix/middleware/logger'
+
 
 import { requireAuth } from '../../middleware/auth.ts'
-import { JsonBody } from '../../middleware/json-body.ts'
+
 import { ListsClient } from './lists-client.browser.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { routes } from '../../routes.ts'
-import type { AppContext } from '../../types/context.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import {
   getListById,
@@ -44,7 +43,7 @@ const listsPatchSchema = s.object({
   items: s.optional(s.array(listItemSchema)),
 })
 
-export default createController<typeof routes.lists, AppContext>(routes.lists, {
+export default createController(routes.lists, {
   middleware: [requireAuth()],
 
   actions: {
@@ -126,7 +125,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
     async create(context) {
       let user = getCurrentUser()
 
-      let body = context.get(JsonBody)
+      let body = context.jsonBody
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
@@ -167,7 +166,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       try {
         listId = s.parse(s.number(), Number(context.params.id))
       } catch (error) {
-        context.get(Logger)?.('Invalid list ID in lists/update: ' + String(error))
+        context.logger?.('Invalid list ID in lists/update: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
@@ -175,7 +174,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 
-      let body = context.get(JsonBody)
+      let body = context.jsonBody
       if (!body) {
         return context.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
@@ -240,7 +239,7 @@ export default createController<typeof routes.lists, AppContext>(routes.lists, {
       try {
         listId = s.parse(s.number(), Number(context.params.id))
       } catch (error) {
-        context.get(Logger)?.('Invalid list ID in lists/destroy: ' + String(error))
+        context.logger?.('Invalid list ID in lists/destroy: ' + String(error))
         return context.json({ error: 'Invalid list ID' }, { status: 400 })
       }
 

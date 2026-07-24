@@ -34,7 +34,7 @@ interface Report1PageData {
 }
 
 async function loadReport1PageData(
-  context: AppContext,
+  context: any,
   overrides?: Partial<
     Pick<
       Report1PageData,
@@ -103,7 +103,7 @@ async function loadReport1PageData(
 }
 
 function renderReport1Page(
-  context: AppContext,
+  context: any,
   data: Report1PageData,
   init?: ResponseInit,
 ): Response {
@@ -127,7 +127,7 @@ function renderReport1Page(
   )
 }
 
-export default createController<typeof routes.verwaltung.report1, AppContext>(
+export default createController(
   routes.verwaltung.report1,
   {
     middleware: [requireAuth(), requireAdmin()],

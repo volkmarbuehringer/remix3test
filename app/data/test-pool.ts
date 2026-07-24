@@ -1,10 +1,7 @@
 import { Pool } from 'pg'
 
-let url = process.env.DATABASE_URL
-if (!url) {
-  url = ''
-}
-let localeUrl =
+const url = process.env.DATABASE_URL ?? ''
+const localeUrl =
   url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
 export const pool = new Pool({

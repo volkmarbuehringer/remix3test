@@ -7,7 +7,6 @@ import { searchLists } from '../../../data/admin-lists.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
-import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
@@ -16,7 +15,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const LISTS_PAGE_LIMIT = 10
 
-export const adminLists = createController<typeof routes.admin.lists, AppContext>(
+export const adminLists = createController(
   routes.admin.lists,
   {
     middleware: [requireAuth(), requireAdmin()],
