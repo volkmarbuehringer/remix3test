@@ -227,7 +227,7 @@ CREATE TABLE nutzer (
 CREATE INDEX nutzer_n_email_idx ON nutzer (n_email);
 CREATE INDEX nutzer_n_lid_idx ON nutzer (n_lid);
 
-CREATE TABLE mastra_workflow_snapshot (
+CREATE TABLE IF NOT EXISTS mastra_workflow_snapshot (
   workflow_name TEXT NOT NULL,
   run_id TEXT NOT NULL,
   "resourceId" TEXT,

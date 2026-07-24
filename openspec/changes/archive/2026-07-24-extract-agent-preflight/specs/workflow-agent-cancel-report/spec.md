@@ -1,6 +1,4 @@
-# workflow-agent-cancel-report
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Generate action summary PDF
 
@@ -55,3 +53,11 @@ The workflow agent SHALL have a `generate_action_report` tool that produces a PD
 
 - **WHEN** `generate_action_report` generates a PDF
 - **THEN** the generated PDF SHALL use the Roboto font family
+
+## REMOVED Requirements
+
+### Requirement: Agent must call run_consistency_checks before generate_action_report
+
+**Reason**: Consistency check data is now included in the preflight workflow output, available to the agent from the initial tool call. A separate `run_consistency_checks` tool call is no longer needed.
+
+**Migration**: Agents SHALL use consistency data from the preflight workflow output when calling `generate_action_report`. The `run_consistency_checks` tool SHALL be removed from the workflow agent's toolset.

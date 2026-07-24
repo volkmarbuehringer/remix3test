@@ -9,7 +9,7 @@ export type UserWithPending = {
   pendingCount: number
 }
 
-const checkLockedUsersPendingAppointments = createStep({
+export const checkLockedUsersPendingAppointments = createStep({
   id: 'check-locked-users-pending-appts',
   inputSchema: z.object({}),
   outputSchema: z.object({
@@ -42,7 +42,7 @@ const checkLockedUsersPendingAppointments = createStep({
   },
 })
 
-const checkActiveUsersPendingAppointments = createStep({
+export const checkActiveUsersPendingAppointments = createStep({
   id: 'check-active-users-pending-appts',
   inputSchema: z.object({}),
   outputSchema: z.object({

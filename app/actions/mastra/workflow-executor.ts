@@ -6,6 +6,86 @@ export function setMastra(m: Mastra) {
   _mastra = m
 }
 
+export async function executeUserPreflightWorkflow(input: {
+  targetUserId: number
+}): Promise<{
+  found: boolean
+  user?: { id: number; name: string; email: string; role: string; disabledAt: number | null }
+  pendingCount: number
+  lockedUsers: { id: number; name: string; email: string; pendingCount: number }[]
+  lockedTotal: number
+  activeUsers: { id: number; name: string; email: string; pendingCount: number }[]
+  activeTotal: number
+  error?: string
+}> {
+  if (!_mastra) throw new Error('Mastra not initialized')
+
+  let [preflightResult, consistencyResult] = await Promise.all([
+    (async () => {
+      let wf = _mastra.getWorkflow('userPreflightWorkflow')
+      let run = await wf.createRun({ resourceId: String(input.targetUserId) })
+      return run.start({ inputData: input })
+    })(),
+    (async () => {
+      let wf = _mastra.getWorkflow('consistencyCheckWorkflow')
+      let run = await wf.createRun({ resourceId: 'consistency' })
+      return run.start({ inputData: {} })
+    })(),
+  ])
+
+  let found = false
+  let user: { id: number; name: string; email: string; role: string; disabledAt: number | null } | undefined
+  let pendingCount = 0
+  let error: string | undefined
+
+  if (preflightResult.status === 'success' && preflightResult.result) {
+    let out = preflightResult.result as {
+      found?: boolean
+      user?: { id: number; name: string; email: string; role: string; disabledAt: number | null }
+      pendingCount?: number
+      error?: string
+    }
+    found = out.found ?? false
+    user = out.user
+    pendingCount = out.pendingCount ?? 0
+    error = out.error
+  }
+
+  let lockedUsers: { id: number; name: string; email: string; pendingCount: number }[] = []
+  let lockedTotal = 0
+  let activeUsers: { id: number; name: string; email: string; pendingCount: number }[] = []
+  let activeTotal = 0
+
+  if (consistencyResult.status === 'success' && consistencyResult.result) {
+    let out = consistencyResult.result as {
+      lockedUsers?: { id: number; name: string; email: string; pendingCount: number }[]
+      lockedTotal?: number
+      activeUsers?: { id: number; name: string; email: string; pendingCount: number }[]
+      activeTotal?: number
+    }
+    lockedUsers = out.lockedUsers ?? []
+    lockedTotal = out.lockedTotal ?? 0
+    activeUsers = out.activeUsers ?? []
+    activeTotal = out.activeTotal ?? 0
+  }
+
+  if (preflightResult.status !== 'success') {
+    let preflightError = preflightResult.status === 'failed' ? String(preflightResult.error) : 'unknown_error'
+    if (!error) error = preflightError
+  }
+
+  return {
+    found,
+    user,
+    pendingCount,
+    lockedUsers,
+    lockedTotal,
+    activeUsers,
+    activeTotal,
+    error,
+  }
+}
+
 export async function executeBookingWorkflow(input: {
   resourceId: number
   customerId: number

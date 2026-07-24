@@ -175,14 +175,4 @@ describe('WorkflowAgent tools', () => {
     })
   })
 
-  describe('checkPendingAppointments', () => {
-    it('returns count of future appointments', async () => {
-      let customerId = await getCustomerId()
-      let tool = workflowAgentTools.checkPendingAppointments
-      let result = await (tool as any).execute({ userId: customerId })
-
-      assert.ok(typeof result.count === 'number')
-      assert.ok(typeof result.hasPending === 'boolean')
-    })
-  })
 })
