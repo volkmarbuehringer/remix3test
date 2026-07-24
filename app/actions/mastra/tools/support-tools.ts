@@ -13,6 +13,7 @@ import {
   appointtypes,
 } from '../../../data/schema.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 import { requireAdminId } from './admin-context.ts'
 import { executeCancelUserWorkflow } from '../workflow-executor.ts'
 
@@ -594,7 +595,7 @@ export const supportTools = {
           LIMIT 500
         `)
         let rows = result.rows ?? []
-        let docDef: any = {
+        let docDef: TDocumentDefinitions = {
           content: [
             { text: `Appointment Report: ${startDate} to ${endDate}`, style: 'header' },
             { text: `Generated: ${new Date().toISOString().slice(0, 10)}`, style: 'subheader' },
@@ -632,7 +633,7 @@ export const supportTools = {
 
       if (reportType === 'user-list') {
         let users_list = await db.findMany(users, { orderBy: [['name', 'asc']], limit: 500 })
-        let docDef: any = {
+        let docDef: TDocumentDefinitions = {
           content: [
             { text: 'User Report', style: 'header' },
             { text: `Generated: ${new Date().toISOString().slice(0, 10)}`, style: 'subheader' },

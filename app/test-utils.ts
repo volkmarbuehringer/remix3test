@@ -112,46 +112,6 @@ export async function createAuthCookieWithCsrfForUser(
 }
 
 /**
- * Create an authenticated session cookie with an additional `pendingBooking`
- * session value pre-set. Allows tests to directly exercise the
- * confirm_booking endpoint without first calling the agent.
- *
- * @returns The session cookie string and the CSRF token value.
- */
-export async function createAuthCookieWithPendingBooking(
-  pendingBooking: string,
-): Promise<{ cookie: string; csrfToken: string } | null> {
-  try {
-    let result = await db.exec(
-      'SELECT id, token_version FROM users WHERE role = $1 ORDER BY id LIMIT 1',
-      ['admin'],
-    )
-    let rows = (result.rows ?? []) as { id: number; token_version: number }[]
-    if (rows.length === 0) return null
-
-    let userId = rows[0].id as number
-    let tv = rows[0].token_version ?? 1
-    let csrfToken = generateCsrfToken()
-
-    let session = createSession()
-    session.set('auth', { userId, tv })
-    session.set('_csrf', csrfToken)
-    session.set('pendingBooking', pendingBooking)
-
-    let sid = await sessionStorage.save(session)
-    if (!sid) return null
-
-    let setCookieValue = await sessionCookie.serialize(sid)
-    let match = setCookieValue.match(/session=([^;]+)/)
-    if (!match) return null
-
-    return { cookie: `session=${match[1]}`, csrfToken }
-  } catch {
-    return null
-  }
-}
-
-/**
  * Create a test user for testing.
  * Returns the user ID or null if creation fails.
  */

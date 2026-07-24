@@ -12,10 +12,10 @@ import { validateThreadId } from '../../utils/thread-id.ts'
 import { setStream, getStream, verifyStreamOwner } from '../../utils/stream-store.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
+import { createLogger } from '../../utils/logger.ts'
 import {
   MAX_MESSAGE_LENGTH,
   validateMessage,
-  isAbortError,
   sanitizeLog,
 } from '../mastra/shared-agent.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
@@ -26,6 +26,7 @@ import { tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
 const CHAT_INDEX = routes.chat.index.href()
 
 export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
+const chatLog = createLogger('[CustomerChat]')
 const sseEncoder = new TextEncoder()
 
 async function drainAndRebuild(stream: unknown): Promise<ReadableStream<unknown>> {
@@ -83,14 +84,7 @@ export const customerChat = createController(routes.chat, {
           let agent = mastra.getAgent('customerAgent')
           chatMessages = await recallChatMessages(agent, threadId, String(user.id))
         } catch (error) {
-          if (process.env.NODE_ENV !== 'test') {
-            console.error(
-              '[CustomerChat] recall failed for ' +
-                sanitizeLog(threadId) +
-                ': ' +
-                sanitizeLog(String(error)),
-            )
-          }
+          chatLog.error('recall failed for ' + sanitizeLog(threadId) + ': ' + sanitizeLog(String(error)))
         }
       }
 
@@ -161,9 +155,7 @@ export const customerChat = createController(routes.chat, {
 
         return context.json({ runId: output.runId, threadId })
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') {
-          console.error('[CustomerChat] action error:', sanitizeLog(String(error)))
-        }
+        chatLog.error('action error:', sanitizeLog(String(error)))
         return context.json({ error: 'Fehler bei der Verarbeitung.' }, { status: 500 })
       }
     },
@@ -414,9 +406,7 @@ export const customerChat = createController(routes.chat, {
         setStream(newRunId, completedStream(responseText, user.id, newRunId))
         return context.json({ runId: newRunId, text: responseText })
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') {
-          console.error('[CustomerChat] approve failed:', sanitizeLog(String(error)))
-        }
+        chatLog.error('approve failed:', sanitizeLog(String(error)))
         return context.json({ error: 'Fehler bei der Bestätigung.' }, { status: 500 })
       }
     },
@@ -467,9 +457,7 @@ export const customerChat = createController(routes.chat, {
         setStream(newRunId, completedStream(responseText, user.id, newRunId))
         return context.json({ runId: newRunId, text: responseText })
       } catch (error) {
-        if (process.env.NODE_ENV !== 'test') {
-          console.error('[CustomerChat] decline failed:', sanitizeLog(String(error)))
-        }
+        chatLog.error('decline failed:', sanitizeLog(String(error)))
         return context.json({ error: 'Fehler beim Ablehnen.' }, { status: 500 })
       }
     },
@@ -526,9 +514,7 @@ export const customerChat = createController(routes.chat, {
           threadId: context.formData.get('threadId')?.toString(),
         })
       } catch (err) {
-        if (process.env.NODE_ENV !== 'test') {
-          console.error('[CustomerChat] answer error:', sanitizeLog(String(err)))
-        }
+        chatLog.error('answer error:', sanitizeLog(String(err)))
         return context.json({ error: 'Fehler bei der Antwortverarbeitung.' }, { status: 500 })
       }
     },

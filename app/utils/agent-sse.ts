@@ -11,7 +11,27 @@ export function sseHeaders() {
   return headers
 }
 
-export function filterAndForward(
+/** Create an SSE error Response with the given message and HTTP status */
+export function sseErrorResponse(error: string, status: number = 400): Response {
+  return new Response(
+    sseEncoder.encode(
+      `event: agent-error\ndata: ${JSON.stringify({ error })}\n\n`,
+    ),
+    { status, headers: sseHeaders() },
+  )
+}
+
+/** Encode a single SSE event for direct controller.enqueue() usage */
+export function sseEvent(type: string, data: unknown): Uint8Array {
+  return sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
+/** Safely close a ReadableStream controller, ignoring errors if already closed */
+export function safeClose(controller: ReadableStreamDefaultController) {
+  try { controller.close() } catch { /* already closed */ }
+}
+
+function filterAndForward(
   chunk: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
   options?: { runId?: string; getTarget?: (path: string) => string },

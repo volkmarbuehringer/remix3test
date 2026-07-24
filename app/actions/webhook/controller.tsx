@@ -7,10 +7,11 @@ import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
+import { createLogger } from '../../utils/logger.ts'
 export const webhookReceive = createAction(webhookRoute, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
-    let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Webhook]') : () => {}
+    let log = createLogger('[Webhook]')
 
     let body = context.jsonBody
     if (!body) {

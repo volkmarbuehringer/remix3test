@@ -1,4 +1,4 @@
-export { db, closeAppDatabase, getMigrations } from './connection.ts'
+export { db, closeAppDatabase } from './connection.ts'
 import { db, getMigrations } from './connection.ts'
 import { seed } from './seed.ts'
 

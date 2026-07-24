@@ -526,6 +526,5 @@ export const apiTokens = table({
   },
 })
 
-export type ApiToken = TableRow<typeof apiTokens>
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>

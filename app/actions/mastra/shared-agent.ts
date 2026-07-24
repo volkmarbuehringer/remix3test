@@ -51,8 +51,8 @@ export interface MastraSuspendableResult {
 
 // ── Schema ───────────────────────────────────────────────────────────
 
-export const messageField = f.field(s.string())
-export const messageSchema = f.object({
+const messageField = f.field(s.string())
+const messageSchema = f.object({
   message: messageField,
   threadId: f.field(s.optional(s.string())),
 })
@@ -66,13 +66,6 @@ export const AGENT_TIMEOUT_MS = 60_000
 
 export function sanitizeLog(s: string): string {
   return s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\r\n]/g, ' ').slice(0, 128)
-}
-
-export function isAbortError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.name === 'AbortError' || error.name === 'TimeoutError' || /abort/i.test(error.message))
-  )
 }
 
 // ── Message validation ───────────────────────────────────────────────

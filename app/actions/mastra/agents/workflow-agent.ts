@@ -14,6 +14,7 @@ import {
   executeUnlockUserWorkflow,
 } from '../workflow-executor.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
+import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
 import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
 
 const cancelUserWorkflow_v2 = createTool({
@@ -302,7 +303,7 @@ const generateActionReport = createTool({
       actionDesc = 'Login re-enabled, existing sessions invalidated'
     }
 
-    let docDef: any = {
+    let docDef: TDocumentDefinitions = {
       content: [
         { text: titleText, style: 'header' },
         {

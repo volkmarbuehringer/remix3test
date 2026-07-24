@@ -12,10 +12,6 @@ export const errorEnvelope = z.object({
   }),
 })
 
-export type ErrorCode = z.infer<typeof ErrorCode>
-
-export type ErrorResult = z.infer<typeof errorEnvelope>
-
 export type SuccessResult<T> = { success: true; data: T }
 
 export function successData<T>(data: T): SuccessResult<T> {

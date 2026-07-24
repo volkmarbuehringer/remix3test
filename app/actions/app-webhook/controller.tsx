@@ -8,6 +8,8 @@ import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
+import { createLogger } from '../../utils/logger.ts'
+const appWebhookLog = createLogger('[Webhook]')
 function hermesUrl(): string {
   return process.env.HERMES_URL ?? 'http://127.0.0.1:8644/webhooks/app-webhook'
 }
@@ -54,8 +56,7 @@ export const appWebhookReceive = createAction(appWebhookRoute, {
     let hermesStatusText: string
     let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
     let hermesPayload = JSON.stringify({ id, callbackUrl, payload: body })
-    if (process.env.NODE_ENV !== 'test')
-      console.log(`[Webhook] Sende an Hermes: ${hermesUrl()} id=${id}`)
+    appWebhookLog(`Sende an Hermes: ${hermesUrl()} id=${id}`)
 
     try {
       let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)

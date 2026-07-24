@@ -3,7 +3,7 @@ import { css } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { sseEncoder, sseHeaders, pipeStream } from '../../utils/agent-sse.ts'
+import { sseEncoder, sseHeaders, sseErrorResponse, sseEvent, pipeStream } from '../../utils/agent-sse.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
@@ -22,10 +22,6 @@ export function __setTestAgent(agent: typeof _testAgent) {
     _testAgent = agent
   }
 }
-export function __getTestAgent() {
-  return _testAgent
-}
-
 // Keyed on the authenticated admin's user id — never on client-supplied
 // headers like X-Forwarded-For, which are spoofable (see remix3-two-tier-ip-trust-model).
 // Exported so tests can reset state between cases.
@@ -86,31 +82,16 @@ export const workflowAgent = createController(
       async action(context) {
         let user = getCurrentUser()
         if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
-            ),
-            { status: 429, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Too many requests', 429)
         }
 
         let rawMessage = context.formData.get('message')?.toString() ?? ''
         if (rawMessage.length > MAX_MESSAGE_LENGTH) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: `Message too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse(`Message too long (max ${MAX_MESSAGE_LENGTH})`, 400)
         }
         let message = rawMessage.trim()
         if (!message) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Message is required', 400)
         }
 
         let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
@@ -129,11 +110,7 @@ export const workflowAgent = createController(
                   memory: { thread: threadId, resource: String(user.id) },
                 }),
               )
-              controller.enqueue(
-                sseEncoder.encode(
-                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId })}\n\n`,
-                ),
-              )
+              controller.enqueue(sseEvent('start', { runId: output.runId, threadId }))
               await pipeStream(
                 output.fullStream as unknown as ReadableStream,
                 controller,
@@ -167,12 +144,7 @@ export const workflowAgent = createController(
       async answer(context) {
         let user = getCurrentUser()
         if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
-            ),
-            { status: 429, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Too many requests', 429)
         }
 
         let runId = context.formData.get('runId')?.toString()
@@ -181,21 +153,11 @@ export const workflowAgent = createController(
         let selectionMode = context.formData.get('selectionMode')?.toString()
 
         if (!runId || !answerRaw) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId or answer' })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Missing runId or answer', 400)
         }
 
         if (answerRaw.length > MAX_MESSAGE_LENGTH) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: `Answer too long (max ${MAX_MESSAGE_LENGTH})` })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse(`Answer too long (max ${MAX_MESSAGE_LENGTH})`, 400)
         }
 
         let resumeData: unknown = answerRaw
@@ -217,11 +179,7 @@ export const workflowAgent = createController(
               let output = await runWithAdminId(user.id, () =>
                 agent.resumeStream(resumeData, { runId, toolCallId }),
               )
-              controller.enqueue(
-                sseEncoder.encode(
-                  `event: start\ndata: ${JSON.stringify({ runId: output.runId, threadId: context.formData.get('threadId')?.toString() })}\n\n`,
-                ),
-              )
+              controller.enqueue(sseEvent('start', { runId: output.runId, threadId: context.formData.get('threadId')?.toString() }))
               await pipeStream(
                 output.fullStream as unknown as ReadableStream,
                 controller,
@@ -255,12 +213,7 @@ export const workflowAgent = createController(
       async toolDecision(context) {
         let user = getCurrentUser()
         if (!workflowAgentRateLimiter.attempt(user.id)) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Too many requests' })}\n\n`,
-            ),
-            { status: 429, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Too many requests', 429)
         }
 
         let runId = context.formData.get('runId')?.toString()
@@ -268,21 +221,11 @@ export const workflowAgent = createController(
         let decision = context.formData.get('decision')?.toString()
 
         if (!runId) {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Missing runId' })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Missing runId', 400)
         }
 
         if (decision !== 'approve' && decision !== 'decline') {
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'decision must be "approve" or "decline"' })}\n\n`,
-            ),
-            { status: 400, headers: sseHeaders() },
-          )
+          return sseErrorResponse('decision must be "approve" or "decline"', 400)
         }
 
         try {
@@ -316,18 +259,14 @@ export const workflowAgent = createController(
             if (sp?.question) {
               let body2 = new ReadableStream({
                 start: (c) => {
-                  c.enqueue(
-                    sseEncoder.encode(
-                      `event: question\ndata: ${JSON.stringify({
-                        runId: result.runId || runId,
-                        toolCallId: sp?.toolCallId,
-                        question: sp.question,
-                        options: sp.options ?? null,
-                        selectionMode: sp.selectionMode ?? 'single_select',
-                      })}\n\n`,
-                    ),
-                  )
-                  c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                  c.enqueue(sseEvent('question', {
+                    runId: result.runId || runId,
+                    toolCallId: sp?.toolCallId,
+                    question: sp.question,
+                    options: sp.options ?? null,
+                    selectionMode: sp.selectionMode ?? 'single_select',
+                  }))
+                  c.enqueue(sseEvent('complete', {}))
                   c.close()
                 },
               })
@@ -336,17 +275,13 @@ export const workflowAgent = createController(
             if (sp?.toolCallId || sp?.toolName) {
               let body2 = new ReadableStream({
                 start: (c) => {
-                  c.enqueue(
-                    sseEncoder.encode(
-                      `event: suspension\ndata: ${JSON.stringify({
-                        runId: result.runId || runId,
-                        toolCallId: sp.toolCallId,
-                        toolName: sp.toolName,
-                        args: sp.args,
-                      })}\n\n`,
-                    ),
-                  )
-                  c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+                  c.enqueue(sseEvent('suspension', {
+                    runId: result.runId || runId,
+                    toolCallId: sp.toolCallId,
+                    toolName: sp.toolName,
+                    args: sp.args,
+                  }))
+                  c.enqueue(sseEvent('complete', {}))
                   c.close()
                 },
               })
@@ -374,24 +309,15 @@ export const workflowAgent = createController(
           ).trim()
           let body4 = new ReadableStream({
             start: (c) => {
-              if (text) {
-                c.enqueue(
-                  sseEncoder.encode(`event: message\ndata: ${JSON.stringify({ text })}\n\n`),
-                )
-              }
-              c.enqueue(sseEncoder.encode(`event: complete\ndata: {}\n\n`))
+              if (text) c.enqueue(sseEvent('message', { text }))
+              c.enqueue(sseEvent('complete', {}))
               c.close()
             },
           })
           return new Response(body4, { headers: sseHeaders() })
         } catch (err) {
           console.error(`[workflowAgent] toolDecision (${decision}) error:`, err)
-          return new Response(
-            sseEncoder.encode(
-              `event: agent-error\ndata: ${JSON.stringify({ error: 'Failed to process tool decision' })}\n\n`,
-            ),
-            { status: 500, headers: sseHeaders() },
-          )
+          return sseErrorResponse('Failed to process tool decision', 500)
         }
       },
     },

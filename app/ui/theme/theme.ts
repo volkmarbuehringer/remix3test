@@ -1,6 +1,3 @@
 export { theme } from './contract.ts'
 export { createTheme } from './runtime.ts'
-export type { ThemeComponent } from './contract.ts'
-export { glyphContract, glyphNames } from './glyph-contract.ts'
-export type { GlyphName, GlyphValues } from './glyph-contract.ts'
 export { RMX_01_GLYPHS } from './presets/rmx-01/index.ts'

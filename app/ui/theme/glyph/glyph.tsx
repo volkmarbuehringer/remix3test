@@ -5,7 +5,7 @@ import { glyphContract, glyphNames, type GlyphName, type GlyphValues } from '../
 
 export type { GlyphName, GlyphSymbol, GlyphValues } from '../glyph-contract.ts'
 
-export type GlyphSheetProps = Omit<Props<'svg'>, 'children'>
+type GlyphSheetProps = Omit<Props<'svg'>, 'children'>
 
 type GlyphSheetRenderer = (handle: Handle<GlyphSheetProps>) => () => RemixElement
 

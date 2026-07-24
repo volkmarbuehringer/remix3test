@@ -4,12 +4,13 @@ import { callbackRoute } from '../../routes.ts'
 import { updateCallbackResponse, checkWebhookRequestExists } from '../../data/callback.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { connectionIp, isLocalhost } from '../../utils/request-ip.ts'
+import { createLogger } from '../../utils/logger.ts'
 const MAX_PAYLOAD_BYTES = 256 * 1024
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const callbackReceive = createAction(callbackRoute, {
   handler: async (context) => {
-    let log = process.env.NODE_ENV !== 'test' ? console.log.bind(console, '[Callback]') : () => {}
+    let log = createLogger('[Callback]')
 
     let ip = connectionIp(context.request)
     if (!isLocalhost(ip)) {

@@ -5,12 +5,7 @@ import { routes } from '../routes.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
-import type { Report1Row } from '../data/report1.ts'
-
-export interface Report1UserOption {
-  id: string
-  name: string
-}
+import type { Report1Row, Report1UserOption } from '../data/report1.ts'
 
 interface AdminReport1PageProps {
   rows: Report1Row[]
