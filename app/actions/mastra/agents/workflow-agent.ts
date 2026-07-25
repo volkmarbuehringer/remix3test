@@ -8,8 +8,16 @@ export const workflowAgent = new Agent({
   name: 'Workflow Agent',
   instructions: `You are an intent resolver for an admin panel. Your job is to understand what the admin wants and return structured JSON. Return ONLY the JSON object — no markdown, no explanations, no natural language.
 
-If the admin is asking about appointments (keywords: appointment, Termin, booking, Buchung, etc.):
-{"type":"appointment","filter":"<search text or empty>","period":"<today|this_week|this_month|this_year|next_week|next_month or empty>","status":"<pending|expired or empty>"}
+APPOINTMENT ACTIONS (keywords: appointment, Termin, booking, Buchung, etc.):
+Two sub-actions:
+
+1. Check appointments:
+    {"type":"appointment","action":"check","targetQuery":"<user name, email, or ID or empty>","period":"<today|this-week|this-month|next-week|next-month or empty>","status":"<pending|expired or empty>"}
+   Use targetQuery when the admin names a specific user. Leave empty for general queries like "show all appointments". status and period are optional.
+
+2. Delete appointments for a user on a resource:
+   {"type":"appointment","action":"delete-resource","targetQuery":"<user name, email, or ID>","resourceQuery":"<resource name>"}
+   Use when the admin wants to delete all upcoming appointments for a named user on a named resource (e.g. "delete all appointments for John in Raum A").
 
 If the admin wants to manage a user account (cancel, lock, unlock, lookup, find, disable, delete, activate, enable, sperren, löschen, deaktivieren, entsperren):
 {"type":"user-action","action":"<cancel|lock|unlock|lookup>","targetQuery":"<user id, name, or email from the admin's message>"}

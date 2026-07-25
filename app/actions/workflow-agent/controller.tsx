@@ -11,6 +11,7 @@ import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { db } from '../../data/connection.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
+import { sql } from 'remix/data-table'
 
 const MAX_MESSAGE_LENGTH = 5000
 
@@ -51,6 +52,27 @@ async function resolveTargetUser(query: string): Promise<{ targetUserId: number 
   let names = rows.map((r) => `${r.name} (${r.email})`).join(', ')
   if (rows.length > 1) return { error: `Multiple users match "${query}": ${names}. Please be more specific.` }
   return { targetUserId: rows[0].id }
+}
+
+const workflowRunMap = new Map<string, string>()
+
+async function resolveResource(query: string): Promise<{ resourceId: number } | { error: string }> {
+  let targetId = Number(query)
+  if (!Number.isNaN(targetId) && Number.isInteger(targetId) && targetId > 0) {
+    let result = await db.exec(sql`SELECT id FROM resources WHERE id = ${targetId}`)
+    if ((result.rows ?? [])[0]) return { resourceId: targetId }
+    return { error: `Resource with ID ${targetId} not found` }
+  }
+  let pattern = `%${query}%`
+  let result = await db.exec(
+    'SELECT id, name FROM resources WHERE name ILIKE $1 ORDER BY name',
+    [pattern],
+  )
+  let rows = (result.rows ?? []) as Array<{ id: number; name: string }>
+  if (rows.length === 0) return { error: `No resource found matching "${query}"` }
+  let names = rows.map((r) => r.name).join(', ')
+  if (rows.length > 1) return { error: `Multiple resources match "${query}": ${names}. Please be more specific.` }
+  return { resourceId: rows[0].id }
 }
 
 function getTarget(path: string): string {
@@ -137,19 +159,110 @@ export const workflowAgent = createController(
                 return
               }
 
-              // Handle appointment navigation
+              // Handle appointment actions
               if (intent.type === 'appointment') {
-                let params = new URLSearchParams()
-                if (intent.filter) params.set('filter', String(intent.filter))
-                if (intent.period) params.set('period', String(intent.period))
-                if (intent.status) params.set('status', String(intent.status))
-                let qs = params.toString()
-                let href = '/verwaltung/appointments' + (qs ? '?' + qs : '')
-                controller.enqueue(sseEvent('navigate', {
-                  href,
-                  target: 'admin-content',
-                  history: 'push',
-                }))
+                let action = String(intent.action || 'check')
+
+                if (action === 'check') {
+                  let params = new URLSearchParams()
+                  let targetQuery = String(intent.targetQuery || '').trim()
+                  if (targetQuery) {
+                    let resolved = await resolveTargetUser(targetQuery)
+                    if ('error' in resolved) {
+                      controller.enqueue(sseEvent('message', { text: resolved.error }))
+                      controller.enqueue(sseEvent('complete', {}))
+                      safeClose(controller)
+                      return
+                    }
+                    let userResult = await db.exec(
+                      'SELECT email FROM users WHERE id = $1',
+                      [resolved.targetUserId],
+                    )
+                    let userRow = (userResult.rows ?? [])[0] as { email: string } | undefined
+                    if (userRow) params.set('filter', userRow.email)
+                  }
+                  let period = String(intent.period || '').replace(/_/g, '-')
+                  if (period) params.set('period', period)
+                  if (intent.status) params.set('status', String(intent.status))
+                  let qs = params.toString()
+                  let href = '/verwaltung/appointments' + (qs ? '?' + qs : '')
+                  controller.enqueue(sseEvent('navigate', {
+                    href,
+                    target: 'admin-content',
+                    history: 'push',
+                  }))
+                  controller.enqueue(sseEvent('complete', {}))
+                  safeClose(controller)
+                  return
+                }
+
+                if (action === 'delete-resource') {
+                  let targetQuery = String(intent.targetQuery || '').trim()
+                  let resourceQuery = String(intent.resourceQuery || '').trim()
+
+                  if (!targetQuery) {
+                    controller.enqueue(sseEvent('message', { text: 'Which user? Please specify a name, email, or ID.' }))
+                    controller.enqueue(sseEvent('complete', {}))
+                    safeClose(controller)
+                    return
+                  }
+                  if (!resourceQuery) {
+                    controller.enqueue(sseEvent('message', { text: 'Which resource? Please specify a resource name or ID.' }))
+                    controller.enqueue(sseEvent('complete', {}))
+                    safeClose(controller)
+                    return
+                  }
+
+                  let userResolved = await resolveTargetUser(targetQuery)
+                  if ('error' in userResolved) {
+                    controller.enqueue(sseEvent('message', { text: userResolved.error }))
+                    controller.enqueue(sseEvent('complete', {}))
+                    safeClose(controller)
+                    return
+                  }
+
+                  let resourceResolved = await resolveResource(resourceQuery)
+                  if ('error' in resourceResolved) {
+                    controller.enqueue(sseEvent('message', { text: resourceResolved.error }))
+                    controller.enqueue(sseEvent('complete', {}))
+                    safeClose(controller)
+                    return
+                  }
+
+                  let userResult = await db.exec(
+                    'SELECT email FROM users WHERE id = $1',
+                    [userResolved.targetUserId],
+                  )
+                  let userRow = (userResult.rows ?? [])[0] as { email: string } | undefined
+                  let filterEmail = userRow?.email ?? ''
+
+                  let navHref = '/verwaltung/appointments' + (filterEmail ? '?filter=' + encodeURIComponent(filterEmail) : '')
+                  controller.enqueue(sseEvent('navigate', {
+                    href: navHref,
+                    target: 'admin-content',
+                    history: 'push',
+                  }))
+
+                  let wf = mastra.getWorkflow('deleteUserAppointmentsWorkflow')
+                  let run = await wf.createRun({ resourceId: String(userResolved.targetUserId) })
+                  let stream = run.stream({
+                    inputData: {
+                      targetUserId: userResolved.targetUserId,
+                      resourceId: resourceResolved.resourceId,
+                      adminUserId: user.id,
+                      adminEmail: user.email,
+                    },
+                    closeOnSuspend: false,
+                  })
+
+                  workflowRunMap.set(stream.runId, 'deleteUserAppointmentsWorkflow')
+                  controller.enqueue(sseEvent('start', { runId: stream.runId, workflowId: 'deleteUserAppointmentsWorkflow' }))
+                  let result = await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+                  await _recordWorkflowResult(result)
+                  return
+                }
+
+                controller.enqueue(sseEvent('message', { text: `Unknown appointment action: ${action}` }))
                 controller.enqueue(sseEvent('complete', {}))
                 safeClose(controller)
                 return
@@ -210,7 +323,8 @@ export const workflowAgent = createController(
                   closeOnSuspend: false,
                 })
 
-                controller.enqueue(sseEvent('start', { runId: stream.runId }))
+                workflowRunMap.set(stream.runId, 'userManagementWorkflow')
+                controller.enqueue(sseEvent('start', { runId: stream.runId, workflowId: 'userManagementWorkflow' }))
                 let result = await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
                 await _recordWorkflowResult(result)
                 return
@@ -235,6 +349,7 @@ export const workflowAgent = createController(
       async resume(context) {
         let runId = context.formData.get('runId')?.toString()
         let confirmed = context.formData.get('confirmed')?.toString() === 'true'
+        let workflowId = context.formData.get('workflowId')?.toString()
 
         if (!runId) {
           return sseErrorResponse('Missing runId', 400)
@@ -243,7 +358,8 @@ export const workflowAgent = createController(
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              let wf = mastra.getWorkflow('userManagementWorkflow')
+              let wfId = workflowId || workflowRunMap.get(runId) || 'userManagementWorkflow'
+              let wf = mastra.getWorkflow(wfId as 'userManagementWorkflow' | 'deleteUserAppointmentsWorkflow')
               let run = await wf.createRun({ runId })
               let stream = run.resumeStream({
                 resumeData: { confirmed },
@@ -267,6 +383,7 @@ export const workflowAgent = createController(
 
       async stream(context) {
         let runId = context.url.searchParams.get('runId')
+        let workflowId = context.url.searchParams.get('workflowId')
         if (!runId) {
           return sseErrorResponse('Missing runId', 400)
         }
@@ -274,7 +391,8 @@ export const workflowAgent = createController(
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              let wf = mastra.getWorkflow('userManagementWorkflow')
+              let wfId = workflowId || workflowRunMap.get(runId) || 'userManagementWorkflow'
+              let wf = mastra.getWorkflow(wfId as 'userManagementWorkflow' | 'deleteUserAppointmentsWorkflow')
               let run = await wf.createRun({ runId })
               let stream = run.resumeStream({})
 

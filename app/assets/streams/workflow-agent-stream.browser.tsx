@@ -6,6 +6,7 @@ export const WorkflowAgentStream = clientEntry(
   function WorkflowAgentStream(handle: Handle) {
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
+    let currentWorkflowId: string | null = null
 
     let completedSteps: string[] = []
     let currentStepId: string | null = null
@@ -268,6 +269,7 @@ export const WorkflowAgentStream = clientEntry(
       let body = new FormData()
       body.set('runId', currentRunId)
       body.set('confirmed', String(confirmed))
+      if (currentWorkflowId) body.set('workflowId', currentWorkflowId)
       startStream('/workflow-agent/resume', { method: 'POST', body })
     }
 
@@ -335,6 +337,7 @@ export const WorkflowAgentStream = clientEntry(
                 clearStatusBar()
                 setFormEnabled(false)
                 currentRunId = parsed.runId || null
+                currentWorkflowId = parsed.workflowId || null
                 let resolving = document.getElementById('wf-resolving')
                 if (resolving) resolving.textContent = '✓ Intent resolved'
                 else showInfo('Intent resolved')
