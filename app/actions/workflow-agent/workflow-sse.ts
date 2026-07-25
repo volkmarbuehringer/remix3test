@@ -4,13 +4,26 @@ export function writeEvent(controller: ReadableStreamDefaultController, type: st
   controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
 }
 
+export type WorkflowResult = {
+  success: boolean
+  action: string
+  targetUserId: number
+  targetUserName: string
+  targetUserEmail: string
+  deletedAppointments?: number
+  auditLogged?: boolean
+  error?: string
+}
+
 export async function pipeWorkflowStream(
   stream: AsyncIterable<unknown>,
   controller: ReadableStreamDefaultController,
   signal: AbortSignal,
-): Promise<void> {
+): Promise<WorkflowResult | null> {
   let lastReportPdf: string | undefined
   let lastReportFilename: string | undefined
+  let finalOutput: Record<string, unknown> | null = null
+  let streamError: string | null = null
 
   function handleEvent(chunk: unknown) {
     let c = chunk as Record<string, unknown>
@@ -35,6 +48,9 @@ export async function pipeWorkflowStream(
         lastReportPdf = String(stepOutput.reportPdf)
         lastReportFilename = String(stepOutput.reportFilename || 'report.pdf')
       }
+      if (stepOutput && 'success' in stepOutput && 'targetUserName' in stepOutput) {
+        finalOutput = stepOutput as Record<string, unknown>
+      }
       writeEvent(controller, 'workflow-step-result', {
         stepId: payload?.id,
         status: payload?.status,
@@ -46,9 +62,10 @@ export async function pipeWorkflowStream(
         output: payload?.output ?? {},
       })
     } else if (type === 'workflow-finish') {
+      let ws = payload?.workflowStatus as string | undefined
       writeEvent(controller, 'workflow-finish', {
-        success: payload?.workflowStatus === 'success',
-        workflowStatus: payload?.workflowStatus,
+        success: ws === 'success',
+        workflowStatus: ws,
         reportPdf: lastReportPdf,
         reportFilename: lastReportFilename,
       })
@@ -71,7 +88,7 @@ export async function pipeWorkflowStream(
   if (signal.aborted) {
     reader?.cancel().catch(() => {})
     safeClose(controller)
-    return
+    return null
   }
 
   signal.addEventListener('abort', () => {
@@ -84,20 +101,41 @@ export async function pipeWorkflowStream(
       while (true) {
         let { done, value } = await reader.read()
         if (done) break
-        if (signal.aborted) return
+        if (signal.aborted) return null
         handleEvent(value)
       }
     } else {
       for await (let chunk of stream) {
-        if (signal.aborted) return
+        if (signal.aborted) return null
         handleEvent(chunk)
       }
     }
   } catch (err) {
-    writeEvent(controller, 'workflow-error', { error: String(err) })
+    streamError = String(err)
+    writeEvent(controller, 'workflow-error', { error: streamError })
   }
 
   safeClose(controller)
+
+  if (streamError) {
+    return { success: false, action: '', targetUserId: 0, targetUserName: '', targetUserEmail: '', error: streamError }
+  }
+
+  if (finalOutput) {
+    let out = finalOutput as Record<string, unknown>
+    return {
+      success: Boolean(out.success),
+      action: String(out.action || ''),
+      targetUserId: Number(out.targetUserId || 0),
+      targetUserName: String(out.targetUserName || ''),
+      targetUserEmail: String(out.targetUserEmail || ''),
+      deletedAppointments: out.deletedAppointments != null ? Number(out.deletedAppointments) : undefined,
+      auditLogged: out.auditLogged != null ? Boolean(out.auditLogged) : undefined,
+      error: out.error ? String(out.error) : undefined,
+    }
+  }
+
+  return null
 }
 
 function safeClose(controller: ReadableStreamDefaultController) {

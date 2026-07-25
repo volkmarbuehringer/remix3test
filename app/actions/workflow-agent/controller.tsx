@@ -3,17 +3,36 @@ import { css } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
 import { sseHeaders, sseErrorResponse, sseEvent } from '../../utils/agent-sse.ts'
-import { pipeWorkflowStream } from './workflow-sse.ts'
+import { pipeWorkflowStream, type WorkflowResult } from './workflow-sse.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import { db } from '../../data/connection.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
+
+export function _agentThreadId(userId?: number): string {
+  let uid = userId ?? getCurrentUser().id
+  let env = process.env.APP_ENV || process.env.NODE_ENV || 'dev'
+  return `admin-${env}-${uid}`
+}
+
+export async function _recordWorkflowResult(result: WorkflowResult | null) {
+  if (!result) return
+  try {
+    let agent = mastra.getAgent('workflowAgent')
+    let summary = JSON.stringify(result)
+    let user = getCurrentUser()
+    await agent.generate(`Workflow result recorded: ${summary}`, {
+      memory: { thread: _agentThreadId(), resource: String(user.id) },
+    })
+  } catch (err) {
+    console.error('[workflowAgent] failed to record workflow result:', err)
+  }
+}
 
 async function resolveTargetUser(query: string): Promise<{ targetUserId: number } | { error: string }> {
   let targetId = Number(query)
@@ -95,29 +114,24 @@ export const workflowAgent = createController(
         let body = new ReadableStream({
           start: async (controller) => {
             try {
-              // Phase 1: Intent resolution via agent
+              // Phase 1: Intent resolution via agent (with memory)
               let agent = mastra.getAgent('workflowAgent')
-              let intentResult = await runWithAdminId(getCurrentUser().id, () =>
-                agent.generate(message, {
-                  maxSteps: 3,
-                  abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
-                }),
-              )
+              let user = getCurrentUser()
+              let intentResult = await agent.generate(message, {
+                maxSteps: 3,
+                memory: { thread: _agentThreadId(user.id), resource: String(user.id) },
+                abortSignal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
+              })
               let intentText = intentResult.text?.trim() || ''
               let intent: Record<string, unknown> | null = null
 
               try {
                 intent = JSON.parse(intentText)
               } catch {
-                // Agent didn't return JSON — treating as clarifying question
-                controller.enqueue(sseEvent('message', { text: intentText || 'Could you clarify that?' }))
-                controller.enqueue(sseEvent('complete', {}))
-                safeClose(controller)
-                return
+                intent = extractJson(intentText)
               }
-
               if (!intent || typeof intent !== 'object') {
-                controller.enqueue(sseEvent('message', { text: 'Could not understand your request. Please try again.' }))
+                controller.enqueue(sseEvent('message', { text: intentText || 'Could you clarify that?' }))
                 controller.enqueue(sseEvent('complete', {}))
                 safeClose(controller)
                 return
@@ -168,8 +182,6 @@ export const workflowAgent = createController(
                   return
                 }
 
-                let user = getCurrentUser()
-
                 // Navigate to admin users grid so admin can see the user
                 let navHref = '/admin/users?filter=' + encodeURIComponent(targetQuery)
                 controller.enqueue(sseEvent('navigate', {
@@ -199,7 +211,8 @@ export const workflowAgent = createController(
                 })
 
                 controller.enqueue(sseEvent('start', { runId: stream.runId }))
-                await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+                let result = await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+                await _recordWorkflowResult(result)
                 return
               }
 
@@ -237,7 +250,8 @@ export const workflowAgent = createController(
               })
 
               controller.enqueue(sseEvent('start', { runId: stream.runId }))
-              await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+              let result = await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+              await _recordWorkflowResult(result)
             } catch (err) {
               console.error('[workflowAgent] resume error:', err)
               try {
@@ -265,7 +279,8 @@ export const workflowAgent = createController(
               let stream = run.resumeStream({})
 
               controller.enqueue(sseEvent('start', { runId: stream.runId }))
-              await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+              let result = await pipeWorkflowStream(stream.fullStream, controller, context.request.signal)
+              await _recordWorkflowResult(result)
             } catch (err) {
               console.error('[workflowAgent] stream error:', err)
               try {
@@ -281,6 +296,17 @@ export const workflowAgent = createController(
     },
   },
 )
+
+function extractJson(text: string): Record<string, unknown> | null {
+  let start = text.indexOf('{')
+  let end = text.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1))
+    } catch {}
+  }
+  return null
+}
 
 function safeClose(controller: ReadableStreamDefaultController) {
   try { controller.close() } catch { /* already closed */ }
