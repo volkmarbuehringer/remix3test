@@ -393,4 +393,4 @@ Suspect this issue when:
 - `remix3-agent-routing` — agent-driven frame navigation and form prefill using the `navigate` event
 - `remix-security-middleware` — CSRF bypass for SSE endpoints (`/mastra/chat`, `/route-agent`)
 - `rate-limiter-pitfalls` — rate limiter configuration for multi-step agent flows
-- `mastra-tool-approval-generate` — hard-gating tools with `generate()` (non-streaming)
+- `mastra-tool-approval-generate` — hard-gating tools with `generate()` (non-streaming) and sequential approval chaining via SSE

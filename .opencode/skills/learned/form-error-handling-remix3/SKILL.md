@@ -839,4 +839,4 @@ if (gridValues.val) params.set('val', gridValues.val)
 
 - `.agents/knowledge/remix3-parseSafe-declarative-schemas.md` — Full pattern: replacing hand-written validation with parseSafe + .refine()
 - `.agents/knowledge/remix3-render-from-post-validation.md` — Why re-render-from-POST is the recommended Remix 3 pattern
-- `.opencode/skills/learned/form-error-handling-remix3/SKILL.md` — Consolidated skill (this file): coerce.number() empty-select fix, select defaultValue vs selected, wizard POST state, URL-param SQL filter checklist
+- `remix-route-relocation` — route relocation checklist and form validation upgrade cross-reference

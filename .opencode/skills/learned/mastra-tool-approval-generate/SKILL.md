@@ -295,4 +295,5 @@ Tool-decision stream:
 ## Related Skills
 
 - `mastra-agent-streaming-sse` — streaming SSE pattern with askUserTool (streaming alternative)
-- `mastra-agent-suspend-payload-tool-detection` — detecting which tool caused suspension from payload shape
+- `mastra-tool-suspension-detection` — detecting which tool caused suspension from payload shape
+- `mastra-agent-streaming-sse` Part 3 — `requireToolApproval` snapshot loss pattern (applies to both stream and generate flows on resume)
