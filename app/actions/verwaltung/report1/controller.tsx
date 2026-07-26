@@ -102,11 +102,7 @@ async function loadReport1PageData(
   }
 }
 
-function renderReport1Page(
-  context: any,
-  data: Report1PageData,
-  init?: ResponseInit,
-): Response {
+function renderReport1Page(context: any, data: Report1PageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminReport1Page
@@ -127,16 +123,13 @@ function renderReport1Page(
   )
 }
 
-export default createController(
-  routes.verwaltung.report1,
-  {
-    middleware: [requireAuth(), requireAdmin()],
+export default createController(routes.verwaltung.report1, {
+  middleware: [requireAuth(), requireAdmin()],
 
-    actions: {
-      async index(context) {
-        let data = await loadReport1PageData(context)
-        return renderReport1Page(context, data)
-      },
+  actions: {
+    async index(context) {
+      let data = await loadReport1PageData(context)
+      return renderReport1Page(context, data)
     },
   },
-)
+})

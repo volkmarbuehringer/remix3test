@@ -14,9 +14,7 @@ export function sseHeaders() {
 /** Create an SSE error Response with the given message and HTTP status */
 export function sseErrorResponse(error: string, status: number = 400): Response {
   return new Response(
-    sseEncoder.encode(
-      `event: agent-error\ndata: ${JSON.stringify({ error })}\n\n`,
-    ),
+    sseEncoder.encode(`event: agent-error\ndata: ${JSON.stringify({ error })}\n\n`),
     { status, headers: sseHeaders() },
   )
 }
@@ -28,7 +26,11 @@ export function sseEvent(type: string, data: unknown): Uint8Array {
 
 /** Safely close a ReadableStream controller, ignoring errors if already closed */
 export function safeClose(controller: ReadableStreamDefaultController) {
-  try { controller.close() } catch { /* already closed */ }
+  try {
+    controller.close()
+  } catch {
+    /* already closed */
+  }
 }
 
 function filterAndForward(

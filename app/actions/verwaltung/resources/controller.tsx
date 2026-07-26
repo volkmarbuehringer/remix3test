@@ -143,11 +143,7 @@ const resourceSaveSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-function renderResourcePage(
-  context: any,
-  data: ResourcePageData,
-  init?: ResponseInit,
-): Response {
+function renderResourcePage(context: any, data: ResourcePageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminResourcesPage
@@ -169,89 +165,31 @@ function renderResourcePage(
   )
 }
 
-export default createController(
-  routes.verwaltung.resources,
-  {
-    middleware: [requireAuth(), requireAdmin()],
+export default createController(routes.verwaltung.resources, {
+  middleware: [requireAuth(), requireAdmin()],
 
-    actions: {
-      async index(context) {
-        let prefill = readAgentPrefill(context.request)
-        let overrides = prefill ? { formValues: prefill, creating: true } : undefined
-        let data = await loadResourcePageData(context, overrides)
-        return renderResourcePage(context, data)
-      },
+  actions: {
+    async index(context) {
+      let prefill = readAgentPrefill(context.request)
+      let overrides = prefill ? { formValues: prefill, creating: true } : undefined
+      let data = await loadResourcePageData(context, overrides)
+      return renderResourcePage(context, data)
+    },
 
-      async create(context) {
-        let db = context.db
-        let formData = context.formData
+    async create(context) {
+      let db = context.db
+      let formData = context.formData
 
-        let threadId = context.request.headers.get('X-Agent-Thread')
-        if (threadId) {
-          let result = s.parseSafe(resourceSaveSchema, formData)
-          if (!result.success) {
-            return context.json(
-              { status: 'validation_error', issues: result.issues, threadId },
-              { status: 400 },
-            )
-          }
-          let parsed = result.value
-          let row = await db.create(
-            resources,
-            {
-              name: parsed.name.trim(),
-              description: parsed.description.trim(),
-              capabilities: parsed.capabilities.trim(),
-            },
-            { returnRow: true },
-          )
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'create',
-              target_type: 'resources',
-              target_id: row.id as number,
-              details: {
-                name: parsed.name.trim(),
-                description: parsed.description.trim(),
-                capabilities: parsed.capabilities.trim(),
-              },
-            })
-          }
-          return context.json({
-            status: 'created',
-            data: {
-              id: row.id,
-              name: row.name,
-              description: row.description,
-              capabilities: row.capabilities,
-            },
-            threadId,
-          })
-        }
-
-        let gridValues = gridStateFromFormData(formData)
+      let threadId = context.request.headers.get('X-Agent-Thread')
+      if (threadId) {
         let result = s.parseSafe(resourceSaveSchema, formData)
-
         if (!result.success) {
-          let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let data = await loadResourcePageData(context, {
-            creating: true,
-            formValues,
-            fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderResourcePage(context, data, { status: 400 })
+          return context.json(
+            { status: 'validation_error', issues: result.issues, threadId },
+            { status: 400 },
+          )
         }
-
         let parsed = result.value
-
         let row = await db.create(
           resources,
           {
@@ -261,7 +199,6 @@ export default createController(
           },
           { returnRow: true },
         )
-
         let authIdentity = getAdminIdentity(context.auth)
         if (authIdentity) {
           logAdminAction(context.db, {
@@ -277,33 +214,158 @@ export default createController(
             },
           })
         }
+        return context.json({
+          status: 'created',
+          data: {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            capabilities: row.capabilities,
+          },
+          threadId,
+        })
+      }
 
-        let params = gridStateToParams(gridStateFromForm(parsed))
-        params.set('editing', String(row.id))
-        let baseUrl = routes.verwaltung.resources.index.href()
-        return redirect(baseUrl + '?' + params.toString())
-      },
+      let gridValues = gridStateFromFormData(formData)
+      let result = s.parseSafe(resourceSaveSchema, formData)
 
-      async update(context) {
-        let db = context.db
-        let formData = context.formData
-        let gridValues = gridStateFromFormData(formData)
+      if (!result.success) {
+        let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadResourcePageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderResourcePage(context, data, { status: 400 })
+      }
 
-        let id = parseId(context.params.id)
-        if (id === undefined || id < 1) {
-          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-        }
+      let parsed = result.value
 
-        let result = s.parseSafe(resourceSaveSchema, formData)
+      let row = await db.create(
+        resources,
+        {
+          name: parsed.name.trim(),
+          description: parsed.description.trim(),
+          capabilities: parsed.capabilities.trim(),
+        },
+        { returnRow: true },
+      )
 
-        if (!result.success) {
-          let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let editRow = (await db.findOne(resources, { where: { id } })) as ResourceRow | null
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'resources',
+          target_id: row.id as number,
+          details: {
+            name: parsed.name.trim(),
+            description: parsed.description.trim(),
+            capabilities: parsed.capabilities.trim(),
+          },
+        })
+      }
+
+      let params = gridStateToParams(gridStateFromForm(parsed))
+      params.set('editing', String(row.id))
+      let baseUrl = routes.verwaltung.resources.index.href()
+      return redirect(baseUrl + '?' + params.toString())
+    },
+
+    async update(context) {
+      let db = context.db
+      let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
+
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+      }
+
+      let result = s.parseSafe(resourceSaveSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(RESOURCE_FORM_KEYS, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let editRow = (await db.findOne(resources, { where: { id } })) as ResourceRow | null
+        let data = await loadResourcePageData(context, {
+          editRow,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderResourcePage(context, data, { status: 400 })
+      }
+
+      let parsed = result.value
+
+      await db.updateMany(
+        resources,
+        {
+          name: parsed.name.trim(),
+          description: parsed.description.trim(),
+          capabilities: parsed.capabilities.trim(),
+        },
+        { where: { id } },
+      )
+
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'resources',
+          target_id: id,
+          details: {
+            name: parsed.name.trim(),
+            description: parsed.description.trim(),
+            capabilities: parsed.capabilities.trim(),
+          },
+        })
+      }
+
+      let params = gridStateToParams(gridStateFromForm(parsed))
+      let qs = params.toString()
+      let baseUrl = routes.verwaltung.resources.index.href()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
+    },
+
+    async destroy(context) {
+      let db = context.db
+      let formData = context.formData
+
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+      }
+
+      let existing = await db.findOne(resources, { where: { id } })
+      if (!existing) {
+        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+      }
+
+      try {
+        await db.deleteMany(resources, { where: { id } })
+      } catch (error: unknown) {
+        if (isConstraintViolation(error)) {
+          if (process.env.NODE_ENV !== 'test')
+            context.logger?.(
+              'Constraint violation during resource deletion: ' +
+                JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }),
+            )
+          let gridValues = gridStateFromFormData(formData)
           let data = await loadResourcePageData(context, {
-            editRow,
-            formValues,
-            fieldErrors,
+            formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
@@ -311,97 +373,28 @@ export default createController(
           })
           return renderResourcePage(context, data, { status: 400 })
         }
+        throw error
+      }
 
-        let parsed = result.value
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'resources',
+          target_id: id,
+        })
+      }
 
-        await db.updateMany(
-          resources,
-          {
-            name: parsed.name.trim(),
-            description: parsed.description.trim(),
-            capabilities: parsed.capabilities.trim(),
-          },
-          { where: { id } },
-        )
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'update',
-            target_type: 'resources',
-            target_id: id,
-            details: {
-              name: parsed.name.trim(),
-              description: parsed.description.trim(),
-              capabilities: parsed.capabilities.trim(),
-            },
-          })
-        }
-
-        let params = gridStateToParams(gridStateFromForm(parsed))
-        let qs = params.toString()
-        let baseUrl = routes.verwaltung.resources.index.href()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
-      },
-
-      async destroy(context) {
-        let db = context.db
-        let formData = context.formData
-
-        let id = parseId(context.params.id)
-        if (id === undefined || id < 1) {
-          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-        }
-
-        let existing = await db.findOne(resources, { where: { id } })
-        if (!existing) {
-          return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
-        }
-
-        try {
-          await db.deleteMany(resources, { where: { id } })
-        } catch (error: unknown) {
-          if (isConstraintViolation(error)) {
-            if (process.env.NODE_ENV !== 'test')
-              context.logger?.(
-                'Constraint violation during resource deletion: ' +
-                  JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }),
-              )
-            let gridValues = gridStateFromFormData(formData)
-            let data = await loadResourcePageData(context, {
-              formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-            })
-            return renderResourcePage(context, data, { status: 400 })
-          }
-          throw error
-        }
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'resources',
-            target_id: id,
-          })
-        }
-
-        let result = s.parseSafe(resourceSaveSchema, formData)
-        let parsed = result.success
-          ? result.value
-          : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
-        let params = gridStateToParams(gridStateFromForm(parsed))
-        let qs = params.toString()
-        let baseUrl = routes.verwaltung.resources.index.href()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
-      },
+      let result = s.parseSafe(resourceSaveSchema, formData)
+      let parsed = result.success
+        ? result.value
+        : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
+      let params = gridStateToParams(gridStateFromForm(parsed))
+      let qs = params.toString()
+      let baseUrl = routes.verwaltung.resources.index.href()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
   },
-)
+})

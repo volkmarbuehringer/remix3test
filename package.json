@@ -32,7 +32,7 @@
   "devDependencies": {
     "@fission-ai/openspec": "^1.6.0",
     "@oxlint/plugins": "^1.75.0",
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "^1.62.0",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
@@ -42,7 +42,7 @@
     "oxfmt": "^0.60.0",
     "oxlint": "^1.75.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "playwright": "^1.61.1",
+    "playwright": "^1.62.0",
     "typescript": "7.0.2"
   },
   "engines": {
@@ -50,4 +50,3 @@
   },
   "packageManager": "pnpm@11.9.0"
 }
-

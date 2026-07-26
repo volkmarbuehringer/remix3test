@@ -17,6 +17,9 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Workflow Agent
   [routes.workflowAgent.index.href()]: 'Workflow-Agent',
 
+  // Agent Events (experimental pipeline)
+  [routes.agentEvents.index.href()]: 'Agent-Events',
+
   // Admin
   [routes.admin.index.href()]: 'Admin Dashboard',
   [routes.admin.chatlog.index.href()]: 'Chat Logs',

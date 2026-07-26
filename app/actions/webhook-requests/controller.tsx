@@ -71,44 +71,38 @@ async function loadPageData(
   }
 }
 
-export const webhookRequestsIndex = createAction(
-  webhookRequestsRoute,
-  {
-    middleware: [requireAuth(), requireAdmin()],
-    handler: async (context) => {
-      let data = await loadPageData(context)
+export const webhookRequestsIndex = createAction(webhookRequestsRoute, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => {
+    let data = await loadPageData(context)
 
-      let editingParam = context.url.searchParams.get('editing')
-      let editRow: WebhookRequestRow | null = null
-      if (editingParam && UUID_RE.test(editingParam)) {
-        editRow = (await getWebhookRequest(context.db, editingParam)) ?? null
-      }
+    let editingParam = context.url.searchParams.get('editing')
+    let editRow: WebhookRequestRow | null = null
+    if (editingParam && UUID_RE.test(editingParam)) {
+      editRow = (await getWebhookRequest(context.db, editingParam)) ?? null
+    }
 
-      return context.render(
-        <Document title="Webhook Requests">
-          <Layout>
-            <WebhookRequestsPage
-              {...data}
-              editRow={editRow}
-              editingOffset={context.url.searchParams.get('offset') || '0'}
-              editingSort={context.url.searchParams.get('sort') || 'created_at'}
-              editingOrder={context.url.searchParams.get('order') || 'desc'}
-              editingFilter={context.url.searchParams.get('filter') || ''}
-            />
-          </Layout>
-        </Document>,
-      )
-    },
+    return context.render(
+      <Document title="Webhook Requests">
+        <Layout>
+          <WebhookRequestsPage
+            {...data}
+            editRow={editRow}
+            editingOffset={context.url.searchParams.get('offset') || '0'}
+            editingSort={context.url.searchParams.get('sort') || 'created_at'}
+            editingOrder={context.url.searchParams.get('order') || 'desc'}
+            editingFilter={context.url.searchParams.get('filter') || ''}
+          />
+        </Layout>
+      </Document>,
+    )
   },
-)
+})
 
-export const webhookRequestsEvents = createAction(
-  webhookRequestsEventsRoute,
-  {
-    middleware: [requireSseAuth()],
-    handler: async (context) => webhookChannel.subscribe(context.request),
-  },
-)
+export const webhookRequestsEvents = createAction(webhookRequestsEventsRoute, {
+  middleware: [requireSseAuth()],
+  handler: async (context) => webhookChannel.subscribe(context.request),
+})
 
 function hermesUrl(): string {
   return process.env.HERMES_URL ?? 'http://127.0.0.1:8644/webhooks/app-webhook'
@@ -117,116 +111,110 @@ function hermesUrl(): string {
 const HERMES_TIMEOUT_MS = 3_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const webhookRequestsUpdate = createAction(
-  webhookRequestsUpdateRoute,
-  {
-    middleware: [requireAuth(), requireAdmin()],
-    handler: async (context) => {
-      let id = context.params.id
-      if (!id || !UUID_RE.test(id)) {
-        return new Response('Invalid UUID', { status: 400 })
+export const webhookRequestsUpdate = createAction(webhookRequestsUpdateRoute, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => {
+    let id = context.params.id
+    if (!id || !UUID_RE.test(id)) {
+      return new Response('Invalid UUID', { status: 400 })
+    }
+
+    let payloadRaw = context.formData.get('payload')
+
+    let payload: Record<string, string> = {}
+    if (payloadRaw && typeof payloadRaw === 'string') {
+      if (payloadRaw.length > 100_000) {
+        return new Response('Payload too large', { status: 413 })
       }
-
-      let payloadRaw = context.formData.get('payload')
-
-      let payload: Record<string, string> = {}
-      if (payloadRaw && typeof payloadRaw === 'string') {
-        if (payloadRaw.length > 100_000) {
-          return new Response('Payload too large', { status: 413 })
-        }
-        try {
-          let parsed = JSON.parse(payloadRaw)
-          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            for (let [key, value] of Object.entries(parsed)) {
-              if (key.trim()) {
-                if (key.length > 256) {
-                  return new Response('Key too long', { status: 400 })
-                }
-                let strValue = String(value)
-                if (strValue.length > 10_000) {
-                  return new Response('Value too long', { status: 400 })
-                }
-                payload[key] = strValue
+      try {
+        let parsed = JSON.parse(payloadRaw)
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          for (let [key, value] of Object.entries(parsed)) {
+            if (key.trim()) {
+              if (key.length > 256) {
+                return new Response('Key too long', { status: 400 })
               }
+              let strValue = String(value)
+              if (strValue.length > 10_000) {
+                return new Response('Value too long', { status: 400 })
+              }
+              payload[key] = strValue
             }
           }
-        } catch {
-          return new Response('Invalid JSON payload', { status: 400 })
         }
+      } catch {
+        return new Response('Invalid JSON payload', { status: 400 })
       }
+    }
 
-      try {
-        let updated = await updateWebhookRequestPayload(context.db, id, JSON.stringify(payload))
-        if (!updated) {
-          return new Response('Not Found', { status: 404 })
-        }
-      } catch (err) {
-        console.error('Failed to update webhook request:', err)
-        return new Response('Fehler beim Speichern', { status: 500 })
-      }
-
-      webhookChannel.broadcast('invalidate')
-
-      let gridState = gridStateFromFormData(context.formData)
-      return editingRedirect(webhookRequestsRoute.href(), id, gridState)
-    },
-  },
-)
-
-export const webhookRequestsResend = createAction(
-  webhookRequestsResendRoute,
-  {
-    middleware: [requireAuth(), requireAdmin()],
-    handler: async (context) => {
-      let id = context.params.id
-      if (!id || !UUID_RE.test(id)) {
-        return new Response('Invalid UUID', { status: 400 })
-      }
-
-      let offset = context.url.searchParams.get('offset') || '0'
-      let sort = context.url.searchParams.get('sort') || 'created_at'
-      let order = context.url.searchParams.get('order') || 'desc'
-      let filter = context.url.searchParams.get('filter') || ''
-
-      let row = await getWebhookRequestPayload(context.db, id)
-      if (!row) {
+    try {
+      let updated = await updateWebhookRequestPayload(context.db, id, JSON.stringify(payload))
+      if (!updated) {
         return new Response('Not Found', { status: 404 })
       }
+    } catch (err) {
+      console.error('Failed to update webhook request:', err)
+      return new Response('Fehler beim Speichern', { status: 500 })
+    }
 
-      await resetWebhookRequestCallback(context.db, id)
+    webhookChannel.broadcast('invalidate')
 
-      let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
-      let hermesPayload = JSON.stringify({ id, callbackUrl, payload: row.payload })
-
-      let hermesStatusText: string
-      try {
-        let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
-        let hermesResponse = await fetch(hermesUrl(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: hermesPayload,
-          signal,
-        })
-        hermesStatusText = String(hermesResponse.status)
-      } catch {
-        hermesStatusText = 'error'
-      }
-
-      await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)
-
-      webhookChannel.broadcast('invalidate')
-
-      let params = new URLSearchParams()
-      if (offset !== '0') params.set('offset', String(offset))
-      params.set('sort', String(sort))
-      params.set('order', String(order))
-      if (filter) params.set('filter', String(filter))
-      let qs = params.toString()
-
-      return new Response(null, {
-        status: 303,
-        headers: { Location: webhookRequestsRoute.href() + (qs ? '?' + qs : '') },
-      })
-    },
+    let gridState = gridStateFromFormData(context.formData)
+    return editingRedirect(webhookRequestsRoute.href(), id, gridState)
   },
-)
+})
+
+export const webhookRequestsResend = createAction(webhookRequestsResendRoute, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => {
+    let id = context.params.id
+    if (!id || !UUID_RE.test(id)) {
+      return new Response('Invalid UUID', { status: 400 })
+    }
+
+    let offset = context.url.searchParams.get('offset') || '0'
+    let sort = context.url.searchParams.get('sort') || 'created_at'
+    let order = context.url.searchParams.get('order') || 'desc'
+    let filter = context.url.searchParams.get('filter') || ''
+
+    let row = await getWebhookRequestPayload(context.db, id)
+    if (!row) {
+      return new Response('Not Found', { status: 404 })
+    }
+
+    await resetWebhookRequestCallback(context.db, id)
+
+    let callbackUrl = process.env.WEBHOOK_CALLBACK_URL ?? 'http://[::1]:44100/callback'
+    let hermesPayload = JSON.stringify({ id, callbackUrl, payload: row.payload })
+
+    let hermesStatusText: string
+    try {
+      let signal = AbortSignal.timeout(HERMES_TIMEOUT_MS)
+      let hermesResponse = await fetch(hermesUrl(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: hermesPayload,
+        signal,
+      })
+      hermesStatusText = String(hermesResponse.status)
+    } catch {
+      hermesStatusText = 'error'
+    }
+
+    await updateWebhookRequestHermesStatus(context.db, id, hermesStatusText)
+
+    webhookChannel.broadcast('invalidate')
+
+    let params = new URLSearchParams()
+    if (offset !== '0') params.set('offset', String(offset))
+    params.set('sort', String(sort))
+    params.set('order', String(order))
+    if (filter) params.set('filter', String(filter))
+    let qs = params.toString()
+
+    return new Response(null, {
+      status: 303,
+      headers: { Location: webhookRequestsRoute.href() + (qs ? '?' + qs : '') },
+    })
+  },
+})

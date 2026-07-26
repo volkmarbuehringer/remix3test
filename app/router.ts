@@ -19,6 +19,7 @@ import { customerChat } from './actions/chat/controller.tsx'
 import { testAgent } from './actions/test-agent/controller.tsx'
 import { routeAgent } from './actions/route-agent/controller.tsx'
 import { workflowAgent } from './actions/workflow-agent/controller.tsx'
+import { agentEvents } from './actions/agent-events/controller.tsx'
 import clientController from './actions/client/controller.tsx'
 import {
   adminController,
@@ -154,6 +155,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Workflow Agent (admin-only, workflow-backed tools with navigate-confirm pattern)
   router.map(routes.workflowAgent, workflowAgent)
+
+  // Agent Events (experimental event pipeline, admin-only)
+  router.map(routes.agentEvents, agentEvents)
 
   // Admin routes
   router.map(routes.admin, adminController)

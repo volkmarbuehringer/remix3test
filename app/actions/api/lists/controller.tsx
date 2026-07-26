@@ -2,7 +2,6 @@ import { createController, type Middleware } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 
-
 import { apiTokenAuth, ApiUser } from '../../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../../middleware/api-require-auth.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'

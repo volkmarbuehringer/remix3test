@@ -6,9 +6,7 @@ export function setMastra(m: Mastra) {
   _mastra = m
 }
 
-export async function executeUserPreflightWorkflow(input: {
-  targetUserId: number
-}): Promise<{
+export async function executeUserPreflightWorkflow(input: { targetUserId: number }): Promise<{
   found: boolean
   user?: { id: number; name: string; email: string; role: string; disabledAt: number | null }
   pendingCount: number
@@ -34,7 +32,9 @@ export async function executeUserPreflightWorkflow(input: {
   ])
 
   let found = false
-  let user: { id: number; name: string; email: string; role: string; disabledAt: number | null } | undefined
+  let user:
+    | { id: number; name: string; email: string; role: string; disabledAt: number | null }
+    | undefined
   let pendingCount = 0
   let error: string | undefined
 
@@ -70,7 +70,8 @@ export async function executeUserPreflightWorkflow(input: {
   }
 
   if (preflightResult.status !== 'success') {
-    let preflightError = preflightResult.status === 'failed' ? String(preflightResult.error) : 'unknown_error'
+    let preflightError =
+      preflightResult.status === 'failed' ? String(preflightResult.error) : 'unknown_error'
     if (!error) error = preflightError
   }
 

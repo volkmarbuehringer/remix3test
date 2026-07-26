@@ -291,47 +291,28 @@ function renderAppointmentsPage(
   )
 }
 
-export default createController(
-  routes.verwaltung.appointments,
-  {
-    middleware: [requireAuth(), requireAdmin()],
+export default createController(routes.verwaltung.appointments, {
+  middleware: [requireAuth(), requireAdmin()],
 
-    actions: {
-      async index(context) {
-        let data = await loadAppointmentPageData(context)
-        return renderAppointmentsPage(context, data)
-      },
+  actions: {
+    async index(context) {
+      let data = await loadAppointmentPageData(context)
+      return renderAppointmentsPage(context, data)
+    },
 
-      async create(context) {
-        let formData = context.formData
-        let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
-        let gridValues = gridStateFromFormData(formData)
+    async create(context) {
+      let formData = context.formData
+      let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
+      let gridValues = gridStateFromFormData(formData)
 
-        let auth = context.auth
-        if (auth?.ok) {
-          let authUserId = (auth.identity as { id: number }).id
-          if (process.env.NODE_ENV !== 'test' && !appointmentsCreateLimiter.attempt(authUserId)) {
-            let data = await loadAppointmentPageData(context, {
-              creating: true,
-              formValues,
-              formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsPage(context, data, { status: 400 })
-          }
-        }
-
-        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-        if (!resourceIdRaw.trim()) {
+      let auth = context.auth
+      if (auth?.ok) {
+        let authUserId = (auth.identity as { id: number }).id
+        if (process.env.NODE_ENV !== 'test' && !appointmentsCreateLimiter.attempt(authUserId)) {
           let data = await loadAppointmentPageData(context, {
             creating: true,
             formValues,
-            fieldErrors: { resource_id: 'ist erforderlich.' },
+            formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
@@ -341,427 +322,440 @@ export default createController(
           })
           return renderAppointmentsPage(context, data, { status: 400 })
         }
-        let userIdRaw = (formData.get('user_id') as string) ?? ''
-        if (!userIdRaw.trim()) {
-          let data = await loadAppointmentPageData(context, {
-            creating: true,
-            formValues,
-            fieldErrors: { user_id: 'ist erforderlich.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
+      }
 
-        let result = s.parseSafe(appointmentSaveSchema, formData)
-
-        if (!result.success) {
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let data = await loadAppointmentPageData(context, {
-            creating: true,
-            formValues,
-            fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let { resource_id, user_id, title, date, start_min, end_min } = result.value
-
-        if (end_min <= start_min) {
-          let data = await loadAppointmentPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'muss nach der Startzeit liegen.',
-            fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let trimmedTitle = title.trim()
-        let dayMs = new Date(date + 'T00:00:00Z').getTime()
-
-        if (isDateInPast(dayMs)) {
-          let data = await loadAppointmentPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
-        if (!bookable) {
-          let data = await loadAppointmentPageData(context, {
-            creating: true,
-            formValues,
-            formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let during = `[${start_min},${end_min})`
-        let newId: number
-
-        try {
-          newId = await adminCreateAppointment(context.db, {
-            title: trimmedTitle,
-            userId: user_id,
-            resourceId: resource_id,
-            date: dayMs,
-            during,
-          })
-
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'create',
-              target_type: 'appointment',
-              target_id: newId,
-              details: { resource_id, user_id, title: date, during },
-            })
-          }
-        } catch (error: unknown) {
-          if (isExclusionConstraintError(error)) {
-            let data = await loadAppointmentPageData(context, {
-              creating: true,
-              formValues,
-              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsPage(context, data, { status: 400 })
-          }
-          throw error
-        }
-
-        appointmentChannel.broadcast('invalidate')
-
-        let params = gridStateToParams({
-          ...gridValues,
-          period: '',
-          filter: '',
-          offset: '',
-          status: '',
+      let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+      if (!resourceIdRaw.trim()) {
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors: { resource_id: 'ist erforderlich.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
         })
-        params.set('editing', String(newId))
-        let qs = params.toString()
-        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
-      },
-
-      async update(context) {
-        let formData = context.formData
-        let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
-        let gridValues = gridStateFromFormData(formData)
-
-        let auth = context.auth
-        let updateId = context.params.id
-        if (auth?.ok) {
-          let authUserId = (auth.identity as { id: number }).id
-          if (process.env.NODE_ENV !== 'test' && !appointmentsUpdateLimiter.attempt(authUserId)) {
-            let data = await loadAppointmentPageData(context, {
-              editRow: updateId ? await fetchAppointmentEditRow(context.db, updateId) : undefined,
-              formValues,
-              formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsPage(context, data, { status: 400 })
-          }
-        }
-
-        let id = context.params.id
-
-        if (!id) {
-          let data = await loadAppointmentPageData(context, {
-            formValues,
-            formError: 'Ungültige ID.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
-        if (!resourceIdRaw.trim()) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            fieldErrors: { resource_id: 'ist erforderlich.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-        let userIdRaw = (formData.get('user_id') as string) ?? ''
-        if (!userIdRaw.trim()) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            fieldErrors: { user_id: 'ist erforderlich.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let result = s.parseSafe(appointmentSaveSchema, formData)
-
-        if (!result.success) {
-          let fieldErrors = issuesToFieldErrors(result.issues)
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let { resource_id, user_id, title, date, start_min, end_min } = result.value
-
-        if (end_min <= start_min) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            formError: 'muss nach der Startzeit liegen.',
-            fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let trimmedTitle = title.trim()
-        let dayMs = new Date(date + 'T00:00:00Z').getTime()
-
-        if (isDateInPast(dayMs)) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
-        if (!bookable) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
-        }
-
-        let during = `[${start_min},${end_min})`
-
-        try {
-          let updated = await adminUpdateAppointment(context.db, id, {
-            title: trimmedTitle,
-            userId: user_id,
-            resourceId: resource_id,
-            date: dayMs,
-            during,
-          })
-
-          if (!updated) {
-            let editRow = await fetchAppointmentEditRow(context.db, id)
-            let data = await loadAppointmentPageData(context, {
-              editRow,
-              formValues,
-              formError: 'Eintrag nicht gefunden.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsPage(context, data, { status: 400 })
-          }
-
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'update',
-              target_type: 'appointment',
-              target_id: id,
-              details: { resource_id, user_id, title: date, during },
-            })
-          }
-        } catch (error: unknown) {
-          if (isExclusionConstraintError(error)) {
-            let editRow = await fetchAppointmentEditRow(context.db, id)
-            let data = await loadAppointmentPageData(context, {
-              editRow,
-              formValues,
-              formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
-            })
-            return renderAppointmentsPage(context, data, { status: 400 })
-          }
-          throw error
-        }
-
-        appointmentChannel.broadcast('invalidate')
-
-        let params = gridStateToParams({
-          ...gridValues,
-          period: '',
-          filter: '',
-          offset: '',
-          status: '',
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+      let userIdRaw = (formData.get('user_id') as string) ?? ''
+      if (!userIdRaw.trim()) {
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors: { user_id: 'ist erforderlich.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
         })
-        let qs = params.toString()
-        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
-      },
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
 
-      async destroy(context) {
-        let id = context.params.id
-        let formData = context.formData
+      let result = s.parseSafe(appointmentSaveSchema, formData)
 
-        let auth = context.auth
-        if (auth?.ok) {
-          let authUserId = (auth.identity as { id: number }).id
-          if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
-            return errorRedirectDestroy(
-              formData,
-              'Bitte warten Sie, bevor Sie einen Termin löschen.',
-            )
-          }
-        }
-
-        if (!id) {
-          return errorRedirectDestroy(formData, 'Ungültige ID.')
-        }
-
-        try {
-          let deleted = await adminDeleteAppointment(context.db, id)
-
-          if (!deleted) {
-            return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
-          }
-
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'destroy',
-              target_type: 'appointment',
-              target_id: id,
-            })
-          }
-        } catch (error: unknown) {
-          if (isConstraintViolation(error)) {
-            return errorRedirectDestroy(
-              formData,
-              'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
-            )
-          }
-          throw error
-        }
-
-        appointmentChannel.broadcast('invalidate')
-
-        let params = gridStateToParams({
-          ...gridStateFromFormData(formData),
-          period: '',
-          filter: '',
-          offset: '',
-          status: '',
+      if (!result.success) {
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
         })
-        let qs = params.toString()
-        return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
-      },
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
 
-      async events(context) {
-        return appointmentChannel.subscribe(context.request)
-      },
+      let { resource_id, user_id, title, date, start_min, end_min } = result.value
+
+      if (end_min <= start_min) {
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'muss nach der Startzeit liegen.',
+          fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let trimmedTitle = title.trim()
+      let dayMs = new Date(date + 'T00:00:00Z').getTime()
+
+      if (isDateInPast(dayMs)) {
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
+      if (!bookable) {
+        let data = await loadAppointmentPageData(context, {
+          creating: true,
+          formValues,
+          formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let during = `[${start_min},${end_min})`
+      let newId: number
+
+      try {
+        newId = await adminCreateAppointment(context.db, {
+          title: trimmedTitle,
+          userId: user_id,
+          resourceId: resource_id,
+          date: dayMs,
+          during,
+        })
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'create',
+            target_type: 'appointment',
+            target_id: newId,
+            details: { resource_id, user_id, title: date, during },
+          })
+        }
+      } catch (error: unknown) {
+        if (isExclusionConstraintError(error)) {
+          let data = await loadAppointmentPageData(context, {
+            creating: true,
+            formValues,
+            formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
+          })
+          return renderAppointmentsPage(context, data, { status: 400 })
+        }
+        throw error
+      }
+
+      appointmentChannel.broadcast('invalidate')
+
+      let params = gridStateToParams({
+        ...gridValues,
+        period: '',
+        filter: '',
+        offset: '',
+        status: '',
+      })
+      params.set('editing', String(newId))
+      let qs = params.toString()
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+    },
+
+    async update(context) {
+      let formData = context.formData
+      let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)
+      let gridValues = gridStateFromFormData(formData)
+
+      let auth = context.auth
+      let updateId = context.params.id
+      if (auth?.ok) {
+        let authUserId = (auth.identity as { id: number }).id
+        if (process.env.NODE_ENV !== 'test' && !appointmentsUpdateLimiter.attempt(authUserId)) {
+          let data = await loadAppointmentPageData(context, {
+            editRow: updateId ? await fetchAppointmentEditRow(context.db, updateId) : undefined,
+            formValues,
+            formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
+          })
+          return renderAppointmentsPage(context, data, { status: 400 })
+        }
+      }
+
+      let id = context.params.id
+
+      if (!id) {
+        let data = await loadAppointmentPageData(context, {
+          formValues,
+          formError: 'Ungültige ID.',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
+      if (!resourceIdRaw.trim()) {
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          fieldErrors: { resource_id: 'ist erforderlich.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+      let userIdRaw = (formData.get('user_id') as string) ?? ''
+      if (!userIdRaw.trim()) {
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          fieldErrors: { user_id: 'ist erforderlich.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let result = s.parseSafe(appointmentSaveSchema, formData)
+
+      if (!result.success) {
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let { resource_id, user_id, title, date, start_min, end_min } = result.value
+
+      if (end_min <= start_min) {
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          formError: 'muss nach der Startzeit liegen.',
+          fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let trimmedTitle = title.trim()
+      let dayMs = new Date(date + 'T00:00:00Z').getTime()
+
+      if (isDateInPast(dayMs)) {
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
+      if (!bookable) {
+        let editRow = await fetchAppointmentEditRow(context.db, id)
+        let data = await loadAppointmentPageData(context, {
+          editRow,
+          formValues,
+          formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+          period: gridStatePeriod(gridValues),
+          status: gridStateStatus(gridValues),
+        })
+        return renderAppointmentsPage(context, data, { status: 400 })
+      }
+
+      let during = `[${start_min},${end_min})`
+
+      try {
+        let updated = await adminUpdateAppointment(context.db, id, {
+          title: trimmedTitle,
+          userId: user_id,
+          resourceId: resource_id,
+          date: dayMs,
+          during,
+        })
+
+        if (!updated) {
+          let editRow = await fetchAppointmentEditRow(context.db, id)
+          let data = await loadAppointmentPageData(context, {
+            editRow,
+            formValues,
+            formError: 'Eintrag nicht gefunden.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
+          })
+          return renderAppointmentsPage(context, data, { status: 400 })
+        }
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'update',
+            target_type: 'appointment',
+            target_id: id,
+            details: { resource_id, user_id, title: date, during },
+          })
+        }
+      } catch (error: unknown) {
+        if (isExclusionConstraintError(error)) {
+          let editRow = await fetchAppointmentEditRow(context.db, id)
+          let data = await loadAppointmentPageData(context, {
+            editRow,
+            formValues,
+            formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+            period: gridStatePeriod(gridValues),
+            status: gridStateStatus(gridValues),
+          })
+          return renderAppointmentsPage(context, data, { status: 400 })
+        }
+        throw error
+      }
+
+      appointmentChannel.broadcast('invalidate')
+
+      let params = gridStateToParams({
+        ...gridValues,
+        period: '',
+        filter: '',
+        offset: '',
+        status: '',
+      })
+      let qs = params.toString()
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+    },
+
+    async destroy(context) {
+      let id = context.params.id
+      let formData = context.formData
+
+      let auth = context.auth
+      if (auth?.ok) {
+        let authUserId = (auth.identity as { id: number }).id
+        if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
+          return errorRedirectDestroy(formData, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
+        }
+      }
+
+      if (!id) {
+        return errorRedirectDestroy(formData, 'Ungültige ID.')
+      }
+
+      try {
+        let deleted = await adminDeleteAppointment(context.db, id)
+
+        if (!deleted) {
+          return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
+        }
+
+        let authIdentity = getAdminIdentity(context.auth)
+        if (authIdentity) {
+          logAdminAction(context.db, {
+            admin_user_id: authIdentity.id,
+            admin_email: authIdentity.email,
+            action_type: 'destroy',
+            target_type: 'appointment',
+            target_id: id,
+          })
+        }
+      } catch (error: unknown) {
+        if (isConstraintViolation(error)) {
+          return errorRedirectDestroy(
+            formData,
+            'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
+          )
+        }
+        throw error
+      }
+
+      appointmentChannel.broadcast('invalidate')
+
+      let params = gridStateToParams({
+        ...gridStateFromFormData(formData),
+        period: '',
+        filter: '',
+        offset: '',
+        status: '',
+      })
+      let qs = params.toString()
+      return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
+    },
+
+    async events(context) {
+      return appointmentChannel.subscribe(context.request)
     },
   },
-)
+})

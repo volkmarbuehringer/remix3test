@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
-import { WorkflowAgentStream } from '../assets/streams/workflow-agent-stream.browser.tsx'
+import { AgentEventsStream } from '../assets/streams/agent-events-stream.browser.tsx'
 
 const pageStyle = css({
   display: 'flex',
@@ -67,26 +67,26 @@ const btnStyle = css({
   '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
 })
 
-export function WorkflowAgentPage(handle: Handle) {
+export function AgentEventsPage(handle: Handle) {
   return () => (
     <div mix={pageStyle}>
       <div
-        id="workflow-agent-frame-container"
+        id="agent-events-frame-container"
         data-active-frame="admin-content"
         mix={frameContainerStyle}
       >
         <Frame
           name="admin-content"
-          src={routes.workflowAgent.panel.href()}
+          src={routes.agentEvents.panel.href()}
           fallback={
             <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
-              Ask the agent to manage a user account...
+              Event pipeline ready.
             </div>
           }
         />
       </div>
 
-      <div id="wf-status-bar" mix={statusBarStyle}>
+      <div id="ae-status-bar" mix={statusBarStyle}>
         <div
           style={{
             padding: '0.25rem 0',
@@ -95,25 +95,25 @@ export function WorkflowAgentPage(handle: Handle) {
             fontStyle: 'italic',
           }}
         >
-          Ask the agent to manage a user account...
+          Event pipeline ready.
         </div>
       </div>
 
-      <form id="workflow-agent-form" mix={inputBarStyle}>
+      <form id="agent-events-form" mix={inputBarStyle}>
         <textarea
-          id="workflow-agent-input"
+          id="agent-events-input"
           name="message"
-          placeholder="e.g. 'cancel user 42' or 'lock user 5'"
+          placeholder="e.g. 'cancel user 42' or 'show appointments'"
           autoComplete="off"
           mix={inputStyle}
           rows={1}
         />
-        <button id="workflow-agent-submit" type="submit" mix={btnStyle}>
+        <button id="agent-events-submit" type="submit" mix={btnStyle}>
           Send
         </button>
       </form>
 
-      <WorkflowAgentStream />
+      <AgentEventsStream />
     </div>
   )
 }

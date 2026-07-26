@@ -215,4 +215,11 @@ export const routes = route({
     resume: post('/resume'),
     stream: get('/stream'),
   }),
+
+  agentEvents: route('workflowagent2', {
+    index: get('/'),
+    panel: get('/panel'),
+    action: post('/'),
+    resume: post('/resume'),
+  }),
 })

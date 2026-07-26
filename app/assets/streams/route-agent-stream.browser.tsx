@@ -113,9 +113,7 @@ export const RouteAgentStream = clientEntry(
         }
 
         if (options.length === 1 && !isMulti) {
-          let firstInput = bar.querySelector(
-            'input[name="q-option"]',
-          ) as HTMLInputElement | null
+          let firstInput = bar.querySelector('input[name="q-option"]') as HTMLInputElement | null
           if (firstInput) firstInput.checked = true
         }
 

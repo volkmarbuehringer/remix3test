@@ -24,19 +24,31 @@ const preflightStep = createStep({
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    let userResult = await db.exec(
-      'SELECT name FROM users WHERE id = $1',
-      [inputData.targetUserId],
-    )
+    let userResult = await db.exec('SELECT name FROM users WHERE id = $1', [inputData.targetUserId])
     let userRow = (userResult.rows ?? [])[0] as { name: string } | undefined
-    if (!userRow) return { ...inputData, targetUserName: 'Unknown', resourceName: 'Unknown', upcomingCount: 0, upcomingDates: [], error: 'User not found' }
+    if (!userRow)
+      return {
+        ...inputData,
+        targetUserName: 'Unknown',
+        resourceName: 'Unknown',
+        upcomingCount: 0,
+        upcomingDates: [],
+        error: 'User not found',
+      }
 
-    let resourceResult = await db.exec(
-      'SELECT name FROM resources WHERE id = $1',
-      [inputData.resourceId],
-    )
+    let resourceResult = await db.exec('SELECT name FROM resources WHERE id = $1', [
+      inputData.resourceId,
+    ])
     let resourceRow = (resourceResult.rows ?? [])[0] as { name: string } | undefined
-    if (!resourceRow) return { ...inputData, targetUserName: userRow.name, resourceName: 'Unknown', upcomingCount: 0, upcomingDates: [], error: 'Resource not found' }
+    if (!resourceRow)
+      return {
+        ...inputData,
+        targetUserName: userRow.name,
+        resourceName: 'Unknown',
+        upcomingCount: 0,
+        upcomingDates: [],
+        error: 'Resource not found',
+      }
 
     let todayMidnight = getTodayUtcMidnight()
     let aptResult = await db.exec(

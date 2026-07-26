@@ -24,21 +24,33 @@ const preflightStep = createStep({
     adminUserId: z.number(),
     adminEmail: z.string(),
     found: z.boolean(),
-    user: z.object({
-      id: z.number(),
-      name: z.string(),
-      email: z.string(),
-      role: z.string(),
-      disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     pendingCount: z.number(),
-    lockedUsers: z.array(z.object({
-      id: z.number(), name: z.string(), email: z.string(), pendingCount: z.number(),
-    })),
+    lockedUsers: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        pendingCount: z.number(),
+      }),
+    ),
     lockedTotal: z.number(),
-    activeUsers: z.array(z.object({
-      id: z.number(), name: z.string(), email: z.string(), pendingCount: z.number(),
-    })),
+    activeUsers: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        pendingCount: z.number(),
+      }),
+    ),
     activeTotal: z.number(),
     error: z.string().optional(),
   }),
@@ -72,18 +84,33 @@ const confirmGateStep = createStep({
     adminUserId: z.number(),
     adminEmail: z.string(),
     found: z.boolean(),
-    user: z.object({
-      id: z.number(), name: z.string(), email: z.string(),
-      role: z.string(), disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     pendingCount: z.number(),
-    lockedUsers: z.array(z.object({
-      id: z.number(), name: z.string(), email: z.string(), pendingCount: z.number(),
-    })),
+    lockedUsers: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        pendingCount: z.number(),
+      }),
+    ),
     lockedTotal: z.number(),
-    activeUsers: z.array(z.object({
-      id: z.number(), name: z.string(), email: z.string(), pendingCount: z.number(),
-    })),
+    activeUsers: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        pendingCount: z.number(),
+      }),
+    ),
     activeTotal: z.number(),
     error: z.string().optional(),
   }),
@@ -106,10 +133,15 @@ const confirmGateStep = createStep({
     action: z.enum(['cancel', 'lock', 'unlock']),
     adminUserId: z.number(),
     adminEmail: z.string(),
-    user: z.object({
-      id: z.number(), name: z.string(), email: z.string(),
-      role: z.string(), disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     pendingCount: z.number(),
     lockedTotal: z.number(),
     activeTotal: z.number(),
@@ -162,10 +194,15 @@ const executeActionStep = createStep({
     action: z.enum(['cancel', 'lock', 'unlock']),
     adminUserId: z.number(),
     adminEmail: z.string(),
-    user: z.object({
-      id: z.number(), name: z.string(), email: z.string(),
-      role: z.string(), disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     pendingCount: z.number(),
   }),
   outputSchema: z.object({
@@ -174,10 +211,15 @@ const executeActionStep = createStep({
     targetUserId: z.number(),
     adminUserId: z.number(),
     adminEmail: z.string(),
-    user: z.object({
-      id: z.number(), name: z.string(), email: z.string(),
-      role: z.string(), disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     deletedAppointments: z.number().optional(),
     auditLogged: z.boolean().optional(),
     notificationSent: z.boolean().optional(),
@@ -189,35 +231,59 @@ const executeActionStep = createStep({
   execute: async ({ inputData }) => {
     if (!inputData.confirmed) {
       return {
-        success: false, action: inputData.action, targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId, adminEmail: inputData.adminEmail,
-        error: 'Not confirmed', pendingCount: inputData.pendingCount,
-        lockedTotal: 0, activeTotal: 0,
+        success: false,
+        action: inputData.action,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        error: 'Not confirmed',
+        pendingCount: inputData.pendingCount,
+        lockedTotal: 0,
+        activeTotal: 0,
       }
     }
     let result: {
-      success: boolean; targetUserId: number; deletedAppointments?: number;
-      error?: string; auditLogged?: boolean; alreadyLocked?: boolean;
-      alreadyUnlocked?: boolean; notificationSent?: boolean;
+      success: boolean
+      targetUserId: number
+      deletedAppointments?: number
+      error?: string
+      auditLogged?: boolean
+      alreadyLocked?: boolean
+      alreadyUnlocked?: boolean
+      notificationSent?: boolean
     } = { success: false, targetUserId: inputData.targetUserId }
 
     if (inputData.action === 'cancel') {
       result = await executeCancelUserWorkflow({
-        targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail, deleteAppointments: true,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        deleteAppointments: true,
       })
     } else if (inputData.action === 'lock') {
       let r = await executeLockUserWorkflow({
-        targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
       })
-      result = { success: r.success, targetUserId: inputData.targetUserId, error: r.error, auditLogged: r.auditLogged }
+      result = {
+        success: r.success,
+        targetUserId: inputData.targetUserId,
+        error: r.error,
+        auditLogged: r.auditLogged,
+      }
     } else {
       let r = await executeUnlockUserWorkflow({
-        targetUserId: inputData.targetUserId, adminUserId: inputData.adminUserId,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
         adminEmail: inputData.adminEmail,
       })
-      result = { success: r.success, targetUserId: inputData.targetUserId, error: r.error, auditLogged: r.auditLogged }
+      result = {
+        success: r.success,
+        targetUserId: inputData.targetUserId,
+        error: r.error,
+        auditLogged: r.auditLogged,
+      }
     }
 
     return {
@@ -245,10 +311,15 @@ const finalizeStep = createStep({
     targetUserId: z.number(),
     adminUserId: z.number(),
     adminEmail: z.string(),
-    user: z.object({
-      id: z.number(), name: z.string(), email: z.string(),
-      role: z.string(), disabledAt: z.number().nullable(),
-    }).optional(),
+    user: z
+      .object({
+        id: z.number(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+        disabledAt: z.number().nullable(),
+      })
+      .optional(),
     deletedAppointments: z.number().optional(),
     auditLogged: z.boolean().optional(),
     error: z.string().optional(),
@@ -271,10 +342,14 @@ const finalizeStep = createStep({
   execute: async ({ inputData }) => {
     if (!inputData.success) {
       return {
-        success: false, action: inputData.action, targetUserId: inputData.targetUserId,
+        success: false,
+        action: inputData.action,
+        targetUserId: inputData.targetUserId,
         targetUserName: inputData.user?.name ?? 'Unknown',
         targetUserEmail: inputData.user?.email ?? 'unknown',
-        deletedAppointments: 0, auditLogged: false, error: inputData.error,
+        deletedAppointments: 0,
+        auditLogged: false,
+        error: inputData.error,
       }
     }
 
@@ -300,14 +375,21 @@ const finalizeStep = createStep({
     let docDef: TDocumentDefinitions = {
       content: [
         { text: titleText, style: 'header' },
-        { text: `Generated: ${dateFormatted}  |  Report: ${inputData.action}-${safeName}-${dateFormatted}`, style: 'subheader' },
+        {
+          text: `Generated: ${dateFormatted}  |  Report: ${inputData.action}-${safeName}-${dateFormatted}`,
+          style: 'subheader',
+        },
         { text: '', margin: [0, 10, 0, 0] },
         { text: 'Admin', style: 'sectionHeader' },
         {
           table: {
-            headerRows: 1, widths: ['auto', '*'],
+            headerRows: 1,
+            widths: ['auto', '*'],
             body: [
-              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              [
+                { text: 'Field', bold: true },
+                { text: 'Value', bold: true },
+              ],
               ['ID', String(inputData.adminUserId)],
               ['Email', inputData.adminEmail],
             ],
@@ -317,9 +399,13 @@ const finalizeStep = createStep({
         { text: 'Target User', style: 'sectionHeader' },
         {
           table: {
-            headerRows: 1, widths: ['auto', '*'],
+            headerRows: 1,
+            widths: ['auto', '*'],
             body: [
-              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              [
+                { text: 'Field', bold: true },
+                { text: 'Value', bold: true },
+              ],
               ['Name', inputData.user?.name ?? 'Unknown'],
               ['Email', inputData.user?.email ?? 'unknown'],
               ['User ID', String(inputData.targetUserId)],
@@ -330,9 +416,13 @@ const finalizeStep = createStep({
         { text: 'Action Summary', style: 'sectionHeader' },
         {
           table: {
-            headerRows: 1, widths: ['auto', '*'],
+            headerRows: 1,
+            widths: ['auto', '*'],
             body: [
-              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              [
+                { text: 'Field', bold: true },
+                { text: 'Value', bold: true },
+              ],
               ['Action', actionLabel],
               ['Details', actionDesc],
               ...(inputData.action === 'cancel'
@@ -345,9 +435,13 @@ const finalizeStep = createStep({
         { text: 'Audit Logged', style: 'sectionHeader' },
         {
           table: {
-            headerRows: 1, widths: ['auto', '*'],
+            headerRows: 1,
+            widths: ['auto', '*'],
             body: [
-              [{ text: 'Field', bold: true }, { text: 'Value', bold: true }],
+              [
+                { text: 'Field', bold: true },
+                { text: 'Value', bold: true },
+              ],
               ['Audit entry', inputData.auditLogged ? 'Yes' : 'No'],
             ],
           },

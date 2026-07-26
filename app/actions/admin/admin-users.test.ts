@@ -147,10 +147,7 @@ describe('Admin Users Controller', () => {
       })
       assert.equal(response.status, 200)
       let text = await response.text()
-      assert.ok(
-        text.includes('Keine Benutzer'),
-        'should show empty state for nonexistent ID',
-      )
+      assert.ok(text.includes('Keine Benutzer'), 'should show empty state for nonexistent ID')
     })
   })
 

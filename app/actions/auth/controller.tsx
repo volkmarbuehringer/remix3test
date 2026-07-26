@@ -159,68 +159,97 @@ const registerSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authRegister = createController(
-  routes.auth.register,
-  {
-    middleware: [],
-    actions: {
-      index(context) {
-        return context.render(<RegisterPage />)
-      },
+export const authRegister = createController(routes.auth.register, {
+  middleware: [],
+  actions: {
+    index(context) {
+      return context.render(<RegisterPage />)
+    },
 
-      async action(context) {
-        let formData = context.formData
-        let formValues = readFormFieldValues(REGISTER_FORM_KEYS, formData)
+    async action(context) {
+      let formData = context.formData
+      let formValues = readFormFieldValues(REGISTER_FORM_KEYS, formData)
 
-        let parsed = s.parseSafe(registerSchema, formData)
-        if (!parsed.success) {
-          return context.render(
-            <RegisterPage
-              error={`Ungültige Eingabe. Der Name muss mindestens 8 Zeichen lang sein, die E-Mail-Adresse muss gültig sein und das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`}
-              errors={issuesToFieldErrors(parsed.issues)}
-              formValues={formValues}
-            />,
-            { status: 400 },
-          )
-        }
-        let { name, email, password } = parsed.value
+      let parsed = s.parseSafe(registerSchema, formData)
+      if (!parsed.success) {
+        return context.render(
+          <RegisterPage
+            error={`Ungültige Eingabe. Der Name muss mindestens 8 Zeichen lang sein, die E-Mail-Adresse muss gültig sein und das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`}
+            errors={issuesToFieldErrors(parsed.issues)}
+            formValues={formValues}
+          />,
+          { status: 400 },
+        )
+      }
+      let { name, email, password } = parsed.value
 
-        if (parsed.value.password !== parsed.value.confirmPassword) {
-          return context.render(
-            <RegisterPage
-              error="Die Passwörter stimmen nicht überein."
-              errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }}
-              formValues={formValues}
-            />,
-            { status: 400 },
-          )
-        }
+      if (parsed.value.password !== parsed.value.confirmPassword) {
+        return context.render(
+          <RegisterPage
+            error="Die Passwörter stimmen nicht überein."
+            errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }}
+            formValues={formValues}
+          />,
+          { status: 400 },
+        )
+      }
 
-        let complexityError = validatePasswordComplexity(password)
-        if (complexityError) {
-          return context.render(
-            <RegisterPage
-              error={complexityError}
-              errors={{ password: complexityError }}
-              formValues={formValues}
-            />,
-            { status: 400 },
-          )
-        }
+      let complexityError = validatePasswordComplexity(password)
+      if (complexityError) {
+        return context.render(
+          <RegisterPage
+            error={complexityError}
+            errors={{ password: complexityError }}
+            formValues={formValues}
+          />,
+          { status: 400 },
+        )
+      }
 
-        let normalizedEmail = email.trim().toLowerCase()
+      let normalizedEmail = email.trim().toLowerCase()
 
-        if (!registerLimiter.attempt(normalizedEmail)) {
-          return context.render(
-            <RegisterPage
-              error="Zu viele Registrierungsversuche. Bitte versuchen Sie es später erneut."
-              formValues={formValues}
-            />,
-            { status: 429 },
-          )
-        }
+      if (!registerLimiter.attempt(normalizedEmail)) {
+        return context.render(
+          <RegisterPage
+            error="Zu viele Registrierungsversuche. Bitte versuchen Sie es später erneut."
+            formValues={formValues}
+          />,
+          { status: 429 },
+        )
+      }
 
-        if (await context.db.findOne(users, { where: { email: normalizedEmail } })) {
+      if (await context.db.findOne(users, { where: { email: normalizedEmail } })) {
+        return context.render(
+          <RegisterPage
+            error="Ein Konto mit dieser E-Mail-Adresse existiert bereits."
+            formValues={formValues}
+          />,
+          { status: 400 },
+        )
+      }
+
+      let token = generateToken()
+      let expires = verificationExpires()
+
+      let user
+      try {
+        user = await context.db.create(
+          users,
+          {
+            name: name.trim(),
+            email: normalizedEmail,
+            password_hash: await hashPassword(password),
+            role: 'customer',
+            email_verified: process.env.NODE_ENV === 'test' ? 1 : 0,
+            verification_token: token,
+            verification_expires: expires,
+            created_at: Date.now(),
+          },
+          { returnRow: true },
+        )
+      } catch (err) {
+        let code = (err as { code?: string }).code
+        if (code === '23505') {
           return context.render(
             <RegisterPage
               error="Ein Konto mit dieser E-Mail-Adresse existiert bereits."
@@ -229,67 +258,35 @@ export const authRegister = createController(
             { status: 400 },
           )
         }
+        throw err
+      }
 
-        let token = generateToken()
-        let expires = verificationExpires()
+      registerLimiter.reset(normalizedEmail)
 
-        let user
+      if (process.env.NODE_ENV !== 'test') {
+        let verificationUrl = `${context.url.origin}${routes.auth.verify.href({ token })}`
         try {
-          user = await context.db.create(
-            users,
-            {
-              name: name.trim(),
-              email: normalizedEmail,
-              password_hash: await hashPassword(password),
-              role: 'customer',
-              email_verified: process.env.NODE_ENV === 'test' ? 1 : 0,
-              verification_token: token,
-              verification_expires: expires,
-              created_at: Date.now(),
-            },
-            { returnRow: true },
+          await sendVerificationEmail(
+            context.mailer,
+            { name: user.name, email: user.email },
+            verificationUrl,
           )
         } catch (err) {
-          let code = (err as { code?: string }).code
-          if (code === '23505') {
-            return context.render(
-              <RegisterPage
-                error="Ein Konto mit dieser E-Mail-Adresse existiert bereits."
-                formValues={formValues}
-              />,
-              { status: 400 },
-            )
-          }
-          throw err
+          context.logger?.('Failed to send verification email: ' + String(err))
+          return context.render(
+            <RegisterPage
+              error="Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
+              formValues={formValues}
+            />,
+            { status: 500 },
+          )
         }
+      }
 
-        registerLimiter.reset(normalizedEmail)
-
-        if (process.env.NODE_ENV !== 'test') {
-          let verificationUrl = `${context.url.origin}${routes.auth.verify.href({ token })}`
-          try {
-            await sendVerificationEmail(
-              context.mailer,
-              { name: user.name, email: user.email },
-              verificationUrl,
-            )
-          } catch (err) {
-            context.logger?.('Failed to send verification email: ' + String(err))
-            return context.render(
-              <RegisterPage
-                error="Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
-                formValues={formValues}
-              />,
-              { status: 500 },
-            )
-          }
-        }
-
-        return redirect(routes.auth.registerSent.href())
-      },
+      return redirect(routes.auth.registerSent.href())
     },
   },
-)
+})
 
 export async function registerSent(context: AppContext) {
   return context.render(<RegisterSentPage />)
@@ -309,182 +306,176 @@ const passwordSchema = f.object({
   confirmPassword: f.field(s.string().pipe(minLength(PASSWORD_MIN_LENGTH))),
 })
 
-export const authForgotten = createController(
-  routes.auth.forgotten,
-  {
-    middleware: [],
-    actions: {
-      index(context) {
-        return context.render(<ForgotPage />)
-      },
+export const authForgotten = createController(routes.auth.forgotten, {
+  middleware: [],
+  actions: {
+    index(context) {
+      return context.render(<ForgotPage />)
+    },
 
-      async action(context) {
-        let parsed = s.parseSafe(emailSchema, context.formData)
-        if (!parsed.success) {
-          return context.render(
-            <ForgotPage
-              error="Bitte geben Sie eine gültige E-Mail-Adresse ein."
-              errors={issuesToFieldErrors(parsed.issues)}
-            />,
-            { status: 400 },
+    async action(context) {
+      let parsed = s.parseSafe(emailSchema, context.formData)
+      if (!parsed.success) {
+        return context.render(
+          <ForgotPage
+            error="Bitte geben Sie eine gültige E-Mail-Adresse ein."
+            errors={issuesToFieldErrors(parsed.issues)}
+          />,
+          { status: 400 },
+        )
+      }
+
+      let normalizedEmail = parsed.value.email.trim().toLowerCase()
+
+      if (!forgotLimiter.attempt(normalizedEmail)) {
+        return context.render(
+          <ForgotPage error="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
+          { status: 429 },
+        )
+      }
+
+      let user = await context.db.findOne(users, { where: { email: normalizedEmail } })
+      if (user) {
+        let token = generateToken()
+        let expires = resetExpires()
+
+        await context.db.update(users, user.id, {
+          password_reset_token: token,
+          password_reset_expires: expires,
+        })
+
+        let resetUrl = `${context.url.origin}${routes.auth.forgottenReset.index.href({ token })}`
+        try {
+          await sendPasswordResetEmail(
+            context.mailer,
+            { name: user.name, email: user.email },
+            resetUrl,
           )
+        } catch (err) {
+          context.logger?.('Failed to send password reset email: ' + String(err))
         }
+      }
 
-        let normalizedEmail = parsed.value.email.trim().toLowerCase()
+      return context.render(<ForgotSentPage />)
+    },
+  },
+})
 
-        if (!forgotLimiter.attempt(normalizedEmail)) {
-          return context.render(
-            <ForgotPage error="Zu viele Versuche. Bitte versuchen Sie es später erneut." />,
-            { status: 429 },
-          )
-        }
+export const authForgottenReset = createController(routes.auth.forgottenReset, {
+  middleware: [],
+  actions: {
+    async index(context) {
+      let token = (context.params as Record<string, string>).token
+      let result = await validateResetToken(context.db, token)
+      if (result.error) {
+        return context.render(
+          <ResetErrorPage title={result.error.title} message={result.error.message} />,
+          { status: 400 },
+        )
+      }
+      return context.render(<ResetFormPage token={token} />)
+    },
 
-        let user = await context.db.findOne(users, { where: { email: normalizedEmail } })
-        if (user) {
-          let token = generateToken()
-          let expires = resetExpires()
+    async action(context) {
+      let token = (context.params as Record<string, string>).token
 
-          await context.db.update(users, user.id, {
-            password_reset_token: token,
-            password_reset_expires: expires,
+      if (!resetLimiter.attempt(token)) {
+        try {
+          let userByToken = await context.db.findOne(users, {
+            where: { password_reset_token: token },
           })
-
-          let resetUrl = `${context.url.origin}${routes.auth.forgottenReset.index.href({ token })}`
-          try {
-            await sendPasswordResetEmail(
-              context.mailer,
-              { name: user.name, email: user.email },
-              resetUrl,
-            )
-          } catch (err) {
-            context.logger?.('Failed to send password reset email: ' + String(err))
-          }
-        }
-
-        return context.render(<ForgotSentPage />)
-      },
-    },
-  },
-)
-
-export const authForgottenReset = createController(
-  routes.auth.forgottenReset,
-  {
-    middleware: [],
-    actions: {
-      async index(context) {
-        let token = (context.params as Record<string, string>).token
-        let result = await validateResetToken(context.db, token)
-        if (result.error) {
-          return context.render(
-            <ResetErrorPage title={result.error.title} message={result.error.message} />,
-            { status: 400 },
-          )
-        }
-        return context.render(<ResetFormPage token={token} />)
-      },
-
-      async action(context) {
-        let token = (context.params as Record<string, string>).token
-
-        if (!resetLimiter.attempt(token)) {
-          try {
-            let userByToken = await context.db.findOne(users, {
-              where: { password_reset_token: token },
+          if (userByToken) {
+            await context.db.update(users, (userByToken as { id: number }).id, {
+              password_reset_token: null,
+              password_reset_expires: null,
             })
-            if (userByToken) {
-              await context.db.update(users, (userByToken as { id: number }).id, {
-                password_reset_token: null,
-                password_reset_expires: null,
-              })
-            }
-          } catch {
-            // Token invalidation is best-effort; rate limit error takes priority
           }
-          return context.render(
-            <ResetErrorPage
-              title="Zu viele Versuche"
-              message="Zu viele Versuche. Bitte fordern Sie einen neuen Link an."
-            />,
-            { status: 429 },
-          )
+        } catch {
+          // Token invalidation is best-effort; rate limit error takes priority
         }
+        return context.render(
+          <ResetErrorPage
+            title="Zu viele Versuche"
+            message="Zu viele Versuche. Bitte fordern Sie einen neuen Link an."
+          />,
+          { status: 429 },
+        )
+      }
 
-        let parsed = s.parseSafe(passwordSchema, context.formData)
-        if (!parsed.success) {
-          return context.render(
-            <ResetFormPage
-              token={token}
-              error={`Das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`}
-              errors={issuesToFieldErrors(parsed.issues)}
-            />,
-            { status: 400 },
-          )
-        }
+      let parsed = s.parseSafe(passwordSchema, context.formData)
+      if (!parsed.success) {
+        return context.render(
+          <ResetFormPage
+            token={token}
+            error={`Das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`}
+            errors={issuesToFieldErrors(parsed.issues)}
+          />,
+          { status: 400 },
+        )
+      }
 
-        if (parsed.value.password !== parsed.value.confirmPassword) {
-          return context.render(
-            <ResetFormPage
-              token={token}
-              error="Die Passwörter stimmen nicht überein."
-              errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }}
-            />,
-            { status: 400 },
-          )
-        }
+      if (parsed.value.password !== parsed.value.confirmPassword) {
+        return context.render(
+          <ResetFormPage
+            token={token}
+            error="Die Passwörter stimmen nicht überein."
+            errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }}
+          />,
+          { status: 400 },
+        )
+      }
 
-        let complexityError = validatePasswordComplexity(parsed.value.password)
-        if (complexityError) {
-          return context.render(
-            <ResetFormPage
-              token={token}
-              error={complexityError}
-              errors={{ password: complexityError }}
-            />,
-            { status: 400 },
-          )
-        }
+      let complexityError = validatePasswordComplexity(parsed.value.password)
+      if (complexityError) {
+        return context.render(
+          <ResetFormPage
+            token={token}
+            error={complexityError}
+            errors={{ password: complexityError }}
+          />,
+          { status: 400 },
+        )
+      }
 
-        let result = await validateResetToken(context.db, token)
-        if (result.error) {
-          return context.render(
-            <ResetErrorPage title={result.error.title} message={result.error.message} />,
-            { status: 400 },
-          )
-        }
+      let result = await validateResetToken(context.db, token)
+      if (result.error) {
+        return context.render(
+          <ResetErrorPage title={result.error.title} message={result.error.message} />,
+          { status: 400 },
+        )
+      }
 
-        let currentUser = (await context.db.find(users, result.user.id)) as
-          | { token_version: number }
-          | undefined
+      let currentUser = (await context.db.find(users, result.user.id)) as
+        | { token_version: number }
+        | undefined
 
-        await context.db.update(users, result.user.id, {
-          password_hash: await hashPassword(parsed.value.password),
-          token_version: (currentUser?.token_version ?? 0) + 1,
-          password_reset_token: null,
-          password_reset_expires: null,
-        })
-        await context.db.deleteMany(apiTokens, { where: { user_id: result.user.id } })
+      await context.db.update(users, result.user.id, {
+        password_hash: await hashPassword(parsed.value.password),
+        token_version: (currentUser?.token_version ?? 0) + 1,
+        password_reset_token: null,
+        password_reset_expires: null,
+      })
+      await context.db.deleteMany(apiTokens, { where: { user_id: result.user.id } })
 
-        await logAdminAction(context.db, {
-          admin_user_id: result.user.id,
-          admin_email: result.user.email,
-          action_type: 'password_reset_self',
-          target_type: 'user',
-          target_id: result.user.id,
-        })
+      await logAdminAction(context.db, {
+        admin_user_id: result.user.id,
+        admin_email: result.user.email,
+        action_type: 'password_reset_self',
+        target_type: 'user',
+        target_id: result.user.id,
+      })
 
-        let session = context.session
-        if (session) {
-          session.regenerateId(true)
-          session.unset('auth')
-          session.flash('reset', 'Password reset successfully! Please log in.')
-        }
+      let session = context.session
+      if (session) {
+        session.regenerateId(true)
+        session.unset('auth')
+        session.flash('reset', 'Password reset successfully! Please log in.')
+      }
 
-        return redirect(routes.auth.login.index.href())
-      },
+      return redirect(routes.auth.login.index.href())
     },
   },
-)
+})
 
 async function validateResetToken(
   db: AppContext['db'],

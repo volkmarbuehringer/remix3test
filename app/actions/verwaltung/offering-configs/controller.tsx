@@ -338,111 +338,41 @@ async function validateCreate(
   return { ok: true, parsed, resourceId, rules }
 }
 
-export default createController(
-  routes.verwaltung.offeringConfigs,
-  {
-    middleware: [requireAuth(), requireAdmin()],
+export default createController(routes.verwaltung.offeringConfigs, {
+  middleware: [requireAuth(), requireAdmin()],
 
-    actions: {
-      async index(context) {
-        let prefill = readAgentPrefill(context.request)
-        let overrides = prefill ? { formValues: prefill, creating: true } : undefined
-        let data = await loadOfferingConfigPageData(context, overrides)
-        return renderOfferingConfigPage(context, data)
-      },
+  actions: {
+    async index(context) {
+      let prefill = readAgentPrefill(context.request)
+      let overrides = prefill ? { formValues: prefill, creating: true } : undefined
+      let data = await loadOfferingConfigPageData(context, overrides)
+      return renderOfferingConfigPage(context, data)
+    },
 
-      async create(context) {
-        let db = context.db
-        let formData = context.formData
+    async create(context) {
+      let db = context.db
+      let formData = context.formData
 
-        let threadId = context.request.headers.get('X-Agent-Thread')
-        if (threadId) {
-          let validation = await validateCreate(db, offeringConfigSchema, formData)
-          if (!validation.ok) {
-            let issues = validation.issues
-              ? validation.issues
-              : [{ message: validation.formError!, path: ['resource_id'] as const }]
-            return context.json(
-              { status: 'validation_error', issues, threadId },
-              { status: validation.status },
-            )
-          }
-
-          let { parsed: _parsed, resourceId, rules } = validation
-
-          let row: Record<string, unknown>
-          try {
-            row = await db.create(
-              offeringConfigs,
-              { resource_id: resourceId, rules: JSON.stringify(rules) },
-              { returnRow: true },
-            )
-          } catch (error) {
-            if (isConstraintViolation(error)) {
-              if (process.env.NODE_ENV !== 'test')
-                context.logger?.(
-                  'Constraint violation during offering config creation: ' +
-                    JSON.stringify({ code: (error as { code?: string }).code }),
-                )
-              return context.json(
-                {
-                  status: 'validation_error',
-                  issues: [{ message: 'Ressource wurde gelöscht', path: ['resource_id'] }],
-                  threadId,
-                },
-                { status: 409 },
-              )
-            }
-            throw error
-          }
-
-          let authIdentity = getAdminIdentity(context.auth)
-          if (authIdentity) {
-            logAdminAction(context.db, {
-              admin_user_id: authIdentity.id,
-              admin_email: authIdentity.email,
-              action_type: 'create',
-              target_type: 'offering_configs',
-              target_id: row.id as number,
-              details: { resource_id: resourceId, rules },
-            })
-          }
-
-          return context.json({
-            status: 'created',
-            data: { id: row.id, resource_id: resourceId, rules },
-            threadId,
-          })
-        }
-
-        let gridValues = gridStateFromFormData(formData)
-
+      let threadId = context.request.headers.get('X-Agent-Thread')
+      if (threadId) {
         let validation = await validateCreate(db, offeringConfigSchema, formData)
-
         if (!validation.ok) {
-          let data = await loadOfferingConfigPageData(context, {
-            creating: true,
-            formValues: validation.formValues,
-            fieldErrors: validation.fieldErrors,
-            formError: validation.formError,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: validation.status })
+          let issues = validation.issues
+            ? validation.issues
+            : [{ message: validation.formError!, path: ['resource_id'] as const }]
+          return context.json(
+            { status: 'validation_error', issues, threadId },
+            { status: validation.status },
+          )
         }
 
-        let { parsed, resourceId, rules } = validation
+        let { parsed: _parsed, resourceId, rules } = validation
 
         let row: Record<string, unknown>
         try {
           row = await db.create(
             offeringConfigs,
-            {
-              resource_id: resourceId,
-              rules: JSON.stringify(rules),
-            },
+            { resource_id: resourceId, rules: JSON.stringify(rules) },
             { returnRow: true },
           )
         } catch (error) {
@@ -452,16 +382,14 @@ export default createController(
                 'Constraint violation during offering config creation: ' +
                   JSON.stringify({ code: (error as { code?: string }).code }),
               )
-            let data = await loadOfferingConfigPageData(context, {
-              creating: true,
-              formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
-              formError: 'Ressource wurde gelöscht',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-            })
-            return renderOfferingConfigPage(context, data, { status: 409 })
+            return context.json(
+              {
+                status: 'validation_error',
+                issues: [{ message: 'Ressource wurde gelöscht', path: ['resource_id'] }],
+                threadId,
+              },
+              { status: 409 },
+            )
           }
           throw error
         }
@@ -478,37 +406,249 @@ export default createController(
           })
         }
 
-        let redirectState = gridStateFromForm(parsed)
-        let params = gridStateToParams(redirectState)
-        params.set('editing', String(row.id))
-        let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-        return redirect(baseUrl + '?' + params.toString())
-      },
+        return context.json({
+          status: 'created',
+          data: { id: row.id, resource_id: resourceId, rules },
+          threadId,
+        })
+      }
 
-      async update(context) {
-        let db = context.db
-        let formData = context.formData
-        let gridValues = gridStateFromFormData(formData)
+      let gridValues = gridStateFromFormData(formData)
 
-        let id = parseId(context.params.id)
-        if (id === undefined || id < 1) {
-          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+      let validation = await validateCreate(db, offeringConfigSchema, formData)
+
+      if (!validation.ok) {
+        let data = await loadOfferingConfigPageData(context, {
+          creating: true,
+          formValues: validation.formValues,
+          fieldErrors: validation.fieldErrors,
+          formError: validation.formError,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: validation.status })
+      }
+
+      let { parsed, resourceId, rules } = validation
+
+      let row: Record<string, unknown>
+      try {
+        row = await db.create(
+          offeringConfigs,
+          {
+            resource_id: resourceId,
+            rules: JSON.stringify(rules),
+          },
+          { returnRow: true },
+        )
+      } catch (error) {
+        if (isConstraintViolation(error)) {
+          if (process.env.NODE_ENV !== 'test')
+            context.logger?.(
+              'Constraint violation during offering config creation: ' +
+                JSON.stringify({ code: (error as { code?: string }).code }),
+            )
+          let data = await loadOfferingConfigPageData(context, {
+            creating: true,
+            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+            formError: 'Ressource wurde gelöscht',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingConfigPage(context, data, { status: 409 })
         }
+        throw error
+      }
 
-        let target = await db.findOne(offeringConfigs, { where: { id } })
-        if (!target) {
-          return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
-        }
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'offering_configs',
+          target_id: row.id as number,
+          details: { resource_id: resourceId, rules },
+        })
+      }
 
-        let result = s.parseSafe(offeringConfigSchema, formData)
+      let redirectState = gridStateFromForm(parsed)
+      let params = gridStateToParams(redirectState)
+      params.set('editing', String(row.id))
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
+      return redirect(baseUrl + '?' + params.toString())
+    },
 
-        if (!result.success) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let fieldErrors = issuesToFieldErrors(result.issues)
+    async update(context) {
+      let db = context.db
+      let formData = context.formData
+      let gridValues = gridStateFromFormData(formData)
+
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+      }
+
+      let target = await db.findOne(offeringConfigs, { where: { id } })
+      if (!target) {
+        return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
+      }
+
+      let result = s.parseSafe(offeringConfigSchema, formData)
+
+      if (!result.success) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+        let fieldErrors = issuesToFieldErrors(result.issues)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toOfferingConfigRow(target as Record<string, unknown>),
+          formValues,
+          fieldErrors,
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
+      }
+
+      let parsed = result.value
+
+      let resourceId = Number(parsed.resource_id)
+      if (!resourceId || !Number.isFinite(resourceId)) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toOfferingConfigRow(target as Record<string, unknown>),
+          formValues,
+          fieldErrors: { resource_id: 'Ressource ist erforderlich' },
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
+      }
+
+      let resource = await db.findOne(resources, { where: { id: resourceId } })
+      if (!resource) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toOfferingConfigRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Ressource nicht gefunden',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 404 })
+      }
+
+      let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
+      if (existing && Number(existing.id) !== id) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toOfferingConfigRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Diese Ressource hat bereits eine Konfiguration',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
+      }
+
+      let rules = rulesFromParsed(parsed)
+      if (Object.keys(rules).length === 0) {
+        let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
+        let data = await loadOfferingConfigPageData(context, {
+          editRow: toOfferingConfigRow(target as Record<string, unknown>),
+          formValues,
+          formError: 'Mindestens ein Tag muss einen Zeitraum haben',
+          offset: gridStateOffset(gridValues),
+          sortColumn: gridStateSort(gridValues),
+          sortDirection: gridStateDirection(gridValues),
+          filter: gridStateFilter(gridValues),
+        })
+        return renderOfferingConfigPage(context, data, { status: 400 })
+      }
+
+      try {
+        await db.updateMany(
+          offeringConfigs,
+          { resource_id: resourceId, rules: JSON.stringify(rules) },
+          { where: { id } },
+        )
+      } catch (error) {
+        if (isConstraintViolation(error)) {
+          if (process.env.NODE_ENV !== 'test')
+            context.logger?.(
+              'Constraint violation during offering config update: ' +
+                JSON.stringify({ code: (error as { code?: string }).code }),
+            )
           let data = await loadOfferingConfigPageData(context, {
             editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues,
-            fieldErrors,
+            formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
+            formError: 'Ressource wurde gelöscht',
+            offset: gridStateOffset(gridValues),
+            sortColumn: gridStateSort(gridValues),
+            sortDirection: gridStateDirection(gridValues),
+            filter: gridStateFilter(gridValues),
+          })
+          return renderOfferingConfigPage(context, data, { status: 409 })
+        }
+        throw error
+      }
+
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'offering_configs',
+          target_id: id,
+          details: { resource_id: resourceId, rules },
+        })
+      }
+
+      let redirectState = gridStateFromForm(parsed)
+      let params = gridStateToParams(redirectState)
+      let qs = params.toString()
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
+    },
+
+    async destroy(context) {
+      let db = context.db
+      let formData = context.formData
+
+      let id = parseId(context.params.id)
+      if (id === undefined || id < 1) {
+        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+      }
+
+      let existing = await db.findOne(offeringConfigs, { where: { id } })
+      if (!existing) {
+        return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
+      }
+
+      try {
+        await db.deleteMany(offeringConfigs, { where: { id } })
+      } catch (error: unknown) {
+        if (isConstraintViolation(error)) {
+          if (process.env.NODE_ENV !== 'test')
+            context.logger?.(
+              'Constraint violation during offering config deletion: ' +
+                JSON.stringify({ code: (error as { code?: string }).code }),
+            )
+          let gridValues = gridStateFromFormData(formData)
+          let data = await loadOfferingConfigPageData(context, {
+            formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
             offset: gridStateOffset(gridValues),
             sortColumn: gridStateSort(gridValues),
             sortDirection: gridStateDirection(gridValues),
@@ -516,168 +656,25 @@ export default createController(
           })
           return renderOfferingConfigPage(context, data, { status: 400 })
         }
+        throw error
+      }
 
-        let parsed = result.value
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'offering_configs',
+          target_id: id,
+        })
+      }
 
-        let resourceId = Number(parsed.resource_id)
-        if (!resourceId || !Number.isFinite(resourceId)) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues,
-            fieldErrors: { resource_id: 'Ressource ist erforderlich' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
-
-        let resource = await db.findOne(resources, { where: { id: resourceId } })
-        if (!resource) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues,
-            formError: 'Ressource nicht gefunden',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 404 })
-        }
-
-        let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
-        if (existing && Number(existing.id) !== id) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues,
-            formError: 'Diese Ressource hat bereits eine Konfiguration',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
-
-        let rules = rulesFromParsed(parsed)
-        if (Object.keys(rules).length === 0) {
-          let formValues = readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData)
-          let data = await loadOfferingConfigPageData(context, {
-            editRow: toOfferingConfigRow(target as Record<string, unknown>),
-            formValues,
-            formError: 'Mindestens ein Tag muss einen Zeitraum haben',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
-        }
-
-        try {
-          await db.updateMany(
-            offeringConfigs,
-            { resource_id: resourceId, rules: JSON.stringify(rules) },
-            { where: { id } },
-          )
-        } catch (error) {
-          if (isConstraintViolation(error)) {
-            if (process.env.NODE_ENV !== 'test')
-              context.logger?.(
-                'Constraint violation during offering config update: ' +
-                  JSON.stringify({ code: (error as { code?: string }).code }),
-              )
-            let data = await loadOfferingConfigPageData(context, {
-              editRow: toOfferingConfigRow(target as Record<string, unknown>),
-              formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
-              formError: 'Ressource wurde gelöscht',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-            })
-            return renderOfferingConfigPage(context, data, { status: 409 })
-          }
-          throw error
-        }
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'update',
-            target_type: 'offering_configs',
-            target_id: id,
-            details: { resource_id: resourceId, rules },
-          })
-        }
-
-        let redirectState = gridStateFromForm(parsed)
-        let params = gridStateToParams(redirectState)
-        let qs = params.toString()
-        let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
-      },
-
-      async destroy(context) {
-        let db = context.db
-        let formData = context.formData
-
-        let id = parseId(context.params.id)
-        if (id === undefined || id < 1) {
-          return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
-        }
-
-        let existing = await db.findOne(offeringConfigs, { where: { id } })
-        if (!existing) {
-          return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
-        }
-
-        try {
-          await db.deleteMany(offeringConfigs, { where: { id } })
-        } catch (error: unknown) {
-          if (isConstraintViolation(error)) {
-            if (process.env.NODE_ENV !== 'test')
-              context.logger?.(
-                'Constraint violation during offering config deletion: ' +
-                  JSON.stringify({ code: (error as { code?: string }).code }),
-              )
-            let gridValues = gridStateFromFormData(formData)
-            let data = await loadOfferingConfigPageData(context, {
-              formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-            })
-            return renderOfferingConfigPage(context, data, { status: 400 })
-          }
-          throw error
-        }
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'offering_configs',
-            target_id: id,
-          })
-        }
-
-        let redirectState = gridStateFromFormData(formData)
-        let params = gridStateToParams(redirectState)
-        let qs = params.toString()
-        let baseUrl = routes.verwaltung.offeringConfigs.index.href()
-        return redirect(baseUrl + (qs ? '?' + qs : ''))
-      },
+      let redirectState = gridStateFromFormData(formData)
+      let params = gridStateToParams(redirectState)
+      let qs = params.toString()
+      let baseUrl = routes.verwaltung.offeringConfigs.index.href()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
   },
-)
+})

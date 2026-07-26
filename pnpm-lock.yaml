@@ -40,7 +40,7 @@ importers:
         version: 8.22.0
       remix:
         specifier: github:remix-run/remix#preview/main&path:packages/remix
-        version: https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/remix(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(pg@8.22.0)(playwright@1.61.1)
+        version: https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/remix(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(pg@8.22.0)(playwright@1.62.0)
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -52,8 +52,8 @@ importers:
         specifier: ^1.75.0
         version: 1.75.0
       '@playwright/test':
-        specifier: ^1.61.1
-        version: 1.61.1
+        specifier: ^1.62.0
+        version: 1.62.0
       '@types/node':
         specifier: latest
         version: 26.1.1
@@ -82,8 +82,8 @@ importers:
         specifier: ^7.0.2001
         version: 7.0.2001
       playwright:
-        specifier: ^1.61.1
-        version: 1.61.1
+        specifier: ^1.62.0
+        version: 1.62.0
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -1662,9 +1662,9 @@ packages:
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
-  '@playwright/test@1.61.1':
-    resolution: {integrity: sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==}
-    engines: {node: '>=18'}
+  '@playwright/test@1.62.0':
+    resolution: {integrity: sha512-9zOJ6ZQRAena31MpOH9VSzIz8Ou3YJ/wtY/eQm5T2uhfhG7/U3COrMS8xOtUrZrp9OgdmzEnIYODye3nY1VqzA==}
+    engines: {node: '>=20'}
     hasBin: true
 
   '@posthog/core@1.45.0':
@@ -3784,14 +3784,14 @@ packages:
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
 
-  playwright-core@1.61.1:
-    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
-    engines: {node: '>=18'}
+  playwright-core@1.62.0:
+    resolution: {integrity: sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA==}
+    engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.61.1:
-    resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
-    engines: {node: '>=18'}
+  playwright@1.62.0:
+    resolution: {integrity: sha512-Z14dG305dgaLu6foB1TXQagFiW8JfSUIUaUuPaKQ6NtBPKF1P/qXcqfh6c6K/icPqdy37JmjbiBXf6JNg6Sylw==}
+    engines: {node: '>=20'}
     hasBin: true
 
   png-js@1.1.0:
@@ -5572,9 +5572,9 @@ snapshots:
 
   '@pinojs/redact@0.4.0': {}
 
-  '@playwright/test@1.61.1':
+  '@playwright/test@1.62.0':
     dependencies:
-      playwright: 1.61.1
+      playwright: 1.62.0
 
   '@posthog/core@1.45.0':
     dependencies:
@@ -5620,12 +5620,12 @@ snapshots:
       '@remix-run/fetch-router': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/fetch-router
       '@remix-run/session': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/session
 
-  '@remix-run/cli@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cli(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)':
+  '@remix-run/cli@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cli(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.62.0)':
     dependencies:
       '@remix-run/data-table': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/data-table
       '@remix-run/node-tsx': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/node-tsx(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
       '@remix-run/terminal': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/terminal
-      '@remix-run/test': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
+      '@remix-run/test': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.62.0)
       jsonc-parser: 3.3.1
       semver: 7.8.5
     transitivePeerDependencies:
@@ -5782,7 +5782,7 @@ snapshots:
 
   '@remix-run/terminal@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/terminal': {}
 
-  '@remix-run/test@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)':
+  '@remix-run/test@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.62.0)':
     dependencies:
       '@remix-run/node-tsx': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/node-tsx(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
       '@remix-run/terminal': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/terminal
@@ -5797,7 +5797,7 @@ snapshots:
       source-map-js: 1.2.1
       v8-to-istanbul: 9.3.0
     optionalDependencies:
-      playwright: 1.61.1
+      playwright: 1.62.0
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -7829,11 +7829,11 @@ snapshots:
       exsolve: 1.1.0
       pathe: 2.0.3
 
-  playwright-core@1.61.1: {}
+  playwright-core@1.62.0: {}
 
-  playwright@1.61.1:
+  playwright@1.62.0:
     dependencies:
-      playwright-core: 1.61.1
+      playwright-core: 1.62.0
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -7983,14 +7983,14 @@ snapshots:
 
   remend@1.3.0: {}
 
-  remix@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/remix(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(pg@8.22.0)(playwright@1.61.1):
+  remix@https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/remix(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(pg@8.22.0)(playwright@1.62.0):
     dependencies:
       '@remix-run/assert': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/assert
       '@remix-run/assets': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/assets(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
       '@remix-run/async-context-middleware': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/async-context-middleware
       '@remix-run/auth': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/auth
       '@remix-run/auth-middleware': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/auth-middleware
-      '@remix-run/cli': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cli(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
+      '@remix-run/cli': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cli(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.62.0)
       '@remix-run/compression-middleware': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/compression-middleware
       '@remix-run/cookie': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cookie
       '@remix-run/cop-middleware': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/cop-middleware
@@ -8027,11 +8027,11 @@ snapshots:
       '@remix-run/static-middleware': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/static-middleware
       '@remix-run/tar-parser': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/tar-parser
       '@remix-run/terminal': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/terminal
-      '@remix-run/test': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.61.1)
+      '@remix-run/test': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/test(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(playwright@1.62.0)
       '@remix-run/ui': https://codeload.github.com/remix-run/remix/tar.gz/60f4b88d5785514b2c69fd2f2d408e54991c90d9#path:packages/ui
     optionalDependencies:
       pg: 8.22.0
-      playwright: 1.61.1
+      playwright: 1.62.0
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'

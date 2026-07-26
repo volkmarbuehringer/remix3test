@@ -13,11 +13,7 @@ import { setStream, getStream, verifyStreamOwner } from '../../utils/stream-stor
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
 import { createLogger } from '../../utils/logger.ts'
-import {
-  MAX_MESSAGE_LENGTH,
-  validateMessage,
-  sanitizeLog,
-} from '../mastra/shared-agent.ts'
+import { MAX_MESSAGE_LENGTH, validateMessage, sanitizeLog } from '../mastra/shared-agent.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
@@ -84,7 +80,9 @@ export const customerChat = createController(routes.chat, {
           let agent = mastra.getAgent('customerAgent')
           chatMessages = await recallChatMessages(agent, threadId, String(user.id))
         } catch (error) {
-          chatLog.error('recall failed for ' + sanitizeLog(threadId) + ': ' + sanitizeLog(String(error)))
+          chatLog.error(
+            'recall failed for ' + sanitizeLog(threadId) + ': ' + sanitizeLog(String(error)),
+          )
         }
       }
 

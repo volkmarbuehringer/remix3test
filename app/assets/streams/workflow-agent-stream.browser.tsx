@@ -33,7 +33,11 @@ export const WorkflowAgentStream = clientEntry(
       isCancelled = false
     }
 
-    function addStep(stepId: string, status: 'running' | 'done' | 'suspended' | 'error', label?: string) {
+    function addStep(
+      stepId: string,
+      status: 'running' | 'done' | 'suspended' | 'error',
+      label?: string,
+    ) {
       let bar = getStatusBar()
       if (!bar) return
 
@@ -248,7 +252,9 @@ export const WorkflowAgentStream = clientEntry(
       let el = document.createElement('div')
       el.textContent = text
       el.style.fontSize = '0.8125rem'
-      el.style.color = isError ? 'var(--rmx-color-action-danger, #dc3545)' : 'var(--rmx-color-text-muted, #888)'
+      el.style.color = isError
+        ? 'var(--rmx-color-action-danger, #dc3545)'
+        : 'var(--rmx-color-text-muted, #888)'
       el.style.padding = '0.25rem 0'
       el.style.fontStyle = 'italic'
       bar.appendChild(el)
@@ -374,7 +380,7 @@ export const WorkflowAgentStream = clientEntry(
                 showInfo(parsed.text || '')
               } else if (eventType === 'navigate') {
                 let href = parsed.href as string
-                let target = parsed.target as string || 'admin-content'
+                let target = (parsed.target as string) || 'admin-content'
                 showInfo('Navigating to ' + href + '...')
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
@@ -483,7 +489,9 @@ export const WorkflowAgentStream = clientEntry(
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })
             }
 
-            let textarea = document.getElementById('workflow-agent-input') as HTMLTextAreaElement | null
+            let textarea = document.getElementById(
+              'workflow-agent-input',
+            ) as HTMLTextAreaElement | null
             if (textarea) {
               textarea.addEventListener('keydown', handleTextareaKeydown, { signal: handle.signal })
             }

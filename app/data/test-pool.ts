@@ -1,8 +1,7 @@
 import { Pool } from 'pg'
 
 const url = process.env.DATABASE_URL ?? ''
-const localeUrl =
-  url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
+const localeUrl = url + (url.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
 export const pool = new Pool({
   connectionString: localeUrl,

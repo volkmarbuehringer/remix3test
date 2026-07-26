@@ -99,8 +99,5 @@ export const consistencyCheckWorkflow = createWorkflow({
     activeTotal: z.number(),
   }),
 })
-  .parallel([
-    checkLockedUsersPendingAppointments,
-    checkActiveUsersPendingAppointments,
-  ])
+  .parallel([checkLockedUsersPendingAppointments, checkActiveUsersPendingAppointments])
   .commit()

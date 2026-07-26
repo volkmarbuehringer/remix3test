@@ -22,79 +22,76 @@ import type { ChatMessage } from '../../../types/chatlog.ts'
 
 const CHATLOG_PAGE_SIZE = 5
 
-export const adminChatlog = createController(
-  routes.admin.chatlog,
-  {
-    middleware: [requireAuth(), requireAdmin()],
-    actions: {
-      async index(context) {
-        try {
-          let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
-          let rawPage = parseInt(context.url.searchParams.get('page') ?? '1', 10)
-          let page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
+export const adminChatlog = createController(routes.admin.chatlog, {
+  middleware: [requireAuth(), requireAdmin()],
+  actions: {
+    async index(context) {
+      try {
+        let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
+        let rawPage = parseInt(context.url.searchParams.get('page') ?? '1', 10)
+        let page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
 
-          let agent = mastra.getAgent('supportAgent')
-          let { threads, hasMore } = await listChatThreads(agent, {
-            page: page - 1,
-            perPage: effectivePageSize,
-          })
+        let agent = mastra.getAgent('supportAgent')
+        let { threads, hasMore } = await listChatThreads(agent, {
+          page: page - 1,
+          perPage: effectivePageSize,
+        })
 
-          let conversations = threads.map((t) => ({
-            id: t.id,
-            conversation: [] as ChatMessage[],
-            created_at: t.createdAt,
-            updated_at: t.updatedAt,
-          }))
+        let conversations = threads.map((t) => ({
+          id: t.id,
+          conversation: [] as ChatMessage[],
+          created_at: t.createdAt,
+          updated_at: t.updatedAt,
+        }))
 
-          return renderAdminPage(
-            context.render,
-            'chatlog',
-            <ChatLogPage conversations={conversations} page={page} hasMore={hasMore} />,
-          )
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'test')
-            console.error('[Admin Chatlog] Error loading conversations: ' + String(error))
-          return renderAdminPage(
-            context.render,
-            'chatlog',
-            <ChatLogPage conversations={[]} page={1} hasMore={false} />,
-          )
-        }
-      },
+        return renderAdminPage(
+          context.render,
+          'chatlog',
+          <ChatLogPage conversations={conversations} page={page} hasMore={hasMore} />,
+        )
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'test')
+          console.error('[Admin Chatlog] Error loading conversations: ' + String(error))
+        return renderAdminPage(
+          context.render,
+          'chatlog',
+          <ChatLogPage conversations={[]} page={1} hasMore={false} />,
+        )
+      }
+    },
 
-      async destroy(context) {
-        let { params } = context
-        let id = params.id
+    async destroy(context) {
+      let { params } = context
+      let id = params.id
 
-        if (!id || !validateThreadId(id)) {
-          return redirect(routes.admin.chatlog.index.href())
-        }
-
-        try {
-          let agent = mastra.getAgent('supportAgent')
-          await deleteChatThread(agent, id)
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'test') {
-            console.error('[Admin Chatlog] destroy failed for ' + id + ': ' + String(error))
-          }
-        }
-
-        let authIdentity = getAdminIdentity(context.auth)
-        if (authIdentity) {
-          logAdminAction(context.db, {
-            admin_user_id: authIdentity.id,
-            admin_email: authIdentity.email,
-            action_type: 'destroy',
-            target_type: 'mastra_thread',
-            target_id: id,
-          })
-        }
-
+      if (!id || !validateThreadId(id)) {
         return redirect(routes.admin.chatlog.index.href())
-      },
+      }
+
+      try {
+        let agent = mastra.getAgent('supportAgent')
+        await deleteChatThread(agent, id)
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('[Admin Chatlog] destroy failed for ' + id + ': ' + String(error))
+        }
+      }
+
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'mastra_thread',
+          target_id: id,
+        })
+      }
+
+      return redirect(routes.admin.chatlog.index.href())
     },
   },
-)
+})
 
 // ── Chatlog Fragments ──
 

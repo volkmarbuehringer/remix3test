@@ -1,6 +1,10 @@
 import { sseEncoder } from '../../utils/agent-sse.ts'
 
-export function writeEvent(controller: ReadableStreamDefaultController, type: string, data: unknown) {
+export function writeEvent(
+  controller: ReadableStreamDefaultController,
+  type: string,
+  data: unknown,
+) {
   controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
 }
 
@@ -91,10 +95,14 @@ export async function pipeWorkflowStream(
     return null
   }
 
-  signal.addEventListener('abort', () => {
-    reader?.cancel().catch(() => {})
-    safeClose(controller)
-  }, { once: true })
+  signal.addEventListener(
+    'abort',
+    () => {
+      reader?.cancel().catch(() => {})
+      safeClose(controller)
+    },
+    { once: true },
+  )
 
   try {
     if (reader) {
@@ -118,7 +126,14 @@ export async function pipeWorkflowStream(
   safeClose(controller)
 
   if (streamError) {
-    return { success: false, action: '', targetUserId: 0, targetUserName: '', targetUserEmail: '', error: streamError }
+    return {
+      success: false,
+      action: '',
+      targetUserId: 0,
+      targetUserName: '',
+      targetUserEmail: '',
+      error: streamError,
+    }
   }
 
   if (finalOutput) {
@@ -129,7 +144,8 @@ export async function pipeWorkflowStream(
       targetUserId: Number(out.targetUserId || 0),
       targetUserName: String(out.targetUserName || ''),
       targetUserEmail: String(out.targetUserEmail || ''),
-      deletedAppointments: out.deletedAppointments != null ? Number(out.deletedAppointments) : undefined,
+      deletedAppointments:
+        out.deletedAppointments != null ? Number(out.deletedAppointments) : undefined,
       auditLogged: out.auditLogged != null ? Boolean(out.auditLogged) : undefined,
       error: out.error ? String(out.error) : undefined,
     }
@@ -139,5 +155,9 @@ export async function pipeWorkflowStream(
 }
 
 function safeClose(controller: ReadableStreamDefaultController) {
-  try { controller.close() } catch { /* already closed */ }
+  try {
+    controller.close()
+  } catch {
+    /* already closed */
+  }
 }

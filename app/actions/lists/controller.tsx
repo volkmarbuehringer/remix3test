@@ -3,7 +3,6 @@ import { redirect } from 'remix/response/redirect'
 import * as s from 'remix/data-schema'
 import { maxLength, minLength } from 'remix/data-schema/checks'
 
-
 import { requireAuth } from '../../middleware/auth.ts'
 
 import { ListsClient } from './lists-client.browser.tsx'
