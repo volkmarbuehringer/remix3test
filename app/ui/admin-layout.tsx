@@ -19,6 +19,7 @@ export type AdminNavItem =
   | 'uploads'
   | 'webhooks'
   | 'testagent'
+  | 'agentevents'
 
 // ── Nav data ────────────────────────────────────────────────────
 
@@ -45,6 +46,12 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'uploads', label: 'Uploads', route: routes.uploads.index },
       { id: 'webhooks', label: 'Webhooks', route: webhookRequestsRoute, iframeNav: false },
       { id: 'testagent', label: 'Test-Agent', route: routes.testAgent.index },
+      {
+        id: 'agentevents',
+        label: 'Agent-Events',
+        route: routes.agentEvents.index,
+        iframeNav: false,
+      },
     ],
   },
 ]
@@ -92,6 +99,8 @@ function navIcon(id: AdminNavItem): RemixNode {
       return webhookSvg()
     case 'testagent':
       return testAgentSvg()
+    case 'agentevents':
+      return agentEventsSvg()
   }
 }
 

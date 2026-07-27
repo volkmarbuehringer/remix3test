@@ -1,4 +1,5 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
+import { INTENTS } from '../intents.ts'
 
 export const classifyHandler: EventHandler = {
   name: 'classify',
@@ -7,35 +8,29 @@ export const classifyHandler: EventHandler = {
     let e = event as BaseEvent & { type: 'request.validated' }
     let message = e.message.toLowerCase()
 
+    let classify = (intent: string) => {
+      emit({
+        type: 'intent.classified',
+        intent,
+        params: { targetQuery: extractTarget(message) },
+        adminUserId: e.adminUserId,
+        adminEmail: e.adminEmail,
+      })
+    }
+
     if (message.includes('cancel') || message.includes('löschen')) {
-      emit({
-        type: 'intent.classified',
-        intent: 'cancel-user',
-        params: { targetQuery: extractTarget(message) },
-      })
+      classify(INTENTS.CANCEL_USER)
     } else if (message.includes('lock') || message.includes('sperren')) {
-      emit({
-        type: 'intent.classified',
-        intent: 'lock-user',
-        params: { targetQuery: extractTarget(message) },
-      })
+      classify(INTENTS.LOCK_USER)
     } else if (message.includes('unlock') || message.includes('entsperren')) {
-      emit({
-        type: 'intent.classified',
-        intent: 'unlock-user',
-        params: { targetQuery: extractTarget(message) },
-      })
+      classify(INTENTS.UNLOCK_USER)
     } else if (
       message.includes('show') ||
       message.includes('zeige') ||
       message.includes('appointments') ||
       message.includes('termine')
     ) {
-      emit({
-        type: 'intent.classified',
-        intent: 'show-appointments',
-        params: { targetQuery: extractTarget(message) },
-      })
+      classify(INTENTS.SHOW_APPOINTMENTS)
     } else {
       emit({ type: 'intent.unclear', text: `Could not resolve intent from: "${e.message}"` })
     }

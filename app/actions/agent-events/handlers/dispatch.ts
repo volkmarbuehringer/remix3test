@@ -1,4 +1,9 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
+import { INTENTS, INTENT_TO_ACTION } from '../intents.ts'
+
+function actionLabel(action: string): string {
+  return action.charAt(0).toUpperCase() + action.slice(1)
+}
 
 export const dispatchHandler: EventHandler = {
   name: 'dispatch',
@@ -6,46 +11,40 @@ export const dispatchHandler: EventHandler = {
   async handle(event, emit) {
     let e = event as BaseEvent & { type: 'entities.resolved' }
     let resolved = e.resolved
-    let actionInput: Record<string, unknown> = { ...resolved }
-
-    let navQuery = resolved.targetEmail
-      ? encodeURIComponent(String(resolved.targetEmail))
-      : resolved.targetName
-        ? encodeURIComponent(String(resolved.targetName))
-        : ''
-
-    switch (e.intent) {
-      case 'cancel-user':
-      case 'lock-user':
-      case 'unlock-user': {
-        emit({
-          type: 'navigate',
-          href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
-          target: 'admin-content',
-        })
-        emit({
-          type: 'action.running',
-          workflowId: 'userManagementWorkflow',
-          input: { action: e.intent.replace('-user', ''), ...actionInput },
-          summary: `${e.intent.replace('-user', '').charAt(0).toUpperCase() + e.intent.replace('-user', '').slice(1)} user ${resolved.targetUserId || resolved.targetName || resolved.targetEmail}`,
-        })
-        break
-      }
-
-      case 'show-appointments':
-        emit({
-          type: 'navigate',
-          href:
-            '/verwaltung/appointments' +
-            (resolved.targetEmail
-              ? '?filter=' + encodeURIComponent(String(resolved.targetEmail))
-              : ''),
-          target: 'admin-content',
-        })
-        break
-
-      default:
-        emit({ type: 'message', text: `Unknown intent: ${e.intent}` })
+    let actionInput: Record<string, unknown> = {
+      ...resolved,
+      adminUserId: e.adminUserId,
+      adminEmail: e.adminEmail,
     }
+
+    let navValue = String(
+      resolved.targetEmail || resolved.targetName || resolved.targetQuery || ''
+    )
+    let navQuery = navValue ? encodeURIComponent(navValue) : ''
+
+    if (e.intent === INTENTS.CANCEL_USER || e.intent === INTENTS.LOCK_USER || e.intent === INTENTS.UNLOCK_USER) {
+      let action = INTENT_TO_ACTION[e.intent] ?? e.intent
+      emit({
+        type: 'navigate',
+        href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
+        target: 'admin-content',
+      })
+      emit({
+        type: 'action.running',
+        workflowId: 'userManagementWorkflow',
+        input: { action, ...actionInput },
+        summary: `${actionLabel(action)} user ${resolved.targetUserId || resolved.targetName || resolved.targetEmail}`,
+      })
+      return
+    }
+
+    if (e.intent === INTENTS.SHOW_APPOINTMENTS) {
+      let val = String(resolved.targetEmail || resolved.targetQuery || '')
+      let href = '/verwaltung/appointments' + (val ? '?filter=' + encodeURIComponent(val) : '')
+      emit({ type: 'navigate', href, target: 'admin-content' })
+      return
+    }
+
+    emit({ type: 'message', text: `Unknown intent: ${e.intent}` })
   },
 }

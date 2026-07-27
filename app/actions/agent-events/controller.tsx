@@ -8,10 +8,21 @@ import { AgentEventsPage } from '../../ui/agent-events-page.tsx'
 import { routes } from '../../routes.ts'
 import { EventBus, type BaseEvent, MAX_MESSAGE_LENGTH } from './event-bus.ts'
 import { registerHandlers } from './register.ts'
+import { getCurrentUser } from '../../utils/context.ts'
 
 const CONFIRM_TTL = 5 * 60 * 1000
 
-const pendingConfirmMap = new Map<string, { message: string; expiresAt: number }>()
+type ConfirmState = {
+  message: string
+  intent: string
+  targetUserId: number
+  targetQuery: string
+  adminUserId: number
+  adminEmail: string
+  expiresAt: number
+}
+
+const pendingConfirmMap = new Map<string, ConfirmState>()
 
 let confirmRunIdCounter = 0
 function nextConfirmRunId(): string {
@@ -19,7 +30,7 @@ function nextConfirmRunId(): string {
   return `agent-events-${Date.now()}-${confirmRunIdCounter}`
 }
 
-function createPipeline(message: string, signal?: AbortSignal): ReadableStream {
+function createPipeline(message: string, adminUserId: number, adminEmail: string, signal?: AbortSignal): ReadableStream {
   return new ReadableStream({
     start: async (controller) => {
       let closed = false
@@ -39,7 +50,7 @@ function createPipeline(message: string, signal?: AbortSignal): ReadableStream {
         let bus = new EventBus()
         registerHandlers(bus)
 
-        let initialEvent: BaseEvent = { type: 'request.received', message }
+        let initialEvent: BaseEvent = { type: 'request.received', message, adminUserId, adminEmail }
 
         for await (let event of bus.run(initialEvent)) {
           if (signal?.aborted) break
@@ -69,6 +80,13 @@ function createPipeline(message: string, signal?: AbortSignal): ReadableStream {
               break
 
             case 'entities.notfound':
+              controller.enqueue(
+                sseEvent('navigate', {
+                  href: '/admin/users',
+                  target: 'admin-content',
+                  history: 'push',
+                }),
+              )
               controller.enqueue(sseEvent('message', { text: event.error }))
               controller.enqueue(sseEvent('complete', {}))
               closeOnce()
@@ -96,7 +114,16 @@ function createPipeline(message: string, signal?: AbortSignal): ReadableStream {
 
             case 'confirm.required': {
               let runId = nextConfirmRunId()
-              pendingConfirmMap.set(runId, { message, expiresAt: Date.now() + CONFIRM_TTL })
+              let input = event.payload as Record<string, unknown>
+              pendingConfirmMap.set(runId, {
+                message,
+                intent: String(event.actionType || ''),
+                targetUserId: Number(input.targetUserId || 0),
+                targetQuery: String(input.targetQuery || ''),
+                adminUserId,
+                adminEmail,
+                expiresAt: Date.now() + CONFIRM_TTL,
+              })
               controller.enqueue(
                 sseEvent('confirm-required', {
                   runId,
@@ -192,7 +219,8 @@ export const agentEvents = createController(routes.agentEvents, {
         return sseErrorResponse('Message is required', 400)
       }
 
-      let body = createPipeline(message, context.request.signal)
+      let user = getCurrentUser()
+      let body = createPipeline(message, user.id, user.email, context.request.signal)
       return new Response(body, { headers: sseHeaders() })
     },
 
@@ -220,7 +248,14 @@ export const agentEvents = createController(routes.agentEvents, {
             let initialEvent: BaseEvent = {
               type: 'confirm.resolved',
               confirmed,
-              payload: { message: state.message },
+              payload: {
+                message: state.message,
+                intent: state.intent,
+                targetUserId: state.targetUserId,
+                targetQuery: state.targetQuery,
+                adminUserId: state.adminUserId,
+                adminEmail: state.adminEmail,
+              },
             }
 
             for await (let event of bus.run(initialEvent)) {

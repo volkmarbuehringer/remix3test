@@ -11,7 +11,7 @@ export const validateHandler: EventHandler = {
     } else if (message.length > MAX_MESSAGE_LENGTH) {
       emit({ type: 'request.invalid', error: `Message too long (max ${MAX_MESSAGE_LENGTH})` })
     } else {
-      emit({ type: 'request.validated', message })
+      emit({ type: 'request.validated', message, adminUserId: e.adminUserId, adminEmail: e.adminEmail })
     }
   },
 }

@@ -1,16 +1,24 @@
 export const MAX_MESSAGE_LENGTH = 5000
 
 export type BaseEvent =
-  | { type: 'request.received'; message: string }
-  | { type: 'request.validated'; message: string }
+  | { type: 'request.received'; message: string; adminUserId: number; adminEmail: string }
+  | { type: 'request.validated'; message: string; adminUserId: number; adminEmail: string }
   | { type: 'request.invalid'; error: string }
-  | { type: 'intent.classified'; intent: string; params: Record<string, unknown> }
+  | {
+      type: 'intent.classified'
+      intent: string
+      params: Record<string, unknown>
+      adminUserId: number
+      adminEmail: string
+    }
   | { type: 'intent.unclear'; text: string }
   | {
       type: 'entities.resolved'
       intent: string
       params: Record<string, unknown>
       resolved: Record<string, unknown>
+      adminUserId: number
+      adminEmail: string
     }
   | { type: 'entities.notfound'; error: string }
   | { type: 'action.running'; workflowId: string; input: Record<string, unknown>; summary: string }

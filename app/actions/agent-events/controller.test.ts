@@ -7,7 +7,7 @@ import { validateHandler } from './handlers/validate.ts'
 import { classifyHandler } from './handlers/classify.ts'
 import { dispatchHandler } from './handlers/dispatch.ts'
 import { confirmHandler } from './handlers/confirm.ts'
-import { executeHandler } from './handlers/execute.ts'
+import { executeHandler, __setExecutors } from './handlers/execute.ts'
 import { finalizeHandler } from './handlers/finalize.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
@@ -16,6 +16,8 @@ import { routes } from '../../routes.ts'
 const BASE = 'https://remix.run'
 const AGENT_EVENTS_URL = `${BASE}/workflowagent2`
 const AGENT_EVENTS_PANEL_URL = `${BASE}/workflowagent2/panel`
+
+const ADMIN_USER = { adminUserId: 1, adminEmail: 'admin@test.com' }
 
 // ── Event Bus ────────────────────────────────────────────────
 
@@ -26,7 +28,11 @@ describe('EventBus', () => {
 
     bus.register(validateHandler)
 
-    for await (let event of bus.run({ type: 'request.received', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'cancel user 42',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
     }
 
@@ -41,7 +47,11 @@ describe('EventBus', () => {
     let bus = new EventBus()
     let emitted: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: 'hello' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'hello',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
     }
 
@@ -54,7 +64,11 @@ describe('EventBus', () => {
     registerHandlers(bus)
     let emitted: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'show appointments for admin@test.com',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
     }
 
@@ -62,16 +76,22 @@ describe('EventBus', () => {
     assert.ok(emitted.includes('request.validated'))
     assert.ok(emitted.includes('intent.classified'))
     assert.ok(emitted.includes('entities.resolved'))
-    assert.ok(emitted.includes('action.running'))
-    assert.ok(emitted.includes('confirm.required'))
+    assert.ok(emitted.includes('navigate'))
+    assert.ok(!emitted.includes('confirm.required'))
   })
 
   it('full pipeline from request.received to request.completed via resume', async () => {
+    await initializeAppDatabase()
+
     let bus = new EventBus()
     registerHandlers(bus)
     let emitted: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'cancel admin@newapp.com',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
     }
 
@@ -82,7 +102,15 @@ describe('EventBus', () => {
     registerHandlers(bus2)
     let emitted2: string[] = []
 
-    for await (let event of bus2.run({ type: 'confirm.resolved', confirmed: true })) {
+    for await (let event of bus2.run({
+      type: 'confirm.resolved',
+      confirmed: true,
+      payload: {
+        intent: 'bogus',
+        targetUserId: 42,
+        ...ADMIN_USER,
+      },
+    })) {
       emitted2.push(event.type)
     }
 
@@ -100,7 +128,11 @@ describe('validate handler', () => {
     bus.register(validateHandler)
     let emitted: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'cancel user 42',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
       if (event.type === 'request.validated') {
         assert.equal(event.message, 'cancel user 42')
@@ -115,7 +147,11 @@ describe('validate handler', () => {
     bus.register(validateHandler)
     let emitted: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: '   ' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: '   ',
+      ...ADMIN_USER,
+    })) {
       emitted.push(event.type)
       if (event.type === 'request.invalid') {
         assert.ok(event.error.includes('required'))
@@ -134,7 +170,11 @@ describe('classify handler', () => {
     bus.register(classifyHandler)
     let result: unknown = null
 
-    for await (let event of bus.run({ type: 'request.validated', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'cancel user 42',
+      ...ADMIN_USER,
+    })) {
       if (event.type === 'intent.classified') {
         result = event.intent
       }
@@ -148,7 +188,11 @@ describe('classify handler', () => {
     bus.register(classifyHandler)
     let result: unknown = null
 
-    for await (let event of bus.run({ type: 'request.validated', message: 'lock user 5' })) {
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'lock user 5',
+      ...ADMIN_USER,
+    })) {
       if (event.type === 'intent.classified') {
         result = event.intent
       }
@@ -162,7 +206,11 @@ describe('classify handler', () => {
     bus.register(classifyHandler)
     let unclear = false
 
-    for await (let event of bus.run({ type: 'request.validated', message: 'xyzzy' })) {
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'xyzzy',
+      ...ADMIN_USER,
+    })) {
       if (event.type === 'intent.unclear') {
         unclear = true
       }
@@ -179,6 +227,7 @@ describe('classify handler', () => {
     for await (let event of bus.run({
       type: 'request.validated',
       message: 'show appointments for admin@test.com',
+      ...ADMIN_USER,
     })) {
       if (event.type === 'intent.classified') {
         result = event.intent
@@ -202,6 +251,7 @@ describe('dispatch handler', () => {
       intent: 'cancel-user',
       params: { targetQuery: '42' },
       resolved: { targetUserId: 42 },
+      ...ADMIN_USER,
     })) {
       if (event.type === 'action.running') {
         running = event.workflowId
@@ -221,6 +271,7 @@ describe('dispatch handler', () => {
         intent: 'show-appointments',
         params: { targetQuery: 'admin@test.com' },
         resolved: { targetEmail: 'admin@test.com' },
+        ...ADMIN_USER,
       },
       emit,
     )
@@ -245,6 +296,7 @@ describe('dispatch handler', () => {
       intent: 'show-appointments',
       params: { targetQuery: 'admin@test.com' },
       resolved: { targetEmail: 'admin@test.com' },
+      ...ADMIN_USER,
     })) {
       if (event.type === 'navigate') {
         navHref = event.href
@@ -284,27 +336,64 @@ describe('confirm handler', () => {
 // ── Execute Handler ───────────────────────────────────────────
 
 describe('execute handler', () => {
-  it('confirmed resume emits action.completed with success', async () => {
+  it('calls executor with correct arguments', async () => {
+    let captured: unknown = null
+    __setExecutors({
+      cancel: async (input) => {
+        captured = input
+        return { success: true }
+      },
+    })
+
     let bus = new EventBus()
     bus.register(executeHandler)
     let completed: unknown = null
 
-    for await (let event of bus.run({ type: 'confirm.resolved', confirmed: true })) {
+    for await (let event of bus.run({
+      type: 'confirm.resolved',
+      confirmed: true,
+      payload: { intent: 'cancel', targetUserId: 42, ...ADMIN_USER },
+    })) {
+      if (event.type === 'action.completed') completed = event
+    }
+
+    assert.ok(completed)
+    assert.ok((completed as any).success)
+    assert.ok(captured)
+    let input = captured as Record<string, unknown>
+    assert.equal(input.targetUserId, 42)
+    assert.equal(input.adminUserId, 1)
+    assert.equal(input.adminEmail, 'admin@test.com')
+  })
+
+  it('confirmed resume with unknown intent emits action.completed error', async () => {
+    let bus = new EventBus()
+    bus.register(executeHandler)
+    let completed: unknown = null
+
+    for await (let event of bus.run({
+      type: 'confirm.resolved',
+      confirmed: true,
+      payload: { intent: 'bogus', targetUserId: 42, ...ADMIN_USER },
+    })) {
       if (event.type === 'action.completed') {
         completed = event
       }
     }
 
     assert.ok(completed)
-    assert.ok((completed as any).success)
+    assert.equal((completed as any).success, false)
+    assert.ok(String((completed as any).result.error || '').includes('Unknown action'))
   })
 
   it('cancelled resume emits action.completed with failure', async () => {
     let bus = new EventBus()
     bus.register(executeHandler)
     let completed: unknown = null
+    let emitted: string[] = []
 
     for await (let event of bus.run({ type: 'confirm.resolved', confirmed: false })) {
+      emitted.push(event.type)
       if (event.type === 'action.completed') {
         completed = event
       }
@@ -312,6 +401,27 @@ describe('execute handler', () => {
 
     assert.ok(completed)
     assert.ok(!(completed as any).success)
+    assert.equal((completed as any).result.error, 'Cancelled by admin')
+  })
+
+  it('missing targetUserId emits error', async () => {
+    let bus = new EventBus()
+    bus.register(executeHandler)
+    let completed: unknown = null
+
+    for await (let event of bus.run({
+      type: 'confirm.resolved',
+      confirmed: true,
+      payload: { intent: 'lock', targetUserId: 0, ...ADMIN_USER },
+    })) {
+      if (event.type === 'action.completed') {
+        completed = event
+      }
+    }
+
+    assert.ok(completed)
+    assert.ok(!(completed as any).success)
+    assert.equal((completed as any).result.error, 'No target user specified')
   })
 })
 
@@ -335,11 +445,17 @@ describe('finalize handler', () => {
 
 describe('full pipeline integration', () => {
   it('cancel-user flows from request.received to confirm.required', async () => {
+    await initializeAppDatabase()
+
     let bus = new EventBus()
     registerHandlers(bus)
     let eventTypes: string[] = []
 
-    for await (let event of bus.run({ type: 'request.received', message: 'cancel user 42' })) {
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'cancel admin@newapp.com',
+      ...ADMIN_USER,
+    })) {
       eventTypes.push(event.type)
     }
 
@@ -360,6 +476,7 @@ describe('full pipeline integration', () => {
     for await (let event of bus.run({
       type: 'request.received',
       message: 'show appointments for admin@test.com',
+      ...ADMIN_USER,
     })) {
       eventTypes.push(event.type)
     }
@@ -459,7 +576,9 @@ describe('AgentEvents route (POST validation)', () => {
   })
 
   it('returns SSE for confirm-required intent without hanging', async () => {
-    let response = await postForm(AGENT_EVENTS_URL, adminCookie, { message: 'cancel user 42' })
+    let response = await postForm(AGENT_EVENTS_URL, adminCookie, {
+      message: 'cancel admin@newapp.com',
+    })
     assert.equal(response.status, 200)
     let reader = response.body?.getReader()
     assert.ok(reader, 'should have readable body')

@@ -5,6 +5,7 @@ export const AgentEventsStream = clientEntry(
   function AgentEventsStream(handle: Handle) {
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
+    let _isResume = false
 
     function getStatusBar() {
       return document.getElementById('ae-status-bar')
@@ -109,11 +110,19 @@ export const AgentEventsStream = clientEntry(
     async function handleResume(confirmed: boolean, runId: string) {
       if (!runId) return
       setFormEnabled(false)
+      _isResume = true
 
       let body = new FormData()
       body.set('runId', runId)
       body.set('confirmed', String(confirmed))
       startStream('/workflowagent2/resume', { method: 'POST', body })
+    }
+
+    function reloadActiveFrame() {
+      let container = document.getElementById('agent-events-frame-container')
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
+      let frame = handle.frames.get(activeFrame)
+      if (frame) frame.reload().catch(() => {})
     }
 
     function restoreFilterValue(url: string) {
@@ -203,6 +212,10 @@ export const AgentEventsStream = clientEntry(
               } else if (eventType === 'message') {
                 showInfo(parsed.text || '')
               } else if (eventType === 'complete') {
+                if (_isResume) {
+                  _isResume = false
+                  reloadActiveFrame()
+                }
                 setFormEnabled(true)
                 currentRunId = null
               } else if (eventType === 'agent-error') {
