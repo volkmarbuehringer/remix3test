@@ -16,48 +16,32 @@ import {
 } from './actions/auth/controller.tsx'
 import { mastraChat } from './actions/mastra/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
-import { testAgent } from './actions/test-agent/controller.tsx'
-import { routeAgent } from './actions/route-agent/controller.tsx'
+import testAgent from './actions/test-agent/controller.tsx'
+import routeAgent from './actions/route-agent/controller.tsx'
 import { workflowAgent } from './actions/workflow-agent/controller.tsx'
-import { agentEvents } from './actions/agent-events/controller.tsx'
+import agentEvents from './actions/agent-events/controller.tsx'
 import clientController from './actions/client/controller.tsx'
-import {
-  adminController,
-  adminChatlog,
-  adminChatlogFragments,
-  adminMessages,
-  adminFragments,
-  adminLists,
-  adminUsers,
-} from './actions/admin/controller.tsx'
+import * as admin from './actions/admin/controller.tsx'
 import adminNutzerController from './actions/nutzer/controller.tsx'
-import verwaltungController from './actions/verwaltung/controller.tsx'
-import verwaltungOfferings from './actions/verwaltung/offerings/controller.tsx'
-import verwaltungAppointments from './actions/verwaltung/appointments/controller.tsx'
-import verwaltungResources from './actions/verwaltung/resources/controller.tsx'
-import verwaltungOfferingConfigs from './actions/verwaltung/offering-configs/controller.tsx'
-import verwaltungReport1 from './actions/verwaltung/report1/controller.tsx'
-import verwaltungPdf from './actions/verwaltung/pdf/controller.tsx'
-import verwaltungUsersPdf from './actions/verwaltung/users-pdf/controller.tsx'
-import verwaltungUsersExport from './actions/verwaltung/users-export/controller.tsx'
+import * as verwaltung from './actions/verwaltung/index.ts'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
 import uploadsController, {
   download as uploadsDownloadHandler,
 } from './actions/uploads/controller.tsx'
-import { webhookReceive } from './actions/webhook/controller.tsx'
-import { apiLogin } from './actions/api/login/controller.tsx'
-import { apiLogout } from './actions/api/logout/controller.tsx'
-import { appWebhookReceive } from './actions/app-webhook/controller.tsx'
+import webhookReceive from './actions/webhook/controller.tsx'
+import apiLogin from './actions/api/login/controller.tsx'
+import apiLogout from './actions/api/logout/controller.tsx'
+import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
   webhookRequestsIndex,
   webhookRequestsEvents,
   webhookRequestsResend,
   webhookRequestsUpdate,
 } from './actions/webhook-requests/controller.tsx'
-import { webhookRequestsCreate } from './actions/webhook-requests/create/controller.tsx'
-import { callbackReceive } from './actions/callback/controller.tsx'
+import webhookRequestsCreate from './actions/webhook-requests/create/controller.tsx'
+import callbackReceive from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import {
   routes,
@@ -160,24 +144,24 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.agentEvents, agentEvents)
 
   // Admin routes
-  router.map(routes.admin, adminController)
-  router.map(routes.admin.chatlog, adminChatlog)
-  router.map(routes.admin.messages, adminMessages)
-  router.map(routes.admin.fragments, adminFragments)
-  router.map(routes.admin.chatlog.fragments, adminChatlogFragments)
-  router.map(routes.admin.lists, adminLists)
-  router.map(routes.admin.users, adminUsers)
+  router.map(routes.admin, admin.adminController)
+  router.map(routes.admin.chatlog, admin.adminChatlog)
+  router.map(routes.admin.messages, admin.adminMessages)
+  router.map(routes.admin.fragments, admin.adminFragments)
+  router.map(routes.admin.chatlog.fragments, admin.adminChatlogFragments)
+  router.map(routes.admin.lists, admin.adminLists)
+  router.map(routes.admin.users, admin.adminUsers)
 
   // Verwaltung routes
-  router.map(routes.verwaltung, verwaltungController)
-  router.map(routes.verwaltung.offerings, verwaltungOfferings)
-  router.map(routes.verwaltung.appointments, verwaltungAppointments)
-  router.map(routes.verwaltung.resources, verwaltungResources)
-  router.map(routes.verwaltung.offeringConfigs, verwaltungOfferingConfigs)
-  router.map(routes.verwaltung.report1, verwaltungReport1)
-  router.map(routes.verwaltung.pdf, verwaltungPdf)
-  router.map(routes.verwaltung.usersPdf, verwaltungUsersPdf)
-  router.map(routes.verwaltung.usersExport, verwaltungUsersExport)
+  router.map(routes.verwaltung, verwaltung.controller)
+  router.map(routes.verwaltung.offerings, verwaltung.offerings)
+  router.map(routes.verwaltung.appointments, verwaltung.appointments)
+  router.map(routes.verwaltung.resources, verwaltung.resources)
+  router.map(routes.verwaltung.offeringConfigs, verwaltung.offeringConfigs)
+  router.map(routes.verwaltung.report1, verwaltung.report1)
+  router.map(routes.verwaltung.pdf, verwaltung.pdf)
+  router.map(routes.verwaltung.usersPdf, verwaltung.usersPdf)
+  router.map(routes.verwaltung.usersExport, verwaltung.usersExport)
 
   return router
 }

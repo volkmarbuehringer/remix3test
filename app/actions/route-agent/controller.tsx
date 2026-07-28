@@ -36,7 +36,7 @@ function getTarget(path: string): string {
   return match?.[1] ?? 'lists-content'
 }
 
-export const routeAgent = createController(routes.routeAgent, {
+export default createController(routes.routeAgent, {
   middleware: [requireAdmin()],
 
   actions: {

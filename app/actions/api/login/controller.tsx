@@ -19,7 +19,7 @@ const loginSchema = s.object({
   password: s.string(),
 })
 
-export const apiLogin = createAction(routes.api.login, {
+export default createAction(routes.api.login, {
   middleware: [],
 
   async handler(context) {

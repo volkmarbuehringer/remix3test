@@ -180,7 +180,7 @@ function createPipeline(message: string, adminUserId: number, adminEmail: string
   })
 }
 
-export const agentEvents = createController(routes.agentEvents, {
+export default createController(routes.agentEvents, {
   middleware: [requireAdmin()],
 
   actions: {

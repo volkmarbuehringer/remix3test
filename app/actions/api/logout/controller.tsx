@@ -5,7 +5,7 @@ import { routes } from '../../../routes.ts'
 import { hashToken } from '../../../utils/api-token.ts'
 import { parseBearerToken } from '../../../utils/auth-header.ts'
 import { apiTokens } from '../../../data/schema.ts'
-export const apiLogout = createAction(routes.api.logout, {
+export default createAction(routes.api.logout, {
   middleware: [],
 
   async handler(context) {

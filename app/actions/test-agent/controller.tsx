@@ -35,7 +35,7 @@ function completedStream(text: string, userId: string | number, runId?: string):
   }
 }
 
-export const testAgent = createController(routes.testAgent, {
+export default createController(routes.testAgent, {
   middleware: [requireAdmin()],
 
   actions: {

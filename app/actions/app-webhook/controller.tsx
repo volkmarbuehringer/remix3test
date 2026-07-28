@@ -21,7 +21,7 @@ interface WebhookInsertResult {
   id: string
 }
 
-export const appWebhookReceive = createAction(appWebhookRoute, {
+export default createAction(appWebhookRoute, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
     let body = context.jsonBody

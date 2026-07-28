@@ -8,7 +8,7 @@ import { createLogger } from '../../utils/logger.ts'
 const MAX_PAYLOAD_BYTES = 256 * 1024
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const callbackReceive = createAction(callbackRoute, {
+export default createAction(callbackRoute, {
   handler: async (context) => {
     let log = createLogger('[Callback]')
 

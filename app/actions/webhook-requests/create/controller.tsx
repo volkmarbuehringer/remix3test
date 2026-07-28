@@ -7,7 +7,7 @@ import { Document } from '../../../ui/document.tsx'
 import { Layout } from '../../../ui/layout.tsx'
 import { WebhookComposerPage } from '../../../ui/webhook-composer-page.tsx'
 
-export const webhookRequestsCreate = createController(webhookCreateRoute, {
+export default createController(webhookCreateRoute, {
   middleware: [requireAuth()],
   actions: {
     index(context) {
