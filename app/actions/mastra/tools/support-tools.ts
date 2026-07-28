@@ -392,7 +392,7 @@ export const supportTools = {
       `)
       let rows = result.rows ?? []
       if (rows.length === 0) return { found: false, message: 'No appointment found with that ID' }
-      let r = rows[0] as any
+      let r = rows[0]
       return {
         found: true,
         appointment: {

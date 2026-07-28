@@ -55,14 +55,14 @@ describe('db-errors', () => {
     it('finds constraint violation in one-level cause', () => {
       let inner = pgError({ code: '23503' })
       let outer = pgError({ code: 'P0001', message: 'outer' })
-      ;(outer as any).cause = inner
+      outer.cause = inner
       assert.ok(isConstraintViolation(outer))
     })
 
     it('finds constraint violation in nested cause chain', () => {
       let inner = pgError({ code: '23503' })
       let middle = pgError({ code: 'P0001', message: 'middle' })
-      ;(middle as any).cause = inner
+      middle.cause = inner
       let outer = pgError({ code: 'P0001', message: 'outer' })
       ;(outer as any).cause = middle
       assert.ok(isConstraintViolation(outer))
@@ -71,7 +71,7 @@ describe('db-errors', () => {
     it('returns false when cause chain has no matching code', () => {
       let inner = pgError({ code: '42703' })
       let outer = pgError({ code: 'P0001' })
-      ;(outer as any).cause = inner
+      outer.cause = inner
       assert.ok(!isConstraintViolation(outer))
     })
   })

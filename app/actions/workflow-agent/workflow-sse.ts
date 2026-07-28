@@ -39,7 +39,7 @@ export async function pipeWorkflowStream(
       writeEvent(controller, 'workflow-start', { workflowId: payload?.workflowId })
     } else if (type === 'workflow-step-start') {
       writeEvent(controller, 'workflow-step-start', {
-        stepId: payload?.id ?? (c as any).id,
+        stepId: payload?.id ?? c.id,
       })
     } else if (type === 'workflow-step-suspended') {
       writeEvent(controller, 'workflow-step-suspended', {
@@ -62,7 +62,7 @@ export async function pipeWorkflowStream(
       })
     } else if (type === 'workflow-step-output') {
       writeEvent(controller, 'workflow-step-output', {
-        stepId: (payload as any)?.id ?? 'unknown',
+        stepId: payload?.id ?? 'unknown',
         output: payload?.output ?? {},
       })
     } else if (type === 'workflow-finish') {

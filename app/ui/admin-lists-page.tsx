@@ -9,7 +9,7 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { buildPaginationUrl, formatTimestamp } from './mixins/admin-urls.ts'
 
-interface ListRowData {
+export interface ListRowData {
   id: number
   list: Array<{ id: string; label: string }>
   description: string

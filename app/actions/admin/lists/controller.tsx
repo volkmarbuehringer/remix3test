@@ -9,7 +9,7 @@ import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
-import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
+import { AdminListsPage, type ListRowData } from '../../../ui/admin-lists-page.tsx'
 import { parseId } from '../../../utils/ids.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 
@@ -48,7 +48,7 @@ export const adminLists = createController(routes.admin.lists, {
         context.render,
         'lists',
         <AdminListsPage
-          lists={rows as any[]}
+          lists={rows as unknown as ListRowData[]}
           offset={offset}
           hasMore={hasMore}
           filter={filter}

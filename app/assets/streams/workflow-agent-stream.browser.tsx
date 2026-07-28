@@ -456,7 +456,10 @@ export const WorkflowAgentStream = clientEntry(
       if (!frame) return
 
       if (method === 'GET') {
-        let params = new URLSearchParams(new FormData(form) as any)
+        let params = new URLSearchParams()
+        for (let [key, value] of new FormData(form)) {
+          if (typeof value === 'string') params.append(key, value)
+        }
         let qs = params.toString()
         let url = action + (qs ? '?' + qs : '')
         frame.src = url
