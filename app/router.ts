@@ -43,18 +43,7 @@ import {
 import webhookRequestsCreate from './actions/webhook-requests/create/controller.tsx'
 import callbackReceive from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import {
-  routes,
-  uploadsDownload,
-  webhookRoute,
-  webhookRequestsRoute,
-  webhookRequestsEventsRoute,
-  webhookRequestsResendRoute,
-  webhookRequestsUpdateRoute,
-  webhookCreateRoute,
-  appWebhookRoute,
-  callbackRoute,
-} from './routes.ts'
+import { routes, system } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -107,18 +96,18 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.settings, settingsController)
 
   // Webhook routes
-  router.post(webhookRoute, webhookReceive)
-  router.post(appWebhookRoute, appWebhookReceive)
-  router.post(callbackRoute, callbackReceive)
-  router.get(webhookRequestsRoute, webhookRequestsIndex)
-  router.get(webhookRequestsEventsRoute, webhookRequestsEvents)
-  router.post(webhookRequestsResendRoute, webhookRequestsResend)
-  router.put(webhookRequestsUpdateRoute, webhookRequestsUpdate)
-  router.map(webhookCreateRoute, webhookRequestsCreate)
+  router.post(system.webhook, webhookReceive)
+  router.post(system.appWebhook, appWebhookReceive)
+  router.post(system.callback, callbackReceive)
+  router.get(system.webhookRequests, webhookRequestsIndex)
+  router.get(system.webhookRequestEvents, webhookRequestsEvents)
+  router.post(system.webhookRequestResend, webhookRequestsResend)
+  router.put(system.webhookRequestUpdate, webhookRequestsUpdate)
+  router.map(system.webhookRequestCreate, webhookRequestsCreate)
 
   // Uploads routes
   router.map(routes.uploads, uploadsController)
-  router.get(uploadsDownload, uploadsDownloadHandler)
+  router.get(system.uploadsDownload, uploadsDownloadHandler)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointment)

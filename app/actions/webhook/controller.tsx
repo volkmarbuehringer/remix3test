@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
-import { webhookRoute } from '../../routes.ts'
+import { system } from '../../routes.ts'
 import { insertWebhookRequest } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
@@ -8,7 +8,7 @@ import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
 import { requireApiAuth } from '../../middleware/api-require-auth.ts'
 import { createLogger } from '../../utils/logger.ts'
-export default createAction(webhookRoute, {
+export default createAction(system.webhook, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
     let log = createLogger('[Webhook]')

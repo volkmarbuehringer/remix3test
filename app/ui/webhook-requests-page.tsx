@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { webhookRequestsRoute, webhookRequestsEventsRoute } from '../routes.ts'
+import { system } from '../routes.ts'
 import type { WebhookRequestRow } from '../data/webhook-requests.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
@@ -10,7 +10,7 @@ import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { WebhookComposer } from '../ui/webhook-composer.browser.tsx'
 
-const BASE = webhookRequestsRoute.href()
+const BASE = system.webhookRequests.href()
 
 interface WebhookRequestsPageProps {
   rows: WebhookRequestRow[]
@@ -71,7 +71,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             Erstellen
           </a>
           <ConnectionIndicator
-            url={webhookRequestsEventsRoute.href()}
+            url={system.webhookRequestEvents.href()}
             reloadMode="window"
             skipReloadParams={['editing']}
           />

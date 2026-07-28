@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
-import { callbackRoute } from '../../routes.ts'
+import { system } from '../../routes.ts'
 import { updateCallbackResponse, checkWebhookRequestExists } from '../../data/callback.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
 import { connectionIp, isLocalhost } from '../../utils/request-ip.ts'
@@ -8,7 +8,7 @@ import { createLogger } from '../../utils/logger.ts'
 const MAX_PAYLOAD_BYTES = 256 * 1024
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export default createAction(callbackRoute, {
+export default createAction(system.callback, {
   handler: async (context) => {
     let log = createLogger('[Callback]')
 

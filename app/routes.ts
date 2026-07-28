@@ -1,14 +1,6 @@
 import { del, get, post, put, route, form, resources } from 'remix/routes'
 
-export const uploadsDownload = get('/uploads/:id/download')
-export const webhookRoute = post('/webhook')
-export const appWebhookRoute = post('/app-webhook')
-export const webhookRequestsRoute = get('/webhook-requests')
-export const webhookRequestsEventsRoute = get('/webhook-requests/events')
-export const webhookRequestsResendRoute = post('/webhook-requests/:id/resend')
-export const webhookRequestsUpdateRoute = put('/webhook-requests/:id')
-export const webhookCreateRoute = form('/webhook-requests/create')
-export const callbackRoute = post('/callback')
+
 
 export const frames = {
   adminContent: 'admin-content',
@@ -223,3 +215,15 @@ export const routes = route({
     resume: post('/resume'),
   }),
 })
+
+export const system = {
+  webhook: post('/webhook'),
+  appWebhook: post('/app-webhook'),
+  callback: post('/callback'),
+  webhookRequests: get('/webhook-requests'),
+  webhookRequestEvents: get('/webhook-requests/events'),
+  webhookRequestResend: post('/webhook-requests/:id/resend'),
+  webhookRequestUpdate: put('/webhook-requests/:id'),
+  webhookRequestCreate: form('/webhook-requests/create'),
+  uploadsDownload: get('/uploads/:id/download'),
+} as const

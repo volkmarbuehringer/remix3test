@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 import { createServer } from 'node:http'
 
 import { router } from '../../test-router.ts'
-import { appWebhookRoute } from '../../routes.ts'
+import { system } from '../../routes.ts'
 import { initializeAppDatabase, db } from '../../data/setup.ts'
 import { pool } from '../../data/test-pool.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../utils/api-token.ts'
@@ -58,7 +58,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('inserts payload, returns id + callbackUrl + payload, and forwards to hermes', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let rawBody = JSON.stringify({ event: 'test', data: { foo: 'bar' } })
     let response = await router.fetch(url, {
       method: 'POST',
@@ -83,7 +83,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('inserts source_ip and headers from request', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
@@ -108,7 +108,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('returns 401 when Authorization header is missing', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -118,7 +118,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('returns 401 for non-Bearer Authorization scheme', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
@@ -131,7 +131,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('returns 401 for empty Bearer token', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
@@ -144,7 +144,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('returns 401 for invalid token', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
@@ -158,7 +158,7 @@ describe('App-Webhook controller', () => {
   })
 
   it('returns 400 for non-JSON content type', async () => {
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {
@@ -174,7 +174,7 @@ describe('App-Webhook controller', () => {
   it('returns 413 for oversized payload', async () => {
     let largePayload = 'x'.repeat(300 * 1024)
     let body = JSON.stringify({ data: largePayload })
-    let url = `${BASE}${appWebhookRoute.href()}`
+    let url = `${BASE}${system.appWebhook.href()}`
     let response = await router.fetch(url, {
       method: 'POST',
       headers: {

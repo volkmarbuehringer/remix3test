@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
 import { SuperHeaders } from 'remix/headers'
-import { appWebhookRoute } from '../../routes.ts'
+import { system } from '../../routes.ts'
 import { insertAppWebhookRequest } from '../../data/app-webhook.ts'
 import { updateWebhookRequestHermesStatus } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
@@ -21,7 +21,7 @@ interface WebhookInsertResult {
   id: string
 }
 
-export default createAction(appWebhookRoute, {
+export default createAction(system.appWebhook, {
   middleware: [apiTokenAuth(), requireApiAuth()],
   handler: async (context) => {
     let body = context.jsonBody

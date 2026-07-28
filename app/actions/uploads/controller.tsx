@@ -2,7 +2,7 @@ import { createAction, createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
 import { theme } from '../../ui/theme/theme.ts'
-import { routes, uploadsDownload } from '../../routes.ts'
+import { routes, system } from '../../routes.ts'
 import { parseId } from '../../utils/ids.ts'
 import { requireAuth } from '../../middleware/auth.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
@@ -56,7 +56,7 @@ export default createController(routes.uploads, {
   },
 })
 
-export const download = createAction(uploadsDownload, {
+export const download = createAction(system.uploadsDownload, {
   middleware: [requireAuth()],
   handler: async (context) => {
     let user = getCurrentUser()
@@ -143,7 +143,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <td>{formatSize(u.size)}</td>
                     <td>{new Date(u.created_at).toLocaleDateString()}</td>
                     <td>
-                      <a href={uploadsDownload.href({ id: u.id })} download>
+                      <a href={system.uploadsDownload.href({ id: u.id })} download>
                         Download
                       </a>
                     </td>

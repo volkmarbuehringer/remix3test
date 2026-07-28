@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'remix/test'
 import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
-import { callbackRoute } from '../../routes.ts'
+import { system } from '../../routes.ts'
 import { initializeAppDatabase } from '../../data/setup.ts'
 import { pool } from '../../data/test-pool.ts'
 import { connectionIp } from '../../utils/request-ip.ts'
@@ -24,7 +24,7 @@ describe('Callback controller', () => {
   before(async () => {
     await initializeAppDatabase()
     // Ensure callback route resolves
-    let href = callbackRoute.href()
+    let href = system.callback.href()
     assert.equal(href, '/callback')
   })
 

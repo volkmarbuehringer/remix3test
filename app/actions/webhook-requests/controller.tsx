@@ -1,10 +1,5 @@
 import { createAction } from 'remix/router'
-import {
-  webhookRequestsRoute,
-  webhookRequestsEventsRoute,
-  webhookRequestsResendRoute,
-  webhookRequestsUpdateRoute,
-} from '../../routes.ts'
+import { system } from '../../routes.ts'
 import type { WebhookRequestRow } from '../../data/webhook-requests.ts'
 import {
   listWebhookRequests,
@@ -71,7 +66,7 @@ async function loadPageData(
   }
 }
 
-export const webhookRequestsIndex = createAction(webhookRequestsRoute, {
+export const webhookRequestsIndex = createAction(system.webhookRequests, {
   middleware: [requireAuth(), requireAdmin()],
   handler: async (context) => {
     let data = await loadPageData(context)
@@ -99,7 +94,7 @@ export const webhookRequestsIndex = createAction(webhookRequestsRoute, {
   },
 })
 
-export const webhookRequestsEvents = createAction(webhookRequestsEventsRoute, {
+export const webhookRequestsEvents = createAction(system.webhookRequestEvents, {
   middleware: [requireSseAuth()],
   handler: async (context) => webhookChannel.subscribe(context.request),
 })
@@ -111,7 +106,7 @@ function hermesUrl(): string {
 const HERMES_TIMEOUT_MS = 3_000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const webhookRequestsUpdate = createAction(webhookRequestsUpdateRoute, {
+export const webhookRequestsUpdate = createAction(system.webhookRequestUpdate, {
   middleware: [requireAuth(), requireAdmin()],
   handler: async (context) => {
     let id = context.params.id
@@ -160,11 +155,11 @@ export const webhookRequestsUpdate = createAction(webhookRequestsUpdateRoute, {
     webhookChannel.broadcast('invalidate')
 
     let gridState = gridStateFromFormData(context.formData)
-    return editingRedirect(webhookRequestsRoute.href(), id, gridState)
+    return editingRedirect(system.webhookRequests.href(), id, gridState)
   },
 })
 
-export const webhookRequestsResend = createAction(webhookRequestsResendRoute, {
+export const webhookRequestsResend = createAction(system.webhookRequestResend, {
   middleware: [requireAuth(), requireAdmin()],
   handler: async (context) => {
     let id = context.params.id
@@ -214,7 +209,7 @@ export const webhookRequestsResend = createAction(webhookRequestsResendRoute, {
 
     return new Response(null, {
       status: 303,
-      headers: { Location: webhookRequestsRoute.href() + (qs ? '?' + qs : '') },
+      headers: { Location: system.webhookRequests.href() + (qs ? '?' + qs : '') },
     })
   },
 })

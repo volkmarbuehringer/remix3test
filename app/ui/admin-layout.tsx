@@ -1,7 +1,7 @@
 import type { RemixNode } from 'remix/ui'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
-import { routes, frames, webhookRequestsRoute } from '../routes.ts'
+import { routes, frames, system } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 import { AdminViewToggle } from '../ui/admin/admin-view-toggle.browser.tsx'
 
@@ -44,7 +44,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
       { id: 'uploads', label: 'Uploads', route: routes.uploads.index },
-      { id: 'webhooks', label: 'Webhooks', route: webhookRequestsRoute, iframeNav: false },
+      { id: 'webhooks', label: 'Webhooks', route: system.webhookRequests, iframeNav: false },
       { id: 'testagent', label: 'Test-Agent', route: routes.testAgent.index },
       {
         id: 'agentevents',
