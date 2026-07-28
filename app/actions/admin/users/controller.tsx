@@ -61,7 +61,7 @@ const userUpdateSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-export const adminUsers = createController(routes.admin.users, {
+export default createController(routes.admin.users, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {

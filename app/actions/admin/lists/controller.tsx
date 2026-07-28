@@ -15,7 +15,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 
 const LISTS_PAGE_LIMIT = 10
 
-export const adminLists = createController(routes.admin.lists, {
+export default createController(routes.admin.lists, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
