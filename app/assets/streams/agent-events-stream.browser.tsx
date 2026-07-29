@@ -198,7 +198,7 @@ export const AgentEventsStream = clientEntry(
                   frame.src = href
                   frame.reload().then(
                     () => restoreFilterValue(href),
-                    () => {},
+                    (err) => showInfo('Navigation failed: ' + String(err), true),
                   )
                   let historyMode = parsed.history as string
                   if (!historyMode || historyMode !== 'skip') {

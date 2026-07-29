@@ -42,7 +42,7 @@ async function resolveFrameResponse(
     headers.set('X-Agent-Prefill', btoa(binary))
   }
 
-  let response = await fetch(url, { headers, signal })
+  let response = await fetch(url, { cache: 'no-store', headers, signal })
 
   if (prefill && response.ok) {
     agentPrefillMap.delete(prefillKey)

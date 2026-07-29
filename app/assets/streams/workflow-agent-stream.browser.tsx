@@ -387,7 +387,7 @@ export const WorkflowAgentStream = clientEntry(
                   frame.src = href
                   frame.reload().then(
                     () => restoreFilterValue(href),
-                    () => {},
+                    (err) => showInfo('Navigation failed: ' + String(err), true),
                   )
                   let historyMode = parsed.history as string
                   if (!historyMode || historyMode !== 'skip') {
@@ -465,7 +465,7 @@ export const WorkflowAgentStream = clientEntry(
         frame.src = url
         frame.reload().then(
           () => restoreFilterValue(url),
-          () => {},
+          (err) => showInfo('Navigation failed: ' + String(err), true),
         )
         window.history.replaceState({}, '', url)
       } else {

@@ -28,8 +28,16 @@ export const FrameRefreshButton = clientEntry(
             if (pending) return
             pending = true
             handle.update()
-            let signal = await handle.frame.reload()
-            if (signal.aborted) return
+            try {
+              let signal = await handle.frame.reload()
+              if (signal.aborted) {
+                pending = false
+                handle.update()
+                return
+              }
+            } catch {
+              // reload failed, still reset pending state
+            }
             pending = false
             handle.update()
           }),

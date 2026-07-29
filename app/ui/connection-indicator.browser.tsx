@@ -68,7 +68,7 @@ export const ConnectionIndicator = clientEntry(
         if (reloadMode === 'window') {
           window.location.reload()
         } else {
-          handle.frame.reload()
+          handle.frame.reload().catch(() => {})
         }
       })
 
