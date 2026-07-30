@@ -6,13 +6,13 @@ license: MIT
 compatibility: Requires openspec CLI.
 metadata:
   author: openspec
-  version: '1.0'
-  generatedBy: '1.6.0'
+  version: "1.0"
+  generatedBy: "1.7.0"
 ---
 
 Guide the user through their first complete OpenSpec workflow cycle. This is a teaching experience—you'll do real work in their codebase while explaining each step.
 
-**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
+**Store selection:** If the user names a store (a store is a standalone OpenSpec repo registered on this machine) or the work lives in one, run `openspec store list --json` to discover registered store ids, then pass `--store <id>` on the commands that read or write specs and changes (`new change`, `status`, `instructions`, `list`, `show`, `validate`, `archive`, `doctor`, `context`, `view`). Other commands do not take the flag. Hints printed by commands already carry the flag; keep it on follow-ups. Without a store, commands act on the nearest local `openspec/` root.
 
 ---
 
@@ -28,7 +28,6 @@ openspec --version 2>&1 || echo "CLI_NOT_INSTALLED"
 ```
 
 **If CLI not installed:**
-
 > OpenSpec CLI is not installed. Install it first, then come back to `/opsx-onboard`.
 
 Stop here if not installed.
@@ -73,7 +72,6 @@ Scan the codebase for small improvement opportunities. Look for:
 6. **Missing validation** - User input handlers without validation
 
 Also check recent git activity:
-
 ```bash
 # Unix/macOS
 git log --oneline -10 2>/dev/null || echo "No git history"
@@ -112,7 +110,6 @@ Which task interests you? (Pick a number or describe your own)
 ```
 
 **If nothing found:** Fall back to asking what the user wants to build:
-
 > I didn't find obvious quick wins in your codebase. What's something small you've been meaning to add or fix?
 
 ### Scope Guardrail
@@ -145,7 +142,6 @@ Before we create a change, let me quickly show you **explore mode**—it's how y
 ```
 
 Spend 1-2 minutes investigating the relevant code:
-
 - Read the file(s) involved
 - Draw a quick ASCII diagram if it helps
 - Note any considerations
@@ -171,7 +167,6 @@ Now let's create a change to hold our work.
 ## Phase 4: Create the Change
 
 **EXPLAIN:**
-
 ```
 ## Creating a Change
 
@@ -181,25 +176,21 @@ Let me create one for our task.
 ```
 
 **DO:** Create the change with a derived kebab-case name:
-
 ```bash
 openspec new change "<derived-name>"
 ```
 
 **SHOW:**
-
 ```
 Created: <changeRoot from status JSON>
 
 The folder structure:
 ```
-
 <changeRoot>/
-├── proposal.md ← Why we're doing this (empty, we'll fill it)
-├── design.md ← How we'll build it (empty)
-├── specs/ ← Detailed requirements (empty)
-└── tasks.md ← Implementation checklist (empty)
-
+├── proposal.md    ← Why we're doing this (empty, we'll fill it)
+├── design.md      ← How we'll build it (empty)
+├── specs/         ← Detailed requirements (empty)
+└── tasks.md       ← Implementation checklist (empty)
 ```
 
 Now let's fill in the first artifact—the proposal.
@@ -210,7 +201,6 @@ Now let's fill in the first artifact—the proposal.
 ## Phase 5: Proposal
 
 **EXPLAIN:**
-
 ```
 ## The Proposal
 
@@ -255,11 +245,9 @@ Does this capture the intent? I can adjust before we save it.
 **PAUSE** - Wait for user approval/feedback.
 
 After approval, save the proposal:
-
 ```bash
 openspec instructions proposal --change "<name>" --json
 ```
-
 Then write the content to the `resolvedOutputPath` from `openspec instructions proposal --change "<name>" --json`.
 
 ```
@@ -273,7 +261,6 @@ Next up: specs.
 ## Phase 6: Specs
 
 **EXPLAIN:**
-
 ```
 ## Specs
 
@@ -283,7 +270,6 @@ For a small task like this, we might only need one spec file.
 ```
 
 **DO:** Resolve where the spec file should be created:
-
 ```bash
 openspec instructions specs --change "<name>" --json
 # Use resolvedOutputPath from the JSON. If it is a glob, choose the concrete file path using the schema instruction and the change's context.
@@ -320,7 +306,6 @@ Save to the concrete file path chosen from `resolvedOutputPath`.
 ## Phase 7: Design
 
 **EXPLAIN:**
-
 ```
 ## Design
 
@@ -366,7 +351,6 @@ Save to the `resolvedOutputPath` from `openspec instructions design --change "<n
 ## Phase 8: Tasks
 
 **EXPLAIN:**
-
 ```
 ## Tasks
 
@@ -405,7 +389,6 @@ Save to the `resolvedOutputPath` from `openspec instructions tasks --change "<na
 ## Phase 9: Apply (Implementation)
 
 **EXPLAIN:**
-
 ```
 ## Implementation
 
@@ -440,7 +423,6 @@ The change is implemented! One more step—let's archive it.
 ## Phase 10: Archive
 
 **EXPLAIN:**
-
 ```
 ## Archiving
 
@@ -450,15 +432,13 @@ Archived changes become your project's decision history—you can always find th
 ```
 
 **DO:**
-
 ```bash
 openspec archive "<name>"
 ```
 
 **SHOW:**
-
 ```
-Archived to: `<planningHome.changesDir>/archive/YYYY-MM-DD-<name>/`
+Archived to: `<planningHome.changesDir>/archive/<target-name>/` (the target name prepends today's date, unless the name already starts with a `YYYY-MM-DD-` prefix — then it is kept as-is, no second date)
 
 The change is now part of your project's history. The code is in your codebase, the decision record is preserved.
 ```
@@ -496,7 +476,7 @@ This same rhythm works for any size change—a small fix or a major feature.
  | `/opsx-apply`   | Implement tasks from a change              |
  | `/opsx-archive` | Archive a completed change                 |
 
-**Additional commands:**
+**Additional commands** (only if installed - availability depends on your profile):
 
  | Command            | What it does                                             |
  |--------------------|----------------------------------------------------------|
@@ -524,7 +504,7 @@ If the user says they need to stop, want to pause, or seem disengaged:
 No problem! Your change is saved at the `changeRoot` reported by `openspec status --change "<name>" --json`.
 
 To pick up where we left off later:
-- `/opsx-continue <name>` - Resume artifact creation
+- `/opsx-continue <name>` - Resume artifact creation (if installed; otherwise `openspec status --change "<name>" --json` shows the next artifact)
 - `/opsx-apply <name>` - Jump to implementation (if tasks exist)
 
 The work won't be lost. Come back whenever you're ready.
@@ -548,7 +528,7 @@ If the user says they just want to see the commands or skip the tutorial:
  | `/opsx-apply <name>`   | Implement tasks                            |
  | `/opsx-archive <name>` | Archive when done                          |
 
-**Additional commands:**
+**Additional commands** (only if installed - availability depends on your profile):
 
  | Command                   | What it does                        |
  |---------------------------|-------------------------------------|
