@@ -8,6 +8,9 @@ export const frames = {
 
   appointmentContent: 'appointment-content',
   appointTypes: 'appoint-types',
+
+  workflowAgentPanel: 'workflow-agent-panel',
+  agentEventsPanel: 'agent-events-panel',
 } as const
 
 export const routes = route({
@@ -126,6 +129,21 @@ export const routes = route({
       recentActivity: get('/recent-activity'),
       userDetail: get('/user-detail/:userId'),
     }),
+
+    workflowAgent: route('workflow-agent', {
+      index: get('/'),
+      panel: get('/panel'),
+      action: post('/'),
+      resume: post('/resume'),
+      stream: get('/stream'),
+    }),
+
+    agentEvents: route('workflowagent2', {
+      index: get('/'),
+      panel: get('/panel'),
+      action: post('/'),
+      resume: post('/resume'),
+    }),
   }),
 
   verwaltung: route('verwaltung', {
@@ -198,21 +216,6 @@ export const routes = route({
     action: post('/'),
     answer: post('/answer'),
     toolDecision: post('/tool-decision'),
-  }),
-
-  workflowAgent: route('workflow-agent', {
-    index: get('/'),
-    panel: get('/panel'),
-    action: post('/'),
-    resume: post('/resume'),
-    stream: get('/stream'),
-  }),
-
-  agentEvents: route('workflowagent2', {
-    index: get('/'),
-    panel: get('/panel'),
-    action: post('/'),
-    resume: post('/resume'),
   }),
 })
 

@@ -7,8 +7,8 @@ import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { _agentThreadId, _recordWorkflowResult } from './controller.tsx'
 
 const BASE = 'https://remix.run'
-const WORKFLOW_AGENT_URL = `${BASE}/workflow-agent`
-const WORKFLOW_AGENT_PANEL_URL = `${BASE}/workflow-agent/panel`
+const WORKFLOW_AGENT_URL = `${BASE}/admin/workflow-agent`
+const WORKFLOW_AGENT_PANEL_URL = `${BASE}/admin/workflow-agent/panel`
 
 describe('WorkflowAgent route (GET)', () => {
   before(async () => {

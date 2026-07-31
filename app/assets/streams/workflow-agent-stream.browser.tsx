@@ -276,7 +276,7 @@ export const WorkflowAgentStream = clientEntry(
       body.set('runId', currentRunId)
       body.set('confirmed', String(confirmed))
       if (currentWorkflowId) body.set('workflowId', currentWorkflowId)
-      startStream('/workflow-agent/resume', { method: 'POST', body })
+      startStream('/admin/workflow-agent/resume', { method: 'POST', body })
     }
 
     function restoreFilterValue(url: string) {
@@ -367,7 +367,8 @@ export const WorkflowAgentStream = clientEntry(
                     showPdfDownload(String(parsed.reportFilename), String(parsed.reportPdf))
                   }
                   let container = document.getElementById('workflow-agent-frame-container')
-                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
+                  let activeFrame =
+                    container?.getAttribute('data-active-frame') ?? 'workflow-agent-panel'
                   let theFrame = handle.frames.get(activeFrame)
                   if (theFrame) theFrame.reload().catch(() => {})
                 } else {
@@ -380,7 +381,7 @@ export const WorkflowAgentStream = clientEntry(
                 showInfo(parsed.text || '')
               } else if (eventType === 'navigate') {
                 let href = parsed.href as string
-                let target = (parsed.target as string) || 'admin-content'
+                let target = (parsed.target as string) || 'workflow-agent-panel'
                 showInfo('Navigating to ' + href + '...')
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
@@ -432,7 +433,7 @@ export const WorkflowAgentStream = clientEntry(
       clearStatusBar()
       showResolving()
 
-      startStream('/workflow-agent', { method: 'POST', body: formData })
+      startStream('/admin/workflow-agent', { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {

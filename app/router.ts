@@ -126,12 +126,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Route Agent POC (auth-gated, SSE streaming, frame navigation)
   router.map(routes.routeAgent, routeAgent)
 
-  // Workflow Agent (admin-only, workflow-backed tools with navigate-confirm pattern)
-  router.map(routes.workflowAgent, workflowAgent)
-
-  // Agent Events (experimental event pipeline, admin-only)
-  router.map(routes.agentEvents, agentEvents)
-
   // Admin routes
   router.map(routes.admin, admin.adminController)
   router.map(routes.admin.chatlog, admin.adminChatlog)
@@ -140,6 +134,12 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.admin.chatlog.fragments, admin.adminChatlogFragments)
   router.map(routes.admin.lists, admin.adminLists)
   router.map(routes.admin.users, admin.adminUsers)
+
+  // Workflow Agent (admin-only, workflow-backed tools with navigate-confirm pattern)
+  router.map(routes.admin.workflowAgent, workflowAgent)
+
+  // Agent Events (experimental event pipeline, admin-only)
+  router.map(routes.admin.agentEvents, agentEvents)
 
   // Verwaltung routes
   router.map(routes.verwaltung, verwaltung.controller)

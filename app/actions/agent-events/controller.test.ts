@@ -14,8 +14,8 @@ import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
-const AGENT_EVENTS_URL = `${BASE}/workflowagent2`
-const AGENT_EVENTS_PANEL_URL = `${BASE}/workflowagent2/panel`
+const AGENT_EVENTS_URL = `${BASE}/admin/workflowagent2`
+const AGENT_EVENTS_PANEL_URL = `${BASE}/admin/workflowagent2/panel`
 
 const ADMIN_USER = { adminUserId: 1, adminEmail: 'admin@test.com' }
 

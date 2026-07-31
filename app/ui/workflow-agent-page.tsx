@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { WorkflowAgentStream } from '../assets/streams/workflow-agent-stream.browser.tsx'
 
 const pageStyle = css({
@@ -72,12 +72,12 @@ export function WorkflowAgentPage(handle: Handle) {
     <div mix={pageStyle}>
       <div
         id="workflow-agent-frame-container"
-        data-active-frame="admin-content"
+        data-active-frame={frames.workflowAgentPanel}
         mix={frameContainerStyle}
       >
         <Frame
-          name="admin-content"
-          src={routes.workflowAgent.panel.href()}
+          name={frames.workflowAgentPanel}
+          src={routes.admin.workflowAgent.panel.href()}
           fallback={
             <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
               Ask the agent to manage a user account...

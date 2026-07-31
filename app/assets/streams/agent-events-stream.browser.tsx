@@ -115,12 +115,12 @@ export const AgentEventsStream = clientEntry(
       let body = new FormData()
       body.set('runId', runId)
       body.set('confirmed', String(confirmed))
-      startStream('/workflowagent2/resume', { method: 'POST', body })
+      startStream('/admin/workflowagent2/resume', { method: 'POST', body })
     }
 
     function reloadActiveFrame() {
       let container = document.getElementById('agent-events-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
       let frame = handle.frames.get(activeFrame)
       if (frame) frame.reload().catch(() => {})
     }
@@ -191,7 +191,7 @@ export const AgentEventsStream = clientEntry(
                 showConfirmGate(parsed)
               } else if (eventType === 'navigate') {
                 let href = parsed.href as string
-                let target = (parsed.target as string) || 'admin-content'
+                let target = (parsed.target as string) || 'agent-events-panel'
                 showInfo('Navigating to ' + href + '...')
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
@@ -249,7 +249,7 @@ export const AgentEventsStream = clientEntry(
       clearStatusBar()
       showInfo('Processing...')
 
-      startStream('/workflowagent2', { method: 'POST', body: formData })
+      startStream('/admin/workflowagent2', { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {

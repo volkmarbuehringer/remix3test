@@ -2,10 +2,10 @@ import { createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
-import { Layout } from '../../ui/layout.tsx'
+import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { AgentEventsPage } from '../../ui/agent-events-page.tsx'
-import { routes } from '../../routes.ts'
+import { routes, frames } from '../../routes.ts'
 import { EventBus, type BaseEvent, MAX_MESSAGE_LENGTH } from './event-bus.ts'
 import { registerHandlers } from './register.ts'
 import { getCurrentUser } from '../../utils/context.ts'
@@ -83,7 +83,7 @@ function createPipeline(message: string, adminUserId: number, adminEmail: string
               controller.enqueue(
                 sseEvent('navigate', {
                   href: '/admin/users',
-                  target: 'admin-content',
+                  target: frames.agentEventsPanel,
                   history: 'push',
                 }),
               )
@@ -180,16 +180,12 @@ function createPipeline(message: string, adminUserId: number, adminEmail: string
   })
 }
 
-export default createController(routes.agentEvents, {
+export default createController(routes.admin.agentEvents, {
   middleware: [requireAdmin()],
 
   actions: {
     async index(context) {
-      return context.render(
-        <Layout title="Agent-Events">
-          <AgentEventsPage />
-        </Layout>,
-      )
+      return renderAdminPage(context.render, 'agentevents', <AgentEventsPage />)
     },
 
     async panel(context) {

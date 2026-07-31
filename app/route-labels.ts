@@ -15,10 +15,10 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.mastra.chat.index.href()]: 'KI Chat',
 
   // Workflow Agent
-  [routes.workflowAgent.index.href()]: 'Workflow-Agent',
+  [routes.admin.workflowAgent.index.href()]: 'Workflow-Agent',
 
   // Agent Events (experimental pipeline)
-  [routes.agentEvents.index.href()]: 'Agent-Events',
+  [routes.admin.agentEvents.index.href()]: 'Agent-Events',
 
   // Admin
   [routes.admin.index.href()]: 'Admin Dashboard',

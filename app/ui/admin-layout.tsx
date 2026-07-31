@@ -37,8 +37,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       {
         id: 'workflow',
         label: 'Workflow-Agent',
-        route: routes.workflowAgent.index,
-        iframeNav: false,
+        route: routes.admin.workflowAgent.index,
       },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
@@ -49,8 +48,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       {
         id: 'agentevents',
         label: 'Agent-Events',
-        route: routes.agentEvents.index,
-        iframeNav: false,
+        route: routes.admin.agentEvents.index,
       },
     ],
   },
@@ -251,6 +249,7 @@ export const { renderPage: renderAdminPage, Layout: AdminLayout } =
   createSidebarLayout<AdminNavItem>({
     frameTarget: frames.adminContent,
     acceptFrameTargets: [frames.listsContent],
+    contentOnlyTargets: [frames.agentEventsPanel, frames.workflowAgentPanel],
     navGroups: NAV_GROUPS,
     navIcon,
     headerIcon: sidebarHeaderIcon(),

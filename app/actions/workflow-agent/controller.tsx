@@ -4,10 +4,10 @@ import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
 import { sseHeaders, sseErrorResponse, sseEvent } from '../../utils/agent-sse.ts'
 import { pipeWorkflowStream, type WorkflowResult } from './workflow-sse.ts'
-import { Layout } from '../../ui/layout.tsx'
+import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
-import { routes } from '../../routes.ts'
+import { routes, frames } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { db } from '../../data/connection.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
@@ -83,7 +83,7 @@ function getTarget(path: string): string {
     ['/admin', 'admin-content'],
     ['/mastra', 'admin-content'],
     ['/verwaltung', 'admin-content'],
-    ['/workflow-agent', 'admin-content'],
+    ['/admin/workflow-agent', 'admin-content'],
     ['/lists', 'lists-content'],
   ]
   let match: [string, string] | undefined
@@ -95,16 +95,12 @@ function getTarget(path: string): string {
   return match?.[1] ?? 'admin-content'
 }
 
-export const workflowAgent = createController(routes.workflowAgent, {
+export const workflowAgent = createController(routes.admin.workflowAgent, {
   middleware: [requireAdmin()],
 
   actions: {
     async index(context) {
-      return context.render(
-        <Layout title="Workflow-Agent">
-          <WorkflowAgentPage />
-        </Layout>,
-      )
+      return renderAdminPage(context.render, 'workflow', <WorkflowAgentPage />)
     },
 
     async panel(context) {
@@ -191,7 +187,7 @@ export const workflowAgent = createController(routes.workflowAgent, {
                 controller.enqueue(
                   sseEvent('navigate', {
                     href,
-                    target: 'admin-content',
+                    target: frames.workflowAgentPanel,
                     history: 'push',
                   }),
                 )
@@ -253,7 +249,7 @@ export const workflowAgent = createController(routes.workflowAgent, {
                 controller.enqueue(
                   sseEvent('navigate', {
                     href: navHref,
-                    target: 'admin-content',
+                    target: frames.workflowAgentPanel,
                     history: 'push',
                   }),
                 )
@@ -328,7 +324,7 @@ export const workflowAgent = createController(routes.workflowAgent, {
               controller.enqueue(
                 sseEvent('navigate', {
                   href: navHref,
-                  target: 'admin-content',
+                  target: frames.workflowAgentPanel,
                   history: 'push',
                 }),
               )

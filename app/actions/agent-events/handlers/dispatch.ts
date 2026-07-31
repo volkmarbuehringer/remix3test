@@ -1,5 +1,6 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
 import { INTENTS, INTENT_TO_ACTION } from '../intents.ts'
+import { frames } from '../../../routes.ts'
 
 function actionLabel(action: string): string {
   return action.charAt(0).toUpperCase() + action.slice(1)
@@ -27,7 +28,7 @@ export const dispatchHandler: EventHandler = {
       emit({
         type: 'navigate',
         href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
-        target: 'admin-content',
+        target: frames.agentEventsPanel,
       })
       emit({
         type: 'action.running',
@@ -41,7 +42,7 @@ export const dispatchHandler: EventHandler = {
     if (e.intent === INTENTS.SHOW_APPOINTMENTS) {
       let val = String(resolved.targetEmail || resolved.targetQuery || '')
       let href = '/verwaltung/appointments' + (val ? '?filter=' + encodeURIComponent(val) : '')
-      emit({ type: 'navigate', href, target: 'admin-content' })
+      emit({ type: 'navigate', href, target: frames.agentEventsPanel })
       return
     }
 

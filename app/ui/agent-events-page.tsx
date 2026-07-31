@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { AgentEventsStream } from '../assets/streams/agent-events-stream.browser.tsx'
 
 const pageStyle = css({
@@ -72,12 +72,12 @@ export function AgentEventsPage(handle: Handle) {
     <div mix={pageStyle}>
       <div
         id="agent-events-frame-container"
-        data-active-frame="admin-content"
+        data-active-frame={frames.agentEventsPanel}
         mix={frameContainerStyle}
       >
         <Frame
-          name="admin-content"
-          src={routes.agentEvents.panel.href()}
+          name={frames.agentEventsPanel}
+          src={routes.admin.agentEvents.panel.href()}
           fallback={
             <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
               Event pipeline ready.

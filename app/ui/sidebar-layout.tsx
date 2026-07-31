@@ -27,6 +27,8 @@ export type SidebarLayoutConfig<ID extends string> = {
   frameTarget: string
   /** Additional frame targets that also trigger frame-only rendering. */
   acceptFrameTargets?: string[]
+  /** Frame targets that render only the page content, without the sidebar shell. */
+  contentOnlyTargets?: string[]
   /** Navigation groups to render in the sidebar. */
   navGroups: NavGroup<ID>[]
   /** Function that returns an icon RemixNode for a given nav item ID. */
@@ -45,6 +47,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   let {
     frameTarget,
     acceptFrameTargets,
+    contentOnlyTargets,
     navGroups,
     navIcon,
     headerIcon,
@@ -55,6 +58,8 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   let acceptedTargets = acceptFrameTargets
     ? new Set([frameTarget, ...acceptFrameTargets])
     : new Set([frameTarget])
+
+  let contentOnlyTargetSet = new Set(contentOnlyTargets ?? [])
 
   function isFrameRequest(): boolean {
     let target = getContext().request.headers.get('X-Remix-Target')
@@ -69,6 +74,10 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   function ShellOrFragment(handle: Handle<PageProps>) {
     return () => {
       let { activeItem, children } = handle.props
+      let target = getContext().request.headers.get('X-Remix-Target')
+      if (target != null && contentOnlyTargetSet.has(target)) {
+        return children
+      }
       if (isFrameRequest()) {
         return <LayoutComponent activeItem={activeItem}>{children}</LayoutComponent>
       }
