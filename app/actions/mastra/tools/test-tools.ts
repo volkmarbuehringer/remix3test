@@ -8,7 +8,7 @@ import { errorEnvelope, successData } from './errors.ts'
 export const PROJECT_ROOT = realpathSync(process.cwd())
 const projectRoot = PROJECT_ROOT
 
-const EXCLUDED_DIRS = new Set(['.git', 'node_modules'])
+const EXCLUDED_DIRS = new Set(['.git', 'node_modules', 'tmp'])
 
 const HARD_CAP = 100
 
@@ -56,7 +56,9 @@ async function collectEntries(dir: string, recursive: boolean, ext?: string): Pr
     if (e.isDirectory()) {
       if (recursive && !EXCLUDED_DIRS.has(e.name)) {
         let sub = await collectEntries(fullPath, recursive, ext)
-        result.push(...sub)
+        for (let entry of sub) {
+          result.push(entry)
+        }
       }
       if (!ext) {
         result.push({
