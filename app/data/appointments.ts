@@ -103,11 +103,22 @@ export function isExclusionViolation(error: unknown): boolean {
   )
 }
 
+interface ListAppointmentsByWeekOptions {
+  /**
+   * When set, rows that do not belong to this user are projected to an
+   * occupancy-only shape (title and user_id are stripped) so other tenants'
+   * booking metadata is never shipped to the client. Admin callers omit this
+   * to receive full rows.
+   */
+  userId?: number
+}
+
 export async function listAppointmentsByWeek(
   db: Database,
   weekStart: number,
   weekEnd: number,
   resourceId?: number,
+  options?: ListAppointmentsByWeekOptions,
 ): Promise<Appointment[]> {
   let query = db.query(appointments).where(gte('date', weekStart)).where(lt('date', weekEnd))
 
@@ -115,7 +126,17 @@ export async function listAppointmentsByWeek(
     query = query.where({ resource_id: resourceId })
   }
 
-  return await query.orderBy('date', 'asc').orderBy('start_min', 'asc').all()
+  let appts = await query.orderBy('date', 'asc').orderBy('start_min', 'asc').all()
+
+  if (options?.userId !== undefined) {
+    appts = appts.map((a) =>
+      a.user_id === options.userId
+        ? a
+        : ({ ...a, title: '', user_id: undefined } as unknown as Appointment),
+    )
+  }
+
+  return appts
 }
 
 export async function createAppointment(

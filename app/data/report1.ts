@@ -19,22 +19,21 @@ export interface Report1UserOption {
 export const REPORT1_PAGE_SIZE = 20
 
 export const REPORT1_SORTABLE_FIELDS: readonly string[] = [
-  'u.name',
-  'u.email',
-  'total_appointments',
-  'total_offerings',
-  'first_appointment',
-  'last_appointment',
-  'percentage',
+  'name',
+  'count',
+  'min_date',
+  'max_date',
+  'total_hours',
+  'avg_hours',
 ]
 
 const ORDER_BY_COLUMNS: Record<string, string> = {
   name: 'u.name',
-  count: 'appointment_count',
-  min_date: 'min_date',
-  max_date: 'max_date',
-  total_hours: 'appointment_count',
-  avg_hours: 'appointment_count',
+  count: 'COUNT(*)::int',
+  min_date: 'MIN(a.date)',
+  max_date: 'MAX(a.date)',
+  total_hours: 'SUM(a.end_min - a.start_min)',
+  avg_hours: 'SUM(a.end_min - a.start_min)::numeric / NULLIF(COUNT(*), 0)',
 }
 
 export interface RunReport1Opts {
@@ -103,13 +102,10 @@ export async function runReport1(
 
   query += ` GROUP BY u.id, u.name, u.email`
 
-  let sortExpr = ORDER_BY_COLUMNS[column] || 'u.name'
-  if (column === 'count') sortExpr = `COUNT(*)::int`
-  if (column === 'min_date') sortExpr = `MIN(a.date)`
-  if (column === 'max_date') sortExpr = `MAX(a.date)`
-  if (column === 'total_hours') sortExpr = `SUM(a.end_min - a.start_min)`
-  if (column === 'avg_hours')
-    sortExpr = `SUM(a.end_min - a.start_min)::numeric / NULLIF(COUNT(*), 0)`
+  let sortExpr = ORDER_BY_COLUMNS[column]
+  if (!sortExpr) {
+    throw new Error(`Invalid report1 sort column: ${column}`)
+  }
 
   paramIndex++
   query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}`

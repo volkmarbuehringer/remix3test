@@ -5,6 +5,7 @@ import { pool } from './test-pool.ts'
 import {
   fetchAppointmentEditRow,
   listAppointments,
+  listAppointmentsByWeek,
   listResourcesForAppointments,
   listUsersForAppointments,
   adminCreateAppointment as createAppointment,
@@ -28,6 +29,7 @@ describe('appointments-queries', () => {
 
   afterEach(async () => {
     await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[TEST]%'])
+    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[WEEK-SCOPE]%'])
   })
 
   it('createAppointment creates and returns id', async () => {
@@ -192,4 +194,87 @@ describe('appointments-queries', () => {
     })
     assert.ok(result.rows.some((r) => r.title === '[TEST] List Past'))
   })
+
+  it('listAppointmentsByWeek without userId returns full rows for every user', async () => {
+    let { weekStart, weekEnd } = testWeek()
+    await createAppointment(db, {
+      title: '[WEEK-SCOPE] Mine',
+      userId: testUserId,
+      resourceId: testResourceId,
+      date: weekStart + 86_400_000,
+      during: '[480,540)',
+    })
+    let otherResult = await pool.query("SELECT id FROM users WHERE email = 'user@newapp.com'")
+    let otherUserId = otherResult.rows[0]?.id
+    if (otherUserId !== undefined) {
+      await createAppointment(db, {
+        title: '[WEEK-SCOPE] Foreign',
+        userId: otherUserId,
+        resourceId: testResourceId,
+        date: weekStart + 86_400_000,
+        during: '[540,600)',
+      })
+    }
+
+    let rows = await listAppointmentsByWeek(db, weekStart, weekEnd, testResourceId)
+    assert.ok(rows.some((r) => r.title === '[WEEK-SCOPE] Mine'))
+    if (otherUserId !== undefined) {
+      let foreign = rows.find((r) => r.user_id === otherUserId)
+      assert.ok(foreign, 'foreign appointment should be returned for admin callers')
+      assert.equal(foreign!.title, '[WEEK-SCOPE] Foreign')
+    }
+  })
+
+  it('listAppointmentsByWeek with userId strips title and user_id from foreign rows', async () => {
+    let { weekStart, weekEnd } = testWeek()
+    await createAppointment(db, {
+      title: '[WEEK-SCOPE] Scoped Mine',
+      userId: testUserId,
+      resourceId: testResourceId,
+      date: weekStart + 86_400_000,
+      during: '[480,540)',
+    })
+    let otherResult = await pool.query("SELECT id FROM users WHERE email = 'user@newapp.com'")
+    let otherUserId = otherResult.rows[0]?.id
+    if (otherUserId !== undefined) {
+      await createAppointment(db, {
+        title: '[WEEK-SCOPE] Scoped Foreign Secret',
+        userId: otherUserId,
+        resourceId: testResourceId,
+        date: weekStart + 86_400_000,
+        during: '[540,600)',
+      })
+    }
+
+    let rows = await listAppointmentsByWeek(db, weekStart, weekEnd, testResourceId, {
+      userId: testUserId,
+    })
+    let mine = rows.find((r) => r.id !== undefined && r.user_id === testUserId)
+    assert.ok(mine, 'own appointment should be returned intact')
+    assert.equal(mine!.title, '[WEEK-SCOPE] Scoped Mine')
+
+    if (otherUserId !== undefined) {
+      let foreign = rows.find((r) => r.user_id === undefined)
+      assert.ok(foreign, 'foreign appointment should still be present as occupancy')
+      assert.equal(foreign!.title, '')
+      assert.equal(foreign!.user_id, undefined)
+      assert.ok(typeof foreign!.id === 'number', 'occupancy row keeps its id')
+      assert.ok(
+        rows.every((r) => r.title !== '[WEEK-SCOPE] Scoped Foreign Secret'),
+        'foreign title must never be shipped',
+      )
+      assert.ok(
+        rows.every((r) => r.user_id !== otherUserId),
+        'foreign user_id must never be shipped',
+      )
+    }
+  })
 })
+
+function testWeek(): { weekStart: number; weekEnd: number } {
+  let now = new Date()
+  let monday = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 4))
+  let dayOfWeek = monday.getUTCDay() || 7
+  let weekStart = new Date(monday.getTime() - (dayOfWeek - 1) * 86_400_000).getTime()
+  return { weekStart, weekEnd: weekStart + 7 * 86_400_000 }
+}

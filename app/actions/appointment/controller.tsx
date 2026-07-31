@@ -156,6 +156,7 @@ export const appointment = createController(routes.appointment, {
         mondayMs,
         nextMondayMs,
         selectedResourceId,
+        isAdmin ? undefined : { userId: currentUserId },
       )
 
       if (isAdmin && appts.length > 0) {

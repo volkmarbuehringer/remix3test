@@ -10,7 +10,9 @@ describe('report1', () => {
   })
 
   afterEach(async () => {
-    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[TEST]%'])
+    await pool.query(
+      "DELETE FROM appointments WHERE title LIKE '[TEST] Appt%' OR title LIKE '[TEST] Escape%' OR title LIKE '[REPORT1-SORT]%'",
+    )
     await pool.query('DELETE FROM users WHERE email LIKE $1', ['test-report1%@example.com'])
   })
 
@@ -125,5 +127,73 @@ describe('report1', () => {
   it('listReport1Users returns empty array for empty users table', async () => {
     let rows = await listReport1Users(db)
     assert.ok(Array.isArray(rows))
+  })
+
+  it('runReport1 sorts by appointment count', async () => {
+    let ts = Date.now()
+    let monthStart = Date.UTC(2026, 5, 1)
+    let monthEnd = Date.UTC(2026, 6, 1)
+    let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
+    let resourceId = resourceResult.rows[0].id
+
+    async function seedUserWithAppointments(
+      email: string,
+      count: number,
+      startMin: number,
+    ): Promise<number> {
+      let userResult = await pool.query(
+        `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+         VALUES ($1, $2, $3, 'customer', 1, 1, $4, $4)
+         RETURNING id`,
+        [email, 'hash', email, ts],
+      )
+      let userId = userResult.rows![0].id
+      for (let i = 0; i < count; i++) {
+        await pool.query(
+          `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+          [
+            userId,
+            resourceId,
+            `[REPORT1-SORT] ${email} ${i}`,
+            monthStart + (i + 1) * 86400000,
+            `[${startMin},${startMin + 60})`,
+            now,
+          ],
+        )
+      }
+      return userId
+    }
+
+    let oneId = await seedUserWithAppointments('test-report1-sort1@example.com', 1, 480)
+    let twoId = await seedUserWithAppointments('test-report1-sort2@example.com', 2, 600)
+
+    let result = await runReport1(db, {
+      monthStart,
+      monthEnd,
+      column: 'count',
+      direction: 'desc',
+      effectivePageSize: 20,
+      offset: 0,
+    })
+    let ranked = result.rows.filter(
+      (r) => Number(r.user_id) === oneId || Number(r.user_id) === twoId,
+    )
+    assert.equal(ranked.length, 2)
+    assert.equal(Number(ranked[0].appointment_count), 2, 'two-appointment user sorts first')
+    assert.equal(Number(ranked[1].appointment_count), 1)
+  })
+
+  it('runReport1 throws on unknown sort column instead of silently defaulting', async () => {
+    await assert.rejects(
+      runReport1(db, {
+        monthStart: Date.UTC(2026, 5, 1),
+        monthEnd: Date.UTC(2026, 6, 1),
+        column: 'total_offerings',
+        direction: 'asc',
+        effectivePageSize: 20,
+        offset: 0,
+      }),
+    )
   })
 })
