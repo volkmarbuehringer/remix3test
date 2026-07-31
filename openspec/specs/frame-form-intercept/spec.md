@@ -48,7 +48,7 @@ When a frame form submission is intercepted and a pending agent question exists,
 - **WHEN** the intercepted form's fetch response has status 200 and `Content-Type: application/json`
 - **AND** a pending agent question exists (`pendingQuestion` is set)
 - **THEN** the response body SHALL be parsed as JSON
-- **AND** the parsed data SHALL be sent as an answer via the `/mastra/chat/answer` SSE endpoint
+- **AND** the parsed data SHALL be sent as an answer via the `/admin/support-agent/answer` SSE endpoint
 - **AND** the agent SHALL resume with the answer
 
 #### Scenario: Error JSON response is not fed to agent
