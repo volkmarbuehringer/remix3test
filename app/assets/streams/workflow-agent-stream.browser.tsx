@@ -1,5 +1,6 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
+import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const WorkflowAgentStream = clientEntry(
   import.meta.url + '#WorkflowAgentStream',
@@ -7,6 +8,7 @@ export const WorkflowAgentStream = clientEntry(
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentWorkflowId: string | null = null
+    let autoGrowReset: (() => void) | null = null
 
     let completedSteps: string[] = []
     let currentStepId: string | null = null
@@ -428,7 +430,10 @@ export const WorkflowAgentStream = clientEntry(
       if (!message) return
 
       let textarea = document.getElementById('workflow-agent-input') as HTMLTextAreaElement | null
-      if (textarea) textarea.value = ''
+      if (textarea) {
+        textarea.value = ''
+        autoGrowReset?.()
+      }
       setFormEnabled(false)
       clearStatusBar()
       showResolving()
@@ -497,7 +502,10 @@ export const WorkflowAgentStream = clientEntry(
               'workflow-agent-input',
             ) as HTMLTextAreaElement | null
             if (textarea) {
-              textarea.addEventListener('keydown', handleTextareaKeydown, { signal: handle.signal })
+              textarea.addEventListener('keydown', handleTextareaKeydown, {
+                signal: handle.signal,
+              })
+              autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
 
             let container = document.getElementById('workflow-agent-frame-container')

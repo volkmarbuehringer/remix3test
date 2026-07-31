@@ -7,7 +7,7 @@ import { RouteAgentStream } from '../assets/streams/route-agent-stream.browser.t
 const pageStyle = css({
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  height: '100%',
   overflow: 'hidden',
 })
 
@@ -61,6 +61,11 @@ const inputStyle = css({
   background: theme.surface.lvl1,
   outline: 'none',
   boxSizing: 'border-box',
+  resize: 'none',
+  minHeight: '3.6rem',
+  maxHeight: '10rem',
+  overflowY: 'auto',
+  lineHeight: '1.4',
 })
 
 const btnStyle = css({
@@ -109,10 +114,10 @@ export function RouteAgentPage(handle: Handle) {
       </div>
 
       <form id="route-agent-form" mix={inputBarStyle}>
-        <input
+        <textarea
           id="route-agent-input"
-          type="text"
           name="message"
+          rows={2}
           placeholder="Ask the agent to show something... (e.g. 'show me the lists')"
           autoComplete="off"
           mix={inputStyle}

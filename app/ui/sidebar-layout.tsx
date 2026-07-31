@@ -39,6 +39,10 @@ export type SidebarLayoutConfig<ID extends string> = {
   headerLabel: string
   /** Optional extra content rendered below the navigation (e.g. AdminViewToggle). */
   sidebarExtras?: RemixNode
+  /** Pathname prefixes whose content should fill the available height instead of
+   *  growing to content height (e.g. full-height chat pages). Matched exactly or
+   *  with a trailing slash path. */
+  fullHeightTargets?: string[]
 }
 
 // ── Factory ─────────────────────────────────────────────────────
@@ -53,6 +57,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     headerIcon,
     headerLabel,
     sidebarExtras,
+    fullHeightTargets,
   } = config
 
   let acceptedTargets = acceptFrameTargets
@@ -99,8 +104,13 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
   function LayoutComponent(handle: Handle<PageProps>) {
     return () => {
       let { activeItem, children } = handle.props
+      let fullHeight =
+        fullHeightTargets?.some((path) => {
+          let pathname = new URL(getContext().request.url).pathname
+          return pathname === path || pathname.startsWith(path + '/')
+        }) ?? false
       return (
-        <div mix={shellStyle}>
+        <div mix={[shellStyle, fullHeight && shellFullHeightStyle].filter(Boolean)}>
           <aside mix={sidebarStyle}>
             <div mix={sidebarHeaderStyle}>
               <span mix={headerIconWrapStyle}>{headerIcon}</span>
@@ -134,7 +144,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
               </>
             )}
           </aside>
-          <section mix={contentStyle}>
+          <section mix={[contentStyle, fullHeight && contentFullHeightStyle].filter(Boolean)}>
             <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>
@@ -254,4 +264,17 @@ export const contentStyle = css({
   display: 'flex',
   flexDirection: 'column',
   minHeight: 0,
+})
+
+/** Applied to `shellStyle` when the layout runs in full-height mode: the grid
+ *  fills the scroll container and the single row consumes all vertical space. */
+export const shellFullHeightStyle = css({
+  height: '100%',
+  gridTemplateRows: 'minmax(0, 1fr)',
+})
+
+/** Applied to `contentStyle` in full-height mode so its flex children can fill
+ *  the available height (e.g. chat pages with `flex: 1; min-height: 0`). */
+export const contentFullHeightStyle = css({
+  height: '100%',
 })

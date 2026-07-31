@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
@@ -7,6 +8,7 @@ export const SupportAgentStream = clientEntry(
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
     let didNavigate: boolean = false
+    let autoGrowReset: (() => void) | null = null
 
     let submitting: boolean = false
 
@@ -562,7 +564,10 @@ export const SupportAgentStream = clientEntry(
       appendUserMessage(message)
 
       let textarea = document.getElementById('support-agent-input') as HTMLTextAreaElement | null
-      if (textarea) textarea.value = ''
+      if (textarea) {
+        textarea.value = ''
+        autoGrowReset?.()
+      }
       setFormEnabled(false)
       currentAgentMessageEl = null
 
@@ -598,6 +603,7 @@ export const SupportAgentStream = clientEntry(
               textarea.addEventListener('keydown', handleTextareaKeydown, {
                 signal: handle.signal,
               })
+              autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
 
             let container = document.getElementById('support-agent-frame-container')

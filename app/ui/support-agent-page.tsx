@@ -7,7 +7,8 @@ import { SupportAgentStream } from '../assets/streams/support-agent-stream.brows
 const pageStyle = css({
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  flex: 1,
+  minHeight: 0,
   overflow: 'hidden',
 })
 
@@ -54,6 +55,9 @@ const textareaStyle = css({
   boxSizing: 'border-box',
   resize: 'none',
   lineHeight: '1.4',
+  minHeight: '3.6rem',
+  maxHeight: '10rem',
+  overflowY: 'auto',
 })
 
 const btnStyle = css({

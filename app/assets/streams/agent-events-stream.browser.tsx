@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',
@@ -6,6 +7,7 @@ export const AgentEventsStream = clientEntry(
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let _isResume = false
+    let autoGrowReset: (() => void) | null = null
 
     function getStatusBar() {
       return document.getElementById('ae-status-bar')
@@ -244,7 +246,10 @@ export const AgentEventsStream = clientEntry(
       if (!message) return
 
       let textarea = document.getElementById('agent-events-input') as HTMLTextAreaElement | null
-      if (textarea) textarea.value = ''
+      if (textarea) {
+        textarea.value = ''
+        autoGrowReset?.()
+      }
       setFormEnabled(false)
       clearStatusBar()
       showInfo('Processing...')
@@ -275,6 +280,7 @@ export const AgentEventsStream = clientEntry(
             ) as HTMLTextAreaElement | null
             if (textarea) {
               textarea.addEventListener('keydown', handleTextareaKeydown, { signal: handle.signal })
+              autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
           }),
         ]}

@@ -7,7 +7,8 @@ import { WorkflowAgentStream } from '../assets/streams/workflow-agent-stream.bro
 const pageStyle = css({
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  flex: 1,
+  minHeight: 0,
   overflow: 'hidden',
 })
 
@@ -50,7 +51,9 @@ const inputStyle = css({
   outline: 'none',
   boxSizing: 'border-box',
   resize: 'none',
-  minHeight: '2.4rem',
+  minHeight: '3.6rem',
+  maxHeight: '10rem',
+  overflowY: 'auto',
   lineHeight: '1.4',
 })
 
@@ -106,7 +109,7 @@ export function WorkflowAgentPage(handle: Handle) {
           placeholder="e.g. 'cancel user 42' or 'lock user 5'"
           autoComplete="off"
           mix={inputStyle}
-          rows={1}
+          rows={2}
         />
         <button id="workflow-agent-submit" type="submit" mix={btnStyle}>
           Send

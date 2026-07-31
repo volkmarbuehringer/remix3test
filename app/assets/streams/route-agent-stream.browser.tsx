@@ -1,5 +1,6 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
+import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const RouteAgentStream = clientEntry(
   import.meta.url + '#RouteAgentStream',
@@ -9,6 +10,7 @@ export const RouteAgentStream = clientEntry(
     let currentThreadId: string | null = null
     let didNavigate: boolean = false
     let lastFilterValue: string = ''
+    let autoGrowReset: (() => void) | null = null
 
     let pendingQuestion: {
       runId: string
@@ -29,7 +31,7 @@ export const RouteAgentStream = clientEntry(
     }
 
     function setFormEnabled(enabled: boolean) {
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
+      let input = document.getElementById('route-agent-input') as HTMLTextAreaElement | null
       let submit = document.getElementById('route-agent-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
       if (submit) submit.disabled = !enabled
@@ -355,11 +357,22 @@ export const RouteAgentStream = clientEntry(
 
       if (currentThreadId) formData.set('threadId', currentThreadId)
       setBarText('Sending: ' + message)
-      let input = document.getElementById('route-agent-input') as HTMLInputElement | null
-      if (input) input.value = ''
+      let input = document.getElementById('route-agent-input') as HTMLTextAreaElement | null
+      if (input) {
+        input.value = ''
+        autoGrowReset?.()
+      }
       setFormEnabled(false)
 
       startStream('/route-agent', { method: 'POST', body: formData })
+    }
+
+    function handleTextareaKeydown(e: KeyboardEvent) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        let form = document.getElementById('route-agent-form') as HTMLFormElement | null
+        if (form) form.requestSubmit()
+      }
     }
 
     async function handleFrameFormSubmit(e: Event) {
@@ -410,6 +423,16 @@ export const RouteAgentStream = clientEntry(
             let form = document.getElementById('route-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, { signal: handle.signal })
+            }
+
+            let textarea = document.getElementById(
+              'route-agent-input',
+            ) as HTMLTextAreaElement | null
+            if (textarea) {
+              textarea.addEventListener('keydown', handleTextareaKeydown, {
+                signal: handle.signal,
+              })
+              autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
 
             let container = document.getElementById('route-agent-frame-container')

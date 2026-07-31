@@ -254,6 +254,11 @@ export const { renderPage: renderAdminPage, Layout: AdminLayout } =
       frames.workflowAgentPanel,
       frames.supportAgentPanel,
     ],
+    fullHeightTargets: [
+      routes.admin.agentEvents.index.href(),
+      routes.admin.workflowAgent.index.href(),
+      routes.admin.supportAgent.index.href(),
+    ],
     navGroups: NAV_GROUPS,
     navIcon,
     headerIcon: sidebarHeaderIcon(),
