@@ -18,7 +18,7 @@ import { routes } from '../../routes.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 
-const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perKey: true, maxAttempts: 5 })
+const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: true, maxAttempts: 5 })
 
 function getTarget(path: string): string {
   let prefixes: [string, string][] = [
@@ -66,9 +66,11 @@ export default createController(routes.routeAgent, {
     },
 
     async action(context) {
-      let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-      let ip = rawIp.split(',')[0].trim() || 'anon'
-      if (!routeAgentRateLimiter.attempt(ip)) {
+      let auth = context.get(Auth)
+      if (!auth?.ok || auth.identity.role !== 'admin') {
+        return sseErrorResponse('Unauthorized', 401)
+      }
+      if (!routeAgentRateLimiter.attempt(auth.identity.id)) {
         return sseErrorResponse('Too many requests', 429)
       }
 
@@ -122,9 +124,11 @@ export default createController(routes.routeAgent, {
     },
 
     async answer(context) {
-      let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-      let ip = rawIp.split(',')[0].trim() || 'anon'
-      if (!routeAgentRateLimiter.attempt(ip)) {
+      let auth = context.get(Auth)
+      if (!auth?.ok || auth.identity.role !== 'admin') {
+        return sseErrorResponse('Unauthorized', 401)
+      }
+      if (!routeAgentRateLimiter.attempt(auth.identity.id)) {
         return sseErrorResponse('Too many requests', 429)
       }
 

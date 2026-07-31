@@ -18,7 +18,7 @@ import { getSafeReturnTo } from '../../utils/redirect.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
-import { sourceIp } from '../../utils/request-ip.ts'
+import { connectionIp } from '../../utils/request-ip.ts'
 
 import {
   LoginPage,
@@ -118,7 +118,7 @@ export const authLogin = createController(routes.auth.login, {
         )
       }
 
-      let rateLimit = checkRateLimit(parsed.value.email, sourceIp(context.request))
+      let rateLimit = checkRateLimit(parsed.value.email, connectionIp(context.request))
       if (rateLimit) {
         return context.render(<LoginPage error={rateLimit.error} returnTo={returnTo} />, {
           status: 429,
@@ -128,7 +128,7 @@ export const authLogin = createController(routes.auth.login, {
       let user = await verifyCredentials(passwordProvider, context)
 
       if (user == null) {
-        incrementFailedAttempts(parsed.value.email, sourceIp(context.request))
+        incrementFailedAttempts(parsed.value.email, connectionIp(context.request))
         return context.render(
           <LoginPage error="Invalid email or password." returnTo={returnTo} />,
           { status: 401 },
@@ -515,7 +515,7 @@ async function validateResetToken(
 const verifyLimiter = createRateLimiter({ windowMs: 60_000, perKey: true, maxAttempts: 10 })
 
 export async function verify(context: AppContext) {
-  let ip = sourceIp(context.request) || 'unknown'
+  let ip = connectionIp(context.request) || 'unknown'
   if (!verifyLimiter.attempt(ip)) {
     return context.render(
       <VerifyErrorPage

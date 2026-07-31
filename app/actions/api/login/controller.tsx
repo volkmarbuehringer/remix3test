@@ -7,7 +7,7 @@ import { users, apiTokens } from '../../../data/schema.ts'
 import { verifyPassword } from '../../../utils/password-hash.ts'
 import { generateApiToken, hashToken, computeTokenExpiry } from '../../../utils/api-token.ts'
 import { createRateLimiter } from '../../../utils/rate-limiter.ts'
-import { sourceIp } from '../../../utils/request-ip.ts'
+import { connectionIp } from '../../../utils/request-ip.ts'
 // Rate limiters are in-memory per-process. In multi-instance deployments,
 // each instance has independent state. Use a shared store (Redis, PostgreSQL)
 // if horizontal scaling is needed.
@@ -44,7 +44,7 @@ export default createAction(routes.api.login, {
       return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
     }
 
-    let ip = sourceIp(context.request)
+    let ip = connectionIp(context.request)
     if (ip && !ipLimiter.attempt(ip)) {
       return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
     }

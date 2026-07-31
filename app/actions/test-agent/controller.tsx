@@ -13,7 +13,7 @@ import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 
 const MAX_MESSAGE_LENGTH = 5000
-const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
+const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: true, maxAttempts: 5 })
 const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'mastra_workspace_read_file'
 const sseEncoder = new TextEncoder()
 
@@ -55,9 +55,11 @@ export default createController(routes.testAgent, {
     },
 
     async action(context) {
-      let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-      let ip = rawIp.split(',')[0].trim() || 'anon'
-      if (!testRateLimiter.attempt(ip)) {
+      let auth = context.get(Auth)
+      if (!auth?.ok || auth.identity.role !== 'admin') {
+        return context.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      if (!testRateLimiter.attempt(auth.identity.id)) {
         return context.json({ error: 'Too many requests' }, { status: 429 })
       }
 
@@ -76,8 +78,7 @@ export default createController(routes.testAgent, {
       let threadId = context.formData.get('threadId')?.toString() || crypto.randomUUID()
 
       try {
-        let auth = context.get(Auth)
-        let userId = auth?.ok ? auth.identity.id : 'test-user'
+        let userId = auth.identity.id
         let agent = mastra.getAgent('testAgent')
         let output = await agent.stream(message, {
           memory: { thread: threadId, resource: 'test-user' },
@@ -385,9 +386,11 @@ export default createController(routes.testAgent, {
     },
 
     async answer(context) {
-      let rawIp = context.request.headers.get('X-Forwarded-For') || ''
-      let ip = rawIp.split(',')[0].trim() || 'anon'
-      if (!testRateLimiter.attempt(ip)) {
+      let auth = context.get(Auth)
+      if (!auth?.ok || auth.identity.role !== 'admin') {
+        return context.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      if (!testRateLimiter.attempt(auth.identity.id)) {
         return context.json({ error: 'Too many requests' }, { status: 429 })
       }
 
@@ -417,8 +420,7 @@ export default createController(routes.testAgent, {
       }
 
       try {
-        let auth = context.get(Auth)
-        let userId = auth?.ok ? auth.identity.id : 'test-user'
+        let userId = auth.identity.id
         let agent = mastra.getAgent('testAgent')
         let output = await agent.resumeStream(resumeData, { runId, toolCallId })
 

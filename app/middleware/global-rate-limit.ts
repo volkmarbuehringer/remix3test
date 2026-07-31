@@ -3,7 +3,7 @@ import { Logger } from 'remix/middleware/logger'
 import { html } from 'remix/html-template'
 
 import { createRateLimiter } from '../utils/rate-limiter.ts'
-import { sourceIp } from '../utils/request-ip.ts'
+import { connectionIp } from '../utils/request-ip.ts'
 
 export function globalRateLimit(options?: {
   maxPerWindow?: number
@@ -24,7 +24,7 @@ export function globalRateLimit(options?: {
       return next()
     }
 
-    let ip = sourceIp(context.request) || 'unknown'
+    let ip = connectionIp(context.request) || 'unknown'
 
     let check = limiter.check(ip)
     if (!check.allowed) {

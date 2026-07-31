@@ -23,9 +23,9 @@ const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 const handler = createRequestListener(
   async (request, client) => {
     try {
-      if (client?.address) {
-        request.headers.set('X-Client-Ip', client.address)
-      }
+      // Trust only the TCP socket address: this deployment has no trusted
+      // reverse proxy, so X-Forwarded-For must not be trusted as the client IP.
+      request.headers.set('X-Client-Ip', client?.address ?? '')
       return await router.fetch(request)
     } catch (error) {
       if (!(request.signal.aborted && error === request.signal.reason)) {
@@ -82,7 +82,7 @@ const handler = createRequestListener(
       )
     }
   },
-  { trustProxy: true },
+  { trustProxy: false },
 )
 
 const isProduction = process.env.NODE_ENV === 'production'
