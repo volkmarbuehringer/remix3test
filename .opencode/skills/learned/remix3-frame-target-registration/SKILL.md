@@ -11,11 +11,11 @@ origin: auto-extracted
 
 ## Problem
 
-A `<Frame name="X" src="/path">` fetches its content with `X-Remix-Target: X`. The sidebar layout (`createSidebarLayout`/`ShellOrFragment`) only renders a **fragment** when the incoming `X-Remix-Target` is in its registered set (`frameTarget` + `acceptFrameTargets`).
+A `<Frame name="X" src="/path">` fetches its content with `X-Remix-Target: X`. The sidebar layout (`createSidebarLayout`/`ShellOrFragment`) only renders a **fragment** when the incoming `X-Remix-Target` is in its registered set (`frameTarget` + `acceptFrameTargets`), or in `contentOnlyTargets` (which renders bare page content).
 
 Three failure modes:
 
-1. **Unregistered target → duplicate navbar**: Load `/admin/users` into a frame named `agent-events-panel`. The request carries `X-Remix-Target: agent-events-panel`, which isn't accepted → `isFrameRequest()` is false → the full page (`Layout` with public `MainNav`) renders INSIDE the panel → a second navbar, grid buried in a nested frame.
+1. **Unregistered target → duplicate navbar**: Load `/admin/users` into a frame named `agent-events-panel`. The request carries `X-Remix-Target: agent-events-panel`, which isn't accepted → `isFrameRequest()` is false → `ShellOrFragment` renders `<Layout><Frame name={frameTarget} src={url}/></Layout>` (the frame target defaults to the top frame), so the full page (`Layout` with public `MainNav`) renders INSIDE the panel → a second navbar, because the URL re-enters the `admin-content` frame.
 
 2. **Registered target → duplicate sidebar**: If you "fix" mode 1 by adding the panel name to `acceptFrameTargets`, the admin fragment includes the sidebar shell → the panel now shows a second sidebar (the host page already renders via `renderAdminPage` with the sidebar on the left).
 
@@ -32,6 +32,8 @@ Keep every frame name in one `frames` const so the `<Frame name>`, `data-active-
 export const frames = {
   adminContent: 'admin-content',
   listsContent: 'lists-content',
+  appointmentContent: 'appointment-content',
+  appointTypes: 'appoint-types',
   workflowAgentPanel: 'workflow-agent-panel',
   agentEventsPanel: 'agent-events-panel',
 } as const
@@ -39,7 +41,7 @@ export const frames = {
 
 ### Register panel targets as content-only
 
-`createSidebarLayout` gained a `contentOnlyTargets` set. When `X-Remix-Target` matches one, `ShellOrFragment` returns just the page content (`children`) — no sidebar shell, no Document wrapper:
+`createSidebarLayout` gained a `contentOnlyTargets` set. When `X-Remix-Target` matches one, `ShellOrFragment` returns just the page content (`children`) — no sidebar shell, no `Layout` shell:
 
 ```tsx
 export type SidebarLayoutConfig<ID extends string> = {
