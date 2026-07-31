@@ -1,6 +1,10 @@
-import { sseEncoder, safeClose } from '../../utils/agent-sse.ts'
+import { sseEncoder } from '../../utils/agent-sse.ts'
 
-function writeEvent(controller: ReadableStreamDefaultController, type: string, data: unknown) {
+export function writeEvent(
+  controller: ReadableStreamDefaultController,
+  type: string,
+  data: unknown,
+) {
   controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
 }
 
@@ -148,4 +152,12 @@ export async function pipeWorkflowStream(
   }
 
   return null
+}
+
+function safeClose(controller: ReadableStreamDefaultController) {
+  try {
+    controller.close()
+  } catch {
+    /* already closed */
+  }
 }

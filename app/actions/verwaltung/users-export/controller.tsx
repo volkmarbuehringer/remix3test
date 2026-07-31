@@ -7,7 +7,7 @@ import { routes } from '../../../routes.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
-import { listUserSummaries } from '../../../data/users-pdf.ts'
+import { listUserSummariesByDateRange } from '../../../data/users-export.ts'
 import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
 import { renderVerwaltungPage } from '../../../ui/verwaltung-layout.tsx'
 import { UsersExportPage } from '../../../ui/users-export-page.tsx'
@@ -103,7 +103,7 @@ export default createController(routes.verwaltung.usersExport, {
       }
 
       try {
-        let rows = await listUserSummaries(context.db, { startMs, endMs })
+        let rows = await listUserSummariesByDateRange(context.db, startMs, endMs)
 
         if (rows.length === 0) {
           return renderVerwaltungPage(

@@ -59,7 +59,23 @@ export async function createAuthCookieWithCsrf(): Promise<{
     )
     let rows = (result.rows ?? []) as { id: number; token_version: number }[]
     if (rows.length === 0) return null
-    return await createAuthCookieWithCsrfForUserRow(rows[0].id, rows[0].token_version ?? 1)
+
+    let userId = rows[0].id as number
+    let tv = rows[0].token_version ?? 1
+    let csrfToken = generateCsrfToken()
+
+    let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
+    session.set('auth', { userId, tv })
+    session.set('_csrf', csrfToken)
+
+    let sid = await sessionStorage.save(session)
+    if (!sid) return null
+
+    let setCookieValue = await sessionCookie.serialize(sid)
+    let match = setCookieValue.match(/session=([^;]+)/)
+    if (!match) return null
+
+    return { cookie: `session=${match[1]}`, csrfToken }
   } catch {
     return null
   }
@@ -69,33 +85,30 @@ export async function createAuthCookieWithCsrfForUser(
   email: string,
 ): Promise<{ cookie: string; csrfToken: string } | null> {
   try {
-    let result = await db.exec('SELECT id, token_version FROM users WHERE email = $1', [email])
-    let rows = (result.rows ?? []) as { id: number; token_version: number }[]
+    let result = await db.exec('SELECT id, role, token_version FROM users WHERE email = $1', [
+      email,
+    ])
+    let rows = (result.rows ?? []) as { id: number; role: string; token_version: number }[]
     if (rows.length === 0) return null
-    return await createAuthCookieWithCsrfForUserRow(rows[0].id, rows[0].token_version ?? 1)
+
+    let user = rows[0]
+    let csrfToken = generateCsrfToken()
+
+    let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
+    session.set('auth', { userId: user.id, tv: user.token_version ?? 1 })
+    session.set('_csrf', csrfToken)
+
+    let sid = await sessionStorage.save(session)
+    if (!sid) return null
+
+    let setCookieValue = await sessionCookie.serialize(sid)
+    let match = setCookieValue.match(/session=([^;]+)/)
+    if (!match) return null
+
+    return { cookie: `session=${match[1]}`, csrfToken }
   } catch {
     return null
   }
-}
-
-async function createAuthCookieWithCsrfForUserRow(
-  userId: number,
-  tokenVersion: number,
-): Promise<{ cookie: string; csrfToken: string } | null> {
-  let csrfToken = generateCsrfToken()
-
-  let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
-  session.set('auth', { userId, tv: tokenVersion })
-  session.set('_csrf', csrfToken)
-
-  let sid = await sessionStorage.save(session)
-  if (!sid) return null
-
-  let setCookieValue = await sessionCookie.serialize(sid)
-  let match = setCookieValue.match(/session=([^;]+)/)
-  if (!match) return null
-
-  return { cookie: `session=${match[1]}`, csrfToken }
 }
 
 /**

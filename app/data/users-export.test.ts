@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from './setup.ts'
 import { pool } from './test-pool.ts'
-import { listUserSummaries } from './users-pdf.ts'
+import { listUserSummariesByDateRange } from './users-export.ts'
 
 describe('users-export', () => {
   before(async () => {
@@ -14,7 +14,7 @@ describe('users-export', () => {
     await pool.query('DELETE FROM users WHERE email LIKE $1', ['test-userexport%@example.com'])
   })
 
-  it('listUserSummaries with a date range returns matching users within range', async () => {
+  it('listUserSummariesByDateRange returns matching users within range', async () => {
     await pool.query(
       `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
        VALUES ($1, $2, $3, 'customer', 1, 1, $4, $4)`,
@@ -35,13 +35,13 @@ describe('users-export', () => {
       [userId, resourceId, '[TEST] Export Appt', apptDate, now],
     )
 
-    let rows = await listUserSummaries(db, { startMs: 0, endMs: apptDate + 1 })
+    let rows = await listUserSummariesByDateRange(db, 0, apptDate + 1)
     assert.ok(rows.length >= 1)
     assert.ok(rows.some((r) => r.email === 'test-userexport-a@example.com'))
   })
 
-  it('listUserSummaries with a date range returns empty for range with no appointments', async () => {
-    let rows = await listUserSummaries(db, { startMs: 1, endMs: 2 })
+  it('listUserSummariesByDateRange returns empty for range with no appointments', async () => {
+    let rows = await listUserSummariesByDateRange(db, 1, 2)
     assert.equal(rows.length, 0)
   })
 })
