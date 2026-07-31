@@ -110,11 +110,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           ) : (
             <ul mix={css({ listStyle: 'none', padding: 0, margin: 0 })}>
               {conversations.map((conv) => {
-                let link = `${routes.mastra.chat.index.href()}?threadId=${conv.id}#chat-end`
+                let link = routes.admin.chatlog.fragments.detail.href({ id: conv.id })
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
-                      <a href={link} mix={conversationLinkStyle}>
+                      <a href={link} rmx-target={frames.adminContent} mix={conversationLinkStyle}>
                         Konversation #{conv.id}
                       </a>
                     </div>

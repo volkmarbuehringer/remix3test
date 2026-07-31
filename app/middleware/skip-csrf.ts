@@ -17,8 +17,8 @@ export function skipCsrf(): Middleware {
       context.url.pathname.startsWith('/testagent/') ||
       context.url.pathname === '/route-agent' ||
       context.url.pathname.startsWith('/route-agent/') ||
-      context.url.pathname === '/mastra/chat' ||
-      context.url.pathname.startsWith('/mastra/chat/') ||
+      context.url.pathname === '/admin/support-agent' ||
+      context.url.pathname.startsWith('/admin/support-agent/') ||
       context.url.pathname === '/admin/workflow-agent' ||
       context.url.pathname.startsWith('/admin/workflow-agent/') ||
       context.url.pathname === '/admin/workflowagent2' ||

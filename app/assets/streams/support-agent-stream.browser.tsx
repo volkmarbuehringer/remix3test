@@ -359,7 +359,7 @@ export const SupportAgentStream = clientEntry(
       if (currentThreadId) body.set('threadId', currentThreadId)
 
       currentAgentMessageEl = null
-      startStream('/mastra/chat/tool-decision', { method: 'POST', body })
+      startStream('/admin/support-agent/tool-decision', { method: 'POST', body })
     }
 
     async function handleAnswer(answer: string) {
@@ -377,7 +377,7 @@ export const SupportAgentStream = clientEntry(
       if (currentThreadId) body.set('threadId', currentThreadId)
 
       currentAgentMessageEl = null
-      startStream('/mastra/chat/answer', { method: 'POST', body })
+      startStream('/admin/support-agent/answer', { method: 'POST', body })
     }
 
     // ── SSE Stream ───────────────────────────────────────────────────
@@ -467,7 +467,8 @@ export const SupportAgentStream = clientEntry(
                 currentAgentMessageEl = null
                 if (!didNavigate) {
                   let container = document.getElementById('support-agent-frame-container')
-                  let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
+                  let activeFrame =
+                    container?.getAttribute('data-active-frame') ?? 'support-agent-panel'
                   let theFrame = handle.frames.get(activeFrame)
                   if (theFrame) theFrame.reload().catch(() => {})
                 }
@@ -506,7 +507,7 @@ export const SupportAgentStream = clientEntry(
       e.preventDefault()
 
       let container = document.getElementById('support-agent-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'admin-content'
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'support-agent-panel'
       let frame = handle.frames.get(activeFrame)
 
       appendStatusMessage('Formular wird gesendet...')
@@ -533,7 +534,7 @@ export const SupportAgentStream = clientEntry(
           body.set('selectionMode', 'single_select')
           if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
           if (currentThreadId) body.set('threadId', currentThreadId)
-          startStream('/mastra/chat/answer', { method: 'POST', body })
+          startStream('/admin/support-agent/answer', { method: 'POST', body })
           return
         }
       } catch (err) {
@@ -565,7 +566,7 @@ export const SupportAgentStream = clientEntry(
       setFormEnabled(false)
       currentAgentMessageEl = null
 
-      startStream('/mastra/chat', { method: 'POST', body: formData })
+      startStream('/admin/support-agent', { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {

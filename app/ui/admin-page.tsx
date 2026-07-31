@@ -82,7 +82,7 @@ export function AdminDashboardContent() {
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Support-Agent</h2>
           <p mix={cardDescStyle}>Frage zu Benutzern, Terminen und Systemdaten.</p>
-          <a href={routes.mastra.chat.index.href()} mix={btnStyle}>
+          <a href={routes.admin.supportAgent.index.href()} mix={btnStyle}>
             Support-Agent öffnen
           </a>
         </div>

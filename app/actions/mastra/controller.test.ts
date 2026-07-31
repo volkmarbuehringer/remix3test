@@ -75,6 +75,24 @@ function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput
   }
 }
 
+function createMockNavigateStreamOutput(path: string, runId?: string): AgentStreamOutput {
+  let id = runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({
+          type: 'tool-result',
+          payload: { result: { type: 'route', path } },
+        })
+        controller.enqueue({ type: 'finish', payload: {} })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text: '', finishReason: 'stop' }),
+  }
+}
+
 // ── Weather tool mock helpers ──
 
 function mockFetchSequence(...responses: Array<() => Promise<Response>>) {
@@ -116,8 +134,8 @@ function jsonResponse(data: unknown): Promise<Response> {
 }
 
 const BASE = 'https://remix.run'
-const CHAT_INDEX_URL = `${BASE}${routes.mastra.chat.index.href()}`
-const CHAT_ACTION_URL = `${BASE}${routes.mastra.chat.action.href()}`
+const CHAT_INDEX_URL = `${BASE}${routes.admin.supportAgent.index.href()}`
+const CHAT_ACTION_URL = `${BASE}${routes.admin.supportAgent.action.href()}`
 
 const JSON_HEADERS = { Accept: 'application/json' }
 
@@ -141,7 +159,7 @@ describe('Mastra Chat controller', () => {
     __setTestAgent(undefined)
   })
 
-  it('GET /mastra/chat redirects to login when not authenticated', async () => {
+  it('GET /admin/support-agent redirects to login when not authenticated', async () => {
     let response = await router.fetch(CHAT_INDEX_URL, { redirect: 'manual' })
     assert.equal(response.status, 302)
     let location = response.headers.get('Location')
@@ -151,7 +169,7 @@ describe('Mastra Chat controller', () => {
     )
   })
 
-  it('POST /mastra/chat returns 403 for non-admin user', async () => {
+  it('POST /admin/support-agent returns 403 for non-admin user', async () => {
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
       headers: { Cookie: userCookie, ...JSON_HEADERS },
@@ -161,7 +179,7 @@ describe('Mastra Chat controller', () => {
     assert.equal(response.status, 403)
   })
 
-  it('POST /mastra/chat with empty message returns SSE error', async () => {
+  it('POST /admin/support-agent with empty message returns SSE error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -180,7 +198,7 @@ describe('Mastra Chat controller', () => {
     assert.ok(data.error, 'error event should include an error message')
   })
 
-  it('POST /mastra/chat with whitespace-only message returns SSE error', async () => {
+  it('POST /admin/support-agent with whitespace-only message returns SSE error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -197,7 +215,7 @@ describe('Mastra Chat controller', () => {
     assert.ok(errorEvent, 'response should include an agent-error event')
   })
 
-  it('POST /mastra/chat triggers rate limit on rapid requests', async () => {
+  it('POST /admin/support-agent triggers rate limit on rapid requests', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -221,7 +239,7 @@ describe('Mastra Chat controller', () => {
     assert.ok(errorEvent, '429 response should include an agent-error event')
   })
 
-  it('POST /mastra/chat with valid message returns SSE stream with response text', async () => {
+  it('POST /admin/support-agent with valid message returns SSE stream with response text', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
@@ -258,7 +276,7 @@ describe('Mastra Chat controller', () => {
     __setTestAgent(undefined)
   })
 
-  it('POST /mastra/chat passes threadId to agent stream options', async () => {
+  it('POST /admin/support-agent passes threadId to agent stream options', async () => {
     let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
       .rows[0]?.id as number
     chatRateLimiter.reset(adminId)
@@ -294,6 +312,39 @@ describe('Mastra Chat controller', () => {
     let { events, text } = await parseSSEResponse(response)
     assert.equal(events[0].type, 'start', 'first event should be start')
     assert.equal(text, 'Continuing conversation.')
+
+    __setTestAgent(undefined)
+  })
+
+  it('POST /admin/support-agent forwards routeNavigate results to the support-agent-panel target', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockNavigateStreamOutput('/admin/users'),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ message: 'show user list', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let navigateEvent = events.find((e) => e.type === 'navigate')
+    assert.ok(navigateEvent, 'response should include a navigate event')
+    let data = JSON.parse(navigateEvent!.data)
+    assert.equal(data.href, '/admin/users')
+    assert.equal(data.target, 'support-agent-panel')
 
     __setTestAgent(undefined)
   })

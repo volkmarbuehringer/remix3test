@@ -1,7 +1,5 @@
 import { del, get, post, put, route, form, resources } from 'remix/routes'
 
-
-
 export const frames = {
   adminContent: 'admin-content',
   listsContent: 'lists-content',
@@ -11,6 +9,7 @@ export const frames = {
 
   workflowAgentPanel: 'workflow-agent-panel',
   agentEventsPanel: 'agent-events-panel',
+  supportAgentPanel: 'support-agent-panel',
 } as const
 
 export const routes = route({
@@ -144,6 +143,14 @@ export const routes = route({
       action: post('/'),
       resume: post('/resume'),
     }),
+
+    supportAgent: route('support-agent', {
+      index: get('/'),
+      panel: get('/panel'),
+      action: post('/'),
+      toolDecision: post('/tool-decision'),
+      answer: post('/answer'),
+    }),
   }),
 
   verwaltung: route('verwaltung', {
@@ -188,16 +195,6 @@ export const routes = route({
     usersExport: route('users-export', {
       index: get('/'),
       create: post('/'),
-    }),
-  }),
-
-  mastra: route('mastra', {
-    chat: route('chat', {
-      index: get('/'),
-      panel: get('/panel'),
-      action: post('/'),
-      toolDecision: post('/tool-decision'),
-      answer: post('/answer'),
     }),
   }),
 

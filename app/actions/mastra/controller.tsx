@@ -1,7 +1,7 @@
 import { createController } from 'remix/router'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
-import { routes } from '../../routes.ts'
+import { routes, frames } from '../../routes.ts'
 import { mastra } from './index.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
@@ -13,7 +13,6 @@ import {
   pipeStream,
   safeClose,
 } from '../../utils/agent-sse.ts'
-import { createLogger } from '../../utils/logger.ts'
 import { runWithAdminId } from './tools/admin-context.ts'
 import {
   MAX_MESSAGE_LENGTH,
@@ -24,18 +23,18 @@ import {
 
 import { logAdminAction } from '../../data/audit-log.ts'
 import { css } from 'remix/ui'
-import { Layout } from '../../ui/layout.tsx'
-import { MastraChatPage } from '../../ui/admin-mastra-chat-page.tsx'
+import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { SupportAgentPage } from '../../ui/support-agent-page.tsx'
 import { theme } from '../../ui/theme/theme.ts'
-import { recallChatMessages } from '../../utils/mastra-memory.ts'
-import { validateThreadId } from '../../utils/thread-id.ts'
-import type { ChatMessage } from '../../types/chatlog.ts'
 import type { TestAgent } from './shared-agent.ts'
 
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
 export { chatRateLimiter }
+
+function getPanelTarget(_path: string): string {
+  return frames.supportAgentPanel
+}
 
 // Test-only agent injection point — setter is a no-op outside test env
 let _testAgent: TestAgent | undefined
@@ -44,7 +43,7 @@ export function __setTestAgent(agent: typeof _testAgent) {
     _testAgent = agent
   }
 }
-export const mastraChat = createController(routes.mastra.chat, {
+export const mastraChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async panel(context) {
@@ -65,38 +64,7 @@ export const mastraChat = createController(routes.mastra.chat, {
     },
 
     async index(context) {
-      let threadId = context.url.searchParams.get('threadId') ?? undefined
-      if (threadId && !validateThreadId(threadId)) threadId = undefined
-      let error = context.url.searchParams.get('error') ?? undefined
-      let isFrameRequest = context.request.headers.has('X-Remix-Target')
-      if (isFrameRequest) {
-        let chatMessages: ChatMessage[] = []
-        if (threadId) {
-          try {
-            let agent = mastra.getAgent('supportAgent')
-            chatMessages = await recallChatMessages(agent, threadId)
-          } catch (error) {
-            // recall failures are non-fatal for the page render
-          }
-        }
-        return context.render(
-          <div
-            mix={css({
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              background: theme.surface.lvl0,
-            })}
-          >
-            <MastraChatPage messages={chatMessages} threadId={threadId} error={error} />
-          </div>,
-        )
-      }
-      return context.render(
-        <Layout title="Support-Agent">
-          <SupportAgentPage />
-        </Layout>,
-      )
+      return renderAdminPage(context.render, 'support', <SupportAgentPage />)
     },
 
     async action(context) {
@@ -173,6 +141,7 @@ export const mastraChat = createController(routes.mastra.chat, {
               controller,
               abortController.signal,
               output.runId,
+              getPanelTarget,
             )
 
             clearTimeout(timeout)
@@ -307,6 +276,8 @@ export const mastraChat = createController(routes.mastra.chat, {
                 result.fullStream as unknown as ReadableStream,
                 controller,
                 context.request.signal,
+                undefined,
+                getPanelTarget,
               )
               return
             }
@@ -390,6 +361,7 @@ export const mastraChat = createController(routes.mastra.chat, {
               controller,
               context.request.signal,
               output.runId,
+              getPanelTarget,
             )
             try {
               controller.enqueue(sseEvent('complete', {}))

@@ -246,7 +246,7 @@ function CapabilitiesSection() {
               !user
                 ? routes.auth.login.index.href()
                 : user.role === 'admin'
-                  ? routes.mastra.chat.index.href()
+                  ? routes.admin.supportAgent.index.href()
                   : undefined
             }
           />

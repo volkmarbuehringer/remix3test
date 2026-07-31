@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { SupportAgentStream } from '../assets/streams/support-agent-stream.browser.tsx'
 
 const pageStyle = css({
@@ -74,12 +74,12 @@ export function SupportAgentPage(handle: Handle) {
     <div mix={pageStyle}>
       <div
         id="support-agent-frame-container"
-        data-active-frame="admin-content"
+        data-active-frame={frames.supportAgentPanel}
         mix={frameContainerStyle}
       >
         <Frame
-          name="admin-content"
-          src={routes.mastra.chat.panel.href()}
+          name={frames.supportAgentPanel}
+          src={routes.admin.supportAgent.panel.href()}
           fallback={
             <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
               Frage zu Benutzern, Terminen und Systemdaten...

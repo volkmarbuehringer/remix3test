@@ -114,9 +114,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.appointment.types, appointmentTypes)
   router.map(routes.appointmentsNew, appointmentsNewController)
 
-  // Mastra Chat route (single AI entry point)
-  router.map(routes.mastra.chat, mastraChat)
-
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
 
@@ -140,6 +137,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Agent Events (experimental event pipeline, admin-only)
   router.map(routes.admin.agentEvents, agentEvents)
+
+  // Support-Agent chat (admin-only, SSE streaming)
+  router.map(routes.admin.supportAgent, mastraChat)
 
   // Verwaltung routes
   router.map(routes.verwaltung, verwaltung.controller)

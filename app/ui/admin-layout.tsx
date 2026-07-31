@@ -33,7 +33,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'chatlog', label: 'Chat-Protokolle', route: routes.admin.chatlog.index },
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
-      { id: 'support', label: 'Support-Agent', route: routes.mastra.chat.index },
+      { id: 'support', label: 'Support-Agent', route: routes.admin.supportAgent.index },
       {
         id: 'workflow',
         label: 'Workflow-Agent',
@@ -249,7 +249,11 @@ export const { renderPage: renderAdminPage, Layout: AdminLayout } =
   createSidebarLayout<AdminNavItem>({
     frameTarget: frames.adminContent,
     acceptFrameTargets: [frames.listsContent],
-    contentOnlyTargets: [frames.agentEventsPanel, frames.workflowAgentPanel],
+    contentOnlyTargets: [
+      frames.agentEventsPanel,
+      frames.workflowAgentPanel,
+      frames.supportAgentPanel,
+    ],
     navGroups: NAV_GROUPS,
     navIcon,
     headerIcon: sidebarHeaderIcon(),
