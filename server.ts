@@ -116,9 +116,6 @@ server.listen(port, host, () => {
     console.log('  Customer: user@newapp.com / password123')
     console.log('')
   }
-  if (process.env.NODE_HMR) {
-    import('remix/node-hmr/runtime').then((m) => m.emitServerReady())
-  }
 })
 
 let shuttingDown = false
