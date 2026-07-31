@@ -1,6 +1,6 @@
 ---
 name: remix3-two-tier-ip-trust-model
-description: 'Two-tier IP source model for Remix 3: trusted TCP socket IP for auth, header fallback chain for logging'
+description: 'Two-tier IP source model for Remix 3: trusted TCP socket IP for auth, header fallback chain for logging; trustProxy must stay false without a stripping reverse proxy'
 user-invocable: false
 origin: auto-extracted
 ---
@@ -81,6 +81,49 @@ Use `sourceIp()` for non-security purposes:
 | `X-Client-Ip` (set by server.ts) | No        | Security decisions |
 | `X-Forwarded-For`                | Yes       | Audit logging only |
 | `X-Real-Ip`                      | Yes       | Audit logging only |
+
+## CRITICAL: `trustProxy` Determines Whether `X-Client-Ip` Is Spoofable
+
+The claim that `X-Client-Ip` "cannot be spoofed" is **only true when
+`trustProxy: false`**. When `createRequestListener` is passed
+`{ trustProxy: true }`, the framework derives `client.address` from the
+client-controlled `X-Forwarded-For` header (falling back to the socket IP
+only when absent). That spoofed value is then stamped into `X-Client-Ip`,
+which silently re-enables every attack the two-tier model was meant to stop:
+
+```ts
+// VULNERABLE — client.address is taken from spoofable X-Forwarded-For
+const handler = createRequestListener(handler, { trustProxy: true })
+```
+
+### Correct server.ts
+
+```ts
+const handler = createRequestListener(
+  async (request, client) => {
+    // Stamped from the real TCP socket; overwrites any client-supplied value
+    request.headers.set('X-Client-Ip', client?.address ?? '')
+    return await router.fetch(request)
+  },
+  { trustProxy: false },
+)
+```
+
+`trustProxy: true` is only safe when a **trusted reverse proxy strips and
+rewrites** `X-Forwarded-For` (e.g. nginx `proxy_set_header`, cloudflare).
+With no such proxy, keep it `false` (default) and always `set()` the header
+so a client can't smuggle its own `X-Client-Ip`.
+
+### Rate limiters must use the socket tier
+
+Key IP-based rate limits on `connectionIp()` (socket tier), not `sourceIp()`
+(header tier). Admin-only agent endpoints (`requireAdmin()`) should skip IP
+entirely and key on `auth.identity.id` with `perUser: true`.
+
+### Detection
+- Login or agent endpoints rate-limited from rotating IPs despite one client
+- `/callback` localhost guard passes for a remote attacker sending
+  `X-Forwarded-For: 127.0.0.1`
 
 ## When to Use
 
