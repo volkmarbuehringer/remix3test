@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
-import { SuperHeaders } from 'remix/headers'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
 import { setStream, getStream } from '../../utils/stream-store.ts'
@@ -11,11 +10,11 @@ import { renderAdminPage, AdminLayout } from '../../ui/admin-layout.tsx'
 import { routes, frames } from '../../routes.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
+import { sseEncoder, sseHeaders } from '../../utils/agent-sse.ts'
 
 const MAX_MESSAGE_LENGTH = 5000
 const testRateLimiter = createRateLimiter({ windowMs: 10_000, perUser: false })
 const requireApproval = (ctx: { toolName: string }) => ctx.toolName === 'mastra_workspace_read_file'
-const sseEncoder = new TextEncoder()
 
 function completedStream(text: string, userId: string | number, runId?: string): StoredStream {
   let id = runId || crypto.randomUUID()
@@ -114,11 +113,7 @@ export default createController(routes.testAgent, {
       }
 
       let request = context.request
-      let headers = new SuperHeaders()
-      headers.contentType = { mediaType: 'text/event-stream' }
-      headers.cacheControl = { noCache: true, noStore: true }
-      headers.connection = 'keep-alive'
-      headers.set('X-Accel-Buffering', 'no')
+      let headers = sseHeaders()
 
       let reader: ReadableStreamDefaultReader<unknown> | undefined
       let controller: ReadableStreamDefaultController

@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { mastra } from '../mastra/index.ts'
-import { sseHeaders, sseErrorResponse, sseEvent } from '../../utils/agent-sse.ts'
+import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
 import { pipeWorkflowStream, type WorkflowResult } from './workflow-sse.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
@@ -481,12 +481,4 @@ function extractJson(text: string): Record<string, unknown> | null {
     } catch {}
   }
   return null
-}
-
-function safeClose(controller: ReadableStreamDefaultController) {
-  try {
-    controller.close()
-  } catch {
-    /* already closed */
-  }
 }

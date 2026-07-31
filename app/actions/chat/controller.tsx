@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
-import { SuperHeaders } from 'remix/headers'
 import { requireAuth } from '../../middleware/auth.ts'
 import { routes } from '../../routes.ts'
 import { mastra } from '../mastra/index.ts'
@@ -18,12 +17,12 @@ import type { ChatMessage } from '../../types/chatlog.ts'
 import type { StoredStream } from '../../utils/stream-store.ts'
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web'
 import { tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
+import { sseEncoder, sseHeaders } from '../../utils/agent-sse.ts'
 
 const CHAT_INDEX = routes.chat.index.href()
 
 export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
 const chatLog = createLogger('[CustomerChat]')
-const sseEncoder = new TextEncoder()
 
 async function drainAndRebuild(stream: unknown): Promise<ReadableStream<unknown>> {
   let parts: unknown[] = []
@@ -175,11 +174,7 @@ export const customerChat = createController(routes.chat, {
       }
 
       let request = context.request
-      let headers = new SuperHeaders()
-      headers.contentType = { mediaType: 'text/event-stream' }
-      headers.cacheControl = { noCache: true, noStore: true }
-      headers.connection = 'keep-alive'
-      headers.set('X-Accel-Buffering', 'no')
+      let headers = sseHeaders()
 
       let reader: ReadableStreamDefaultReader<unknown> | undefined
       let controller: ReadableStreamDefaultController

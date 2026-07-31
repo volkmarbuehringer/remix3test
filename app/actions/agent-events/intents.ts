@@ -10,9 +10,3 @@ export const INTENT_TO_ACTION: Record<string, string> = {
   [INTENTS.LOCK_USER]: 'lock',
   [INTENTS.UNLOCK_USER]: 'unlock',
 }
-
-export const ACTION_EXECUTORS: Record<string, string> = {
-  cancel: 'executeCancelUserWorkflow',
-  lock: 'executeLockUserWorkflow',
-  unlock: 'executeUnlockUserWorkflow',
-}

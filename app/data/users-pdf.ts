@@ -10,10 +10,24 @@ export interface UserSummaryRow {
   last_date: number | null
 }
 
+export interface ListUserSummariesOptions {
+  /** Optional start boundary (ms epoch). When set, only users with appointments in the range are returned. */
+  startMs?: number
+  /** Optional end boundary (ms epoch, exclusive). */
+  endMs?: number
+  limit?: number
+}
+
 export async function listUserSummaries(
   db: Database,
-  limit: number = 10000,
+  options: ListUserSummariesOptions = {},
 ): Promise<UserSummaryRow[]> {
+  let { startMs, endMs, limit = 10000 } = options
+  let hasRange = startMs != null && endMs != null
+  let join = hasRange ? 'INNER JOIN' : 'LEFT JOIN'
+  let where = hasRange ? 'WHERE a.date >= $1 AND a.date < $2' : ''
+  let params: unknown[] = hasRange ? [startMs, endMs, limit] : [limit]
+
   let result = await db.exec(
     `SELECT u.id AS user_id, u.name, u.email,
             COUNT(a.id)::int AS appointment_count,
@@ -21,11 +35,12 @@ export async function listUserSummaries(
             MIN(a.date) AS first_date,
             MAX(a.date) AS last_date
      FROM users u
-     LEFT JOIN appointments a ON a.user_id = u.id
+     ${join} appointments a ON a.user_id = u.id
+     ${where}
      GROUP BY u.id, u.name, u.email
      ORDER BY u.name ASC
-     LIMIT $1`,
-    [limit],
+     LIMIT $${hasRange ? 3 : 1}`,
+    params,
   )
   return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     user_id: Number(row.user_id),

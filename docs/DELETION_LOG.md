@@ -111,3 +111,48 @@ Refactored 3 agent controllers (`route-agent`, `workflow-agent`, `mastra`) to us
 - Net reduction: ~282 lines
 - TypeScript: clean compile
 - Tests: all passing (pre-existing DB contention failures in parallel runs only)
+
+## [2026-07-31] Refactor Session — Dead Code Cleanup & Consolidation
+
+### Dead Files Deleted
+- `app/actions/mastra/scorers/workflow-scorers.ts` — 3-line stub (`protocolAdherenceScorer`) never imported by `mastra/index.ts` or any test
+
+### Dead Exports Removed
+- `ACTION_EXECUTORS` — `app/actions/agent-events/intents.ts:14-18` — leftover from an earlier executor-map design; `handlers/execute.ts` hardcodes its executor map instead
+
+### Unused Exports Made Private
+- `writeEvent` — `app/actions/workflow-agent/workflow-sse.ts:3` (used only in-module)
+- `checkLockedUsersPendingAppointments`, `checkActiveUsersPendingAppointments`, `UserWithPending` — `app/actions/mastra/workflows/consistency-check-workflow.ts` (used only in-module via `.parallel(...)`)
+- `ErrorCode` — `app/actions/mastra/tools/errors.ts:3` (used only in-module by `errorEnvelope`)
+
+### Duplicate SSE Helpers Consolidated
+- `safeClose` — local copies in `app/actions/workflow-agent/controller.tsx:486` and `app/actions/workflow-agent/workflow-sse.ts:157` replaced by the canonical `safeClose` from `app/utils/agent-sse.ts`
+- `sseEncoder` — local `const sseEncoder = new TextEncoder()` in `app/actions/chat/controller.tsx:26` and `app/actions/test-agent/controller.tsx:18` replaced by canonical `sseEncoder` from `app/utils/agent-sse.ts`
+- Inline SSE `SuperHeaders` construction in `chat/controller.tsx:178-182` and `test-agent/controller.tsx:117-121` replaced by `sseHeaders()` from `app/utils/agent-sse.ts`
+
+### Near-Identical Query Merged
+- `app/data/users-export.ts` — DELETED. `listUserSummariesByDateRange` merged into `listUserSummaries(db, { startMs, endMs })` in `app/data/users-pdf.ts` (LEFT JOIN when no range; INNER JOIN + WHERE when a range is given — preserves both previous behaviors)
+- `app/actions/verwaltung/users-export/controller.tsx` — updated import and call site
+- `app/data/users-export.test.ts` — updated import and call site (behavior unchanged)
+
+### Duplicate Test Helper Consolidated
+- `app/test-utils.ts` — `createAuthCookieWithCsrf` and `createAuthCookieWithCsrfForUser` now share one private `createAuthCookieWithCsrfForUserRow` helper; both public functions keep their exact behavior (first-admin vs by-email lookup)
+
+### Items Reported But Left As-Is
+- `requireCurrentUserId` — `app/actions/mastra/tools/customer-tools.ts:15` — destructured from the same `createAsyncStorage('customer')` call as `runWithUserId`; un-exporting would require splitting the binding (risk of creating a second storage instance)
+- `NotificationResult`, `MastraSuspendableResult`, `SuccessResult` — part of exported interfaces'/functions' public type signatures
+- `GlyphSymbol` / `GlyphName` re-exports — `app/ui/theme/glyph-contract.ts` / `glyph/glyph.tsx` — theme contract public API
+- `resetTestDatabase` — `app/data/setup.ts:10` — used via dynamic import from `test/setup.ts`
+- `app/assets/entry.tsx` — wired via `app/assets.ts`, `app/middleware/asset-entry.ts`, and `app/ui/document.tsx`
+- `app/actions/auth/auth.test.e2e.ts`, `app/actions/auth/inspect.test.e2e.ts`, `app/ui/appointment-grid.test.browser.ts` — matched by remix.json test globs, actively run
+- `.tsx` test files not matched by remix.json `.ts`-only globs: `app/actions/nutzer/controller.test.tsx`, `app/ui/csrf-token-input.test.tsx`, `app/ui/forbidden-page.test.tsx`, `app/assets/streams/streams.test.browser.tsx`, `app/ui/appointment-grid-gestures.test.browser.tsx` (plus their helpers `app/test-utils/sse-mock.ts`, `app/ui/appointment-grid-test-helpers.ts`) — real test coverage; the test-config globs would need to become `{ts,tsx}` to run them. Config change left out of scope.
+- Dev dependencies `@fission-ai/openspec`, `openspec`, `@playwright/test` — used by openspec/playwright tooling configs; removal could break tooling
+- `closeAppDatabase` no-op body — `app/data/connection.ts:28-30` — behavior change, out of scope
+
+### Impact
+- Files deleted: 2
+- Lines of code removed: ~180
+- Net reduction: ~180 lines
+- TypeScript: clean compile (`npm run typecheck`)
+- Lint: clean (`npm run lint`)
+- Tests: 88 files / 1039 tests — 1038 pass, 0 fail (same as baseline)
