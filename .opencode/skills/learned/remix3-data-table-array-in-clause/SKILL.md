@@ -1,10 +1,10 @@
 ---
 name: remix3-data-table-array-in-clause
-description: 'Use db.exec with explicit IN ($1,$2) when querying by multiple IDs — db.findMany({where:{id:ids}}) silently breaks'
+description: 'Query by multiple IDs with db.findMany({ where: inList("id", ids) }) — the vendor array operator — falling back to db.exec = ANY($1) only for order-preserving results'
 origin: auto-extracted
 ---
 
-# Remix Data-Table: Array `IN` Clauses Need `db.exec`, Not `db.findMany`
+# Remix Data-Table: Array `IN` Clauses
 
 **Extracted:** 2026-07-13
 **Context:** Querying rows by multiple IDs using `@remix-run/data-table`'s `db.findMany`
@@ -17,9 +17,24 @@ Passing an array of IDs to `db.findMany({ where: { id: [1, 2, 3] } })` produces 
 error: ungültige Eingabesyntax für Typ integer: »{"1","2","3"}«
 ```
 
-## Solution
+## Solution (primary): `inList()` operator
 
-Use `db.exec` with PostgreSQL's `= ANY($1)` syntax. The `pg` driver binds JS arrays correctly — no dynamic placeholders needed:
+The vendor data-table package exports the canonical array-membership operator `inList()` (`~/remix/packages/data-table/src/index.ts`, documented in the `data-and-validation` reference). `WhereInput` accepts a `Predicate` directly, so pass `inList(...)` as the whole `where` value — not as a nested `{ id: ... }` object:
+
+```typescript
+import { inList } from 'remix/data-table/operators'
+import { lists } from './schema.ts'
+
+let result = await db.findMany(lists, {
+  where: inList('id', ids),
+})
+```
+
+`inList(column, values)` builds an `IN` predicate (`valueType: 'value'`), so the adapter expands the values into a proper `IN` clause instead of a single array literal.
+
+## Fallback (only when result order matters): `db.exec` + `= ANY($1)`
+
+`inList()` does not preserve the input ID order — rows come back in table order. If you need results in the exact order of the `ids` array, fall back to `db.exec` with `array_position`:
 
 ```typescript
 import { lists } from './schema.ts'
@@ -52,6 +67,10 @@ Key points:
 
 ## When to Use
 
-- Querying `db.findMany` or `db.findOne` with `where: { column: arrayValue }`
+- Querying `db.findMany` or `db.findOne` with a multi-ID filter — use `where: inList('id', ids)`
 - Error message contains `ungültige Eingabesyntax für Typ integer` with a JSON array string like `'{"1","2","3"}'`
-- Any query that needs results in a specific ID order
+- Results must be in the exact input-ID order — use the `db.exec` `array_position` variant
+
+## Related
+
+- `remix-database-errors` — unwrapping `DataTableAdapterError` causes and PostgreSQL error codes

@@ -4,7 +4,7 @@ description: 'Use .source/.toJSON() not .pathname.tokens after RoutePattern beco
 origin: auto-extracted
 ---
 
-# RoutePattern Opaque Type — Public API Access
+# RoutePattern Opaque Type — Migration Warning
 
 **Extracted:** 2026-06-19
 **Context:** When updating remix dependency and RoutePattern becomes opaque (hides internal `pathname.tokens`)
@@ -18,15 +18,9 @@ Code that accesses `route.pattern.pathname.tokens` directly to inspect a route's
 let tokens = route.pattern.pathname.tokens
 ```
 
-## Solution
+## Migration
 
-Use the public API — `source`, `toString()`, or `toJSON()` — with string manipulation instead of token-level access.
-
-| Public API                        | Returns                      | Example                                |
-| --------------------------------- | ---------------------------- | -------------------------------------- |
-| `route.pattern.source`            | Normalized pattern string    | `/admin/fragments/user-detail/:userId` |
-| `route.pattern.toString()`        | Same as `.source`            | `/admin/fragments/user-detail/:userId` |
-| `route.pattern.toJSON().pathname` | Pathname without leading `/` | `admin/fragments/user-detail/:userId`  |
+Migrating from remix v3.0.0-beta.4 to beta.5+ made RoutePattern opaque. For the public API surface (`source`, `toString()`, `toJSON()`), see `~/remix/packages/route-pattern/README.md`. The migration delta here is the string-based rewrite technique:
 
 **Before** (token walking):
 

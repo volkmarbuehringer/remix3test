@@ -23,89 +23,9 @@ Covers five aspects of Mastra tools:
 
 You have a Mastra agent with a destructive tool (delete user, cancel account, etc.). You want a hard approval gate — the tool must NOT execute unless an admin explicitly confirms via a button in the UI. Your controller uses `agent.generate()` (not `stream()`), and you don't want to refactor to streaming.
 
-### Solution
+### Basic API
 
-#### 1. Add `requireApproval: true` to the tool definition
-
-```typescript
-const destructiveTool = createTool({
-  id: 'delete_record',
-  description: 'Delete a record by ID.',
-  requireApproval: true,
-  inputSchema: z.object({ id: z.string() }),
-  execute: async ({ id }) => {
-    await db.delete(id)
-    return { deleted: true }
-  },
-})
-```
-
-#### 2. Call `generate()` WITHOUT `requireToolApproval`
-
-```typescript
-let result = await agent.generate(message, {
-  maxSteps: 10,
-  memory: { thread: threadId, resource: String(userId) },
-  // ⚠️ Do NOT pass requireToolApproval: true here
-  //    That makes ALL tool calls require approval, not just the gated one
-})
-```
-
-`requireToolApproval: true` on `generate()` overrides and suspends **every** tool call regardless of the tool's individual `requireApproval` setting. Without it, only tools with `requireApproval: true` suspend.
-
-#### 3. Detect suspension and store state
-
-```typescript
-if (result.finishReason === 'suspended') {
-  let suspendPayload = result.suspendPayload as { toolCallId?: string } | undefined
-  let toolCallId = suspendPayload?.toolCallId
-
-  session.flash('toolApproval', {
-    runId: result.runId,
-    toolCallId,
-    responseText: result.text,
-  })
-
-  return redirect('/chat?pending=true')
-}
-```
-
-#### 4. Resume on approval/decline — use the GENERATE variants
-
-```typescript
-// ✅ CORRECT — generate variants
-await agent.approveToolCallGenerate({ runId, toolCallId })
-await agent.declineToolCallGenerate({ runId, toolCallId })
-
-// ❌ WRONG — these are for stream()-suspended runs, not generate()-suspended
-await agent.approveToolCall({ runId })
-await agent.declineToolCall({ runId })
-```
-
-Both `approveToolCallGenerate` and `declineToolCallGenerate` return `FullOutput` with `.text`, matching the `generate()` calling pattern.
-
-#### 5. Preserve AsyncLocalStorage context on resume
-
-If the tool's `execute` function reads from `AsyncLocalStorage` (e.g., `requireAdminId()`), the resume call must wrap in that same context:
-
-```typescript
-let result = await runWithAdminId(user.id, () =>
-  agent.approveToolCallGenerate({ runId, toolCallId }),
-)
-```
-
-#### 6. UI approval card (server-rendered)
-
-```
-<form method="POST" action="/chat/approve">
-  <input type="hidden" name="runId" value="..." />
-  <input type="hidden" name="toolCallId" value="..." />
-  <input type="hidden" name="_csrf" value="..." />
-  <button type="submit">✔ Bestätigen</button>
-</form>
-```
-
-The `_csrf` token is critical — server-rendered POST forms still need CSRF protection on the approval endpoints.
+For the base approval API — `requireApproval: true` on the tool definition, `finishReason: 'suspended'` + `suspendPayload` detection, `approveToolCallGenerate`/`declineToolCallGenerate` resume methods, and the `requireToolApproval` generate-time override — see the authoritative `node_modules/@mastra/core/dist/docs/references/docs-agents-agent-approval.md`. The delta subsections below capture the hard-won nuances that doc doesn't cover.
 
 ### Detached `this` Binding on approve/decline
 

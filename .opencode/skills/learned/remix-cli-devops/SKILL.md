@@ -18,6 +18,8 @@ Covers `remix/cli` and `remix/node-tsx`.
 
 Programmatic: `import { runRemix } from 'remix/cli'`
 
+> **Note — multiple route trees:** When `routes.ts` exports multiple named route trees (e.g., `routes`, `adminRoutes`, `aiRoutes` composed via `router.map()`), `remix routes` only discovers the **first/default** export. It cannot see independently mounted trees — they work at runtime but don't appear in CLI output. Don't treat missing routes in `remix routes` as a wiring error.
+
 ## node-tsx
 
 Register the TypeScript/JSX loader to run `.ts`, `.tsx`, `.jsx` files directly:

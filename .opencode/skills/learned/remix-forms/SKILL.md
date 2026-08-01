@@ -19,47 +19,20 @@ Covers four aspects of Remix 3 forms and data:
 
 ## Part 1: `remix/data-schema`: `.optional()` is a Top-Level Function
 
-### Problem
+### Gotcha
 
-When writing a schema with optional fields:
-
-```ts
-import * as s from 'remix/data-schema'
-
-const mySchema = s.object({
-  name: s.string().optional(), // ❌ TS error
-})
-```
-
-TypeScript reports:
-
-```
-Property 'optional' does not exist on type 'Schema<unknown, string>'
-```
-
-This is misleading — it suggests `.optional()` doesn't exist at all, when in fact it exists but as a **top-level function**, not a method on the schema object.
-
-The same applies to `.nullable()`.
-
-### Solution
-
-Use `s.optional(...)` wrapping the schema expression, not `.optional()` as a method call:
+TypeScript reports `Property 'optional' does not exist on type 'Schema<unknown, string>'` when using `.optional()` as a method. It exists — but as a **top-level function**, not a method. Use `s.optional(...)` wrapping the schema expression:
 
 ```ts
 import * as s from 'remix/data-schema'
 
 const mySchema = s.object({
-  name: s.optional(s.string()), // ✅ Correct
-  age: s.optional(s.number()), // ✅
+  name: s.optional(s.string()), // ✅ not s.string().optional()
   tags: s.optional(s.array(s.string())),
 })
 ```
 
-Both `s.optional()` and `s.nullable()` are exported from `remix/data-schema` as standalone functions:
-
-```ts
-export { ..., optional, nullable, ... } from 'remix/data-schema'
-```
+Both `s.optional()` and `s.nullable()` are exported as standalone functions. For the full API, see `~/remix/packages/data-schema/README.md`.
 
 ---
 
@@ -456,3 +429,4 @@ The routing card renders only on the first GET after the POST. On refresh, the f
 - `remix-createController-requires-route-map` — `form()` routes need `createController`
 - `remix3-cliententry-drag-and-drop` — clientEntry lifecycle and `ref()` usage
 - `remix-frame-input-value-preservation` — input value behavior across frame reloads
+- `form-error-handling-remix3` — `parseSafe` validation re-render, `coerce.number()` empty-select pitfall, `<select selected>` type coercion

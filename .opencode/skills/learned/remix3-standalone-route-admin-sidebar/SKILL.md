@@ -1,6 +1,6 @@
 ---
 name: remix3-standalone-route-admin-sidebar
-description: 'Add standalone routes to Remix 3 admin sidebar with SSE and client IP'
+description: 'Add standalone routes to Remix 3 admin sidebar with SSE auth (401, not redirect) and iframeNav: false'
 origin: auto-extracted
 ---
 
@@ -18,6 +18,8 @@ Additionally, SSE endpoints linked from admin pages need authentication, but `Ev
 ## Solution
 
 ### 1. Register standalone routes outside the route tree
+
+Direct registration via `router.get()`/`router.post()` and `router.map()` composition of multiple named route-tree exports is covered by the vendor `remix` skill and guide chapter 02 ("Mapping controllers"). See also the `remix-cli-devops` note on CLI route-tree discovery.
 
 ```tsx
 // app/routes.ts — export standalone routes separately
@@ -102,36 +104,13 @@ Auth state check behavior:
 | No valid session           | `{ ok: false }` (no `user` prop) | 401            |
 | Valid session              | `{ user: {...} }`                | passes through |
 
-### 4. Client IP extraction with socket fallback
+### 4. Client IP extraction
 
-When `X-Forwarded-For` and `X-Real-Ip` are unavailable (direct connections), fall back to the TCP socket remote address:
-
-```tsx
-// server.ts
-const handler = createRequestListener(
-  async (request, client) => {
-    if (client?.address) {
-      request.headers.set('X-Client-Ip', client.address)
-    }
-    return await router.fetch(request)
-  },
-  { trustProxy: true },
-)
-```
-
-Then in your handler:
-
-```tsx
-let sourceIp =
-  context.request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
-  context.request.headers.get('X-Real-Ip') ??
-  context.request.headers.get('X-Client-Ip') ??
-  ''
-```
+For client IP extraction, use the corrected two-tier trust model — see `remix3-two-tier-ip-trust-model`. Do NOT enable `trustProxy: true` without a stripping reverse proxy; it allows client spoofing of forwarded headers.
 
 ### 5. Rendering standalone pages
 
-Standalone routes render their own Document + Layout — no `renderAdminPage`:
+Standalone routes render their own Document + Layout — no `renderAdminPage`. This matches the standard "Document shells" / "Rendering pages through request context" patterns in guide chapter 04:
 
 ```tsx
 export const myHandler = createAction<typeof myRoute, AppContext>(

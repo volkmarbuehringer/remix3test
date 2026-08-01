@@ -7,39 +7,7 @@ description: Use `remix/html-template` for safe HTML template literals with auto
 
 Covers `remix/html-template`.
 
-## Safe HTML
-
-Auto-escapes interpolated values:
-
-```ts
-import { html } from 'remix/html-template'
-
-let userInput = '<script>alert("XSS")</script>'
-let greeting = html`<h1>Hello ${userInput}!</h1>`
-// <h1>Hello &lt;script&gt;alert("XSS")&lt;/script&gt;!</h1>
-```
-
-## Raw HTML (Trusted Sources Only)
-
-```ts
-let trustedIcon = '<svg>...</svg>'
-html.raw`<button>${trustedIcon} Click me</button>`
-```
-
-## Composition and Arrays
-
-```ts
-let title = html`<h1>Title</h1>`
-let list = html`<ul>
-  ${items.map((i) => html`<li>${i}</li>`)}
-</ul>`
-let page = html`<!doctype html>
-  <html>
-    ${title}${list}
-  </html>`
-```
-
-Conditionals: use `null`/`undefined` to skip.
+For the safe-HTML tagged-template API (`html\`...\`` auto-escaping, `html.raw` for trusted sources, composition/arrays, conditional `null`/`undefined`), see `~/remix/packages/html-template/README.md`.
 
 ## Standalone Error Pages
 
@@ -54,7 +22,7 @@ return new Response(
       <html lang="de">
         <head>
           <meta charset="utf-8" />
-          <title>Serverfehler — newapp</title>
+          <title>Serverfehler</title>
           <style>
             body {
               font-family: 'JetBrains Mono', ui-monospace, monospace;

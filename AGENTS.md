@@ -27,7 +27,7 @@ When you need API docs or usage examples for a `remix/*` subpath:
 
 ## Building Features
 
-Refer to `.opencode/skills/remix/SKILL.md` (plus 11 specialized skills: remix3-multiple-route-trees, remix-cli-devops, remix-cookies, remix-demos, remix-fetch-proxy, remix-file-uploads, remix-headers, remix-html-template, remix-render-middleware, remix-response-helpers, remix-security-middleware)
+Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix-cli-devops, remix-file-uploads, remix-headers, remix-html-template, remix-security-middleware). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
 
 ## Starter Layout
 

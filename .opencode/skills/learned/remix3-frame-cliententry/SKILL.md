@@ -7,7 +7,7 @@ origin: consolidated
 
 # Remix 3 Frame Navigation & clientEntry Patterns
 
-Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: POST submissions bypass Frame interception entirely, `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, binary downloads, and mobile hamburger navigation.
+Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: POST submissions bypass Frame interception entirely, `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, and `rmx-document` escapes for binary downloads and cross-section links.
 
 ## Table of Contents
 
@@ -20,8 +20,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
 - [Inline-Edit Server-Rendered Table Cells](#inline-edit-server-rendered-table-cells)
 - [on Mixin Requires clientEntry](#on-mixin-requires-cliententry)
-- [Binary File Downloads in Frames](#binary-file-downloads-in-frames)
-- [Mobile Nav Hamburger](#mobile-nav-hamburger)
+- [rmx-document: Binary Downloads & Cross-Section Links](#rmx-document-binary-downloads--cross-section-links)
 - [HTML5 Drag and Drop in clientEntry](#html5-drag-and-drop-in-cliententry)
 - [Fragment Scrolling Inside Overflow Containers](#fragment-scrolling-inside-overflow-containers)
 - [Verifying Frame-Rendered HTML in Tests](#verifying-frame-rendered-html-in-tests)
@@ -922,69 +921,11 @@ if (contentType.includes('application/json')) {
 
 ### Problem
 
-Using the `on` event mixin from `remix/ui` in a server-rendered Remix 3 component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Attempts to use raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors.
-
-#### What was tried (all failed)
-
-```tsx
-// ❌ TypeScript error — 'onsubmit' not a valid prop
-<form onsubmit="return confirm('Wirklich löschen?')">
-
-// ❌ Compiles, but handler never fires (server-rendered component)
-import { on } from 'remix/ui'
-<form mix={on('submit', (e) => { if (!confirm('...')) e.preventDefault() })}>
-
-// ❌ Same — compiles but never fires
-<Button mix={on('click', () => { if (!confirm('...')) return })}>
-```
-
-### Root Cause
-
-The `on` mixin generates event handler code that only gets hydrated when the component is a `clientEntry`. In server-rendered components, the mixin output is static HTML with no client-side JavaScript to attach the handler.
+Using the `on` event mixin from `remix/ui` in a server-rendered component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors. The `on` mixin's handler code only gets hydrated when the component is a `clientEntry` — otherwise the mixin output is static HTML with no client-side JS.
 
 ### Solution
 
-Wrap the interactive element in a `clientEntry` component. This is the established pattern in the codebase (see `admin-action-button.tsx`, `admin-offerings-context-menu.tsx`).
-
-```tsx
-// ✅ Works — clientEntry ensures the on() handler is hydrated
-import { clientEntry, on, type Handle, type SerializableProps } from 'remix/ui'
-import { Button } from 'remix/ui/button'
-
-interface DeleteButtonProps extends SerializableProps {
-  csrfToken: string
-  offset: string
-  sort: string
-  order: string
-  filter: string
-  period: string
-}
-
-export const DeletePastButton = clientEntry(
-  import.meta.url + '#DeletePastButton',
-  function DeletePastButton(handle: Handle<DeleteButtonProps>) {
-    return () => {
-      let clickHandler = on<HTMLButtonElement>('click', () => {
-        if (!confirm('Wirklich löschen?')) return
-        // Build and submit form programmatically, or use fetch()
-        let form = document.createElement('form')
-        form.method = 'POST'
-        form.action = '/target/url'
-        // ... add hidden inputs ...
-        document.body.appendChild(form)
-        form.submit()
-        form.remove()
-      })
-
-      return (
-        <Button type="button" tone="danger" mix={clickHandler}>
-          Löschen
-        </Button>
-      )
-    }
-  },
-)
-```
+Wrap the interactive element in a `clientEntry` component. Props must extend `SerializableProps` (strings, numbers, booleans, null — no functions), and the entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (see `admin-action-button.tsx`).
 
 #### Where to Mount Global clientEntry Behaviors
 
@@ -1009,61 +950,40 @@ export function Document(handle: Handle<DocumentProps>) {
 
 Remove duplicate mounts from `<Layout>` — `<Document>` is the single root wrapper for all routes, and `clientEntry` components use an `initialized` flag to prevent duplicate hydration.
 
-**Key points:**
-
-- Props must extend `SerializableProps` (strings, numbers, booleans, null — no functions)
-- Use `import.meta.url + '#ComponentName'` as the entry ID
-- The `on` handler is written in setup scope (inside the `return () => {` closure) so it has stable references
-- For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (see `admin-action-button.tsx`)
-
 ### When to Use
 
-- Adding `confirm()` dialogs to admin action buttons
-- Any event-driven interactivity (click, submit, input) in server-rendered Remix 3 pages
 - When `on` mixin compiles but the handler doesn't fire — immediately suspect missing `clientEntry`
-- Before reaching for inline `<script>` tags or raw DOM manipulation outside the component system
+- Adding `confirm()` dialogs to admin action buttons
+- Mounting a global behavior `clientEntry` so it hydrates on every page (Document, not Layout)
 
 (Consolidated from `remix-on-mixin-requires-cliententry`)
 
 ---
 
-## Binary File Downloads in Frames
+## rmx-document: Binary Downloads & Cross-Section Links
 
-# Binary File Downloads in Remix 3 Frame Navigation
-
-**Context:** Adding a PDF download route to a Remix 3 app that uses `<Frame>` navigation — the frame router intercepted the link click and tried to render the binary PDF response as HTML, causing `Node.insertBefore: Cannot insert a Text as a child of a Document`.
+**Context:** Links inside Frame contexts to binary download endpoints or to a different Frame-relay section crash or freeze the browser when the frame router intercepts them.
 
 ### Problem
 
-When a Remix 3 app uses `<Frame>` navigation, clicking a link to a binary download endpoint (PDF, CSV, ZIP, etc.) causes the frame router to:
+Remix's frame router intercepts `<a>` clicks, fetches the URL with `Accept: text/html` + `X-Remix-Frame: true`, and parses the response as a component tree. Two failure modes:
 
-1. Intercept the click
-2. Fetch the URL with `Accept: text/html` and `X-Remix-Frame: true` headers
-3. Try to parse the binary response as a component tree
-
-This produces a cryptic DOM error: `Node.insertBefore: Cannot insert a Text as a child of a Document`
-
-The same URL works on browser reload because the full-page navigation skips the frame router.
+1. **Binary download → DOM crash**: Clicking a link to a PDF/CSV/ZIP endpoint makes the router try to mount the binary response as HTML, producing `Node.insertBefore: Cannot insert a Text as a child of a Document`. The same URL works on reload because full-page navigation skips the frame router.
+2. **Cross-section link → 100% CPU loop**: A plain `<a>` navigating to a different Frame-relay section triggers a frame-resolution loop (destination returns another `<Frame>`, which resolves to another...). Symptoms: server returns 200 for all requests, the tab pegs at 100% CPU and freezes, clientEntry data fetches never fire.
 
 ### Solution
 
-Two changes are needed — one on the link, one on the server:
-
-#### 1. Bypass frame navigation on the link
-
-Add `rmx-document` attribute to any `<a>` tag pointing to a binary download:
+The `rmx-document` attribute tells the Remix navigation runtime to skip frame interception for that link (`navigation.ts: if (linkElement.hasAttribute('rmx-document')) return`), forcing a normal document-level navigation:
 
 ```tsx
-<a href={routes.export.pdf.index.href()} rmx-document>
-  PDF herunterladen
-</a>
+<a href={routes.export.pdf.index.href()} rmx-document>PDF herunterladen</a>
+
+<a href={`/lists?load=${row.id}`} target="_top" rmx-document>{row.description}</a>
 ```
 
-This tells the Remix navigation runtime to skip frame interception for this link (handled in `navigation.ts` line 148: `if (linkElement.hasAttribute('rmx-document')) return`).
+#### Guard the controller against frame requests
 
-#### 2. Guard the controller against frame requests
-
-If someone navigates to the URL directly while inside a frame (e.g., types it in the address bar), the request still carries `X-Remix-Frame: true`. Redirect to force a full-page navigation:
+If the URL is reached directly while inside a frame, the request still carries `X-Remix-Frame: true`. Redirect to force a full-page navigation:
 
 ```tsx
 async index(context) {
@@ -1078,90 +998,9 @@ async index(context) {
 }
 ```
 
-#### Full example
+#### Conditionally apply `rmx-document` in shared navigation
 
-```tsx
-// Controller
-export default createController(routes.export.pdf, {
-  middleware: [requireAuth()],
-  actions: {
-    async index(context) {
-      if (context.request.headers.get('X-Remix-Frame') === 'true') {
-        let url = new URL(context.url)
-        return new Response(null, {
-          status: 302,
-          headers: { Location: url.href },
-        })
-      }
-      let buffer = await generatePdf()
-      return new Response(new Uint8Array(buffer), {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': 'attachment; filename="export.pdf"',
-        },
-      })
-    },
-  },
-})
-```
-
-#### Error symptom
-
-```
-Error: Node.insertBefore: Cannot insert a Text as a child of a Document
-```
-
-This error appears in the browser when the frame router tries to mount binary data as a component tree. If you see it, check whether the URL is a binary download being loaded through frame navigation.
-
-### When to Use
-
-- Adding any route that returns binary content (`Content-Type: application/pdf`, `text/csv`, `application/zip`, etc.) in a Remix 3 app that uses `<Frame>` navigation
-- Debugging `Node.insertBefore` DOM errors in a Remix 3 app
-- When a download link works on page reload but crashes on first click from a frame context
-
-(Consolidated from `remix-frame-binary-download`)
-
----
-
-## Cross-Section Navigation CPU Loop
-
-**Context:** Navigating between different Frame-relay sections (e.g., admin ↔ lists) using plain `<a>` tags causes 100% CPU and browser freeze
-
-### Problem
-
-Plain `<a>` tags inside Frame contexts that navigate to a different Frame-relay section lack `rmx-document`. Remix 3's click interceptor treats them as frame navigations, which triggers a frame-resolution loop:
-
-```
-1. Remix intercepts plain <a> click inside a Frame
-2. Without rmx-document, does frame-based navigation to new URL
-3. Destination URL also uses Frame relay (returns <Frame> element)
-4. Remix resolves that Frame, which contains another <Frame>
-5. Infinite frame-resolution loop → 100% CPU → browser frozen
-```
-
-**Symptoms:**
-
-- Server returns 200 for all requests (server is fine)
-- Browser tab pegs at 100% CPU, completely unresponsive
-- Console: `[AdminViewToggle] Cleaned up, total cleanups: 1`
-- ClientEntry data fetches never fire (e.g., no `/lists/:id/data` request)
-- Browser error: "excessive CPU usage"
-
-### Solution
-
-#### 1. Add `rmx-document` to `target="_top"` links inside Frames
-
-```tsx
-<a href={`/lists?load=${row.id}`} target="_top" rmx-document>
-  {row.description}
-</a>
-```
-
-The `rmx-document` attribute causes Remix to skip frame interception for this link (`navigation.ts` line 148: `if (linkElement.hasAttribute('rmx-document')) return`), allowing the browser to perform a normal document-level navigation.
-
-#### 2. Conditionally apply `rmx-document` in shared navigation
-
-For components rendered across all sections (e.g., MainNav), apply `rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section.
+For components rendered across sections (e.g., MainNav), apply `rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section:
 
 ```typescript
 let currentPath = new URL(getContext().request.url).pathname
@@ -1182,235 +1021,13 @@ let isCrossSection = (href: string) => {
 
 ### When to Use
 
+- Adding any route that returns binary content (`application/pdf`, `text/csv`, `application/zip`) in an app that uses `<Frame>` navigation
+- Debugging `Node.insertBefore` DOM errors after clicking a link from a frame context
 - Adding a plain `<a>` inside Frame-rendered content that navigates to another section
-- Debugging 100% CPU after clicking a link from a Frame-relay page
-- When navigation works from direct URL but hangs when clicked inside a Frame
+- Debugging 100% CPU / browser freeze after clicking a link from a Frame-relay page
 - Building shared navigation components that render across Frame-relay sections
 
----
-
-## Mobile Nav Hamburger
-
-# Remix 3 Mobile Nav Hamburger Pattern
-
-**Context:** Building a responsive navbar that replaces desktop horizontal links with a hamburger-triggered full-screen overlay on mobile
-
-### Problem
-
-A desktop horizontal nav bar with 6-8 items overflows on mobile screens. You need a hamburger menu that:
-
-- Replaces the desktop nav links on mobile with a curated set of action-oriented items
-- Uses a full-screen overlay (not a slide drawer or dropdown)
-- Manages focus correctly (keyboard trap prevention)
-- Locks body scroll when open
-- Has proper `aria-expanded`, `role="dialog"`, `aria-modal` for accessibility
-- Closes on: ✕ button, backdrop tap, nav link click, Escape key
-- Works within Remix 3's `clientEntry` hydration model (clientEntry must live in `app/assets/`, not `app/ui/`)
-
-### Solution
-
-#### 1. Nav Data Layer (`app/ui/nav.ts`)
-
-Define mobile-specific items alongside desktop `NAV_SECTIONS`:
-
-```typescript
-export type MobileNavItem = {
-  label: string
-  href: string
-  requireAuth: boolean
-  cta?: boolean // true = styled as primary CTA button
-}
-
-export const MOBILE_ITEMS: MobileNavItem[] = [
-  { label: 'Neuer Termin', href: '/appointments/new', requireAuth: true, cta: true },
-  { label: 'Einstellungen', href: '/settings', requireAuth: true },
-]
-```
-
-#### 2. Client Entry for Toggle (`app/assets/nav-toggle.tsx`)
-
-```typescript
-import { clientEntry, type Handle } from 'remix/ui'
-
-export const NavToggle = clientEntry(
-  import.meta.url + '#NavToggle',
-  function NavToggleEntry(handle: Handle) {
-    let initialized = false
-    let previousFocus: HTMLElement | null = null
-
-    return () => {
-      if (!initialized && typeof document !== 'undefined') {
-        initialized = true
-
-        let drawer = document.getElementById('nav-drawer')
-        let btn = document.getElementById('nav-toggle')
-        if (!drawer || !btn) return
-
-        btn.addEventListener('click', () => toggle())
-
-        // Escape key: scoped to drawer, not document (avoids cross-page leaks)
-        drawer.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') close()
-        })
-
-        // Close on any tap inside the drawer (backdrop, links, close button)
-        drawer.addEventListener('click', () => close())
-
-        function toggle() {
-          let isOpen = drawer!.classList.toggle('is-open')
-          btn!.setAttribute('aria-expanded', String(isOpen))
-          document.body.style.overflow = isOpen ? 'hidden' : ''
-          if (isOpen) {
-            previousFocus = document.activeElement as HTMLElement
-            let closeBtn = document.getElementById('nav-close')
-            if (closeBtn) closeBtn.focus()
-          } else if (previousFocus) {
-            previousFocus.focus()
-            previousFocus = null
-          }
-        }
-
-        function close() {
-          if (drawer!.classList.contains('is-open')) toggle()
-        }
-      }
-      return null
-    }
-  },
-)
-```
-
-Key design decisions:
-
-- **Close on any drawer click**: simplifies the handler — no need to check `el.closest('a')` etc., because navigation already handles link clicks; tapping padding/gaps should also close
-- **Escape listener on the drawer element**, not `document` — prevents cross-page listener leaks
-- **Focus management**: store `document.activeElement` before opening, restore it on close
-- **Body scroll lock**: `document.body.style.overflow = 'hidden'` / `''`
-- **`aria-expanded` sync**: kept in the client entry alongside the class toggle
-
-#### 3. CSS Strategy (`app/ui/main-nav.tsx`)
-
-Use paired media query constants for the responsive switch:
-
-```typescript
-// Hides desktop nav on mobile
-const desktopOnlyCss = css({
-  '@media (max-width: 768px)': {
-    display: 'none',
-  },
-})
-
-// Shows hamburger on mobile only
-const mobileOnlyCss = css({
-  display: 'none',
-  '@media (max-width: 768px)': {
-    display: 'flex',
-  },
-})
-
-// Full-screen overlay (hidden by default, shown via .is-open)
-const navDrawerCss = css({
-  display: 'none',
-  position: 'fixed',
-  inset: 0,
-  zIndex: 200,
-  flexDirection: 'column',
-  background: theme.surface.lvl0,
-  '&.is-open': { display: 'flex' },
-  // Force-hide on desktop in case drawer is left open after resize
-  '@media (min-width: 769px)': {
-    display: 'none !important',
-  },
-})
-```
-
-⚠️ **Breakpoint pairing**: Use `max-width: 768px` for mobile rules and `min-width: 769px` for desktop rules. These are contiguous — no gap at exactly 768px. Document the pairing with comments so they stay in sync.
-
-#### 4. Template Structure (`app/ui/main-nav.tsx`)
-
-```
-<header>
-  <div nav-inner>
-    <a logo/>
-
-    <nav desktop-links mix={[navLinksCss, desktopOnlyCss]}>
-      NAV_SECTIONS items, settings, login/logout
-    </nav>
-
-    <div hamburger-wrapper mix={[headerActionsCss, mobileOnlyCss]}>
-      <button id="nav-toggle" aria-expanded="false" aria-controls="nav-drawer" />
-    </div>
-
-    <button id="theme-toggle" />  ← always visible on both desktop/mobile
-  </div>
-
-  <NavToggle />  ← non-visual, registers event listeners
-
-  <div id="nav-drawer" role="dialog" aria-modal="true" aria-label="Navigation" mix={navDrawerCss}>
-    <div drawer-header>
-      <a logo />
-      <button id="nav-close" />
-    </div>
-    <div drawer-body>
-      {user ? <CTA /> + settings link + logout form : <login link />}
-    </div>
-  </div>
-</header>
-```
-
-#### 5. Auth-Gated Content
-
-Read auth state via `getCurrentUserSafely()` and CSRF token via `getCsrfToken(getContext())`:
-
-```typescript
-let user = getCurrentUserSafely()
-let csrfToken: string | undefined
-try {
-  csrfToken = getCsrfToken(getContext())
-} catch {
-  /* CSRF may not be active */
-}
-```
-
-Render mobile items based on auth state:
-
-- **Logged in**: show items where `requireAuth: true`, plus logout form with CSRF
-- **Logged out**: show only login link
-
-Style the primary CTA as an indigo button matching the desktop login button pattern:
-
-```typescript
-const drawerCtaCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  color: 'white',
-  textDecoration: 'none',
-  fontSize: '1.125rem',
-  fontWeight: 600,
-  padding: '0.75rem 2rem',
-  borderRadius: theme.radius.md,
-  background: indigo[600],
-  '&:hover': { background: indigo[700] },
-})
-```
-
-### When to Use
-
-Use this pattern when:
-
-- Adding a responsive hamburger menu to a Remix 3 app that currently has a horizontal desktop nav bar
-- You need a full-screen overlay (not a slide drawer or dropdown) for mobile navigation
-- You want proper accessibility (focus management, aria attributes) with the `clientEntry` hydration model
-- The mobile nav needs different/curated items than the desktop nav (auth-gated CTAs vs full nav tree)
-- You're working in a Remix 3 codebase that uses `remix/ui`'s `css()` and `clientEntry` patterns
-
-Do NOT use when:
-
-- You need a slide-in drawer or bottom tab bar (this pattern is specifically a full-screen overlay)
-- The app isn't using Remix 3's `remix/ui` component model
-- You need animation/transition on the overlay (this pattern uses instant pop)
-
-(Consolidated from `remix-mobile-nav-hamburger`)
+> _Consolidated from: remix-frame-binary-download_
 
 ---
 

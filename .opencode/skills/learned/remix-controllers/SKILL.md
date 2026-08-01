@@ -521,4 +521,4 @@ assert.equal(response.status, 400)
 - `remix-middleware-error-centralization` behavior is covered in Part 5 above
 - `remix-route-relocation` — moving routes between route trees (frame ↔ top-level)
 - `remix-createController-requires-route-map` covered in Part 1 above
-- `remix-render-middleware` — wiring request-scoped renderers into the router
+- `~/remix/packages/render-middleware/README.md` — wiring request-scoped renderers into the router

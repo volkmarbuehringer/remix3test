@@ -4,7 +4,7 @@
 
 Handle form validation errors in Remix 3 controllers and components. This skill covers the **direct re-render** pattern (preferred) using `parseSafe` from `remix/data-schema` to make validation failures a return value instead of an exception.
 
-The URL param roundtrip pattern (`fv_`/`fe_` encoding) is deprecated — `form-params.ts` has been removed from the codebase and all verwaltung forms now use direct re-render. See the "Migration from URL Params" section if you encounter legacy code.
+The URL param roundtrip pattern (`fv_`/`fe_` encoding) is deprecated — `form-params.ts` has been removed from the codebase and all verwaltung forms now use direct re-render. Frame-based forms that once needed URL params are now handled by the `ShellOrFragment` patch in `remix3-frame-cliententry`.
 
 ## When To Use This Skill
 
@@ -141,177 +141,9 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 
 ---
 
-## Pattern 2: URL Param Roundtrip (DEPRECATED)
+## Pattern 2: URL Param Roundtrip (DEPRECATED — do not use)
 
-Use this pattern when the form lives inside a `<Frame>` and a validation failure must survive a redirect. Field values and errors are encoded as URL search parameters (`fv_` prefix for form values, `fe_` prefix for field errors).
-
-### Utility Module: `app/utils/form-params.ts`
-
-```typescript
-export function encodeFormValues(
-  keys: readonly string[],
-  parsed: Record<string, string>,
-): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let key of keys) {
-    if (parsed[key]) params[`fv_${key}`] = parsed[key]
-  }
-  return params
-}
-
-export function decodeFormValues(
-  keys: readonly string[],
-  url: URL,
-): Record<string, string> | undefined {
-  let values: Record<string, string> = {}
-  let hasAny = false
-  for (let key of keys) {
-    let val = url.searchParams.get(`fv_${key}`)
-    if (val !== null) {
-      values[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? values : undefined
-}
-
-export function encodeFieldErrors(errors: Record<string, string>): Record<string, string> {
-  let params: Record<string, string> = {}
-  for (let [k, v] of Object.entries(errors)) {
-    params[`fe_${k}`] = v
-  }
-  return params
-}
-
-export function decodeFieldErrors(
-  keys: readonly string[],
-  url: URL,
-): Record<string, string> | undefined {
-  let errors: Record<string, string> = {}
-  let hasAny = false
-  for (let key of keys) {
-    let val = url.searchParams.get(`fe_${key}`)
-    if (val !== null) {
-      errors[key] = val
-      hasAny = true
-    }
-  }
-  return hasAny ? errors : undefined
-}
-```
-
-### Controller: Encode on Failure, Decode on Render
-
-```typescript
-const FORM_KEYS = ['title', 'date', 'resource_id'] as const
-
-// On validation failure in an action
-if (!parsed.success) {
-  let fv = encodeFormValues(FORM_KEYS, rawValues)
-  let fe = encodeFieldErrors(fieldErrors)
-  let url = buildRedirectUrl(baseHref, { ...fv, ...fe, editing: rowId })
-  return redirect(url.toString())
-}
-
-// On page render (GET), decode from URL
-let formValues = decodeFormValues(FORM_KEYS, context.url)
-let fieldErrors = decodeFieldErrors(FORM_KEYS, context.url)
-
-return context.render(
-  <MyForm formValues={formValues} fieldErrors={fieldErrors} />
-)
-```
-
-### Component: Decode on GET Render
-
-The component receives the same `formValues` and `fieldErrors` props. The `decodeFormValues` helper extracts them from the URL on the next GET request:
-
-```tsx
-function EditPage(handle: Handle<EditPageProps>) {
-  return () => {
-    let { formValues } = handle.props
-
-    // Value priority: URL-decoded formValues > row data > defaults
-    let resolvedTitle = formValues?.title ?? (row ? row.title : undefined)
-
-    return <input name="title" value={resolvedTitle ?? ''} />
-  }
-}
-```
-
----
-
-## Migration from URL Params to Direct Re-Render
-
-When migrating a controller from Pattern 2 to Pattern 1:
-
-**1. Replace redirect with re-render in controller actions**
-
-Replace every `buildErrorRedirectUrl()` call + 302 redirect with:
-
-```typescript
-let data = await loadPageData(context, {
-  creating: true,
-  formValues,
-  fieldErrors,
-  formError: 'Error message',
-  offset: gridStateOffset(gridValues),
-  sortColumn: gridStateSort(gridValues),
-  sortDirection: gridStateDirection(gridValues),
-  filter: gridStateFilter(gridValues),
-})
-return renderPage(context, data, { status: 400 })
-```
-
-**2. Add `ResponseInit` to the render helper**
-
-```typescript
-function renderPage(context: AppContext, data: PageData, init?: ResponseInit): Response {
-  return renderLayout(context.render, <PageComponent ... />, init)
-}
-```
-
-**3. Remove URL-param decoding from data loader**
-
-```typescript
-// BEFORE (Pattern 2)
-let formValues = overrides?.formValues ?? decodeFormValues(KEYS, context.url)
-let fieldErrors = overrides?.fieldErrors ?? decodeFieldErrors(KEYS, context.url)
-let formError = overrides?.formError ?? error
-// AFTER (Pattern 1)
-let formValues = overrides?.formValues ?? undefined
-let fieldErrors = overrides?.fieldErrors ?? undefined
-let formError = overrides?.formError ?? undefined
-```
-
-**4. Delete `form-params.ts` after verifying no remaining consumers**
-
-```bash
-grep -r "form-params" newapp/  # Should return nothing
-rm newapp/app/utils/form-params.ts
-```
-
-**5. Update tests: 302 → 400, remove Location header checks**
-
-```typescript
-// BEFORE: assert.equal(response.status, 302)
-// AFTER: assert.equal(response.status, 400)
-// Remove: response.headers.get('Location') checks for error content
-```
-
-**6. Use `gridStateFromFormData` with extractors**
-
-```typescript
-import {
-  gridStateFromFormData,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
-} from '../utils/grid-state.ts'
-let gridValues = gridStateFromFormData(formData)
-// Pass extractors to loadPageData overrides
-```
+The old URL-param roundtrip pattern (`fv_`/`fe_` encoded search params, `form-params.ts`) is **deprecated and removed from the codebase**. Forms that live inside a `<Frame>` and need a validation failure to survive a redirect are now handled by the `ShellOrFragment` patch in `remix3-frame-cliententry` (non-GET responses render the full page directly), so every form uses Pattern 1. Reference this pattern only when reading legacy code.
 
 ---
 
@@ -341,7 +173,6 @@ let result = s.parseSafe(offeringSaveSchema, formData)
 if (!result.success) {
   let fieldErrors = issuesToFieldErrors(result.issues)
   // Pattern 1: render(<Page fieldErrors={...} />, { status: 400 })
-  // Pattern 2: redirect with fv_*/fe_* URL params
 }
 
 // result.value has coerced types — NO parseInt() needed!
@@ -382,10 +213,10 @@ if (trimmed.length === 0) return fail('Expected number', ...)
 ```typescript
 let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
 if (!resourceIdRaw.trim()) {
-  return buildErrorRedirect(formValues, gridValues, {
+  return renderPage(context, await loadPageData(context, {
     creating: true,
     fieldErrors: { resource_id: 'ist erforderlich.' },
-  })
+  }), { status: 400 })
 }
 
 // Only reaches parseSafe if resource_id is non-empty
@@ -561,7 +392,7 @@ it('POST /client creates a row and redirects', async () => {
 - Use `redirect: 'manual'` to inspect response before following redirects
 - Assert `response.status` is 400 for validation failures
 - Search the response HTML for preserved form values and error messages
-- For redirect patterns, search the `Location` header for `fv_`/`fe_` params
+- For success, assert the 302 redirect `Location` header points at the list/grid URL
 
 ---
 
@@ -733,9 +564,9 @@ Unicode escapes like `\u00e4` are NOT interpreted in JSX text content (only in `
 2. **Not preserving form values on failure** — Users must re-type all fields after a validation error. Always pass `formValues` back to the component.
 3. **Forgetting `redirect: 'manual'` in tests** — Without it, the test follows the 302 redirect and cannot assert the 400 response.
 4. **Select fields not showing preserved values** — In select dropdowns, `formValues` (from failed submit) must take priority over row data (from DB) for `selected` attributes. Also, `defaultValue` on `<select>` does NOT work in Remix 3 — use `selected` on `<option>` instead. See "Select Fields: Preserve Selection" section above.
-5. **Mixing patterns incorrectly** — Don't return a 400 HTML re-render inside a Frame context; Frame navigation expects a redirect. Use Pattern 2 (URL params) for Frame-based forms.
+5. **Returning a 400 HTML re-render inside a Frame** — Frame navigation for non-GET responses must render the full page (outer `<Layout>` + admin shell) via the `ShellOrFragment` patch in `remix3-frame-cliententry`, not a bare fragment or URL-param redirect. Use Pattern 1 for the render; the shared shell patch handles Frame correctness.
 6. **Using `type="email"` with custom validation** — HTML5 email validation may conflict with schema validation. Use `type="text"` and rely on schema-based `email()` check.
-7. **Returning `context.json()` for admin form errors** — In Frame-based admin layouts, `context.json({ error }, 400)` renders raw JSON in the browser, not the form page. Always redirect with `?error=` param. See `admin-nutzer-controller.tsx` fix.
+7. **Returning `context.json()` for admin form errors** — `context.json({ error }, 400)` renders raw JSON in the browser, not the form page. Re-render the form page with Pattern 1 (see the `ShellOrFragment` patch for Frame layouts), not a redirect with `?error=` params.
 8. **`coerce.number()` on empty select values** — `<option value="">` sends `""` which `coerce.number()` rejects with English `"Expected number"` before `.refine()` can run. Pre-check empty selects in the controller. Also watch for PostgreSQL `number` vs URL `string` type mismatch on `selected` — use `String()` coercion on both sides. See `coerce.number()` Empty-Select Pitfall section above.
 9. **Dropping the `if (!result.success)` guard** — When restructuring controller actions, ensure the parseSafe success check remains before accessing `result.value`.
 
@@ -821,19 +652,15 @@ if (gridValues.val) params.set('val', gridValues.val)
 
 ## Reference Files in This Codebase
 
-- `newapp/app/actions/client/controller.tsx` — Pattern 1: Direct re-render with `parseSafe`
-- `newapp/app/actions/client/controller.test.ts` — Tests for validation failure and value preservation
-- `newapp/app/actions/client/create-page.tsx` — Component: error styling, field errors display, value preservation
-- `newapp/app/actions/client/edit-page.tsx` — Component: error styling with row fallback
-- `newapp/app/actions/admin-offerings-controller.tsx` — Pattern 1: re-render on error with grid state preservation
-- `newapp/app/actions/admin-appointments-controller.tsx` — Pattern 1: migrated from URL params to direct re-render
-- `newapp/app/actions/admin-resources-controller.tsx` — Pattern 1: re-render with inline errors
-- `newapp/app/ui/admin-offerings-create-page.tsx` — Component with `formErrorBanner` (transparent bg + border)
-- `newapp/app/ui/admin-appointments-form.tsx` — Component with `formErrorBanner` and inline field errors
-- `newapp/app/utils/schema-utils.ts` — Shared `issuesToFieldErrors()` and `readFormFieldValues()` utilities
-- `newapp/app/utils/offering-schema.ts` — Declarative schema: `f.object()` + `coerce.number()` + `.refine()`
-- `newapp/app/utils/appointment-schema.ts` — Declarative schema for appointments form validation
-- `newapp/app/utils/grid-state.ts` — Grid state helpers: `gridStateFromFormData`, extractors, `gridStateToParams`
+- `app/actions/client/controller.tsx` — Pattern 1: Direct re-render with `parseSafe`
+- `app/actions/client/controller.test.ts` — Tests for validation failure and value preservation
+- `app/actions/client/create-page.tsx` — Component: error styling, field errors display, value preservation
+- `app/actions/client/edit-page.tsx` — Component: error styling with row fallback
+- `app/actions/admin/lists/controller.tsx` — Pattern 1: re-render on error with grid state preservation
+- `app/actions/admin/<resource>/controller.tsx` — admin CRUD controllers migrated from URL params to direct re-render
+- `app/utils/schema-utils.ts` — Shared `issuesToFieldErrors()` and `readFormFieldValues()` utilities
+- `app/utils/offering-schema.ts` — Declarative schema: `f.object()` + `coerce.number()` + `.refine()`
+- `app/utils/grid-state.ts` — Grid state helpers: `gridStateFromFormData`, extractors, `gridStateToParams`
 
 ## Related Knowledge Files
 
