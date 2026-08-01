@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { theme } from '../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const SupportAgentStream = clientEntry(
@@ -63,8 +64,8 @@ export const SupportAgentStream = clientEntry(
       bubble.style.alignSelf = 'flex-end'
       bubble.style.padding = '0.5rem 0.75rem'
       bubble.style.borderRadius = '8px 8px 4px 8px'
-      bubble.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
-      bubble.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      bubble.style.background = theme.colors.action.primary.background
+      bubble.style.color = theme.colors.action.primary.foreground
       bubble.style.fontSize = '0.875rem'
       bubble.style.lineHeight = '1.4'
       bubble.style.whiteSpace = 'pre-wrap'
@@ -83,8 +84,8 @@ export const SupportAgentStream = clientEntry(
       bubble.style.alignSelf = 'flex-start'
       bubble.style.padding = '0.5rem 0.75rem'
       bubble.style.borderRadius = '8px 8px 8px 4px'
-      bubble.style.background = 'var(--rmx-surface-lvl1, #f5f5f5)'
-      bubble.style.border = '1px solid var(--rmx-color-border-subtle, #e0e0e0)'
+      bubble.style.background = theme.surface.lvl1
+      bubble.style.border = '1px solid ' + theme.colors.border.subtle
       bubble.style.fontSize = '0.875rem'
       bubble.style.lineHeight = '1.4'
       bubble.style.whiteSpace = 'pre-wrap'
@@ -119,9 +120,7 @@ export const SupportAgentStream = clientEntry(
       let el = document.createElement('div')
       el.textContent = text
       el.style.fontSize = '0.8125rem'
-      el.style.color = isError
-        ? 'var(--rmx-color-action-danger, #dc3545)'
-        : 'var(--rmx-color-text-muted, #888)'
+      el.style.color = isError ? theme.colors.action.danger.background : theme.colors.text.muted
       el.style.padding = '0.25rem 0'
       el.style.fontStyle = 'italic'
 
@@ -155,11 +154,11 @@ export const SupportAgentStream = clientEntry(
           let promptBtn = document.createElement('button')
           promptBtn.textContent = 'Klicken zum Antworten...'
           promptBtn.style.padding = '4px 14px'
-          promptBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+          promptBtn.style.border = '1px solid ' + theme.colors.border.default
           promptBtn.style.borderRadius = '4px'
           promptBtn.style.cursor = 'pointer'
-          promptBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-          promptBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+          promptBtn.style.background = theme.surface.lvl1
+          promptBtn.style.color = theme.colors.text.primary
           promptBtn.style.fontSize = '0.8125rem'
           promptBtn.style.alignSelf = 'flex-start'
           promptBtn.onclick = () => {
@@ -208,7 +207,7 @@ export const SupportAgentStream = clientEntry(
             if (opt.description) {
               let desc = document.createElement('span')
               desc.textContent = '— ' + opt.description
-              desc.style.color = 'var(--rmx-color-text-muted, #888)'
+              desc.style.color = theme.colors.text.muted
               desc.style.fontSize = '0.75rem'
               label.appendChild(desc)
             }
@@ -220,11 +219,11 @@ export const SupportAgentStream = clientEntry(
           btn.textContent = 'Bestätigen'
           btn.style.padding = '4px 14px'
           btn.style.marginTop = '6px'
-          btn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+          btn.style.border = '1px solid ' + theme.colors.border.default
           btn.style.borderRadius = '4px'
           btn.style.cursor = 'pointer'
-          btn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-          btn.style.color = 'var(--rmx-color-text-primary, #333)'
+          btn.style.background = theme.surface.lvl1
+          btn.style.color = theme.colors.text.primary
           btn.style.fontSize = '0.8125rem'
           btn.style.alignSelf = 'flex-start'
           btn.onclick = () => {
@@ -265,7 +264,7 @@ export const SupportAgentStream = clientEntry(
         warning.style.marginBottom = '8px'
         warning.style.fontSize = '0.875rem'
         if (isCancelUser) {
-          warning.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+          warning.style.color = theme.colors.action.danger.background
         }
         el.appendChild(warning)
 
@@ -276,7 +275,7 @@ export const SupportAgentStream = clientEntry(
             data.args.targetUserId +
             ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
           info.style.fontSize = '0.75rem'
-          info.style.color = 'var(--rmx-color-text-muted, #888)'
+          info.style.color = theme.colors.text.muted
           info.style.marginBottom = '8px'
           el.appendChild(info)
         }
@@ -295,8 +294,8 @@ export const SupportAgentStream = clientEntry(
           approveBtn.style.background = '#dc3545'
           approveBtn.style.color = '#fff'
         } else {
-          approveBtn.style.background = 'var(--rmx-color-action-primary-background, #0066cc)'
-          approveBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+          approveBtn.style.background = theme.colors.action.primary.background
+          approveBtn.style.color = theme.colors.action.primary.foreground
         }
         approveBtn.style.fontSize = '0.8125rem'
         approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
@@ -305,11 +304,11 @@ export const SupportAgentStream = clientEntry(
         let declineBtn = document.createElement('button')
         declineBtn.textContent = '✖ Ablehnen'
         declineBtn.style.padding = '4px 14px'
-        declineBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+        declineBtn.style.border = '1px solid ' + theme.colors.border.default
         declineBtn.style.borderRadius = '4px'
         declineBtn.style.cursor = 'pointer'
-        declineBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-        declineBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+        declineBtn.style.background = theme.surface.lvl1
+        declineBtn.style.color = theme.colors.text.primary
         declineBtn.style.fontSize = '0.8125rem'
         declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
         actions.appendChild(declineBtn)

@@ -32,6 +32,8 @@ type ThemeVariableNames = {
       readonly secondary: ThemeActionVariableGroup
       readonly danger: ThemeActionVariableGroup
     }
+    readonly success: ThemeActionVariableGroup
+    readonly warning: ThemeActionVariableGroup
   }
 }
 
@@ -146,6 +148,20 @@ const themeVariableNamesSource: ThemeVariableNames = {
         foreground: '--rmx-color-action-danger-foreground',
         border: '--rmx-color-action-danger-border',
       },
+    },
+    success: {
+      background: '--rmx-color-success-background',
+      backgroundHover: '--rmx-color-success-background-hover',
+      backgroundActive: '--rmx-color-success-background-active',
+      foreground: '--rmx-color-success-foreground',
+      border: '--rmx-color-success-border',
+    },
+    warning: {
+      background: '--rmx-color-warning-background',
+      backgroundHover: '--rmx-color-warning-background-hover',
+      backgroundActive: '--rmx-color-warning-background-active',
+      foreground: '--rmx-color-warning-foreground',
+      border: '--rmx-color-warning-border',
     },
   },
 } satisfies ThemeVariableTree

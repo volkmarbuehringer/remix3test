@@ -1,5 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 
+import { theme } from '../../ui/theme/theme.ts'
+
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
   function CustomerChatStream(handle: Handle) {
@@ -56,7 +58,7 @@ export const CustomerChatStream = clientEntry(
         bubble.style.cssText =
           `padding:0.75rem;border-radius:12px;max-width:75%;` +
           `line-height:1.5;font-size:0.9375rem;` +
-          `background:${isUser ? '#3b82f6' : 'var(--rmx-surface-lvl1)'};` +
+          `background:${isUser ? '#3b82f6' : theme.surface.lvl1};` +
           `color:${isUser ? '#fff' : 'inherit'};` +
           `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
           `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
@@ -73,13 +75,13 @@ export const CustomerChatStream = clientEntry(
       if (!container || toolCards[toolCallId]) return
 
       let card = document.createElement('div')
-      card.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+      card.style.cssText = `border:1px solid ${theme.colors.border.default};border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let header = document.createElement('div')
       header.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
         `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-        `background:var(--rmx-surface-lvl1);`
+        `background:${theme.surface.lvl1};`
       header.innerHTML = `<span style="opacity:0.6;font-size:1em">&#9881;</span><span>${esc(toolName)}</span><span style="margin-left:auto;font-size:0.75rem;transition:transform 0.15s">&#9662;</span>`
       header.onclick = () => {
         let body = card.querySelector('.tl-card-body') as HTMLElement | null
@@ -95,7 +97,7 @@ export const CustomerChatStream = clientEntry(
       body.className = 'tl-card-body'
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:var(--rmx-color-text-secondary);`
+        `font-family:monospace;white-space:pre-wrap;word-break:break-word;color:${theme.colors.text.secondary};`
       body.textContent = 'Warte auf Argumente...'
 
       card.appendChild(header)
@@ -150,17 +152,17 @@ export const CustomerChatStream = clientEntry(
       if (isError) {
         div.style.cssText =
           `padding:0.5rem 0.75rem;font-size:0.8125rem;color:#fff;` +
-          `background:#ef4444;border-top:1px solid var(--rmx-color-border-default);`
+          `background:#ef4444;border-top:1px solid ${theme.colors.border.default};`
         div.textContent = typeof result === 'string' ? result : 'Fehler: ' + JSON.stringify(result)
       } else {
         div.style.cssText =
-          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--rmx-color-text-primary);` +
-          `border-top:1px solid var(--rmx-color-border-default);`
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:${theme.colors.text.primary};` +
+          `border-top:1px solid ${theme.colors.border.default};`
         if (result && typeof result === 'object') {
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
             div.innerHTML =
-              '<div style="font-size:0.8125rem;color:var(--rmx-color-text-secondary)">Verfügbare Termine werden unten angezeigt.</div>'
+              '<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>'
             appendSlotPicker(r)
           } else {
             div.textContent =
@@ -219,7 +221,7 @@ export const CustomerChatStream = clientEntry(
               label,
               resourceName: result.resource_name,
             })
-            html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.5rem 1rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:500">${esc(label)}</button>`
+            html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.5rem 1rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:500">${esc(label)}</button>`
           }
         }
         html += `</div>`
@@ -227,22 +229,22 @@ export const CustomerChatStream = clientEntry(
 
       if (pages.length > 1) {
         html += `<div id="slot-pagination" style="display:flex;align-items:center;justify-content:center;gap:0.75rem;margin-top:0.75rem;font-size:0.85rem">`
-        html += `<button type="button" class="page-prev-btn" style="padding:0.3rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:4px;cursor:pointer;font-size:0.85rem;opacity:0.5" disabled>← Zurück</button>`
+        html += `<button type="button" class="page-prev-btn" style="padding:0.3rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:4px;cursor:pointer;font-size:0.85rem;opacity:0.5" disabled>← Zurück</button>`
         html += `<span id="slot-page-indicator">Seite 1 von ${pages.length}</span>`
-        html += `<button type="button" class="page-next-btn" style="padding:0.3rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:4px;cursor:pointer;font-size:0.85rem">Weiter →</button>`
+        html += `<button type="button" class="page-next-btn" style="padding:0.3rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:4px;cursor:pointer;font-size:0.85rem">Weiter →</button>`
         html += `</div>`
       }
 
-      html += `<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid var(--rmx-color-border-default)">`
-      html += `<button type="button" class="slot-other-resource-btn" style="padding:0.4rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">Andere Ressource</button>`
-      html += `<button type="button" class="slot-close-btn" style="padding:0.4rem 0.75rem;background:transparent;color:var(--rmx-color-text-secondary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">Schließen</button>`
+      html += `<div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem;padding-top:0.5rem;border-top:1px solid ${theme.colors.border.default}">`
+      html += `<button type="button" class="slot-other-resource-btn" style="padding:0.4rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">Andere Ressource</button>`
+      html += `<button type="button" class="slot-close-btn" style="padding:0.4rem 0.75rem;background:transparent;color:${theme.colors.text.secondary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">Schließen</button>`
       html += `</div>`
 
       let picker = document.createElement('div')
       picker.id = 'chat-slot-picker'
       picker.style.cssText =
-        `padding:1rem;border:2px solid var(--rmx-color-border-default);border-radius:12px;` +
-        `background:var(--rmx-surface-lvl0);align-self:stretch;width:100%;margin-top:0.5rem;`
+        `padding:1rem;border:2px solid ${theme.colors.border.default};border-radius:12px;` +
+        `background:${theme.surface.lvl0};align-self:stretch;width:100%;margin-top:0.5rem;`
       picker.innerHTML = html
       container.appendChild(picker)
       container.scrollTop = container.scrollHeight
@@ -310,7 +312,7 @@ export const CustomerChatStream = clientEntry(
             label,
             resourceName: result.resource_name,
           })
-          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.4rem 0.75rem;background:var(--rmx-surface-lvl1);color:var(--rmx-color-text-primary);border:1px solid var(--rmx-color-border-default);border-radius:6px;cursor:pointer;font-size:0.85rem">${esc(label)}</button>`
+          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.4rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">${esc(label)}</button>`
         }
       }
       return html
@@ -324,8 +326,8 @@ export const CustomerChatStream = clientEntry(
       if (!container) return
       let div = document.createElement('div')
       div.style.cssText =
-        `padding:0.25rem 0.75rem;font-size:0.75rem;color:var(--rmx-color-text-secondary);` +
-        `background:var(--rmx-surface-lvl1);border-radius:4px;align-self:flex-start;`
+        `padding:0.25rem 0.75rem;font-size:0.75rem;color:${theme.colors.text.secondary};` +
+        `background:${theme.surface.lvl1};border-radius:4px;align-self:flex-start;`
       let parts: string[] = []
       if (usage?.totalTokens != null) {
         parts.push(`${usage.totalTokens} Tokens`)
@@ -344,19 +346,19 @@ export const CustomerChatStream = clientEntry(
       let container = getChatArea()
       if (!container) return
       let details = document.createElement('details')
-      details.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+      details.style.cssText = `border:1px solid ${theme.colors.border.default};border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
       let summary = document.createElement('summary')
       summary.style.cssText =
         `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
         `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-        `background:var(--rmx-surface-lvl1);`
+        `background:${theme.surface.lvl1};`
       summary.innerHTML = `<span>[...]</span><span>Überlege...</span>`
 
       let body = document.createElement('div')
       body.style.cssText =
         `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
-        `color:var(--rmx-color-text-secondary);white-space:pre-wrap;word-break:break-word;`
+        `color:${theme.colors.text.secondary};white-space:pre-wrap;word-break:break-word;`
 
       details.appendChild(summary)
       details.appendChild(body)
@@ -407,7 +409,7 @@ export const CustomerChatStream = clientEntry(
       card.id = 'chat-approval'
       card.style.cssText =
         `padding:1rem;border:2px solid #ef4444;border-radius:12px;` +
-        `background:var(--rmx-surface-lvl0);align-self:flex-start;width:100%;`
+        `background:${theme.surface.lvl0};align-self:flex-start;width:100%;`
 
       let args = data.args || {}
       let isCancelSingle = 'appointmentSummary' in args
@@ -429,11 +431,11 @@ export const CustomerChatStream = clientEntry(
       card.innerHTML =
         `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#ef4444">${esc(title)}</div>` +
         (description
-          ? `<div style="font-size:0.875rem;color:var(--rmx-color-text-secondary);margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>`
+          ? `<div style="font-size:0.875rem;color:${theme.colors.text.secondary};margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>`
           : '') +
         `<div style="display:flex;gap:0.75rem">` +
         `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
-        `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:var(--rmx-surface-lvl1);color:inherit;border:1px solid var(--rmx-color-border-default);border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
+        `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.surface.lvl1};color:inherit;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
         `</div>`
 
       container.appendChild(card)
@@ -473,7 +475,7 @@ export const CustomerChatStream = clientEntry(
       card.id = 'chat-question'
       card.style.cssText =
         `padding:1rem;border:2px solid #f59e0b;border-radius:12px;` +
-        `background:var(--rmx-surface-lvl0);align-self:flex-start;width:100%;margin-top:0.5rem;`
+        `background:${theme.surface.lvl0};align-self:flex-start;width:100%;margin-top:0.5rem;`
 
       let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#b45309">${esc(data.question)}</div>`
 

@@ -4,6 +4,7 @@ import { render } from 'remix/ui/test'
 
 import { CustomerChatStream } from './customer-chat-stream.browser.tsx'
 import { TestAgentStream } from './test-agent-stream.browser.tsx'
+import { theme } from '../../ui/theme/theme.ts'
 import { SupportAgentStream } from './support-agent-stream.browser.tsx'
 import { WorkflowAgentStream } from './workflow-agent-stream.browser.tsx'
 import { RouteAgentStream } from './route-agent-stream.browser.tsx'
@@ -139,7 +140,7 @@ describe('SSE stream DOM rendering', () => {
     bubble.style.cssText =
       `padding:0.75rem;border-radius:12px;max-width:75%;` +
       `line-height:1.5;font-size:0.9375rem;` +
-      `background:${isUser ? '#3b82f6' : 'var(--rmx-surface-lvl1)'};` +
+      `background:${isUser ? '#3b82f6' : theme.surface.lvl1};` +
       `color:${isUser ? '#fff' : 'inherit'};` +
       `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
       `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
@@ -150,7 +151,10 @@ describe('SSE stream DOM rendering', () => {
     assert.equal(container.children.length, 1, 'one bubble should be present')
     assert.equal(bubble.textContent, 'Hello, I need an appointment')
     let bg = getComputedStyle(bubble).backgroundColor
-    assert.ok(bg === 'rgb(59, 130, 246)' || bubble.style.background.includes('#3b82f6'), 'user bubble should be blue')
+    assert.ok(
+      bg === 'rgb(59, 130, 246)' || bubble.style.background.includes('#3b82f6'),
+      'user bubble should be blue',
+    )
   })
 
   it('appendMessage creates assistant bubble as left-aligned surface-colored div', () => {
@@ -160,7 +164,7 @@ describe('SSE stream DOM rendering', () => {
     bubble.style.cssText =
       `padding:0.75rem;border-radius:12px;max-width:75%;` +
       `line-height:1.5;font-size:0.9375rem;` +
-      `background:${isUser ? '#3b82f6' : 'var(--rmx-surface-lvl1)'};` +
+      `background:${isUser ? '#3b82f6' : theme.surface.lvl1};` +
       `color:${isUser ? '#fff' : 'inherit'};` +
       `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
       `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
@@ -217,13 +221,13 @@ describe('SSE stream DOM rendering', () => {
 
     // Create card like appendToolCard does
     let card = document.createElement('div')
-    card.style.cssText = `border:1px solid var(--rmx-color-border-default);border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
+    card.style.cssText = `border:1px solid ${theme.colors.border.default};border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
 
     let header = document.createElement('div')
     header.style.cssText =
       `display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem;` +
       `cursor:pointer;user-select:none;font-size:0.875rem;font-weight:500;` +
-      `background:var(--rmx-surface-lvl1);`
+      `background:${theme.surface.lvl1};`
     header.innerHTML = `<span style="opacity:0.6">\u2699</span><span>findSlots</span>`
 
     let body = document.createElement('div')
@@ -231,14 +235,14 @@ describe('SSE stream DOM rendering', () => {
     body.style.cssText =
       `padding:0.5rem 0.75rem;font-size:0.8125rem;line-height:1.5;` +
       `font-family:monospace;white-space:pre-wrap;word-break:break-word;` +
-      `color:var(--rmx-color-text-secondary);`
+      `color:${theme.colors.text.secondary};`
     body.textContent = JSON.stringify({ date: '2025-01-15', resourceId: 3 }, null, 2)
 
     let result = document.createElement('div')
     result.className = 'tl-card-result'
     result.style.cssText =
-      `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--rmx-color-text-primary);` +
-      `border-top:1px solid var(--rmx-color-border-default);`
+      `padding:0.5rem 0.75rem;font-size:0.8125rem;color:${theme.colors.text.primary};` +
+      `border-top:1px solid ${theme.colors.border.default};`
     result.textContent = 'Found 3 available slots'
 
     card.appendChild(header)
@@ -297,8 +301,8 @@ describe('SSE stream DOM rendering', () => {
     let resultDiv = document.createElement('div')
     resultDiv.className = 'tl-card-result'
     resultDiv.style.cssText =
-      `padding:0.5rem 0.75rem;font-size:0.8125rem;color:var(--rmx-color-text-primary);` +
-      `border-top:1px solid var(--rmx-color-border-default);`
+      `padding:0.5rem 0.75rem;font-size:0.8125rem;color:${theme.colors.text.primary};` +
+      `border-top:1px solid ${theme.colors.border.default};`
     resultDiv.textContent = JSON.stringify({ slots: 5 }, null, 2).slice(0, 500)
     card.appendChild(resultDiv)
 
@@ -431,12 +435,12 @@ describe('Workflow agent step rendering', () => {
 
     let icon = document.createElement('span')
     icon.textContent = '\u2713'
-    icon.style.color = 'var(--rmx-color-success, #28a745)'
+    icon.style.color = theme.colors.success.foreground
     el.appendChild(icon)
 
     let text = document.createElement('span')
     text.textContent = 'Booking confirmed'
-    text.style.color = 'var(--rmx-color-text-muted, #888)'
+    text.style.color = theme.colors.text.muted
     el.appendChild(text)
 
     statusBar.appendChild(el)
@@ -452,7 +456,7 @@ describe('Workflow agent step rendering', () => {
 
     let icon = document.createElement('span')
     icon.textContent = '\u2717'
-    icon.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+    icon.style.color = theme.colors.action.danger.background
     el.appendChild(icon)
 
     let text = document.createElement('span')
@@ -511,7 +515,7 @@ describe('Workflow agent step rendering', () => {
     let container = document.createElement('div')
     container.id = 'wf-confirm-gate'
     container.style.cssText =
-      `margin-top:0.5rem;padding:0.75rem;border:1px solid var(--rmx-color-border-default);` +
+      `margin-top:0.5rem;padding:0.75rem;border:1px solid ${theme.colors.border.default};` +
       `border-radius:6px;display:flex;flex-direction:column;gap:0.5rem;`
 
     let question = document.createElement('div')
@@ -561,29 +565,25 @@ describe('Route agent question prompts', () => {
   it('question card renders with title and options', () => {
     let card = document.createElement('div')
     card.id = 'chat-question'
-    card.style.cssText =
-      `padding:1rem;border:2px solid #f59e0b;border-radius:12px;align-self:flex-start;width:100%;`
+    card.style.cssText = `padding:1rem;border:2px solid #f59e0b;border-radius:12px;align-self:flex-start;width:100%;`
 
     let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#b45309">What type of appointment?</div>`
     html += `<div id="q-options">`
-    html +=
-      `<label style="display:block;margin:4px 0;cursor:pointer"><input type="radio" class="q-option" name="q_option" value="Check-up" checked /> Check-up</label>`
-    html +=
-      `<label style="display:block;margin:4px 0;cursor:pointer"><input type="radio" class="q-option" name="q_option" value="Follow-up" /> Follow-up</label>`
+    html += `<label style="display:block;margin:4px 0;cursor:pointer"><input type="radio" class="q-option" name="q_option" value="Check-up" checked /> Check-up</label>`
+    html += `<label style="display:block;margin:4px 0;cursor:pointer"><input type="radio" class="q-option" name="q_option" value="Follow-up" /> Follow-up</label>`
     html += `</div>`
-    html +=
-      `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem">Answer</button></div>`
+    html += `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem">Answer</button></div>`
 
     card.innerHTML = html
     chatArea.appendChild(card)
 
     let questionCard = document.getElementById('chat-question')
     assert.ok(questionCard, 'question card should exist')
-    assert.ok(questionCard?.textContent?.includes('What type of appointment?'), 'should show question')
     assert.ok(
-      questionCard?.querySelector('input[value="Check-up"]'),
-      'should have Check-up option',
+      questionCard?.textContent?.includes('What type of appointment?'),
+      'should show question',
     )
+    assert.ok(questionCard?.querySelector('input[value="Check-up"]'), 'should have Check-up option')
     assert.ok(
       questionCard?.querySelector('input[value="Follow-up"]'),
       'should have Follow-up option',
@@ -592,10 +592,8 @@ describe('Route agent question prompts', () => {
 
   it('getAnswer returns selected radio value', () => {
     let html = `<div id="q-options">`
-    html +=
-      `<label><input type="radio" class="q-option" name="q_option" value="Berlin" /> Berlin</label>`
-    html +=
-      `<label><input type="radio" class="q-option" name="q_option" value="Munich" checked /> Munich</label>`
+    html += `<label><input type="radio" class="q-option" name="q_option" value="Berlin" /> Berlin</label>`
+    html += `<label><input type="radio" class="q-option" name="q_option" value="Munich" checked /> Munich</label>`
     html += `</div>`
 
     let div = document.createElement('div')
@@ -611,8 +609,7 @@ describe('Route agent question prompts', () => {
   it('getAnswer returns JSON array for multi_select with checked checkboxes', () => {
     let html = `<div id="q-options">`
     html += `<label><input type="checkbox" class="q-option" value="Email" checked /> Email</label>`
-    html +=
-      `<label><input type="checkbox" class="q-option" value="SMS" checked /> SMS</label>`
+    html += `<label><input type="checkbox" class="q-option" value="SMS" checked /> SMS</label>`
     html += `<label><input type="checkbox" class="q-option" value="Phone" /> Phone</label>`
     html += `</div>`
 

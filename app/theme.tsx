@@ -64,6 +64,20 @@ const lightColors = {
       border: '#dc2626',
     },
   },
+  success: {
+    background: lightSurface.successBg,
+    backgroundHover: '#dffbe6',
+    backgroundActive: '#c8f6d4',
+    foreground: lightSurface.successText,
+    border: lightSurface.successBorder,
+  },
+  warning: {
+    background: '#fef3c7',
+    backgroundHover: '#fde9a8',
+    backgroundActive: '#fde08a',
+    foreground: '#92400e',
+    border: '#fde68a',
+  },
 }
 
 // ── Shared token groups (identical between light and dark) ──
@@ -198,6 +212,20 @@ const darkColors = {
       foreground: '#1e2226',
       border: '#ef4444',
     },
+  },
+  success: {
+    background: darkSurface.successBg,
+    backgroundHover: '#0a3d24',
+    backgroundActive: '#0e4d2c',
+    foreground: darkSurface.successText,
+    border: darkSurface.successBorder,
+  },
+  warning: {
+    background: '#451a03',
+    backgroundHover: '#5a2204',
+    backgroundActive: '#6f2a05',
+    foreground: '#fcd34d',
+    border: '#78350f',
   },
 }
 

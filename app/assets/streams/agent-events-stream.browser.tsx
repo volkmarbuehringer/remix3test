@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { theme } from '../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
 export const AgentEventsStream = clientEntry(
@@ -31,9 +32,7 @@ export const AgentEventsStream = clientEntry(
       let el = document.createElement('div')
       el.textContent = text
       el.style.fontSize = '0.8125rem'
-      el.style.color = isError
-        ? 'var(--rmx-color-action-danger, #dc3545)'
-        : 'var(--rmx-color-text-muted, #888)'
+      el.style.color = isError ? theme.colors.action.danger.background : theme.colors.text.muted
       el.style.padding = '0.25rem 0'
       el.style.fontStyle = 'italic'
       bar.appendChild(el)
@@ -48,9 +47,9 @@ export const AgentEventsStream = clientEntry(
       container.id = 'ae-confirm-gate'
       container.style.marginTop = '0.5rem'
       container.style.padding = '0.75rem'
-      container.style.border = '1px solid var(--rmx-color-border-default, #ddd)'
+      container.style.border = '1px solid ' + theme.colors.border.default
       container.style.borderRadius = '6px'
-      container.style.background = 'var(--rmx-surface-lvl1, #fafafa)'
+      container.style.background = theme.surface.lvl1
       container.style.display = 'flex'
       container.style.flexDirection = 'column'
       container.style.gap = '0.5rem'
@@ -71,8 +70,8 @@ export const AgentEventsStream = clientEntry(
       confirmBtn.style.border = 'none'
       confirmBtn.style.borderRadius = '4px'
       confirmBtn.style.cursor = 'pointer'
-      confirmBtn.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
-      confirmBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      confirmBtn.style.background = theme.colors.action.primary.background
+      confirmBtn.style.color = theme.colors.action.primary.foreground
       confirmBtn.style.fontSize = '0.8125rem'
       confirmBtn.onclick = () => {
         confirmBtn.disabled = true
@@ -84,11 +83,11 @@ export const AgentEventsStream = clientEntry(
       let cancelBtn = document.createElement('button')
       cancelBtn.textContent = 'Abbrechen'
       cancelBtn.style.padding = '0.4rem 1rem'
-      cancelBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+      cancelBtn.style.border = '1px solid ' + theme.colors.border.default
       cancelBtn.style.borderRadius = '4px'
       cancelBtn.style.cursor = 'pointer'
-      cancelBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-      cancelBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+      cancelBtn.style.background = theme.surface.lvl1
+      cancelBtn.style.color = theme.colors.text.primary
       cancelBtn.style.fontSize = '0.8125rem'
       cancelBtn.onclick = () => {
         confirmBtn.disabled = true

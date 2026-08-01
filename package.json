@@ -7,7 +7,7 @@
     "start": "NODE_ENV=production node --env-file-if-exists=.env --import remix/node-tsx server.ts",
     "test": "NODE_ENV=test remix test",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --max-warnings=0 --ignore-pattern=.mastra",
+    "lint": "oxlint --max-warnings=0 --ignore-pattern=.mastra && node ./scripts/check-theme-conformance.ts",
     "dev:mastra": "mastra dev -d app/actions/mastra",
     "lint:fix": "oxlint --fix --max-warnings=0",
     "format": "oxfmt . --check",

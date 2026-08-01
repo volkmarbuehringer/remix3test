@@ -94,7 +94,7 @@ export function WorkflowAgentPage(handle: Handle) {
           style={{
             padding: '0.25rem 0',
             fontSize: '0.8125rem',
-            color: 'var(--rmx-color-text-muted, #888)',
+            color: theme.colors.text.muted,
             fontStyle: 'italic',
           }}
         >

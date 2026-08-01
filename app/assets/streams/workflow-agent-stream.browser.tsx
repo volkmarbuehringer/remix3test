@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { theme } from '../../ui/theme/theme.ts'
 import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
 import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
@@ -61,19 +62,19 @@ export const WorkflowAgentStream = clientEntry(
         icon.textContent = '⏳'
       } else if (status === 'done') {
         icon.textContent = '✓'
-        icon.style.color = 'var(--rmx-color-success, #28a745)'
+        icon.style.color = theme.colors.success.foreground
       } else if (status === 'suspended') {
         icon.textContent = '⏸'
-        icon.style.color = 'var(--rmx-color-warning, #ffc107)'
+        icon.style.color = theme.colors.warning.foreground
       } else {
         icon.textContent = '✗'
-        icon.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+        icon.style.color = theme.colors.action.danger.background
       }
       el.appendChild(icon)
 
       let text = document.createElement('span')
       text.textContent = label || stepId
-      if (status === 'done') text.style.color = 'var(--rmx-color-text-muted, #888)'
+      if (status === 'done') text.style.color = theme.colors.text.muted
       el.appendChild(text)
 
       bar.appendChild(el)
@@ -100,9 +101,9 @@ export const WorkflowAgentStream = clientEntry(
       container.id = 'wf-confirm-gate'
       container.style.marginTop = '0.5rem'
       container.style.padding = '0.75rem'
-      container.style.border = '1px solid var(--rmx-color-border-default, #ddd)'
+      container.style.border = '1px solid ' + theme.colors.border.default
       container.style.borderRadius = '6px'
-      container.style.background = 'var(--rmx-surface-lvl1, #fafafa)'
+      container.style.background = theme.surface.lvl1
       container.style.display = 'flex'
       container.style.flexDirection = 'column'
       container.style.gap = '0.5rem'
@@ -115,7 +116,7 @@ export const WorkflowAgentStream = clientEntry(
 
       let details = document.createElement('div')
       details.style.fontSize = '0.75rem'
-      details.style.color = 'var(--rmx-color-text-muted, #888)'
+      details.style.color = theme.colors.text.muted
       let actionType = String(suspendPayload.actionType || '')
       let userName = String(suspendPayload.targetUserName || '')
       let pendingCount = Number(suspendPayload.pendingCount || 0)
@@ -134,8 +135,8 @@ export const WorkflowAgentStream = clientEntry(
       confirmBtn.style.border = 'none'
       confirmBtn.style.borderRadius = '4px'
       confirmBtn.style.cursor = 'pointer'
-      confirmBtn.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
-      confirmBtn.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      confirmBtn.style.background = theme.colors.action.primary.background
+      confirmBtn.style.color = theme.colors.action.primary.foreground
       confirmBtn.style.fontSize = '0.8125rem'
       confirmBtn.onclick = () => {
         confirmBtn.disabled = true
@@ -147,11 +148,11 @@ export const WorkflowAgentStream = clientEntry(
       let cancelBtn = document.createElement('button')
       cancelBtn.textContent = 'Abbrechen'
       cancelBtn.style.padding = '0.4rem 1rem'
-      cancelBtn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+      cancelBtn.style.border = '1px solid ' + theme.colors.border.default
       cancelBtn.style.borderRadius = '4px'
       cancelBtn.style.cursor = 'pointer'
-      cancelBtn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-      cancelBtn.style.color = 'var(--rmx-color-text-primary, #333)'
+      cancelBtn.style.background = theme.surface.lvl1
+      cancelBtn.style.color = theme.colors.text.primary
       cancelBtn.style.fontSize = '0.8125rem'
       cancelBtn.onclick = () => {
         confirmBtn.disabled = true
@@ -173,9 +174,9 @@ export const WorkflowAgentStream = clientEntry(
       container.id = 'wf-result'
       container.style.marginTop = '0.5rem'
       container.style.padding = '0.75rem'
-      container.style.border = '1px solid var(--rmx-color-border-default, #ddd)'
+      container.style.border = '1px solid ' + theme.colors.border.default
       container.style.borderRadius = '6px'
-      container.style.background = 'var(--rmx-surface-lvl1, #fafafa)'
+      container.style.background = theme.surface.lvl1
       container.style.display = 'flex'
       container.style.flexDirection = 'column'
       container.style.gap = '0.5rem'
@@ -183,7 +184,7 @@ export const WorkflowAgentStream = clientEntry(
       if (data.success) {
         let success = document.createElement('div')
         success.textContent = '✓ Action completed'
-        success.style.color = 'var(--rmx-color-success, #28a745)'
+        success.style.color = theme.colors.success.foreground
         success.style.fontWeight = '600'
         success.style.fontSize = '0.875rem'
         container.appendChild(success)
@@ -192,7 +193,7 @@ export const WorkflowAgentStream = clientEntry(
           let name = document.createElement('div')
           name.textContent = String(data.targetUserName)
           name.style.fontSize = '0.8125rem'
-          name.style.color = 'var(--rmx-color-text-secondary, #666)'
+          name.style.color = theme.colors.text.secondary
           container.appendChild(name)
         }
 
@@ -203,8 +204,8 @@ export const WorkflowAgentStream = clientEntry(
           link.textContent = '📄 ' + data.reportFilename + ' download'
           link.style.display = 'inline-block'
           link.style.padding = '0.4rem 1rem'
-          link.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
-          link.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+          link.style.background = theme.colors.action.primary.background
+          link.style.color = theme.colors.action.primary.foreground
           link.style.borderRadius = '4px'
           link.style.textDecoration = 'none'
           link.style.fontSize = '0.8125rem'
@@ -215,7 +216,7 @@ export const WorkflowAgentStream = clientEntry(
       } else {
         let error = document.createElement('div')
         error.textContent = '✗ Action failed: ' + (data.error || 'unknown error')
-        error.style.color = 'var(--rmx-color-action-danger, #dc3545)'
+        error.style.color = theme.colors.action.danger.background
         error.style.fontWeight = '600'
         error.style.fontSize = '0.875rem'
         container.appendChild(error)
@@ -237,8 +238,8 @@ export const WorkflowAgentStream = clientEntry(
       link.textContent = '📄 ' + filename + ' download'
       link.style.display = 'inline-block'
       link.style.padding = '0.4rem 1rem'
-      link.style.background = 'var(--rmx-color-action-primary-background, #0055ff)'
-      link.style.color = 'var(--rmx-color-action-primary-foreground, #fff)'
+      link.style.background = theme.colors.action.primary.background
+      link.style.color = theme.colors.action.primary.foreground
       link.style.borderRadius = '4px'
       link.style.textDecoration = 'none'
       link.style.fontSize = '0.8125rem'
@@ -254,9 +255,7 @@ export const WorkflowAgentStream = clientEntry(
       let el = document.createElement('div')
       el.textContent = text
       el.style.fontSize = '0.8125rem'
-      el.style.color = isError
-        ? 'var(--rmx-color-action-danger, #dc3545)'
-        : 'var(--rmx-color-text-muted, #888)'
+      el.style.color = isError ? theme.colors.action.danger.background : theme.colors.text.muted
       el.style.padding = '0.25rem 0'
       el.style.fontStyle = 'italic'
       bar.appendChild(el)

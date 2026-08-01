@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { theme } from '../../ui/theme/theme.ts'
 import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
 import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
 
@@ -106,7 +107,7 @@ export const RouteAgentStream = clientEntry(
           if (opt.description) {
             let desc = document.createElement('span')
             desc.textContent = '— ' + opt.description
-            desc.style.color = 'var(--rmx-color-text-muted, #888)'
+            desc.style.color = theme.colors.text.muted
             desc.style.fontSize = '0.75rem'
             label.appendChild(desc)
           }
@@ -123,11 +124,11 @@ export const RouteAgentStream = clientEntry(
         btn.textContent = 'Bestätigen'
         btn.style.padding = '4px 14px'
         btn.style.marginTop = '6px'
-        btn.style.border = '1px solid var(--rmx-color-border-default, #ccc)'
+        btn.style.border = '1px solid ' + theme.colors.border.default
         btn.style.borderRadius = '4px'
         btn.style.cursor = 'pointer'
-        btn.style.background = 'var(--rmx-surface-lvl1, #fff)'
-        btn.style.color = 'var(--rmx-color-text-primary, #333)'
+        btn.style.background = theme.surface.lvl1
+        btn.style.color = theme.colors.text.primary
         btn.style.fontSize = '0.8125rem'
         btn.style.alignSelf = 'flex-start'
         btn.onclick = () => {
