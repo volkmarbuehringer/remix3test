@@ -22,6 +22,11 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [on Mixin Requires clientEntry](#on-mixin-requires-cliententry)
 - [Binary File Downloads in Frames](#binary-file-downloads-in-frames)
 - [Mobile Nav Hamburger](#mobile-nav-hamburger)
+- [HTML5 Drag and Drop in clientEntry](#html5-drag-and-drop-in-cliententry)
+- [Fragment Scrolling Inside Overflow Containers](#fragment-scrolling-inside-overflow-containers)
+- [Verifying Frame-Rendered HTML in Tests](#verifying-frame-rendered-html-in-tests)
+- [Frame Target Registration & Content-Only Panels](#frame-target-registration--content-only-panels)
+- [Frame Input Value Preservation](#frame-input-value-preservation)
 
 ---
 
@@ -1406,3 +1411,425 @@ Do NOT use when:
 - You need animation/transition on the overlay (this pattern uses instant pop)
 
 (Consolidated from `remix-mobile-nav-hamburger`)
+
+---
+
+## HTML5 Drag and Drop in clientEntry
+
+**Context:** Implementing drag-and-drop reordering of list items in a `clientEntry` component
+
+### Problem
+
+Adding HTML5 Drag and Drop (`dragstart`, `dragover`, `drop`, `dragend`) to a Remix 3 `clientEntry` hits three issues:
+
+1. **`on()` mixin rejects drag events** — `on('dragstart', handler)` fails TypeScript because `EventType<Element>` (the target type for JSX elements) does not include HTML5 drag events. Only `HTMLElementEventMap` includes them, but the template system targets `Element`.
+2. **`handle.update()` during drag causes infinite loop** — calling `handle.update()` inside `dragover` (which fires on every mouse pixel) triggers a re-render, which the Remix scheduler detects as cascading updates and throws `Error: handle.update() infinite loop detected`.
+3. **Stale closures after key-based reorder** — after a successful drop, `handle.update()` re-renders the list. Key-based reconciliation reuses DOM elements, so `ref()` callbacks **don't re-fire**. Event listener closures keep the **old** `index` value, corrupting subsequent drag operations.
+
+### Solution
+
+#### 1. Use `ref()` + `addEventListener` instead of `on()`
+
+Attach drag event listeners via `ref()` with an `AbortController` for cleanup:
+
+```ts
+import { clientEntry, ref, css } from 'remix/ui'
+
+export const MyList = clientEntry(import.meta.url + '#MyList', (handle) => {
+  let items = [...]
+
+  let handleDragStart = (e: DragEvent, index: number) => { ... }
+  let handleDragOver = (e: DragEvent, index: number) => { ... }
+  let handleDrop = () => { ... }
+  let handleDragEnd = () => { ... }
+
+  return () => (
+    <div>
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          mix={ref((el) => {
+            let ac = new AbortController()
+            el.addEventListener('dragstart', (e) => {
+              let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+              handleDragStart(e as DragEvent, idx)
+            }, { signal: ac.signal })
+            el.addEventListener('dragover', (e) => {
+              let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+              handleDragOver(e as DragEvent, idx)
+            }, { signal: ac.signal })
+            el.addEventListener('drop', (e) => handleDrop(e as DragEvent), { signal: ac.signal })
+            el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
+            return () => ac.abort()
+          })}
+          draggable="true"
+          data-index={index}
+        >
+          ...
+        </div>
+      ))}
+    </div>
+  )
+})
+```
+
+#### 2. Never call `handle.update()` during active drag
+
+Visual feedback must use **direct DOM manipulation**:
+
+```ts
+let draggedEl: HTMLElement | null = null
+let indicatorEl: HTMLElement | null = null
+
+let handleDragStart = (e: DragEvent, index: number) => {
+  let el = e.currentTarget as HTMLElement
+  draggedEl = el
+  el.style.opacity = '0.4'
+}
+
+let handleDragOver = (e: DragEvent, index: number) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (targetEl) targetEl.style.borderTop = '2px solid blue'
+}
+
+let handleDrop = () => {
+  if (indicatorEl) indicatorEl.style.borderTop = ''
+  items = reorderedItems
+  handle.update()
+}
+
+let handleDragEnd = () => {
+  let dirty = draggedEl !== null || indicatorEl !== null
+  if (draggedEl) draggedEl.style.opacity = ''
+  if (indicatorEl) indicatorEl.style.borderTop = ''
+  if (dirty) handle.update()
+}
+```
+
+#### 3. Read `data-index` live from the DOM, not from closure
+
+```ts
+// ✅ Correct: read live from DOM
+el.addEventListener(
+  'dragover',
+  (e) => {
+    let idx = parseInt((e.currentTarget as HTMLElement).dataset.index || '0', 10)
+    handleDragOver(e as DragEvent, idx)
+  },
+  { signal: ac.signal },
+)
+
+// ❌ Wrong: captured in closure, stale after reorder
+el.addEventListener('dragover', (e) => handleDragOver(e as DragEvent, index), { signal: ac.signal })
+```
+
+For container-level iteration, use `listRef.children[i]` (scoped, O(1)):
+
+```ts
+let listRef: HTMLDivElement | null = null
+
+let elByIndex = (i: number): HTMLElement | null => {
+  let child = listRef?.children[i]
+  return child instanceof HTMLElement ? child : null
+}
+```
+
+#### 4. Set `draggable="false"` on interactive children
+
+```tsx
+<div draggable="false" mix={css({ display: 'flex', gap: '8px' })}>
+  <button>Edit</button>
+  <button>Delete</button>
+</div>
+```
+
+### When to Use
+
+- Implementing drag-and-drop reordering in a Remix 3 `clientEntry`
+- Getting TypeScript errors when using `on('dragstart', ...)` or `on('dragover', ...)`
+- Getting `handle.update() infinite loop detected` during drag operations
+- Drag operations work once but break after reordering items
+
+(Consolidated from `remix3-cliententry-drag-and-drop`)
+
+---
+
+## Fragment Scrolling Inside Overflow Containers
+
+**Context:** A Remix 3 chat page needed to scroll the message container to the bottom after POST+redirect, but inline `<script>` tags don't execute in frame navigation because content is fetched via `router.fetch()` and injected into the DOM.
+
+### Problem
+
+Remix 3 frame navigation fetches HTML via `router.fetch()` and injects it into the DOM. Inline `<script>` tags in frame responses **do not execute**. This blocks client-side scroll-to-bottom patterns like:
+
+```html
+<script>
+  document.getElementById('chat-messages').scrollTop = ...
+</script>
+```
+
+Using `clientEntry` from `remix/ui` works but adds complexity — a separate file, async hydration, and lifecycle management with `requestAnimationFrame`.
+
+### Solution
+
+Place a `<div id="your-target" />` **inside** the scrollable overflow container (`overflow-y: auto`), then navigate to the URL with `#your-target` hash.
+
+The browser's native fragment scrolling doesn't just scroll `<html>` — it finds the **nearest scrollable ancestor** of the target element and scrolls THAT container to make the target visible.
+
+### Example
+
+```tsx
+// ❌ Broken in frame navigation: inline script never fires
+<div id="chat-messages" mix={conversationStyle}>
+  {messages.map(msg => <div>{msg}</div>)}
+</div>
+<div id="chat-end" />
+<script>document.getElementById('chat-messages').scrollTop = ...</script>
+
+// ✅ Works: fragment scrolls the overflow container natively
+<div id="chat-messages" mix={conversationStyle}>
+  {messages.map(msg => <div>{msg}</div>)}
+  <div id="chat-end" />  {/* ← inside the scrollable container */}
+</div>
+```
+
+Then include the hash in navigation URLs:
+
+```ts
+// On success POST redirect
+let url = routes.chat.index.href() + '?threadId=' + id + '#chat-end'
+return redirect(url)
+
+// On links to existing conversations
+let link = routes.chat.index.href() + '?threadId=' + id + '#chat-end'
+```
+
+### How It Works
+
+1. Browser parses the URL hash (`#chat-end`)
+2. Finds the element with matching `id`
+3. Walks up the DOM tree to find the first ancestor with `overflow: auto` or `overflow: scroll`
+4. Scrolls that ancestor to make the target element visible (at the bottom if it's the last child)
+
+### Required CSS on the container
+
+```css
+overflow-y: auto; /* makes the div a scroll container */
+/* or */
+overflow-y: scroll; /* always shows scrollbar */
+```
+
+### When to Use
+
+- A Remix 3 chat/message page needs scroll-to-bottom after form submission
+- Inline `<script>` tags don't work (frame navigation, content injection)
+- You want scroll-to-bottom without a `clientEntry` component
+- Fragment scrolling already works for page-level anchors but fails for elements inside scrollable divs
+
+(Consolidated from `remix3-fragment-scroll-overflow-container`)
+
+---
+
+## Verifying Frame-Rendered HTML in Tests
+
+**Context:** Checking that a layout/CSS change to an admin page (e.g. `/admin/workflowagent2`) actually landed, without a browser, by asserting on the server-rendered fragment.
+
+### Problem
+
+Pages rendered through `renderAdminPage` / `createSidebarLayout` use Remix 3 Frame navigation. A plain full-page GET only returns `<Layout><Frame src=.../></Layout>` — the actual page markup (sidebar shell + content) renders only when the request carries the frame target header `X-Remix-Target: admin-content`. Asserting on the initial GET misses everything you changed. Grepping rendered HTML also has two traps:
+
+1. **Substring false positives:** the Document body uses `min-height: 100vh`, which contains the substring `height: 100vh` — `html.includes('height: 100vh')` passes even when the page still uses it.
+2. **CSS serializer spacing:** the `css()` serializer emits a space after colons (`min-height: 3.6rem`, `height: 100%`), so searches must include the space or they come back NOT FOUND.
+
+### Solution
+
+Fetch the frame-rendered fragment with an authenticated admin session and assert on the returned HTML:
+
+```ts
+import { router } from '../../test-router.ts'
+import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
+
+let { cookie } = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+let res = await router.fetch(`${BASE}${routes.admin.agentEvents.index.href()}`, {
+  headers: { Cookie: cookie, 'X-Remix-Target': 'admin-content' },
+})
+let html = await res.text()
+
+assert.ok(!html.includes('column;\n  height: 100vh'), 'page must not use height:100vh')
+assert.ok(html.includes('min-height: 3.6rem'), 'input min-height present')
+assert.ok(html.includes('rows="2"'), 'textarea rows=2')
+```
+
+Key facts:
+
+- The frame-target response is a fragment WITHOUT the `<html>`/`<body>` Document shell, so there is no `min-height: 100vh` noise. A standalone page rendered via plain `<Layout>` (not the sidebar shell) returns the full document, so there search for the page-style pattern `column;\n  height: 100vh` instead of the bare `height: 100vh`.
+- Use `createAuthCookieWithCsrfForUser(email)` for an authenticated session (avoids the GET → CSRF-token dance).
+- Match generated CSS with the space after the colon (`min-height: 3.6rem`, not `min-height:3.6rem`).
+- This is a structural check (classes/styles present), not a visual one — scrollbar/layout behavior still needs a browser.
+- Run a single file quickly with `npm test -- <glob>`; delete throwaway verification tests afterwards.
+
+### When to Use
+
+- Verifying a layout/CSS change to an admin (sidebar-shell) page landed, without booting a browser
+- Writing a regression assertion that a page no longer contains a specific style (e.g. `height: 100vh`)
+- Confirming `fullHeightTargets` / content-only frame targets actually take effect for a route
+
+(Consolidated from `remix3-frame-rendered-html-verification`)
+
+---
+
+## Frame Target Registration & Content-Only Panels
+
+**Context:** Moving admin agent routes under `/admin` with a sidebar, embedding a nested "panel" frame that loads other admin pages. Two symptoms appeared in sequence: a duplicate MainNav navbar in the panel, then a duplicate sidebar.
+
+### Problem
+
+A `<Frame name="X" src="/path">` fetches its content with `X-Remix-Target: X`. The sidebar layout (`createSidebarLayout`/`ShellOrFragment`) only renders a **fragment** when the incoming `X-Remix-Target` is in its registered set (`frameTarget` + `acceptFrameTargets`), or in `contentOnlyTargets` (which renders bare page content).
+
+Three failure modes:
+
+1. **Unregistered target → duplicate navbar**: Load `/admin/users` into a frame named `agent-events-panel`. The request carries `X-Remix-Target: agent-events-panel`, which isn't accepted → `isFrameRequest()` is false → `ShellOrFragment` renders `<Layout><Frame name={frameTarget} src={url}/></Layout>` (the frame target defaults to the top frame), so the full page (`Layout` with public `MainNav`) renders INSIDE the panel → a second navbar, because the URL re-enters the `admin-content` frame.
+
+2. **Registered target → duplicate sidebar**: If you "fix" mode 1 by adding the panel name to `acceptFrameTargets`, the admin fragment includes the sidebar shell → the panel now shows a second sidebar (the host page already renders via `renderAdminPage` with the sidebar on the left).
+
+3. **Frame-name collision**: `getNamedFrame(name)` resolves within the current document's runtime and falls back to the top frame. If a page living inside the `admin-content` frame embeds another frame ALSO named `admin-content`, sidebar `NavLink`s (target `admin-content`) resolve to the inner panel instead of the page frame.
+
+### Solution
+
+#### Centralize frame names
+
+Keep every frame name in one `frames` const so the `<Frame name>`, `data-active-frame`, SSE navigate targets, and the layout's target lists cannot drift:
+
+```tsx
+// app/routes.ts
+export const frames = {
+  adminContent: 'admin-content',
+  listsContent: 'lists-content',
+  appointmentContent: 'appointment-content',
+  appointTypes: 'appoint-types',
+  workflowAgentPanel: 'workflow-agent-panel',
+  agentEventsPanel: 'agent-events-panel',
+} as const
+```
+
+#### Register panel targets as content-only
+
+`createSidebarLayout` gained a `contentOnlyTargets` set. When `X-Remix-Target` matches one, `ShellOrFragment` returns just the page content (`children`) — no sidebar shell, no `Layout` shell:
+
+```tsx
+export type SidebarLayoutConfig<ID extends string> = {
+  frameTarget: string
+  acceptFrameTargets?: string[]
+  contentOnlyTargets?: string[]   // render only children for these targets
+  // ...
+}
+
+// ShellOrFragment
+let target = getContext().request.headers.get('X-Remix-Target')
+if (target != null && contentOnlyTargetSet.has(target)) {
+  return children
+}
+```
+
+Register the panel names as content-only (NOT as full-shell accepted targets):
+
+```tsx
+createSidebarLayout<AdminNavItem>({
+  frameTarget: frames.adminContent,
+  acceptFrameTargets: [frames.listsContent],
+  contentOnlyTargets: [frames.agentEventsPanel, frames.workflowAgentPanel],
+  // ...
+})
+```
+
+#### Use unique names for nested panels
+
+A frame nested inside the `admin-content` frame must have a DIFFERENT name than `admin-content`. Otherwise sidebar navigation (target `admin-content`) hits the inner panel frame.
+
+#### Prefer panel navigation over whole-page navigation when streaming continues
+
+If an action navigates the panel AND then continues streaming a workflow result into the same SSE connection, do NOT navigate the whole page — that tears down the connection and loses the result. Navigate the panel frame and let it reload on completion.
+
+### When to Use
+
+- Embedding a nested `<Frame>` (panel) inside a page that already renders a sidebar layout, where the panel loads other admin/content routes
+- After changing a frame's `name`, `data-active-frame`, or SSE navigate `target` — the frame name becomes the `X-Remix-Target`, and the layout must know it
+- Seeing a second navbar or second sidebar appear inside a frame
+- Seeing sidebar navigation "jump into" the wrong (inner) frame
+
+(Consolidated from `remix3-frame-target-registration`)
+
+---
+
+## Frame Input Value Preservation
+
+**Context:** When a Remix Frame reloads with new server-rendered HTML containing `<input value="...">`, the `defaultValue` is silently ignored. The input keeps its previous value (or stays empty).
+
+### Problem
+
+Remix Frames use DOM diffing (`diff-dom.js`) instead of full replacement when updating content on `frame.reload()`. When an `<input>` element is matched by tag and position, `diffElementAttributes` is called. For the `value` attribute, `shouldPreserveLiveAttribute` checks:
+
+```javascript
+if (name === 'value') {
+  if (current instanceof HTMLInputElement &&
+      next instanceof HTMLInputElement &&
+      shouldPreserveInputValue(current)) {
+    return current.value !== next.value;  // true → SKIP the update
+  }
+}
+```
+
+When `current.value` differs from `next.value` (e.g. empty string vs "fritz"), the check returns `true`, meaning **preserve the current value**. `setAttribute('value')` is skipped entirely. The server-rendered `defaultValue` is never applied.
+
+This affects:
+- Filter/search inputs with `defaultValue={filterParam}` on Frame-reloaded pages
+- Any form input that relies on `defaultValue` inside a Remix Frame
+- GET form submissions with `rmx-target` that navigate the frame
+
+### Solution
+
+Set the input's `.value` property **directly after the frame reload completes**, bypassing the DOM diff:
+
+```typescript
+function restoreFilterValue(url: string) {
+  let filterValue = new URL(url, window.location.origin).searchParams.get('filter') ?? ''
+  for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
+    input.value = filterValue
+  }
+}
+
+// In handleNavigate:
+frame.src = href
+frame.reload().then(
+  () => restoreFilterValue(href),
+  (err) => handleError(err),
+)
+```
+
+For values that should persist across navigations (e.g. the user's last search), store the value and restore it when no URL parameter is present:
+
+```typescript
+let lastFilterValue: string = ''
+
+function restoreFilterValue(url: string) {
+  let filterValue = new URL(url, window.location.origin).searchParams.get('filter')
+  if (filterValue !== null) {
+    lastFilterValue = filterValue
+  }
+  let value = filterValue ?? lastFilterValue
+  for (let input of document.querySelectorAll<HTMLInputElement>('input[name="filter"]')) {
+    input.value = value
+  }
+}
+```
+
+For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern after `frame.reload()`.
+
+### When to Use
+
+- Server-rendered form inputs with `defaultValue` inside a Remix `<Frame>` don't show the expected value after navigation
+- Filter/search inputs are empty after a Frame reload even though the URL has the correct query parameter
+- The frame content updates but `<input>` elements keep their old values
+
+(Consolidated from `remix-frame-input-value-preservation`)

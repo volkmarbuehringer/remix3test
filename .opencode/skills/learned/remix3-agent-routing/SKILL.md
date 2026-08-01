@@ -363,7 +363,7 @@ Validate paths on both server (tool `execute`) and client (before `frame.src = h
 
 ## Related Skills
 
-- `mastra-agent-streaming-sse` — the SSE transport that carries `navigate` and `question` events
+- `mastra-agent` — the SSE transport that carries `navigate` and `question` events
 - `form-error-handling-remix3` — validation errors re-render inline and preserve user edits over prefill values
 - `remix-security-middleware` — CSRF configuration for agent endpoints
 - `rate-limiter-pitfalls` — rate limiter settings for multi-step agent flows
