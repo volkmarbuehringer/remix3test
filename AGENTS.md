@@ -29,6 +29,18 @@ When you need API docs or usage examples for a `remix/*` subpath:
 
 Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix-cli-devops, remix-file-uploads, remix-headers, remix-html-template, remix-security-middleware). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
 
+## Maintaining Learned Deltas
+
+Only the learned skills in `.opencode/skills/learned/` are maintained by this repo — everything vendor-supplied (guides, package READMEs, the vendor `remix` skill, `@mastra/core` docs) is authoritative and read-only; learned skills should point at it, never restate it.
+
+Learned deltas encode hard-won, often **version-pinned** facts (file/line references into `~/remix/`, API behaviors, release milestones). These rot silently: the vendor code moves on while the delta stays frozen. Before relying on a learned delta, validate its version-pinned claims against the current vendor tree:
+
+- Line/path references: confirm the referenced file still exists at `~/remix/packages/` / `~/remix/packages/remix/src/` and the behavior matches the current source
+- API claims: check the package README or source for the named function/operator (e.g. an `inList()` operator may now exist where a raw-SQL workaround was recorded)
+- Release milestones: treat "as of beta.N" / "since vX" statements as stale unless re-confirmed against the current version
+
+When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Audit runbooks: `remix3-data-table-array-in-clause`, `remix3-two-tier-ip-trust-model`, `remix-routepattern-opaque-access`, `remix3-frame-cliententry` are the highest-drift-risk skills.
+
 ## Starter Layout
 
 - `app/actions/controller.tsx` owns the top-level route actions
