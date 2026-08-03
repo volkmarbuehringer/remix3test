@@ -33,6 +33,7 @@ export const routes = route({
     index: get('/'),
     create: post('/'),
     update: put('/:id'),
+    move: post('/:id/move'),
     destroy: post('/:id/delete'),
   }),
 

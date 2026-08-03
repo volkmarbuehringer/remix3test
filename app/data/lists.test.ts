@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../data/setup.ts'
 import { lists } from '../data/schema.ts'
-import { getListById, createList, patchList, deleteList } from './lists.ts'
+import { getListById, createList, patchList, deleteList, moveItemBetweenLists } from './lists.ts'
 
 describe('lists-api lib', () => {
   before(async () => {
@@ -138,6 +138,52 @@ describe('lists-api lib', () => {
     await db.delete(lists, { id: created.id })
   })
 
+  it('patchList preserves done flag through create->patch round-trip', async () => {
+    let created = await createList(db, {
+      description: 'Done round-trip',
+      items: [
+        { id: '1', label: 'Checked', done: true },
+        { id: '2', label: 'Open' },
+      ],
+    })
+    assert.equal(created.list[0].done, true)
+    assert.equal(created.list[1].done, undefined)
+
+    let result = await patchList(
+      db,
+      created.id,
+      {
+        items: [
+          { id: '1', label: 'Checked', done: false },
+          { id: '2', label: 'Open' },
+        ],
+      },
+      undefined,
+      {
+        expectedUpdatedAt: created.updated_at,
+      },
+    )
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.row.list[0].done, false)
+      assert.equal(result.row.list[1].done, undefined)
+      assert.equal(result.row.list[0].id, '1', 'id preserved')
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('item without done reads as unchecked (undefined)', async () => {
+    let created = await createList(db, {
+      description: 'No done flag',
+      items: [{ label: 'Bare item' }],
+    })
+    assert.equal(created.list[0].done, undefined)
+    assert.ok(!created.list[0].done, 'absent done must be falsy')
+
+    await db.delete(lists, { id: created.id })
+  })
+
   it('patchList returns not_found for non-existent id', async () => {
     let result = await patchList(db, 999999999, { description: 'Nope' })
     assert.ok(!result.ok)
@@ -233,5 +279,216 @@ describe('lists-api lib', () => {
 
     let row = await getListById(db, created.id)
     assert.equal(row, null)
+  })
+
+  it('moveItemBetweenLists moves an item and bumps both updated_at', async () => {
+    let source = await createList(db, {
+      description: 'Move source',
+      items: [
+        { id: 's1', label: 'Alpha' },
+        { id: 's2', label: 'Beta' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Move target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 's1', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.source.list.length, 1)
+      assert.equal(result.source.list[0].id, 's2')
+      assert.equal(result.target.list.length, 2)
+      assert.equal(result.target.list[0].id, 't1')
+      assert.equal(result.target.list[1].id, 's1', 'moved item appended at end')
+      assert.ok(result.source.updated_at >= source.updated_at)
+      assert.ok(result.target.updated_at >= target.updated_at)
+      assert.equal(result.target.list[1].label, 'Alpha', 'item data preserved')
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemBetweenLists rejects moving the last item', async () => {
+    let source = await createList(db, {
+      description: 'Lonely source',
+      items: [{ id: 'solo', label: 'Only' }],
+    })
+    let target = await createList(db, {
+      description: 'Any target',
+      items: [{ id: 't1', label: 'Keep' }],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'solo', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) assert.equal(result.reason, 'last_item')
+
+    let after = await getListById(db, source.id)
+    assert.equal(after!.list.length, 1, 'source unchanged')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemBetweenLists rejects moving into the same list', async () => {
+    let source = await createList(db, {
+      description: 'Same list',
+      items: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, source.id, 'a', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) assert.equal(result.reason, 'same_list')
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('moveItemBetweenLists returns conflict on stale source updated_at', async () => {
+    let source = await createList(db, {
+      description: 'Stale source',
+      items: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Stale target',
+      items: [{ id: 't1', label: 'Keep' }],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'a', undefined, {
+      expectedUpdatedAt: source.updated_at - 9999,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) {
+      assert.equal(result.reason, 'conflict')
+      assert.equal(result.current.description, 'Stale source')
+      assert.equal(result.current.list.length, 2, 'source not modified')
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemBetweenLists preserves done flag on the moved item', async () => {
+    let source = await createList(db, {
+      description: 'Done move source',
+      items: [
+        { id: 'd1', label: 'Checked', done: true },
+        { id: 'd2', label: 'Open' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Done move target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'd1', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.target.list[1].id, 'd1')
+      assert.equal(result.target.list[1].done, true, 'moved item keeps done=true')
+      assert.equal(result.source.list.length, 1)
+      assert.equal(result.source.list[0].done, undefined, 'remaining item keeps done absent')
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemBetweenLists removes only the matched duplicate id', async () => {
+    let source = await createList(db, {
+      description: 'Duplicate source',
+      items: [
+        { id: 'dup', label: 'Copy A' },
+        { id: 'dup', label: 'Copy B' },
+        { id: 'ok', label: 'Keep' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Duplicate target',
+      items: [{ id: 't1', label: 'Existing' }],
+    })
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'dup', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.target.list[1].label, 'Copy A', 'exactly one duplicate moved')
+      assert.equal(result.source.list.length, 2, 'one duplicate stays in source')
+      assert.equal(
+        result.source.list.filter((i) => i.id === 'dup').length,
+        1,
+        'one duplicate id remains in source',
+      )
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('moveItemBetweenLists returns not_found for a deleted target', async () => {
+    let source = await createList(db, {
+      description: 'Gone target source',
+      items: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ],
+    })
+    let target = await createList(db, {
+      description: 'Doomed target',
+      items: [{ id: 't1', label: 'Keep' }],
+    })
+    await deleteList(db, target.id)
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'a', undefined, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) assert.equal(result.reason, 'not_found')
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('moveItemBetweenLists returns not_found for foreign-owner source', async () => {
+    let source = await createList(
+      db,
+      {
+        description: 'Owned by user 1',
+        items: [
+          { id: 'a', label: 'A' },
+          { id: 'b', label: 'B' },
+        ],
+      },
+      1,
+    )
+    let target = await createList(
+      db,
+      { description: 'Owned by user 1 too', items: [{ id: 't1', label: 'Keep' }] },
+      1,
+    )
+
+    let result = await moveItemBetweenLists(db, source.id, target.id, 'a', 999, {
+      expectedUpdatedAt: source.updated_at,
+    })
+    assert.ok(!result.ok)
+    if (!result.ok) assert.equal(result.reason, 'not_found')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
   })
 })

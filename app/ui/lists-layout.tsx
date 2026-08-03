@@ -30,13 +30,14 @@ export type ListSidebarEntry = {
   id: ListsNavItem
   label: string
   count: number
+  doneCount?: number
   updatedAt?: number
 }
 
 export type ListInitialState = {
   id: number
   description: string
-  items: Array<{ id: string; label: string }>
+  items: Array<{ id: string; label: string; done?: boolean }>
   updated_at: number
 } | null
 
@@ -274,9 +275,13 @@ function ListsLayout(
                     </span>
                     <span
                       mix={countBadgeStyle}
-                      aria-label={`${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`}
+                      aria-label={
+                        entry.doneCount != null
+                          ? `${entry.doneCount} von ${entry.count} erledigt`
+                          : `${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`
+                      }
                     >
-                      {entry.count}
+                      {entry.doneCount != null ? `${entry.doneCount}/${entry.count}` : entry.count}
                     </span>
                   </NavLink>
                   {listId !== null && (

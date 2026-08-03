@@ -3,16 +3,18 @@ import { theme } from '../../ui/theme/theme.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
 import button from '../../ui/theme/button.ts'
+import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.browser.ts'
 
 type ListItem = {
   id: string
   label: string
+  done?: boolean
 }
 
 type ListInitialState = {
   id: number
   description: string
-  items: Array<{ id: string; label: string }>
+  items: Array<{ id: string; label: string; done?: boolean }>
   updated_at: number
 }
 
@@ -26,7 +28,6 @@ export const ListsClient = clientEntry(
     let items: ListItem[] = []
     let description = ''
     let newItemLabel = ''
-    let nextId = 0
     let loadedListId: number | null = null
     let loadedUpdatedAt: number | null = null
     let saving = false
@@ -42,6 +43,12 @@ export const ListsClient = clientEntry(
     let dropIndex: number | null = null
     let draggedEl: HTMLElement | null = null
     let indicatorEl: HTMLElement | null = null
+
+    // Cross-list drag state (sidebar rows as drop targets)
+    let sidebarHighlightEl: HTMLElement | null = null
+    let editorRect: RectLike | null = null
+    let sidebarRows: SidebarRowRect[] = []
+    let sidebarDragCleanup: (() => void) | null = null
 
     // Autosave state
     type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error'
@@ -253,11 +260,18 @@ export const ListsClient = clientEntry(
       )
     }
 
-    let flushNow = async () => {
-      if (autosaveTimer) clearTimeout(autosaveTimer)
-      autosaveTimer = null
-      if (!isDirty()) return
-      await saveNow()
+    let flushNow = async (): Promise<boolean> => {
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer)
+        autosaveTimer = null
+      }
+      // If a save is already in flight, wait for it to settle before deciding.
+      while (saving) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 10))
+      }
+      if (conflictState.show) return false
+      if (!isDirty()) return true
+      return await saveNow()
     }
 
     // Hydrate from server-injected initial state
@@ -266,11 +280,6 @@ export const ListsClient = clientEntry(
       description = state.description
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
-      nextId =
-        items.reduce((max, item) => {
-          let n = parseInt(item.id, 10)
-          return Number.isFinite(n) && n > max ? n : max
-        }, 0) + 1
       snapshotClean()
       saveStatus = 'saved'
       loadError = ''
@@ -310,7 +319,6 @@ export const ListsClient = clientEntry(
       description = ''
       loadedListId = null
       loadedUpdatedAt = null
-      nextId = 0
       saveStatus = 'saved'
       loadError = ''
       loadingList = false
@@ -355,6 +363,9 @@ export const ListsClient = clientEntry(
       let el = e.currentTarget as HTMLElement
       draggedEl = el
       el.style.opacity = '0.4'
+      clearSidebarHighlight()
+      measureDropZones()
+      startSidebarDragWiring()
     }
 
     let elByIndex = (i: number): HTMLElement | null => {
@@ -442,9 +453,138 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
+    // Cross-list drag: sidebar rows as drop targets
+    let rectOf = (el: HTMLElement): RectLike => {
+      let r = el.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
+    }
+
+    let measureDropZones = () => {
+      editorRect = listRef ? rectOf(listRef) : null
+      sidebarRows = Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]'))
+        .map((el) => ({ listId: Number(el.dataset.listId), rect: rectOf(el) }))
+        .filter((row) => Number.isFinite(row.listId))
+    }
+
+    let showSidebarHighlight = (listId: number) => {
+      if (sidebarHighlightEl) sidebarHighlightEl.style.boxShadow = ''
+      let row = Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]')).find(
+        (el) => Number(el.dataset.listId) === listId,
+      )
+      sidebarHighlightEl = row ?? null
+      if (row) row.style.boxShadow = `inset 0 0 0 2px ${theme.colors.focus.ring}`
+    }
+
+    let clearSidebarHighlight = () => {
+      if (sidebarHighlightEl) {
+        sidebarHighlightEl.style.boxShadow = ''
+        sidebarHighlightEl = null
+      }
+    }
+
+    let startSidebarDragWiring = () => {
+      stopSidebarDragWiring()
+      let ac = new AbortController()
+      window.addEventListener(
+        'dragover',
+        (e) => {
+          let zone = resolveDropZone(e.clientX, e.clientY, editorRect, sidebarRows)
+          if (zone.zone === 'none') return
+          e.preventDefault()
+          if (zone.zone === 'editor') {
+            clearSidebarHighlight()
+          } else {
+            // Dismiss only the intra-list indicator — keep the dragged item lifted.
+            if (indicatorEl) {
+              indicatorEl.style.borderTop = ''
+              indicatorEl.style.borderBottom = ''
+              indicatorEl = null
+            }
+            dropIndex = null
+            showSidebarHighlight(zone.listId)
+          }
+        },
+        { capture: true, signal: ac.signal },
+      )
+      for (let row of Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]'))) {
+        row.addEventListener('drop', (e) => handleSidebarDrop(e as DragEvent, row), {
+          signal: ac.signal,
+        })
+      }
+      sidebarDragCleanup = () => ac.abort()
+    }
+
+    let stopSidebarDragWiring = () => {
+      if (sidebarDragCleanup) {
+        sidebarDragCleanup()
+        sidebarDragCleanup = null
+      }
+    }
+
+    let handleSidebarDrop = async (e: DragEvent, row: HTMLElement) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (dragIndex === null) return
+      let targetId = Number(row.dataset.listId)
+      let sourceId = loadedListId
+      let item = items[dragIndex]
+      dragIndex = null
+      dropIndex = null
+      clearSidebarHighlight()
+      clearDragOver()
+      stopSidebarDragWiring()
+      if (sourceId === null || !Number.isFinite(targetId) || !item) {
+        handle.update()
+        return
+      }
+      if (targetId === sourceId) {
+        loadError = 'Element kann nicht in dieselbe Liste verschoben werden'
+        handle.update()
+        return
+      }
+
+      // Persist any pending edits first so the reload reads a consistent row.
+      let flushed = await flushNow()
+      if (!flushed) {
+        handle.update()
+        return
+      }
+
+      try {
+        let response = await fetch(`/lists/${sourceId}/move`, {
+          method: 'POST',
+          headers: getCsrfHeaders(),
+          body: JSON.stringify({ targetId, itemId: item.id }),
+        })
+        if (response.ok) {
+          handle.frame.reload().catch(() => {})
+        } else if (response.status === 409) {
+          let server = await response.json()
+          conflictState = {
+            show: true,
+            serverState: {
+              id: server.id,
+              description: server.description,
+              items: server.items,
+              updated_at: server.updated_at,
+            },
+          }
+          handle.update()
+        } else {
+          loadError = 'Verschieben fehlgeschlagen'
+          handle.update()
+        }
+      } catch {
+        loadError = 'Verschieben fehlgeschlagen (Netzwerkfehler)'
+        handle.update()
+      }
+    }
+
     let handleDragEnd = () => {
       let dirty = draggedEl !== null || indicatorEl !== null || dragIndex !== null
       clearDragOver()
+      clearSidebarHighlight()
+      stopSidebarDragWiring()
       dragIndex = null
       dropIndex = null
       if (dirty) handle.update()
@@ -453,7 +593,6 @@ export const ListsClient = clientEntry(
     let clearAll = () => {
       if (!confirm('Alle Elemente löschen? Dies kann nicht rückgängig gemacht werden.')) return
       items = []
-      nextId = 0
       setDirty()
       handle.update()
     }
@@ -479,6 +618,15 @@ export const ListsClient = clientEntry(
       items = items.filter((_, i) => i !== index)
       setDirty()
       handle.update()
+    }
+
+    let toggleDone = (index: number) => {
+      items = items.map((item, i) =>
+        i === index ? { ...item, done: !(item.done === true) } : item,
+      )
+      setDirty()
+      handle.update()
+      scheduleAutosave(true)
     }
 
     let moveUp = (index: number) => {
@@ -982,6 +1130,30 @@ export const ListsClient = clientEntry(
                     <span mix={gripStyle} data-grip="" aria-hidden="true">
                       ⠿
                     </span>
+                    <input
+                      type="checkbox"
+                      checked={item.done === true}
+                      aria-label={
+                        item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
+                      }
+                      mix={[
+                        css({
+                          width: '18px',
+                          height: '18px',
+                          flexShrink: 0,
+                          cursor: 'pointer',
+                          accentColor: theme.colors.focus.ring,
+                        }),
+                        on('change', (e) => {
+                          let idx = parseInt(
+                            (e.currentTarget.closest('[data-index]') as HTMLElement | null)?.dataset
+                              .index || '0',
+                            10,
+                          )
+                          toggleDone(idx)
+                        }),
+                      ]}
+                    />
                     <span
                       mix={css({
                         width: '28px',
@@ -1030,7 +1202,18 @@ export const ListsClient = clientEntry(
                         defaultValue={editText}
                       />
                     ) : (
-                      <span mix={multilineDisplayStyle}>{item.label}</span>
+                      <span
+                        mix={[
+                          multilineDisplayStyle,
+                          item.done === true &&
+                            css({
+                              textDecoration: 'line-through',
+                              color: theme.colors.text.muted,
+                            }),
+                        ].filter(Boolean)}
+                      >
+                        {item.label}
+                      </span>
                     )}
 
                     <div draggable="false" mix={css({ display: 'flex', gap: theme.space.xs })}>

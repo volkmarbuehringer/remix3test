@@ -1,10 +1,16 @@
 import { type Database } from 'remix/data-table'
 import { lists } from './schema.ts'
 
+export interface ListItem {
+  id: string
+  label: string
+  done?: boolean
+}
+
 export interface ListRow {
   id: number
   user_id: number | null
-  list: Array<{ id: string; label: string }>
+  list: ListItem[]
   description: string
   created_at: number
   updated_at: number
@@ -33,20 +39,19 @@ function parseRow(row: Record<string, unknown>): ListRow {
   return {
     id: Number(row.id),
     user_id: row.user_id != null ? Number(row.user_id) : null,
-    list: list as Array<{ id: string; label: string }>,
+    list: list as ListItem[],
     description: String(row.description ?? ''),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
   }
 }
 
-function assignStableIds(
-  items: Array<{ id?: string; label: string }>,
-): Array<{ id: string; label: string }> {
+function assignStableIds(items: Array<{ id?: string; label: string; done?: boolean }>): ListItem[] {
   return items.map((item) => ({
     id:
       item.id && typeof item.id === 'string' && item.id.length > 0 ? item.id : crypto.randomUUID(),
     label: item.label,
+    ...(typeof item.done === 'boolean' ? { done: item.done } : {}),
   }))
 }
 
@@ -131,7 +136,7 @@ export async function getListById(
 
 export async function createList(
   db: Database,
-  input: { description: string; items: Array<{ id?: string; label: string }> },
+  input: { description: string; items: Array<{ id?: string; label: string; done?: boolean }> },
   userId?: number,
 ): Promise<ListRow> {
   let now = Date.now()
@@ -153,7 +158,10 @@ export async function createList(
 export async function patchList(
   db: Database,
   id: number,
-  partial: { description?: string; items?: Array<{ id?: string; label: string }> },
+  partial: {
+    description?: string
+    items?: Array<{ id?: string; label: string; done?: boolean }>
+  },
   userId?: number,
   options?: { expectedUpdatedAt?: number },
 ): Promise<PatchResult> {
@@ -196,4 +204,89 @@ export async function deleteList(db: Database, id: number, userId?: number): Pro
 
   await db.delete(lists, where)
   return true
+}
+
+export type MoveResult =
+  | { ok: true; source: ListRow; target: ListRow }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'conflict'; current: ListRow }
+  | { ok: false; reason: 'same_list' }
+  | { ok: false; reason: 'last_item' }
+  | { ok: false; reason: 'item_not_found' }
+
+export async function moveItemBetweenLists(
+  db: Database,
+  sourceId: number,
+  targetId: number,
+  itemId: string,
+  userId?: number,
+  options?: { expectedUpdatedAt?: number },
+): Promise<MoveResult> {
+  return await db.transaction(async (tx) => {
+    let sourceWhere = userId != null ? { id: sourceId, user_id: userId } : { id: sourceId }
+    let targetWhere = userId != null ? { id: targetId, user_id: userId } : { id: targetId }
+
+    let sourceRow = await tx.findOne(lists, { where: sourceWhere })
+    if (!sourceRow) return { ok: false, reason: 'not_found' }
+
+    let targetRow = await tx.findOne(lists, { where: targetWhere })
+    if (!targetRow) return { ok: false, reason: 'not_found' }
+
+    if (sourceId === targetId) return { ok: false, reason: 'same_list' }
+
+    let parsedSource = parseRow(sourceRow)
+    let parsedTarget = parseRow(targetRow)
+
+    let expectedUpdatedAt = options?.expectedUpdatedAt
+    let updateSourceWhere = { ...sourceWhere }
+    if (expectedUpdatedAt != null) {
+      if (parsedSource.updated_at !== expectedUpdatedAt) {
+        return { ok: false, reason: 'conflict', current: parsedSource }
+      }
+      ;(updateSourceWhere as Record<string, unknown>).updated_at = expectedUpdatedAt
+    }
+
+    let matchIndex = parsedSource.list.findIndex((entry) => entry.id === itemId)
+    if (matchIndex === -1) return { ok: false, reason: 'item_not_found' }
+    let item = parsedSource.list[matchIndex]
+
+    if (parsedSource.list.length === 1) return { ok: false, reason: 'last_item' }
+
+    let now = Date.now()
+    let nextSource = [...parsedSource.list]
+    nextSource.splice(matchIndex, 1)
+    let nextTarget = [...parsedTarget.list, item]
+
+    let sourceWrite = await tx.updateMany(
+      lists,
+      { list: nextSource, updated_at: now },
+      { where: updateSourceWhere },
+    )
+    if (expectedUpdatedAt != null && (sourceWrite.affectedRows ?? 0) === 0) {
+      let current = (await tx.findOne(lists, { where: sourceWhere })) as Record<
+        string,
+        unknown
+      > | null
+      if (!current) return { ok: false, reason: 'not_found' }
+      return { ok: false, reason: 'conflict', current: parseRow(current) }
+    }
+
+    let targetWrite = await tx.updateMany(
+      lists,
+      { list: nextTarget, updated_at: now },
+      { where: targetWhere },
+    )
+    if ((targetWrite.affectedRows ?? 0) === 0) return { ok: false, reason: 'not_found' }
+
+    let updatedSource = (await tx.findOne(lists, { where: sourceWhere })) as Record<
+      string,
+      unknown
+    > | null
+    let updatedTarget = (await tx.findOne(lists, { where: targetWhere })) as Record<
+      string,
+      unknown
+    > | null
+    if (!updatedSource || !updatedTarget) return { ok: false, reason: 'not_found' }
+    return { ok: true, source: parseRow(updatedSource), target: parseRow(updatedTarget) }
+  })
 }

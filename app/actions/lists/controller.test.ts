@@ -104,6 +104,29 @@ describe('Lists controller', () => {
     assert.ok(text.includes('?load=' + id), 'sidebar should link to list with load param')
   })
 
+  it('GET /lists sidebar renders done/total progress badge', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Progress badge list',
+        items: [{ label: 'Done item', done: true }, { label: 'Open item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}?ids=${id}`, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(text.includes('1 von 2 erledigt'), 'badge should show done/total progress')
+  })
+
   it('GET /lists sidebar shows admin all lists', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
@@ -633,6 +656,170 @@ describe('Lists controller', () => {
     assert.equal(response.status, 400)
     let body = await response.json()
     assert.ok(body.error, 'response should include an error message')
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /lists/:id/move — move an item between lists
+  // -----------------------------------------------------------------------
+
+  async function createListFor(
+    cookie: string,
+    csrfToken: string,
+    description: string,
+    itemLabels: string[],
+  ) {
+    let response = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': csrfToken,
+        Cookie: cookie,
+      },
+      body: JSON.stringify({
+        description,
+        items: itemLabels.map((label) => ({ label })),
+      }),
+    })
+    assert.equal(response.status, 200)
+    return await response.json()
+  }
+
+  it('POST /lists/:id/move moves an item and returns updated source and target', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Move source', ['Alpha', 'Beta'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Move target', ['Existing'])
+
+    let itemId = source.items[0].id
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id, itemId }),
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.source.items.length, 1)
+    assert.equal(body.source.items[0].label, 'Beta')
+    assert.equal(body.target.items.length, 2)
+    assert.equal(body.target.items[0].label, 'Existing')
+    assert.equal(body.target.items[1].id, itemId, 'moved item appended to target')
+    assert.ok(body.source.updated_at >= source.updated_at)
+    assert.ok(body.target.updated_at >= target.updated_at)
+  })
+
+  it('POST /lists/:id/move rejects moving the last item with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Lonely source', ['Only'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Any target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id, itemId: source.items[0].id }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/move rejects moving into the same list with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Self source', ['A', 'B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: source.id, itemId: source.items[0].id }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/move without If-Match returns 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'No pre source', ['A', 'B'])
+    let target = await createListFor(userCookie, userCsrfToken, 'No pre target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ targetId: target.id, itemId: source.items[0].id }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it("POST /lists/:id/move returns 404 for another user's target list", async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'User source', ['A', 'B'])
+    let adminTarget = await createListFor(adminCookie, adminCsrfToken, 'Admin target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: adminTarget.id, itemId: source.items[0].id }),
+    })
+    assert.equal(response.status, 404)
+  })
+
+  it('POST /lists/:id/move with stale If-Match returns 409 with current source row', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Stale source', ['A', 'B'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Stale target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at - 9999),
+      },
+      body: JSON.stringify({ targetId: target.id, itemId: source.items[0].id }),
+    })
+    assert.equal(response.status, 409)
+    let body = await response.json()
+    assert.equal(body.description, 'Stale source')
+    assert.equal(body.items.length, 2, 'source not modified')
+  })
+
+  it('POST /lists/:id/move with _if_match fallback in body succeeds', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Beacon source', ['X', 'Y'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Beacon target', ['Keep'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/move`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        targetId: target.id,
+        itemId: source.items[0].id,
+        _if_match: String(source.updated_at),
+      }),
+    })
+    assert.equal(response.status, 200)
   })
 
   // -----------------------------------------------------------------------
