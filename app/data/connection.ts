@@ -2,7 +2,7 @@ import { createDatabase } from 'remix/data-table'
 import { createPostgresDatabaseAdapter } from 'remix/data-table/postgres'
 import { createMigrationRunner, type MigrationDescriptor } from 'remix/data-table/migrations'
 import { loadMigrations } from 'remix/data-table/migrations/node'
-import { Client } from 'pg'
+import { Client, Pool } from 'pg'
 import * as path from 'node:path'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -13,13 +13,25 @@ if (!databaseUrl) {
 const localeUrl =
   databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
-const adapter = createPostgresDatabaseAdapter({
+// The pool is owned here (not constructed inside the adapter) so it can be
+// closed on shutdown and given an 'error' listener. pg-pool surfaces
+// server-side terminations of idle connections (Postgres restart, test
+// database drop) as an 'error' event on the pool; without a listener an
+// unhandled 'error' event crashes the process. Operational query failures
+// still reject through the query call itself.
+const pool = new Pool({
   connectionString: localeUrl,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
   statement_timeout: 30000,
 })
+
+pool.on('error', (error) => {
+  console.error('Database pool connection error:', error.message)
+})
+
+const adapter = createPostgresDatabaseAdapter(pool)
 
 export const db = createDatabase(adapter)
 
@@ -47,4 +59,5 @@ let appClosed = false
 export async function closeAppDatabase(): Promise<void> {
   if (appClosed) return
   appClosed = true
+  await pool.end().catch((err) => console.error('Error closing database pool:', err))
 }

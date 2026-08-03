@@ -10,6 +10,10 @@ const pool = new Pool({
   max: 5,
 })
 
+pool.on('error', (error) => {
+  console.error('Mastra storage pool connection error:', error.message)
+})
+
 // Observability data should go to a dedicated Postgres instance in production.
 // Default: separate connection to same host so it doesn't contend with the primary pool.
 const obsUrl = process.env.OBSERVABILITY_DATABASE_URL || process.env.DATABASE_URL
@@ -21,6 +25,10 @@ const localeObsUrl =
 const obsPool = new Pool({
   connectionString: localeObsUrl,
   max: 3,
+})
+
+obsPool.on('error', (error) => {
+  console.error('Mastra observability pool connection error:', error.message)
 })
 
 // Shared storage instance used by both Mastra and Memory.

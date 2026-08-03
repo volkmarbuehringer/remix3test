@@ -10,3 +10,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 5000,
   statement_timeout: 30000,
 })
+
+pool.on('error', (error) => {
+  console.error('Test database pool connection error:', error.message)
+})
