@@ -32,7 +32,6 @@
   "devDependencies": {
     "@fission-ai/openspec": "^1.7.0",
     "@oxlint/plugins": "^1.76.0",
-    "@playwright/test": "^1.62.0",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",

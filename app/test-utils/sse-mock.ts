@@ -1,16 +1,5 @@
-export type SseEvent = {
-  type: string
-  data?: string
-}
-
-export type SseMockCall = {
-  url: string
-  eventSource: MockEventSource
-}
-
 let createdEventSources: MockEventSource[] = []
 let originalEventSource: typeof EventSource | null = null
-let onEventSourceCreated: ((es: MockEventSource) => void) | null = null
 
 export class MockEventSource {
   url: string
@@ -25,7 +14,6 @@ export class MockEventSource {
   constructor(url: string) {
     this.url = url
     createdEventSources.push(this)
-    if (onEventSourceCreated) onEventSourceCreated(this)
   }
 
   addEventListener(type: string, handler: (event: MessageEvent) => void) {
@@ -109,25 +97,4 @@ export function getCreatedEventSources(): MockEventSource[] {
 
 export function resetCreatedEventSources() {
   createdEventSources = []
-}
-
-export function setOnEventSourceCreated(cb: ((es: MockEventSource) => void) | null) {
-  onEventSourceCreated = cb
-}
-
-export function assertEventSourceCreated(expectedCount?: number): MockEventSource[] {
-  if (expectedCount !== undefined) {
-    if (createdEventSources.length !== expectedCount) {
-      throw new Error(
-        `Expected ${expectedCount} EventSource(s) to be created, but found ${createdEventSources.length}`,
-      )
-    }
-  }
-  return createdEventSources
-}
-
-export function assertEventSourceClosed(es: MockEventSource) {
-  if (!es.closed) {
-    throw new Error('Expected EventSource to be closed')
-  }
 }

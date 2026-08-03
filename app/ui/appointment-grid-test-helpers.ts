@@ -1,13 +1,4 @@
-import {
-  SLOT_HEIGHT,
-  SUB_SLOTS,
-  SUB_SLOT_HEIGHT,
-  LABEL_WIDTH,
-  DRAG_THRESHOLD,
-  type AppData,
-  type AppointmentLayoutBlock,
-  type GridMeasurement,
-} from './appointment-grid-types.ts'
+import { DRAG_THRESHOLD, type AppData } from './appointment-grid-types.ts'
 
 // ── Fixture data ──────────────────────────────────────────────────────
 
@@ -81,25 +72,6 @@ export function embedFixtureData(data: AppData): HTMLElement {
 export function removeFixtureData() {
   let el = document.getElementById('appointment-data')
   if (el) el.remove()
-}
-
-// ── Grid measurements ──────────────────────────────────────────────────
-
-export function computeGridMeasurements(
-  offeringStartMin: number,
-  offeringEndMin: number,
-  numDays: number,
-  gridLeft: number = 0,
-  gridTop: number = 0,
-): GridMeasurement {
-  let rowCount = (offeringEndMin - offeringStartMin) / (60 / SUB_SLOTS) / SUB_SLOTS
-  return {
-    dayWidth: 200,
-    labelWidth: LABEL_WIDTH,
-    left: gridLeft,
-    rowHeight: SLOT_HEIGHT / SUB_SLOTS,
-    top: gridTop,
-  }
 }
 
 // ── Pointer event helpers ──────────────────────────────────────────────

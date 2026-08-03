@@ -51,9 +51,6 @@ importers:
       '@oxlint/plugins':
         specifier: ^1.76.0
         version: 1.76.0
-      '@playwright/test':
-        specifier: ^1.62.0
-        version: 1.62.1
       '@types/node':
         specifier: latest
         version: 26.1.2
@@ -1646,11 +1643,6 @@ packages:
 
   '@pinojs/redact@0.4.0':
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
-
-  '@playwright/test@1.62.1':
-    resolution: {integrity: sha512-DTcUc8qii+cpHvtOwggMtBRMjKZHXYWdw8syRYu2vtzuq4Wxphqq4NfCs5Zt44L6mA8rfDfj+PHnxFc/FeK6mQ==}
-    engines: {node: '>=20'}
-    hasBin: true
 
   '@posthog/core@1.46.0':
     resolution: {integrity: sha512-9w/bzHkf8V26YDAk7bO+Y2M0O9LMJg53lw3TOpirWRY77CEq4EQ3FkrtxP6BM48qaeZ/ILmRcfz+u1jjeTLetg==}
@@ -5524,10 +5516,6 @@ snapshots:
   '@oxlint/plugins@1.76.0': {}
 
   '@pinojs/redact@0.4.0': {}
-
-  '@playwright/test@1.62.1':
-    dependencies:
-      playwright: 1.62.1
 
   '@posthog/core@1.46.0':
     dependencies:
