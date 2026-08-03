@@ -3,7 +3,6 @@ import { system } from '../../../routes.ts'
 import { insertWebhookRequest } from '../../../data/webhook-requests.ts'
 import { sourceIp } from '../../../utils/request-ip.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
-import { Document } from '../../../ui/document.tsx'
 import { Layout } from '../../../ui/layout.tsx'
 import { WebhookComposerPage } from '../../../ui/webhook-composer-page.tsx'
 
@@ -12,11 +11,9 @@ export default createController(system.webhookRequestCreate, {
   actions: {
     index(context) {
       return context.render(
-        <Document title="Webhook erstellen">
-          <Layout>
-            <WebhookComposerPage />
-          </Layout>
-        </Document>,
+        <Layout title="Webhook erstellen">
+          <WebhookComposerPage />
+        </Layout>,
       )
     },
 

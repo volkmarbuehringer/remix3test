@@ -11,7 +11,6 @@ import {
   updateWebhookRequestHermesStatus,
 } from '../../data/webhook-requests.ts'
 import { webhookChannel } from '../../utils/sse-events.ts'
-import { Document } from '../../ui/document.tsx'
 import { Layout } from '../../ui/layout.tsx'
 import { WebhookRequestsPage } from '../../ui/webhook-requests-page.tsx'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -78,18 +77,16 @@ export const webhookRequestsIndex = createAction(system.webhookRequests, {
     }
 
     return context.render(
-      <Document title="Webhook Requests">
-        <Layout>
-          <WebhookRequestsPage
-            {...data}
-            editRow={editRow}
-            editingOffset={context.url.searchParams.get('offset') || '0'}
-            editingSort={context.url.searchParams.get('sort') || 'created_at'}
-            editingOrder={context.url.searchParams.get('order') || 'desc'}
-            editingFilter={context.url.searchParams.get('filter') || ''}
-          />
-        </Layout>
-      </Document>,
+      <Layout title="Webhook Requests">
+        <WebhookRequestsPage
+          {...data}
+          editRow={editRow}
+          editingOffset={context.url.searchParams.get('offset') || '0'}
+          editingSort={context.url.searchParams.get('sort') || 'created_at'}
+          editingOrder={context.url.searchParams.get('order') || 'desc'}
+          editingFilter={context.url.searchParams.get('filter') || ''}
+        />
+      </Layout>,
     )
   },
 })
