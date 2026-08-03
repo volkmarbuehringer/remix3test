@@ -122,5 +122,19 @@ describe('HTML escaping', () => {
     let html = calls[0].html as string
     assert.ok(!html.includes('<b>Max</b>'), 'raw HTML should not appear in output')
     assert.ok(html.includes('&lt;b&gt;Max&lt;/b&gt;'), 'HTML entities should be escaped')
+    assert.ok(typeof html === 'string', 'html body should be a plain string, not a SafeHtml object')
+  })
+
+  it('escapes single quotes in user name for HTML body', async () => {
+    let { fn, calls } = createMockSendEmail()
+    await sendVerificationEmail(
+      fn,
+      { name: "O'Brien", email: 'max@example.com' },
+      'https://example.com/verify/t',
+    )
+
+    let html = calls[0].html as string
+    assert.ok(!html.includes("O'Brien"), 'raw single quote should not appear in output')
+    assert.ok(html.includes('O&#39;Brien'), 'single quote should be escaped')
   })
 })
