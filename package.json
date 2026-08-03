@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --import remix/node-tsx server.ts",
+    "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --watch-path=app --import remix/node-tsx server.ts",
     "start": "NODE_ENV=production node --env-file-if-exists=.env --import remix/node-tsx server.ts",
     "test": "NODE_ENV=test remix test",
     "typecheck": "tsc --noEmit",
@@ -36,7 +36,7 @@
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.20.3",
     "mastra": "^1.21.0",
     "openspec": "^0.0.0",
     "oxfmt": "^0.61.0",

@@ -6,6 +6,10 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 export const assetServer = createAssetServer({
   basePath: '/assets',
   rootDir,
+  watch: false,
+  fingerprint: {
+    buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}`,
+  },
   fileMap: {
     'app/*path': 'app/*path',
     'node_modules/*path': 'node_modules/*path',
