@@ -1,5 +1,6 @@
 import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
+import { moveItemInArray, findTypeaheadTarget } from '../../utils/lists-keyboard.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
 import button from '../../ui/theme/button.ts'
@@ -49,6 +50,11 @@ export const ListsClient = clientEntry(
     let editorRect: RectLike | null = null
     let sidebarRows: SidebarRowRect[] = []
     let sidebarDragCleanup: (() => void) | null = null
+
+    // Keyboard navigation state
+    let focusedId: string | null = null
+    let grabbedId: string | null = null
+    let liveRegion: HTMLElement | null = null
 
     // Autosave state
     type SaveStatus = 'saved' | 'saving' | 'dirty' | 'error'
@@ -629,23 +635,20 @@ export const ListsClient = clientEntry(
       scheduleAutosave(true)
     }
 
-    let moveUp = (index: number) => {
-      if (index === 0) return
-      let newItems = [...items]
-      ;[newItems[index - 1], newItems[index]] = [newItems[index], newItems[index - 1]]
+    let moveItem = (from: number, to: number) => {
+      if (from < 0 || from >= items.length) return
+      if (to < 0 || to >= items.length) return
+      if (from === to) return
+      let newItems = moveItemInArray(items, from, to)
+      if (newItems === items) return
       items = newItems
       setDirty()
       handle.update()
+      scheduleAutosave(true)
     }
 
-    let moveDown = (index: number) => {
-      if (index === items.length - 1) return
-      let newItems = [...items]
-      ;[newItems[index], newItems[index + 1]] = [newItems[index + 1], newItems[index]]
-      items = newItems
-      setDirty()
-      handle.update()
-    }
+    let moveUp = (index: number) => moveItem(index, index - 1)
+    let moveDown = (index: number) => moveItem(index, index + 1)
 
     let reverse = () => {
       items = [...items].reverse()
@@ -752,6 +755,131 @@ export const ListsClient = clientEntry(
           return '#d69e2e'
         case 'error':
           return theme.colors.action.danger.background
+      }
+    }
+
+    // Keyboard navigation helpers
+    let announce = (msg: string) => {
+      if (liveRegion) liveRegion.textContent = msg
+    }
+
+    let focusItem = (id: string) => {
+      setTimeout(() => {
+        let el = listRef?.querySelector<HTMLElement>(`[data-item-id="${id}"]`)
+        if (el) el.focus()
+      }, 0)
+    }
+
+    let moveFocus = (targetIndex: number) => {
+      if (targetIndex < 0 || targetIndex >= items.length) return
+      focusedId = items[targetIndex].id
+      handle.update()
+      focusItem(items[targetIndex].id)
+    }
+
+    // The active roving-tabindex id. Falls back to the first item when no item
+    // is focused, or when `focusedId` references a row that no longer exists
+    // (deleted / cleared / reloaded) — otherwise the whole list would end up
+    // with tabindex="-1" and become unreachable by keyboard.
+    let activeItemId = (): string | null =>
+      focusedId && items.some((i) => i.id === focusedId) ? focusedId : items[0]?.id ?? null
+
+    let grabbedMove = (from: number, to: number) => {
+      if (to < 0 || to >= items.length) return
+      moveItem(from, to)
+      grabbedId = items[to].id
+      focusedId = items[to].id
+      announce(`Position ${to + 1} von ${items.length}`)
+      focusItem(items[to].id)
+    }
+
+    let handleRowKeyDown = (e: KeyboardEvent, index: number) => {
+      // Only handle keydowns that originate on the row itself. Bubbled events
+      // from nested controls (checkbox, edit textarea, action buttons) must
+      // keep their own semantics.
+      if (e.target !== e.currentTarget) return
+      let id = items[index].id
+
+      // Quick-move: Ctrl/Cmd + Arrow moves the focused item directly
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          moveItem(index, index - 1)
+          let target = items[index - 1] ? items[index - 1].id : id
+          focusedId = target
+          focusItem(target)
+          return
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          moveItem(index, index + 1)
+          let target = items[index + 1] ? items[index + 1].id : id
+          focusedId = target
+          focusItem(target)
+          return
+        }
+      }
+
+      if (grabbedId === null) {
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault()
+            moveFocus(index + 1)
+            return
+          case 'ArrowUp':
+            e.preventDefault()
+            moveFocus(index - 1)
+            return
+          case 'Home':
+            e.preventDefault()
+            moveFocus(0)
+            return
+          case 'End':
+            e.preventDefault()
+            moveFocus(items.length - 1)
+            return
+          case 'Enter':
+          case ' ':
+            e.preventDefault()
+            grabbedId = id
+            announce(`Element aufgenommen, Position ${index + 1} von ${items.length}`)
+            handle.update()
+            return
+          default:
+            if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+              let target = findTypeaheadTarget(items, index, e.key)
+              if (target !== -1) {
+                e.preventDefault()
+                moveFocus(target)
+              }
+            }
+            return
+        }
+      }
+
+      // Grabbed state
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          grabbedMove(index, index + 1)
+          return
+        case 'ArrowUp':
+          e.preventDefault()
+          grabbedMove(index, index - 1)
+          return
+        case 'Enter':
+        case ' ':
+          e.preventDefault()
+          grabbedId = null
+          announce(`Abgelegt an Position ${index + 1} von ${items.length}`)
+          handle.update()
+          return
+        case 'Escape':
+          e.preventDefault()
+          grabbedId = null
+          announce('Verschieben abgebrochen')
+          handle.update()
+          return
       }
     }
 
@@ -896,6 +1024,34 @@ export const ListsClient = clientEntry(
               </button>
             )}
           </div>
+
+          {/* Keyboard hint + live region */}
+          <p
+            mix={css({
+              marginBottom: theme.space.lg,
+              fontSize: theme.fontSize.xs,
+              color: theme.colors.text.muted,
+            })}
+          >
+            Tipp: Enter zum Aufnehmen, Pfeile zum Verschieben, Enter zum Ablegen. Strg+Pfeile für
+            Direktverschieben.
+          </p>
+          <div
+            aria-live="polite"
+            mix={[
+              css({
+                position: 'absolute',
+                width: '1px',
+                height: '1px',
+                overflow: 'hidden',
+                clip: 'rect(0 0 0 0)',
+                whiteSpace: 'nowrap',
+              }),
+              ref((el: HTMLElement) => {
+                liveRegion = el
+              }),
+            ]}
+          />
 
           {/* Description input */}
           <div
@@ -1045,6 +1201,7 @@ export const ListsClient = clientEntry(
               </div>
             ) : (
               <div
+                role="list"
                 mix={[
                   css({
                     maxHeight: '320px',
@@ -1092,7 +1249,14 @@ export const ListsClient = clientEntry(
                             ? `1px solid ${theme.colors.border.subtle}`
                             : 'none',
                         backgroundColor: index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                        '&:focus-visible': {
+                          outline: `2px solid ${theme.colors.focus.ring}`,
+                          outlineOffset: '-2px',
+                        },
                       }),
+                      ...(item.id === grabbedId
+                        ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
+                        : []),
                       ref((el) => {
                         let ac = new AbortController()
                         el.addEventListener(
@@ -1123,9 +1287,17 @@ export const ListsClient = clientEntry(
                         el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
                         return () => ac.abort()
                       }),
+                      on('keydown', (e) => handleRowKeyDown(e, index)),
+                      on('click', () => {
+                        focusedId = item.id
+                        handle.update()
+                      }),
                     ]}
+                    role="listitem"
                     draggable="true"
                     data-index={index}
+                    data-item-id={item.id}
+                    tabIndex={item.id === activeItemId() ? 0 : -1}
                   >
                     <span mix={gripStyle} data-grip="" aria-hidden="true">
                       ⠿

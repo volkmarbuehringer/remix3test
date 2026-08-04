@@ -1450,3 +1450,49 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 - The frame content updates but `<input>` elements keep their old values
 
 (Consolidated from `remix-frame-input-value-preservation`)
+
+---
+
+## Remix 3 clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
+
+**Context:** Three distinct failures when authoring a new remix/ui `clientEntry`:
+`ReferenceError: document is not defined` during server render, TS/JSX parse errors
+from misplaced mixins, and `AssetServerCompilationError: IMPORT_NOT_ALLOWED`.
+
+### Problem
+
+1. **SSR `document is not defined`** — calling `document.*` in the clientEntry
+   function body (outside a `ref` callback / event handler) executes during
+   server-side render, where `document` doesn't exist. The request still returns
+   200 but the server logs a stack trace pointing at the component body.
+2. **`ref` and `on` are mixins, not JSX attributes** — they must live inside
+   `mix={[...]}`, not as standalone `ref={...}` / `on('click', ...)` attributes.
+   Standalone usage throws TS1003/TS1382 parser errors.
+3. **`.filter(Boolean)` breaks `on` type inference** — a mix array containing a
+   `false` literal (from `cond && css({...})`) widens the element type to include
+   `boolean`, so `on('keydown', ...)` falls back to `EventType<Element>` and
+   rejects `keydown`/`click`. Use a spread conditional instead.
+4. **Asset server import boundary** — client entries are compiled by the asset
+   server whose `allowFiles` (in `app/assets.ts`) only permits
+   `app/**/*.browser.*`, `app/assets/entry.tsx`, `app/routes.ts`, `app/ui/**`,
+   `app/utils/**`. A pure helper imported from outside those (e.g.
+   `app/actions/lists/lists-keyboard.ts`) fails with `IMPORT_NOT_ALLOWED`.
+
+### Solution
+
+1. Do all DOM work inside `ref()` callbacks (client-only), or guard top-level
+   reads with `if (typeof document === 'undefined') return`.
+2. Put `ref`/`on` mixins inside `mix={[...]}`.
+3. For conditional mix entries next to `on`/`ref`, use the spread form:
+   `...(cond ? [css({...})] : [])` — never `cond && css(...)` + `.filter(Boolean)`.
+4. Put shared pure logic used by client entries in `app/utils/` (with the
+   `.test.ts` colocated), and import it via `../../utils/...`.
+
+### When to Use
+
+- Any new `clientEntry` in a Remix 3 app
+- `ReferenceError: document is not defined` logged during a `.browser.tsx` request
+- `AssetServerCompilationError: IMPORT_NOT_ALLOWED` on a client-entry import
+- TS parse errors on `ref={...}` / `on(...)` used as standalone attributes
+
+(Consolidated from `remix3-cliententry-authoring-constraints`)

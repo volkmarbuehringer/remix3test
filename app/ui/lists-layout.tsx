@@ -10,6 +10,7 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { ListNameEdit } from '../actions/lists/list-name-edit.browser.tsx'
 import { ListsSearch } from '../actions/lists/lists-search.browser.tsx'
+import { ListsSidebarKeyboard } from '../actions/lists/lists-sidebar-keyboard.browser.tsx'
 import {
   shellStyle,
   sidebarStyle,
@@ -318,6 +319,7 @@ function ListsLayout(
               )
             })}
             <ListNameEdit />
+            <ListsSidebarKeyboard />
             <ConfirmDelete />
             {sidebarEntries.length === 0 && <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>}
             {pagination && sidebarEntries.length > 0 && (
@@ -390,6 +392,10 @@ const emptyHintStyle = css({
 const entryRowStyle = css({
   display: 'flex',
   alignItems: 'center',
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+  },
 })
 
 const deleteFormStyle = css({
