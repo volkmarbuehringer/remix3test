@@ -379,7 +379,7 @@ export async function listAppointments(
   let adminOrderCol = ADMIN_ORDER_BY_COLUMNS[column]
   if (!adminOrderCol) throw new Error(`Invalid sort column: ${column}`)
   paramIndex++
-  query += ` ORDER BY ${adminOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${adminOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 
@@ -626,7 +626,11 @@ export async function getAppointmentRow(
     [id, userId],
   )
   return (result.rows ?? []).length > 0
-    ? (result.rows![0] as unknown as { date: string; start_min: number; created_at: string })
+    ? (result.rows![0] as unknown as {
+        date: string
+        start_min: number
+        created_at: string
+      })
     : undefined
 }
 

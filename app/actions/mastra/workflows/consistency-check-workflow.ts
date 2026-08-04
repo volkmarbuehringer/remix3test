@@ -28,7 +28,7 @@ export const checkLockedUsersPendingAppointments = createStep({
     now.setUTCHours(0, 0, 0, 0)
     let todayMidnight = now.getTime()
     let result = await db.exec(
-      `SELECT u.id, u.name, u.email, count(a.id)::int AS pending_count
+      `SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
        FROM users u
        LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= $1
        WHERE u.disabled_at IS NOT NULL
@@ -61,7 +61,7 @@ export const checkActiveUsersPendingAppointments = createStep({
     now.setUTCHours(0, 0, 0, 0)
     let todayMidnight = now.getTime()
     let result = await db.exec(
-      `SELECT u.id, u.name, u.email, count(a.id)::int AS pending_count
+      `SELECT u.id, u.name, u.email, count(a.id)::int AS "pendingCount"
        FROM users u
        LEFT JOIN appointments a ON a.user_id = u.id AND a.date >= $1
        WHERE u.disabled_at IS NULL

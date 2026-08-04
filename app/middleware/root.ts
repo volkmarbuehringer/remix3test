@@ -5,6 +5,7 @@ import { compression } from 'remix/middleware/compression'
 
 import { formData } from 'remix/middleware/form-data'
 import { uploadHandler } from './uploads.ts'
+import { uploadClaimScope } from './upload-claim.ts'
 import { logger, Logger, type LoggerFunction } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
@@ -51,7 +52,10 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     skipAssetsLogger(),
     securityHeaders(),
     compression(),
-    globalRateLimit({ maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined }),
+    globalRateLimit({
+      maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined,
+    }),
+    uploadClaimScope(),
     formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
     methodOverride(),
     jsonBody({ maxSize: 256 * 1024 }),

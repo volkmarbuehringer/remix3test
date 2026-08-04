@@ -9,6 +9,15 @@ export async function initializeAppDatabase(): Promise<void> {
 }
 
 export async function resetTestDatabase(): Promise<void> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('resetTestDatabase is only available in the test environment.')
+  }
+  let databaseUrl = process.env.DATABASE_URL
+  if (!databaseUrl) throw new Error('DATABASE_URL environment variable is required.')
+  let target = decodeURIComponent(new URL(databaseUrl).pathname.replace(/^\//, ''))
+  if (!/^newapp_test_/.test(target)) {
+    throw new Error(`resetTestDatabase refuses to drop non-test database "${target}".`)
+  }
   await dropAndRecreateDatabase()
   await migrateAppDatabase(await getMigrations())
   await seed(db)

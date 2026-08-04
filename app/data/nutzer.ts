@@ -59,7 +59,7 @@ export async function listNutzerGrid(db: Database, opts: ListNutzerGridOpts) {
   }
 
   paramIndex++
-  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${ORDER_BY_COLUMNS[column] || 'n_name'} ${direction === 'desc' ? 'DESC' : 'ASC'}, n_id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 

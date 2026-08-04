@@ -105,7 +105,7 @@ export async function listOfferings(
   paramIndex++
   let orderCol = OFFERINGS_ORDER_BY_COLUMNS[column]
   if (!orderCol) throw new Error(`Invalid sort column: ${column}`)
-  query += ` ORDER BY ${orderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${orderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, id DESC`
   query += ` LIMIT $${paramIndex}`
   queryParams.push(pageSize + 1)
 

@@ -580,7 +580,7 @@ export const AppointmentGrid = clientEntry(
       draftState.start = startMin
       draftState.end = startMin + 15
       handle.update()
-      requestAnimationFrame(() => draftInput?.focus())
+      handle.queueTask(() => draftInput?.focus())
     }
 
     function cancelDraft() {
@@ -638,7 +638,7 @@ export const AppointmentGrid = clientEntry(
       editingId = appt.id
       syncInteractionState()
       handle.update()
-      requestAnimationFrame(() => {
+      handle.queueTask(() => {
         let input = renameInputs.get(appt.id)
         if (input) {
           input.value = appt.title

@@ -108,7 +108,7 @@ export async function runReport1(
   }
 
   paramIndex++
-  query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}, u.id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(effectivePageSize + 1)
 

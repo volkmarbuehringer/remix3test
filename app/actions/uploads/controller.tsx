@@ -10,6 +10,7 @@ import { listUploads, claimUpload, getUploadDownload, type UploadRow } from '../
 import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../utils/context.ts'
+import { takeUploadedId } from '../../middleware/upload-claim.ts'
 export default createController(routes.uploads, {
   middleware: [requireAuth()],
   actions: {
@@ -28,8 +29,8 @@ export default createController(routes.uploads, {
 
     async action(context) {
       let user = getCurrentUser()
-      let fileField = context.formData.get('file')
-      let uploadId = typeof fileField === 'string' ? Number(fileField) : null
+      let uploadedId = takeUploadedId()
+      let uploadId = uploadedId != null ? Number(uploadedId) : null
 
       if (uploadId && !Number.isNaN(uploadId)) {
         await claimUpload(context.db, uploadId, user.id)
@@ -39,17 +40,19 @@ export default createController(routes.uploads, {
         user.role === 'admin'
           ? await listUploads(context.db)
           : await listUploads(context.db, user.id)
+      let attemptedUpload =
+        context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
+      let uploadError =
+        uploadedId == null && attemptedUpload
+          ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
+          : null
       return renderAdminPage(
         context.render,
         'uploads',
         <UploadsContent
           uploads={rows}
           uploadId={uploadId && !Number.isNaN(uploadId) ? uploadId : null}
-          uploadError={
-            uploadId === null || Number.isNaN(uploadId)
-              ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
-              : null
-          }
+          uploadError={uploadError}
         />,
       )
     },
@@ -79,7 +82,10 @@ export const download = createAction(system.uploadsDownload, {
 
     let downloadHeaders = new SuperHeaders()
     downloadHeaders.contentType = mime_type
-    downloadHeaders.contentDisposition = { type: 'attachment', filename: cleanFilename }
+    downloadHeaders.contentDisposition = {
+      type: 'attachment',
+      filename: cleanFilename,
+    }
     return new Response(data, { status: 200, headers: downloadHeaders })
   },
 })

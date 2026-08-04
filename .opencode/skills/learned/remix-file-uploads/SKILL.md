@@ -69,13 +69,46 @@ session(cookie, storage),
 loadAuth(),  // auth runs AFTER formData
 ```
 
-### 4. Auth fixup in controller
+### 4. Auth fixup in controller — use a server-side request scope, NOT the form field
+
+⚠️ **The `file` form value is attacker-controlled.** Claiming `uploaded_by` from
+`context.formData.get('file')` — even with a scoped `(uploaded_by IS NULL OR uploaded_by = $1)`
+guard — lets any authenticated user steal any unclaimed upload by POSTing a plain text field
+`file=<victimId>` (no file part, so `uploadHandler` never runs). See `idor-scope-write-bypass`.
+
+Pass the server-generated id through an `AsyncLocalStorage` scope that is installed **before**
+`formData()` (the handler runs during body parsing, so the scope must already exist):
 
 ```typescript
-let fileField = context.formData.get('file')
-let uploadId = typeof fileField === 'string' ? Number(fileField) : null
-if (uploadId && !Number.isNaN(uploadId)) {
-  await pool.query(`UPDATE uploads SET uploaded_by = $1 WHERE id = $2`, [user.id, uploadId])
+// upload-claim.ts
+const storage = new AsyncLocalStorage<{ uploadedId?: string }>()
+export function uploadClaimScope(): Middleware {
+  return (_ctx, next) => storage.run({}, next)
+}
+export function setUploadedId(id: string): void {
+  let state = storage.getStore()
+  if (!state) throw new Error('uploadClaimScope() must run before formData()')
+  state.uploadedId = id
+}
+export function takeUploadedId(): string | undefined {
+  let state = storage.getStore()
+  if (!state) return undefined
+  let id = state.uploadedId
+  state.uploadedId = undefined
+  return id
+}
+
+// root.ts — ordering is load-bearing: uploadClaimScope BEFORE formData
+uploadClaimScope(),
+formData({ uploadHandler, maxFileSize: 50 * 1024 * 1024 }),
+
+// uploadHandler — after INSERT … RETURNING id
+setUploadedId(id)
+
+// controller — claim only the server-scoped id, ignore the form field
+let uploadedId = takeUploadedId()
+if (uploadedId != null) {
+  await pool.query(`UPDATE uploads SET uploaded_by = $1 WHERE id = $2`, [user.id, Number(uploadedId)])
 }
 ```
 
@@ -104,6 +137,8 @@ return new Response(result.rows[0].data, {
 ### 6. Error handling
 
 Errors in `uploadHandler` return `void`, keeping the file as a `File` object in `context.formData`. Detect failure: `typeof fileField === 'string'` means success (handler returned the ID), `File` means failure. For `MaxFileSizeExceededError`, set `maxFileSize` in `formData()`.
+
+**Note (2026-08-04):** `context.formData.get('file') instanceof File` is always `false` — a file part's FormData value is whatever `uploadHandler` returned (a string id), and text parts are strings. To detect a failed upload, key off the request shape instead: `context.request.headers.get('Content-Type')?.startsWith('multipart/')` combined with `takeUploadedId() == null`.
 
 ## References
 
