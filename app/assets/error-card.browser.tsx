@@ -1,6 +1,7 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { createRoot, css, on } from 'remix/ui'
 import { animateEntrance, spring } from 'remix/ui/animation'
+import { entrance } from '../utils/motion.ts'
 import { theme } from '../ui/theme/theme.ts'
 
 type ErrorCardProps = {
@@ -44,11 +45,13 @@ const cardCss = css({
   boxShadow: '0 20px 45px rgba(15, 23, 42, 0.08)',
 })
 
-const animateGentlyIn = animateEntrance({
-  opacity: 0,
-  transform: 'translateY(-14px) scale(0.97)',
-  ...spring('smooth'),
-})
+const animateGentlyIn = animateEntrance(
+  entrance({
+    opacity: 0,
+    transform: 'translateY(-14px) scale(0.97)',
+    ...spring('smooth'),
+  }),
+)
 
 const eyebrowCss = css({
   margin: '0 0 12px',

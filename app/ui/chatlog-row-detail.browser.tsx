@@ -1,4 +1,6 @@
 import { clientEntry, Frame, css, on, type Handle, type SerializableProps } from 'remix/ui'
+import { animateEntrance, animateExit } from 'remix/ui/animation'
+import { prefersReducedMotion } from '../utils/motion.ts'
 import { theme } from '../ui/theme/theme.ts'
 
 interface ChatlogRowDetailProps extends SerializableProps {
@@ -44,10 +46,23 @@ export const ChatlogRowDetail = clientEntry(
 
           {showDetail ? (
             <div
-              mix={css({
-                marginTop: '0.75rem',
-                marginBottom: '0.5rem',
-              })}
+              key="chatlog-detail"
+              mix={[
+                css({
+                  marginTop: '0.75rem',
+                  marginBottom: '0.5rem',
+                }),
+                animateEntrance(
+                  prefersReducedMotion()
+                    ? false
+                    : { opacity: 0, transform: 'translateY(8px)', duration: 180 },
+                ),
+                animateExit(
+                  prefersReducedMotion()
+                    ? false
+                    : { opacity: 0, transform: 'translateY(-8px)', duration: 180 },
+                ),
+              ]}
             >
               <Frame
                 name={`chatlog-detail-${conversationId}`}

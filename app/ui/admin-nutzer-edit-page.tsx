@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
 import button from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
+import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -72,7 +73,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
   return () => {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
+      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
         <form method="POST" action={routes.admin.nutzer.update.href({ id: row.n_id })} novalidate>
           <input type="hidden" name="_method" value="PUT" />
           <CsrfTokenInput />

@@ -3,6 +3,7 @@ import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
+import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
@@ -128,7 +129,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
     let titlePlaceholder = isEdit ? undefined : 'Titel eingeben...'
 
     return (
-      <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
+      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
         <RestfulForm method={method} action={action} novalidate>
           <GridStateHiddenInputs state={gridState} />
 

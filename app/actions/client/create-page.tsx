@@ -3,6 +3,7 @@ import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import button from '../../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
+import { entrance } from '../../utils/motion.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
@@ -67,7 +68,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
+      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
         <RestfulForm method="POST" action="/admin/client">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

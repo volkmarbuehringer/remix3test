@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from 'remix/ui/animation'
+import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 
 import { frames, routes } from '../routes.ts'
@@ -453,7 +454,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
     let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
-      <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
+      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
         <RestfulForm method="PUT" action={routes.admin.users.update.href({ id: row.id! })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -559,7 +560,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
-      <div mix={animateEntrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 })}>
+      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
         <RestfulForm method="POST" action={routes.admin.users.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
