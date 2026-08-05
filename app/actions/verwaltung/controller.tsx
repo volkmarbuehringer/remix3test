@@ -1,15 +1,9 @@
-import { createController } from 'remix/router'
-import { requireAuth } from '../../middleware/auth.ts'
-import { requireAdmin } from '../../middleware/admin.ts'
-import { renderVerwaltungPage } from '../../ui/verwaltung-layout.tsx'
-import { VerwaltungDashboardContent } from '../../ui/verwaltung-page.tsx'
-import { routes } from '../../routes.ts'
-export default createController(routes.verwaltung, {
-  middleware: [requireAuth(), requireAdmin()],
-
-  actions: {
-    index(context) {
-      return renderVerwaltungPage(context.render, <VerwaltungDashboardContent />)
-    },
-  },
-})
+export { default as controller } from './root.tsx'
+export { default as offerings } from './offerings/controller.tsx'
+export { default as appointments } from './appointments/controller.tsx'
+export { default as resources } from './resources/controller.tsx'
+export { default as offeringConfigs } from './offering-configs/controller.tsx'
+export { default as report1 } from './report1/controller.tsx'
+export { default as pdf } from './pdf/controller.tsx'
+export { default as usersPdf } from './users-pdf/controller.tsx'
+export { default as usersExport } from './users-export/controller.tsx'

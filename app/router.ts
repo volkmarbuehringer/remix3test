@@ -4,7 +4,7 @@ import type { SessionStorage } from 'remix/session'
 
 import controller from './actions/home/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
-import apiListsController from './actions/api/lists/controller.tsx'
+import * as api from './actions/api/controller.tsx'
 import {
   authLogin,
   authRegister,
@@ -14,16 +14,11 @@ import {
   authForgottenReset,
   authLogout,
 } from './actions/auth/controller.tsx'
-import { mastraChat } from './actions/mastra/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
 import testAgent from './actions/test-agent/controller.tsx'
 import routeAgent from './actions/route-agent/controller.tsx'
-import { workflowAgent } from './actions/workflow-agent/controller.tsx'
-import agentEvents from './actions/agent-events/controller.tsx'
-import clientController from './actions/client/controller.tsx'
 import * as admin from './actions/admin/controller.tsx'
-import adminNutzerController from './actions/nutzer/controller.tsx'
-import * as verwaltung from './actions/verwaltung/index.ts'
+import * as verwaltung from './actions/verwaltung/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
@@ -31,8 +26,6 @@ import uploadsController, {
   download as uploadsDownloadHandler,
 } from './actions/uploads/controller.tsx'
 import webhookReceive from './actions/webhook/controller.tsx'
-import apiLogin from './actions/api/login/controller.tsx'
-import apiLogout from './actions/api/logout/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
   webhookRequestsIndex,
@@ -68,20 +61,20 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes, controller)
 
   // Client Lab route
-  router.map(routes.admin.client, clientController)
+  router.map(routes.admin.client, admin.adminClient)
 
   // Nutzer route (under admin, admin-only middleware in controller)
-  router.map(routes.admin.nutzer, adminNutzerController)
+  router.map(routes.admin.nutzer, admin.adminNutzer)
 
   // Lists routes (separate controller with requireAuth middleware)
   router.map(routes.lists, listsController)
 
   // API auth routes
-  router.post(routes.api.login, apiLogin)
-  router.post(routes.api.logout, apiLogout)
+  router.post(routes.api.login, api.apiLogin)
+  router.post(routes.api.logout, api.apiLogout)
 
   // API Lists routes (per-user token auth)
-  router.map(routes.apiLists, apiListsController)
+  router.map(routes.apiLists, api.apiLists)
 
   // Auth routes
   router.map(routes.auth.login, authLogin)
@@ -133,13 +126,13 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.admin.users, admin.adminUsers)
 
   // Workflow Agent (admin-only, workflow-backed tools with navigate-confirm pattern)
-  router.map(routes.admin.workflowAgent, workflowAgent)
+  router.map(routes.admin.workflowAgent, admin.workflowAgent)
 
   // Agent Events (experimental event pipeline, admin-only)
-  router.map(routes.admin.agentEvents, agentEvents)
+  router.map(routes.admin.agentEvents, admin.agentEvents)
 
   // Support-Agent chat (admin-only, SSE streaming)
-  router.map(routes.admin.supportAgent, mastraChat)
+  router.map(routes.admin.supportAgent, admin.supportAgent)
 
   // Verwaltung routes
   router.map(routes.verwaltung, verwaltung.controller)
