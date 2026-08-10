@@ -19,6 +19,9 @@ for (let key of REQUIRED_ENV) {
 const router = createNewappRouter()
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
+const hmrProxyPort = process.env.HMR_PROXY_PORT
+  ? Number.parseInt(process.env.HMR_PROXY_PORT, 10)
+  : null
 
 const handler = createRequestListener(
   async (request, client) => {
@@ -108,7 +111,14 @@ if (isProduction) {
 
 const host = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
 server.listen(port, host, () => {
-  console.log(`Server listening on ${isProduction ? 'https' : 'http'}://${host}:${port}`)
+  if (process.env.REMIX_NODE_HMR) {
+    import('remix/node-hmr/runtime')
+      .then((nodeHmr) => nodeHmr.emitServerReady())
+      .catch((error) => console.error('Failed to emit server-ready signal', error))
+  }
+  console.log(
+    `Server listening on ${isProduction ? 'https' : 'http'}://${host}:${hmrProxyPort ?? port}`,
+  )
   if (!isProduction) {
     console.log('')
     console.log('Demo accounts:')
@@ -130,3 +140,7 @@ function shutdown() {
 
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
+
+if (process.env.REMIX_NODE_HMR) {
+  process.on('disconnect', () => process.exit(0))
+}

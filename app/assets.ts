@@ -1,15 +1,20 @@
 import { createAssetServer } from 'remix/assets'
+import { uiHmr } from 'remix/ui-hmr/assets'
 
 const rootDir = process.cwd()
 const isDevelopment = process.env.NODE_ENV === 'development'
+const isHmr = Boolean(isDevelopment && process.env.REMIX_NODE_HMR)
 
 export const assetServer = createAssetServer({
   basePath: '/assets',
   rootDir,
-  watch: false,
-  fingerprint: {
-    buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}`,
-  },
+  watch: isDevelopment,
+  hmr: isHmr
+    ? async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel()
+    : undefined,
+  fingerprint: !isDevelopment
+    ? { buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}` }
+    : undefined,
   fileMap: {
     'app/*path': 'app/*path',
     'node_modules/*path': 'node_modules/*path',
@@ -29,6 +34,7 @@ export const assetServer = createAssetServer({
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
     },
+    loaders: isHmr ? [uiHmr()] : undefined,
   },
-  minify: true,
+  minify: !isDevelopment,
 })
