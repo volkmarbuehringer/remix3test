@@ -13,9 +13,9 @@ export const ListsSidebarKeyboard = clientEntry(
       for (let ac of rovingControllers) ac.abort()
       rovingControllers = []
 
-      let rows = Array.from(
-        document.querySelectorAll<HTMLElement>('[data-list-id]'),
-      ).filter((el) => Number.isFinite(Number(el.dataset.listId)))
+      let rows = Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]')).filter((el) =>
+        Number.isFinite(Number(el.dataset.listId)),
+      )
       if (rows.length === 0) return
 
       // Single tab stop: first row tabbable, the rest skipped (roving tabindex)

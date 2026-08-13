@@ -454,7 +454,9 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
     let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="PUT" action={routes.admin.users.update.href({ id: row.id! })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -560,7 +562,9 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '' } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action={routes.admin.users.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

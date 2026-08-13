@@ -41,7 +41,9 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
     let years = Array.from({ length: 5 }, (_, i) => 2026 + i)
 
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action="/verwaltung/offerings/week">
           <div mix={table.panel}>
             <div mix={table.panelHeader}>

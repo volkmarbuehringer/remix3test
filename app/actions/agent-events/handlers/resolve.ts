@@ -29,7 +29,11 @@ async function resolveTargetUser(
   }
 }
 
-const ACTIONABLE_INTS: Set<string> = new Set([INTENTS.CANCEL_USER, INTENTS.LOCK_USER, INTENTS.UNLOCK_USER])
+const ACTIONABLE_INTS: Set<string> = new Set([
+  INTENTS.CANCEL_USER,
+  INTENTS.LOCK_USER,
+  INTENTS.UNLOCK_USER,
+])
 
 function resolveTargetByPattern(query: string): Record<string, unknown> {
   let targetId = Number(query)

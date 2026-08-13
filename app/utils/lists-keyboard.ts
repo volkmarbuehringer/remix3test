@@ -26,9 +26,7 @@ export function findTypeaheadTarget(
   char: string,
 ): number {
   let lower = char.toLowerCase()
-  let target = items.findIndex(
-    (it, i) => i > fromIndex && it.label.toLowerCase().startsWith(lower),
-  )
+  let target = items.findIndex((it, i) => i > fromIndex && it.label.toLowerCase().startsWith(lower))
   if (target === -1) target = items.findIndex((it) => it.label.toLowerCase().startsWith(lower))
   return target
 }

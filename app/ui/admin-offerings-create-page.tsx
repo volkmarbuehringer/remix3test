@@ -69,7 +69,9 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
     let resolvedEndMin = formValues?.end_min ? Number(formValues.end_min) : 1020
 
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate>
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 

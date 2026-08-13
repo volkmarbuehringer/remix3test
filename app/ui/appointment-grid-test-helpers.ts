@@ -105,8 +105,12 @@ export function dispatchDragSequence(
   endY: number,
 ) {
   let pointerId = 1
-  target.dispatchEvent(createPointerEvent('pointerdown', { clientX: startX, clientY: startY, pointerId }))
-  target.dispatchEvent(createPointerEvent('pointermove', { clientX: endX, clientY: endY, pointerId }))
+  target.dispatchEvent(
+    createPointerEvent('pointerdown', { clientX: startX, clientY: startY, pointerId }),
+  )
+  target.dispatchEvent(
+    createPointerEvent('pointermove', { clientX: endX, clientY: endY, pointerId }),
+  )
   target.dispatchEvent(createPointerEvent('pointerup', { clientX: endX, clientY: endY, pointerId }))
 }
 
@@ -123,14 +127,22 @@ export function dispatchDragWithThreshold(
   let distance = Math.sqrt(dx * dx + dy * dy)
   let pointerId = 1
 
-  target.dispatchEvent(createPointerEvent('pointerdown', { clientX: startX, clientY: startY, pointerId }))
-  target.dispatchEvent(createPointerEvent('pointermove', { clientX: endX, clientY: endY, pointerId }))
+  target.dispatchEvent(
+    createPointerEvent('pointerdown', { clientX: startX, clientY: startY, pointerId }),
+  )
+  target.dispatchEvent(
+    createPointerEvent('pointermove', { clientX: endX, clientY: endY, pointerId }),
+  )
 
   let moved = distance > threshold
   if (moved) {
-    target.dispatchEvent(createPointerEvent('pointerup', { clientX: endX, clientY: endY, pointerId }))
+    target.dispatchEvent(
+      createPointerEvent('pointerup', { clientX: endX, clientY: endY, pointerId }),
+    )
   } else {
-    target.dispatchEvent(createPointerEvent('pointerup', { clientX: startX, clientY: startY, pointerId }))
+    target.dispatchEvent(
+      createPointerEvent('pointerup', { clientX: startX, clientY: startY, pointerId }),
+    )
   }
   return { moved }
 }

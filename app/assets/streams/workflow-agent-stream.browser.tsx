@@ -448,45 +448,6 @@ export const WorkflowAgentStream = clientEntry(
       }
     }
 
-    async function handleFrameFormSubmit(e: Event) {
-      let form = (e.target as HTMLElement).closest('form')
-      if (!form || form.id === 'workflow-agent-form') return
-      e.preventDefault()
-
-      let action = form.getAttribute('action') || ''
-      let method = (form.method || 'GET').toUpperCase()
-      let target = form.getAttribute('rmx-target')
-
-      let frame = target ? handle.frames.get(target) : handle.frame
-      if (!frame) return
-
-      if (method === 'GET') {
-        let params = new URLSearchParams()
-        for (let [key, value] of new FormData(form)) {
-          if (typeof value === 'string') params.append(key, value)
-        }
-        let qs = params.toString()
-        let url = action + (qs ? '?' + qs : '')
-        frame.src = url
-        frame.reload().then(
-          () => restoreFilterValue(url),
-          (err) => showInfo('Navigation failed: ' + String(err), true),
-        )
-        window.history.replaceState({}, '', url)
-      } else {
-        try {
-          let res = await fetch(action, {
-            method,
-            body: new FormData(form),
-          })
-          await res.text().catch(() => '')
-          frame.reload().catch(() => {})
-        } catch {
-          frame.reload().catch(() => {})
-        }
-      }
-    }
-
     return () => (
       <div
         mix={[
@@ -505,11 +466,6 @@ export const WorkflowAgentStream = clientEntry(
                 signal: handle.signal,
               })
               autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
-            }
-
-            let container = document.getElementById('workflow-agent-frame-container')
-            if (container) {
-              container.addEventListener('submit', handleFrameFormSubmit, { signal: handle.signal })
             }
           }),
         ]}

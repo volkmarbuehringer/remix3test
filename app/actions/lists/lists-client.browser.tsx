@@ -782,7 +782,7 @@ export const ListsClient = clientEntry(
     // (deleted / cleared / reloaded) — otherwise the whole list would end up
     // with tabindex="-1" and become unreachable by keyboard.
     let activeItemId = (): string | null =>
-      focusedId && items.some((i) => i.id === focusedId) ? focusedId : items[0]?.id ?? null
+      focusedId && items.some((i) => i.id === focusedId) ? focusedId : (items[0]?.id ?? null)
 
     let grabbedMove = (from: number, to: number) => {
       if (to < 0 || to >= items.length) return

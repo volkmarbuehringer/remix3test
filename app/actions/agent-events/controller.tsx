@@ -30,7 +30,12 @@ function nextConfirmRunId(): string {
   return `agent-events-${Date.now()}-${confirmRunIdCounter}`
 }
 
-function createPipeline(message: string, adminUserId: number, adminEmail: string, signal?: AbortSignal): ReadableStream {
+function createPipeline(
+  message: string,
+  adminUserId: number,
+  adminEmail: string,
+  signal?: AbortSignal,
+): ReadableStream {
   return new ReadableStream({
     start: async (controller) => {
       let closed = false

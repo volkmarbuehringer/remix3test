@@ -75,7 +75,9 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
     >
 
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()}>
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 

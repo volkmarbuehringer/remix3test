@@ -61,7 +61,9 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <form method="POST" action={routes.admin.nutzer.create.href()} novalidate>
           <CsrfTokenInput />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />

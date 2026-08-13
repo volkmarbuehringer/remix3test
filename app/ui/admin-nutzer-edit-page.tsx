@@ -73,7 +73,9 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
   return () => {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <form method="POST" action={routes.admin.nutzer.update.href({ id: row.n_id })} novalidate>
           <input type="hidden" name="_method" value="PUT" />
           <CsrfTokenInput />

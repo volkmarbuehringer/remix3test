@@ -18,11 +18,8 @@ export function __setExecutors(m: Record<string, Executor>): void {
 
 async function initExecutors(): Promise<void> {
   if (_executorsReady) return
-  let {
-    executeCancelUserWorkflow,
-    executeLockUserWorkflow,
-    executeUnlockUserWorkflow,
-  } = await import('../../mastra/workflow-executor.ts')
+  let { executeCancelUserWorkflow, executeLockUserWorkflow, executeUnlockUserWorkflow } =
+    await import('../../mastra/workflow-executor.ts')
   if (_executorsReady) return
   _executors = {
     cancel: async (input) => {
@@ -55,7 +52,10 @@ function parsePayload(payload: unknown): {
   return {
     intent: typeof p.intent === 'string' ? p.intent : '',
     targetUserId: targetUserId > 0 ? targetUserId : 0,
-    adminUserId: typeof p.adminUserId === 'number' && Number.isFinite(p.adminUserId) ? Math.floor(p.adminUserId) : 0,
+    adminUserId:
+      typeof p.adminUserId === 'number' && Number.isFinite(p.adminUserId)
+        ? Math.floor(p.adminUserId)
+        : 0,
     adminEmail: typeof p.adminEmail === 'string' ? p.adminEmail : '',
   }
 }

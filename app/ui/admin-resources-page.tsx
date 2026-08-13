@@ -409,7 +409,9 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
     let capsValue = formValues?.capabilities ?? row.capabilities ?? ''
     let capsError = fieldErrors?.capabilities
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="PUT" action={routes.verwaltung.resources.update.href({ id: row.id })}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -544,7 +546,9 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
     let descError = fieldErrors?.description
     let capsError = fieldErrors?.capabilities
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action={routes.verwaltung.resources.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

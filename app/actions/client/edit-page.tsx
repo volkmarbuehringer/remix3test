@@ -85,7 +85,9 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
   return () => {
     let { row, offset, sort, order, filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="PUT" action={`/admin/client/${row.id}`}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

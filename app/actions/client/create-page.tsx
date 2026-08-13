@@ -68,7 +68,9 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
   return () => {
     let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action="/admin/client">
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

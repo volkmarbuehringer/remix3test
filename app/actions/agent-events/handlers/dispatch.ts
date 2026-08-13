@@ -18,12 +18,14 @@ export const dispatchHandler: EventHandler = {
       adminEmail: e.adminEmail,
     }
 
-    let navValue = String(
-      resolved.targetEmail || resolved.targetName || resolved.targetQuery || ''
-    )
+    let navValue = String(resolved.targetEmail || resolved.targetName || resolved.targetQuery || '')
     let navQuery = navValue ? encodeURIComponent(navValue) : ''
 
-    if (e.intent === INTENTS.CANCEL_USER || e.intent === INTENTS.LOCK_USER || e.intent === INTENTS.UNLOCK_USER) {
+    if (
+      e.intent === INTENTS.CANCEL_USER ||
+      e.intent === INTENTS.LOCK_USER ||
+      e.intent === INTENTS.UNLOCK_USER
+    ) {
       let action = INTENT_TO_ACTION[e.intent] ?? e.intent
       emit({
         type: 'navigate',

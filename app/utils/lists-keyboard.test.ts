@@ -47,11 +47,7 @@ describe('moveItemInArray', () => {
 describe('findTypeaheadTarget', () => {
   // 4.3 typeahead jumps to a matching label
   it('jumps forward to the first label starting with the char', () => {
-    let items = [
-      { label: 'Banana' },
-      { label: 'Apple' },
-      { label: 'Apricot' },
-    ]
+    let items = [{ label: 'Banana' }, { label: 'Apple' }, { label: 'Apricot' }]
     assert.equal(findTypeaheadTarget(items, 0, 'a'), 1)
   })
 

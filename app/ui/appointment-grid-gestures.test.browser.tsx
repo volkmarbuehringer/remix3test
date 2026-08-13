@@ -45,8 +45,24 @@ describe('Layout preview functions', () => {
 
   beforeEach(() => {
     blocks = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
-      { id: 2, date: Date.UTC(2026, 6, 30), start_min: 660, end_min: 720, title: 'B', resource_id: 1, user_id: 2 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
+      {
+        id: 2,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 660,
+        end_min: 720,
+        title: 'B',
+        resource_id: 1,
+        user_id: 2,
+      },
     ]
   })
 
@@ -65,7 +81,15 @@ describe('Layout preview functions', () => {
   it('previewResizeBlockTime resizes block end time without overlap', () => {
     // Blocks must not overlap after resize, or resolvePush returns null
     let soloBlocks: AppointmentLayoutBlock[] = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
     ]
     let result = previewResizeBlockTime(soloBlocks, 1, { edge: 'end', minute: 780 })
     assert.equal(result.blocks.length, 1, 'should maintain block count')
@@ -77,7 +101,15 @@ describe('Layout preview functions', () => {
 
   it('previewResizeBlockTime resizes block start time', () => {
     let soloBlocks: AppointmentLayoutBlock[] = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
     ]
     let result = previewResizeBlockTime(soloBlocks, 1, { edge: 'start', minute: 480 })
     assert.equal(result.blocks.length, 1, 'should maintain block count')
@@ -90,12 +122,23 @@ describe('Layout preview functions', () => {
   it('previewResizeBlockTime clamps minimum duration', () => {
     // Try to resize end to be less than 15 min from start
     let soloBlocks: AppointmentLayoutBlock[] = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
     ]
     let result = previewResizeBlockTime(soloBlocks, 1, { edge: 'end', minute: 545 })
     let resized = result.blocks.find((b) => b.id === 1)
     assert.ok(resized, 'resized block should exist')
-    assert.ok(resized!.end_min >= resized!.start_min + 15, 'should maintain minimum duration of 15 min')
+    assert.ok(
+      resized!.end_min >= resized!.start_min + 15,
+      'should maintain minimum duration of 15 min',
+    )
   })
 
   it('previewDeleteBlock removes block', () => {
@@ -260,26 +303,12 @@ describe('Drag gesture coordinate calculations', () => {
   })
 
   it('move below threshold does not count as drag', () => {
-    let moved = dispatchDragWithThreshold(
-      document.body,
-      100,
-      100,
-      101,
-      101,
-      DRAG_THRESHOLD,
-    )
+    let moved = dispatchDragWithThreshold(document.body, 100, 100, 101, 101, DRAG_THRESHOLD)
     assert.ok(!moved.moved, 'sub-threshold movement should not register as drag')
   })
 
   it('move above threshold counts as drag', () => {
-    let moved = dispatchDragWithThreshold(
-      document.body,
-      100,
-      100,
-      120,
-      120,
-      DRAG_THRESHOLD,
-    )
+    let moved = dispatchDragWithThreshold(document.body, 100, 100, 120, 120, DRAG_THRESHOLD)
     assert.ok(moved.moved, 'above-threshold movement should register as drag')
   })
 
@@ -346,7 +375,15 @@ describe('Mutation capture', () => {
 describe('Collision detection', () => {
   it('two blocks in same time slot would collide', () => {
     let blocks: AppointmentLayoutBlock[] = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
     ]
 
     let result = previewMoveBlock(blocks, 1, { date: Date.UTC(2026, 6, 30), startMinute: 540 })
@@ -410,16 +447,46 @@ describe('Type-drag coordination', () => {
 describe('Trashcan delete gesture', () => {
   it('previewDeleteBlock removes the correct block', () => {
     let blocks: AppointmentLayoutBlock[] = [
-      { id: 1, date: Date.UTC(2026, 6, 30), start_min: 540, end_min: 600, title: 'A', resource_id: 1, user_id: 1 },
-      { id: 2, date: Date.UTC(2026, 6, 30), start_min: 660, end_min: 720, title: 'B', resource_id: 1, user_id: 1 },
-      { id: 3, date: Date.UTC(2026, 6, 30), start_min: 780, end_min: 840, title: 'C', resource_id: 1, user_id: 2 },
+      {
+        id: 1,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 540,
+        end_min: 600,
+        title: 'A',
+        resource_id: 1,
+        user_id: 1,
+      },
+      {
+        id: 2,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 660,
+        end_min: 720,
+        title: 'B',
+        resource_id: 1,
+        user_id: 1,
+      },
+      {
+        id: 3,
+        date: Date.UTC(2026, 6, 30),
+        start_min: 780,
+        end_min: 840,
+        title: 'C',
+        resource_id: 1,
+        user_id: 2,
+      },
     ]
 
     let result = previewDeleteBlock(blocks, 2)
     assert.equal(result.blocks.length, 2, 'should remove one block')
-    assert.ok(result.blocks.find((b) => b.id === 1), 'block 1 should remain')
+    assert.ok(
+      result.blocks.find((b) => b.id === 1),
+      'block 1 should remain',
+    )
     assert.ok(!result.blocks.find((b) => b.id === 2), 'block 2 should be removed')
-    assert.ok(result.blocks.find((b) => b.id === 3), 'block 3 should remain')
+    assert.ok(
+      result.blocks.find((b) => b.id === 3),
+      'block 3 should remain',
+    )
     assert.equal(result.changes[0].kind, 'deleted')
   })
 })

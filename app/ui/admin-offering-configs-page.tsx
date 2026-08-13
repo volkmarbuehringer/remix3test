@@ -502,7 +502,9 @@ function EditPanel(handle: Handle<EditPanelProps>) {
       : Number(row.resource_id)
     let hasResourceError = !!fieldErrors?.resource_id
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm
           method="PUT"
           action={routes.verwaltung.offeringConfigs.update.href({ id: row.id })}
@@ -627,7 +629,9 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
     let selectedResourceId = formValues?.resource_id ? Number(formValues.resource_id) : undefined
     let hasResourceError = !!fieldErrors?.resource_id
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method="POST" action={routes.verwaltung.offeringConfigs.create.href()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

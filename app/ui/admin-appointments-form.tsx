@@ -129,7 +129,9 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
     let titlePlaceholder = isEdit ? undefined : 'Titel eingeben...'
 
     return (
-      <div mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}>
+      <div
+        mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
+      >
         <RestfulForm method={method} action={action} novalidate>
           <GridStateHiddenInputs state={gridState} />
 
