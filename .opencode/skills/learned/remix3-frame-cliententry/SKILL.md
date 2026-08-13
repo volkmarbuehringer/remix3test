@@ -13,6 +13,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 
 - [Frame Direct Render — Avoid Double-Load Crash](#frame-direct-render--avoid-double-load-crash)
 - [Post Form Submissions in Frames](#post-form-submissions-in-frames)
+- [Client resolveFrame Signature (ResolveFrameOptions)](#client-resolveframe-signature-resolveframeoptions)
 - [Generic Form Interception for Frames](#generic-form-interception-for-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
@@ -171,6 +172,74 @@ return context.render(
 - Choosing between `rmx-document` (preserve document nav) and default frame interception for a form
 
 (Consolidated from `remix3-frame-post-uninterceptable`)
+
+---
+
+## Client resolveFrame Signature (ResolveFrameOptions)
+
+**Context:** The `entry.tsx` client asset must implement `resolveFrame` (passed via `run({ resolveFrame })`) so the Frame runtime can fetch frame content on the client. This signature is version-pinned and breaking — upgrading the pinned Remix build to post-#11668 requires the options-object form or `npm run typecheck` fails.
+
+**Version alert:** As of the #11668 era upstream build (`ResolveFrame` type in `remix/ui`), the client resolver is `resolveFrame(src, options?: ResolveFrameOptions)` returning `FrameContent | Response`. Older positional forms (`resolveFrame(src, signal, target)` / `resolveFrame(src, frameName)`) no longer typecheck against the installed package.
+
+### Problem
+
+After bumping the pinned `remix` build to a version with the options-object `ResolveFrame`, `app/assets/entry.tsx` fails typecheck with 4 errors: the resolver signature no longer accepts the old positional arguments, and there is no caller-provided request body for non-GET form submissions.
+
+### Solution
+
+Use the options-object signature and build the request body from `options.formData` yourself:
+
+```tsx
+import type { FrameContent, ResolveFrameOptions } from 'remix/ui'
+
+async resolveFrame(src, options) {
+  return resolveFrameResponse(new URL(src, window.location.href), options)
+}
+
+async function resolveFrameResponse(
+  url: URL,
+  options?: ResolveFrameOptions,
+): Promise<FrameContent | Response> {
+  let init: RequestInit = {
+    headers: { 'X-Remix-Frame': 'true' },
+    signal: options?.signal,
+  }
+  if (options?.target) init.headers['X-Remix-Target'] = options.target
+  if (options?.method && options.method.toLowerCase() !== 'get') {
+    init.method = options.method
+    init.body = getRequestBody(options.formData, options.method, options.encType)
+  }
+  // fetch(url, init) → return content fragment or Response (e.g. stream)
+}
+
+function getRequestBody(
+  formData?: FormData,
+  method?: string,
+  encType?: string,
+): BodyInit | undefined {
+  if (!formData || method?.toLowerCase() === 'get') return
+  if (encType !== 'application/x-www-form-urlencoded') return formData
+  let body = new URLSearchParams()
+  for (let [name, value] of formData) {
+    body.append(name, typeof value === 'string' ? value : value.name)
+  }
+  return body
+}
+```
+
+Key facts:
+
+- `ResolveFrameOptions` exposes `target`, `formData`, `method`, `encType`, and `signal` — no positional args.
+- The runtime does **not** decode `_method`; `methodOverride` middleware / `app/middleware/render.tsx` stays responsible for that.
+- Multipart forms pass the raw `FormData`; `application/x-www-form-urlencoded` must be flattened to `URLSearchParams` (the `getRequestBody` pattern above) or the server receives no parsable body.
+- Returning a `Response` directly (instead of a `FrameContent` fragment) is the supported path for streaming SSE/agent frames.
+- `render.tsx`'s server `resolveFrame` already forwards `X-Remix-Frame`/`X-Remix-Target` and handles `formData`/`method`/`encType`; only the client resolver needed migration.
+
+### When to Use
+
+- `npm run typecheck` reports `ResolveFrame`-related errors after bumping the pinned `remix` build
+- Writing a custom client `resolveFrame` for a new `entry.tsx` on post-#11668 builds
+- Debugging missing request bodies on non-GET frame navigations (urlencoded forms silently losing data)
 
 ---
 
