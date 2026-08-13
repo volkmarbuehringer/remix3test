@@ -11,4 +11,4 @@ export { default as adminClient } from '../client/controller.tsx'
 export { workflowAgent } from '../workflow-agent/controller.tsx'
 export { default as agentEvents } from '../agent-events/controller.tsx'
 // `mastra/` is the agent subsystem; its controller stays coupled there.
-export { mastraChat as supportAgent } from '../mastra/controller.tsx'
+export { default as supportAgent } from './support-agent/controller.tsx'
