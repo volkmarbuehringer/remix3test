@@ -1,7 +1,7 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { db, initializeAppDatabase } from '../data/setup.ts'
+import { db, initializeAppDatabase } from '../db.ts'
 import { lists } from '../data/schema.ts'
 import { getListById, createList, patchList, deleteList, moveItemBetweenLists } from './lists.ts'
 

@@ -9,7 +9,7 @@ import { theme } from '../../ui/theme/theme.ts'
 import { WorkflowAgentPage } from '../../ui/workflow-agent-page.tsx'
 import { routes, frames } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
-import { db } from '../../data/connection.ts'
+import { db } from '../../db.ts'
 import { AGENT_TIMEOUT_MS } from '../mastra/shared-agent.ts'
 import { sql } from 'remix/data-table'
 

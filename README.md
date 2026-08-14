@@ -192,7 +192,7 @@ Adjust the username, password, host, and port to match your PostgreSQL setup.
 
 ### 3. Auto-Create Tables (Migration)
 
-When the server starts, [`initializeAppDatabase()`](app/data/setup.ts) runs [`migrate()`](app/data/migrate.ts), which creates all tables using `CREATE TABLE IF NOT EXISTS`. No manual migration steps are needed. Tables include:
+When the server starts, [`initializeAppDatabase()`](app/db.ts) runs [`db.migrate()`](app/db.ts) (loading migrations from `db/migrations` via `loadAppMigrations()`), which creates all tables. No manual migration steps are needed. Tables include:
 
 | Table              | Purpose                                                                  |
 | ------------------ | ------------------------------------------------------------------------ |

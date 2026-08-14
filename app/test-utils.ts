@@ -1,7 +1,7 @@
 import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { db } from './data/setup.ts'
+import { db } from './db.ts'
 import { router } from './test-router.ts'
 
 /**

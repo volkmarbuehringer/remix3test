@@ -11,7 +11,7 @@ const BASE = 'https://remix.run'
 // ---------------------------------------------------------------------------
 // Auth Logout action integration tests
 // Requires a running PostgreSQL database.
-// See newapp/app/data/setup.ts for seed data.
+// See newapp/app/db.ts for seed data.
 // ---------------------------------------------------------------------------
 
 describe('auth-logout action', () => {

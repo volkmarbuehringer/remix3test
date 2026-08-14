@@ -1,7 +1,7 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
 import Holidays from 'date-holidays'
-import { db } from '../../../data/connection.ts'
+import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
 import {
   users,

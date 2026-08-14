@@ -3,14 +3,14 @@ import * as assert from 'remix/assert'
 import { SetCookie } from 'remix/headers'
 
 import { router } from '../../test-router.ts'
-import { initializeAppDatabase } from '../../data/setup.ts'
+import { initializeAppDatabase } from '../../db.ts'
 import { createCsrfSession } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Auth End-to-End tests
 // Requires a running PostgreSQL database seeded with demo users.
-// See newapp/app/data/setup.ts for seed data.
+// See newapp/app/db.ts for seed data.
 //
 // These tests chain multiple requests with session cookies to simulate
 // real user journeys, unlike the isolated integration tests in the

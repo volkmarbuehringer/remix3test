@@ -1,15 +1,11 @@
+import type * as AppModule from '../app/db.ts'
 import { Pool } from 'pg'
 
 let originalDatabaseUrl = ''
 let adminDatabaseUrl = ''
 let testDbName = ''
 
-type AppSetupModule = {
-  resetTestDatabase(): Promise<void>
-  closeAppDatabase(): Promise<void>
-}
-
-let appModule: AppSetupModule | undefined
+let appModule: typeof AppModule | undefined
 let appClosed = false
 
 async function forceDropTestDb() {
@@ -47,9 +43,12 @@ export async function globalSetup() {
   parsed.pathname = `/${testDbName}`
   process.env.DATABASE_URL = parsed.toString()
 
-  appModule = await import('../app/data/setup.ts')
+  appModule = await import('../app/db.ts')
   try {
-    await appModule.resetTestDatabase()
+    await appModule.db.reset({
+      migrations: await appModule.loadAppMigrations(),
+      seed: await appModule.loadAppSeed(),
+    })
   } catch (err) {
     console.error(`Setup failed for "${testDbName}":`, err)
     await appModule.closeAppDatabase().catch(() => {})
@@ -63,7 +62,7 @@ export async function globalTeardown() {
   if (!appClosed) {
     try {
       await Promise.race([
-        appModule?.closeAppDatabase() ?? Promise.resolve(),
+        appModule?.closeAppDatabase().catch(() => {}) ?? Promise.resolve(),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('pool.end() timed out after 5s')), 5000),
         ),

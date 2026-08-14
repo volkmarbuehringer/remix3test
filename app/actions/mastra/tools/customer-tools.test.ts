@@ -1,7 +1,7 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { initializeAppDatabase } from '../../../data/setup.ts'
+import { initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../data/test-pool.ts'
 import { customerTools, runWithUserId } from './customer-tools.ts'
 // Side-effect: registers the Mastra instance (setMastra) so cancellation workflows can execute

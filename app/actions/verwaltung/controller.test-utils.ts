@@ -1,4 +1,4 @@
-import { initializeAppDatabase } from '../../data/setup.ts'
+import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 

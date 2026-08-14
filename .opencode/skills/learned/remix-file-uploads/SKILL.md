@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS uploads (
 
 ```typescript
 import type { FileUpload } from 'remix/form-data-parser'
-import { pool } from '../data/setup.ts'
+import { db } from '../db.ts'
 
 export async function uploadHandler(file: FileUpload): Promise<string | void> {
   if (file.fieldName !== 'file') return
@@ -46,7 +46,7 @@ export async function uploadHandler(file: FileUpload): Promise<string | void> {
     }
     let data = Buffer.concat(chunks)
 
-    let result = await pool.query(
+    let result = await db.exec(
       `INSERT INTO uploads (filename, mime_type, data, size, uploaded_by, created_at)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
       [file.name, file.type, data, data.length, null, Date.now()],
@@ -108,7 +108,7 @@ setUploadedId(id)
 // controller — claim only the server-scoped id, ignore the form field
 let uploadedId = takeUploadedId()
 if (uploadedId != null) {
-  await pool.query(`UPDATE uploads SET uploaded_by = $1 WHERE id = $2`, [user.id, Number(uploadedId)])
+  await db.exec(`UPDATE uploads SET uploaded_by = $1 WHERE id = $2`, [user.id, Number(uploadedId)])
 }
 ```
 
@@ -124,7 +124,7 @@ export const uploadsDownload = get('/uploads/:id/download')
 router.get(uploadsDownload, uploadsDownloadHandler)
 
 // Handler
-let result = await pool.query(`SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id])
+let result = await db.exec(`SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id])
 // Return data as Response with Content-Type + Content-Disposition
 return new Response(result.rows[0].data, {
   headers: {

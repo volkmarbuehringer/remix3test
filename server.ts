@@ -5,7 +5,7 @@ import { createRequestListener } from 'remix/node-fetch-server'
 import { html } from 'remix/html-template'
 
 import { createNewappRouter } from './app/router.ts'
-import { initializeAppDatabase, closeAppDatabase } from './app/data/setup.ts'
+import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
 
 await initializeAppDatabase()
 

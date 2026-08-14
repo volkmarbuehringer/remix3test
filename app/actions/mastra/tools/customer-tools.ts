@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod/v4'
-import { db } from '../../../data/connection.ts'
+import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
 import { resources } from '../../../data/schema.ts'
 import {

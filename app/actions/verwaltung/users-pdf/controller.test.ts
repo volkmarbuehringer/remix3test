@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 import { ContentDisposition, ContentType } from 'remix/headers'
 
 import { router } from '../../../test-router.ts'
-import { initializeAppDatabase } from '../../../data/setup.ts'
+import { initializeAppDatabase } from '../../../db.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
 import { routes } from '../../../routes.ts'
 

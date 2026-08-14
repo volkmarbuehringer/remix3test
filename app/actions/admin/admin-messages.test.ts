@@ -2,7 +2,7 @@ import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { CacheControl, ContentType } from 'remix/headers'
 
-import { db, initializeAppDatabase } from '../../data/setup.ts'
+import { db, initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { sql } from 'remix/data-table'
 import { router } from '../../test-router.ts'

@@ -10,7 +10,7 @@ const BASE = 'https://remix.run'
 // ---------------------------------------------------------------------------
 // Auth Login Controller integration tests
 // Requires a running PostgreSQL database seeded with demo users.
-// See newapp/app/data/setup.ts for seed data.
+// See newapp/app/db.ts for seed data.
 // ---------------------------------------------------------------------------
 
 describe('Auth Login controller', () => {

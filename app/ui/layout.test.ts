@@ -4,7 +4,7 @@ import { createSession } from 'remix/session'
 
 import { router } from '../test-router.ts'
 import { sessionCookie, sessionStorage } from '../middleware/session.ts'
-import { initializeAppDatabase } from '../data/setup.ts'
+import { initializeAppDatabase } from '../db.ts'
 
 import { pool } from '../data/test-pool.ts'
 // ---------------------------------------------------------------------------

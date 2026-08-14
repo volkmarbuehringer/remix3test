@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { createCsrfSession } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { initializeAppDatabase } from '../../data/setup.ts'
+import { initializeAppDatabase } from '../../db.ts'
 
 import { pool } from '../../data/test-pool.ts'
 const BASE = 'https://remix.run'

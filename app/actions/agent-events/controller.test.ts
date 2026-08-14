@@ -611,5 +611,5 @@ describe('AgentEvents route (POST validation)', () => {
   })
 })
 
-// Re-use the same helper as in app/data/setup.ts pattern
-import { initializeAppDatabase } from '../../data/setup.ts'
+// Re-use the same helper as in app/db.ts pattern
+import { initializeAppDatabase } from '../../db.ts'

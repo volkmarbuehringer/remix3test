@@ -1,5 +1,5 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
-import { db } from '../../../data/connection.ts'
+import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
 import { INTENTS } from '../intents.ts'
 

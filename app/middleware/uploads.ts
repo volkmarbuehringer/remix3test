@@ -1,5 +1,5 @@
 import type { FileUpload } from 'remix/form-data-parser'
-import { db } from '../data/setup.ts'
+import { db } from '../db.ts'
 import { insertUpload } from '../data/uploads.ts'
 import { setUploadedId } from './upload-claim.ts'
 

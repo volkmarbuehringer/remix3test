@@ -1,6 +1,6 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
-import { db } from '../../../data/connection.ts'
+import { db } from '../../../db.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import { consoleNotificationSender } from '../notifications/sender.ts'

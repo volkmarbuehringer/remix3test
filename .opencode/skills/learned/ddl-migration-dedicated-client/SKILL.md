@@ -8,6 +8,7 @@ origin: auto-extracted
 # DDL Migration with Dedicated `pg.Client`
 
 **Extracted:** 2026-07-17
+**Updated:** 2026-08-14 (newapp switched to driver-owned config-backed `db.migrate()`/`db.reset()`; dedicated-client workaround retired)
 **Context:** DDL migrations that timeout during test setup due to pool-level `statement_timeout`, or cause lock contention with application connections.
 
 ## Problem
@@ -19,7 +20,28 @@ DDL migrations (CREATE TABLE, ALTER TABLE, CREATE INDEX, etc.) are slow and acqu
 3. If the pool has `maxUses` or other session-level settings, the migration connection inherits them — DDL may behave differently than expected.
 4. Concurrent test workers on separate databases don't share lock space, but parallel domain init (e.g. Mastra `PostgresStoreVNext`) can self-deadlock within a single worker when using pool connections.
 
-## Solution
+## Current State in newapp (2026-08)
+
+The manual dedicated-`Client` migration path is **retired**. newapp now constructs the postgres database config-backed in `app/db.ts` and runs migrations through the data-table driver:
+
+- `db.migrate(...)` / `db.reset({ migrations, seed })` run DDL on a **reserved pool slot** via the driver's `withMigrationLock()` (packages/data-table-postgres driver).
+- The driver sets `lock_timeout` to 60s for advisory-lock acquisition (`pg_advisory_lock(hashtext($1))`), then resets it to `default` before running DDL — it does **not** touch `statement_timeout`.
+- The migration connection still inherits the pool's `statement_timeout: 30000`. The newapp migration is a single small `create_all` file, so the 30s bound has not been hit; if DDL timeouts recur on constrained hardware, raise/lower the pool `statement_timeout` in `app/db.ts` rather than reintroducing a manual client.
+- On failure the driver **destroys the reserved connection** (instead of returning it to the pool) to discard a session with an aborted transaction / still-held advisory lock.
+
+So the dedicated-client workaround below remains a **fallback pattern** for when config-backed `db.migrate()`/`db.reset()` hit the pool `statement_timeout` on slow hardware, not the default newapp approach.
+
+### Config-backed pool tradeoff: no `'error'` listener
+
+Config-backed construction makes the driver own the pool internally (`this.#client = new pg.Pool(config)`), so `wipe()`/`reset()`/`close()` work — but the driver attaches **no `pool.on('error')` listener** and exposes no accessor (all 760 lines of the postgres driver keep `#client` private). Consequences:
+
+- The old manual-pool code attached a listener so server-side terminations of idle connections (Postgres restart, RDS failover, `pg_terminate_backend`) logged instead of crashing the process. That safeguard is gone with config-backed construction.
+- Passing your own `pg.Pool` to `createPostgresDatabase(pool)` re-enables the listener but disables `wipe()`/`reset()` (`#configOrThrow` throws "requires config-based construction"), breaking the test-isolation design.
+- The vendor CLI path (`createConfiguredDatabase` in `packages/cli/src/lib/commands/db.ts`) is config-backed too and has the same behavior — this is vendor-consistent, not a newapp regression.
+- Safe in newapp tests because `db.reset()` → driver `wipe()` closes the pool before terminating backends, and `test/setup.ts` closes the app pool before the force-drop.
+- If an unhandled pool `'error'` crash surfaces in production, the fix is a driver change (attach a listener or add an `onPoolError` option to `PostgresDatabaseDriverOptions`), not app-side code.
+
+## Fallback Solution
 
 Create a dedicated `pg.Client` for the migration — not from the pool — with `statement_timeout: 0` (unlimited). Wrap all DDL in a `BEGIN` / `COMMIT` transaction for atomicity. Close the client when done.
 
@@ -64,7 +86,7 @@ export async function migrate(): Promise<void> {
 
 ## When to Use
 
-- Test environments where DDL regularly hits `statement_timeout` during `beforeAll` / `globalSetup`
+- Test environments where config-backed `db.migrate()`/`db.reset()` DDL regularly hits the pool `statement_timeout` during `beforeAll` / `globalSetup`
 - CI pipelines that create fresh databases per worker and run migrations concurrently
 - Any project where the `pg.Pool` has a non-zero `statement_timeout` (common safety measure) that conflicts with DDL
 - When you need atomic DDL (all-or-nothing migration)
