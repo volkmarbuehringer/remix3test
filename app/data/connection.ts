@@ -1,6 +1,5 @@
-import { createDatabase } from 'remix/data-table'
-import { createPostgresDatabaseAdapter } from 'remix/data-table/postgres'
-import { createMigrationRunner, type MigrationDescriptor } from 'remix/data-table/migrations'
+import { createPostgresDatabase } from 'remix/data-table/postgres'
+import { type MigrationDescriptor } from 'remix/data-table/migrations'
 import { loadMigrations } from 'remix/data-table/migrations/node'
 import { Client, Pool } from 'pg'
 import * as path from 'node:path'
@@ -13,7 +12,7 @@ if (!databaseUrl) {
 const localeUrl =
   databaseUrl + (databaseUrl.includes('?') ? '&' : '?') + 'options=-c%20lc_messages%3Den_US.UTF-8'
 
-// The pool is owned here (not constructed inside the adapter) so it can be
+// The pool is owned here (not constructed inside the driver) so it can be
 // closed on shutdown and given an 'error' listener. pg-pool surfaces
 // server-side terminations of idle connections (Postgres restart, test
 // database drop) as an 'error' event on the pool; without a listener an
@@ -31,9 +30,7 @@ pool.on('error', (error) => {
   console.error('Database pool connection error:', error.message)
 })
 
-const adapter = createPostgresDatabaseAdapter(pool)
-
-export const db = createDatabase(adapter)
+export const db = createPostgresDatabase(pool)
 
 export const getMigrations = () =>
   loadMigrations(path.join(import.meta.dirname, '../../db/migrations'))
@@ -47,9 +44,8 @@ export async function migrateAppDatabase(migrations: MigrationDescriptor[]): Pro
   let client = new Client({ connectionString: localeUrl, statement_timeout: 0 })
   await client.connect()
   try {
-    let migrationAdapter = createPostgresDatabaseAdapter(client)
-    let runner = createMigrationRunner(migrationAdapter, migrations)
-    await runner.up()
+    let migrationDb = createPostgresDatabase(client)
+    await migrationDb.migrate(migrations)
   } finally {
     await client.end().catch(() => {})
   }

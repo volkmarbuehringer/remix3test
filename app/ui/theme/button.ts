@@ -10,22 +10,41 @@ interface ButtonOptions {
   tone?: ButtonTone
 }
 
+/**
+ * The upstream button factory binds its mixin descriptors to the DOM `Element`
+ * base type. The native TypeScript compiler's recursive assignability check is
+ * order-sensitive here (the same expression typechecks or fails depending on
+ * module ordering), so we bind the tuple to the actual `HTMLButtonElement` host.
+ * This is a type-level-only adjustment: the descriptor objects are already
+ * accepted at runtime on any host.
+ */
+type ButtonStyle = MixinDescriptor<HTMLButtonElement, any, ElementProps>
+
 type ButtonMixin =
-  | readonly [...ReturnType<typeof upstreamButton>]
-  | readonly [...ReturnType<typeof upstreamButton>, CSSMixinDescriptor]
+  | readonly [ButtonStyle, ButtonStyle, ButtonStyle, ButtonStyle]
+  | readonly [ButtonStyle, ButtonStyle, ButtonStyle, ButtonStyle, ButtonStyle]
 
 function button(options: ButtonOptions = {}): ButtonMixin {
   let { size = 'md', tone = 'neutral' } = options
 
   if (tone === 'secondary') {
-    return upstreamButton({ size, tone: 'neutral' })
+    return upstreamButton({ size, tone: 'neutral' }) as unknown as ButtonMixin
   }
 
   if (tone === 'danger') {
-    return [...upstreamButton({ size, tone: 'primary' }), dangerStyle]
+    return [...upstreamButton({ size, tone: 'primary' }), dangerStyle] as unknown as ButtonMixin
   }
 
-  return upstreamButton({ size, tone })
+  return upstreamButton({ size, tone }) as unknown as ButtonMixin
+}
+
+/**
+ * Binds an `Element`-scoped CSS mixin to the `HTMLButtonElement` host so it can
+ * be mixed into a `<button>`'s `mix` array deterministically under the native
+ * TypeScript compiler.
+ */
+export function buttonStyle(style: CSSMixinDescriptor): ButtonStyle {
+  return style as unknown as ButtonStyle
 }
 
 export default button
