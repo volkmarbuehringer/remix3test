@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
+import { rotatedGlyphCss } from './mixins/icon.ts'
 import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from 'remix/ui/animation'
@@ -377,7 +378,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     name="chevronRight"
                     width={14}
                     height={14}
-                    style={{ transform: 'rotate(180deg)' }}
+                    mix={rotatedGlyphCss}
                   />{' '}
                   {'Zur\u00fcck'}
                 </a>
@@ -387,7 +388,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     name="chevronRight"
                     width={14}
                     height={14}
-                    style={{ transform: 'rotate(180deg)' }}
+                    mix={rotatedGlyphCss}
                   />{' '}
                   {'Zur\u00fcck'}
                 </span>

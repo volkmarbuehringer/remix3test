@@ -17,11 +17,11 @@
     "postinstall": "node ./scripts/postinstall.ts"
   },
   "dependencies": {
-    "@mastra/core": "^1.58.0",
+    "@mastra/core": "^1.59.0",
     "@mastra/evals": "^1.7.0",
     "@mastra/loggers": "^1.2.0",
-    "@mastra/memory": "^1.26.1",
-    "@mastra/observability": "^1.16.6",
+    "@mastra/memory": "^1.26.2",
+    "@mastra/observability": "^1.17.0",
     "@mastra/pg": "^1.20.0",
     "date-holidays": "^3.34.1",
     "nodemailer": "^9.0.5",
@@ -31,13 +31,13 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.8.0",
+    "@fission-ai/openspec": "^1.9.0",
     "@oxlint/plugins": "^1.78.0",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.21.0",
-    "mastra": "^1.24.0",
+    "mastra": "^1.25.0",
     "openspec": "latest",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
@@ -48,5 +48,6 @@
   "engines": {
     "node": ">=26.2.0"
   },
-  "packageManager": "pnpm@11.20.0"
+  "packageManager": "pnpm@11.21.0"
 }
+

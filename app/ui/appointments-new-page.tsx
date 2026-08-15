@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
+import { rotatedGlyphCss } from './mixins/icon.ts'
 import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
@@ -494,7 +495,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     name="chevronRight"
                     width={14}
                     height={14}
-                    style={{ transform: 'rotate(180deg)' }}
+                    mix={rotatedGlyphCss}
                   />{' '}
                   Zurück
                 </a>
@@ -504,7 +505,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     name="chevronRight"
                     width={14}
                     height={14}
-                    style={{ transform: 'rotate(180deg)' }}
+                    mix={rotatedGlyphCss}
                   />{' '}
                   Zurück
                 </span>
