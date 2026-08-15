@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
@@ -75,7 +75,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
       <div mix={table.page}>
         <h1 mix={table.title}>Monatsauswertung</h1>
 
-        <form method="GET" action={BASE} mix={table.filterBar}>
+        <form method="GET" action={BASE} rmx-target={frames.adminContent} mix={table.filterBar}>
           <select name="year" mix={table.select}>
             {Array.from({ length: 5 }, (_, i) => {
               let y = curYear - 2 + i

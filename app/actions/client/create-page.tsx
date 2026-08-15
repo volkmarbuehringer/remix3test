@@ -9,6 +9,7 @@ import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { gridStateToParams } from '../../utils/grid-state.ts'
+import { frames } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Styles (unique to this panel)
@@ -71,7 +72,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action="/admin/client">
+        <RestfulForm method="POST" action="/admin/client" rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
