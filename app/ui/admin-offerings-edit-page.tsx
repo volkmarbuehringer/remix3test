@@ -8,7 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import { parseDuring as parseDuringRange } from '../data/appointofferings.ts'
@@ -103,6 +103,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
         <RestfulForm
           method="PUT"
           action={routes.verwaltung.offerings.update.href({ id: row.id })}
+          rmx-target={frames.adminContent}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />

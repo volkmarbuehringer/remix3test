@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import button from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
@@ -64,7 +64,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <form method="POST" action={routes.admin.nutzer.create.href()} novalidate>
+        <form method="POST" action={routes.admin.nutzer.create.href()} novalidate rmx-target={frames.adminContent}>
           <CsrfTokenInput />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

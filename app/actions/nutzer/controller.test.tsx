@@ -992,4 +992,21 @@ describe('Admin Nutzer controller & page', () => {
     // Should render the grid alongside (nutzer overview)
     assert.ok(html.includes('Nutzer'), 'should still render grid with Nutzer heading')
   })
+
+  it('GET /admin/nutzer?creating=true create form has rmx-target (frame-based)', async () => {
+    let response = await router.fetch(`${NUTZER_URL}?creating=true`, {
+      headers: { Cookie: adminCookie },
+    })
+    let html = await response.text()
+
+    // The submit form (method="POST" + novalidate) should carry rmx-target so
+    // the POST stays inside the adminContent frame instead of a full reload.
+    let createFormMatch = html.match(
+      /<form[^>]*method="POST"[^>]*novalidate[^>]*rmx-target/,
+    )
+    assert.ok(
+      createFormMatch,
+      'create submit form should have rmx-target (POST stays inside the frame)',
+    )
+  })
 })

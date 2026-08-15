@@ -7,7 +7,7 @@ import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
@@ -78,7 +78,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()}>
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()} rmx-target={frames.adminContent}>
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 
           <div mix={table.panel}>

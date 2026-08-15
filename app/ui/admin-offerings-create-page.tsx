@@ -8,7 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { routes } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
@@ -72,7 +72,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate>
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 
           <div mix={table.panel}>
