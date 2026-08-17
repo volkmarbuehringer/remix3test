@@ -9,8 +9,18 @@ origin: consolidated
 
 Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. Form submissions were historically not intercepted at all (pre-#11668); as of `fa6e26f90` (#11668, merged 2026-08-12) eligible same-origin `<form>` submissions use the same frame-navigation path as links when `run({ resolveFrame })` is active. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, and `rmx-document` escapes for binary downloads and cross-section links.
 
+## Client Runtime Is Always Loaded
+
+`app/assets/entry.tsx` (which calls `run({ resolveFrame })`) is **not** user code you toggle per page — it is the framework client runtime, and `app/ui/document.tsx` injects its `<script>` on **every** `Document` page, including pages rendered through plain `Layout` (which also passes through `Document`). Consequences:
+
+- The frame-navigation interception, DOM swap, and hydration/reconciliation engine are **always present** once any page loads — even if that page has zero `clientEntry` components. SSR renders the full HTML; the runtime merely enhances it.
+- Removing `entry.tsx` (from a page or from the asset pipeline) does **not** make that page "more SSR" — it reverts it to a no-JS page where forms/links fall back to full-document navigations (native browser behavior). Only client enhancement is gone; the server render is unchanged.
+- "SSR vs client" is therefore not a global toggle. SSR is the default render path for every request; `clientEntry`/frame-nav are opt-in enhancements layered on top. Reserve `clientEntry` for genuine UX gaps (live regions, drag, focus management after swap), not SPA-style rendering.
+- For cross-boundary transitions where the frame runtime must NOT intercept (uploads, downloads, login, public booking, cross-section links), use `rmx-document` (below) — do not disable the runtime.
+
 ## Table of Contents
 
+- [Client Runtime Is Always Loaded](#client-runtime-is-always-loaded)
 - [Frame Direct Render — Avoid Double-Load Crash](#frame-direct-render--avoid-double-load-crash)
 - [Post Form Submissions in Frames](#post-form-submissions-in-frames)
 - [Client resolveFrame Signature (ResolveFrameOptions)](#client-resolveframe-signature-resolveframeoptions)

@@ -23,7 +23,7 @@
     "@mastra/memory": "^1.26.2",
     "@mastra/observability": "^1.17.0",
     "@mastra/pg": "^1.20.0",
-    "date-holidays": "^3.34.1",
+    "date-holidays": "^3.35.0",
     "nodemailer": "^9.0.5",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.0",
