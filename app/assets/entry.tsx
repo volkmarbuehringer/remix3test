@@ -1,10 +1,7 @@
-import type { FrameContent, ResolveFrameOptions } from 'remix/ui'
 import { run } from 'remix/ui'
 import { spring } from 'remix/ui/animation'
-import { Accept, SuperHeaders } from 'remix/headers'
 
-import { routes } from '../routes.ts'
-import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
+import { resolveFrameResponse } from './frame-response.browser.tsx'
 
 const app = run({
   async loadModule(moduleUrl, exportName) {
@@ -30,77 +27,6 @@ if (import.meta.hot) {
       window.location.reload()
     }
   })
-}
-
-async function resolveFrameResponse(
-  url: URL,
-  options?: ResolveFrameOptions,
-): Promise<FrameContent | Response> {
-  let headers = new SuperHeaders()
-  headers.accept = new Accept('text/html')
-  headers.set('X-Remix-Frame', 'true')
-
-  if (options?.target) {
-    headers.set('X-Remix-Target', options.target)
-  }
-
-  let prefillKey = url.pathname + url.search
-  let prefill = agentPrefillMap.get(prefillKey)
-  if (prefill) {
-    let encoded = new TextEncoder().encode(JSON.stringify(prefill))
-    let binary = String.fromCharCode(...new Uint8Array(encoded))
-    headers.set('X-Agent-Prefill', btoa(binary))
-  }
-
-  let response = await fetch(url, {
-    cache: 'no-store',
-    headers,
-    method: options?.method,
-    body: getRequestBody(options?.formData, options?.method, options?.encType),
-    signal: options?.signal,
-  })
-
-  if (prefill && response.ok) {
-    agentPrefillMap.delete(prefillKey)
-  }
-
-  if (response.status === 401) {
-    window.location.assign(routes.auth.login.index.href())
-    return new Promise<never>(() => {})
-  }
-
-  if (!response.ok) {
-    let { ErrorCard, actionLinkCss } = await import('./error-card.browser.tsx')
-    return (
-      <ErrorCard
-        eyebrow="Unexpected Error"
-        title="Reload required"
-        message="An unexpected error occurred. Please reload the page to try again."
-        action={
-          <a rmx-document href={window.location.href} mix={actionLinkCss}>
-            Reload
-          </a>
-        }
-      />
-    )
-  }
-
-  return response
-}
-
-function getRequestBody(
-  formData?: FormData,
-  method?: string,
-  encType?: string,
-): BodyInit | undefined {
-  if (!formData || method?.toLowerCase() === 'get') return
-  if (encType !== 'application/x-www-form-urlencoded') return formData
-
-  let body = new URLSearchParams()
-  for (let [name, value] of formData) {
-    body.append(name, typeof value === 'string' ? value : value.name)
-  }
-  return body
 }
 
 app.addEventListener('error', async (event) => {

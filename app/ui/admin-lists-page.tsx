@@ -260,6 +260,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           method="GET"
           action={routes.admin.lists.index.href()}
           rmx-target={frames.adminContent}
+          rmx-history="replace"
           mix={filterBarStyle}
         >
           <input

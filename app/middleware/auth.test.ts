@@ -30,6 +30,7 @@ function createMockAuth(overrides: Partial<AuthState<User>> = {}): AuthState<Use
 function createMockContext(
   auth: AuthState<User> | undefined,
   url = 'https://remix.run/protected',
+  headers?: Record<string, string>,
 ): MiddlewareContext<any> {
   return {
     get: (key: symbol) => {
@@ -41,7 +42,7 @@ function createMockContext(
     },
     has: () => true,
     url: new URL(url),
-    request: new Request(url),
+    request: new Request(url, { headers }),
   } as unknown as MiddlewareContext<any>
 }
 
@@ -117,6 +118,46 @@ describe('requireAuth middleware', () => {
     assert.equal(response!.status, 302)
     let location = response!.headers.get('Location')
     assert.ok(location?.startsWith('/custom-login'), 'should redirect to custom login page')
+    assert.ok(location?.includes('returnTo='), 'should include captured return path')
+  })
+
+  // -----------------------------------------------------------------------
+  // Subframe requests (both X-Remix-Frame and X-Remix-Target) get a 401
+  // fragment so the frame runtime can route the top frame to login.
+  // -----------------------------------------------------------------------
+
+  it('returns a 401 fragment for a subframe request (frame + target headers)', async () => {
+    let middleware = requireAuth()
+    let context = createMockContext(createMockAuth({ ok: false }), 'https://remix.run/protected', {
+      'X-Remix-Frame': 'true',
+      'X-Remix-Target': 'admin-content',
+    })
+
+    let response = await middleware(context, async () => new Response('ok'))
+
+    assert.ok(response, 'should return a response')
+    assert.equal(response!.status, 401, 'should return 401 for subframe requests')
+    assert.ok(
+      response!.headers.get('Content-Type')?.includes('text/html'),
+      'should return an HTML fragment',
+    )
+    let text = await response!.text()
+    assert.ok(text.includes('Not authorized'), 'fragment should contain the not-authorized message')
+    assert.equal(response!.headers.get('Location'), null, 'should not redirect a subframe request')
+  })
+
+  it('redirects to login when X-Remix-Frame is present without X-Remix-Target', async () => {
+    let middleware = requireAuth()
+    let context = createMockContext(createMockAuth({ ok: false }), 'https://remix.run/protected', {
+      'X-Remix-Frame': 'true',
+    })
+
+    let response = await middleware(context, async () => new Response('ok'))
+
+    assert.ok(response, 'should return a response')
+    assert.equal(response!.status, 302, 'should redirect to login for a top-frame request')
+    let location = response!.headers.get('Location')
+    assert.ok(location?.startsWith(routes.auth.login.index.href()), 'should redirect to login')
     assert.ok(location?.includes('returnTo='), 'should include captured return path')
   })
 

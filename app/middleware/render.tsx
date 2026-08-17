@@ -4,7 +4,7 @@ import type { Router } from 'remix/router'
 import { renderWith } from 'remix/middleware/render'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
-import type { RemixNode } from 'remix/ui'
+import type { RemixNode, EntryComponent } from 'remix/ui'
 import { Accept, AcceptEncoding, SuperHeaders } from 'remix/headers'
 import { renderToStream, type ResolveFrameContext } from 'remix/ui/server'
 
@@ -20,16 +20,7 @@ export function render() {
         frameSrc: request.url,
         signal: request.signal,
         async resolveClientEntry(entryId, component) {
-          if (!entryId.startsWith('file://')) {
-            throw new Error(
-              `Expected \`import.meta.url\` for clientEntry ID, received '${entryId}'`,
-            )
-          }
-
-          return {
-            href: await assetServer.getHref(entryId),
-            exportName: entryId.split('#')[1] || component.name || titleCaseFileName(entryId),
-          }
+          return resolveClientEntry(entryId, component)
         },
         resolveFrame: (src, target, context) => resolveFrame(router, request, src, target, context),
       })
@@ -37,6 +28,32 @@ export function render() {
       return createHtmlResponse(stream, init)
     }
   })
+}
+
+export interface ResolvedClientEntry {
+  href: string
+  exportName: string
+  preloads: string[]
+}
+
+export async function resolveClientEntry(
+  entryId: string,
+  component: EntryComponent,
+): Promise<ResolvedClientEntry> {
+  if (!entryId.startsWith('file://')) {
+    throw new Error(`Expected \`import.meta.url\` for clientEntry ID, received '${entryId}'`)
+  }
+
+  let [href, preloads] = await Promise.all([
+    assetServer.getHref(entryId),
+    assetServer.getPreloads(entryId),
+  ])
+
+  return {
+    href,
+    exportName: entryId.split('#')[1] || component.name || titleCaseFileName(entryId),
+    preloads,
+  }
 }
 
 async function resolveFrame(

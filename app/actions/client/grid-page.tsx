@@ -364,6 +364,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             method="GET"
             action="/admin/client"
             rmx-target="admin-content"
+            rmx-history="replace"
             mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
           >
             <input

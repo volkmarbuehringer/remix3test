@@ -33,6 +33,24 @@ function treeContainsText(node: unknown, text: string): boolean {
   return false
 }
 
+function findElementsWithProp(node: unknown, prop: string, value?: unknown): RemixElement[] {
+  let matches: RemixElement[] = []
+  if (!node) return matches
+  if (typeof node === 'object' && node !== null) {
+    let el = node as RemixElement
+    if (prop in el.props && (value === undefined || el.props[prop] === value)) {
+      matches.push(el)
+    }
+    if (el.props?.children) {
+      let children = Array.isArray(el.props.children) ? el.props.children : [el.props.children]
+      for (let child of children) {
+        matches.push(...findElementsWithProp(child, prop, value))
+      }
+    }
+  }
+  return matches
+}
+
 // ---------------------------------------------------------------------------
 // Sample data
 // ---------------------------------------------------------------------------
@@ -142,5 +160,25 @@ describe('ClientGridPage', () => {
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Search'), 'should have Search button')
+  })
+
+  it('marks the GET filter form with rmx-history="replace"', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
+    let tree = renderFn()
+
+    let forms = findElementsWithProp(tree, 'method', 'GET')
+    assert.equal(forms.length, 1, 'should render exactly one GET form')
+    assert.equal(
+      forms[0]?.props['rmx-history'],
+      'replace',
+      'filter form should carry rmx-history="replace"',
+    )
+    assert.equal(
+      forms[0]?.props['rmx-target'],
+      'admin-content',
+      'filter form should target the admin content frame',
+    )
   })
 })

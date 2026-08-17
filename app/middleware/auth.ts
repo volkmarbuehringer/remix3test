@@ -91,9 +91,11 @@ export function requireAuth(options?: { redirectTo?: string }) {
 
   return requireAuthenticatedUser({
     onFailure(context) {
-      let isFrameRequest = context.request.headers.get('X-Remix-Frame') === 'true'
+      let isSubFrameRequest =
+        context.request.headers.get('X-Remix-Frame') === 'true' &&
+        context.request.headers.get('X-Remix-Target') != null
 
-      if (isFrameRequest) {
+      if (isSubFrameRequest) {
         let headers = new SuperHeaders()
         headers.contentType = { mediaType: 'text/html', charset: 'utf-8' }
         return new Response(

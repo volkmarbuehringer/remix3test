@@ -1019,6 +1019,14 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
     let text = await response.text()
     assert.ok(text.includes('Gespeicherte Listen'), 'should render the page')
+    assert.ok(
+      text.includes('rmx-history="replace"'),
+      'filter form should carry rmx-history="replace"',
+    )
+    assert.ok(
+      text.includes('rmx-target="admin-content"'),
+      'filter form should target the admin content frame',
+    )
   })
 
   it('GET /admin/lists?filter= shows empty state when no match', async () => {
