@@ -236,6 +236,110 @@ describe('classify handler', () => {
 
     assert.equal(result, 'show-appointments')
   })
+
+  it('extracts the target from German verb-final sentences', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+    let targetQuery: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'ich will john doe sperren',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') {
+        targetQuery = event.params.targetQuery
+      }
+    }
+
+    assert.equal(targetQuery, 'john doe')
+  })
+
+  it('extracts kündigen target from German verb-final sentences', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+    let targetQuery: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'ich will max mustermann kündigen',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') {
+        targetQuery = event.params.targetQuery
+      }
+    }
+
+    assert.equal(targetQuery, 'max mustermann')
+  })
+
+  it('keeps English target extraction intact', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+    let targetQuery: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'i want to cancel john doe',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') {
+        targetQuery = event.params.targetQuery
+      }
+    }
+
+    assert.equal(targetQuery, 'john doe')
+  })
+
+  it('extracts numeric IDs and emails as-is', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+
+    let idResult: unknown = null
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'cancel user 42',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') idResult = event.params.targetQuery
+    }
+    assert.equal(idResult, '42')
+
+    let emailResult: unknown = null
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'sperre benutzer jane@example.com',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') emailResult = event.params.targetQuery
+    }
+    assert.equal(emailResult, 'jane@example.com')
+  })
+
+  it('maps German intent keywords to lock/cancel intents', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+
+    let lockIntent: unknown = null
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'ich will john doe sperren',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') lockIntent = event.intent
+    }
+    assert.equal(lockIntent, 'lock-user')
+
+    let cancelIntent: unknown = null
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'ich will max mustermann kündigen',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') cancelIntent = event.intent
+    }
+    assert.equal(cancelIntent, 'cancel-user')
+  })
 })
 
 // ── Dispatch Handler ──────────────────────────────────────────

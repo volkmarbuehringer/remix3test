@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { initializeAppDatabase } from '../../db.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
-import { _agentThreadId, _recordWorkflowResult } from './controller.tsx'
+import { _agentThreadId, _recordWorkflowResult, normalizeUserAction } from './controller.tsx'
 
 const BASE = 'https://remix.run'
 const WORKFLOW_AGENT_URL = `${BASE}/admin/workflow-agent`
@@ -159,5 +159,61 @@ describe('WorkflowAgent memory thread helpers', () => {
       deletedAppointments: 0,
       auditLogged: true,
     })
+  })
+})
+
+describe('normalizeUserAction', () => {
+  it('passes through canonical English actions', () => {
+    assert.equal(normalizeUserAction('cancel'), 'cancel')
+    assert.equal(normalizeUserAction('lock'), 'lock')
+    assert.equal(normalizeUserAction('unlock'), 'unlock')
+    assert.equal(normalizeUserAction('lookup'), 'lookup')
+  })
+
+  it('maps German kündigen/stornieren/löschen to cancel', () => {
+    assert.equal(normalizeUserAction('kündigen'), 'cancel')
+    assert.equal(normalizeUserAction('kündige'), 'cancel')
+    assert.equal(normalizeUserAction('Kündigung'), 'cancel')
+    assert.equal(normalizeUserAction('kuendigen'), 'cancel')
+    assert.equal(normalizeUserAction('gekündigt'), 'cancel')
+    assert.equal(normalizeUserAction('stornieren'), 'cancel')
+    assert.equal(normalizeUserAction('storniert'), 'cancel')
+    assert.equal(normalizeUserAction('löschen'), 'cancel')
+    assert.equal(normalizeUserAction('delete'), 'cancel')
+  })
+
+  it('maps German sperren/blockieren/deaktivieren to lock', () => {
+    assert.equal(normalizeUserAction('sperren'), 'lock')
+    assert.equal(normalizeUserAction('sperre'), 'lock')
+    assert.equal(normalizeUserAction('Sperrung'), 'lock')
+    assert.equal(normalizeUserAction('gesperrt'), 'lock')
+    assert.equal(normalizeUserAction('blockieren'), 'lock')
+    assert.equal(normalizeUserAction('deaktivieren'), 'lock')
+    assert.equal(normalizeUserAction('disable'), 'lock')
+  })
+
+  it('maps German entsperren/freischalten/aktivieren to unlock', () => {
+    assert.equal(normalizeUserAction('entsperren'), 'unlock')
+    assert.equal(normalizeUserAction('entsperrt'), 'unlock')
+    assert.equal(normalizeUserAction('freischalten'), 'unlock')
+    assert.equal(normalizeUserAction('aktivieren'), 'unlock')
+    assert.equal(normalizeUserAction('enable'), 'unlock')
+  })
+
+  it('maps German suchen/finden/anzeigen to lookup', () => {
+    assert.equal(normalizeUserAction('suchen'), 'lookup')
+    assert.equal(normalizeUserAction('finden'), 'lookup')
+    assert.equal(normalizeUserAction('anzeigen'), 'lookup')
+    assert.equal(normalizeUserAction('show'), 'lookup')
+  })
+
+  it('is case- and whitespace-insensitive', () => {
+    assert.equal(normalizeUserAction('  SPERREN '), 'lock')
+    assert.equal(normalizeUserAction('Kündigen'), 'cancel')
+  })
+
+  it('returns the original value for unknown actions', () => {
+    assert.equal(normalizeUserAction('bogus'), 'bogus')
+    assert.equal(normalizeUserAction(''), '')
   })
 })

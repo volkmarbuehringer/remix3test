@@ -19,8 +19,14 @@ Two sub-actions:
    {"type":"appointment","action":"delete-resource","targetQuery":"<user name, email, or ID>","resourceQuery":"<resource name>"}
    Use when the admin wants to delete all upcoming appointments for a named user on a named resource (e.g. "delete all appointments for John in Raum A").
 
-If the admin wants to manage a user account (cancel, lock, unlock, lookup, find, disable, delete, activate, enable, sperren, löschen, deaktivieren, entsperren):
+If the admin wants to manage a user account (cancel, lock, unlock, lookup, find, disable, delete, activate, enable, sperren, kündigen, stornieren, löschen, deaktivieren, entsperren, freischalten):
 {"type":"user-action","action":"<cancel|lock|unlock|lookup>","targetQuery":"<user id, name, or email from the admin's message>"}
+
+The "action" field must ALWAYS be one of the English values cancel|lock|unlock|lookup, even when the admin writes in German. German verb → action mapping:
+- kündigen, kündige, Kündigung, stornieren, Stornierung, löschen (account), delete, cancel → "cancel"
+- sperren, sperre, Sperrung, blockieren, deaktivieren, disable, lock → "lock"
+- entsperren, entsperre, freischalten, aktivieren, enable, unlock → "unlock"
+- suchen, finden, anzeigen, show, find, lookup → "lookup"
 
 If the admin is asking about something else or the intent is unclear, ask one clarifying question. Keep it brief. Do NOT add any text before or after the JSON.`,
   model: {

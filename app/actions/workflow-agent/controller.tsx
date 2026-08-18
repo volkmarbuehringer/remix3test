@@ -15,6 +15,58 @@ import { sql } from 'remix/data-table'
 
 const MAX_MESSAGE_LENGTH = 5000
 
+const ACTION_ALIASES: Record<string, string> = {
+  cancel: 'cancel',
+  cancell: 'cancel',
+  cancelaccount: 'cancel',
+  kündig: 'cancel',
+  gekündig: 'cancel',
+  kuendig: 'cancel',
+  gekuendig: 'cancel',
+  kundig: 'cancel',
+  stornier: 'cancel',
+  delet: 'cancel',
+  lösch: 'cancel',
+  gelösch: 'cancel',
+  loesch: 'cancel',
+  geloesch: 'cancel',
+  lock: 'lock',
+  locked: 'lock',
+  sperr: 'lock',
+  gesperr: 'lock',
+  block: 'lock',
+  blockier: 'lock',
+  deaktivier: 'lock',
+  deactivat: 'lock',
+  disabl: 'lock',
+  unlock: 'unlock',
+  unlocked: 'unlock',
+  entsperr: 'unlock',
+  freischalt: 'unlock',
+  freigeschalt: 'unlock',
+  aktivier: 'unlock',
+  activat: 'unlock',
+  enabl: 'unlock',
+  lookup: 'lookup',
+  such: 'lookup',
+  finde: 'lookup',
+  find: 'lookup',
+  anzeig: 'lookup',
+  zeig: 'lookup',
+  show: 'lookup',
+}
+
+const ACTION_STEMS = Object.keys(ACTION_ALIASES).sort((a, b) => b.length - a.length)
+
+export function normalizeUserAction(action: string): string {
+  let key = action.toLowerCase().replace(/\s+/g, '')
+  if (ACTION_ALIASES[key]) return ACTION_ALIASES[key]
+  for (let stem of ACTION_STEMS) {
+    if (key.startsWith(stem)) return ACTION_ALIASES[stem]
+  }
+  return action
+}
+
 export function _agentThreadId(userId?: number): string {
   let uid = userId ?? getCurrentUser().id
   let env = process.env.APP_ENV || process.env.NODE_ENV || 'dev'
@@ -292,7 +344,7 @@ export const workflowAgent = createController(routes.admin.workflowAgent, {
 
             // Handle user actions
             if (intent.type === 'user-action') {
-              let action = String(intent.action || '')
+              let action = normalizeUserAction(String(intent.action || ''))
               let targetQuery = String(intent.targetQuery || '')
 
               if (!['cancel', 'lock', 'unlock', 'lookup'].includes(action)) {
