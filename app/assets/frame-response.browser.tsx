@@ -73,6 +73,17 @@ function getRequestBody(
   encType?: string,
 ): BodyInit | undefined {
   if (!formData || method?.toLowerCase() === 'get') return
+
+  if (encType === 'text/plain') {
+    let body = ''
+    for (let [name, value] of formData) {
+      name = normalizeLineBreaks(name)
+      value = normalizeLineBreaks(typeof value === 'string' ? value : value.name)
+      body += `${name}=${value}\r\n`
+    }
+    return new Blob([body], { type: 'text/plain' })
+  }
+
   if (encType !== 'application/x-www-form-urlencoded') return formData
 
   let body = new URLSearchParams()
@@ -80,4 +91,8 @@ function getRequestBody(
     body.append(name, typeof value === 'string' ? value : value.name)
   }
   return body
+}
+
+function normalizeLineBreaks(value: string): string {
+  return value.replace(/\r\n|\r|\n/g, '\r\n')
 }

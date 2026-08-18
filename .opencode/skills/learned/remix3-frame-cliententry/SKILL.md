@@ -124,7 +124,7 @@ Pre-#11668 root cause: the Navigation API's `navigate` event has `event.canInter
 A new `createFormNavigationResolver` (`packages/ui/src/runtime/form-navigation.ts`) tracks native `submit` events and resolves the matching `navigate` event into a `FormNavigation` (submission metadata). `navigation.ts` `getSourceElementNavigation` then treats forms identically to links:
 
 ```ts
-let formNavigation = resolveFormNavigation(event)                    // navigation.ts:305
+let formNavigation = resolveFormNavigation(event)                    // navigation.ts:303
 if (!formNavigation || formNavigation.hasAttribute('rmx-document')) return
 state = {
   target: formNavigation.getAttribute('rmx-target') ?? undefined,    // targets a named frame
@@ -657,7 +657,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:650`, dispatched by `completeReload`; an inherited reload variant dispatches at `:685`). At this point `handle.frame.src` contains the just-rendered URL. This is more reliable than reading `location.search` (which may not match the frame's actual URL after frame-only navigation).
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:761`, dispatched by `completeReload`; an inherited reload variant dispatches at `:796`). At this point `handle.frame.src` contains the just-rendered URL. This is more reliable than reading `location.search` (which may not match the frame's actual URL after frame-only navigation).
 
 ### Frame-Only Navigation (replace `window.location.href`)
 

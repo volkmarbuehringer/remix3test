@@ -10,6 +10,8 @@ origin: auto-extracted
 **Extracted:** 2026-08-10
 **Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/ui-hmr` (remix `preview/main` build `e52c10054`, includes "Add HMR support" #11515). `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the version-pinned pitfalls hit while wiring and smoke-testing it. Validate any claim here against `~/remix/` before relying on it — this feature is pre-release churn (follow-up fixes around Windows timeouts and Bun e2e skips, #11676–#11678).
 
+**Validated:** 2026-08-18 against installed build `5e6e9862` (remix 0.7.0 / beta.10). API claims below confirmed in `@remix-run/node-hmr/dist`: `run(entry, { env, nodeArgs, browserHmrChannel })` (`index.d.ts`), `createHmrReadyFetch(runner, fetch, { shouldRetry })` with default retry of GET/HEAD on `502/503/504` (`index.js:17,81`), `createBrowserHmrChannel`/`emitServerReady` from `remix/node-hmr/runtime` (`runtime.d.ts`), `REMIX_NODE_HMR` injected by the runner itself (`lib/runner.js:16,878`), and the `fingerprint cannot be used with watch mode` guard in `@remix-run/assets/dist/lib/asset-server.js:695`.
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:
