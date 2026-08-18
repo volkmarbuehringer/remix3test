@@ -103,7 +103,7 @@ export default createController(routes.verwaltung.usersExport, {
       }
 
       try {
-        let rows = await listUserSummariesByDateRange(context.db, startMs, endMs)
+        let { rows, truncated } = await listUserSummariesByDateRange(context.db, startMs, endMs)
 
         if (rows.length === 0) {
           return renderVerwaltungPage(
@@ -127,7 +127,7 @@ export default createController(routes.verwaltung.usersExport, {
               style: 'subheader',
             },
             {
-              text: `Insgesamt ${rows.length} Benutzer mit Terminen`,
+              text: `Insgesamt ${rows.length} Benutzer mit Terminen${truncated ? ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.' : ''}`,
               style: 'subheader',
               margin: [0, 0, 0, 20],
             },

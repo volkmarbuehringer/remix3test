@@ -43,7 +43,7 @@ export default createController(routes.verwaltung.pdf, {
       }
 
       try {
-        let rows = await listAllAppointments(context.db)
+        let { rows, truncated } = await listAllAppointments(context.db)
 
         let now = Date.now()
 
@@ -56,7 +56,11 @@ export default createController(routes.verwaltung.pdf, {
               text: `Erstellt am ${new Date(now).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}`,
               style: 'subheader',
             },
-            { text: `Insgesamt ${rows.length} Termine`, style: 'subheader', margin: [0, 0, 0, 20] },
+            {
+              text: `Insgesamt ${rows.length} Termine${truncated ? ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.' : ''}`,
+              style: 'subheader',
+              margin: [0, 0, 0, 20],
+            },
             {
               table: {
                 headerRows: 1,

@@ -190,9 +190,9 @@ DATABASE_URL="postgresql://user:password@localhost:5432/newapp"
 
 Adjust the username, password, host, and port to match your PostgreSQL setup.
 
-### 3. Auto-Create Tables (Migration)
+### 3. Auto-Create Tables (Schema Bootstrap)
 
-When the server starts, [`initializeAppDatabase()`](app/db.ts) runs [`db.migrate()`](app/db.ts) (loading migrations from `db/migrations` via `loadAppMigrations()`), which creates all tables. No manual migration steps are needed. Tables include:
+When the server starts, [`initializeAppDatabase()`](app/db.ts) runs the idempotent schema in `db/schema.sql` via [`db.executeScript()`](app/db.ts) and then seeds default data. All DDL uses `IF NOT EXISTS`, so startup is a no-op when tables already exist. No migration steps are needed. Tables include:
 
 | Table              | Purpose                                                                  |
 | ------------------ | ------------------------------------------------------------------------ |
@@ -209,11 +209,11 @@ When the server starts, [`initializeAppDatabase()`](app/db.ts) runs [`db.migrate
 | `lists`            | Generic list data (JSONB)                                                |
 | `audit_logs`       | Admin audit trail                                                        |
 
-The migration also enables the `pg_trgm` and `btree_gist` PostgreSQL extensions.
+The schema also enables the `pg_trgm`, `btree_gist`, and `pgcrypto` PostgreSQL extensions.
 
 ### 4. Auto-Seed Demo Data
 
-After migration, [`seed()`](app/data/seed.ts) checks whether the `users` table is empty. If it is (fresh database), it inserts the following demo data:
+After schema bootstrap, [`seed()`](app/data/seed.ts) checks whether the `users` table is empty. If it is (fresh database), it inserts the following demo data:
 
 - **2 users** — admin and customer accounts (see credentials below)
 - **3 messages** — welcome posts on the public message board

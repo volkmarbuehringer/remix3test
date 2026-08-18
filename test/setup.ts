@@ -45,10 +45,8 @@ export async function globalSetup() {
 
   appModule = await import('../app/db.ts')
   try {
-    await appModule.db.reset({
-      migrations: await appModule.loadAppMigrations(),
-      seed: await appModule.loadAppSeed(),
-    })
+    await appModule.db.wipe()
+    await appModule.initializeAppDatabase()
   } catch (err) {
     console.error(`Setup failed for "${testDbName}":`, err)
     await appModule.closeAppDatabase().catch(() => {})

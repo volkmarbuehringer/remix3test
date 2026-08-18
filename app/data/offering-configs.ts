@@ -136,6 +136,8 @@ export async function generateWeek(
 
   let existingKeys = await listExistingOfferingKeys(db, resourceId, mondayMs)
 
+  let inserts: Array<{ dayMs: number; startMin: number; endMin: number }> = []
+
   for (let i = 0; i < 7; i++) {
     let dayMs = mondayMs + i * 86_400_000
     let dayDate = new Date(dayMs)
@@ -158,17 +160,30 @@ export async function generateWeek(
       continue
     }
 
+    inserts.push({ dayMs, startMin, endMin })
+  }
+
+  if (inserts.length > 0) {
     try {
       let now = Date.now()
+      let placeholders: string[] = []
+      let values: unknown[] = []
+      for (let insert of inserts) {
+        let base = values.length
+        placeholders.push(
+          `($${base + 1}::bigint, $${base + 2}, int4range($${base + 3}, $${base + 4}, '[)'), $${base + 5}, $${base + 5})`,
+        )
+        values.push(insert.dayMs, resourceId, insert.startMin, insert.endMin, now)
+      }
       await db.exec(
         `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-         VALUES ($1::bigint, $2, int4range($3, $4, '[)'), $5, $5)`,
-        [dayMs, resourceId, startMin, endMin, now],
+         VALUES ${placeholders.join(', ')}`,
+        values,
       )
-      created++
+      created = inserts.length
     } catch (error: unknown) {
       let msg = error instanceof Error ? error.message : String(error)
-      errors.push(`Tag ${dayDate.toISOString().slice(0, 10)}: ${msg}`)
+      errors.push(msg)
     }
   }
 

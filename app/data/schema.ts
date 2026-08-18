@@ -157,10 +157,10 @@ export const messages = table({
     if (operation === 'create' && next.created_at === undefined) {
       next.created_at = Date.now()
     }
-    return { value }
+    return { value: next }
   },
   afterRead({ value }) {
-    parseIntFields(value, 'created_at', 'updated_at')
+    parseIntFields(value, 'created_at')
     return { value }
   },
 })

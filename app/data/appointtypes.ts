@@ -55,7 +55,13 @@ export async function updateAppointType(
   let update: Record<string, unknown> = {}
   if (input.title !== undefined) update.title = input.title.trim()
 
-  return await db.update(appointtypes, { id: typeId }, update)
+  let result = (await db.query(appointtypes).where({ id: typeId, user_id: userId }).update(update, {
+    returning: '*',
+  })) as { rows: AppointType[] }
+  if (!result.rows[0]) {
+    throw new AppointTypeError('Appointment type not found.', 404)
+  }
+  return result.rows[0]
 }
 
 export async function deleteAppointType(

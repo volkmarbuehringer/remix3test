@@ -1,6 +1,6 @@
 import * as path from 'node:path'
+import { readFile } from 'node:fs/promises'
 
-import { loadMigrations } from 'remix/data-table/migrations/node'
 import { createPostgresDatabase } from 'remix/data-table/postgres'
 
 import { seed } from './data/seed.ts'
@@ -21,16 +21,34 @@ export const db = createPostgresDatabase({
   statement_timeout: 30000,
 })
 
-export function loadAppMigrations() {
-  return loadMigrations(path.join(import.meta.dirname, '../db/migrations'))
+export async function loadAppSchema() {
+  return await readFile(path.join(import.meta.dirname, '../db/schema.sql'), 'utf8')
 }
 
 export function loadAppSeed() {
   return seed
 }
 
+const PG_EXTENSION_COLLISION = /duplicate key.*pg_extension/
+
+async function applyAppSchema(): Promise<void> {
+  let schema = await loadAppSchema()
+  try {
+    await db.executeScript(schema)
+  } catch (error) {
+    // Concurrent cold boot can race CREATE EXTENSION IF NOT EXISTS against
+    // pg_extension. The script runs as one implicit transaction, so the loser
+    // rolls back completely; retrying is a no-op on the winner's catalog.
+    if (error instanceof Error && PG_EXTENSION_COLLISION.test(error.message)) {
+      await db.executeScript(schema)
+    } else {
+      throw error
+    }
+  }
+}
+
 export async function initializeAppDatabase(): Promise<void> {
-  await db.migrate(await loadAppMigrations())
+  await applyAppSchema()
   await seed(db)
 }
 

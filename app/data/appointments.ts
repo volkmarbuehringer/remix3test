@@ -1,6 +1,7 @@
 import { gte, lt, type Database } from 'remix/data-table'
 
 import { appointments, type Appointment } from './schema.ts'
+import { isExclusionConstraintError } from '../utils/db-errors.ts'
 import {
   isDateInPast,
   isWithinHours,
@@ -81,26 +82,12 @@ function appointmentStartMs(date: number, startMin: number): number {
   return date + startMin * 60000
 }
 
-/** PostgreSQL exclusion violation error code */
-const PG_EXCLUSION_VIOLATION = '23P01'
-
 /**
  * Check if an error is a PostgreSQL exclusion constraint violation
  * (wrapped by the data-table adapter).
  */
 export function isExclusionViolation(error: unknown): boolean {
-  // The data-table wraps PostgreSQL errors in DataTableAdapterError,
-  // with the original error in `.cause`
-  let cause: unknown = error
-  while (cause instanceof Error && 'cause' in cause && cause.cause != null) {
-    cause = (cause as Error).cause
-  }
-  return (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'code' in cause &&
-    (cause as { code: string }).code === PG_EXCLUSION_VIOLATION
-  )
+  return isExclusionConstraintError(error)
 }
 
 interface ListAppointmentsByWeekOptions {
@@ -113,6 +100,19 @@ interface ListAppointmentsByWeekOptions {
   userId?: number
 }
 
+const APPOINTMENTS_WEEK_COLUMNS: (keyof Appointment & string)[] = [
+  'id',
+  'user_id',
+  'resource_id',
+  'title',
+  'date',
+  'during',
+  'start_min',
+  'end_min',
+  'created_at',
+  'updated_at',
+]
+
 export async function listAppointmentsByWeek(
   db: Database,
   weekStart: number,
@@ -120,7 +120,11 @@ export async function listAppointmentsByWeek(
   resourceId?: number,
   options?: ListAppointmentsByWeekOptions,
 ): Promise<Appointment[]> {
-  let query = db.query(appointments).where(gte('date', weekStart)).where(lt('date', weekEnd))
+  let query = db
+    .query(appointments)
+    .select(...APPOINTMENTS_WEEK_COLUMNS)
+    .where(gte('date', weekStart))
+    .where(lt('date', weekEnd))
 
   if (resourceId !== undefined) {
     query = query.where({ resource_id: resourceId })
@@ -136,7 +140,7 @@ export async function listAppointmentsByWeek(
     )
   }
 
-  return appts
+  return appts as Appointment[]
 }
 
 export async function createAppointment(
@@ -203,7 +207,13 @@ export async function updateAppointment(
   if (input.resource_id !== undefined) update.resource_id = input.resource_id
 
   try {
-    return await db.update(appointments, query as { id: number }, update)
+    let result = (await db.query(appointments).where(query).update(update, {
+      returning: '*',
+    })) as { rows: Appointment[] }
+    if (!result.rows[0]) {
+      throw new AppointmentError('Appointment not found.', 404)
+    }
+    return result.rows[0]
   } catch (error) {
     if (isExclusionViolation(error)) {
       throw new AppointmentCollisionError()

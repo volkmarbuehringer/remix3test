@@ -13,7 +13,7 @@ export interface UserSummaryRow {
 export async function listUserSummaries(
   db: Database,
   limit: number = 10000,
-): Promise<UserSummaryRow[]> {
+): Promise<{ rows: UserSummaryRow[]; truncated: boolean }> {
   let result = await db.exec(
     `SELECT u.id AS user_id, u.name, u.email,
             COUNT(a.id)::int AS appointment_count,
@@ -25,9 +25,9 @@ export async function listUserSummaries(
      GROUP BY u.id, u.name, u.email
      ORDER BY u.name ASC
      LIMIT $1`,
-    [limit],
+    [limit + 1],
   )
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
+  let rows = ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     user_id: Number(row.user_id),
     name: row.name as string,
     email: row.email as string,
@@ -36,4 +36,7 @@ export async function listUserSummaries(
     first_date: row.first_date != null ? Number(row.first_date) : null,
     last_date: row.last_date != null ? Number(row.last_date) : null,
   }))
+  let truncated = rows.length > limit
+  if (truncated) rows = rows.slice(0, limit)
+  return { rows, truncated }
 }

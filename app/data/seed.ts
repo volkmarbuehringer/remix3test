@@ -3,6 +3,7 @@ import type { Database } from 'remix/data-table'
 
 import { appointofferings, clients, messages, offeringConfigs, resources, users } from './schema.ts'
 import { hashPassword } from '../utils/password-hash.ts'
+import { isUniqueViolation } from '../utils/db-errors.ts'
 
 export async function seed(db: Database): Promise<void> {
   let usersCount = Number(await db.count(users))
@@ -21,27 +22,35 @@ export async function seed(db: Database): Promise<void> {
           'Set it in .env to a strong password (min 12 chars).',
       )
     }
-    await db.createMany(users, [
-      {
-        email: 'admin@newapp.com',
-        password_hash: await hashPassword(adminPassword),
-        name: 'Admin User',
-        role: 'admin',
-        email_verified: 1,
-        token_version: 1,
-        created_at: new Date('2024-01-15').getTime(),
-      },
-      {
-        email: 'user@newapp.com',
-        password_hash: await hashPassword(userPassword),
-        name: 'John Doe',
-        role: 'customer',
-        email_verified: 1,
-        token_version: 1,
-        created_at: new Date('2024-03-01').getTime(),
-      },
-    ])
-    console.log('✅ Seeded 2 default users')
+    try {
+      await db.createMany(users, [
+        {
+          email: 'admin@newapp.com',
+          password_hash: await hashPassword(adminPassword),
+          name: 'Admin User',
+          role: 'admin',
+          email_verified: 1,
+          token_version: 1,
+          created_at: new Date('2024-01-15').getTime(),
+        },
+        {
+          email: 'user@newapp.com',
+          password_hash: await hashPassword(userPassword),
+          name: 'John Doe',
+          role: 'customer',
+          email_verified: 1,
+          token_version: 1,
+          created_at: new Date('2024-03-01').getTime(),
+        },
+      ])
+      console.log('✅ Seeded 2 default users')
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        console.log('ℹ️ Skipping seed, users already present')
+      } else {
+        throw error
+      }
+    }
   } else {
     console.log('ℹ️ Skipping seed, users already present')
   }

@@ -34,13 +34,13 @@ describe('users-pdf', () => {
       [userId, resourceId, '[TEST] PDF Summary', now, now],
     )
 
-    let rows = await listUserSummaries(db)
+    let { rows } = await listUserSummaries(db)
     assert.ok(rows.length >= 1)
     assert.ok(rows.some((r) => r.email === 'test-pdfuser-a@example.com'))
   })
 
   it('listUserSummaries returns all users even those with zero appointments', async () => {
-    let rows = await listUserSummaries(db)
+    let { rows } = await listUserSummaries(db)
     assert.ok(Array.isArray(rows))
     assert.ok(rows.length > 0)
   })

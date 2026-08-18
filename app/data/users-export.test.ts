@@ -35,13 +35,13 @@ describe('users-export', () => {
       [userId, resourceId, '[TEST] Export Appt', apptDate, now],
     )
 
-    let rows = await listUserSummariesByDateRange(db, 0, apptDate + 1)
+    let { rows } = await listUserSummariesByDateRange(db, 0, apptDate + 1)
     assert.ok(rows.length >= 1)
     assert.ok(rows.some((r) => r.email === 'test-userexport-a@example.com'))
   })
 
   it('listUserSummariesByDateRange returns empty for range with no appointments', async () => {
-    let rows = await listUserSummariesByDateRange(db, 1, 2)
+    let { rows } = await listUserSummariesByDateRange(db, 1, 2)
     assert.equal(rows.length, 0)
   })
 })

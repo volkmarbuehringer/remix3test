@@ -1,5 +1,6 @@
 const PG_RESTRICT_VIOLATION = '23001' as const
 const PG_FOREIGN_KEY_VIOLATION = '23503' as const
+const PG_UNIQUE_VIOLATION = '23505' as const
 
 export type PgErr = { code?: string; message?: string; constraint?: string; cause?: PgErr }
 
@@ -22,11 +23,16 @@ export function isConstraintViolation(error: unknown): boolean {
   )
 }
 
+export function isUniqueViolation(error: unknown): boolean {
+  return matchPg(error as PgErr, (err) => err.code === PG_UNIQUE_VIOLATION)
+}
+
 export function isExclusionConstraintError(error: unknown): boolean {
   return matchPg(
     error as PgErr,
     (err) =>
       err.constraint === 'no_overlapping_seats' ||
+      err.constraint === 'no_overlapping_offerings' ||
       err.code === '23P01' ||
       (err.message ?? '').includes('conflicts with key'),
   )

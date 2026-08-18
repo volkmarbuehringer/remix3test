@@ -15,7 +15,7 @@ export interface AppointmentRow {
 export async function listAllAppointments(
   db: Database,
   limit: number = 10000,
-): Promise<AppointmentRow[]> {
+): Promise<{ rows: AppointmentRow[]; truncated: boolean }> {
   let result = await db.exec(
     `SELECT a.id, u.name AS user_name, u.email AS user_email,
             r.name AS resource_name, r.description AS resource_description,
@@ -25,9 +25,9 @@ export async function listAllAppointments(
      LEFT JOIN resources r ON r.id = a.resource_id
      ORDER BY a.date ASC, a.start_min ASC
      LIMIT $1`,
-    [limit],
+    [limit + 1],
   )
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
+  let rows = ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
     id: Number(row.id),
     user_name: (row.user_name as string) ?? null,
     user_email: row.user_email as string,
@@ -38,4 +38,7 @@ export async function listAllAppointments(
     start_min: Number(row.start_min),
     end_min: Number(row.end_min),
   }))
+  let truncated = rows.length > limit
+  if (truncated) rows = rows.slice(0, limit)
+  return { rows, truncated }
 }

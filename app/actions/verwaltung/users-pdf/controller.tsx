@@ -41,7 +41,7 @@ export default createController(routes.verwaltung.usersPdf, {
       }
 
       try {
-        let rows = await listUserSummaries(context.db)
+        let { rows, truncated } = await listUserSummaries(context.db)
 
         let now = Date.now()
 
@@ -55,7 +55,7 @@ export default createController(routes.verwaltung.usersPdf, {
               style: 'subheader',
             },
             {
-              text: `Insgesamt ${rows.length} Benutzer`,
+              text: `Insgesamt ${rows.length} Benutzer${truncated ? ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.' : ''}`,
               style: 'subheader',
               margin: [0, 0, 0, 20],
             },

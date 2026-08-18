@@ -26,13 +26,13 @@ describe('pdf', () => {
       [userId, resourceId, '[TEST] PDF Appt 1', now, now],
     )
 
-    let rows = await listAllAppointments(db)
+    let { rows } = await listAllAppointments(db)
     assert.ok(rows.length >= 1)
     assert.ok(rows.some((r) => r.title === '[TEST] PDF Appt 1'))
   })
 
   it('listAllAppointments returns empty array when no appointments', async () => {
-    let rows = await listAllAppointments(db)
+    let { rows } = await listAllAppointments(db)
     assert.ok(Array.isArray(rows))
   })
 })
