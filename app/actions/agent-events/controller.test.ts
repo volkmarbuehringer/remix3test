@@ -4,7 +4,8 @@ import * as assert from 'remix/assert'
 import { EventBus, type EventHandler, type BaseEvent } from './event-bus.ts'
 import { registerHandlers } from './register.ts'
 import { validateHandler } from './handlers/validate.ts'
-import { classifyHandler } from './handlers/classify.ts'
+import { classifyHandler, __setAgent } from './handlers/classify.ts'
+import { classifyWithAgent } from '../mastra/intent-classifier.ts'
 import { dispatchHandler } from './handlers/dispatch.ts'
 import { confirmHandler } from './handlers/confirm.ts'
 import { executeHandler, __setExecutors } from './handlers/execute.ts'
@@ -18,6 +19,36 @@ const AGENT_EVENTS_URL = `${BASE}/admin/workflowagent2`
 const AGENT_EVENTS_PANEL_URL = `${BASE}/admin/workflowagent2/panel`
 
 const ADMIN_USER = { adminUserId: 1, adminEmail: 'admin@test.com' }
+
+// ── Fake classify agent ──────────────────────────────────────
+// Emulates what the real workflowAgent LLM returns for the fixed
+// test messages. Explicit per-message table — deterministic and
+// drift-free, rather than re-deriving intent from keywords.
+
+const FAKE_CLASSIFY_TABLE: Record<string, string> = {
+  'cancel user 42': '{"type":"user-action","action":"cancel","targetQuery":"42"}',
+  'lock user 5': '{"type":"user-action","action":"lock","targetQuery":"5"}',
+  'show appointments for admin@test.com':
+    '{"type":"appointment","action":"check","targetQuery":"admin@test.com"}',
+  'ich will john doe sperren':
+    '{"type":"user-action","action":"lock","targetQuery":"john doe"}',
+  'ich will max mustermann kündigen':
+    '{"type":"user-action","action":"cancel","targetQuery":"max mustermann"}',
+  'i want to cancel john doe':
+    '{"type":"user-action","action":"cancel","targetQuery":"john doe"}',
+  'sperre benutzer jane@example.com':
+    '{"type":"user-action","action":"lock","targetQuery":"jane@example.com"}',
+  'cancel admin@newapp.com':
+    '{"type":"user-action","action":"cancel","targetQuery":"admin@newapp.com"}',
+}
+
+const FAKE_CLASSIFY_AGENT = {
+  async generate(message: string) {
+    return { text: FAKE_CLASSIFY_TABLE[message.trim()] ?? 'Could you clarify what you want to do?' }
+  },
+}
+
+__setAgent(FAKE_CLASSIFY_AGENT)
 
 // ── Event Bus ────────────────────────────────────────────────
 
@@ -339,6 +370,101 @@ describe('classify handler', () => {
       if (event.type === 'intent.classified') cancelIntent = event.intent
     }
     assert.equal(cancelIntent, 'cancel-user')
+  })
+
+  it('emits intent.unclear when the agent rejects after abort', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate(message, opts) {
+          return new Promise((_resolve, reject) => {
+            if (opts?.abortSignal) {
+              opts.abortSignal.addEventListener('abort', () => reject(new Error('aborted')))
+            }
+          })
+        },
+      },
+      'cancel user 42',
+      { timeoutMs: 20 },
+    )
+    assert.ok('unclear' in result)
+  })
+
+  it('coerces numeric targetQuery from the agent to a string', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"user-action","action":"cancel","targetQuery":42}' }
+        },
+      },
+      'cancel user 42',
+    )
+    assert.ok('intent' in result)
+    assert.equal(result.intent, 'cancel-user')
+    assert.equal(result.targetQuery, '42')
+  })
+
+  it('emits unclear for actionable intent without a target', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"user-action","action":"lock"}' }
+        },
+      },
+      'lock someone',
+    )
+    assert.ok('unclear' in result)
+  })
+
+  it('allows empty target for appointment check', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"appointment","action":"check"}' }
+        },
+      },
+      'show all appointments',
+    )
+    assert.ok('intent' in result)
+    assert.equal(result.intent, 'show-appointments')
+    assert.equal(result.targetQuery, '')
+  })
+
+  it('emits unclear for unmapped agent actions (lookup)', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"user-action","action":"lookup","targetQuery":"42"}' }
+        },
+      },
+      'find user 42',
+    )
+    assert.ok('unclear' in result)
+  })
+
+  it('handler emits intent.unclear when the agent throws', async () => {
+    __setAgent({
+      async generate() {
+        throw new Error('agent unavailable')
+      },
+    })
+
+    try {
+      let bus = new EventBus()
+      bus.register(classifyHandler)
+      let unclear = false
+
+      for await (let event of bus.run({
+        type: 'request.validated',
+        message: 'cancel user 42',
+        ...ADMIN_USER,
+      })) {
+        if (event.type === 'intent.unclear') unclear = true
+      }
+
+      assert.ok(unclear)
+    } finally {
+      __setAgent(FAKE_CLASSIFY_AGENT)
+    }
   })
 })
 
