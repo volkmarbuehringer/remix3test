@@ -25,10 +25,6 @@ export async function loadAppSchema() {
   return await readFile(path.join(import.meta.dirname, '../db/schema.sql'), 'utf8')
 }
 
-export function loadAppSeed() {
-  return seed
-}
-
 const PG_EXTENSION_COLLISION = /duplicate key.*pg_extension/
 
 async function applyAppSchema(): Promise<void> {

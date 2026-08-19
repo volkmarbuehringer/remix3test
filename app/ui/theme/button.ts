@@ -38,15 +38,6 @@ function button(options: ButtonOptions = {}): ButtonMixin {
   return upstreamButton({ size, tone }) as unknown as ButtonMixin
 }
 
-/**
- * Binds an `Element`-scoped CSS mixin to the `HTMLButtonElement` host so it can
- * be mixed into a `<button>`'s `mix` array deterministically under the native
- * TypeScript compiler.
- */
-export function buttonStyle(style: CSSMixinDescriptor): ButtonStyle {
-  return style as unknown as ButtonStyle
-}
-
 export default button
 
 const dangerStyle: CSSMixinDescriptor = css({

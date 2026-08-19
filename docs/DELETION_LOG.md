@@ -111,3 +111,25 @@ Refactored 3 agent controllers (`route-agent`, `workflow-agent`, `mastra`) to us
 - Net reduction: ~282 lines
 - TypeScript: clean compile
 - Tests: all passing (pre-existing DB contention failures in parallel runs only)
+
+## [2026-08-19] Refactor Session — Dead Code Cleanup
+
+### Unused File Deleted
+
+- `app/actions/mastra/scorers/workflow-scorers.ts` — DELETED (3 lines)
+  - Reason: Exported `protocolAdherenceScorer` (a `createCompletenessScorer()`) was never imported anywhere in the codebase. The other two scorers (`booking-scorers.ts`, `support-scorers.ts`) are registered in `app/actions/mastra/index.ts`; this one was never wired in. Only referenced in archived OpenSpec docs.
+
+### Unused Exports Removed
+
+- `loadAppSeed` — `app/db.ts:28` — function returning `seed` was never referenced anywhere (server, scripts, tests). Seed is already applied via `seed(db)` inside `initializeAppDatabase()`.
+- `buttonStyle` — `app/ui/theme/button.ts:46` — named export never imported. Only the default `button` factory is consumed (by ~24 call sites). The `buttonStyle` in `app/ui/customer-chat-page.tsx` is an unrelated local `css({...})` const.
+- `ACTION_EXECUTORS` — `app/actions/agent-events/intents.ts:14` — abandoned `Record<string, string>` mapping never imported. The `execute.ts` handler performs its own explicit dispatch; the string values (`'executeCancelUserWorkflow'` etc.) don't even match real function names. `INTENTS` and `INTENT_TO_ACTION` (still used) were left in place.
+
+### Impact
+
+- Files deleted: 1
+- Exports removed: 3
+- Lines of code removed: ~11
+- TypeScript: clean compile (`npm run typecheck`)
+- Lint: oxlint `--max-warnings=0` + theme conformance check pass
+- Tests: 1124 pass / 0 fail / 1 todo
