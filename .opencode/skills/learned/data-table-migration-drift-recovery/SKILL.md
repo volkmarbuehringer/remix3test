@@ -8,6 +8,7 @@ origin: auto-extracted
 # Data-Table Migration Checksum Drift Recovery
 
 **Extracted:** 2026-08-18
+**Updated:** 2026-08-19 (vendor added `remix db rollback` CLI, #11723; rollback is now the preferred recovery for runner-based apps)
 **Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (branch-pinned `~/remix`).
 
 ## Problem
@@ -21,11 +22,12 @@ The vendor `remix` skill already documents that drift is detected (`references/d
 
 ## Solution
 
-Three recovery paths (pick by context):
+Four recovery paths (pick by context):
 
 1. **Revert the migration edit** — restore the original `up.sql` so the checksum matches the journal. Cleanest when the edit was accidental.
-2. **Clear the journal** — one-time DB surgery: `DELETE FROM data_table_migrations;` (or drop the table). Lets `db.migrate()` start clean; the schema already exists so nothing re-runs.
-3. **Stop consulting the journal — bootstrap the schema instead (newapp's choice)**. Route schema creation through `db.executeScript()` with idempotent DDL so no journal is read:
+2. **Roll back via the CLI (preferred for runner-based apps)** — `remix db rollback` walks the journal and reverts applied migrations newest-first. Bounds: `--step <count>` (default `1`) or `--to <id>` (revert back *through* that migration, inclusive; accepts a bare id or the `id_name` directory form). `--dry-run` reports what would be reverted without running it. This is the supported replacement for the "clear the journal" surgery and for undocumented `down` runs — orphaned journal entries are ignored on down runs (runner.ts:104), so rollback stays possible even when a migration file is missing. Note: an empty `--to ""` now throws `Unknown migration target: ""` (runner.ts:66 changed `!to` → `to === undefined` in #11723) — it is **not** a "revert everything" escape hatch.
+3. **Clear the journal (last resort)** — one-time DB surgery: `DELETE FROM data_table_migrations;` (or drop the table). Lets `db.migrate()` start clean; the schema already exists so nothing re-runs. Only needed when the CLI is not an option (no migrations directory, or you want to abandon the journal entirely).
+4. **Stop consulting the journal — bootstrap the schema instead (newapp's choice)**. Route schema creation through `db.executeScript()` with idempotent DDL so no journal is read:
 
 ```ts
 export async function initializeAppDatabase(): Promise<void> {
@@ -46,4 +48,5 @@ export async function initializeAppDatabase(): Promise<void> {
 
 - App startup fails with `Migration checksum drift detected` or `Applied migration ... is missing from current migrations`
 - You need to edit or delete a previously-applied `data-table` migration
+- You need to revert applied migrations on a runner-based app — use `remix db rollback` (`--step`/`--to`/`--dry-run`), not raw journal surgery
 - You are replacing a migration runner with an idempotent schema bootstrap (`db/schema.sql` + `db.executeScript`)
