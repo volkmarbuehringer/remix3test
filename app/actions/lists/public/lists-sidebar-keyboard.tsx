@@ -1,5 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { findTypeaheadTarget, nextFocusIndex } from '../../utils/lists-keyboard.ts'
+import { findTypeaheadTarget, nextFocusIndex } from '../../../utils/lists-keyboard.ts'
 
 export const ListsSidebarKeyboard = clientEntry(
   import.meta.url + '#ListsSidebarKeyboard',

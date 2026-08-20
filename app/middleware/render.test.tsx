@@ -11,7 +11,7 @@ import { resolveClientEntry } from './render.tsx'
 describe('resolveClientEntry', () => {
   it('returns href and exportName alongside preload hrefs', async () => {
     let entryId = pathToFileURL(
-      '/home/lucky/remix3test/app/ui/grid-refresh-button.browser.tsx',
+      '/home/lucky/remix3test/app/actions/client/public/grid-refresh-button.tsx',
     ).href
 
     let resolved = await resolveClientEntry(entryId, { name: 'GridRefreshButton' } as never)

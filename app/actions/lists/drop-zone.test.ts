@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.browser.ts'
+import { resolveDropZone, type RectLike, type SidebarRowRect } from './public/drop-zone.ts'
 
 const editorRect: RectLike = { top: 0, bottom: 400, left: 240, right: 640 }
 const sidebarRows: SidebarRowRect[] = [

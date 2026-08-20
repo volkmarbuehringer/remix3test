@@ -21,7 +21,7 @@ import {
   buildFilterParams,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
-import { AdminUsersContextMenu } from '../ui/admin/admin-users-context-menu.browser.tsx'
+import { AdminUsersContextMenu } from '../actions/admin/public/admin-users-context-menu.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
 const ADMIN_BASE = routes.admin.users.index.href()

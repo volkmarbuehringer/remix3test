@@ -1,5 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { theme } from '../../ui/theme/theme.ts'
+import { theme } from '../../../ui/theme/theme.ts'
 
 export const TestAgentStream = clientEntry(
   import.meta.url + '#TestAgentStream',

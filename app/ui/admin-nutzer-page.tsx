@@ -18,7 +18,7 @@ import {
 
 import { AdminNutzerEditPage } from './admin-nutzer-edit-page.tsx'
 import { AdminNutzerCreatePage } from './admin-nutzer-create-page.tsx'
-import { NutzerTableInteractive } from '../ui/nutzer/nutzer-table-interactive.browser.tsx'
+import { NutzerTableInteractive } from '../actions/nutzer/public/nutzer-table-interactive.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import type { NutzerRow } from '../data/nutzer.ts'
 

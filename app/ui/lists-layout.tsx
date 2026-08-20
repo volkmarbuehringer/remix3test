@@ -8,9 +8,9 @@ import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
-import { ListNameEdit } from '../actions/lists/list-name-edit.browser.tsx'
-import { ListsSearch } from '../actions/lists/lists-search.browser.tsx'
-import { ListsSidebarKeyboard } from '../actions/lists/lists-sidebar-keyboard.browser.tsx'
+import { ListNameEdit } from '../actions/lists/public/list-name-edit.tsx'
+import { ListsSearch } from '../actions/lists/public/lists-search.tsx'
+import { ListsSidebarKeyboard } from '../actions/lists/public/lists-sidebar-keyboard.tsx'
 import {
   shellStyle,
   sidebarStyle,

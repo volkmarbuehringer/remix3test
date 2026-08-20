@@ -1,6 +1,6 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { theme } from '../../ui/theme/theme.ts'
-import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
+import { theme } from '../../../ui/theme/theme.ts'
+import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 
 export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',

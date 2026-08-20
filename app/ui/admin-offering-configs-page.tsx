@@ -26,7 +26,7 @@ import type {
 } from '../data/offering-configs-queries.ts'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
-import { AdminOfferingConfigsContextMenu } from '../ui/admin/admin-offering-configs-context-menu.browser.tsx'
+import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
 
 interface AdminOfferingConfigsPageProps {
   rows: OfferingConfigRow[]

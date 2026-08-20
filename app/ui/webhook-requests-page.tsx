@@ -8,7 +8,7 @@ import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
-import { WebhookComposer } from '../ui/webhook-composer.browser.tsx'
+import { WebhookComposer } from '../actions/webhook-requests/public/webhook-composer.tsx'
 
 const BASE = system.webhookRequests.href()
 

@@ -2,9 +2,9 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import * as menu from 'remix/ui/menu/primitives'
 import { onMenuSelect } from 'remix/ui/menu/primitives'
 import { MenuItem, MenuList } from 'remix/ui/menu'
-import { Glyph } from '../theme/glyph/glyph.tsx'
-import { Separator } from '../theme/separator/separator.ts'
-import { theme } from '../theme/theme.ts'
+import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
+import { Separator } from '../../../ui/theme/separator/separator.ts'
+import { theme } from '../../../ui/theme/theme.ts'
 
 interface GridState {
   offset: string
@@ -14,18 +14,18 @@ interface GridState {
   baseHref?: string
 }
 
-export const AdminOfferingConfigsContextMenu = clientEntry(
-  import.meta.url + '#AdminOfferingConfigsContextMenu',
-  function AdminOfferingConfigsContextMenu(handle: Handle) {
+export const AdminResourcesContextMenu = clientEntry(
+  import.meta.url + '#AdminResourcesContextMenu',
+  function AdminResourcesContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
 
     return () => (
-      <menu.Context label="Konfigurationsaktionen">
+      <menu.Context label="Ressourcenaktionen">
         <div
           mix={[
             menu.contextTrigger(),
             ref((el) => {
-              let table = document.querySelector('[data-offering-configs-table]')
+              let table = document.querySelector('[data-resources-table]')
               if (!table) return
 
               function onContextMenu(event: Event) {
@@ -85,21 +85,21 @@ export const AdminOfferingConfigsContextMenu = clientEntry(
     )
 
     function handleEditAction(rowId: string) {
-      let dataEl = document.getElementById('offering-configs-grid-state')
+      let dataEl = document.getElementById('resources-grid-state')
       if (!dataEl) return
 
       try {
         let state: GridState = JSON.parse(dataEl.textContent || '{}')
-        let baseHref = state.baseHref || '/verwaltung/offering-configs'
+        let baseHref = state.baseHref || '/verwaltung/resources'
         let params = new URLSearchParams()
         params.set('editing', rowId)
         if (state.offset) params.set('offset', state.offset)
-        params.set('sort', state.sort || 'resource_description')
+        params.set('sort', state.sort || 'name')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
         window.location.href = baseHref + '?' + params.toString()
       } catch {
-        window.location.href = '/verwaltung/offering-configs?editing=' + rowId
+        window.location.href = '/verwaltung/resources?editing=' + rowId
       }
     }
 

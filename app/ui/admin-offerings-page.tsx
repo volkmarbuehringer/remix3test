@@ -24,8 +24,8 @@ import type { OfferingConfig } from '../data/offering-configs.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { AdminOfferingsContextMenu } from '../ui/admin/admin-offerings-context-menu.browser.tsx'
-import { DeletePastButton } from '../ui/admin/admin-delete-past-button.browser.tsx'
+import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
+import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
 
 interface AdminOfferingsPageProps {

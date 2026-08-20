@@ -4,7 +4,7 @@ import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import type { ChatMessage } from '../types/chatlog.ts'
-import { CustomerChatStream } from '../assets/streams/customer-chat-stream.browser.tsx'
+import { CustomerChatStream } from '../assets/streams/public/customer-chat-stream.tsx'
 
 const MAX_MESSAGE_LENGTH = 5000
 

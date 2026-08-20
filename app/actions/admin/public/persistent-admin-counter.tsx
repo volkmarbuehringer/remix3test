@@ -1,5 +1,5 @@
 import { clientEntry, css, on, type Handle } from 'remix/ui'
-import { theme } from '../theme/theme.ts'
+import { theme } from '../../../ui/theme/theme.ts'
 
 /**
  * Demo client entry that persists across root reloads.

@@ -1,5 +1,5 @@
 import { type Handle } from 'remix/ui'
-import { ListsClient } from '../actions/lists/lists-client.browser.tsx'
+import { ListsClient } from '../actions/lists/public/lists-client.tsx'
 
 type ListInitState = {
   id: number

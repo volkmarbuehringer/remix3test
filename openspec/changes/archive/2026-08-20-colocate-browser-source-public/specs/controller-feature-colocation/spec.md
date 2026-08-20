@@ -1,10 +1,6 @@
 # Controller Feature Colocation
 
-## Purpose
-
-Define the structural convention for organizing controller modules into feature-directories within `app/actions/`, where each route *group's* controller, tests, and page components are colocated in a single directory with `controller.tsx` as the canonical entry point exporting all of the group's handlers as named exports.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Controllers are colocated per route group
 

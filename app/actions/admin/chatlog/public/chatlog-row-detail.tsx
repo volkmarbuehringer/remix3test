@@ -1,7 +1,7 @@
 import { clientEntry, Frame, css, on, type Handle, type SerializableProps } from 'remix/ui'
 import { animateEntrance, animateExit } from 'remix/ui/animation'
-import { prefersReducedMotion } from '../utils/motion.ts'
-import { theme } from '../ui/theme/theme.ts'
+import { prefersReducedMotion } from '../../../../utils/motion.ts'
+import { theme } from '../../../../ui/theme/theme.ts'
 
 interface ChatlogRowDetailProps extends SerializableProps {
   conversationId: string

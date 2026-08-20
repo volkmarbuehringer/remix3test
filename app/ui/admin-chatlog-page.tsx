@@ -5,7 +5,7 @@ import button from '../ui/theme/button.ts'
 import { routes, frames } from '../routes.ts'
 import type { ChatMessage } from '../types/chatlog.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
-import { ChatlogRowDetail } from '../ui/chatlog-row-detail.browser.tsx'
+import { ChatlogRowDetail } from '../actions/admin/chatlog/public/chatlog-row-detail.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 interface ChatLogPageProps {
   conversations: Array<{

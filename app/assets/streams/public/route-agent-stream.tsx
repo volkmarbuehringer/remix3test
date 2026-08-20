@@ -1,7 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { theme } from '../../ui/theme/theme.ts'
-import { agentPrefillMap } from '../../ui/agent-prefill-store.browser.ts'
-import { setupAutoGrowTextarea } from '../../ui/auto-grow-textarea.ts'
+import { theme } from '../../../ui/theme/theme.ts'
+import { agentPrefillMap } from '../../../ui/agent-prefill-store.browser.ts'
+import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 
 export const RouteAgentStream = clientEntry(
   import.meta.url + '#RouteAgentStream',

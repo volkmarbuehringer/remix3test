@@ -1,5 +1,5 @@
 import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
-import { theme } from '../ui/theme/theme.ts'
+import { theme } from '../../../ui/theme/theme.ts'
 
 interface Row {
   id: number

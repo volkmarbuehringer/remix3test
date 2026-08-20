@@ -1,10 +1,10 @@
 import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
-import { theme } from '../../ui/theme/theme.ts'
-import { moveItemInArray, findTypeaheadTarget } from '../../utils/lists-keyboard.ts'
-import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
+import { theme } from '../../../ui/theme/theme.ts'
+import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
+import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 
-import button from '../../ui/theme/button.ts'
-import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.browser.ts'
+import button from '../../../ui/theme/button.ts'
+import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.ts'
 
 type ListItem = {
   id: string
