@@ -106,7 +106,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
         <form
           method="GET"
           action={ADMIN_BASE}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
@@ -120,14 +120,14 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a href={ADMIN_BASE} rmx-target={frames.adminContent} mix={table.clearLink}>
+            <a href={ADMIN_BASE} data-rmx-target={frames.adminContent} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -167,7 +167,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                           offset,
                           filter,
                         )}
-                        rmx-target={frames.adminContent}
+                        data-rmx-target={frames.adminContent}
                         mix={table.sortLink}
                       >
                         {col.label}
@@ -246,7 +246,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -277,7 +277,7 @@ export function AdminNutzerPage(handle: Handle<AdminNutzerPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

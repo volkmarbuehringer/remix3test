@@ -78,7 +78,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()} rmx-target={frames.adminContent}>
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()} data-rmx-target={frames.adminContent}>
           <input type="hidden" name="resource_id" value={String(resourceId)} />
 
           <div mix={table.panel}>

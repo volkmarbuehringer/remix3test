@@ -75,13 +75,13 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         <form
           method="GET"
           action={routes.admin.users.index.href()}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <div mix={table.filterGroup}>
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, offset)}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={[
                 table.filterTab,
                 !filter || (filter !== 'enabled' && filter !== 'disabled')
@@ -95,7 +95,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               href={
                 ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)
               }
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
             >
               Aktiv
@@ -104,7 +104,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               href={
                 ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)
               }
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
             >
               Deaktiviert
@@ -123,7 +123,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           {filter && (
             <a
               href={routes.admin.users.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -132,7 +132,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -169,7 +169,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       ID
@@ -188,7 +188,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Name
@@ -207,7 +207,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       E-Mail
@@ -226,7 +226,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Rolle
@@ -246,7 +246,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Erstellt
@@ -341,7 +341,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -372,7 +372,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

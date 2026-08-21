@@ -151,7 +151,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         <form
           method="GET"
           action={routes.verwaltung.appointments.index.href()}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
@@ -167,7 +167,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           {filter && (
             <a
               href={routes.verwaltung.appointments.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -224,7 +224,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 return (
                   <a
                     href={href}
-                    rmx-target={frames.adminContent}
+                    data-rmx-target={frames.adminContent}
                     mix={css({
                       '& button': {
                         paddingLeft: theme.space.xs,
@@ -268,7 +268,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               return (
                 <a
                   href={href}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={css({
                     '& button': {
                       paddingLeft: theme.space.xs,
@@ -298,7 +298,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               period,
               status,
             )}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -338,7 +338,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Titel
@@ -361,7 +361,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       E-Mail
@@ -384,7 +384,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -410,7 +410,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Datum
@@ -431,7 +431,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Zeit
@@ -454,7 +454,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -548,7 +548,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     period,
                     status,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -581,7 +581,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     period,
                     status,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

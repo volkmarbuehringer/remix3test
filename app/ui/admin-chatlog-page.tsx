@@ -114,7 +114,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
-                      <a href={link} rmx-target={frames.adminContent} mix={conversationLinkStyle}>
+                      <a href={link} data-rmx-target={frames.adminContent} mix={conversationLinkStyle}>
                         Konversation #{conv.id}
                       </a>
                     </div>
@@ -126,7 +126,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                       <form
                         method="POST"
                         action={routes.admin.chatlog.destroy.href({ id: conv.id })}
-                        rmx-target={frames.adminContent}
+                        data-rmx-target={frames.adminContent}
                         data-confirm={`Konversation #${conv.id} löschen?`}
                       >
                         <CsrfTokenInput />
@@ -145,7 +145,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           {(hasMore || page > 1) && (
             <div mix={paginationStyle}>
               {page > 1 ? (
-                <a href={pageHref(page - 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                <a href={pageHref(page - 1)} data-rmx-target={frames.adminContent} mix={pageLinkStyle}>
                   ← Zurück
                 </a>
               ) : (
@@ -153,7 +153,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
               )}
               <span mix={pageLabelStyle}>Seite {page}</span>
               {hasMore ? (
-                <a href={pageHref(page + 1)} rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                <a href={pageHref(page + 1)} data-rmx-target={frames.adminContent} mix={pageLinkStyle}>
                   Weiter →
                 </a>
               ) : (

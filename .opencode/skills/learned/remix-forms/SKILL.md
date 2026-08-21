@@ -49,7 +49,7 @@ Server-rendered delete forms (`<form method="POST">` with a DELETE override) hav
 
 ### Root Cause
 
-Remix 3's frame navigation (`rmx-target`) intercepts form submissions at the click/pointer level using its own event handling, which can preempt the native `submit` event. A `submit`-phase listener may never fire.
+Remix 3's frame navigation (`data-rmx-target`) intercepts form submissions at the click/pointer level using its own event handling, which can preempt the native `submit` event. A `submit`-phase listener may never fire.
 
 ### Solution
 
@@ -416,7 +416,7 @@ The routing card renders only on the first GET after the POST. On refresh, the f
 - Writing a schema with `s.object({ ... })` that needs optional fields (`Property 'optional' does not exist on type 'Schema<...>'`)
 - Porting from Zod where `.optional()` is a method — Remix's `data-schema` requires the top-level wrapper
 - Adding `confirm()` dialogs to server-rendered `<form>` elements in Remix 3 admin grids
-- Any time you need to intercept form submission before Remix's frame navigation (`rmx-target`) handles it
+- Any time you need to intercept form submission before Remix's frame navigation (`data-rmx-target`) handles it
 - Adding password confirmation ("confirm password") to registration or password-reset forms
 - Preserving submitted form values on validation errors while keeping password fields secure
 - Adding password visibility toggle buttons to any form with password inputs

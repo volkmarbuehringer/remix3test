@@ -536,15 +536,15 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('name="filter"'), 'filter form should have input named "filter"')
   })
 
-  it('has filter form with rmx-target attribute (frame-based)', async () => {
+  it('has filter form with data-rmx-target attribute (frame-based)', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
     let html = await response.text()
 
     assert.ok(
-      html.includes('rmx-target'),
-      'filter form should have rmx-target (page is now in a frame)',
+      html.includes('data-rmx-target'),
+      'filter form should have data-rmx-target (page is now in a frame)',
     )
   })
 
@@ -594,7 +594,7 @@ describe('Admin Nutzer controller & page', () => {
     }
   })
 
-  it('renders sortable links with rmx-target (frame-based)', async () => {
+  it('renders sortable links with data-rmx-target (frame-based)', async () => {
     let response = await router.fetch(NUTZER_URL, {
       headers: { Cookie: adminCookie },
     })
@@ -604,8 +604,8 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(sortLinks && sortLinks.length > 0, 'should render sort links to /admin/nutzer')
 
     assert.ok(
-      html.includes('rmx-target'),
-      'should have rmx-target attributes (page is now in a frame)',
+      html.includes('data-rmx-target'),
+      'should have data-rmx-target attributes (page is now in a frame)',
     )
   })
 
@@ -993,20 +993,20 @@ describe('Admin Nutzer controller & page', () => {
     assert.ok(html.includes('Nutzer'), 'should still render grid with Nutzer heading')
   })
 
-  it('GET /admin/nutzer?creating=true create form has rmx-target (frame-based)', async () => {
+  it('GET /admin/nutzer?creating=true create form has data-rmx-target (frame-based)', async () => {
     let response = await router.fetch(`${NUTZER_URL}?creating=true`, {
       headers: { Cookie: adminCookie },
     })
     let html = await response.text()
 
-    // The submit form (method="POST" + novalidate) should carry rmx-target so
+    // The submit form (method="POST" + novalidate) should carry data-rmx-target so
     // the POST stays inside the adminContent frame instead of a full reload.
     let createFormMatch = html.match(
-      /<form[^>]*method="POST"[^>]*novalidate[^>]*rmx-target/,
+      /<form[^>]*method="POST"[^>]*novalidate[^>]*data-rmx-target/,
     )
     assert.ok(
       createFormMatch,
-      'create submit form should have rmx-target (POST stays inside the frame)',
+      'create submit form should have data-rmx-target (POST stays inside the frame)',
     )
   })
 })

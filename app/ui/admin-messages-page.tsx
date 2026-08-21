@@ -214,7 +214,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   <form
                     method="POST"
                     action={routes.admin.messages.destroy.href({ id: msg.id })}
-                    rmx-target={frames.adminContent}
+                    data-rmx-target={frames.adminContent}
                     data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
                     mix={css({ margin: 0, padding: 0 })}
                   >
@@ -241,7 +241,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               {offset > 0 && (
                 <a
                   href={`${routes.admin.messages.index.href()}?offset=${prevOffset}`}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
                   ← Neuere
@@ -250,7 +250,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               {hasMore && (
                 <a
                   href={`${routes.admin.messages.index.href()}?offset=${nextOffset}`}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
                   Ältere →

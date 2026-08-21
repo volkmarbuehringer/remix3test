@@ -94,14 +94,14 @@ export function VerwaltungDashboardContent() {
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>PDF-Export</h2>
           <p mix={cardDescStyle}>Alle Termine als PDF herunterladen.</p>
-          <a href={routes.verwaltung.pdf.index.href()} rmx-document mix={btnStyle}>
+          <a href={routes.verwaltung.pdf.index.href()} data-rmx-document mix={btnStyle}>
             PDF herunterladen
           </a>
         </div>
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Benutzer-PDF</h2>
           <p mix={cardDescStyle}>Benutzerübersicht mit Terminzusammenfassung als PDF.</p>
-          <a href={routes.verwaltung.usersPdf.index.href()} rmx-document mix={btnStyle}>
+          <a href={routes.verwaltung.usersPdf.index.href()} data-rmx-document mix={btnStyle}>
             PDF herunterladen
           </a>
         </div>

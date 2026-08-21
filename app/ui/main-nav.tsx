@@ -40,7 +40,7 @@ export function MainNav() {
     }
 
     // Determine if a link navigates to a different top-level section.
-    // Cross-section navigations from Frame-relay pages need rmx-document
+    // Cross-section navigations from Frame-relay pages need data-rmx-document
     // to avoid Remix 3 entering a frame-resolution loop.
     let isCrossSection = (href: string) => {
       if (!currentPath || !href || href === '/') return false
@@ -82,7 +82,7 @@ export function MainNav() {
                     <a
                       key={item.href}
                       href={item.href}
-                      {...(item.href && isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
+                      {...(item.href && isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}
                       mix={[
                         navLinkCss,
                         item.href && isActive(item.href) ? navActiveCss : null,
@@ -98,7 +98,7 @@ export function MainNav() {
               <>
                 <a
                   href={routes.settings.index.href()}
-                  {...(isCrossSection(routes.settings.index.href()) ? { 'rmx-document': '' } : {})}
+                  {...(isCrossSection(routes.settings.index.href()) ? { 'data-rmx-document': '' } : {})}
                   mix={iconLinkCss}
                   aria-label="Settings"
                   title="Einstellungen"
@@ -117,7 +117,7 @@ export function MainNav() {
                 <a
                   href={routes.auth.login.index.href()}
                   {...(isCrossSection(routes.auth.login.index.href())
-                    ? { 'rmx-document': '' }
+                    ? { 'data-rmx-document': '' }
                     : {})}
                   mix={navBtnCss}
                 >
@@ -178,7 +178,7 @@ export function MainNav() {
                     <a
                       key={item.href}
                       href={item.href}
-                      {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
+                      {...(isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}
                       mix={drawerCtaCss}
                     >
                       {item.label}
@@ -187,7 +187,7 @@ export function MainNav() {
                     <a
                       key={item.href}
                       href={item.href}
-                      {...(isCrossSection(item.href) ? { 'rmx-document': '' } : {})}
+                      {...(isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}
                       mix={drawerLinkCss}
                     >
                       {item.label}
@@ -204,7 +204,7 @@ export function MainNav() {
             ) : (
               <a
                 href={routes.auth.login.index.href()}
-                {...(isCrossSection(routes.auth.login.index.href()) ? { 'rmx-document': '' } : {})}
+                {...(isCrossSection(routes.auth.login.index.href()) ? { 'data-rmx-document': '' } : {})}
                 mix={drawerCtaCss}
               >
                 Anmelden

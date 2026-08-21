@@ -103,7 +103,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
         <RestfulForm
           method="PUT"
           action={routes.verwaltung.offerings.update.href({ id: row.id })}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />

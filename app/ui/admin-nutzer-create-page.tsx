@@ -64,7 +64,7 @@ export function AdminNutzerCreatePage(handle: Handle<AdminNutzerCreatePageProps>
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <form method="POST" action={routes.admin.nutzer.create.href()} novalidate rmx-target={frames.adminContent}>
+        <form method="POST" action={routes.admin.nutzer.create.href()} novalidate data-rmx-target={frames.adminContent}>
           <CsrfTokenInput />
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

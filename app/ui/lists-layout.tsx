@@ -289,7 +289,7 @@ function ListsLayout(
                     <form
                       method="POST"
                       action={routes.lists.destroy.href({ id: listId })}
-                      rmx-target={frameTarget}
+                      data-rmx-target={frameTarget}
                       data-confirm={`"${displayName}" löschen?`}
                       mix={deleteFormStyle}
                     >

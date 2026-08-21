@@ -203,7 +203,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
         <form
           method="GET"
           action={routes.verwaltung.offeringConfigs.index.href()}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
@@ -219,7 +219,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           {filter && (
             <a
               href={routes.verwaltung.offeringConfigs.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -228,7 +228,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -264,7 +264,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -291,7 +291,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -371,7 +371,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -402,7 +402,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

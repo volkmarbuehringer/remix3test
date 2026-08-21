@@ -1020,11 +1020,11 @@ describe('Lists controller', () => {
     let text = await response.text()
     assert.ok(text.includes('Gespeicherte Listen'), 'should render the page')
     assert.ok(
-      text.includes('rmx-history="replace"'),
-      'filter form should carry rmx-history="replace"',
+      text.includes('data-rmx-history="replace"'),
+      'filter form should carry data-rmx-history="replace"',
     )
     assert.ok(
-      text.includes('rmx-target="admin-content"'),
+      text.includes('data-rmx-target="admin-content"'),
       'filter form should target the admin content frame',
     )
   })

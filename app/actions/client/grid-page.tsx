@@ -352,7 +352,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           <FrameRefreshButton />
           <a
             href={buildCreateUrl(sortField, sortOrder, offset, filter)}
-            rmx-document
+            data-rmx-document
             mix={css({ textDecoration: 'none' })}
           >
             <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>+ Add New</button>
@@ -363,8 +363,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           <form
             method="GET"
             action="/admin/client"
-            rmx-target="admin-content"
-            rmx-history="replace"
+            data-rmx-target="admin-content"
+            data-rmx-history="replace"
             mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
           >
             <input
@@ -408,7 +408,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('name', sortField, sortOrder, offset, filter, editingId)}
-                      rmx-target="admin-content"
+                      data-rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Name
@@ -420,7 +420,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('email', sortField, sortOrder, offset, filter, editingId)}
-                      rmx-target="admin-content"
+                      data-rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Email
@@ -432,7 +432,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('role', sortField, sortOrder, offset, filter, editingId)}
-                      rmx-target="admin-content"
+                      data-rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Role
@@ -444,7 +444,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('status', sortField, sortOrder, offset, filter, editingId)}
-                      rmx-target="admin-content"
+                      data-rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Status
@@ -463,7 +463,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         filter,
                         editingId,
                       )}
-                      rmx-target="admin-content"
+                      data-rmx-target="admin-content"
                       mix={sortLinkStyle}
                     >
                       Reg.
@@ -506,14 +506,14 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         <a
                           href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)}
                           target="_top"
-                          rmx-document
+                          data-rmx-document
                         >
                           <button mix={[button({ tone: 'secondary' }), smallBtnStyle]}>Edit</button>
                         </a>
                         <form
                           method="POST"
                           action={`/admin/client/${row.id}`}
-                          rmx-target="admin-content"
+                          data-rmx-target="admin-content"
                           data-confirm="Delete this row?"
                         >
                           <CsrfTokenInput />
@@ -551,7 +551,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     filter,
                     editingId,
                   )}
-                  rmx-target="admin-content"
+                  data-rmx-target="admin-content"
                   mix={css({ textDecoration: 'none' })}
                 >
                   <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
@@ -566,7 +566,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     filter,
                     editingId,
                   )}
-                  rmx-target="admin-content"
+                  data-rmx-target="admin-content"
                   mix={css({ textDecoration: 'none' })}
                 >
                   <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>

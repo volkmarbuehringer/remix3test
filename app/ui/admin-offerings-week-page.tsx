@@ -45,7 +45,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action="/verwaltung/offerings/week" rmx-target={frames.adminContent}>
+        <RestfulForm method="POST" action="/verwaltung/offerings/week" data-rmx-target={frames.adminContent}>
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Woche hinzufügen</span>

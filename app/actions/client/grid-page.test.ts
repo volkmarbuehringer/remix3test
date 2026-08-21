@@ -162,7 +162,7 @@ describe('ClientGridPage', () => {
     assert.ok(treeContainsText(tree, 'Search'), 'should have Search button')
   })
 
-  it('marks the GET filter form with rmx-history="replace"', () => {
+  it('marks the GET filter form with data-rmx-history="replace"', () => {
     let renderFn = ClientGridPage(
       makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
     )
@@ -171,14 +171,28 @@ describe('ClientGridPage', () => {
     let forms = findElementsWithProp(tree, 'method', 'GET')
     assert.equal(forms.length, 1, 'should render exactly one GET form')
     assert.equal(
-      forms[0]?.props['rmx-history'],
+      forms[0]?.props['data-rmx-history'],
       'replace',
-      'filter form should carry rmx-history="replace"',
+      'filter form should carry data-rmx-history="replace"',
     )
     assert.equal(
-      forms[0]?.props['rmx-target'],
+      forms[0]?.props['data-rmx-target'],
       'admin-content',
       'filter form should target the admin content frame',
+    )
+  })
+
+  it('marks the "Add New" link with data-rmx-document to escape frame interception', () => {
+    let renderFn = ClientGridPage(
+      makeHandle({ rows: sampleRows, offset: 0, hasPrev: false, hasNext: true }),
+    )
+    let tree = renderFn()
+
+    let links = findElementsWithProp(tree, 'data-rmx-document')
+    assert.ok(links.length >= 1, 'should render at least one data-rmx-document link')
+    assert.ok(
+      treeContainsText(tree, 'Add New'),
+      'the data-rmx-document escape should be on the Add New link',
     )
   })
 })

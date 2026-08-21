@@ -7,7 +7,7 @@ origin: consolidated
 
 # Remix 3 Frame Navigation & clientEntry Patterns
 
-Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. Form submissions were historically not intercepted at all (pre-#11668); as of `fa6e26f90` (#11668, merged 2026-08-12) eligible same-origin `<form>` submissions use the same frame-navigation path as links when `run({ resolveFrame })` is active. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, and `rmx-document` escapes for binary downloads and cross-section links.
+Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads. `clientEntry` components hydrate inside those frames, attaching event listeners and managing interactive state. However, the interaction between these two systems produces several hard-to-debug failure modes: `handle.update()` infinite loops fire at page sizes over 50 entries, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router. Form submissions were historically not intercepted at all (pre-#11668); as of `fa6e26f90` (#11668, merged 2026-08-12) eligible same-origin `<form>` submissions use the same frame-navigation path as links when `run({ resolveFrame })` is active. This document consolidates patterns for working within these constraints — covering form validation errors, cascade limits, mounted-guard fixes, CSS scoping across serialization boundaries, DOM-based inline editing, the `on` mixin's hydration requirement, and `data-rmx-document` escapes for binary downloads and cross-section links.
 
 ## Client Runtime Is Always Loaded
 
@@ -16,7 +16,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - The frame-navigation interception, DOM swap, and hydration/reconciliation engine are **always present** once any page loads — even if that page has zero `clientEntry` components. SSR renders the full HTML; the runtime merely enhances it.
 - Removing `entry.tsx` (from a page or from the asset pipeline) does **not** make that page "more SSR" — it reverts it to a no-JS page where forms/links fall back to full-document navigations (native browser behavior). Only client enhancement is gone; the server render is unchanged.
 - "SSR vs client" is therefore not a global toggle. SSR is the default render path for every request; `clientEntry`/frame-nav are opt-in enhancements layered on top. Reserve `clientEntry` for genuine UX gaps (live regions, drag, focus management after swap), not SPA-style rendering.
-- For cross-boundary transitions where the frame runtime must NOT intercept (uploads, downloads, login, public booking, cross-section links), use `rmx-document` (below) — do not disable the runtime.
+- For cross-boundary transitions where the frame runtime must NOT intercept (uploads, downloads, login, public booking, cross-section links), use `data-rmx-document` (below) — do not disable the runtime.
 
 ## Table of Contents
 
@@ -31,14 +31,14 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
 - [Inline-Edit Server-Rendered Table Cells](#inline-edit-server-rendered-table-cells)
 - [on Mixin Requires clientEntry](#on-mixin-requires-cliententry)
-- [rmx-document: Binary Downloads & Cross-Section Links](#rmx-document-binary-downloads--cross-section-links)
+- [data-rmx-document: Binary Downloads & Cross-Section Links](#data-rmx-document-binary-downloads--cross-section-links)
 - [HTML5 Drag and Drop in clientEntry](#html5-drag-and-drop-in-cliententry)
 - [Fragment Scrolling Inside Overflow Containers](#fragment-scrolling-inside-overflow-containers)
 - [Verifying Frame-Rendered HTML in Tests](#verifying-frame-rendered-html-in-tests)
 - [Frame Target Registration & Content-Only Panels](#frame-target-registration--content-only-panels)
 - [Frame Input Value Preservation](#frame-input-value-preservation)
 - [Remix 3 clientEntry Authoring Constraints](#remix-3-cliententry-authoring-constraints-ssr-safe-dom-mixin-placement-asset-server-imports)
-- [rmx-history Attribute — push vs replace](#rmx-history-attribute--push-vs-replace)
+- [data-rmx-history Attribute — push vs replace](#data-rmx-history-attribute--push-vs-replace)
 
 ---
 
@@ -66,7 +66,7 @@ async index(context) {
 
   let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
   if (isFrameRequest) {
-    // Fragment mode: just the content (sidebar + page) — used by rmx-target navigation
+    // Fragment mode: just the content (sidebar + page) — used by data-rmx-target navigation
     return renderAdminPage(context.render, 'support',
       <MastraChatPage messages={chatMessages} threadId={threadId} error={error} />
     )
@@ -84,7 +84,7 @@ async index(context) {
 
 ### When to Use
 
-- Any Remix 3 route rendered inside a `<Frame>` with `rmx-target` navigation
+- Any Remix 3 route rendered inside a `<Frame>` with `data-rmx-target` navigation
 - When full-page navigation to the route causes a browser crash, slowdown, or resource duplication
 - When the route has inline scripts, complex CSS, or heavy rendering
 
@@ -111,13 +111,13 @@ GET  /admin/resource/:id → 404
 
 The root cause chain (pre-#11668):
 
-1. `rmx-target` on `<form method="POST">` is **never read** by the Frame Navigation API
+1. `data-rmx-target` on `<form method="POST">` is **never read** by the Frame Navigation API
 2. The browser Navigation API blocks `event.canIntercept` for all non-GET navigations
 3. POST form submissions always do a **full-page navigation**, never intercepted
 4. `renderAdminPage()` wraps in `ShellOrFragment` which, without `X-Remix-Target`, renders `<Layout><Frame src={request.url}/></Layout>`
 5. The `request.url` is the POST URL which has no GET route → 404
 
-Pre-#11668 root cause: the Navigation API's `navigate` event has `event.canIntercept === false` for POST navigations per spec, and `getSourceElementNavigation` only read `rmx-target` from `<a>`/`<area>` elements — never from `<form>`.
+Pre-#11668 root cause: the Navigation API's `navigate` event has `event.canIntercept === false` for POST navigations per spec, and `getSourceElementNavigation` only read `data-rmx-target` from `<a>`/`<area>` elements — never from `<form>`.
 
 ### Current Behavior (post-#11668)
 
@@ -125,11 +125,11 @@ A new `createFormNavigationResolver` (`packages/ui/src/runtime/form-navigation.t
 
 ```ts
 let formNavigation = resolveFormNavigation(event)                    // navigation.ts:303
-if (!formNavigation || formNavigation.hasAttribute('rmx-document')) return
+if (!formNavigation || formNavigation.hasAttribute('data-rmx-document')) return
 state = {
-  target: formNavigation.getAttribute('rmx-target') ?? undefined,    // targets a named frame
-  src:    formNavigation.getAttribute('rmx-src') ?? event.destination.url,
-  resetScroll: formNavigation.getAttribute('rmx-reset-scroll') !== 'false',
+  target: formNavigation.getAttribute('data-rmx-target') ?? undefined,    // targets a named frame
+  src:    formNavigation.getAttribute('data-rmx-src') ?? event.destination.url,
+  resetScroll: formNavigation.getAttribute('data-rmx-reset-scroll') !== 'false',
 }
 getSubmission: formNavigation.getSubmission,                          // non-GET form data
 ```
@@ -137,9 +137,9 @@ getSubmission: formNavigation.getSubmission,                          // non-GET
 Behavior per `packages/ui/docs/frames.md` ("Form navigation"):
 
 - Native constraint validation and the form's `submit` event run first — invalid forms never reach `resolveFrame`.
-- Submissions reload `handle.frames.top` by default; `rmx-target="name"` reloads a named frame.
-- `rmx-src="/frame"` overrides the URL resolved into that frame; the form `action` remains the navigation destination.
-- `rmx-reset-scroll="false"` preserves scroll; `rmx-document` leaves it a document navigation.
+- Submissions reload `handle.frames.top` by default; `data-rmx-target="name"` reloads a named frame.
+- `data-rmx-src="/frame"` overrides the URL resolved into that frame; the form `action` remains the navigation destination.
+- `data-rmx-reset-scroll="false"` preserves scroll; `data-rmx-document` leaves it a document navigation.
 - Submitter overrides (`formmethod`, `formenctype`, `formtarget`) take precedence over form attributes.
 - Cross-origin submissions, `method="dialog"`, and `target="_blank"` are left to the browser.
 - GET forms behave like links (browser includes successful controls in the destination URL).
@@ -179,7 +179,7 @@ return context.render(
 
 - Any `<form method="POST">` inside a Frame that should navigate the frame, not the whole document
 - Debugging "GET → 404" after a POST form submission inside a Frame — check whether the runtime is pre-#11668 or `resolveFrame` is inactive before applying the legacy workaround
-- Choosing between `rmx-document` (preserve document nav) and default frame interception for a form
+- Choosing between `data-rmx-document` (preserve document nav) and default frame interception for a form
 
 (Consolidated from `remix3-frame-post-uninterceptable`)
 
@@ -259,7 +259,7 @@ Key facts:
 
 **Context:** A route-agent page uses a `<Frame>` to show target routes. Historically, any `<form method="POST">` inside the frame caused a full-page navigation, destroying the parent page (agent input bar, message history).
 
-**Version alert:** As of `fa6e26f90` (#11668, merged upstream 2026-08-12), forms inside frames are **intercepted natively** — no `submit` listener needed. Give the `<form>` `rmx-target="<frame-name>"` (or leave it default to reload the top frame) and the runtime routes it like a link. The event-delegation shim below is only needed on pre-#11668 builds or when `run({ resolveFrame })` is inactive.
+**Version alert:** As of `fa6e26f90` (#11668, merged upstream 2026-08-12), forms inside frames are **intercepted natively** — no `submit` listener needed. Give the `<form>` `data-rmx-target="<frame-name>"` (or leave it default to reload the top frame) and the runtime routes it like a link. The event-delegation shim below is only needed on pre-#11668 builds or when `run({ resolveFrame })` is inactive.
 
 ### Problem (pre-#11668, historical)
 
@@ -267,7 +267,7 @@ Remix 3's `<Frame>` did **not** intercept HTML form submissions:
 
 1. `<Frame>` is a DOM region (comment markers + DOM diffing), not an `<iframe>` — form submissions are normal browser navigations
 2. The Navigation API (`window.navigation`) sets `event.canIntercept === false` for all non-GET navigations per spec — POST/PUT/DELETE form submissions are never captured
-3. `rmx-target` attribute is only read from `<a>`/`<area>` elements (`navigation.ts`), never from `<form>` elements
+3. `data-rmx-target` attribute is only read from `<a>`/`<area>` elements (`navigation.ts`), never from `<form>` elements
 
 Result: any `<form method="POST">` inside a Frame navigates the **main window** to the action URL. For the route-agent page, this replaces the entire agent interface with the target page.
 
@@ -277,7 +277,7 @@ No client-side code. Make the server-rendered form frame-aware:
 
 ```tsx
 // Non-GET form: reloads the referenced frame with the submitted data
-<form method="post" action="/resource" rmx-target="lists-content">
+<form method="post" action="/resource" data-rmx-target="lists-content">
   <CsrfTokenInput />
   <input type="hidden" name="_method" value="DELETE" />
   {/* ... fields ... */}
@@ -286,7 +286,7 @@ No client-side code. Make the server-rendered form frame-aware:
 
 // GET form (filter/search): behaves like a link — browser serializes
 // successful controls into the destination URL, frame reloads natively
-<form method="get" action="/list" rmx-target="lists-content">
+<form method="get" action="/list" data-rmx-target="lists-content">
   <input name="q" />
   <button type="submit">Search</button>
 </form>
@@ -294,9 +294,9 @@ No client-side code. Make the server-rendered form frame-aware:
 
 Key facts (post-#11668):
 
-- `rmx-document` opts the form back out to a normal document navigation.
-- `rmx-src="/frame"` overrides the URL resolved into the frame while the form `action` stays the navigation destination.
-- `rmx-reset-scroll="false"` preserves scroll position.
+- `data-rmx-document` opts the form back out to a normal document navigation.
+- `data-rmx-src="/frame"` overrides the URL resolved into the frame while the form `action` stays the navigation destination.
+- `data-rmx-reset-scroll="false"` preserves scroll position.
 - Submitter overrides (`formmethod`, `formenctype`, `formtarget`) take precedence.
 - The `resolveFrame` client resolver must forward `formData`/`method`/`encType` (e.g. `URLSearchParams` for urlencoded, `FormData` for multipart). See the "Post Form Submissions in Frames" section above.
 - The server action must return a frame fragment (or redirect) so the targeted frame renders correctly.
@@ -333,7 +333,7 @@ The server still renders and processes everything. The only client-side change i
 
 #### GET form handling (legacy shim)
 
-The shim above only handles POST/PUT/DELETE. Historically **GET forms** (search/filter forms with `method="GET"`) also navigated the full page when inside a Frame, because pre-#11668 the `rmx-target` attribute was never read from `<form>` elements, regardless of method. Post-#11668 GET forms are intercepted like links with no shim.
+The shim above only handles POST/PUT/DELETE. Historically **GET forms** (search/filter forms with `method="GET"`) also navigated the full page when inside a Frame, because pre-#11668 the `data-rmx-target` attribute was never read from `<form>` elements, regardless of method. Post-#11668 GET forms are intercepted like links with no shim.
 
 For GET forms, use `URLSearchParams` to serialize the form data and set the frame's `src` directly:
 
@@ -345,7 +345,7 @@ container.addEventListener('submit', async (e) => {
 
   let method = (form.method || 'GET').toUpperCase()
   let action = form.getAttribute('action') || ''
-  let target = form.getAttribute('rmx-target')
+  let target = form.getAttribute('data-rmx-target')
 
   let frame = target ? handle.frames.get(target) : handle.frame
   if (!frame) return
@@ -377,9 +377,9 @@ A per-form clientEntry (one per form inside the frame) duplicates interception l
 ### When to Use
 
 - Any Remix 3 app where a parent page uses `<Frame>` to show content with server-rendered forms
-- Applying native frame interception to a form via `rmx-target` (preferred as of #11668)
+- Applying native frame interception to a form via `data-rmx-target` (preferred as of #11668)
 - The route-agent page (or similar "agent/command bar" pattern) where forms inside the frame must not destroy the parent interface
-- Debugging "why does this form navigate away from my parent page?" inside a Frame — first check whether the runtime is post-#11668 and `rmx-target` is set
+- Debugging "why does this form navigate away from my parent page?" inside a Frame — first check whether the runtime is post-#11668 and `data-rmx-target` is set
 - Pre-#11668 builds, or custom fetch pipelines the native resolver can't express: use the legacy delegation shim
 
 ---
@@ -406,7 +406,7 @@ A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detect
 
 Reduce the number of `clientEntry` components within the Frame to stay below the 50 threshold:
 
-1. **Replace per-row clientEntry with server-rendered forms** — use standard `<form method="POST" rmx-target="<frame-name>" data-confirm="...">` instead of per-row `clientEntry` delete buttons
+1. **Replace per-row clientEntry with server-rendered forms** — use standard `<form method="POST" data-rmx-target="<frame-name>" data-confirm="...">` instead of per-row `clientEntry` delete buttons
 2. **Use event delegation** — a single `clientEntry` can handle all row actions via DOM event delegation (e.g., `target.closest('tr[data-row-id]')`)
 3. **Embed row data as JSON** in a `<script id="...-table-data" type="application/json">` tag for the delegated handler to read
 
@@ -415,7 +415,7 @@ Server-rendered forms inside a Frame need:
 - `<CsrfTokenInput />` for the CSRF token
 - `<input type="hidden" name="_method" value="DELETE" />` for method override (DELETE from POST form)
 - Hidden inputs for offset/sort/order/filter state
-- `rmx-target="<frame-name>"` for Frame-aware form submission without full page navigation
+- `data-rmx-target="<frame-name>"` for Frame-aware form submission without full page navigation
 - Redirect the destroy action to the grid fragment URL (e.g., `/client/grid`) not the full page URL (`/client`)
 
 ### When to Use
@@ -1050,7 +1050,7 @@ Remove duplicate mounts from `<Layout>` — `<Document>` is the single root wrap
 
 ---
 
-## rmx-document: Binary Downloads & Cross-Section Links
+## data-rmx-document: Binary Downloads & Cross-Section Links
 
 **Context:** Links inside Frame contexts to binary download endpoints or to a different Frame-relay section crash or freeze the browser when the frame router intercepts them.
 
@@ -1063,12 +1063,12 @@ Remix's frame router intercepts `<a>` clicks, fetches the URL with `Accept: text
 
 ### Solution
 
-The `rmx-document` attribute tells the Remix navigation runtime to skip frame interception for that link (`navigation.ts: if (linkElement.hasAttribute('rmx-document')) return`), forcing a normal document-level navigation:
+The `data-rmx-document` attribute tells the Remix navigation runtime to skip frame interception for that link (`navigation.ts: if (linkElement.hasAttribute('data-rmx-document')) return`), forcing a normal document-level navigation:
 
 ```tsx
-<a href={routes.export.pdf.index.href()} rmx-document>PDF herunterladen</a>
+<a href={routes.export.pdf.index.href()} data-rmx-document>PDF herunterladen</a>
 
-<a href={`/lists?load=${row.id}`} target="_top" rmx-document>{row.description}</a>
+<a href={`/lists?load=${row.id}`} target="_top" data-rmx-document>{row.description}</a>
 ```
 
 #### Guard the controller against frame requests
@@ -1088,9 +1088,9 @@ async index(context) {
 }
 ```
 
-#### Conditionally apply `rmx-document` in shared navigation
+#### Conditionally apply `data-rmx-document` in shared navigation
 
-For components rendered across sections (e.g., MainNav), apply `rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section:
+For components rendered across sections (e.g., MainNav), apply `data-rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section:
 
 ```typescript
 let currentPath = new URL(getContext().request.url).pathname
@@ -1104,7 +1104,7 @@ let isCrossSection = (href: string) => {
 ```
 
 ```tsx
-<a href={item.href} {...(item.href && isCrossSection(item.href) ? { 'rmx-document': '' } : {})}>
+<a href={item.href} {...(item.href && isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}>
   {item.label}
 </a>
 ```
@@ -1492,7 +1492,7 @@ When `current.value` differs from `next.value` (e.g. empty string vs "fritz"), t
 This affects:
 - Filter/search inputs with `defaultValue={filterParam}` on Frame-reloaded pages
 - Any form input that relies on `defaultValue` inside a Remix Frame
-- GET form submissions with `rmx-target` that navigate the frame
+- GET form submissions with `data-rmx-target` that navigate the frame
 
 ### Solution
 
@@ -1589,16 +1589,16 @@ from misplaced mixins, and `AssetServerCompilationError: IMPORT_NOT_ALLOWED`.
 
 ---
 
-## rmx-history Attribute — push vs replace
+## data-rmx-history Attribute — push vs replace
 
 **Context:** Controlling how a Frame or form navigation updates the browser's history entry, added in `b23ecbed2` (#11670, merged upstream 2026-08-12).
 
 ### Behavior
 
-`rmx-history="push" | "replace"` on `<a>`/`<form>` overrides the runtime's default history behavior. Resolution order lives in `navigation.ts` `getReplaceHistory`:
+`data-rmx-history="push" | "replace"` on `<a>`/`<form>` overrides the runtime's default history behavior. Resolution order lives in `navigation.ts` `getReplaceHistory`:
 
-- `rmx-history="replace"` → `replaceHistory = true`
-- `rmx-history="push"` → `replaceHistory = false`
+- `data-rmx-history="replace"` → `replaceHistory = true`
+- `data-rmx-history="push"` → `replaceHistory = false`
 - **No attribute** → the runtime default:
   - Links: `false` (push)
   - Non-GET forms whose destination equals the current URL: `true` (replace — avoids a duplicate entry); if a form submission targets a different URL it pushes
@@ -1608,7 +1608,7 @@ The `link` mixin exposes the same control as `link({ history: 'replace' })`, and
 
 ### Interaction with forms
 
-For a `<form method="post" rmx-target="...">` whose action equals the current frame URL, the runtime already replaces the history entry by default — a server 302 redirect loop (PRG) won't stack history entries. Use `rmx-history="push"` if you intentionally want the destination to occupy a new entry.
+For a `<form method="post" data-rmx-target="...">` whose action equals the current frame URL, the runtime already replaces the history entry by default — a server 302 redirect loop (PRG) won't stack history entries. Use `data-rmx-history="push"` if you intentionally want the destination to occupy a new entry.
 
 ### When to Use
 

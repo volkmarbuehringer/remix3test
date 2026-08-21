@@ -76,7 +76,7 @@ export function AdminNutzerEditPage(handle: Handle<AdminNutzerEditPageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <form method="POST" action={routes.admin.nutzer.update.href({ id: row.n_id })} novalidate rmx-target={frames.adminContent}>
+        <form method="POST" action={routes.admin.nutzer.update.href({ id: row.n_id })} novalidate data-rmx-target={frames.adminContent}>
           <input type="hidden" name="_method" value="PUT" />
           <CsrfTokenInput />
           <input type="hidden" name="_l_id" value={row.l_id} />

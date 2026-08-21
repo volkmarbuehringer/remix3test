@@ -132,7 +132,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method={method} action={action} novalidate rmx-target={frames.adminContent}>
+        <RestfulForm method={method} action={action} novalidate data-rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={gridState} />
 
           <div mix={table.panel}>

@@ -30,10 +30,10 @@ export function NavLink(handle: Handle<NavLinkProps>) {
     let resolvedHref = href ?? route?.href() ?? '#'
 
     let extra: Record<string, string | undefined> = {}
-    if (frameSrc) extra['rmx-src'] = frameSrc
-    if (frameTarget) extra['rmx-target'] = frameTarget
+    if (frameSrc) extra['data-rmx-src'] = frameSrc
+    if (frameTarget) extra['data-rmx-target'] = frameTarget
     if (isDocument) {
-      extra['rmx-document'] = ''
+      extra['data-rmx-document'] = ''
       extra['target'] = '_top'
     }
     if (dataTooltip) extra['data-tooltip'] = dataTooltip

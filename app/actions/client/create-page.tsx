@@ -72,7 +72,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action="/admin/client" rmx-target={frames.adminContent}>
+        <RestfulForm method="POST" action="/admin/client" data-rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

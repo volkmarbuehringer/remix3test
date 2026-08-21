@@ -75,7 +75,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
       <div mix={table.page}>
         <h1 mix={table.title}>Monatsauswertung</h1>
 
-        <form method="GET" action={BASE} rmx-target={frames.adminContent} mix={table.filterBar}>
+        <form method="GET" action={BASE} data-rmx-target={frames.adminContent} mix={table.filterBar}>
           <select name="year" mix={table.select}>
             {Array.from({ length: 5 }, (_, i) => {
               let y = curYear - 2 + i

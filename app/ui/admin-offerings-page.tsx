@@ -202,7 +202,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         <form
           method="GET"
           action={routes.verwaltung.offerings.index.href()}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
@@ -218,7 +218,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           {filter && (
             <a
               href={routes.verwaltung.offerings.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -251,7 +251,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 return (
                   <a
                     href={href}
-                    rmx-target={frames.adminContent}
+                    data-rmx-target={frames.adminContent}
                     mix={css({
                       '& button': {
                         paddingLeft: theme.space.sm,
@@ -295,7 +295,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               return (
                 <a
                   href={href}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={css({
                     '& button': {
                       paddingLeft: theme.space.xs,
@@ -328,7 +328,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               period,
               status,
             )}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -337,7 +337,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter, period, status)}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -390,7 +390,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Tag
@@ -411,7 +411,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -437,7 +437,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Zeitraum
@@ -460,7 +460,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -550,7 +550,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     period,
                     status,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -583,7 +583,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     period,
                     status,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

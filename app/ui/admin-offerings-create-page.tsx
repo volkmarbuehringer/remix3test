@@ -72,7 +72,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate rmx-target={frames.adminContent}>
+        <RestfulForm method="POST" action={routes.verwaltung.offerings.create.href()} novalidate data-rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 
           <div mix={table.panel}>

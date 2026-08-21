@@ -76,7 +76,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         <form
           method="GET"
           action={routes.verwaltung.resources.index.href()}
-          rmx-target={frames.adminContent}
+          data-rmx-target={frames.adminContent}
           mix={table.filterBar}
         >
           <input
@@ -92,7 +92,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           {filter && (
             <a
               href={routes.verwaltung.resources.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -101,7 +101,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            rmx-target={frames.adminContent}
+            data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -138,7 +138,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Name
@@ -157,7 +157,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Beschreibung
@@ -178,7 +178,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Erstellt
@@ -199,7 +199,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      rmx-target={frames.adminContent}
+                      data-rmx-target={frames.adminContent}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -290,7 +290,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   <Glyph
@@ -321,7 +321,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

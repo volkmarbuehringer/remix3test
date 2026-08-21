@@ -167,7 +167,7 @@ export const ListNameEdit = clientEntry(
                 if (!entry) return
                 if (target.closest('button, form, input, textarea')) return
 
-                let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
+                let link = target.closest('[data-rmx-target]') as HTMLAnchorElement | null
                 if (!link) return
 
                 let entryId = entry.getAttribute('data-list-id')
@@ -208,7 +208,7 @@ export const ListNameEdit = clientEntry(
                 if (!entry) return
                 if (e.key !== 'Enter' || e.shiftKey) return
 
-                let link = target.closest('[rmx-target]') as HTMLAnchorElement | null
+                let link = target.closest('[data-rmx-target]') as HTMLAnchorElement | null
                 if (!link) return
 
                 e.preventDefault()

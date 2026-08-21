@@ -89,7 +89,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="PUT" action={`/admin/client/${row.id}`} rmx-target={frames.adminContent}>
+        <RestfulForm method="PUT" action={`/admin/client/${row.id}`} data-rmx-target={frames.adminContent}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

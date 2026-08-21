@@ -44,9 +44,9 @@ When moving from admin frame sidebar to full-page `Layout`:
 
 - [ ] Replace `renderAdminPage(context.render, 'key', ...)` with `context.render(<Layout title="Page Title"><PageComponent ... /></Layout>)`
 - [ ] Import `Layout` from `app/ui/layout.tsx` instead of `renderAdminPage`
-- [ ] Remove all `rmx-target={frames.*}` attributes from links
+- [ ] Remove all `data-rmx-target={frames.*}` attributes from links
 - [ ] Remove `frames` import from page components
-- [ ] Change `<a rmx-target={...}>` to plain `<a href={...}>` (full page navigation)
+- [ ] Change `<a data-rmx-target={...}>` to plain `<a href={...}>` (full page navigation)
 
 ## Form Validation
 
@@ -63,7 +63,7 @@ After route relocation + validation upgrade, verify:
 - [ ] `npm run typecheck` passes
 - [ ] `npm test` — all tests pass
 - [ ] `grep -r "old/path" app/` returns no stale references
-- [ ] No `rmx-target` attributes remain in relocated page components
+- [ ] No `data-rmx-target` attributes remain in relocated page components
 - [ ] Every text input has `inputErrorStyle` + `fieldErrorStyle`
 - [ ] Required DB fields have corresponding `minLength(1)` in schema
 - [ ] DB error catch blocks re-render with user-friendly message (no re-throw)

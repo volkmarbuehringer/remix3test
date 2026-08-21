@@ -259,8 +259,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         <form
           method="GET"
           action={routes.admin.lists.index.href()}
-          rmx-target={frames.adminContent}
-          rmx-history="replace"
+          data-rmx-target={frames.adminContent}
+          data-rmx-history="replace"
           mix={filterBarStyle}
         >
           <input
@@ -276,7 +276,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           {filter && (
             <a
               href={routes.admin.lists.index.href()}
-              rmx-target={frames.adminContent}
+              data-rmx-target={frames.adminContent}
               mix={clearLinkStyle}
             >
               Zurücksetzen
@@ -338,7 +338,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <a
                             href={`/lists?load=${row.id}`}
                             target="_top"
-                            rmx-document
+                            data-rmx-document
                             mix={descLinkStyle}
                             title={row.description}
                           >
@@ -356,7 +356,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                           <form
                             method="POST"
                             action={routes.admin.lists.destroy.href({ id: row.id })}
-                            rmx-target={frames.adminContent}
+                            data-rmx-target={frames.adminContent}
                             data-confirm={`Liste #${row.id} (${items.length} Elemente) löschen?`}
                             mix={css({ margin: 0, padding: 0 })}
                           >
@@ -393,7 +393,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     'asc',
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
                   ← Neuere
@@ -408,7 +408,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     'asc',
                     filter,
                   )}
-                  rmx-target={frames.adminContent}
+                  data-rmx-target={frames.adminContent}
                   mix={pageLinkStyle}
                 >
                   Ältere →
