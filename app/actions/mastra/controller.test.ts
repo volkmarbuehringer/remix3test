@@ -137,7 +137,7 @@ const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.admin.supportAgent.index.href()}`
 const CHAT_ACTION_URL = `${BASE}${routes.admin.supportAgent.action.href()}`
 
-const JSON_HEADERS = { Accept: 'application/json' }
+const JSON_HEADERS = { Accept: 'application/json', 'X-Sse-Request': '1' }
 
 describe('Mastra Chat controller', () => {
   let adminCookie: string

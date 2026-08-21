@@ -598,6 +598,7 @@ export const TestAgentStream = clientEntry(
       try {
         let res = await fetch('/testagent', {
           method: 'POST',
+          headers: { 'X-Sse-Request': '1' },
           body: formData,
         })
         if (!res.ok) {
@@ -639,6 +640,7 @@ export const TestAgentStream = clientEntry(
 
         let res = await fetch('/testagent/answer', {
           method: 'POST',
+          headers: { 'X-Sse-Request': '1' },
           body,
         })
         if (!res.ok) {
@@ -678,6 +680,7 @@ export const TestAgentStream = clientEntry(
 
         let res = await fetch('/testagent/' + action, {
           method: 'POST',
+          headers: { 'X-Sse-Request': '1' },
           body,
         })
         if (!res.ok) {

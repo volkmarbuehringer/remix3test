@@ -295,7 +295,11 @@ export const WorkflowAgentStream = clientEntry(
       let signal = abortController.signal
 
       try {
-        let res = await fetch(url, { ...init, signal })
+        let res = await fetch(url, {
+          ...init,
+          signal,
+          headers: { 'X-Sse-Request': '1', ...(init.headers ?? {}) },
+        })
         if (!res.ok) {
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)

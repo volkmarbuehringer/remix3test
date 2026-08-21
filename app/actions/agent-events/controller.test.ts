@@ -778,6 +778,7 @@ describe('AgentEvents route (POST validation)', () => {
       headers: {
         Cookie: cookie,
         'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Sse-Request': '1',
       },
       body: body.toString(),
     })

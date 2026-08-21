@@ -36,7 +36,7 @@ describe('Test Agent controller', () => {
     body.set('message', '')
     let response = await router.fetch(TEST_AGENT_URL, {
       method: 'POST',
-      headers: { Cookie: adminCookie },
+      headers: { Cookie: adminCookie, 'X-Sse-Request': '1' },
       body,
     })
     assert.equal(response.status, 400)
@@ -49,7 +49,7 @@ describe('Test Agent controller', () => {
     body.set('message', 'Hello')
     let response = await router.fetch(TEST_AGENT_URL, {
       method: 'POST',
-      headers: { Cookie: adminCookie },
+      headers: { Cookie: adminCookie, 'X-Sse-Request': '1' },
       body,
     })
     let contentType = response.headers.get('Content-Type') || ''
