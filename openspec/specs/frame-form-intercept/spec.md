@@ -6,14 +6,14 @@ The support agent frame intercepts form submissions within its primary frame to 
 
 ### Requirement: Workflow agent relies on native frame form interception
 
-The workflow agent client entry SHALL NOT register its own generic frame form interception. Form submissions inside the workflow agent's frames SHALL be handled by the native Frame form navigation API driven by the form's `rmx-target` attribute.
+The workflow agent client entry SHALL NOT register its own generic frame form interception. Form submissions inside the workflow agent's frames SHALL be handled by the native Frame form navigation API driven by the form's `data-rmx-target` attribute.
 
 #### Scenario: Frame form submission inside the workflow agent uses native interception
 
 - **WHEN** a frame form (other than the agent's own `#workflow-agent-form`) is submitted inside the workflow agent's frame container
 - **THEN** the submission SHALL be processed by the native Frame form navigation API
 - **AND** no manual `submit` event interception SHALL prevent default behavior
-- **AND** the native handler SHALL navigate the frame named by the form's `rmx-target`
+- **AND** the native handler SHALL navigate the frame named by the form's `data-rmx-target`
 
 ### Requirement: Support agent intercepts frame form submissions
 
@@ -43,7 +43,7 @@ The support agent client entry SHALL register a `submit` event listener on its f
 
 - **WHEN** a form with `method="GET"` is submitted inside the frame
 - **THEN** the intercept SHALL NOT prevent default behavior
-- **AND** the form SHALL be handled by the native Frame Navigation API via `rmx-target`
+- **AND** the form SHALL be handled by the native Frame Navigation API via `data-rmx-target`
 
 #### Scenario: Concurrent submissions are blocked
 
@@ -77,7 +77,7 @@ When a frame form submission is intercepted and a pending agent question exists,
 
 ### Requirement: Grid filter form targets the admin content frame
 
-The grid filter form (a GET form with `action="/admin/client"`) in the admin client page SHALL declare `rmx-target="admin-content"` so its submission is a native frame navigation that reloads only the content frame instead of the top-level page.
+The grid filter form (a GET form with `action="/admin/client"`) in the admin client page SHALL declare `data-rmx-target="admin-content"` so its submission is a native frame navigation that reloads only the content frame instead of the top-level page.
 
 #### Scenario: Filter submission does not reload the top-level page
 
