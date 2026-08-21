@@ -17,9 +17,9 @@ Passing an array of IDs to `db.findMany({ where: { id: [1, 2, 3] } })` produces 
 error: ungültige Eingabesyntax für Typ integer: »{"1","2","3"}«
 ```
 
-## Solution (primary): `inList()` operator
+## Solution (primary): `inList()` operator — now vendor-covered
 
-The vendor data-table package exports the canonical array-membership operator `inList()` (`~/remix/packages/data-table/src/index.ts`, documented in the `data-and-validation` reference). `WhereInput` accepts a `Predicate` directly, so pass `inList(...)` as the whole `where` value — not as a nested `{ id: ... }` object:
+The canonical array-membership operator `inList()` is documented by the vendor `remix` skill itself in `references/data-and-validation.md` ("Operators" section, `remix/data-table/operators`). `WhereInput` accepts a `Predicate` directly, so pass `inList(...)` as the whole `where` value — not as a nested `{ id: ... }` object:
 
 ```typescript
 import { inList } from 'remix/data-table/operators'
@@ -30,7 +30,7 @@ let result = await db.findMany(lists, {
 })
 ```
 
-`inList(column, values)` builds an `IN` predicate (`valueType: 'value'`), so the adapter expands the values into a proper `IN` clause instead of a single array literal.
+`inList(column, values)` builds an `IN` predicate (`valueType: 'value'`), so the adapter expands the values into a proper `IN` clause instead of a single array literal. **Prefer the vendor-documented `inList()` for all multi-ID filtering.** The delta below is only for the case the vendor operator does not cover.
 
 ## Fallback (only when result order matters): `db.exec` + `= ANY($1)`
 
@@ -67,9 +67,9 @@ Key points:
 
 ## When to Use
 
-- Querying `db.findMany` or `db.findOne` with a multi-ID filter — use `where: inList('id', ids)`
-- Error message contains `ungültige Eingabesyntax für Typ integer` with a JSON array string like `'{"1","2","3"}'`
-- Results must be in the exact input-ID order — use the `db.exec` `array_position` variant
+- Querying `db.findMany` or `db.findOne` with a multi-ID filter — use `where: inList('id', ids)` (also documented in the vendor `remix` skill's `data-and-validation.md`)
+- Error message contains `ungültige Eingabesyntax für Typ integer` with a JSON array string like `'{"1","2","3"}'` — this means an array was passed as a single value instead of through `inList()`
+- Results must be in the exact input-ID order — use the `db.exec` `array_position` variant (the vendor `inList()` does not preserve input order)
 
 ## Related
 
