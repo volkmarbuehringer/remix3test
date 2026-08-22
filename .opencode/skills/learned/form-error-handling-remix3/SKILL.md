@@ -1,3 +1,8 @@
+---
+name: form-error-handling-remix3
+description: "Handle form validation errors in Remix 3 controllers and components — direct re-render with parseSafe from remix/data-schema, preserved form values, per-field errors, and grid state on 400 responses."
+---
+
 # Form Error Handling in Remix 3
 
 ## Overview

@@ -1,10 +1,10 @@
 import * as cp from 'node:child_process'
 import * as fs from 'node:fs'
-import * as fsPromise from 'node:fs/promises'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url))
+import { syncSkillFarm, syncVendorSkill } from './skills-sync-lib.ts'
+
 const PLAYWRIGHT_CLI_PATH = fileURLToPath(
   new URL('../node_modules/playwright/cli.js', import.meta.url),
 )
@@ -13,8 +13,8 @@ const PLAYWRIGHT_INSTALL_ARGS = ['install', '--only-shell', 'chromium', 'firefox
 const INSTALL_TIMEOUT_MS = 5 * 60 * 1000
 
 async function main() {
-  // Always sync vendor skill, regardless of CI or Playwright status
-  await syncRemixSkill()
+  // Always sync skills, regardless of CI or Playwright status
+  await syncSkills()
 
   if (process.env.CI) {
     return
@@ -56,47 +56,29 @@ async function main() {
   }
 
   // Sync vendor skill from @remix-run/cli
-  await syncRemixSkill()
+  await syncSkills()
 }
 
-async function syncRemixSkill() {
-  let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
-  let linkPath = path.join(PROJECT_ROOT, '.opencode/skills/remix')
-
+/**
+ * Link the vendor `remix` skill into both `.opencode/skills/remix` and
+ * `.agents/skills/remix`, and expose the repo's skills from
+ * `.opencode/skills/` (learned deltas plus top-level bundles such as
+ * `openspec-*`) as top-level `.agents/skills/` symlinks.
+ * Non-fatal on failure so package installation never breaks on skill sync.
+ */
+async function syncSkills() {
   try {
-    let remixLink = fs.readlinkSync(path.join(PROJECT_ROOT, 'node_modules/remix'))
-    let commitMatch = remixLink.match(/tar\.gz\+([a-f0-9]{7,})/)?.[1] || ''
-    let commitPrefix = commitMatch.slice(0, 9)
-
-    let entries = await fsPromise.readdir(pnpmDir)
-    let cliDir = entries.find((e) => e.startsWith('@remix-run+cli@') && e.includes(commitPrefix))
-    if (!cliDir) {
-      console.warn('@remix-run/cli not found in pnpm store, skipping skill sync.')
-      return
+    await syncVendorSkill()
+    let { created, removed } = await syncSkillFarm()
+    console.log('Linked remix vendor skill into .opencode/skills and .agents/skills.')
+    if (created.length > 0) {
+      console.log(`Linked skills into .agents/skills: ${created.join(', ')}`)
     }
-
-    let sourceDir = path.join(
-      pnpmDir,
-      cliDir,
-      'node_modules/@remix-run/cli/template/.agents/skills/remix',
-    )
-    if (!fs.existsSync(sourceDir)) {
-      console.warn('Vendor skill not found at', sourceDir)
-      return
+    if (removed.length > 0) {
+      console.log(`Removed stale skill links: ${removed.join(', ')}`)
     }
-
-    // Remove existing (file, dir, or broken symlink)
-    try {
-      let existing = fs.lstatSync(linkPath)
-      if (existing.isSymbolicLink() || existing.isDirectory() || existing.isFile()) {
-        fs.rmSync(linkPath, { recursive: true, force: true })
-      }
-    } catch {}
-
-    fs.symlinkSync(sourceDir, linkPath, 'dir')
-    console.log('Linked remix vendor skill.')
   } catch (error) {
-    console.warn('Failed to sync remix skill:', error)
+    console.warn('Failed to sync skills:', error)
   }
 }
 

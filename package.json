@@ -17,12 +17,12 @@
     "postinstall": "node ./scripts/postinstall.ts"
   },
   "dependencies": {
-    "@mastra/core": "^1.60.0",
-    "@mastra/evals": "^1.8.0",
+    "@mastra/core": "^1.61.0",
+    "@mastra/evals": "^1.9.0",
     "@mastra/loggers": "^1.2.0",
     "@mastra/memory": "^1.27.0",
     "@mastra/observability": "^1.17.1",
-    "@mastra/pg": "^1.21.0",
+    "@mastra/pg": "^1.21.1",
     "date-holidays": "^3.35.0",
     "nodemailer": "^9.0.5",
     "pdfmake": "^0.3.11",
@@ -37,7 +37,7 @@
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.23.1",
-    "mastra": "^1.25.1",
+    "mastra": "^1.26.0",
     "openspec": "latest",
     "oxfmt": "^0.64.0",
     "oxlint": "^1.79.0",
@@ -51,3 +51,4 @@
   "packageManager": "pnpm@11.21.0"
 }
 
+ 
