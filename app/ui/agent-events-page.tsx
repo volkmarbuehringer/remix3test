@@ -83,24 +83,13 @@ export function AgentEventsPage(handle: Handle) {
           src={routes.admin.agentEvents.panel.href()}
           fallback={
             <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
-              Event pipeline ready.
+              Loading pipeline…
             </div>
           }
         />
       </div>
 
-      <div id="ae-status-bar" mix={statusBarStyle}>
-        <div
-          style={{
-            padding: '0.25rem 0',
-            fontSize: '0.8125rem',
-            color: theme.colors.text.muted,
-            fontStyle: 'italic',
-          }}
-        >
-          Event pipeline ready.
-        </div>
-      </div>
+      <div id="ae-status-bar" mix={statusBarStyle} />
 
       <form id="agent-events-form" mix={inputBarStyle}>
         <textarea

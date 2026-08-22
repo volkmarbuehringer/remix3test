@@ -26,16 +26,89 @@ export const AgentEventsStream = clientEntry(
       if (bar) bar.innerHTML = ''
     }
 
-    function showInfo(text: string, isError?: boolean) {
+    type RowKind = 'success' | 'active' | 'info' | 'error'
+
+    function formatTime(ts: number): string {
+      return new Date(ts).toLocaleTimeString(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    }
+
+    function inferKind(text: string): RowKind {
+      let t = (text || '').trim()
+      if (t.startsWith('✓')) return 'success'
+      if (t.startsWith('▶')) return 'active'
+      if (t.startsWith('!')) return 'error'
+      return 'info'
+    }
+
+    function kindGlyph(kind: RowKind): string {
+      switch (kind) {
+        case 'success':
+          return '✓'
+        case 'active':
+          return '▶'
+        case 'error':
+          return '!'
+        default:
+          return '•'
+      }
+    }
+
+    function kindColor(kind: RowKind): string {
+      switch (kind) {
+        case 'success':
+          return theme.colors.success.background
+        case 'active':
+          return theme.colors.action.primary.background
+        case 'error':
+          return theme.colors.action.danger.background
+        default:
+          return theme.colors.text.muted
+      }
+    }
+
+    function showInfo(text: string, opts?: { kind?: RowKind }) {
       let bar = getStatusBar()
       if (!bar) return
-      let el = document.createElement('div')
-      el.textContent = text
-      el.style.fontSize = '0.8125rem'
-      el.style.color = isError ? theme.colors.action.danger.background : theme.colors.text.muted
-      el.style.padding = '0.25rem 0'
-      el.style.fontStyle = 'italic'
-      bar.appendChild(el)
+      let kind = opts?.kind ?? inferKind(text)
+
+      let row = document.createElement('div')
+      row.style.display = 'flex'
+      row.style.alignItems = 'baseline'
+      row.style.gap = '0.5rem'
+      row.style.padding = '0.25rem 0'
+      row.style.fontSize = '0.8125rem'
+      row.style.lineHeight = '1.4'
+
+      let glyph = document.createElement('span')
+      glyph.textContent = kindGlyph(kind)
+      glyph.style.flexShrink = '0'
+      glyph.style.width = '1rem'
+      glyph.style.textAlign = 'center'
+      glyph.style.fontWeight = '600'
+      glyph.style.color = kindColor(kind)
+
+      let time = document.createElement('span')
+      time.textContent = formatTime(Date.now())
+      time.style.flexShrink = '0'
+      time.style.minWidth = '4.5rem'
+      time.style.fontFamily = theme.fontFamily.mono
+      time.style.fontSize = '0.75rem'
+      time.style.color = theme.colors.text.muted
+
+      let message = document.createElement('span')
+      message.textContent = text
+      message.style.color =
+        kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
+      message.style.wordBreak = 'break-word'
+
+      row.appendChild(glyph)
+      row.appendChild(time)
+      row.appendChild(message)
+      bar.appendChild(row)
       bar.scrollTop = bar.scrollHeight
     }
 
@@ -150,14 +223,14 @@ export const AgentEventsStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
-          showInfo('Error: ' + msg, true)
+          showInfo('Error: ' + msg, { kind: 'error' })
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          showInfo('Error: no response body', true)
+          showInfo('Error: no response body', { kind: 'error' })
           setFormEnabled(true)
           return
         }
@@ -191,19 +264,19 @@ export const AgentEventsStream = clientEntry(
               let parsed = JSON.parse(data)
 
               if (eventType === 'status') {
-                showInfo(parsed.text || '')
+                showInfo(parsed.text || '', { kind: parsed.kind })
               } else if (eventType === 'confirm-required') {
                 showConfirmGate(parsed)
               } else if (eventType === 'navigate') {
                 let href = parsed.href as string
                 let target = (parsed.target as string) || 'agent-events-panel'
-                showInfo('Navigating to ' + href + '...')
+                showInfo('Navigating to ' + href + '...', { kind: 'info' })
                 let frame = target ? handle.frames.get(target) : handle.frame
                 if (frame) {
                   frame.src = href
                   frame.reload().then(
                     () => restoreFilterValue(href),
-                    (err) => showInfo('Navigation failed: ' + String(err), true),
+                    (err) => showInfo('Navigation failed: ' + String(err), { kind: 'error' }),
                   )
                   let historyMode = parsed.history as string
                   if (!historyMode || historyMode !== 'skip') {
@@ -215,7 +288,7 @@ export const AgentEventsStream = clientEntry(
                   }
                 }
               } else if (eventType === 'message') {
-                showInfo(parsed.text || '')
+                showInfo(parsed.text || '', { kind: 'info' })
               } else if (eventType === 'complete') {
                 if (_isResume) {
                   _isResume = false
@@ -224,7 +297,7 @@ export const AgentEventsStream = clientEntry(
                 setFormEnabled(true)
                 currentRunId = null
               } else if (eventType === 'agent-error') {
-                showInfo('Error: ' + (parsed.error || 'unknown'), true)
+                showInfo('Error: ' + (parsed.error || 'unknown'), { kind: 'error' })
                 setFormEnabled(true)
               }
             } catch {
@@ -236,7 +309,7 @@ export const AgentEventsStream = clientEntry(
         setFormEnabled(true)
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return
-        showInfo('Error: ' + String(err), true)
+        showInfo('Error: ' + String(err), { kind: 'error' })
         setFormEnabled(true)
       }
     }
@@ -255,7 +328,7 @@ export const AgentEventsStream = clientEntry(
       }
       setFormEnabled(false)
       clearStatusBar()
-      showInfo('Processing...')
+      showInfo('Processing…', { kind: 'active' })
 
       startStream('/admin/workflowagent2', { method: 'POST', body: formData })
     }

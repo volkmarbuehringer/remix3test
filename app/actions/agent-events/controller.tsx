@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { css } from 'remix/ui'
+import { css, type Handle } from 'remix/ui'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
@@ -28,6 +28,71 @@ let confirmRunIdCounter = 0
 function nextConfirmRunId(): string {
   confirmRunIdCounter++
   return `agent-events-${Date.now()}-${confirmRunIdCounter}`
+}
+
+function AgentEventsEmptyState(_handle: Handle) {
+  return () => (
+    <div
+      mix={css({
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        gap: theme.space.md,
+        padding: theme.space.xl,
+        textAlign: 'center',
+      })}
+    >
+      <svg
+        width="44"
+        height="44"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={theme.colors.text.muted}
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+      <div
+        mix={css({
+          fontSize: theme.fontSize.md,
+          fontWeight: theme.fontWeight.semibold,
+          color: theme.colors.text.primary,
+        })}
+      >
+        No agent events yet
+      </div>
+      <p
+        mix={css({
+          margin: 0,
+          maxWidth: '26rem',
+          fontSize: theme.fontSize.sm,
+          lineHeight: theme.lineHeight.relaxed,
+          color: theme.colors.text.muted,
+        })}
+      >
+        Send a command below to watch the event pipeline — input validation, intent classification,
+        entity resolution and confirmation gates will stream here.
+      </p>
+      <div
+        mix={css({
+          marginTop: theme.space.sm,
+          padding: `${theme.space.sm} ${theme.space.md}`,
+          borderRadius: theme.radius.md,
+          background: theme.surface.lvl1,
+          border: `1px solid ${theme.colors.border.subtle}`,
+          fontFamily: theme.fontFamily.mono,
+          fontSize: theme.fontSize.xs,
+          color: theme.colors.text.secondary,
+        })}
+      >
+        e.g. &quot;cancel user 42&quot; or &quot;show appointments&quot;
+      </div>
+    </div>
+  )
 }
 
 function createPipeline(
@@ -62,7 +127,7 @@ function createPipeline(
 
           switch (event.type) {
             case 'request.validated':
-              controller.enqueue(sseEvent('status', { text: '✓ Input validated' }))
+              controller.enqueue(sseEvent('status', { text: 'Input validated', kind: 'success' }))
               break
 
             case 'request.invalid':
@@ -71,7 +136,12 @@ function createPipeline(
               return
 
             case 'intent.classified':
-              controller.enqueue(sseEvent('status', { text: `✓ Intent resolved: ${event.intent}` }))
+              controller.enqueue(
+                sseEvent('status', {
+                  text: `Intent resolved: ${event.intent}`,
+                  kind: 'success',
+                }),
+              )
               break
 
             case 'intent.unclear':
@@ -81,7 +151,7 @@ function createPipeline(
               return
 
             case 'entities.resolved':
-              controller.enqueue(sseEvent('status', { text: `✓ Entities resolved` }))
+              controller.enqueue(sseEvent('status', { text: 'Entities resolved', kind: 'success' }))
               break
 
             case 'entities.notfound':
@@ -98,7 +168,7 @@ function createPipeline(
               return
 
             case 'action.running':
-              controller.enqueue(sseEvent('status', { text: `▶ ${event.summary}` }))
+              controller.enqueue(sseEvent('status', { text: event.summary, kind: 'active' }))
               break
 
             case 'navigate':
@@ -146,7 +216,9 @@ function createPipeline(
 
             case 'action.completed':
               if (event.success) {
-                controller.enqueue(sseEvent('status', { text: '✓ Action completed' }))
+                controller.enqueue(
+                  sseEvent('status', { text: 'Action completed', kind: 'success' }),
+                )
               } else {
                 controller.enqueue(
                   sseEvent('agent-error', { error: String(event.result.error || 'Action failed') }),
@@ -194,20 +266,7 @@ export default createController(routes.admin.agentEvents, {
     },
 
     async panel(context) {
-      return context.render(
-        <div
-          mix={css({
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: theme.colors.text.muted,
-            fontSize: '1rem',
-          })}
-        >
-          Event pipeline ready.
-        </div>,
-      )
+      return context.render(<AgentEventsEmptyState />)
     },
 
     async action(context) {
@@ -266,7 +325,9 @@ export default createController(routes.admin.agentEvents, {
 
                 case 'action.completed':
                   if (event.success) {
-                    controller.enqueue(sseEvent('status', { text: '✓ Action completed' }))
+                    controller.enqueue(
+                      sseEvent('status', { text: 'Action completed', kind: 'success' }),
+                    )
                   } else {
                     controller.enqueue(
                       sseEvent('agent-error', {
