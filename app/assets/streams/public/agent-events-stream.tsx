@@ -70,6 +70,82 @@ export const AgentEventsStream = clientEntry(
       }
     }
 
+    // ── Live pipeline rendered into the main frame ──────────────
+
+    let pipelineRows: { kind: RowKind; text: string; time: string }[] = []
+
+    function getPipelineFrame() {
+      let container = document.getElementById('agent-events-frame-container')
+      let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
+      return handle.frames.get(activeFrame)
+    }
+
+    function escapeHtml(raw: string): string {
+      return raw.replace(/[&<>"']/g, (c) => {
+        switch (c) {
+          case '&':
+            return '&amp;'
+          case '<':
+            return '&lt;'
+          case '>':
+            return '&gt;'
+          case '"':
+            return '&quot;'
+          default:
+            return '&#39;'
+        }
+      })
+    }
+
+    function renderPipeline() {
+      let frame = getPipelineFrame()
+      if (!frame || pipelineRows.length === 0) return
+      let body = pipelineRows
+        .map((r) => {
+          let badgeColor = kindColor(r.kind)
+          let textColor =
+            r.kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
+          return (
+            '<div style="display:flex;align-items:baseline;gap:.5rem;padding:.25rem 0;font-size:.8125rem;line-height:1.4">' +
+            '<span style="flex:0 0 1rem;text-align:center;font-weight:600;color:' +
+            badgeColor +
+            '">' +
+            escapeHtml(kindGlyph(r.kind)) +
+            '</span>' +
+            '<span style="flex:0 0 4.5rem;font-family:' +
+            theme.fontFamily.mono +
+            ';font-size:.75rem;color:' +
+            theme.colors.text.muted +
+            '">' +
+            escapeHtml(r.time) +
+            '</span>' +
+            '<span style="color:' +
+            textColor +
+            ';word-break:break-word">' +
+            escapeHtml(r.text) +
+            '</span>' +
+            '</div>'
+          )
+        })
+        .join('')
+      frame
+        .replace(
+          '<div style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:1rem 1.25rem;box-sizing:border-box">' +
+            body +
+            '</div>',
+        )
+        .catch(() => {})
+    }
+
+    function pushRow(text: string, kind: RowKind) {
+      pipelineRows.push({ kind, text, time: formatTime(Date.now()) })
+      renderPipeline()
+    }
+
+    function resetPipeline() {
+      pipelineRows = []
+    }
+
     function showInfo(text: string, opts?: { kind?: RowKind }) {
       let bar = getStatusBar()
       if (!bar) return
@@ -264,7 +340,7 @@ export const AgentEventsStream = clientEntry(
               let parsed = JSON.parse(data)
 
               if (eventType === 'status') {
-                showInfo(parsed.text || '', { kind: parsed.kind })
+                pushRow(parsed.text || '', (parsed.kind as RowKind) ?? inferKind(parsed.text || ''))
               } else if (eventType === 'confirm-required') {
                 showConfirmGate(parsed)
               } else if (eventType === 'navigate') {
@@ -288,7 +364,7 @@ export const AgentEventsStream = clientEntry(
                   }
                 }
               } else if (eventType === 'message') {
-                showInfo(parsed.text || '', { kind: 'info' })
+                pushRow(parsed.text || '', 'info')
               } else if (eventType === 'complete') {
                 if (_isResume) {
                   _isResume = false
@@ -297,7 +373,9 @@ export const AgentEventsStream = clientEntry(
                 setFormEnabled(true)
                 currentRunId = null
               } else if (eventType === 'agent-error') {
-                showInfo('Error: ' + (parsed.error || 'unknown'), { kind: 'error' })
+                let msg = 'Error: ' + (parsed.error || 'unknown')
+                pushRow(msg, 'error')
+                showInfo(msg, { kind: 'error' })
                 setFormEnabled(true)
               }
             } catch {
@@ -328,7 +406,8 @@ export const AgentEventsStream = clientEntry(
       }
       setFormEnabled(false)
       clearStatusBar()
-      showInfo('Processing…', { kind: 'active' })
+      resetPipeline()
+      pushRow('Processing…', 'active')
 
       startStream('/admin/workflowagent2', { method: 'POST', body: formData })
     }
