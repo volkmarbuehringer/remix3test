@@ -12,7 +12,7 @@ const csrfMiddleware = csrf({
 // cross-site form cannot set (see remix-security-middleware learned skill).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
-const AGENT_PATHS: Array<string | { prefix: string }> = [
+const AGENT_PATHS = [
   '/testagent',
   '/route-agent',
   '/admin/support-agent',
@@ -21,11 +21,7 @@ const AGENT_PATHS: Array<string | { prefix: string }> = [
 ]
 
 function isAgentPath(pathname: string): boolean {
-  return AGENT_PATHS.some((p) =>
-    typeof p === 'string'
-      ? pathname === p || pathname.startsWith(p + '/')
-      : pathname.startsWith(p.prefix),
-  )
+  return AGENT_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 }
 
 // Server-to-server / token-authenticated endpoints that must stay CSRF-free
@@ -49,7 +45,10 @@ export function skipCsrf(): Middleware {
       // Block cross-site <form> POSTs: forms cannot set custom headers.
       // GET requests (page loads, EventSource streams) are read-only and
       // carry no CSRF risk, so they pass through.
-      if (context.request.method !== 'GET' && context.request.headers.get(SSE_REQUEST_HEADER) !== '1') {
+      if (
+        context.request.method !== 'GET' &&
+        context.request.headers.get(SSE_REQUEST_HEADER) !== '1'
+      ) {
         return new Response('Forbidden', { status: 403 })
       }
       return next()

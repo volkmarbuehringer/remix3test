@@ -518,7 +518,7 @@ export const SupportAgentStream = clientEntry(
       appendStatusMessage('Formular wird gesendet...')
 
       try {
-        let headers: Record<string, string> = {}
+        let headers: Record<string, string> = { 'X-Sse-Request': '1' }
         if (currentThreadId) headers['X-Agent-Thread'] = currentThreadId
         let res = await fetch(form.action, {
           method: form.method || 'POST',

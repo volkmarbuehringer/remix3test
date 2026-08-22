@@ -60,6 +60,24 @@ describe('Test Agent controller', () => {
     }
   })
 
+  it('POST /testagent without X-Sse-Request header returns 403 (CSRF guard)', async () => {
+    let body = new FormData()
+    body.set('message', 'Hello')
+    let response = await router.fetch(TEST_AGENT_URL, {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+      body,
+    })
+    assert.equal(response.status, 403)
+  })
+
+  it('GET /testagent with X-Sse-Request header returns 200 when authenticated', async () => {
+    let response = await router.fetch(TEST_AGENT_URL, {
+      headers: { Cookie: adminCookie, 'X-Sse-Request': '1' },
+    })
+    assert.equal(response.status, 200)
+  })
+
   it('GET /testagent/stream/nonexistent redirects when not authenticated', async () => {
     let response = await router.fetch(`${TEST_AGENT_URL}/stream/nonexistent-run-id`, {
       redirect: 'manual',

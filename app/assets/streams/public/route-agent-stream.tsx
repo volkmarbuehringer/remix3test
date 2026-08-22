@@ -393,7 +393,7 @@ export const RouteAgentStream = clientEntry(
       setBarText('Submitting form...')
 
       try {
-        let headers: Record<string, string> = {}
+        let headers: Record<string, string> = { 'X-Sse-Request': '1' }
         headers['X-Agent-Thread'] = currentThreadId
         let res = await fetch(form.action, {
           method: 'POST',
