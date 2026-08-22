@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { html } from 'remix/html-template'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 
@@ -80,59 +81,33 @@ export const AgentEventsStream = clientEntry(
       return handle.frames.get(activeFrame)
     }
 
-    function escapeHtml(raw: string): string {
-      return raw.replace(/[&<>"']/g, (c) => {
-        switch (c) {
-          case '&':
-            return '&amp;'
-          case '<':
-            return '&lt;'
-          case '>':
-            return '&gt;'
-          case '"':
-            return '&quot;'
-          default:
-            return '&#39;'
-        }
-      })
-    }
-
     function renderPipeline() {
       let frame = getPipelineFrame()
       if (!frame || pipelineRows.length === 0) return
-      let body = pipelineRows
-        .map((r) => {
-          let badgeColor = kindColor(r.kind)
-          let textColor =
-            r.kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
-          return (
-            '<div style="display:flex;align-items:baseline;gap:.5rem;padding:.25rem 0;font-size:.8125rem;line-height:1.4">' +
-            '<span style="flex:0 0 1rem;text-align:center;font-weight:600;color:' +
-            badgeColor +
-            '">' +
-            escapeHtml(kindGlyph(r.kind)) +
-            '</span>' +
-            '<span style="flex:0 0 4.5rem;font-family:' +
-            theme.fontFamily.mono +
-            ';font-size:.75rem;color:' +
-            theme.colors.text.muted +
-            '">' +
-            escapeHtml(r.time) +
-            '</span>' +
-            '<span style="color:' +
-            textColor +
-            ';word-break:break-word">' +
-            escapeHtml(r.text) +
-            '</span>' +
-            '</div>'
-          )
-        })
-        .join('')
+      let body = pipelineRows.map((r) => {
+        let badgeColor = kindColor(r.kind)
+        let textColor =
+          r.kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
+        return html`<div
+          style="display:flex;align-items:baseline;gap:.5rem;padding:.25rem 0;font-size:.8125rem;line-height:1.4"
+        >
+          <span style="flex:0 0 1rem;text-align:center;font-weight:600;color:${badgeColor}"
+            >${kindGlyph(r.kind)}</span
+          ><span
+            style="flex:0 0 4.5rem;font-family:${theme.fontFamily.mono};font-size:.75rem;color:${theme.colors.text.muted}"
+            >${r.time}</span
+          ><span style="color:${textColor};word-break:break-word">${r.text}</span>
+        </div>`
+      })
       frame
         .replace(
-          '<div style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:1rem 1.25rem;box-sizing:border-box">' +
-            body +
-            '</div>',
+          String(
+            html`<div
+              style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:1rem 1.25rem;box-sizing:border-box"
+            >
+              ${body}
+            </div>`,
+          ),
         )
         .catch(() => {})
     }
