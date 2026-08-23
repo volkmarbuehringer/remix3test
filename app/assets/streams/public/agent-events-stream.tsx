@@ -1,14 +1,22 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
-import { html } from 'remix/html-template'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
+import {
+  formatTime,
+  inferKind,
+  kindGlyph,
+  kindColor,
+  pipelineLogHtml,
+  type PipelineRow,
+  type RowKind,
+} from '../../../ui/agent-events-log.ts'
 
 export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',
   function AgentEventsStream(handle: Handle) {
     let abortController: AbortController | null = null
-    let currentRunId: string | null = null
     let _isResume = false
+    let didNavigate = false
     let autoGrowReset: (() => void) | null = null
 
     function getStatusBar() {
@@ -27,53 +35,9 @@ export const AgentEventsStream = clientEntry(
       if (bar) bar.innerHTML = ''
     }
 
-    type RowKind = 'success' | 'active' | 'info' | 'error'
-
-    function formatTime(ts: number): string {
-      return new Date(ts).toLocaleTimeString(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      })
-    }
-
-    function inferKind(text: string): RowKind {
-      let t = (text || '').trim()
-      if (t.startsWith('✓')) return 'success'
-      if (t.startsWith('▶')) return 'active'
-      if (t.startsWith('!')) return 'error'
-      return 'info'
-    }
-
-    function kindGlyph(kind: RowKind): string {
-      switch (kind) {
-        case 'success':
-          return '✓'
-        case 'active':
-          return '▶'
-        case 'error':
-          return '!'
-        default:
-          return '•'
-      }
-    }
-
-    function kindColor(kind: RowKind): string {
-      switch (kind) {
-        case 'success':
-          return theme.colors.success.background
-        case 'active':
-          return theme.colors.action.primary.background
-        case 'error':
-          return theme.colors.action.danger.background
-        default:
-          return theme.colors.text.muted
-      }
-    }
-
     // ── Live pipeline rendered into the main frame ──────────────
 
-    let pipelineRows: { kind: RowKind; text: string; time: string }[] = []
+    let pipelineRows: PipelineRow[] = []
 
     function getPipelineFrame() {
       let container = document.getElementById('agent-events-frame-container')
@@ -84,37 +48,22 @@ export const AgentEventsStream = clientEntry(
     function renderPipeline() {
       let frame = getPipelineFrame()
       if (!frame || pipelineRows.length === 0) return
-      let body = pipelineRows.map((r) => {
-        let badgeColor = kindColor(r.kind)
-        let textColor =
-          r.kind === 'error' ? theme.colors.action.danger.background : theme.colors.text.primary
-        return html`<div
-          style="display:flex;align-items:baseline;gap:.5rem;padding:.25rem 0;font-size:.8125rem;line-height:1.4"
-        >
-          <span style="flex:0 0 1rem;text-align:center;font-weight:600;color:${badgeColor}"
-            >${kindGlyph(r.kind)}</span
-          ><span
-            style="flex:0 0 4.5rem;font-family:${theme.fontFamily.mono};font-size:.75rem;color:${theme.colors.text.muted}"
-            >${r.time}</span
-          ><span style="color:${textColor};word-break:break-word">${r.text}</span>
-        </div>`
-      })
       frame
-        .replace(
-          String(
-            html`<div
-              style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:1rem 1.25rem;box-sizing:border-box"
-            >
-              ${body}
-            </div>`,
-          ),
-        )
+        .replace(String(pipelineLogHtml(pipelineRows)))
+        .then(() => {
+          let logEl = document.getElementById('ae-pipeline-log')
+          if (logEl) logEl.scrollTop = logEl.scrollHeight
+        })
         .catch(() => {})
     }
 
     function pushRow(text: string, kind: RowKind) {
       pipelineRows.push({ kind, text, time: formatTime(Date.now()) })
-      renderPipeline()
+      if (didNavigate || !getPipelineFrame()) {
+        showInfo(text, { kind })
+      } else {
+        renderPipeline()
+      }
     }
 
     function resetPipeline() {
@@ -319,6 +268,7 @@ export const AgentEventsStream = clientEntry(
               } else if (eventType === 'confirm-required') {
                 showConfirmGate(parsed)
               } else if (eventType === 'navigate') {
+                didNavigate = true
                 let href = parsed.href as string
                 let target = (parsed.target as string) || 'agent-events-panel'
                 showInfo('Navigating to ' + href + '...', { kind: 'info' })
@@ -341,12 +291,11 @@ export const AgentEventsStream = clientEntry(
               } else if (eventType === 'message') {
                 pushRow(parsed.text || '', 'info')
               } else if (eventType === 'complete') {
-                if (_isResume) {
+                if (_isResume && didNavigate) {
                   _isResume = false
                   reloadActiveFrame()
                 }
                 setFormEnabled(true)
-                currentRunId = null
               } else if (eventType === 'agent-error') {
                 let msg = 'Error: ' + (parsed.error || 'unknown')
                 pushRow(msg, 'error')
@@ -380,6 +329,7 @@ export const AgentEventsStream = clientEntry(
         autoGrowReset?.()
       }
       setFormEnabled(false)
+      didNavigate = false
       clearStatusBar()
       resetPipeline()
       pushRow('Processing…', 'active')
