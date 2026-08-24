@@ -35,11 +35,13 @@ const listItemSchema = s.object({
 })
 
 const listsCreateSchema = s.object({
+  title: s.optional(s.string().pipe(maxLength(200))),
   description: s.string().pipe(minLength(1), maxLength(500)),
   items: s.array(listItemSchema),
 })
 
 const listsPatchSchema = s.object({
+  title: s.optional(s.string().pipe(minLength(1), maxLength(200))),
   description: s.optional(s.string().pipe(minLength(1), maxLength(500))),
   items: s.optional(s.array(listItemSchema)),
 })
@@ -73,7 +75,7 @@ export default createController(routes.lists, {
         let rows = await getListsByIds(context.db, ids, listUserId)
         sidebarEntries = rows.map((row) => ({
           id: `list:${row.id}` as ListsNavItem,
-          label: row.description,
+          label: row.title || row.description,
           count: Array.isArray(row.list) ? row.list.length : 0,
           doneCount: Array.isArray(row.list)
             ? row.list.filter((item) => item.done === true).length
@@ -89,7 +91,7 @@ export default createController(routes.lists, {
 
         sidebarEntries = result.data.map((row) => ({
           id: `list:${row.id}` as ListsNavItem,
-          label: row.description,
+          label: row.title || row.description,
           count: Array.isArray(row.list) ? row.list.length : 0,
           doneCount: Array.isArray(row.list)
             ? row.list.filter((item) => item.done === true).length
@@ -111,6 +113,7 @@ export default createController(routes.lists, {
             activeItem = `list:${listId}` as ListsNavItem
             initialState = {
               id: row.id,
+              title: row.title,
               description: row.description,
               items: row.list,
               updated_at: row.updated_at,
@@ -151,7 +154,7 @@ export default createController(routes.lists, {
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = parseResult.value
+      let { title, description, items } = parseResult.value
 
       if (!description.trim()) {
         return context.json({ error: 'Description is required' }, { status: 400 })
@@ -161,9 +164,10 @@ export default createController(routes.lists, {
         return context.json({ error: 'Items array must not be empty' }, { status: 400 })
       }
 
-      let row = await createList(context.db, { description, items }, user.id)
+      let row = await createList(context.db, { title, description, items }, user.id)
       return context.json({
         id: row.id,
+        title: row.title,
         description: row.description,
         items: row.list,
         updated_at: row.updated_at,
@@ -198,10 +202,13 @@ export default createController(routes.lists, {
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = parseResult.value
+      let { title, description, items } = parseResult.value
 
-      if (description === undefined && items === undefined) {
-        return context.json({ error: 'At least description or items is required' }, { status: 400 })
+      if (title === undefined && description === undefined && items === undefined) {
+        return context.json(
+          { error: 'At least title, description or items is required' },
+          { status: 400 },
+        )
       }
 
       if (items !== undefined && items.length === 0) {
@@ -209,9 +216,11 @@ export default createController(routes.lists, {
       }
 
       let partial: {
+        title?: string
         description?: string
         items?: Array<{ id?: string; label: string; done?: boolean }>
       } = {}
+      if (title !== undefined) partial.title = title
       if (description !== undefined) partial.description = description
       if (items !== undefined) partial.items = items
 
@@ -230,6 +239,7 @@ export default createController(routes.lists, {
         return context.json(
           {
             id: result.current.id,
+            title: result.current.title,
             description: result.current.description,
             items: result.current.list,
             updated_at: result.current.updated_at,
@@ -240,6 +250,7 @@ export default createController(routes.lists, {
 
       return context.json({
         id: result.row.id,
+        title: result.row.title,
         description: result.row.description,
         items: result.row.list,
         updated_at: result.row.updated_at,
@@ -301,6 +312,7 @@ export default createController(routes.lists, {
         return context.json(
           {
             id: result.current.id,
+            title: result.current.title,
             description: result.current.description,
             items: result.current.list,
             updated_at: result.current.updated_at,
@@ -324,12 +336,14 @@ export default createController(routes.lists, {
       return context.json({
         source: {
           id: result.source.id,
+          title: result.source.title,
           description: result.source.description,
           items: result.source.list,
           updated_at: result.source.updated_at,
         },
         target: {
           id: result.target.id,
+          title: result.target.title,
           description: result.target.description,
           items: result.target.list,
           updated_at: result.target.updated_at,

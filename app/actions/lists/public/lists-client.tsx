@@ -5,6 +5,7 @@ import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 
 import button from '../../../ui/theme/button.ts'
 import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.ts'
+import { syncSidebarRow } from './sidebar-sync.ts'
 
 type ListItem = {
   id: string
@@ -14,6 +15,7 @@ type ListItem = {
 
 type ListInitialState = {
   id: number
+  title: string
   description: string
   items: Array<{ id: string; label: string; done?: boolean }>
   updated_at: number
@@ -27,6 +29,7 @@ export const ListsClient = clientEntry(
   import.meta.url + '#ListsClient',
   function ListsClient(handle: Handle<{ initialState?: ListInitialState | null }>) {
     let items: ListItem[] = []
+    let title = ''
     let description = ''
     let newItemLabel = ''
     let loadedListId: number | null = null
@@ -65,14 +68,65 @@ export const ListsClient = clientEntry(
     type ConflictState = { show: boolean; serverState: ListInitialState | null }
     let conflictState: ConflictState = { show: false, serverState: null }
 
-    // Track whether items or description are dirty
+    // Undo + inline-confirm state
+    let undoSnapshot: ListItem[] | null = null
+    let undoTimer: ReturnType<typeof setTimeout> | null = null
+    let undoKind: 'delete' | 'clear' | null = null
+    let clearArmed = false
+    let clearArmTimer: ReturnType<typeof setTimeout> | null = null
+
+    let clearUndo = () => {
+      if (undoTimer) clearTimeout(undoTimer)
+      undoTimer = null
+      undoSnapshot = null
+      undoKind = null
+      handle.update()
+    }
+
+    let showUndo = (kind: 'delete' | 'clear', snapshot: ListItem[]) => {
+      if (undoTimer) clearTimeout(undoTimer)
+      undoSnapshot = snapshot
+      undoKind = kind
+      handle.update()
+      undoTimer = setTimeout(() => {
+        undoSnapshot = null
+        undoKind = null
+        undoTimer = null
+        handle.update()
+      }, 6000)
+    }
+
+    let undo = () => {
+      if (undoSnapshot === null) return
+      items = undoSnapshot.map((item) => ({ ...item }))
+      clearUndo()
+      setDirty()
+      handle.update()
+      scheduleAutosave(true)
+    }
+
+    let disarmClear = () => {
+      if (clearArmTimer) clearTimeout(clearArmTimer)
+      clearArmTimer = null
+      if (clearArmed) {
+        clearArmed = false
+        handle.update()
+      }
+    }
+
+    // Track whether items, title or description are dirty
+    let cleanTitle = ''
     let cleanDescription = ''
     let cleanItemsJSON = ''
     let snapshotClean = () => {
+      cleanTitle = title
       cleanDescription = description
       cleanItemsJSON = JSON.stringify(items)
     }
-    let isDirty = () => description !== cleanDescription || JSON.stringify(items) !== cleanItemsJSON
+    let isDirty = () =>
+      title !== cleanTitle ||
+      description !== cleanDescription ||
+      JSON.stringify(items) !== cleanItemsJSON
 
     let setDirty = () => {
       if (!isDirty()) return
@@ -151,7 +205,7 @@ export const ListsClient = clientEntry(
           let response = await fetch('/lists', {
             method: 'POST',
             headers: getCsrfHeaders(),
-            body: JSON.stringify({ description, items }),
+            body: JSON.stringify({ title, description, items }),
           })
           if (response.ok) {
             let data = await response.json()
@@ -185,17 +239,19 @@ export const ListsClient = clientEntry(
         saveStatus = 'saving'
         handle.update()
         // Capture snapshot at send time to detect drift during the await
+        let sentTitle = title
         let sentDesc = description
         let sentItemsJSON = JSON.stringify(items)
         let ok = false
         try {
           let partial: Record<string, unknown> = {}
           if (isDirty()) {
+            if (title !== cleanTitle) partial.title = title
             if (description !== cleanDescription) partial.description = description
             if (sentItemsJSON !== cleanItemsJSON) partial.items = items
           } else {
             // Fall back to sending full if nothing explicitly changed
-            partial = { description, items }
+            partial = { title, description, items }
           }
           let response = await fetch(`/lists/${loadedListId}`, {
             method: 'PUT',
@@ -206,7 +262,10 @@ export const ListsClient = clientEntry(
             let data = await response.json()
             loadedUpdatedAt = typeof data.updated_at === 'number' ? data.updated_at : null
             // If the user kept typing during the save, mark dirty and reschedule
-            let drifted = description !== sentDesc || JSON.stringify(items) !== sentItemsJSON
+            let drifted =
+              title !== sentTitle ||
+              description !== sentDesc ||
+              JSON.stringify(items) !== sentItemsJSON
             if (drifted) {
               saveStatus = 'dirty'
               scheduleAutosave()
@@ -217,6 +276,7 @@ export const ListsClient = clientEntry(
             }
             // Apply server echo only if nothing drifted
             if (data.items) items = data.items
+            if (data.title !== undefined) title = data.title
             if (data.description !== undefined) description = data.description
             ok = true
           } else if (response.status === 409) {
@@ -225,6 +285,7 @@ export const ListsClient = clientEntry(
               show: true,
               serverState: {
                 id: server.id,
+                title: server.title,
                 description: server.description,
                 items: server.items,
                 updated_at: server.updated_at,
@@ -241,6 +302,7 @@ export const ListsClient = clientEntry(
         if (ok) {
           snapshotClean()
           saveStatus = 'saved'
+          syncEditorSidebar()
           handle.update()
           return true
         } else {
@@ -249,6 +311,38 @@ export const ListsClient = clientEntry(
           return false
         }
       }
+    }
+
+    // Push the current editor state into the matching sidebar row so the
+    // sidebar's title / count stay in sync without a full frame reload.
+    let syncEditorSidebar = () => {
+      if (loadedListId === null) return
+      let label = title.trim() || description.trim() || `Liste #${loadedListId}`
+      syncSidebarRow(loadedListId, {
+        label,
+        count: items.length,
+        doneCount: items.filter((item) => item.done === true).length,
+        updatedAt: loadedUpdatedAt ?? undefined,
+      })
+    }
+
+    // The pencil rename in the sidebar edits the list title directly. Adopt it
+    // here (and refresh the sidebar) so the editor's title input stays consistent.
+    if (typeof window !== 'undefined') {
+      window.addEventListener(
+        'lists:title-changed',
+        (e) => {
+          let d = (e as CustomEvent).detail as { listId?: number; title?: string } | undefined
+          if (!d || d.listId !== loadedListId || typeof d.title !== 'string') return
+          title = d.title
+          cleanTitle = d.title
+          let input = document.getElementById('lists-title') as HTMLInputElement | null
+          if (input) input.value = d.title
+          handle.update()
+          syncEditorSidebar()
+        },
+        { signal: handle.signal },
+      )
     }
 
     let scheduleAutosave = (fast = false) => {
@@ -283,6 +377,7 @@ export const ListsClient = clientEntry(
     // Hydrate from server-injected initial state
     let hydrateFromInitialState = (state: ListInitialState) => {
       items = state.items.map((item) => ({ ...item }))
+      title = state.title ?? ''
       description = state.description
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
@@ -322,6 +417,7 @@ export const ListsClient = clientEntry(
       }
       // No initial state: start new
       items = []
+      title = ''
       description = ''
       loadedListId = null
       loadedUpdatedAt = null
@@ -570,6 +666,7 @@ export const ListsClient = clientEntry(
             show: true,
             serverState: {
               id: server.id,
+              title: server.title,
               description: server.description,
               items: server.items,
               updated_at: server.updated_at,
@@ -597,13 +694,25 @@ export const ListsClient = clientEntry(
     }
 
     let clearAll = () => {
-      if (!confirm('Alle Elemente löschen? Dies kann nicht rückgängig gemacht werden.')) return
+      if (!clearArmed) {
+        clearArmed = true
+        if (clearArmTimer) clearTimeout(clearArmTimer)
+        clearArmTimer = setTimeout(() => disarmClear(), 4000)
+        handle.update()
+        return
+      }
+      disarmClear()
+      showUndo(
+        'clear',
+        items.map((item) => ({ ...item })),
+      )
       items = []
       setDirty()
       handle.update()
     }
 
     let addItem = () => {
+      disarmClear()
       if (!newItemLabel.trim()) return
       // Use crypto.randomUUID() for stable client-side id
       let newItem: ListItem = {
@@ -620,6 +729,13 @@ export const ListsClient = clientEntry(
     }
 
     let deleteItem = (index: number) => {
+      disarmClear()
+      let removed = items[index]
+      if (!removed) return
+      showUndo(
+        'delete',
+        items.map((item) => ({ ...item })),
+      )
       // Simply filter — no id rewriting
       items = items.filter((_, i) => i !== index)
       setDirty()
@@ -627,6 +743,7 @@ export const ListsClient = clientEntry(
     }
 
     let toggleDone = (index: number) => {
+      disarmClear()
       items = items.map((item, i) =>
         i === index ? { ...item, done: !(item.done === true) } : item,
       )
@@ -636,6 +753,7 @@ export const ListsClient = clientEntry(
     }
 
     let moveItem = (from: number, to: number) => {
+      disarmClear()
       if (from < 0 || from >= items.length) return
       if (to < 0 || to >= items.length) return
       if (from === to) return
@@ -651,12 +769,14 @@ export const ListsClient = clientEntry(
     let moveDown = (index: number) => moveItem(index, index + 1)
 
     let reverse = () => {
+      disarmClear()
       items = [...items].reverse()
       setDirty()
       handle.update()
     }
 
     let shuffle = () => {
+      disarmClear()
       let newItems = [...items]
       for (let i = newItems.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1))
@@ -717,6 +837,7 @@ export const ListsClient = clientEntry(
       if (!isDirty()) return
       if (loadedListId === null) return
       let partial: Record<string, unknown> = {}
+      if (title !== cleanTitle) partial.title = title
       if (description !== cleanDescription) partial.description = description
       if (JSON.stringify(items) !== cleanItemsJSON) partial.items = items
       if (Object.keys(partial).length === 0) return
@@ -960,6 +1081,36 @@ export const ListsClient = clientEntry(
             </div>
           )}
 
+          {/* Undo chip */}
+          {undoSnapshot !== null && (
+            <div
+              mix={css({
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.space.md,
+                marginBottom: theme.space.md,
+                padding: `${theme.space.sm} ${theme.space.md}`,
+                borderRadius: theme.radius.md,
+                backgroundColor: theme.surface.lvl2,
+                border: `1px solid ${theme.colors.border.default}`,
+                fontSize: theme.fontSize.sm,
+              })}
+            >
+              <span mix={css({ flex: 1 })}>
+                {undoKind === 'clear' ? 'Alle Elemente gelöscht.' : 'Element gelöscht.'}
+              </span>
+              <button
+                mix={[
+                  button({ tone: 'secondary' }),
+                  css({ fontSize: theme.fontSize.xs }),
+                  on('click', undo),
+                ]}
+              >
+                ↶ Rückgängig
+              </button>
+            </div>
+          )}
+
           {/* Control bar */}
           <div
             mix={css({
@@ -970,13 +1121,38 @@ export const ListsClient = clientEntry(
               alignItems: 'center',
             })}
           >
+            {loadedListId === null ? (
+              <button
+                mix={[
+                  button({ tone: 'primary' }),
+                  on('click', () => {
+                    saveNow()
+                  }),
+                ]}
+                disabled={!description.trim() || items.length === 0 || saving}
+              >
+                + Liste hinzufügen
+              </button>
+            ) : (
+              <button
+                mix={[
+                  button({ tone: 'primary' }),
+                  on('click', () => {
+                    flushNow()
+                  }),
+                ]}
+                disabled={!isDirty() || saving}
+              >
+                Speichern
+              </button>
+            )}
             <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>↺ Umkehren</button>
-            <button mix={[button({ tone: 'primary' }), on('click', shuffle)]}>⇄ Mischen</button>
+            <button mix={[button({ tone: 'secondary' }), on('click', shuffle)]}>⇄ Mischen</button>
             <button
               mix={[button({ tone: 'danger' }), on('click', clearAll)]}
               disabled={items.length === 0}
             >
-              ✕ Alle löschen
+              {clearArmed ? 'Wirklich alle löschen?' : '✕ Alle löschen'}
             </button>
 
             {/* Status pill */}
@@ -993,36 +1169,6 @@ export const ListsClient = clientEntry(
             >
               {statusLabel()}
             </span>
-
-            {/* Demoted manual flush buttons — escape hatch */}
-            {loadedListId !== null && (
-              <button
-                mix={[
-                  button({ tone: 'secondary' }),
-                  css({ fontSize: theme.fontSize.xs }),
-                  on('click', () => {
-                    flushNow()
-                  }),
-                ]}
-                disabled={!isDirty() || saving}
-              >
-                Aktualisieren
-              </button>
-            )}
-            {loadedListId === null && (
-              <button
-                mix={[
-                  button({ tone: 'secondary' }),
-                  css({ fontSize: theme.fontSize.xs }),
-                  on('click', () => {
-                    saveNow()
-                  }),
-                ]}
-                disabled={!description.trim() || items.length === 0 || saving}
-              >
-                Hinzufügen
-              </button>
-            )}
           </div>
 
           {/* Keyboard hint + live region */}
@@ -1052,6 +1198,63 @@ export const ListsClient = clientEntry(
               }),
             ]}
           />
+
+          {/* Title input */}
+          <div
+            mix={css({
+              marginBottom: theme.space.md,
+            })}
+          >
+            <label
+              mix={css({
+                display: 'block',
+                fontSize: theme.fontSize.xs,
+                fontWeight: theme.fontWeight.semibold,
+                color: theme.colors.text.muted,
+                marginBottom: theme.space.xs,
+              })}
+              htmlFor="lists-title"
+            >
+              Titel
+            </label>
+            <input
+              id="lists-title"
+              mix={[
+                css({
+                  width: '100%',
+                  padding: `${theme.space.sm} ${theme.space.md}`,
+                  borderRadius: theme.radius.md,
+                  border: `1px solid ${theme.colors.border.strong}`,
+                  fontSize: theme.fontSize.md,
+                  fontWeight: theme.fontWeight.semibold,
+                  outline: 'none',
+                  fontFamily: theme.fontFamily.sans,
+                  boxSizing: 'border-box',
+                  backgroundColor: theme.surface.lvl0,
+                  color: theme.colors.text.primary,
+                  '&:focus': {
+                    borderColor: theme.colors.focus.ring,
+                    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+                  },
+                  '&::placeholder': {
+                    color: theme.colors.text.muted,
+                  },
+                }),
+                on('input', (e) => {
+                  title = e.currentTarget.value
+                  setDirty()
+                  handle.update()
+                }),
+                on('blur', () => {
+                  scheduleAutosave(true)
+                }),
+              ]}
+              type="text"
+              placeholder="Kurzer Titel für diese Liste…"
+              maxLength={200}
+              defaultValue={title}
+            />
+          </div>
 
           {/* Description input */}
           <div

@@ -11,6 +11,7 @@ export interface ListRow {
   id: number
   user_id: number | null
   list: ListItem[]
+  title: string
   description: string
   created_at: number
   updated_at: number
@@ -40,6 +41,7 @@ function parseRow(row: Record<string, unknown>): ListRow {
     id: Number(row.id),
     user_id: row.user_id != null ? Number(row.user_id) : null,
     list: list as ListItem[],
+    title: String(row.title ?? ''),
     description: String(row.description ?? ''),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
@@ -79,7 +81,8 @@ export async function getAllLists(
     }
     let result = await db.exec(
       `SELECT * FROM lists
-       WHERE (description ILIKE $1
+       WHERE (title ILIKE $1
+          OR description ILIKE $1
           OR EXISTS (
             SELECT 1 FROM jsonb_array_elements(list) item
             WHERE item->>'label' ILIKE $1
@@ -140,6 +143,7 @@ export async function getListById(
 export async function createList(
   db: Database,
   input: {
+    title?: string
     description: string
     items: Array<{ id?: string; label: string; done?: boolean }>
   },
@@ -151,6 +155,7 @@ export async function createList(
     lists,
     {
       list: stableItems,
+      title: input.title ?? '',
       description: input.description,
       created_at: now,
       updated_at: now,
@@ -165,6 +170,7 @@ export async function patchList(
   db: Database,
   id: number,
   partial: {
+    title?: string
     description?: string
     items?: Array<{ id?: string; label: string; done?: boolean }>
   },
@@ -194,6 +200,9 @@ export async function patchList(
     }
 
     let updateFields: Record<string, unknown> = { updated_at: Date.now() }
+    if (partial.title !== undefined) {
+      updateFields.title = partial.title
+    }
     if (partial.description !== undefined) {
       updateFields.description = partial.description
     }

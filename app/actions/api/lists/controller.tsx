@@ -26,6 +26,7 @@ const listItemSchema = s.object({
 })
 
 const listsSaveSchema = s.object({
+  title: s.optional(s.string().pipe(minLength(1), maxLength(200))),
   description: s.string().pipe(minLength(1), maxLength(500)),
   items: s.array(listItemSchema),
 })
@@ -66,6 +67,7 @@ export default createController(routes.apiLists, {
       return context.json({
         id: row.id,
         items: row.list,
+        title: row.title,
         description: row.description,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -87,7 +89,7 @@ export default createController(routes.apiLists, {
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = parseResult.value
+      let { title, description, items } = parseResult.value
 
       if (!description.trim()) {
         return context.json({ error: 'Description is required' }, { status: 400 })
@@ -100,8 +102,8 @@ export default createController(routes.apiLists, {
         )
       }
 
-      let row = await createList(context.db, { description, items }, userId)
-      return context.json({ id: row.id, description: row.description })
+      let row = await createList(context.db, { title, description, items }, userId)
+      return context.json({ id: row.id, title: row.title, description: row.description })
     },
     async update(context) {
       let apiUser = context.apiUser!
@@ -132,7 +134,7 @@ export default createController(routes.apiLists, {
         return context.json({ error: message }, { status: 400 })
       }
 
-      let { description, items } = updateResult.value
+      let { title, description, items } = updateResult.value
 
       if (!description.trim()) {
         return context.json({ error: 'Description is required' }, { status: 400 })
@@ -145,12 +147,25 @@ export default createController(routes.apiLists, {
         )
       }
 
-      let result = await patchList(context.db, listId, { description, items }, listUserId)
+      let partial: {
+        title?: string
+        description: string
+        items: Array<{ id: string; label: string }>
+      } = {
+        description,
+        items,
+      }
+      if (title !== undefined) partial.title = title
+
+      let result = await patchList(context.db, listId, partial, listUserId)
       if (!result.ok && result.reason === 'not_found') {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
+      if (!result.ok && result.reason === 'conflict') {
+        return context.json({ error: 'List changed, retry' }, { status: 409 })
+      }
 
-      return context.json({ id: listId, description })
+      return context.json({ id: listId, title: result.row.title, description })
     },
     async destroy(context) {
       let apiUser = context.apiUser!

@@ -233,12 +233,17 @@ export const lists = table({
     id: c.integer(),
     user_id: c.integer(),
     list: c.json(),
+    title: c.text(),
     description: c.text(),
     created_at: bigint(),
     updated_at: bigint(),
   },
   beforeWrite({ operation, value }) {
     let next = { ...value }
+
+    if (typeof next.title === 'string') {
+      next.title = next.title.trim()
+    }
 
     if (typeof next.description === 'string') {
       next.description = next.description.trim()

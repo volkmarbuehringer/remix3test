@@ -1121,4 +1121,79 @@ describe('Lists controller', () => {
     )
     assert.ok(text.includes('JSONB Parse Test List'), 'filtered list should show its description')
   })
+
+  // -----------------------------------------------------------------------
+  // Title field
+  // -----------------------------------------------------------------------
+
+  it('POST /lists accepts an optional title and returns it', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: 'Titelliste',
+        description: 'Beschreibung',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(response.status, 200)
+    let data = await response.json()
+    assert.equal(data.title, 'Titelliste')
+    assert.equal(data.description, 'Beschreibung')
+  })
+
+  it('GET /lists sidebar renders the list title', async () => {
+    let title = `SidebarTitle-${Date.now()}`
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title,
+        description: 'Long description',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+
+    let response = await router.fetch(LISTS_URL, { headers: { Cookie: userCookie } })
+    let text = await response.text()
+    assert.ok(text.includes(title), 'sidebar should render the list title')
+  })
+
+  it('admin search matches a list by title when the description differs', async () => {
+    let title = `SearchTitle-${Date.now()}`
+    let description = `SearchDesc-${Date.now()}`
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title,
+        description,
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+
+    let response = await router.fetch(`${ADMIN_LISTS_URL}?filter=${encodeURIComponent(title)}`, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(
+      text.includes(description),
+      'admin search should match a list by title even when description differs',
+    )
+  })
 })

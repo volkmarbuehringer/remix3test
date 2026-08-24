@@ -491,4 +491,80 @@ describe('lists-api lib', () => {
     await db.delete(lists, { id: source.id })
     await db.delete(lists, { id: target.id })
   })
+
+  // -----------------------------------------------------------------------
+  // Title field
+  // -----------------------------------------------------------------------
+
+  it('createList stores and returns a title', async () => {
+    let row = await createList(db, {
+      title: 'Meine Einkaufsliste',
+      description: 'Wöchentlicher Einkauf',
+      items: [{ id: 'a', label: 'Milch' }],
+    })
+    assert.equal(row.title, 'Meine Einkaufsliste')
+    assert.equal(row.description, 'Wöchentlicher Einkauf')
+    assert.equal(row.list.length, 1)
+
+    await db.delete(lists, { id: row.id })
+  })
+
+  it('createList defaults title to empty string when omitted', async () => {
+    let row = await createList(db, {
+      description: 'No title given',
+      items: [{ id: 'a', label: 'Item' }],
+    })
+    assert.equal(row.title, '')
+
+    await db.delete(lists, { id: row.id })
+  })
+
+  it('getListById returns the title', async () => {
+    let created = await createList(db, {
+      title: 'Title via get',
+      description: 'Ignored',
+      items: [{ id: 'a', label: 'Item' }],
+    })
+    let row = await getListById(db, created.id)
+    assert.ok(row !== null)
+    assert.equal(row!.title, 'Title via get')
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('patchList updates title independently', async () => {
+    let created = await createList(db, {
+      title: 'Before',
+      description: 'Desc',
+      items: [{ id: '1', label: 'Item' }],
+    })
+    let result = await patchList(db, created.id, { title: 'After' }, undefined, {
+      expectedUpdatedAt: created.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.row.title, 'After')
+      assert.equal(result.row.description, 'Desc')
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('patchList leaves an absent title untouched', async () => {
+    let created = await createList(db, {
+      title: 'Keep me',
+      description: 'Desc',
+      items: [{ id: '1', label: 'Item' }],
+    })
+    let result = await patchList(db, created.id, { description: 'New desc' }, undefined, {
+      expectedUpdatedAt: created.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.row.title, 'Keep me')
+      assert.equal(result.row.description, 'New desc')
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
 })

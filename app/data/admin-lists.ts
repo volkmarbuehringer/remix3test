@@ -8,7 +8,8 @@ export async function searchLists(
 ): Promise<Record<string, unknown>[]> {
   let result = await db.exec(
     `SELECT * FROM lists
-     WHERE description ILIKE $1
+     WHERE title ILIKE $1
+        OR description ILIKE $1
         OR EXISTS (
           SELECT 1 FROM jsonb_array_elements(list) item
           WHERE item->>'label' ILIKE $1

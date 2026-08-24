@@ -77,13 +77,18 @@ CREATE TABLE IF NOT EXISTS clients (
 CREATE TABLE IF NOT EXISTS lists (
   id SERIAL PRIMARY KEY,
   list JSONB NOT NULL DEFAULT '[]',
+  title TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
 
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+UPDATE lists SET title = description WHERE title = '' OR title IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_lists_desc ON lists USING GIN (description gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_lists_title ON lists USING GIN (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id);
 
 CREATE TABLE IF NOT EXISTS resources (

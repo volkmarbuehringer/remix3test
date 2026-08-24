@@ -8,8 +8,6 @@ export const ListNameEdit = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((el) => {
-            let pendingEntry: string | null = null
-            let pendingTimer: ReturnType<typeof setTimeout> | null = null
             let activeInput: HTMLInputElement | null = null
             let originalSpan: HTMLElement | null = null
             let originalText = ''
@@ -59,34 +57,16 @@ export const ListNameEdit = clientEntry(
               fetch(`/lists/${listId}`, {
                 method: 'PUT',
                 headers,
-                body: JSON.stringify({ description: trimmed }),
+                body: JSON.stringify({ title: trimmed }),
                 signal,
               })
                 .then((response) => {
                   if (signal.aborted) return
                   if (response.ok) {
-                    response
-                      .json()
-                      .then((data) => {
-                        if (signal.aborted) return
-                        span.textContent = trimmed
-                        let link = span.closest('[data-tooltip]')
-                        if (link) link.setAttribute('data-tooltip', trimmed)
-                        let deleteForm = span
-                          .closest('[data-list-id]')
-                          ?.querySelector('form[data-confirm]')
-                        if (deleteForm) {
-                          deleteForm.setAttribute('data-confirm', `${trimmed} löschen?`)
-                          let deleteBtn = deleteForm.querySelector('button[aria-label]')
-                          if (deleteBtn)
-                            deleteBtn.setAttribute('aria-label', `Liste "${trimmed}" löschen`)
-                        }
-                        // Update data-updated-at from response
-                        if (entryEl && typeof data.updated_at === 'number') {
-                          entryEl.setAttribute('data-updated-at', String(data.updated_at))
-                        }
-                      })
-                      .catch(() => {})
+                    // Reload the frame so the sidebar and the editor both
+                    // re-render from the server with the new title. Any pending
+                    // editor edits are flushed by the list's beforeunload beacon.
+                    handle.frame.reload().catch(() => {})
                   } else if (response.status === 409) {
                     // Conflict — briefly flash red and abort
                     span.style.color = ''
@@ -125,7 +105,7 @@ export const ListNameEdit = clientEntry(
               let input = document.createElement('input')
               input.type = 'text'
               input.value = originalText
-              input.maxLength = 500
+              input.maxLength = 200
               input.style.cssText = `
                 font: inherit;
                 color: inherit;
@@ -163,63 +143,17 @@ export const ListNameEdit = clientEntry(
               'click',
               (e) => {
                 let target = e.target as HTMLElement
-                let entry = target.closest('[data-list-id]') as HTMLElement | null
-                if (!entry) return
-                if (target.closest('button, form, input, textarea')) return
-
-                let link = target.closest('[data-rmx-target]') as HTMLAnchorElement | null
-                if (!link) return
-
-                let entryId = entry.getAttribute('data-list-id')
-                if (!entryId) return
-
+                let renameBtn = target.closest('[data-list-rename-btn]') as HTMLElement | null
+                if (!renameBtn) return
                 e.preventDefault()
                 e.stopPropagation()
-
-                if (pendingEntry === entryId) {
-                  if (pendingTimer) clearTimeout(pendingTimer)
-                  pendingEntry = null
-                  pendingTimer = null
-                  startEditing(entry)
-                  return
-                }
-
-                if (pendingTimer) clearTimeout(pendingTimer)
-                pendingEntry = entryId
-                pendingTimer = setTimeout(() => {
-                  pendingEntry = null
-                  pendingTimer = null
-                  if (activeInput) return
-                  let href = link.getAttribute('href')
-                  if (href && handle.frame) {
-                    handle.frame.src = href
-                    handle.frame.reload().catch(() => {})
-                  }
-                }, 350)
+                let entry = renameBtn.closest('[data-list-id]') as HTMLElement | null
+                if (entry) startEditing(entry)
               },
               { capture: true, signal: handle.signal },
             )
 
-            document.addEventListener(
-              'keydown',
-              (e) => {
-                let target = e.target as HTMLElement
-                let entry = target.closest('[data-list-id]') as HTMLElement | null
-                if (!entry) return
-                if (e.key !== 'Enter' || e.shiftKey) return
-
-                let link = target.closest('[data-rmx-target]') as HTMLAnchorElement | null
-                if (!link) return
-
-                e.preventDefault()
-                e.stopPropagation()
-                startEditing(entry)
-              },
-              { signal: handle.signal },
-            )
-
             return () => {
-              if (pendingTimer) clearTimeout(pendingTimer)
               if (errorTimer) clearTimeout(errorTimer)
               renameController?.abort()
               if (activeInput && originalSpan) {

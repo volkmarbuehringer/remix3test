@@ -3,6 +3,7 @@ import { ListsClient } from '../actions/lists/public/lists-client.tsx'
 
 type ListInitState = {
   id: number
+  title: string
   description: string
   items: Array<{ id: string; label: string }>
   updated_at: number

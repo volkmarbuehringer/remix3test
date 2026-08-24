@@ -11,6 +11,7 @@ import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
 import { ListNameEdit } from '../actions/lists/public/list-name-edit.tsx'
 import { ListsSearch } from '../actions/lists/public/lists-search.tsx'
 import { ListsSidebarKeyboard } from '../actions/lists/public/lists-sidebar-keyboard.tsx'
+import { ListsRowActions } from '../actions/lists/public/lists-row-actions.tsx'
 import {
   shellStyle,
   sidebarStyle,
@@ -37,6 +38,7 @@ export type ListSidebarEntry = {
 
 export type ListInitialState = {
   id: number
+  title: string
   description: string
   items: Array<{ id: string; label: string; done?: boolean }>
   updated_at: number
@@ -276,6 +278,7 @@ function ListsLayout(
                     </span>
                     <span
                       mix={countBadgeStyle}
+                      data-list-count
                       aria-label={
                         entry.doneCount != null
                           ? `${entry.doneCount} von ${entry.count} erledigt`
@@ -286,16 +289,42 @@ function ListsLayout(
                     </span>
                   </NavLink>
                   {listId !== null && (
+                    <button
+                      type="button"
+                      data-list-rename-btn
+                      data-list-row-action
+                      mix={renameBtnStyle}
+                      aria-label={`Liste "${displayName}" umbenennen`}
+                      title="Umbenennen"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                      </svg>
+                    </button>
+                  )}
+                  {listId !== null && (
                     <form
                       method="POST"
                       action={routes.lists.destroy.href({ id: listId })}
                       data-rmx-target={frameTarget}
                       data-confirm={`"${displayName}" löschen?`}
+                      data-list-row-action
                       mix={deleteFormStyle}
                     >
                       <CsrfTokenInput />
                       <button
                         type="submit"
+                        data-list-delete-btn
+                        data-list-row-action
                         mix={deleteBtnStyle}
                         aria-label={`Liste "${displayName}" löschen`}
                       >
@@ -320,6 +349,7 @@ function ListsLayout(
             })}
             <ListNameEdit />
             <ListsSidebarKeyboard />
+            <ListsRowActions />
             <ConfirmDelete />
             {sidebarEntries.length === 0 && <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>}
             {pagination && sidebarEntries.length > 0 && (
@@ -392,6 +422,7 @@ const emptyHintStyle = css({
 const entryRowStyle = css({
   display: 'flex',
   alignItems: 'center',
+  position: 'relative',
   '&:focus-visible': {
     outline: `2px solid ${theme.colors.focus.ring}`,
     outlineOffset: '-2px',
@@ -402,6 +433,8 @@ const deleteFormStyle = css({
   margin: 0,
   padding: 0,
   flexShrink: 0,
+  opacity: '0.3',
+  transition: 'opacity 0.12s ease',
 })
 
 const deleteBtnStyle = css({
@@ -419,6 +452,26 @@ const deleteBtnStyle = css({
   ':hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
+  },
+})
+
+const renameBtnStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '24px',
+  height: '24px',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  borderRadius: theme.radius.sm,
+  opacity: '0.3',
+  transition: 'opacity 0.12s ease',
+  ':hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
   },
 })
 
