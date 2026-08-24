@@ -11,6 +11,8 @@ import {
 } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import { __setTestAgent, chatRateLimiter } from './controller.tsx'
+import { mastra } from './index.ts'
+import { deleteChatThread, listChatThreads } from '../../utils/mastra-memory.ts'
 
 import { supportTools } from './tools/support-tools.ts'
 import { runWithAdminId } from './tools/admin-context.ts'
@@ -155,8 +157,15 @@ describe('Mastra Chat controller', () => {
     userCsrfToken = userResult?.csrfToken ?? ''
   })
 
-  after(() => {
+  after(async () => {
     __setTestAgent(undefined)
+    // The real-agent rate-limit test can leave a support-agent thread behind,
+    // which would otherwise make the admin chatlog empty-state test fail.
+    let agent = mastra.getAgent('supportAgent')
+    try {
+      let { threads } = await listChatThreads(agent, { page: 0, perPage: 1000 })
+      for (let t of threads) await deleteChatThread(agent, t.id)
+    } catch {}
   })
 
   it('GET /admin/support-agent redirects to login when not authenticated', async () => {
@@ -218,6 +227,18 @@ describe('Mastra Chat controller', () => {
   it('POST /admin/support-agent triggers rate limit on rapid requests', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
+
+    // Use a fast mock agent so the first request completes quickly and does not
+    // persist a support-agent thread (which would otherwise break the admin
+    // chatlog empty-state test when an AI key is configured). The rate limit is
+    // enforced before the agent is invoked, so this does not change what is
+    // asserted.
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput('ok'),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
 
     await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',

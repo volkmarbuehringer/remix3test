@@ -21,7 +21,7 @@ import { tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
 
 const CHAT_INDEX = routes.chat.index.href()
 
-export const chatRateLimiter = createRateLimiter({ windowMs: 3000, perUser: true })
+export const chatRateLimiter = createRateLimiter({ windowMs: 60_000, perUser: true })
 const chatLog = createLogger('[CustomerChat]')
 const sseEncoder = new TextEncoder()
 
