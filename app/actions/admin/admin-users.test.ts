@@ -149,6 +149,33 @@ describe('Admin Users Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('Keine Benutzer'), 'should show empty state for nonexistent ID')
     })
+
+    it('renders visible per-row action buttons', async () => {
+      let response = await router.fetch(USERS_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Aktionen'), 'should render an actions column')
+      assert.ok(text.includes('data-toggle-disabled'), 'should render per-row toggle buttons')
+      assert.ok(
+        text.includes('data-confirm') && text.includes('löschen'),
+        'should render confirmed delete forms',
+      )
+    })
+
+    it('renders a page indicator without exposing a total count', async () => {
+      for (let i = 0; i < 16; i++) {
+        let id = await createTestUser(`page-indicator-${i}-${Date.now()}@example.com`)
+        assert.ok(id, 'test user for page indicator must be created')
+      }
+      let response = await router.fetch(`${USERS_URL}?offset=15`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Seite 2'), 'should show the current page number')
+    })
   })
 
   describe('create (POST /admin/users)', () => {
@@ -177,10 +204,11 @@ describe('Admin Users Controller', () => {
       assert.ok(location.startsWith('/admin/users?editing='))
     })
 
-    it('rejects missing name', async () => {
+    it('re-renders the create form and preserves values on missing name', async () => {
+      let email = `test-noname-${Date.now()}@example.com`
       let body = new URLSearchParams({
         name: '',
-        email: `test-noname-${Date.now()}@example.com`,
+        email,
         role: 'customer',
         password: 'testpass123!',
         _csrf: adminCsrfToken,
@@ -193,12 +221,13 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.equal(json.error, 'Invalid form data')
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
+      assert.ok(text.includes(email), 'should preserve the submitted email value')
     })
 
-    it('rejects invalid email', async () => {
+    it('re-renders the create form on invalid email', async () => {
       let body = new URLSearchParams({
         name: 'Test User',
         email: 'not-an-email',
@@ -214,12 +243,13 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.equal(json.error, 'Invalid form data')
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
+      assert.ok(text.includes('not-an-email'), 'should preserve the submitted email value')
     })
 
-    it('rejects short password', async () => {
+    it('re-renders the create form with a password error message', async () => {
       let body = new URLSearchParams({
         name: 'Test User',
         email: `test-shortpwd-${Date.now()}@example.com`,
@@ -235,12 +265,13 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.ok(json.error.includes('Passwort'))
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
+      assert.ok(text.includes('Passwort'), 'should show the password complexity error')
     })
 
-    it('rejects duplicate email', async () => {
+    it('re-renders the create form with a duplicate-email error', async () => {
       let body = new URLSearchParams({
         name: 'Duplicate Test',
         email: 'admin@newapp.com', // already exists
@@ -256,9 +287,10 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
-      let json = await response.json()
-      assert.ok(json.error.includes('Email already exists') || json.error.includes('exist'))
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Benutzer'), 'should re-render the create panel')
+      assert.ok(text.includes('existiert bereits'), 'should show the duplicate-email error')
     })
 
     it('creates admin role user when specified', async () => {
@@ -323,7 +355,7 @@ describe('Admin Users Controller', () => {
       assert.ok((response.headers.get('Location') || '').startsWith('/admin/users'))
     })
 
-    it('rejects update with invalid email', async () => {
+    it('re-renders the edit form and preserves values on invalid email', async () => {
       let body = new URLSearchParams({
         name: 'Test User',
         email: 'bad-email',
@@ -343,7 +375,10 @@ describe('Admin Users Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Benutzer bearbeiten'), 'should re-render the edit panel')
+      assert.ok(text.includes('bad-email'), 'should preserve the submitted email value')
     })
 
     it('redacts password_hash from audit log details', async () => {

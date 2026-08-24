@@ -21,6 +21,7 @@ export const AdminUsersContextMenu = clientEntry(
   function AdminUsersContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
     let rightClickedRowDisabledAt: string | null = null
+    let clickWired = false
 
     return () => {
       let isDisabled = rightClickedRowDisabledAt !== null && rightClickedRowDisabledAt !== ''
@@ -33,6 +34,25 @@ export const AdminUsersContextMenu = clientEntry(
               ref((el) => {
                 let table = document.querySelector('[data-users-table]')
                 if (!table) return
+
+                if (!clickWired) {
+                  clickWired = true
+                  // Visible per-row toggle buttons (edit/activate-deactivate click handler).
+                  document.addEventListener(
+                    'click',
+                    (e) => {
+                      let btn = (e.target as HTMLElement).closest(
+                        'button[data-toggle-disabled]',
+                      ) as HTMLButtonElement | null
+                      if (!btn) return
+                      let rowId = btn.getAttribute('data-toggle-disabled')
+                      if (!rowId) return
+                      let currentlyDisabled = (btn.getAttribute('data-disabled-at') ?? '') !== ''
+                      toggleDisabled(rowId, currentlyDisabled)
+                    },
+                    { capture: true, signal: handle.signal },
+                  )
+                }
 
                 function onContextMenu(event: Event) {
                   let mouseEvent = event as MouseEvent
@@ -106,6 +126,28 @@ export const AdminUsersContextMenu = clientEntry(
       )
     }
 
+    function toggleDisabled(rowId: string, activate: boolean) {
+      let csrfToken =
+        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
+
+      fetch(`/admin/users/${rowId}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          'X-Csrf-Token': csrfToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      })
+        .then((r) => {
+          if (!r.ok) throw new Error()
+          return r.json()
+        })
+        .then(() => {
+          handle.frame?.reload()
+        })
+        .catch(() => showToast(activate ? 'Fehler beim Aktivieren.' : 'Fehler beim Deaktivieren.'))
+    }
+
     function handleEditAction(rowId: string) {
       let dataEl = document.getElementById('users-grid-state')
       if (!dataEl) return
@@ -126,25 +168,7 @@ export const AdminUsersContextMenu = clientEntry(
     }
 
     function handleToggleDisabledAction(rowId: string, activate: boolean) {
-      let csrfToken =
-        document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? ''
-
-      fetch(`/admin/users/${rowId}/toggle-disabled`, {
-        method: 'POST',
-        headers: {
-          'X-Csrf-Token': csrfToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      })
-        .then((r) => {
-          if (!r.ok) throw new Error()
-          return r.json()
-        })
-        .then(() => {
-          handle.frame?.reload()
-        })
-        .catch(() => showToast(activate ? 'Fehler beim Aktivieren.' : 'Fehler beim Deaktivieren.'))
+      toggleDisabled(rowId, activate)
     }
 
     function handleDeleteAction(rowId: string) {

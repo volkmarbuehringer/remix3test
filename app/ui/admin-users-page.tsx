@@ -11,6 +11,7 @@ import { input } from './mixins/input.ts'
 import { frames, routes } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
@@ -18,6 +19,7 @@ import {
   buildPaginationUrl,
   buildCreateUrl,
   buildCancelUrl,
+  buildEditUrl,
   buildFilterParams,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
@@ -48,7 +50,66 @@ interface AdminUsersPageProps {
   filter: string | undefined
   editRow?: DisplayUser | null
   creating?: boolean
+  pageSize: number
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
 }
+
+// ── Styles ──
+
+const inputErrorStyle = css({
+  borderColor: theme.colors.action.danger.background,
+  '&:focus': {
+    borderColor: theme.colors.action.danger.background,
+  },
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.action.danger.background,
+})
+
+const rowActionsStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+})
+
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': { background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground },
+})
+
+const colActionsWidth = css({ width: '120px' })
+
+const pageBadgeStyle = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
 
 // ── Component ──
 
@@ -65,12 +126,19 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
       filter,
       editRow = null,
       creating = false,
+      pageSize,
+      formValues,
+      fieldErrors,
+      formError,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
+    let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
 
     let gridSection = (
       <div mix={table.minWidth0}>
+        <ConfirmDelete />
+
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -115,6 +183,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             name="filter"
             placeholder="Suche nach Name, E-Mail oder ID..."
             defaultValue={filter && filter !== 'enabled' && filter !== 'disabled' ? filter : ''}
+            aria-label="Nach Name, E-Mail oder ID suchen"
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
@@ -156,10 +225,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <col mix={css({ width: '100px' })} />
                 <col mix={css({ width: '80px' })} />
                 <col mix={css({ width: '120px' })} />
+                <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable}>
+                  <th mix={table.thSortable} aria-sort={sortRule('id', sortColumn, sortDirection)}>
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -178,7 +248,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable}>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('name', sortColumn, sortDirection)}
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -197,7 +270,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable}>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('email', sortColumn, sortDirection)}
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -216,7 +292,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable}>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('role', sortColumn, sortDirection)}
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -236,7 +315,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.th}>Status</th>
-                  <th mix={table.thSortable}>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('created_at', sortColumn, sortDirection)}
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -251,86 +333,141 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     >
                       Erstellt
                       <span
-                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                        mix={
+                          'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow
+                        }
                       >
                         {sortArrow('created_at', sortColumn, sortDirection)}
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    mix={[
-                      table.row,
-                      editRow?.id === row.id ? table.editingRow : undefined,
-                      row.disabled_at ? table.disabledRow : undefined,
-                    ]}
-                    data-row-id={row.id}
-                    data-disabled-at={row.disabled_at ?? ''}
-                  >
-                    <td mix={table.td} title={String(row.id)}>
-                      {row.id}
-                    </td>
-                    <td mix={table.td} title={row.name}>
-                      {row.name}
-                    </td>
-                    <td mix={table.td} title={row.email}>
-                      {row.email}
-                    </td>
-                    <td mix={table.td}>{row.role}</td>
-                    <td mix={table.td}>
-                      <span
-                        mix={[
-                          table.statusBadge,
-                          row.disabled_at ? table.statusBadgeDisabled : table.statusBadgeActive,
-                        ]}
-                      >
-                        {row.disabled_at ? 'Deaktiviert' : 'Aktiv'}
-                      </span>
-                    </td>
-                    <td mix={table.td} title={formatTimestamp(row.created_at)}>
-                      {formatTimestamp(row.created_at)}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  let isDisabled = !!row.disabled_at
+                  let editHref = buildEditUrl(
+                    ADMIN_BASE,
+                    row.id!,
+                    offset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                  )
+                  return (
+                    <tr
+                      key={row.id}
+                      mix={[
+                        table.row,
+                        editRow?.id === row.id ? table.editingRow : undefined,
+                        isDisabled ? table.disabledRow : undefined,
+                      ]}
+                      data-row-id={row.id}
+                      data-disabled-at={row.disabled_at ?? ''}
+                    >
+                      <td mix={table.td} title={String(row.id)}>
+                        {row.id}
+                      </td>
+                      <td mix={table.td} title={row.name}>
+                        {row.name}
+                      </td>
+                      <td mix={table.td} title={row.email}>
+                        {row.email}
+                      </td>
+                      <td mix={table.td}>{row.role}</td>
+                      <td mix={table.td}>
+                        <span
+                          mix={[
+                            table.statusBadge,
+                            isDisabled ? table.statusBadgeDisabled : table.statusBadgeActive,
+                          ]}
+                        >
+                          {isDisabled ? 'Deaktiviert' : 'Aktiv'}
+                        </span>
+                      </td>
+                      <td mix={table.td} title={formatTimestamp(row.created_at)}>
+                        {formatTimestamp(row.created_at)}
+                      </td>
+                      <td mix={table.actionCell}>
+                        <div mix={rowActionsStyle}>
+                          <a
+                            href={editHref}
+                            data-rmx-target={frames.adminContent}
+                            mix={iconActionStyle}
+                            aria-label="Bearbeiten"
+                            title="Bearbeiten"
+                          >
+                            <Glyph name="edit" width={14} height={14} />
+                          </a>
+
+                          <button
+                            type="button"
+                            data-toggle-disabled={row.id}
+                            data-disabled-at={row.disabled_at ?? ''}
+                            mix={iconActionStyle}
+                            aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                            title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                          >
+                            <Glyph
+                              name={isDisabled ? 'check' : 'shield'}
+                              width={14}
+                              height={14}
+                            />
+                          </button>
+
+                          <RestfulForm
+                            method="DELETE"
+                            action={routes.admin.users.destroy.href({ id: row.id! })}
+                            data-delete-form={row.id}
+                            data-confirm={`Benutzer "${row.name}" wirklich löschen?`}
+                            data-rmx-target={frames.adminContent}
+                            mix={css({ margin: 0, padding: 0 })}
+                          >
+                            <GridStateHiddenInputs
+                              state={{
+                                offset: String(offset),
+                                sort: sortColumn,
+                                order: sortDirection,
+                                filter: filter ?? '',
+                              }}
+                            />
+                            <button
+                              type="submit"
+                              mix={[iconActionStyle, iconActionDangerStyle]}
+                              aria-label="Löschen"
+                              title="Löschen"
+                            >
+                              <Glyph name="trash" width={14} height={14} />
+                            </button>
+                          </RestfulForm>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
-          {/* Hidden DELETE forms for context menu */}
-          {rows.length > 0 ? (
-            <div mix={table.displayNone} aria-hidden="true">
-              {rows.map((row) => (
-                <RestfulForm
-                  key={row.id}
-                  method="DELETE"
-                  action={routes.admin.users.destroy.href({ id: row.id! })}
-                  data-delete-form={row.id}
-                >
-                  <GridStateHiddenInputs
-                    state={{
-                      offset: String(offset),
-                      sort: sortColumn,
-                      order: sortDirection,
-                      filter: filter ?? '',
-                    }}
-                  />
-                </RestfulForm>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
-            {rows.length > 0 && (
-              <span mix={table.paginationInfo}>
-                Zeige {pageStart}–{pageEnd}
-              </span>
-            )}
+            <span
+              mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}
+            >
+              {rows.length > 0 ? (
+                <span mix={table.paginationInfo}>
+                  Zeige {pageStart}–{pageEnd}
+                </span>
+              ) : null}
+              {currentPage > 0 ? (
+                <span mix={pageBadgeStyle} aria-label={`Seite ${currentPage}`}>
+                  Seite {currentPage}
+                </span>
+              ) : null}
+            </span>
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
@@ -407,6 +544,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
       return (
         <div mix={table.page}>
           <h2 mix={table.title}>Benutzer</h2>
+          {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -417,6 +555,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               ) : (
                 <AdminUsersCreatePanel
@@ -424,6 +564,8 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
                 />
               )}
             </div>
@@ -441,6 +583,15 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
   }
 }
 
+function sortRule(
+  field: string,
+  sortField: string,
+  sortOrder: 'asc' | 'desc',
+): 'ascending' | 'descending' | undefined {
+  if (field !== sortField) return undefined
+  return sortOrder === 'asc' ? 'ascending' : 'descending'
+}
+
 // ── Inline Edit Panel ──
 
 interface EditPanelProps {
@@ -449,16 +600,24 @@ interface EditPanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { row, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } =
+      handle.props
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="PUT" action={routes.admin.users.update.href({ id: row.id! })}>
+        <RestfulForm
+          method="PUT"
+          action={routes.admin.users.update.href({ id: row.id! })}
+          data-rmx-target={frames.adminContent}
+          novalidate
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -475,9 +634,12 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                   id="au-name"
                   name="name"
                   type="text"
-                  value={row.name ?? ''}
-                  mix={[input.base, input.focus]}
+                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
+                    Boolean,
+                  )}
+                  value={formValues?.name ?? row.name ?? ''}
                 />
+                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -488,23 +650,37 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                   id="au-email"
                   name="email"
                   type="email"
-                  value={row.email ?? ''}
-                  mix={[input.base, input.focus]}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.email ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  value={formValues?.email ?? row.email ?? ''}
                 />
+                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="au-role">
                   Rolle
                 </label>
-                <select id="au-role" name="role" mix={[input.base, input.focus, table.select]}>
-                  <option value="customer" selected={row.role === 'customer'}>
+                <select
+                  id="au-role"
+                  name="role"
+                  mix={[input.base, input.focus, table.select]}
+                  aria-invalid={fieldErrors?.role ? true : undefined}
+                >
+                  <option
+                    value="customer"
+                    selected={(formValues?.role ?? row.role) === 'customer'}
+                  >
                     Kunde
                   </option>
-                  <option value="admin" selected={row.role === 'admin'}>
+                  <option value="admin" selected={(formValues?.role ?? row.role) === 'admin'}>
                     Admin
                   </option>
                 </select>
+                {fieldErrors?.role ? <div mix={fieldErrorStyle}>{fieldErrors.role}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -513,7 +689,11 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                     type="checkbox"
                     name="disabled"
                     value="true"
-                    defaultChecked={!!row.disabled_at}
+                    checked={
+                      formValues?.disabled !== undefined
+                        ? formValues.disabled === 'true'
+                        : !!row.disabled_at
+                    }
                     mix={css({ marginRight: '6px' })}
                   />
                   Deaktiviert
@@ -557,16 +737,23 @@ interface CreatePanelProps {
   sort?: string
   order?: string
   filter?: string
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
 }
 
 function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '' } = handle.props
+    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.admin.users.create.href()}>
+        <RestfulForm
+          method="POST"
+          action={routes.admin.users.create.href()}
+          data-rmx-target={frames.adminContent}
+          novalidate
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -583,9 +770,13 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   id="au-name-c"
                   name="name"
                   type="text"
+                  mix={[input.base, input.focus, fieldErrors?.name ? inputErrorStyle : null].filter(
+                    Boolean,
+                  )}
+                  value={formValues?.name ?? ''}
                   required
-                  mix={[input.base, input.focus]}
                 />
+                {fieldErrors?.name ? <div mix={fieldErrorStyle}>{fieldErrors.name}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -596,21 +787,35 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   id="au-email-c"
                   name="email"
                   type="email"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.email ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                  value={formValues?.email ?? ''}
                   required
-                  mix={[input.base, input.focus]}
                 />
+                {fieldErrors?.email ? <div mix={fieldErrorStyle}>{fieldErrors.email}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="au-role-c">
                   Rolle
                 </label>
-                <select id="au-role-c" name="role" mix={[input.base, input.focus, table.select]}>
-                  <option value="customer" selected>
+                <select
+                  id="au-role-c"
+                  name="role"
+                  mix={[input.base, input.focus, table.select]}
+                  aria-invalid={fieldErrors?.role ? true : undefined}
+                >
+                  <option value="customer" selected={(formValues?.role ?? 'customer') === 'customer'}>
                     Kunde
                   </option>
-                  <option value="admin">Admin</option>
+                  <option value="admin" selected={formValues?.role === 'admin'}>
+                    Admin
+                  </option>
                 </select>
+                {fieldErrors?.role ? <div mix={fieldErrorStyle}>{fieldErrors.role}</div> : null}
               </div>
 
               <div mix={table.fieldGroup}>
@@ -622,9 +827,14 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   name="password"
                   type="password"
                   required
-                  minlength={6}
-                  mix={[input.base, input.focus]}
+                  minLength={6}
+                  mix={[input.base, input.focus, fieldErrors?.password ? inputErrorStyle : null].filter(
+                    Boolean,
+                  )}
                 />
+                {fieldErrors?.password ? (
+                  <div mix={fieldErrorStyle}>{fieldErrors.password}</div>
+                ) : null}
               </div>
 
               <div mix={table.actions}>

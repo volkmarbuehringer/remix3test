@@ -1,4 +1,4 @@
-import { ilike, isNull, notNull, or } from 'remix/data-table'
+import { ilike, isNull, notNull, or, type Database, type WhereInput } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { email, minLength } from 'remix/data-schema/checks'
@@ -38,6 +38,18 @@ const USERS_PAGE_SIZE = 15
 
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'created_at'] as const
 
+const USERS_FORM_KEYS = [
+  'name',
+  'email',
+  'role',
+  'password',
+  'disabled',
+  '_offset',
+  '_sort',
+  '_order',
+  '_filter',
+] as const
+
 const userCreateSchema = f.object({
   name: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
   email: f.field(s.defaulted(s.string(), '').pipe(email())),
@@ -61,15 +73,155 @@ const userUpdateSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
+// ── Helpers ──
+
+function toSafeUser(u: User): SafeUser {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    email_verified: u.email_verified,
+    disabled_at: u.disabled_at,
+    created_at: u.created_at,
+    updated_at: u.updated_at,
+  }
+}
+
+function buildUsersFilterPredicate(filter?: string): WhereInput | undefined {
+  return filter === 'enabled'
+    ? isNull('disabled_at')
+    : filter === 'disabled'
+      ? notNull('disabled_at')
+      : filter && /^\d+$/.test(filter)
+        ? { id: Number(filter) }
+        : filter
+          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+          : undefined
+}
+
+async function loadGridData(
+  db: Database,
+  opts: {
+    offset: number
+    column: string
+    direction: 'asc' | 'desc'
+    filter?: string
+    pageSize: number
+  },
+): Promise<{ rows: SafeUser[]; hasMore: boolean }> {
+  let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
+  let { items: page, hasMore } = (await paginate(db, users, {
+    pageSize: opts.pageSize,
+    page: pageNum,
+    orderBy: [[opts.column, opts.direction]],
+    where: buildUsersFilterPredicate(opts.filter),
+  })) as { items: User[]; page: number; hasMore: boolean }
+
+  let rows = page.map(toSafeUser)
+  return { rows, hasMore }
+}
+
+function gridOffset(raw: Record<string, string>): number {
+  return Math.max(0, Number(raw._offset) || 0)
+}
+
+function gridSortColumn(raw: Record<string, string>): string {
+  let col = raw._sort
+  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'name'
+}
+
+function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
+  return raw._order === 'desc' ? 'desc' : 'asc'
+}
+
+function gridFilter(raw: Record<string, string>): string | undefined {
+  return raw._filter || undefined
+}
+
+/** Strips sensitive/private fields before passing form values to the UI. Password
+ *  is never echoed back into the DOM; grid-state keys are passed as separate props. */
+function userFormValues(raw: Record<string, string>): Record<string, string> {
+  return { name: raw.name, email: raw.email, role: raw.role, disabled: raw.disabled }
+}
+
+function buildEditRowFromRaw(id: number, raw: Record<string, string>): SafeUser {
+  return {
+    id,
+    email: raw.email,
+    name: raw.name,
+    role: raw.role === 'admin' ? 'admin' : 'customer',
+    email_verified: 0,
+    disabled_at: raw.disabled === 'true' ? Date.now() : null,
+    created_at: 0,
+    updated_at: 0,
+  }
+}
+
+/** Minimal structural view of the action context that this render helper needs. */
+type UsersRenderContext = {
+  db: Database
+  render: Parameters<typeof renderAdminPage>[0]
+}
+
+/** Re-render the full admin page with a validation error (Pattern 1 direct re-render). */
+async function renderUsersFormError(
+  context: UsersRenderContext,
+  opts: {
+    creating?: boolean
+    editRow?: SafeUser | null
+    formValues?: Record<string, string>
+    fieldErrors?: Record<string, string>
+    formError?: string
+    offset: number
+    column: string
+    direction: 'asc' | 'desc'
+    filter?: string
+    pageSize: number
+  },
+): Promise<Response> {
+  let { rows, hasMore } = await loadGridData(context.db, {
+    offset: opts.offset,
+    column: opts.column,
+    direction: opts.direction,
+    filter: opts.filter,
+    pageSize: opts.pageSize,
+  })
+
+  return renderAdminPage(
+    context.render,
+    'users',
+    <AdminUsersPage
+      rows={rows}
+      offset={opts.offset}
+      hasMore={hasMore}
+      prevOffset={Math.max(0, opts.offset - opts.pageSize)}
+      nextOffset={opts.offset + opts.pageSize}
+      sortColumn={opts.column}
+      sortDirection={opts.direction}
+      filter={opts.filter}
+      editRow={opts.editRow ?? null}
+      creating={opts.creating ?? false}
+      pageSize={opts.pageSize}
+      formValues={opts.formValues}
+      fieldErrors={opts.fieldErrors}
+      formError={opts.formError}
+    />,
+    // The app's frame transport treats any non-OK response as an unrecoverable
+    // error card (see assets/frame-response.browser.tsx), so a validation-error
+    // re-render must be OK (200) for the swapped-in frame content to show the
+    // re-rendered form with its inline field errors and preserved values.
+    { status: 200 },
+  )
+}
+
 export default createController(routes.admin.users, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
-      let db = context.db
       let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let pageNum = Math.floor(offset / effectivePageSize) + 1
       let filter = context.url.searchParams.get('filter') || undefined
 
       let { column, direction } = parseSort(context.url, {
@@ -78,53 +230,20 @@ export default createController(routes.admin.users, {
         defaultDirection: 'asc',
       })
 
-      let filterPredicate =
-        filter === 'enabled'
-          ? isNull('disabled_at')
-          : filter === 'disabled'
-            ? notNull('disabled_at')
-            : filter && /^\d+$/.test(filter)
-              ? { id: Number(filter) }
-              : filter
-                ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-                : undefined
-
-      let { items: page, hasMore } = await paginate(db, users, {
+      let { rows, hasMore } = await loadGridData(context.db, {
+        offset,
+        column,
+        direction,
+        filter,
         pageSize: effectivePageSize,
-        page: pageNum,
-        orderBy: [[column, direction]],
-        where: filterPredicate,
       })
-
-      let rows: SafeUser[] = (page as User[]).map((u) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        role: u.role,
-        email_verified: u.email_verified,
-        disabled_at: u.disabled_at,
-        created_at: u.created_at,
-        updated_at: u.updated_at,
-      }))
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam ? Number(editingParam) : null
       let editRow: SafeUser | null = null
       if (editingRowId && Number.isFinite(editingRowId)) {
-        let found = await db.findOne(users, { where: { id: editingRowId } })
-        if (found) {
-          let u = found as User
-          editRow = {
-            id: u.id!,
-            email: u.email,
-            name: u.name,
-            role: u.role,
-            email_verified: u.email_verified,
-            disabled_at: u.disabled_at,
-            created_at: u.created_at!,
-            updated_at: u.updated_at!,
-          }
-        }
+        let found = await context.db.findOne(users, { where: { id: editingRowId } })
+        if (found) editRow = toSafeUser(found as User)
       }
 
       let creating = context.url.searchParams.get('creating') === 'true'
@@ -143,6 +262,7 @@ export default createController(routes.admin.users, {
           filter={filter}
           editRow={editRow}
           creating={creating}
+          pageSize={effectivePageSize}
         />,
       )
     },
@@ -150,26 +270,65 @@ export default createController(routes.admin.users, {
     async create(context) {
       let db = context.db
       let formData = context.formData
+      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
 
+      let rawValues = readFormFieldValues(USERS_FORM_KEYS, formData)
       let parseResult = s.parseSafe(userCreateSchema, formData)
+
       if (!parseResult.success) {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return renderUsersFormError(context, {
+          creating: true,
+          formValues: userFormValues(rawValues),
+          fieldErrors: issuesToFieldErrors(parseResult.issues),
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
+        })
       }
       let fields = parseResult.value
 
       if (!fields.password) {
-        return context.json({ ok: false, error: 'Password is required' }, { status: 400 })
+        return renderUsersFormError(context, {
+          creating: true,
+          formValues: userFormValues(rawValues),
+          fieldErrors: { password: 'Passwort ist erforderlich.' },
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
+        })
       }
       let complexityError = validatePasswordComplexity(fields.password)
       if (complexityError) {
-        return context.json({ ok: false, error: complexityError }, { status: 400 })
+        return renderUsersFormError(context, {
+          creating: true,
+          formValues: userFormValues(rawValues),
+          fieldErrors: { password: complexityError },
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
+        })
       }
 
       let existing = await db.findOne(users, {
         where: { email: fields.email.trim().toLowerCase() },
       })
       if (existing) {
-        return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
+        return renderUsersFormError(context, {
+          creating: true,
+          formValues: userFormValues(rawValues),
+          fieldErrors: { email: 'E-Mail existiert bereits.' },
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
+        })
       }
 
       let passwordHash = await hashPassword(fields.password)
@@ -199,7 +358,7 @@ export default createController(routes.admin.users, {
         })
       }
 
-      let redirectState = gridStateFromForm(fields)
+      let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let baseUrl = routes.admin.users.index.href()
@@ -209,15 +368,27 @@ export default createController(routes.admin.users, {
     async update(context) {
       let db = context.db
       let formData = context.formData
+      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
+      let rawValues = readFormFieldValues(USERS_FORM_KEYS, formData)
       let parseResult = s.parseSafe(userUpdateSchema, formData)
+
       if (!parseResult.success) {
-        return context.json({ ok: false, error: 'Invalid form data' }, { status: 400 })
+        return renderUsersFormError(context, {
+          editRow: buildEditRowFromRaw(id, rawValues),
+          formValues: userFormValues(rawValues),
+          fieldErrors: issuesToFieldErrors(parseResult.issues),
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
+        })
       }
       let fields = parseResult.value
 
@@ -226,7 +397,32 @@ export default createController(routes.admin.users, {
           where: { email: fields.email.trim().toLowerCase() },
         })
         if (existing && existing.id !== id) {
-          return context.json({ ok: false, error: 'Email already exists' }, { status: 400 })
+          return renderUsersFormError(context, {
+            editRow: buildEditRowFromRaw(id, rawValues),
+            formValues: userFormValues(rawValues),
+            fieldErrors: { email: 'E-Mail existiert bereits.' },
+            offset: gridOffset(rawValues),
+            column: gridSortColumn(rawValues),
+            direction: gridSortDirection(rawValues),
+            filter: gridFilter(rawValues),
+            pageSize: effectivePageSize,
+          })
+        }
+      }
+
+      if (fields.password) {
+        let complexityError = validatePasswordComplexity(fields.password)
+        if (complexityError) {
+          return renderUsersFormError(context, {
+            editRow: buildEditRowFromRaw(id, rawValues),
+            formValues: userFormValues(rawValues),
+            fieldErrors: { password: complexityError },
+            offset: gridOffset(rawValues),
+            column: gridSortColumn(rawValues),
+            direction: gridSortDirection(rawValues),
+            filter: gridFilter(rawValues),
+            pageSize: effectivePageSize,
+          })
         }
       }
 
@@ -240,10 +436,6 @@ export default createController(routes.admin.users, {
         changes.disabled_at = null
       }
       if (fields.password) {
-        let complexityError = validatePasswordComplexity(fields.password)
-        if (complexityError) {
-          return context.json({ ok: false, error: complexityError }, { status: 400 })
-        }
         changes.password_hash = await hashPassword(fields.password)
         let currentUser = (await db.find(users, id)) as { token_version: number } | undefined
         changes.token_version = (currentUser?.token_version ?? 0) + 1
@@ -270,7 +462,7 @@ export default createController(routes.admin.users, {
         })
       }
 
-      let redirectState = gridStateFromForm(fields)
+      let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
       let baseUrl = routes.admin.users.index.href()
