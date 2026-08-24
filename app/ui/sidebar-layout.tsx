@@ -140,6 +140,9 @@ function LayoutComponent(handle: Handle<PageProps>) {
 
       // Admin pages render as frame fragments through this shell (not the top-level
       // Layout), so PRG flash messages must be surfaced here to be visible.
+      // This is complementary to (not a duplicate of) the top-level Layout's flash
+      // banner: a flash is surfaced by exactly one of them per response — this shell
+      // for frame fragments, the document Layout for full-page navigations.
       let flashError: string | undefined
       let flashSuccess: string | undefined
       try {

@@ -15,6 +15,10 @@ export interface LayoutProps {
 export function Layout(handle: Handle<LayoutProps>) {
   return () => {
     let { title, children } = handle.props
+    // Flash is surfaced by exactly one layout per response: this full-document
+    // `Layout` on full-page navigations, or the admin sidebar shell
+    // (`createSidebarLayout`'s `LayoutComponent`) on frame-fragment navigations.
+    // The two never render the same flash in one response, so do not "dedupe".
     let flashError: string | undefined
     let flashSuccess: string | undefined
     try {

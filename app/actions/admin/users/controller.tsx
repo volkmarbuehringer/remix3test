@@ -170,12 +170,12 @@ async function disableGuardReason(
   authIdentity: { id: number; email: string } | undefined,
 ): Promise<string | null> {
   if (authIdentity && user.id === authIdentity.id) {
-    return 'Cannot disable your own account.'
+    return 'Das eigene Konto kann nicht deaktiviert werden.'
   }
   if (user.role === 'admin') {
     let adminCount = await db.count(users, { where: { role: 'admin' } })
     if (adminCount <= 1) {
-      return 'Cannot disable the last admin account.'
+      return 'Das letzte Admin-Konto kann nicht deaktiviert werden.'
     }
   }
   return null
@@ -534,7 +534,10 @@ export default createController(routes.admin.users, {
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity && id === authIdentity.id) {
-        return context.json({ ok: false, error: 'Cannot delete your own account' }, { status: 403 })
+        return context.json(
+          { ok: false, error: 'Das eigene Konto kann nicht gelöscht werden.' },
+          { status: 403 },
+        )
       }
 
       let user = existing as User
@@ -542,7 +545,7 @@ export default createController(routes.admin.users, {
         let adminCount = await db.count(users, { where: { role: 'admin' } })
         if (adminCount <= 1) {
           return context.json(
-            { ok: false, error: 'Cannot delete the last admin account' },
+            { ok: false, error: 'Das letzte Admin-Konto kann nicht gelöscht werden.' },
             { status: 403 },
           )
         }

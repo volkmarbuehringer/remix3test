@@ -139,7 +139,7 @@ describe('Admin sidebar shell — flash messages', () => {
 
     let session = createSession()
     session.set('auth', { userId: row.id, tv: row.token_version ?? 1 })
-    session.set(key, value)
+    session.flash(key, value)
     session.set('_csrf', 'test-csrf-token-for-shell-flash')
 
     let sid = await sessionStorage.save(session)

@@ -467,7 +467,7 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 403)
       let json = await response.json()
       assert.equal(json.ok, false)
-      assert.match(json.error, /own account/)
+      assert.match(json.error, /eigene Konto/)
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
@@ -597,7 +597,7 @@ describe('Admin Users Controller', () => {
       let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
-      assert.ok(err?.includes('own account'), 'flash error should mention own account')
+      assert.ok(err?.includes('eigene Konto'), 'flash error should mention own account')
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')

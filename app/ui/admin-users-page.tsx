@@ -30,7 +30,7 @@ const ADMIN_BASE = routes.admin.users.index.href()
 
 /** User display type — password_hash is never sent to the client. */
 type DisplayUser = {
-  id: number | null
+  id: number
   email: string
   name: string
   role: string
@@ -349,7 +349,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                   let isDisabled = !!row.disabled_at
                   let editHref = buildEditUrl(
                     ADMIN_BASE,
-                    row.id!,
+                    row.id,
                     offset,
                     sortColumn,
                     sortDirection,
@@ -403,7 +403,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
                           <RestfulForm
                             method="POST"
-                            action={routes.admin.users.toggleDisabled.href({ id: row.id! })}
+                            action={routes.admin.users.toggleDisabled.href({ id: row.id })}
                             data-toggle-form={row.id}
                             data-rmx-target={frames.adminContent}
                             mix={css({ margin: 0, padding: 0 })}
@@ -432,7 +432,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
 
                           <RestfulForm
                             method="DELETE"
-                            action={routes.admin.users.destroy.href({ id: row.id! })}
+                            action={routes.admin.users.destroy.href({ id: row.id })}
                             data-delete-form={row.id}
                             data-confirm={`Benutzer "${row.name}" wirklich löschen?`}
                             data-rmx-target={frames.adminContent}
@@ -628,7 +628,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
       >
         <RestfulForm
           method="PUT"
-          action={routes.admin.users.update.href({ id: row.id! })}
+          action={routes.admin.users.update.href({ id: row.id })}
           data-rmx-target={frames.adminContent}
           novalidate
         >
