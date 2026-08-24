@@ -8,11 +8,18 @@ import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
+import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { mondayOfWeek } from '../data/offering-configs.ts'
 import { isoWeeksInYear } from '../utils/date-utils.ts'
 
 interface AdminOfferingsWeekPageProps {
   resources: ResourceOption[]
+  offset: string
+  sort: string
+  order: string
+  filter: string
+  period?: string
+  status?: string
 }
 
 interface ResourceOption {
@@ -38,7 +45,7 @@ const noteStyle = css({
 
 export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProps>) {
   return () => {
-    let { resources } = handle.props
+    let { resources, offset, sort, order, filter, period, status } = handle.props
     let years = Array.from({ length: 5 }, (_, i) => 2026 + i)
 
     return (
@@ -46,6 +53,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
         <RestfulForm method="POST" action="/verwaltung/offerings/week" data-rmx-target={frames.adminContent}>
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Woche hinzufügen</span>

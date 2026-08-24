@@ -245,6 +245,34 @@ describe('Admin Offerings Controller', () => {
       assert.ok(err, 'a flash error should be set')
     })
 
+    it('preserves grid state on config-save success', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        _csrf: fresh.csrfToken,
+        _offset: '12',
+        _sort: 'ao.day',
+        _order: 'desc',
+        _filter: 'such',
+        _period: 'this-week',
+        _status: 'pending',
+      })
+      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/config`, {
+        method: 'POST',
+        headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 302, 'config-save success should PRG back to the grid')
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.includes('offset=12'), 'grid offset should be preserved')
+      assert.ok(location.includes('sort=ao.day'), 'grid sort should be preserved')
+      assert.ok(location.includes('order=desc'), 'grid order should be preserved')
+      assert.ok(location.includes('filter=such'), 'grid filter should be preserved')
+      assert.ok(location.includes('period=this-week'), 'grid period should be preserved')
+      assert.ok(location.includes('status=pending'), 'grid status should be preserved')
+    })
+
     it('redirects (PRG) with a flash message on week-generate', async () => {
       let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
       assert.ok(fresh?.cookie, 'fresh admin session must be created')
@@ -252,10 +280,10 @@ describe('Admin Offerings Controller', () => {
         year: String(new Date().getUTCFullYear()),
         week: '1',
         _csrf: fresh.csrfToken,
-        _offset: '',
-        _sort: '',
-        _order: '',
-        _filter: '',
+        _offset: '9',
+        _sort: 'r.description',
+        _order: 'desc',
+        _filter: 'such',
       })
       let response = await router.fetch(`${ADMIN_OFFERINGS_URL}/week`, {
         method: 'POST',
@@ -263,6 +291,11 @@ describe('Admin Offerings Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 302, 'week-generate should PRG back to the grid')
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.includes('offset=9'), 'grid offset should be preserved')
+      assert.ok(location.includes('sort=r.description'), 'grid sort should be preserved')
+      assert.ok(location.includes('order=desc'), 'grid order should be preserved')
+      assert.ok(location.includes('filter=such'), 'grid filter should be preserved')
       let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
       let session = await sessionStorage.read(rawSid)
       assert.ok(session.get('error') || session.get('success'), 'flash message should be set')

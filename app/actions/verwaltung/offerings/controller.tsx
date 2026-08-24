@@ -510,9 +510,11 @@ export default createController(routes.verwaltung.offerings, {
         }
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          let params = gridStateToParams(gridStateFromFormData(formData))
-          let qs = params.toString()
-          return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
+          context.session.flash(
+            'error',
+            'Der Eintrag kann nicht gelöscht werden, da er noch verwendet wird.',
+          )
+          return redirect(offeringsGridUrl(formData))
         }
         throw error
       }

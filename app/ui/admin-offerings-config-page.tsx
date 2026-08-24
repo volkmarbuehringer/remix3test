@@ -7,6 +7,7 @@ import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
+import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { routes, frames } from '../routes.ts'
 import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
@@ -15,6 +16,12 @@ interface AdminOfferingsConfigPageProps {
   resources: OfferingsResourceOption[]
   config: OfferingConfig | undefined
   resourceId: number
+  offset: string
+  sort: string
+  order: string
+  filter: string
+  period?: string
+  status?: string
 }
 
 const DAYS = [
@@ -68,7 +75,8 @@ const dayCheckboxStyle = css({
 
 export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPageProps>) {
   return () => {
-    let { resources, config, resourceId } = handle.props
+    let { resources, config, resourceId, offset, sort, order, filter, period, status } =
+      handle.props
     let rules: Record<string, [number, number]> = (config?.rules ?? {}) as Record<
       string,
       [number, number]
@@ -80,6 +88,7 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
       >
         <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()} data-rmx-target={frames.adminContent}>
           <input type="hidden" name="resource_id" value={String(resourceId)} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>

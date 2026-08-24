@@ -24,6 +24,7 @@ import type { OfferingConfig } from '../data/offering-configs.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { AdminOfferingsContextMenu } from '../actions/admin/public/admin-offerings-context-menu.tsx'
 import { DeletePastButton } from '../actions/admin/public/admin-delete-past-button.tsx'
 import type { OfferingRow, OfferingsResourceOption } from '../data/offerings-queries.ts'
@@ -676,6 +677,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           })}
         </script>
         <AdminOfferingsContextMenu />
+        <ConfirmDelete />
       </div>
     )
 
@@ -719,9 +721,23 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   resources={resources}
                   config={offeringConfig}
                   resourceId={configResourceId}
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter ?? ''}
+                  period={period ?? ''}
+                  status={status ?? ''}
                 />
               ) : addWeek ? (
-                <AdminOfferingsWeekPage resources={resources} />
+                <AdminOfferingsWeekPage
+                  resources={resources}
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter ?? ''}
+                  period={period ?? ''}
+                  status={status ?? ''}
+                />
               ) : null}
             </div>
           </div>
