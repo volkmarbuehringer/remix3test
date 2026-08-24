@@ -26,7 +26,7 @@ const listItemSchema = s.object({
 })
 
 const listsSaveSchema = s.object({
-  title: s.optional(s.string().pipe(minLength(1), maxLength(200))),
+  title: s.optional(s.string().pipe(maxLength(200))),
   description: s.string().pipe(minLength(1), maxLength(500)),
   items: s.array(listItemSchema),
 })
@@ -165,7 +165,11 @@ export default createController(routes.apiLists, {
         return context.json({ error: 'List changed, retry' }, { status: 409 })
       }
 
-      return context.json({ id: listId, title: result.row.title, description })
+      return context.json({
+        id: listId,
+        title: result.row.title,
+        description: result.row.description,
+      })
     },
     async destroy(context) {
       let apiUser = context.apiUser!

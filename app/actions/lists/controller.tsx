@@ -41,7 +41,7 @@ const listsCreateSchema = s.object({
 })
 
 const listsPatchSchema = s.object({
-  title: s.optional(s.string().pipe(minLength(1), maxLength(200))),
+  title: s.optional(s.string().pipe(maxLength(200))),
   description: s.optional(s.string().pipe(minLength(1), maxLength(500))),
   items: s.optional(s.array(listItemSchema)),
 })

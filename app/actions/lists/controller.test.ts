@@ -1196,4 +1196,37 @@ describe('Lists controller', () => {
       'admin search should match a list by title even when description differs',
     )
   })
+
+  it('PUT /lists/:id (patch) clears an existing title to empty', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: 'To be cleared',
+        description: 'Keeps desc',
+        items: [{ label: 'Item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
+
+    let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
+      },
+      body: JSON.stringify({ title: '' }),
+    })
+    assert.equal(patchResponse.status, 200, 'clearing a title to empty should be allowed')
+    let body = await patchResponse.json()
+    assert.equal(body.title, '', 'stored title should be empty')
+    assert.equal(body.description, 'Keeps desc', 'description should be preserved')
+  })
 })

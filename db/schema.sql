@@ -84,8 +84,20 @@ CREATE TABLE IF NOT EXISTS lists (
   updated_at BIGINT NOT NULL
 );
 
-ALTER TABLE lists ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
-UPDATE lists SET title = description WHERE title = '' OR title IS NULL;
+-- Add the title column and backfill from description only when the column is
+-- newly added. On every subsequent boot the column already exists (CREATE TABLE
+-- defines it for fresh DBs), so the UPDATE is skipped and an intentionally
+-- cleared title ('') is never overwritten again.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'lists' AND column_name = 'title'
+  ) THEN
+    ALTER TABLE lists ADD COLUMN title TEXT NOT NULL DEFAULT '';
+    UPDATE lists SET title = description WHERE title = '' OR title IS NULL;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_lists_desc ON lists USING GIN (description gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_lists_title ON lists USING GIN (title gin_trgm_ops);

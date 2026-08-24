@@ -326,25 +326,6 @@ export const ListsClient = clientEntry(
       })
     }
 
-    // The pencil rename in the sidebar edits the list title directly. Adopt it
-    // here (and refresh the sidebar) so the editor's title input stays consistent.
-    if (typeof window !== 'undefined') {
-      window.addEventListener(
-        'lists:title-changed',
-        (e) => {
-          let d = (e as CustomEvent).detail as { listId?: number; title?: string } | undefined
-          if (!d || d.listId !== loadedListId || typeof d.title !== 'string') return
-          title = d.title
-          cleanTitle = d.title
-          let input = document.getElementById('lists-title') as HTMLInputElement | null
-          if (input) input.value = d.title
-          handle.update()
-          syncEditorSidebar()
-        },
-        { signal: handle.signal },
-      )
-    }
-
     let scheduleAutosave = (fast = false) => {
       if (conflictState.show) return
       if (autosaveTimer) clearTimeout(autosaveTimer)
@@ -730,8 +711,7 @@ export const ListsClient = clientEntry(
 
     let deleteItem = (index: number) => {
       disarmClear()
-      let removed = items[index]
-      if (!removed) return
+      if (!items[index]) return
       showUndo(
         'delete',
         items.map((item) => ({ ...item })),
@@ -830,9 +810,10 @@ export const ListsClient = clientEntry(
       setTimeout(() => saveNow(), 0)
     }
 
-    // SendBeacon for navigate-away flush
-    // Beacon cannot set custom headers, so we pass the CSRF token as a query param
-    // and the precondition via _if_match in the body.
+    // Navigate-away flush. The update route is PUT, which navigator.sendBeacon
+    // cannot send (it is always POST), so use fetch with keepalive: true
+    // instead. keepalive lets custom headers ride along (CSRF + If-Match), so we
+    // no longer need the query-param CSRF or the _if_match body fallback.
     function flushOnUnload() {
       if (!isDirty()) return
       if (loadedListId === null) return
@@ -841,12 +822,16 @@ export const ListsClient = clientEntry(
       if (description !== cleanDescription) partial.description = description
       if (JSON.stringify(items) !== cleanItemsJSON) partial.items = items
       if (Object.keys(partial).length === 0) return
-      partial._if_match = loadedUpdatedAt
-      let csrfToken =
-        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
-      let url = `/lists/${loadedListId}?_csrf=${encodeURIComponent(csrfToken)}`
-      let blob = new Blob([JSON.stringify(partial)], { type: 'application/json' })
-      navigator.sendBeacon(url, blob)
+      try {
+        void fetch(`/lists/${loadedListId}`, {
+          method: 'PUT',
+          keepalive: true,
+          headers: getCsrfHeaders(),
+          body: JSON.stringify(partial),
+        }).catch(() => {})
+      } catch {
+        // Best-effort flush — ignore any failure surfacing during unload.
+      }
     }
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', flushOnUnload, { signal: handle.signal })

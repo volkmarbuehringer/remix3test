@@ -567,4 +567,39 @@ describe('lists-api lib', () => {
 
     await db.delete(lists, { id: created.id })
   })
+
+  it('patchList clears a title to empty', async () => {
+    let created = await createList(db, {
+      title: 'Clear me',
+      description: 'Desc',
+      items: [{ id: '1', label: 'Item' }],
+    })
+    let result = await patchList(db, created.id, { title: '' }, undefined, {
+      expectedUpdatedAt: created.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.row.title, '')
+      assert.equal(result.row.description, 'Desc', 'description should be preserved')
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('patchList trims a whitespace-only title to empty', async () => {
+    let created = await createList(db, {
+      title: 'Trim me',
+      description: 'Desc',
+      items: [{ id: '1', label: 'Item' }],
+    })
+    let result = await patchList(db, created.id, { title: '   ' }, undefined, {
+      expectedUpdatedAt: created.updated_at,
+    })
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.row.title, '', 'whitespace-only title should be trimmed to empty')
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
 })
