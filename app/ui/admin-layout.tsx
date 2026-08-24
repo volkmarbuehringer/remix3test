@@ -15,7 +15,6 @@ export type AdminNavItem =
   | 'workflow'
   | 'client'
   | 'users'
-  | 'nutzer'
   | 'uploads'
   | 'webhooks'
   | 'testagent'
@@ -41,7 +40,6 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
-      { id: 'nutzer', label: 'Nutzer', route: routes.admin.nutzer.index },
       { id: 'uploads', label: 'Uploads', route: routes.uploads.index },
       { id: 'webhooks', label: 'Webhooks', route: system.webhookRequests, iframeNav: false },
       { id: 'testagent', label: 'Test-Agent', route: routes.testAgent.index },
@@ -88,8 +86,6 @@ function navIcon(id: AdminNavItem): RemixNode {
     case 'client':
       return usersSvg()
     case 'users':
-      return usersSvg()
-    case 'nutzer':
       return usersSvg()
     case 'uploads':
       return uploadSvg()

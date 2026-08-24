@@ -6,7 +6,7 @@ export const routeNavigate = createTool({
   description:
     'Navigate the user to a page in the app. Use when the user wants to see a specific view like lists, appointments, settings, etc.',
   inputSchema: z.object({
-    path: z.string().describe('Route path, e.g. /lists or /admin/nutzer'),
+    path: z.string().describe('Route path, e.g. /lists or /admin/users'),
     query: z
       .record(z.string(), z.string())
       .optional()

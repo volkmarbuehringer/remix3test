@@ -63,9 +63,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   // Client Lab route
   router.map(routes.admin.client, admin.adminClient)
 
-  // Nutzer route (under admin, admin-only middleware in controller)
-  router.map(routes.admin.nutzer, admin.adminNutzer)
-
   // Lists routes (separate controller with requireAuth middleware)
   router.map(routes.lists, listsController)
 

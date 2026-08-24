@@ -60,7 +60,7 @@ Available tools:
 - mastra_workspace_mkdir: Create a new directory (requires approval).
 - mastra_workspace_grep: Search file contents with regex patterns — returns matching paths and line numbers (requires approval).
 - mastra_workspace_file_stat: Get file metadata (size, type, modification time) — no approval needed.
-- navigate: Navigate the user to a page in the app. Call this when the user wants to see a specific route like /lists, /admin/nutzer, etc.
+- navigate: Navigate the user to a page in the app. Call this when the user wants to see a specific route like /lists, /admin/users, etc.
 - find_list: Search for a saved list by its description. Returns matching list IDs and descriptions. Use this when the user asks for a list by name (e.g. "show me the abx list").
 
 listTestFiles parameters:

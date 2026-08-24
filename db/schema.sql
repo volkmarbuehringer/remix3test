@@ -230,30 +230,6 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 CREATE INDEX IF NOT EXISTS api_tokens_token_hash_idx ON api_tokens (token_hash);
 CREATE INDEX IF NOT EXISTS api_tokens_user_id_idx ON api_tokens (user_id);
 
-CREATE TABLE IF NOT EXISTS login (
-  l_id SERIAL PRIMARY KEY,
-  l_login TEXT NOT NULL,
-  l_aktiv BOOLEAN NOT NULL DEFAULT true,
-  l_gesperrt BOOLEAN NOT NULL DEFAULT false,
-  l_password TEXT,
-  l_tv INTEGER DEFAULT 0,
-  l_letzte_login BIGINT
-);
-
-CREATE INDEX IF NOT EXISTS login_l_login_idx ON login (l_login);
-
-CREATE TABLE IF NOT EXISTS nutzer (
-  n_id SERIAL PRIMARY KEY,
-  n_vorname TEXT,
-  n_name TEXT,
-  n_email TEXT,
-  n_verpflichtung BOOLEAN NOT NULL DEFAULT false,
-  n_lid INTEGER NOT NULL REFERENCES login(l_id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS nutzer_n_email_idx ON nutzer (n_email);
-CREATE INDEX IF NOT EXISTS nutzer_n_lid_idx ON nutzer (n_lid);
-
 CREATE TABLE IF NOT EXISTS mastra_workflow_snapshot (
   workflow_name TEXT NOT NULL,
   run_id TEXT NOT NULL,

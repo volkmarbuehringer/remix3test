@@ -77,16 +77,6 @@ export const routes = route({
   admin: route('admin', {
     index: get('/'),
 
-    nutzer: route('nutzer', {
-      index: get('/'),
-      create: post('/'),
-      update: put('/:id'),
-      destroy: del('/:id'),
-      resetPassword: post('/:id/reset-password'),
-      toggleLock: post('/:id/toggle-lock'),
-      toggleActive: post('/:id/toggle-active'),
-    }),
-
     client: route('client', {
       index: get('/'),
       edit: get('/edit/:rowId'),

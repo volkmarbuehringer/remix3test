@@ -10,7 +10,7 @@ import { routes } from '../../routes.ts'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { CsrfTokenInput, tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
 import { getCspNonce } from '../../middleware/security-headers.ts'
-import { ClientGridInlineEdit } from '../nutzer/public/client-grid-inline-edit.tsx'
+import { ClientGridInlineEdit } from './public/client-grid-inline-edit.tsx'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null

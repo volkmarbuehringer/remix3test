@@ -12,7 +12,7 @@ export const routeAgent = new Agent({
   instructions: `You help users navigate the application and find lists.
 
 Available tools:
-- navigate: Navigate the user to a page in the app. Call this when the user wants to see a specific route like /lists, /admin/nutzer, etc.
+- navigate: Navigate the user to a page in the app. Call this when the user wants to see a specific route like /lists, /admin/users, etc.
 - find_list: Search for lists by description or item labels. Supports search text, sort order (newest/oldest), limit, and offset for pagination. Returns matching list IDs, descriptions, and a hasMore flag.
 - ask_user: Ask the user a structured question with selection options.
 

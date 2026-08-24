@@ -15,7 +15,7 @@ A full-featured Remix 3 web application — no React, built with Remix UI compon
 
 **Appointment Management** — A weekly calendar grid lets users book appointments against resources (rooms, equipment) within predefined time slots called "offerings." Supports drag-and-drop and resize interactions, quick-booking from templates, and real-time updates via Server-Sent Events so everyone sees changes instantly. A 24-hour cancellation policy applies, with admin bypass available.
 
-**Admin Suite** — A full set of management tools behind the admin role. Admins can CRUD users (both system accounts and legacy "nutzer" records), resources, offerings (individually or bulk-generated for an entire week from config templates), messages on the public board (with SSE for live updates), appointments (any user, bypassing policies), chat logs, lists, and offering configurations. Essentially everything in the app is manageable from the admin panel.
+**Admin Suite** — A full set of management tools behind the admin role. Admins can CRUD users, resources, offerings (individually or bulk-generated for an entire week from config templates), messages on the public board (with SSE for live updates), appointments (any user, bypassing policies), chat logs, lists, and offering configurations. Essentially everything in the app is manageable from the admin panel.
 
 **AI Features** — Mastra-powered support agent with multi-turn chat, tool use (weather, user lookup), and persisted Mastra memory so you can pick up where you left off.
 
