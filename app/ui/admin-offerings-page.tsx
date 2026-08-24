@@ -55,6 +55,54 @@ interface AdminOfferingsPageProps {
 
 const ADMIN_BASE = routes.verwaltung.offerings.index.href()
 
+const rowActionsStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+})
+
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': { background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground },
+})
+
+function buildEditUrl(
+  rowId: number | string,
+  offset: number,
+  sort: string,
+  order: string,
+  filter?: string,
+  period?: string,
+  status?: string,
+): string {
+  let params = new URLSearchParams()
+  params.set('editing', String(rowId))
+  if (offset > 0) params.set('offset', String(offset))
+  params.set('sort', sort)
+  params.set('order', order)
+  if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
+  if (status) params.set('status', status)
+  return routes.verwaltung.offerings.index.href() + '?' + params.toString()
+}
+
 function buildAddWeekUrl(
   offset: number,
   sort: string,
@@ -373,6 +421,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 <col />
                 <col />
                 <col />
+                <col mix={css({ width: '90px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -473,6 +522,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}></th>
                 </tr>
               </thead>
               <tbody>
@@ -499,35 +549,51 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>
                       {formatTimestamp(row.updated_at)}
                     </td>
+                    <td mix={table.actionCell}>
+                      <div mix={rowActionsStyle}>
+                        <a
+                          href={buildEditUrl(row.id, offset, sortColumn, sortDirection, filter, period, status)}
+                          data-rmx-target={frames.adminContent}
+                          mix={iconActionStyle}
+                          aria-label="Bearbeiten"
+                          title="Bearbeiten"
+                        >
+                          <Glyph name="edit" width={14} height={14} />
+                        </a>
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
+                          data-delete-form={row.id}
+                          data-confirm="Wirklich löschen?"
+                          data-rmx-target={frames.adminContent}
+                          mix={css({ margin: 0, padding: 0 })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                              period: period ?? '',
+                              status: status ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          {/* Hidden DELETE forms for context menu — kept in DOM for .requestSubmit() */}
-          {rows.length > 0 ? (
-            <div mix={table.displayNone} aria-hidden="true">
-              {rows.map((row) => (
-                <RestfulForm
-                  key={row.id}
-                  method="DELETE"
-                  action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
-                  data-delete-form={row.id}
-                >
-                  <GridStateHiddenInputs
-                    state={{
-                      offset: String(offset),
-                      sort: sortColumn,
-                      order: sortDirection,
-                      filter: filter ?? '',
-                      period: period ?? '',
-                      status: status ?? '',
-                    }}
-                  />
-                </RestfulForm>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {/* Pagination */}

@@ -5,6 +5,7 @@ import { MenuItem, MenuList } from 'remix/ui/menu'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { safeNavigate } from '../../../utils/frame-utils.ts'
 
 // ── Types ──
 
@@ -13,6 +14,8 @@ interface GridState {
   sort: string
   order: string
   filter: string
+  period?: string
+  status?: string
   baseHref?: string
 }
 
@@ -112,9 +115,11 @@ export const AdminOfferingsContextMenu = clientEntry(
         params.set('sort', state.sort || 'ao.id')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = baseHref + '?' + params.toString()
+        if (state.period) params.set('period', state.period)
+        if (state.status) params.set('status', state.status)
+        safeNavigate(baseHref + '?' + params.toString(), handle)
       } catch {
-        window.location.href = '/verwaltung/offerings?editing=' + rowId
+        safeNavigate('/verwaltung/offerings?editing=' + rowId, handle)
       }
     }
 

@@ -222,6 +222,13 @@ function renderOfferingsPage(context: any, data: OfferingPageData, init?: Respon
   )
 }
 
+/** Builds the offerings grid index URL from the submitted grid-state form fields. */
+function offeringsGridUrl(formData: FormData): string {
+  let params = gridStateToParams(gridStateFromFormData(formData))
+  let qs = params.toString()
+  return routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : '')
+}
+
 export default createController(routes.verwaltung.offerings, {
   middleware: [requireAuth(), requireAdmin()],
 
@@ -251,7 +258,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let { resource_id, day, start_min, end_min } = result.value
@@ -269,7 +276,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
@@ -284,7 +291,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let dayMs = new Date(day + 'T00:00:00Z').getTime()
@@ -301,7 +308,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let during = `[${start_min},${end_min})`
@@ -333,7 +340,7 @@ export default createController(routes.verwaltung.offerings, {
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
           })
-          return renderOfferingsPage(context, data, { status: 400 })
+          return renderOfferingsPage(context, data)
         }
         throw error
       }
@@ -348,7 +355,8 @@ export default createController(routes.verwaltung.offerings, {
       let formData = context.formData
       let id = context.params.id
       if (!id) {
-        return context.json({ ok: false, error: 'Ungültige ID.' }, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(offeringsGridUrl(formData))
       }
 
       let formValues = readFormFieldValues(OFFERING_FORM_KEYS, formData)
@@ -370,7 +378,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let { resource_id, day, start_min, end_min } = result.value
@@ -389,7 +397,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       if (hd.isHoliday(new Date(day + 'T00:00:00Z'))) {
@@ -405,7 +413,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let dayMs = new Date(day + 'T00:00:00Z').getTime()
@@ -423,7 +431,7 @@ export default createController(routes.verwaltung.offerings, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderOfferingsPage(context, data, { status: 400 })
+        return renderOfferingsPage(context, data)
       }
 
       let during = `[${start_min},${end_min})`
@@ -436,7 +444,8 @@ export default createController(routes.verwaltung.offerings, {
         })
 
         if (!updated) {
-          return context.json({ ok: false, error: 'Eintrag nicht gefunden.' }, { status: 404 })
+          context.session.flash('error', 'Eintrag nicht gefunden.')
+          return redirect(offeringsGridUrl(formData))
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -463,7 +472,7 @@ export default createController(routes.verwaltung.offerings, {
             filter: gridStateFilter(gridValues),
             period: gridStatePeriod(gridValues),
           })
-          return renderOfferingsPage(context, data, { status: 400 })
+          return renderOfferingsPage(context, data)
         }
         throw error
       }
@@ -475,17 +484,18 @@ export default createController(routes.verwaltung.offerings, {
 
     async destroy(context) {
       let id = context.params.id
-      if (!id) {
-        return context.json({ ok: false, error: 'Ungültige ID.' }, { status: 400 })
-      }
-
       let formData = context.formData
+      if (!id) {
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(offeringsGridUrl(formData))
+      }
 
       try {
         let deleted = await deleteOffering(context.db, id)
 
         if (!deleted) {
-          return context.json({ ok: false, error: 'Eintrag nicht gefunden.' }, { status: 404 })
+          context.session.flash('error', 'Eintrag nicht gefunden.')
+          return redirect(offeringsGridUrl(formData))
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -525,10 +535,8 @@ export default createController(routes.verwaltung.offerings, {
       )
 
       if (!result.success) {
-        return context.json(
-          { ok: false, error: result.issues[0]?.message ?? 'Ungültige Anfrage.' },
-          { status: 400 },
-        )
+        context.session.flash('error', result.issues[0]?.message ?? 'Ungültige Anfrage.')
+        return redirect(offeringsGridUrl(formData))
       }
 
       let resourceId = parseInt(result.value.resource_id, 10)
@@ -562,7 +570,7 @@ export default createController(routes.verwaltung.offerings, {
         })
       }
 
-      return redirect(routes.verwaltung.offerings.index.href())
+      return redirect(offeringsGridUrl(formData))
     },
 
     async weekGenerate(context) {
@@ -577,10 +585,8 @@ export default createController(routes.verwaltung.offerings, {
       )
 
       if (!result.success) {
-        return context.json(
-          { ok: false, error: result.issues[0]?.message ?? 'Ungültige Anfrage.' },
-          { status: 400 },
-        )
+        context.session.flash('error', result.issues[0]?.message ?? 'Ungültige Anfrage.')
+        return redirect(offeringsGridUrl(formData))
       }
 
       let year = parseInt(result.value.year, 10)
@@ -598,15 +604,14 @@ export default createController(routes.verwaltung.offerings, {
         allErrors.push(...result.errors)
       }
 
-      let params = new URLSearchParams()
       if (allErrors.length > 0) {
-        params.set(
+        context.session.flash(
           'error',
           `${totalCreated} erstellt, ${totalSkipped} übersprungen. Fehler: ${allErrors[0]}`,
         )
       } else {
-        params.set(
-          'error',
+        context.session.flash(
+          'success',
           `${totalCreated} Angebote erstellt${totalSkipped > 0 ? `, ${totalSkipped} übersprungen.` : '.'}`,
         )
       }
@@ -622,13 +627,11 @@ export default createController(routes.verwaltung.offerings, {
         })
       }
 
-      let qs = params.toString()
-      return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
+      return redirect(offeringsGridUrl(formData))
     },
 
     async deletePast(context) {
       let formData = context.formData
-      let gridValues = gridStateFromFormData(formData)
 
       let count = await deletePastOfferings(context.db)
 
@@ -643,10 +646,8 @@ export default createController(routes.verwaltung.offerings, {
         })
       }
 
-      let params = gridStateToParams(gridValues)
-      params.set('error', `${count} vergangene Angebote gelöscht.`)
-      let qs = params.toString()
-      return redirect(routes.verwaltung.offerings.index.href() + (qs ? '?' + qs : ''))
+      context.session.flash('success', `${count} vergangene Angebote gelöscht.`)
+      return redirect(offeringsGridUrl(formData))
     },
   },
 })
