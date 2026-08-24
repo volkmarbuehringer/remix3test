@@ -5,6 +5,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser, createTestUser, extractCookie } from '../../test-utils.ts'
+import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'
 const USERS_URL = `${BASE}/admin/users`
@@ -157,7 +158,10 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 200)
       let text = await response.text()
       assert.ok(text.includes('Aktionen'), 'should render an actions column')
-      assert.ok(text.includes('data-toggle-disabled'), 'should render per-row toggle buttons')
+      assert.ok(
+        text.includes('data-toggle-form') && !text.includes('data-toggle-disabled'),
+        'should render per-row toggle forms (no JSON fetch button)',
+      )
       assert.ok(
         text.includes('data-confirm') && text.includes('löschen'),
         'should render confirmed delete forms',
@@ -471,24 +475,31 @@ describe('Admin Users Controller', () => {
   })
 
   describe('toggle-disabled (POST /admin/users/:id/toggle-disabled)', () => {
-    it('disables an active user', async () => {
+    it('disables an active user and redirects (PRG)', async () => {
       let email = `test-toggle-off-${Date.now()}@example.com`
       let id = await createTestUser(email)
       assert.ok(id, 'test user must be created')
 
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
       let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
         method: 'POST',
         headers: {
           Cookie: adminCookie,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'X-Csrf-Token': adminCsrfToken,
         },
-        body: '{}',
+        body: body.toString(),
       })
-      assert.equal(response.status, 200)
-      let json = await response.json()
-      assert.equal(json.ok, true)
-      assert.equal(json.disabled, true)
+      assert.equal(response.status, 302, 'toggle should redirect (PRG), not return JSON')
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
+      assert.ok(location.includes('sort=name'), 'should carry grid-state params')
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
@@ -500,57 +511,93 @@ describe('Admin Users Controller', () => {
       assert.ok(id, 'test user must be created')
       await pool.query(`UPDATE users SET disabled_at = $1 WHERE id = $2`, [Date.now(), id])
 
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
       let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
         method: 'POST',
         headers: {
           Cookie: adminCookie,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
           'X-Csrf-Token': adminCsrfToken,
         },
-        body: '{}',
+        body: body.toString(),
       })
-      assert.equal(response.status, 200)
-      let json = await response.json()
-      assert.equal(json.ok, true)
-      assert.equal(json.disabled, false)
+      assert.equal(response.status, 302)
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.equal(result.rows[0]?.disabled_at, null, 'disabled_at should be null')
     })
 
-    it('returns 404 for non-existent user', async () => {
+    it('redirects with a flash error for a non-existent user', async () => {
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
       let response = await router.fetch(`${BASE}/admin/users/9999999/toggle-disabled`, {
         method: 'POST',
         headers: {
-          Cookie: adminCookie,
-          'Content-Type': 'application/json',
-          'X-Csrf-Token': adminCsrfToken,
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
         },
-        body: '{}',
+        body: body.toString(),
       })
-      assert.equal(response.status, 404)
-      let json = await response.json()
-      assert.equal(json.error, 'User not found')
+      assert.equal(response.status, 302, 'no JSON 404 — PRG back to the grid')
+
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
+
+      // The flash must be written to the session (consumed on the next render).
+      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Benutzer nicht gefunden'), 'flash error should be set')
     })
 
-    it('returns 403 when an admin tries to disable their own account', async () => {
+    it('redirects with a flash error when an admin disables their own account', async () => {
       let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
       let adminId = adminRow.rows[0]?.id
       assert.ok(adminId, 'admin user must exist')
 
+      let fresh = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      assert.ok(fresh?.cookie, 'fresh admin session must be created')
+
+      let body = new URLSearchParams({
+        _csrf: fresh.csrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
       let response = await router.fetch(`${BASE}/admin/users/${adminId}/toggle-disabled`, {
         method: 'POST',
         headers: {
-          Cookie: adminCookie,
-          'Content-Type': 'application/json',
-          'X-Csrf-Token': adminCsrfToken,
+          Cookie: fresh.cookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': fresh.csrfToken,
         },
-        body: '{}',
+        body: body.toString(),
       })
-      assert.equal(response.status, 403)
-      let json = await response.json()
-      assert.equal(json.ok, false)
-      assert.match(json.error, /own account/)
+      assert.equal(response.status, 302)
+
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
+
+      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('own account'), 'flash error should mention own account')
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')

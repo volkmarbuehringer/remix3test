@@ -62,6 +62,19 @@ Routes are organized into named trees:
 - **Appointment routes** — appointment management with event sourcing
 - **Lists routes** — list CRUD with data views
 
+### Admin Page / Form Base
+
+Admin pages and forms are built on one shared, SSR-first contract to avoid drift:
+
+- **Transport** — pages render through the shared frame runtime (`app/assets/entry.tsx`) via `renderAdminPage` (`createSidebarLayout`), and navigate/mutate with `data-rmx-target={frames.adminContent}`.
+- **Controlled submission** — mutations validate server-side with `parseSafe`. On failure the controller re-renders the frame fragment at **status 200** with `fieldErrors` + preserved values (non-OK re-renders are treated as an unrecoverable error card by the frame transport). On success it redirects (**PRG**). See `app/ui/admin-grid-error.tsx` (`renderGridFormError`).
+- **Row actions are server-rendered forms or links** — `RestfulForm` (POST/PUT/DELETE) carried by `data-rmx-target`; no client-side mutation `fetch`, no `frame.reload()`.
+- **clientEntry is an input affordance only** — confirm/context menus submit an existing server form (`form.requestSubmit()`); it never mutates data directly.
+- **Grid-state round-trip** — `_offset/_sort/_order/_filter` preserved on every mutation/navigation via `GridStateHiddenInputs` + `mixins/admin-urls.ts`.
+- **Flash** — PRG errors for field-less actions (e.g. toggle) use `session.flash`, surfaced by the admin sidebar shell (`createSidebarLayout`).
+
+The reference implementation is `app/actions/admin/users/controller.tsx` + `app/ui/admin-users-page.tsx`.
+
 ## Directory Structure
 
 ```

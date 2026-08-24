@@ -8,6 +8,34 @@ import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import type { BaseNavItem } from './nav.ts'
 
+// ── Flash banner styles (rendered in the sidebar shell for PRG messages) ─────
+
+const flashBase = {
+  padding: `${theme.space.sm} ${theme.space.lg}`,
+  fontSize: theme.fontSize.sm,
+  textAlign: 'center' as const,
+}
+
+const _surface = theme.surface as Record<string, string>
+
+const flashErrorStyle = css({
+  ...flashBase,
+  background: _surface.dangerBg,
+  color: _surface.dangerText,
+  borderBottom: `1px solid ${_surface.dangerBorder}`,
+  borderRadius: theme.radius.md,
+  marginBottom: theme.space.sm,
+})
+
+const flashSuccessStyle = css({
+  ...flashBase,
+  background: _surface.successBg,
+  color: _surface.successText,
+  borderBottom: `1px solid ${_surface.successBorder}`,
+  borderRadius: theme.radius.md,
+  marginBottom: theme.space.sm,
+})
+
 // ── Types ──────────────────────────────────────────────────────
 
 type NavItem<ID extends string> = BaseNavItem & {
@@ -101,7 +129,7 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
     }
   }
 
-  function LayoutComponent(handle: Handle<PageProps>) {
+function LayoutComponent(handle: Handle<PageProps>) {
     return () => {
       let { activeItem, children } = handle.props
       let fullHeight =
@@ -109,6 +137,23 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
           let pathname = new URL(getContext().request.url).pathname
           return pathname === path || pathname.startsWith(path + '/')
         }) ?? false
+
+      // Admin pages render as frame fragments through this shell (not the top-level
+      // Layout), so PRG flash messages must be surfaced here to be visible.
+      let flashError: string | undefined
+      let flashSuccess: string | undefined
+      try {
+        let session = getContext().session
+        if (session) {
+          let err = session.get('error')
+          if (typeof err === 'string') flashError = err
+          let success = session.get('success')
+          if (typeof success === 'string') flashSuccess = success
+        }
+      } catch {
+        /* no session context */
+      }
+
       return (
         <div mix={[shellStyle, fullHeight && shellFullHeightStyle].filter(Boolean)}>
           <aside mix={sidebarStyle}>
@@ -145,6 +190,8 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
             )}
           </aside>
           <section mix={[contentStyle, fullHeight && contentFullHeightStyle].filter(Boolean)}>
+            {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
+            {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
             <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>

@@ -21,6 +21,7 @@ import {
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { validatePasswordComplexity } from '../../../utils/password-complexity.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
+import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { AdminUsersPage } from '../../../ui/admin-users-page.tsx'
 import { paginate } from '../../../utils/pagination.ts'
 import { hashPassword } from '../../../utils/password-hash.ts'
@@ -180,14 +181,21 @@ async function disableGuardReason(
   return null
 }
 
-/** Minimal structural view of the action context that this render helper needs. */
+/** Minimal structural view of the action context that this render adapter needs. */
 type UsersRenderContext = {
   db: Database
   render: Parameters<typeof renderAdminPage>[0]
 }
 
-/** Re-render the full admin page with a validation error (Pattern 1 direct re-render). */
-async function renderUsersFormError(
+/**
+ * Re-render the full admin page with a validation error (Pattern 1 direct re-render).
+ *
+ * A thin per-page adapter: the shared `renderGridFormError` loads the grid rows and
+ * returns the fragment at status 200 (so the frame transport shows the inline errors
+ * and preserved values rather than an error card). This adapter only binds the
+ * users-specific page component and the create/edit distinction.
+ */
+async function renderUsersError(
   context: UsersRenderContext,
   opts: {
     creating?: boolean
@@ -202,39 +210,47 @@ async function renderUsersFormError(
     pageSize: number
   },
 ): Promise<Response> {
-  let { rows, hasMore } = await loadGridData(context.db, {
+  let grid: AdminGridErrorState = {
     offset: opts.offset,
-    column: opts.column,
-    direction: opts.direction,
+    sortColumn: opts.column,
+    sortDirection: opts.direction,
     filter: opts.filter,
     pageSize: opts.pageSize,
+  }
+  return renderGridFormError<SafeUser>({
+    render: context.render,
+    activeItem: 'users',
+    loadRows: () =>
+      loadGridData(context.db, {
+        offset: opts.offset,
+        column: opts.column,
+        direction: opts.direction,
+        filter: opts.filter,
+        pageSize: opts.pageSize,
+      }),
+    buildPage: (page) => (
+      <AdminUsersPage
+        rows={page.rows}
+        offset={page.offset}
+        hasMore={page.hasMore}
+        prevOffset={Math.max(0, page.offset - page.pageSize)}
+        nextOffset={page.offset + page.pageSize}
+        sortColumn={page.sortColumn}
+        sortDirection={page.sortDirection}
+        filter={page.filter}
+        editRow={opts.editRow ?? null}
+        creating={opts.creating ?? false}
+        pageSize={page.pageSize}
+        formValues={page.formValues}
+        fieldErrors={page.fieldErrors}
+        formError={page.formError}
+      />
+    ),
+    formValues: opts.formValues,
+    fieldErrors: opts.fieldErrors,
+    formError: opts.formError,
+    grid,
   })
-
-  return renderAdminPage(
-    context.render,
-    'users',
-    <AdminUsersPage
-      rows={rows}
-      offset={opts.offset}
-      hasMore={hasMore}
-      prevOffset={Math.max(0, opts.offset - opts.pageSize)}
-      nextOffset={opts.offset + opts.pageSize}
-      sortColumn={opts.column}
-      sortDirection={opts.direction}
-      filter={opts.filter}
-      editRow={opts.editRow ?? null}
-      creating={opts.creating ?? false}
-      pageSize={opts.pageSize}
-      formValues={opts.formValues}
-      fieldErrors={opts.fieldErrors}
-      formError={opts.formError}
-    />,
-    // The app's frame transport treats any non-OK response as an unrecoverable
-    // error card (see assets/frame-response.browser.tsx), so a validation-error
-    // re-render must be OK (200) for the swapped-in frame content to show the
-    // re-rendered form with its inline field errors and preserved values.
-    { status: 200 },
-  )
 }
 
 export default createController(routes.admin.users, {
@@ -298,7 +314,7 @@ export default createController(routes.admin.users, {
       let parseResult = s.parseSafe(userCreateSchema, formData)
 
       if (!parseResult.success) {
-        return renderUsersFormError(context, {
+        return renderUsersError(context, {
           creating: true,
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
@@ -312,7 +328,7 @@ export default createController(routes.admin.users, {
       let fields = parseResult.value
 
       if (!fields.password) {
-        return renderUsersFormError(context, {
+        return renderUsersError(context, {
           creating: true,
           formValues: userFormValues(rawValues),
           fieldErrors: { password: 'Passwort ist erforderlich.' },
@@ -325,7 +341,7 @@ export default createController(routes.admin.users, {
       }
       let complexityError = validatePasswordComplexity(fields.password)
       if (complexityError) {
-        return renderUsersFormError(context, {
+        return renderUsersError(context, {
           creating: true,
           formValues: userFormValues(rawValues),
           fieldErrors: { password: complexityError },
@@ -341,7 +357,7 @@ export default createController(routes.admin.users, {
         where: { email: fields.email.trim().toLowerCase() },
       })
       if (existing) {
-        return renderUsersFormError(context, {
+        return renderUsersError(context, {
           creating: true,
           formValues: userFormValues(rawValues),
           fieldErrors: { email: 'E-Mail existiert bereits.' },
@@ -401,7 +417,7 @@ export default createController(routes.admin.users, {
       let parseResult = s.parseSafe(userUpdateSchema, formData)
 
       if (!parseResult.success) {
-        return renderUsersFormError(context, {
+        return renderUsersError(context, {
           editRow: buildEditRowFromRaw(id, rawValues),
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
@@ -419,7 +435,7 @@ export default createController(routes.admin.users, {
           where: { email: fields.email.trim().toLowerCase() },
         })
         if (existing && existing.id !== id) {
-          return renderUsersFormError(context, {
+          return renderUsersError(context, {
             editRow: buildEditRowFromRaw(id, rawValues),
             formValues: userFormValues(rawValues),
             fieldErrors: { email: 'E-Mail existiert bereits.' },
@@ -435,7 +451,7 @@ export default createController(routes.admin.users, {
       if (fields.password) {
         let complexityError = validatePasswordComplexity(fields.password)
         if (complexityError) {
-          return renderUsersFormError(context, {
+          return renderUsersError(context, {
             editRow: buildEditRowFromRaw(id, rawValues),
             formValues: userFormValues(rawValues),
             fieldErrors: { password: complexityError },
@@ -569,13 +585,23 @@ export default createController(routes.admin.users, {
     async toggleDisabled(context) {
       let db = context.db
       let id = parseId(context.params.id)
+
+      let params = gridStateToParams(gridStateFromFormData(context.formData))
+      let baseUrl = routes.admin.users.index.href()
+
+      let fail = (message: string): Response => {
+        context.session.flash('error', message)
+        let qs = params.toString()
+        return redirect(baseUrl + (qs ? '?' + qs : ''))
+      }
+
       if (id === undefined || id < 1) {
-        return context.json({ error: 'Invalid id' }, { status: 400 })
+        return fail('Ungültige Benutzer-ID.')
       }
 
       let existing = await db.findOne(users, { where: { id } })
       if (!existing) {
-        return context.json({ error: 'User not found' }, { status: 404 })
+        return fail('Benutzer nicht gefunden.')
       }
 
       let user = existing as User
@@ -584,7 +610,7 @@ export default createController(routes.admin.users, {
       if (user.disabled_at == null) {
         let reason = await disableGuardReason(db, user, getAdminIdentity(context.auth))
         if (reason) {
-          return context.json({ ok: false, error: reason }, { status: 403 })
+          return fail(reason)
         }
       }
       let now = user.disabled_at ? null : Date.now()
@@ -606,7 +632,8 @@ export default createController(routes.admin.users, {
         })
       }
 
-      return context.json({ ok: true, disabled: newDisabledState })
+      let qs = params.toString()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
     },
   },
 })

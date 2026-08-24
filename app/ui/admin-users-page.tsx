@@ -401,20 +401,34 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             <Glyph name="edit" width={14} height={14} />
                           </a>
 
-                          <button
-                            type="button"
-                            data-toggle-disabled={row.id}
-                            data-disabled-at={row.disabled_at ?? ''}
-                            mix={iconActionStyle}
-                            aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
-                            title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                          <RestfulForm
+                            method="POST"
+                            action={routes.admin.users.toggleDisabled.href({ id: row.id! })}
+                            data-toggle-form={row.id}
+                            data-rmx-target={frames.adminContent}
+                            mix={css({ margin: 0, padding: 0 })}
                           >
-                            <Glyph
-                              name={isDisabled ? 'check' : 'shield'}
-                              width={14}
-                              height={14}
+                            <GridStateHiddenInputs
+                              state={{
+                                offset: String(offset),
+                                sort: sortColumn,
+                                order: sortDirection,
+                                filter: filter ?? '',
+                              }}
                             />
-                          </button>
+                            <button
+                              type="submit"
+                              mix={iconActionStyle}
+                              aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                              title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
+                            >
+                              <Glyph
+                                name={isDisabled ? 'check' : 'shield'}
+                                width={14}
+                                height={14}
+                              />
+                            </button>
+                          </RestfulForm>
 
                           <RestfulForm
                             method="DELETE"
