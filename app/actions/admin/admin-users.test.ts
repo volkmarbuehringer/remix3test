@@ -434,6 +434,40 @@ describe('Admin Users Controller', () => {
         'password_hash must be redacted in audit log',
       )
     })
+
+    it('rejects disabling your own account (403)', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let body = new URLSearchParams({
+        name: 'Admin User1',
+        email: 'admin@newapp.com',
+        role: 'admin',
+        disabled: 'true',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 403)
+      let json = await response.json()
+      assert.equal(json.ok, false)
+      assert.match(json.error, /own account/)
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
+      assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
+    })
   })
 
   describe('toggle-disabled (POST /admin/users/:id/toggle-disabled)', () => {
@@ -497,6 +531,29 @@ describe('Admin Users Controller', () => {
       assert.equal(response.status, 404)
       let json = await response.json()
       assert.equal(json.error, 'User not found')
+    })
+
+    it('returns 403 when an admin tries to disable their own account', async () => {
+      let adminRow = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+      let adminId = adminRow.rows[0]?.id
+      assert.ok(adminId, 'admin user must exist')
+
+      let response = await router.fetch(`${BASE}/admin/users/${adminId}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: '{}',
+      })
+      assert.equal(response.status, 403)
+      let json = await response.json()
+      assert.equal(json.ok, false)
+      assert.match(json.error, /own account/)
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
+      assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
     })
   })
 

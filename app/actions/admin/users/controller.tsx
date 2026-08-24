@@ -158,6 +158,28 @@ function buildEditRowFromRaw(id: number, raw: Record<string, string>): SafeUser 
   }
 }
 
+/**
+ * Returns a reason the given user cannot be disabled, or null if allowed.
+ * An admin may not disable their own account (no way to undo the lockout)
+ * nor the last remaining admin account — mirroring the destroy guards.
+ */
+async function disableGuardReason(
+  db: Database,
+  user: User,
+  authIdentity: { id: number; email: string } | undefined,
+): Promise<string | null> {
+  if (authIdentity && user.id === authIdentity.id) {
+    return 'Cannot disable your own account.'
+  }
+  if (user.role === 'admin') {
+    let adminCount = await db.count(users, { where: { role: 'admin' } })
+    if (adminCount <= 1) {
+      return 'Cannot disable the last admin account.'
+    }
+  }
+  return null
+}
+
 /** Minimal structural view of the action context that this render helper needs. */
 type UsersRenderContext = {
   db: Database
@@ -426,6 +448,17 @@ export default createController(routes.admin.users, {
         }
       }
 
+      // Guard self-disable / last-admin-disable (mirrors the destroy guards).
+      if (fields.disabled === 'true') {
+        let currentUser = (await db.find(users, id)) as User | undefined
+        if (currentUser && currentUser.disabled_at == null) {
+          let reason = await disableGuardReason(db, currentUser, getAdminIdentity(context.auth))
+          if (reason) {
+            return context.json({ ok: false, error: reason, field: 'disabled' }, { status: 403 })
+          }
+        }
+      }
+
       let changes: Record<string, unknown> = {}
       if (fields.name?.trim()) changes.name = fields.name.trim()
       if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
@@ -546,6 +579,14 @@ export default createController(routes.admin.users, {
       }
 
       let user = existing as User
+      // Guard self-disable / last-admin-disable (mirrors the destroy guards)
+      // before turning an active account into a disabled one.
+      if (user.disabled_at == null) {
+        let reason = await disableGuardReason(db, user, getAdminIdentity(context.auth))
+        if (reason) {
+          return context.json({ ok: false, error: reason }, { status: 403 })
+        }
+      }
       let now = user.disabled_at ? null : Date.now()
       await db.exec(
         `UPDATE users SET disabled_at = $1, token_version = token_version + 1 WHERE id = $2`,

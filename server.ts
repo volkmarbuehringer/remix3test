@@ -122,8 +122,8 @@ server.listen(port, host, () => {
   if (!isProduction) {
     console.log('')
     console.log('Demo accounts:')
-    console.log('  Admin:    admin@newapp.com / admin123')
-    console.log('  Customer: user@newapp.com / password123')
+    console.log(`  Admin:    admin@newapp.com / ${process.env.SEED_ADMIN_PASSWORD ?? 'admin123'}`)
+    console.log(`  Customer: user@newapp.com / ${process.env.SEED_USER_PASSWORD ?? 'password123'}`)
     console.log('')
   }
 })
