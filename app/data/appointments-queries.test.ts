@@ -28,13 +28,13 @@ describe('appointments-queries', () => {
   })
 
   afterEach(async () => {
-    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[TEST]%'])
+    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[AQ]%'])
     await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[WEEK-SCOPE]%'])
   })
 
   it('createAppointment creates and returns id', async () => {
     let id = await createAppointment(db, {
-      title: '[TEST] Q Appt',
+      title: '[AQ] Q Appt',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
@@ -45,7 +45,7 @@ describe('appointments-queries', () => {
 
   it('fetchAppointmentEditRow returns row for existing id', async () => {
     let id = await createAppointment(db, {
-      title: '[TEST] Q Fetch',
+      title: '[AQ] Q Fetch',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
@@ -53,7 +53,7 @@ describe('appointments-queries', () => {
     })
     let row = await fetchAppointmentEditRow(db, String(id))
     assert.ok(row !== undefined)
-    assert.equal(row!.title, '[TEST] Q Fetch')
+    assert.equal(row!.title, '[AQ] Q Fetch')
     assert.equal(row!.user_id, testUserId)
     assert.equal(row!.start_min, 480)
   })
@@ -65,14 +65,14 @@ describe('appointments-queries', () => {
 
   it('updateAppointment updates an existing appointment', async () => {
     let id = await createAppointment(db, {
-      title: '[TEST] Q Update Before',
+      title: '[AQ] Q Update Before',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
       during: '[480,540)',
     })
     let updated = await updateAppointment(db, String(id), {
-      title: '[TEST] Q Update After',
+      title: '[AQ] Q Update After',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
@@ -81,7 +81,7 @@ describe('appointments-queries', () => {
     assert.equal(updated, true)
 
     let row = await fetchAppointmentEditRow(db, String(id))
-    assert.equal(row!.title, '[TEST] Q Update After')
+    assert.equal(row!.title, '[AQ] Q Update After')
     assert.equal(row!.start_min, 540)
   })
 
@@ -98,7 +98,7 @@ describe('appointments-queries', () => {
 
   it('deleteAppointment deletes an existing appointment', async () => {
     let id = await createAppointment(db, {
-      title: '[TEST] Q Delete',
+      title: '[AQ] Q Delete',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
@@ -131,7 +131,7 @@ describe('appointments-queries', () => {
   it('listAppointments returns paginated results', async () => {
     for (let i = 0; i < 3; i++) {
       await createAppointment(db, {
-        title: `[TEST] List Appt ${i}`,
+        title: `[AQ] List Appt ${i}`,
         userId: testUserId,
         resourceId: testResourceId,
         date: apptDate,
@@ -149,7 +149,7 @@ describe('appointments-queries', () => {
 
   it('listAppointments respects filter', async () => {
     await createAppointment(db, {
-      title: '[TEST] Unique Search Title',
+      title: '[AQ] Unique Search Title',
       userId: testUserId,
       resourceId: testResourceId,
       date: apptDate,
@@ -162,7 +162,7 @@ describe('appointments-queries', () => {
       direction: 'asc',
       filter: 'Unique Search',
     })
-    assert.ok(result.rows.some((r) => r.title === '[TEST] Unique Search Title'))
+    assert.ok(result.rows.some((r) => r.title === '[AQ] Unique Search Title'))
   })
 
   it('listAppointments returns empty for nonexistent filter', async () => {
@@ -179,7 +179,7 @@ describe('appointments-queries', () => {
   it('listAppointments with status=expired returns past appointments', async () => {
     let pastDate = Date.now() - 365 * 86_400_000
     await createAppointment(db, {
-      title: '[TEST] List Past',
+      title: '[AQ] List Past',
       userId: testUserId,
       resourceId: testResourceId,
       date: pastDate,
@@ -192,7 +192,7 @@ describe('appointments-queries', () => {
       direction: 'asc',
       status: 'expired',
     })
-    assert.ok(result.rows.some((r) => r.title === '[TEST] List Past'))
+    assert.ok(result.rows.some((r) => r.title === '[AQ] List Past'))
   })
 
   it('listAppointmentsByWeek without userId returns full rows for every user', async () => {

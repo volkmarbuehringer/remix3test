@@ -19,7 +19,17 @@ describe('appointments-new-queries', () => {
 
   before(async () => {
     await initializeAppDatabase()
-    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
+    // Dedicated user so listAppointmentsNew pagination assertions are not
+    // perturbed by other test files' rows for the shared admin/user accounts
+    // (the DB persists across the run and parallel test files accumulate data).
+    let testUserEmail = 'appointments-new-queries-test@example.com'
+    await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (email) DO NOTHING`,
+      [testUserEmail, 'x', 'Appointments New Queries Test', 'customer', Date.now(), Date.now()],
+    )
+    let userResult = await pool.query('SELECT id FROM users WHERE email = $1', [testUserEmail])
     testUserId = userResult.rows[0].id
     let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
     testResourceId = resourceResult.rows[0].id
@@ -27,7 +37,7 @@ describe('appointments-new-queries', () => {
   })
 
   afterEach(async () => {
-    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[TEST]%'])
+    await pool.query('DELETE FROM appointments WHERE title LIKE $1', ['[NWQ]%'])
   })
 
   it('listResources returns resource rows ordered by name', async () => {
@@ -50,7 +60,7 @@ describe('appointments-new-queries', () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] New Appt',
+      title: '[NWQ] New Appt',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
@@ -71,7 +81,7 @@ describe('appointments-new-queries', () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] Wrong User',
+      title: '[NWQ] Wrong User',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
@@ -84,21 +94,21 @@ describe('appointments-new-queries', () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] For Delete',
+      title: '[NWQ] For Delete',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
     })
     let appt = await getAppointmentForDelete(db, String(id), testUserId)
     assert.ok(appt !== undefined)
-    assert.equal(appt!.title, '[TEST] For Delete')
+    assert.equal(appt!.title, '[NWQ] For Delete')
   })
 
   it('getAppointmentForDelete returns undefined for wrong user', async () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] Delete Wrong User',
+      title: '[NWQ] Delete Wrong User',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
@@ -111,7 +121,7 @@ describe('appointments-new-queries', () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] To Delete',
+      title: '[NWQ] To Delete',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
@@ -127,7 +137,7 @@ describe('appointments-new-queries', () => {
     let id = await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] Delete Unauthorized',
+      title: '[NWQ] Delete Unauthorized',
       dayMs: apptDate,
       during: '[480,540)',
       now: Date.now(),
@@ -146,7 +156,7 @@ describe('appointments-new-queries', () => {
       await createAppointmentRecord(db, {
         userId: testUserId,
         resourceId: testResourceId,
-        title: `[TEST] New Appt ${i}`,
+        title: `[NWQ] New Appt ${i}`,
         dayMs: apptDate,
         during: `[${480 + i * 60},${540 + i * 60})`,
         now: Date.now(),
@@ -180,7 +190,7 @@ describe('appointments-new-queries', () => {
     await createAppointmentRecord(db, {
       userId: testUserId,
       resourceId: testResourceId,
-      title: '[TEST] Past Appt',
+      title: '[NWQ] Past Appt',
       dayMs: pastDate,
       during: '[480,540)',
       now: Date.now(),
@@ -195,6 +205,6 @@ describe('appointments-new-queries', () => {
       status: 'expired',
     })
     assert.ok(result.rows.length >= 1)
-    assert.ok(result.rows.some((r) => r.title === '[TEST] Past Appt'))
+    assert.ok(result.rows.some((r) => r.title === '[NWQ] Past Appt'))
   })
 })
