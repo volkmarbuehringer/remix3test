@@ -148,6 +148,19 @@ Behavior per `packages/ui/docs/frames.md` ("Form navigation"):
 
 For the historical GET → 404 validation-error scenario, the cure is now server-side: the POST action should redirect (Post/Redirect/Get) on success and return the frame fragment (or a 400 with `X-Remix-Target`) directly for validation errors, since the Frame now fetches that response itself.
 
+**Trap — the client `resolveFrame` also rejects the validation fragment.** Returning a `400` with `X-Remix-Target` from the POST is only the server half. The **client** resolver (`app/assets/entry.tsx` → `resolveFrameResponse` in `app/assets/frame-response.browser.tsx`) still does `if (!response.ok) return <ErrorCard "Unexpected Error / Reload required">`, which **throws the validation fragment away** — the user sees a fake "Unexpected Error / Reload required" crash instead of the inline field errors. Symptom: `POST /resource → 400` in the request log, and the frame renders the error card even though the controller correctly re-rendered the form with errors.
+
+Fix: the runtime renders a returned `Response` of any status (the custom `resolveFrame` contract), so return the response for `4xx` (render the validation/not-found body) and keep the reload card only for genuine `5xx`:
+
+```ts
+if (!response.ok) {
+  if (response.status < 500) return response   // render the validation/not-found fragment
+  return <ErrorCard /* Reload required */ />    // genuine server error → reload recovery
+}
+```
+
+**Trigger:** a frame-targeted form POST returns `400` but the frame shows "Unexpected Error / Reload required" instead of the validation message — the controller is fine, it's the client resolver. Applies to any custom client `resolveFrame` that renders server-side validation errors inside a Frame.
+
 ### Pre-#11668 Workaround (legacy only)
 
 This section kept for older builds. On POST form error paths, **render the sidebar directly** instead of going through `renderAdminPage()`:
