@@ -26,6 +26,8 @@ export interface AppointmentsNewCreatePageProps {
   formError?: string
   step?: number
   wizardResourceId?: string
+  wizardResourceName?: string
+  wizardResourceDescription?: string
   weekStart?: number
   daysWithSlots?: DayWithSlots[]
 }
@@ -45,6 +47,8 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
       formError,
       step,
       wizardResourceId,
+      wizardResourceName,
+      wizardResourceDescription,
       weekStart,
       daysWithSlots,
     } = handle.props
@@ -56,6 +60,8 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
       return (
         <Step2
           resourceId={wizardResourceId}
+          resourceName={wizardResourceName}
+          resourceDescription={wizardResourceDescription}
           weekStart={weekStart}
           daysWithSlots={daysWithSlots}
           gridState={gridState}
@@ -69,7 +75,7 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
     // Step 1 (or fallback): resource selection cards
     return (
       <div>
-        <div mix={titleStyle}>Neuer Termin – Ressource wählen</div>
+        <div mix={titleStyle}>Neuer Termin – Schritt 1 von 2: Ressource wählen</div>
         <ResourceCards resources={resources} gridState={gridState} />
       </div>
     )

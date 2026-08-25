@@ -17,7 +17,8 @@ const cardList = css({
 
 const cardLink = css({
   display: 'flex',
-  alignItems: 'center',
+  flexDirection: 'column',
+  gap: '2px',
   minHeight: '48px',
   padding: `${theme.space.sm} ${theme.space.md}`,
   background: theme.surface.lvl1,
@@ -32,6 +33,17 @@ const cardLink = css({
     borderColor: theme.colors.action.primary.background,
     boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
   },
+})
+
+const cardName = css({
+  color: theme.colors.text.primary,
+  fontSize: theme.fontSize.md,
+  fontWeight: theme.fontWeight.medium,
+})
+
+const cardDescription = css({
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
 })
 
 interface ResourceCardsProps {
@@ -78,7 +90,8 @@ export function ResourceCards(handle: Handle<ResourceCardsProps>) {
         {resources.map((res) => (
           <li key={res.id}>
             <a href={buildResourceUrl(res.id, gridState)} mix={cardLink}>
-              {res.name}
+              <span mix={cardName}>{res.name}</span>
+              {res.description ? <span mix={cardDescription}>{res.description}</span> : null}
             </a>
           </li>
         ))}

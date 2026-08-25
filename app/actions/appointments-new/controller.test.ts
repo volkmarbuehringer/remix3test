@@ -146,6 +146,24 @@ describe('Appointments New Controller', () => {
     assert.equal(response.status, 200)
   })
 
+  it('GET /appointments/new step 2 surfaces the selected resource summary', async () => {
+    let response = await router.fetch(
+      `${APPT_URL}?creating=true&step=2&resource_id=${firstResourceId}`,
+      {
+        headers: { Cookie: userCookie },
+      },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Gewählte Ressource'))
+    assert.ok(html.includes('Schritt 2 von 2'))
+    let allResources = await listResources(db)
+    let selected = allResources.find((r) => r.id === firstResourceId)
+    if (selected) {
+      assert.ok(html.includes(selected.name))
+    }
+  })
+
   // ── Create (2-step flow) ──
 
   it('POST /appointments/new without step redirects to step 1', async () => {

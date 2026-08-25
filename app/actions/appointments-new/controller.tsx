@@ -93,6 +93,8 @@ interface AppointmentsNewPageData {
   formError?: string
   step?: number
   wizardResourceId?: string
+  wizardResourceName?: string
+  wizardResourceDescription?: string
   weekStart?: number
   daysWithSlots?: DayWithSlots[]
 }
@@ -153,7 +155,9 @@ async function loadAppointmentsNewPageData(
   let step =
     overrides?.step ?? (creating ? Number(context.url.searchParams.get('step')) || 1 : undefined)
 
-  let needsResources = !creating || !step || step === 1
+  // Resources are needed for step 1 selection and to surface the chosen
+  // resource name/description in step 2.
+  let needsResources = !creating || !step || step === 1 || step === 2
 
   let resources: ResourceOption[] = []
 
@@ -177,6 +181,15 @@ async function loadAppointmentsNewPageData(
   }
   let wizardResourceId =
     overrides?.wizardResourceId ?? (context.url.searchParams.get('resource_id') || undefined)
+  let wizardResourceName: string | undefined
+  let wizardResourceDescription: string | undefined
+  if (wizardResourceId) {
+    let selected = resources.find((r) => String(r.id) === String(wizardResourceId))
+    if (selected) {
+      wizardResourceName = selected.name
+      wizardResourceDescription = selected.description
+    }
+  }
   let weekStartRaw =
     overrides?.weekStart !== undefined
       ? String(overrides.weekStart)
@@ -295,6 +308,8 @@ async function loadAppointmentsNewPageData(
     formError,
     step,
     wizardResourceId,
+    wizardResourceName,
+    wizardResourceDescription,
     weekStart,
     daysWithSlots,
   }
@@ -328,6 +343,8 @@ function renderAppointmentsNewPage(
         formError={data.formError}
         step={data.step}
         wizardResourceId={data.wizardResourceId}
+        wizardResourceName={data.wizardResourceName}
+        wizardResourceDescription={data.wizardResourceDescription}
         weekStart={data.weekStart}
         daysWithSlots={data.daysWithSlots}
       />
@@ -526,6 +543,8 @@ export default createController(routes.appointmentsNew, {
 
         appointmentChannel.broadcast('invalidate')
 
+        context.session.flash('success', 'Termin angelegt.')
+
         let params = gridStateToParams({
           ...gridValues,
           period: '',
@@ -588,6 +607,8 @@ export default createController(routes.appointmentsNew, {
       }
 
       appointmentChannel.broadcast('invalidate')
+
+      context.session.flash('success', 'Termin gelöscht.')
 
       let params = gridStateToParams({
         ...gridStateFromFormData(formData),

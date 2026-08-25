@@ -62,6 +62,8 @@ interface AppointmentsNewPageProps {
   formError?: string
   step?: number
   wizardResourceId?: string
+  wizardResourceName?: string
+  wizardResourceDescription?: string
   weekStart?: number
   daysWithSlots?: DayWithSlots[]
 }
@@ -169,6 +171,8 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       formError,
       step,
       wizardResourceId,
+      wizardResourceName,
+      wizardResourceDescription,
       weekStart,
       daysWithSlots,
     } = handle.props
@@ -491,23 +495,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   )}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasMore ? (
@@ -650,6 +642,8 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                   formError={formError}
                   step={step}
                   wizardResourceId={wizardResourceId}
+                  wizardResourceName={wizardResourceName}
+                  wizardResourceDescription={wizardResourceDescription}
                   weekStart={weekStart}
                   daysWithSlots={daysWithSlots}
                 />
