@@ -5,6 +5,7 @@ import { MenuItem, MenuList } from 'remix/ui/menu'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { safeNavigate } from '../../../utils/frame-utils.ts'
 
 interface GridState {
   offset: string
@@ -97,9 +98,9 @@ export const AdminResourcesContextMenu = clientEntry(
         params.set('sort', state.sort || 'name')
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
-        window.location.href = baseHref + '?' + params.toString()
+        safeNavigate(baseHref + '?' + params.toString(), handle)
       } catch {
-        window.location.href = '/verwaltung/resources?editing=' + rowId
+        safeNavigate('/verwaltung/resources?editing=' + rowId, handle)
       }
     }
 

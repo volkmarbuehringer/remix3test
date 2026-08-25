@@ -21,7 +21,6 @@ import { paginate } from '../../../utils/pagination.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import {
-  gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
   gridStateOffset,
@@ -165,6 +164,13 @@ function renderResourcePage(context: any, data: ResourcePageData, init?: Respons
   )
 }
 
+/** Builds the resources grid index URL from the submitted grid-state form fields. */
+function resourcesGridUrl(formData: FormData): string {
+  let params = gridStateToParams(gridStateFromFormData(formData))
+  let qs = params.toString()
+  return routes.verwaltung.resources.index.href() + (qs ? '?' + qs : '')
+}
+
 export default createController(routes.verwaltung.resources, {
   middleware: [requireAuth(), requireAdmin()],
 
@@ -178,12 +184,17 @@ export default createController(routes.verwaltung.resources, {
 
     async show(context) {
       // Raw /:id renders the edit panel — the frame commits this path as its
-      // address after a PUT/DELETE, so it must be a valid GET.
+      // address after a PUT/DELETE, so it must be a valid GET. After a delete
+      // the row is gone, so rather than surfacing a 404 card we PRG back to
+      // the grid (matching the non-field-error contract for missing rows).
       let editRow = (await context.db.findOne(resources, {
         where: { id: context.params.id },
       })) as ResourceRow | null
-      let data = await loadResourcePageData(context, editRow ? { editRow } : {})
-      return renderResourcePage(context, data, editRow ? undefined : { status: 404 })
+      if (!editRow) {
+        return redirect(routes.verwaltung.resources.index.href())
+      }
+      let data = await loadResourcePageData(context, { editRow })
+      return renderResourcePage(context, data)
     },
 
     async create(context) {
@@ -251,7 +262,7 @@ export default createController(routes.verwaltung.resources, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderResourcePage(context, data, { status: 400 })
+        return renderResourcePage(context, data)
       }
 
       let parsed = result.value
@@ -282,7 +293,7 @@ export default createController(routes.verwaltung.resources, {
         })
       }
 
-      let params = gridStateToParams(gridStateFromForm(parsed))
+      let params = gridStateToParams(gridValues)
       params.set('editing', String(row.id))
       let baseUrl = routes.verwaltung.resources.index.href()
       return redirect(baseUrl + '?' + params.toString())
@@ -295,7 +306,8 @@ export default createController(routes.verwaltung.resources, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(resourcesGridUrl(formData))
       }
 
       let result = s.parseSafe(resourceSaveSchema, formData)
@@ -313,12 +325,12 @@ export default createController(routes.verwaltung.resources, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderResourcePage(context, data, { status: 400 })
+        return renderResourcePage(context, data)
       }
 
       let parsed = result.value
 
-      await db.updateMany(
+      let updateResult = await db.updateMany(
         resources,
         {
           name: parsed.name.trim(),
@@ -327,6 +339,10 @@ export default createController(routes.verwaltung.resources, {
         },
         { where: { id } },
       )
+      if ((updateResult.affectedRows ?? 0) === 0) {
+        context.session.flash('error', 'Eintrag nicht gefunden.')
+        return redirect(resourcesGridUrl(formData))
+      }
 
       let authIdentity = getAdminIdentity(context.auth)
       if (authIdentity) {
@@ -344,10 +360,7 @@ export default createController(routes.verwaltung.resources, {
         })
       }
 
-      let params = gridStateToParams(gridStateFromForm(parsed))
-      let qs = params.toString()
-      let baseUrl = routes.verwaltung.resources.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(resourcesGridUrl(formData))
     },
 
     async destroy(context) {
@@ -356,12 +369,14 @@ export default createController(routes.verwaltung.resources, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(resourcesGridUrl(formData))
       }
 
       let existing = await db.findOne(resources, { where: { id } })
       if (!existing) {
-        return context.json({ ok: false, error: 'Resource not found' }, { status: 404 })
+        context.session.flash('error', 'Eintrag nicht gefunden.')
+        return redirect(resourcesGridUrl(formData))
       }
 
       try {
@@ -373,15 +388,11 @@ export default createController(routes.verwaltung.resources, {
               'Constraint violation during resource deletion: ' +
                 JSON.stringify({ code: (error as { code?: string }).code, resourceId: id }),
             )
-          let gridValues = gridStateFromFormData(formData)
-          let data = await loadResourcePageData(context, {
-            formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderResourcePage(context, data, { status: 400 })
+          context.session.flash(
+            'error',
+            'Ressource wird noch verwendet und kann nicht gelöscht werden',
+          )
+          return redirect(resourcesGridUrl(formData))
         }
         throw error
       }
@@ -397,14 +408,7 @@ export default createController(routes.verwaltung.resources, {
         })
       }
 
-      let result = s.parseSafe(resourceSaveSchema, formData)
-      let parsed = result.success
-        ? result.value
-        : { description: '', _offset: '', _sort: '', _order: '', _filter: '' }
-      let params = gridStateToParams(gridStateFromForm(parsed))
-      let qs = params.toString()
-      let baseUrl = routes.verwaltung.resources.index.href()
-      return redirect(baseUrl + (qs ? '?' + qs : ''))
+      return redirect(resourcesGridUrl(formData))
     },
   },
 })

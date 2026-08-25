@@ -46,6 +46,39 @@ const ADMIN_BASE = routes.verwaltung.resources.index.href()
 
 // ── Styles ──
 
+const rowActionsStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+})
+
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+})
+
+const colActionsWidth = css({ width: '96px' })
+
 // ── Component ──
 
 export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
@@ -67,11 +100,12 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
+    let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
       <div mix={table.minWidth0}>
         <ConfirmDelete />
-        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+        {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {/* Toolbar + Filter */}
         <form
           method="GET"
@@ -117,6 +151,19 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
               {filter
                 ? 'Keine Ressourcen gefunden für diese Suche.'
                 : 'Keine Ressourcen vorhanden.'}
+              {!hasFormPanel && (
+                <div mix={css({ marginTop: theme.space.md })}>
+                  <a
+                    href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+                    data-rmx-target={frames.adminContent}
+                    mix={table.linkPlain}
+                  >
+                    <button mix={[button({ tone: 'primary' })]}>
+                      <Glyph name="add" width={14} height={14} /> Neu anlegen
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <table mix={table.table}>
@@ -125,6 +172,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                 <col />
                 <col mix={css({ width: '160px' })} />
                 <col mix={css({ width: '160px' })} />
+                <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
@@ -231,6 +279,52 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     <td mix={table.td} title={formatTimestamp(row.updated_at as number)}>
                       {formatTimestamp(row.updated_at as number)}
                     </td>
+                    <td mix={table.actionCell}>
+                      <div mix={rowActionsStyle}>
+                        <a
+                          href={buildEditUrl(
+                            ADMIN_BASE,
+                            row.id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                          )}
+                          data-rmx-target={frames.adminContent}
+                          mix={iconActionStyle}
+                          aria-label="Bearbeiten"
+                          title="Bearbeiten"
+                        >
+                          <Glyph name="edit" width={14} height={14} />
+                        </a>
+
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.verwaltung.resources.destroy.href({ id: row.id })}
+                          data-delete-form={row.id}
+                          data-confirm={`Ressource "${row.name ?? ''}" wirklich löschen?`}
+                          data-rmx-target={frames.adminContent}
+                          mix={css({ margin: 0, padding: 0 })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -245,6 +339,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   method="DELETE"
                   action={routes.verwaltung.resources.destroy.href({ id: row.id })}
                   data-delete-form={row.id}
+                  data-rmx-target={frames.adminContent}
                 >
                   <GridStateHiddenInputs
                     state={{
@@ -293,23 +388,11 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasMore ? (
@@ -413,7 +496,11 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="PUT" action={routes.verwaltung.resources.update.href({ id: row.id })}>
+        <RestfulForm
+          method="PUT"
+          action={routes.verwaltung.resources.update.href({ id: row.id })}
+          data-rmx-target={frames.adminContent}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
@@ -550,7 +637,11 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.resources.create.href()}>
+        <RestfulForm
+          method="POST"
+          action={routes.verwaltung.resources.create.href()}
+          data-rmx-target={frames.adminContent}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
