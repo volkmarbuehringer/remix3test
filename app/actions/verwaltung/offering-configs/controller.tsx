@@ -205,6 +205,13 @@ function renderOfferingConfigPage(
   )
 }
 
+/** Builds the offering-configs grid index URL from the submitted grid-state form fields. */
+function offeringConfigsGridUrl(formData: FormData): string {
+  let params = gridStateToParams(gridStateFromFormData(formData))
+  let qs = params.toString()
+  return routes.verwaltung.offeringConfigs.index.href() + (qs ? '?' + qs : '')
+}
+
 const offeringConfigSchema = f.object({
   resource_id: f.field(s.string()),
   monday_enabled: f.field(s.defaulted(s.string(), '')),
@@ -351,10 +358,15 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
     async show(context) {
       // Raw /:id renders the edit panel — the frame commits this path as its
-      // address after a PUT/DELETE, so it must be a valid GET.
+      // address after a PUT/DELETE, so it must be a valid GET. After a delete
+      // the row is gone, so rather than surfacing a 404 card we PRG back to
+      // the grid (matching the non-field-error contract for missing rows).
       let editRow = (await getOfferingConfig(context.db, Number(context.params.id))) ?? null
-      let data = await loadOfferingConfigPageData(context, editRow ? { editRow } : {})
-      return renderOfferingConfigPage(context, data, editRow ? undefined : { status: 404 })
+      if (!editRow) {
+        return redirect(routes.verwaltung.offeringConfigs.index.href())
+      }
+      let data = await loadOfferingConfigPageData(context, { editRow })
+      return renderOfferingConfigPage(context, data)
     },
 
     async create(context) {
@@ -436,7 +448,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: validation.status })
+        return renderOfferingConfigPage(context, data)
       }
 
       let { parsed, resourceId, rules } = validation
@@ -467,7 +479,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
           })
-          return renderOfferingConfigPage(context, data, { status: 409 })
+          return renderOfferingConfigPage(context, data)
         }
         throw error
       }
@@ -498,12 +510,14 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(offeringConfigsGridUrl(formData))
       }
 
       let target = await db.findOne(offeringConfigs, { where: { id } })
       if (!target) {
-        return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
+        context.session.flash('error', 'Eintrag nicht gefunden.')
+        return redirect(offeringConfigsGridUrl(formData))
       }
 
       let result = s.parseSafe(offeringConfigSchema, formData)
@@ -520,7 +534,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: 400 })
+        return renderOfferingConfigPage(context, data)
       }
 
       let parsed = result.value
@@ -537,7 +551,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: 400 })
+        return renderOfferingConfigPage(context, data)
       }
 
       let resource = await db.findOne(resources, { where: { id: resourceId } })
@@ -552,7 +566,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: 404 })
+        return renderOfferingConfigPage(context, data)
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
@@ -567,7 +581,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: 400 })
+        return renderOfferingConfigPage(context, data)
       }
 
       let rules = rulesFromParsed(parsed)
@@ -582,7 +596,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           sortDirection: gridStateDirection(gridValues),
           filter: gridStateFilter(gridValues),
         })
-        return renderOfferingConfigPage(context, data, { status: 400 })
+        return renderOfferingConfigPage(context, data)
       }
 
       try {
@@ -607,7 +621,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             sortDirection: gridStateDirection(gridValues),
             filter: gridStateFilter(gridValues),
           })
-          return renderOfferingConfigPage(context, data, { status: 409 })
+          return renderOfferingConfigPage(context, data)
         }
         throw error
       }
@@ -637,12 +651,14 @@ export default createController(routes.verwaltung.offeringConfigs, {
 
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
-        return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(offeringConfigsGridUrl(formData))
       }
 
       let existing = await db.findOne(offeringConfigs, { where: { id } })
       if (!existing) {
-        return context.json({ ok: false, error: 'Config not found' }, { status: 404 })
+        context.session.flash('error', 'Eintrag nicht gefunden.')
+        return redirect(offeringConfigsGridUrl(formData))
       }
 
       try {
@@ -654,15 +670,11 @@ export default createController(routes.verwaltung.offeringConfigs, {
               'Constraint violation during offering config deletion: ' +
                 JSON.stringify({ code: (error as { code?: string }).code }),
             )
-          let gridValues = gridStateFromFormData(formData)
-          let data = await loadOfferingConfigPageData(context, {
-            formError: 'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-          })
-          return renderOfferingConfigPage(context, data, { status: 400 })
+          context.session.flash(
+            'error',
+            'Konfiguration wird noch verwendet und kann nicht gelöscht werden',
+          )
+          return redirect(offeringConfigsGridUrl(formData))
         }
         throw error
       }

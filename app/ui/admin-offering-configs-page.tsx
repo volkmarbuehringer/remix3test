@@ -13,6 +13,7 @@ import {
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
+  buildEditUrl,
   buildCancelUrl,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
@@ -173,6 +174,35 @@ const dayCheckboxStyle = css({
   height: '18px',
   cursor: 'pointer',
 })
+const rowActionsStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+})
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+})
+const colActionsWidth = css({ width: '96px' })
 // actionsStyle and editingRowStyle moved to mixin (table.actions, table.editingRow)
 
 export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPageProps>) {
@@ -195,6 +225,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
+    let hasFormPanel = !!(editRow || creating)
 
     let gridSection = (
       <div mix={table.minWidth0}>
@@ -243,6 +274,19 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
               {filter
                 ? 'Keine Konfigurationen gefunden f\u00fcr diese Suche.'
                 : 'Keine Konfigurationen vorhanden.'}
+              {!hasFormPanel && (
+                <div mix={css({ marginTop: theme.space.md })}>
+                  <a
+                    href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+                    data-rmx-target={frames.adminContent}
+                    mix={table.linkPlain}
+                  >
+                    <button mix={[button({ tone: 'primary' })]}>
+                      <Glyph name="add" width={14} height={14} /> Neu anlegen
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <table mix={table.table}>
@@ -251,6 +295,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                 <col />
                 <col />
                 <col mix={css({ width: '160px' })} />
+                <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
@@ -302,6 +347,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                       </span>
                     </a>
                   </th>
+                  <th mix={table.th}></th>
                 </tr>
               </thead>
               <tbody>
@@ -323,33 +369,56 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>
                       {formatTimestamp(row.updated_at)}
                     </td>
+                    <td mix={table.actionCell}>
+                      <div mix={rowActionsStyle}>
+                        <a
+                          href={buildEditUrl(
+                            ADMIN_BASE,
+                            row.id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                          )}
+                          data-rmx-target={frames.adminContent}
+                          mix={iconActionStyle}
+                          aria-label="Bearbeiten"
+                          title="Bearbeiten"
+                        >
+                          <Glyph name="edit" width={14} height={14} />
+                        </a>
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
+                          data-delete-form={row.id}
+                          data-confirm="Wirklich löschen?"
+                          data-rmx-target={frames.adminContent}
+                          mix={css({ margin: 0, padding: 0 })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          {/* Hidden DELETE forms for context menu */}
-          {rows.length > 0 ? (
-            <div mix={table.displayNone} aria-hidden="true">
-              {rows.map((row) => (
-                <RestfulForm
-                  key={row.id}
-                  method="DELETE"
-                  action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
-                  data-delete-form={row.id}
-                >
-                  <GridStateHiddenInputs
-                    state={{
-                      offset: String(offset),
-                      sort: sortColumn,
-                      order: sortDirection,
-                      filter: filter ?? '',
-                    }}
-                  />
-                </RestfulForm>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {(offset > 0 || hasMore) && (
@@ -374,22 +443,12 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                   data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} />{' '}
                   {'Zur\u00fcck'}
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} />{' '}
                   {'Zur\u00fcck'}
                 </span>
               )}

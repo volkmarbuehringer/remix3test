@@ -1,8 +1,4 @@
-## Purpose
-
-Specifies form validation behavior for the admin offering-configs management page at `/verwaltung/offering-configs`. On validation failure, the controller re-renders the page directly with `formValues` and `fieldErrors` props, providing inline error display and field value preservation.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Offering-configs form SHALL preserve field values on validation failure
 

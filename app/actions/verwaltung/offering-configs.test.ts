@@ -88,6 +88,38 @@ describe('Admin Offering Configs Controller', () => {
     })
   })
 
+  describe('show (GET /verwaltung/offering-configs/:id)', () => {
+    it('redirects to the grid for a missing/deleted row (no 404 card)', async () => {
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/9999999`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/offering-configs'))
+    })
+
+    it('renders the edit panel for an existing row', async () => {
+      let now = Date.now()
+      let resResult = await pool.query(
+        'INSERT INTO resources (description, created_at, updated_at) VALUES ($1, $2, $3) RETURNING id',
+        [`Offering Config Show Res ${now}`, now, now],
+      )
+      let resId = resResult.rows[0].id as number
+      let cfgResult = await pool.query(
+        `INSERT INTO offering_configs (resource_id, rules, created_at, updated_at) VALUES ($1, $2::jsonb, $3, $3) RETURNING id`,
+        [resId, JSON.stringify({ monday: [480, 1020] }), now],
+      )
+      let id = cfgResult.rows[0].id as number
+
+      let response = await router.fetch(`${BASE}/verwaltung/offering-configs/${id}`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Konfiguration bearbeiten'))
+    })
+  })
+
   describe('create (POST /verwaltung/offering-configs)', () => {
     it('creates a new offering config with valid data', async () => {
       let body = new URLSearchParams({
@@ -139,9 +171,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
+      assert.equal(response.status, 200)
       let text = await response.text()
-      assert.ok(text.includes('Konfiguration'))
+      assert.ok(text.includes('bereits eine Konfiguration'))
     })
 
     it('rejects non-existent resource_id', async () => {
@@ -164,9 +196,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 404)
+      assert.equal(response.status, 200)
       let text = await response.text()
-      assert.ok(text.includes('nicht gefunden'))
+      assert.ok(text.includes('Ressource nicht gefunden'))
     })
 
     it('rejects start >= end time range', async () => {
@@ -197,7 +229,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Mindestens ein Tag muss einen Zeitraum haben'))
     })
 
     it('rejects time values outside 0-1440 range', async () => {
@@ -227,7 +261,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Mindestens ein Tag muss einen Zeitraum haben'))
     })
 
     it('rejects missing resource_id', async () => {
@@ -247,7 +283,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 400)
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Ressource ist erforderlich'))
     })
 
     it('denies create for non-admin users', async () => {
@@ -314,7 +352,7 @@ describe('Admin Offering Configs Controller', () => {
       assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
 
-    it('returns 404 when updating non-existent config', async () => {
+    it('redirects when updating non-existent config', async () => {
       let body = new URLSearchParams({
         resource_id: String(seedResourceId),
         monday_enabled: '1',
@@ -335,9 +373,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 404)
-      let json = await response.json()
-      assert.ok(json.error.includes('not found'))
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
 
     it('denies update for non-admin users', async () => {
@@ -399,7 +437,7 @@ describe('Admin Offering Configs Controller', () => {
       assert.equal(response.status, 302)
     })
 
-    it('returns 404 for non-existent config', async () => {
+    it('redirects for non-existent config', async () => {
       let body = new URLSearchParams({
         _csrf: adminCsrfToken,
         _offset: '',
@@ -416,7 +454,9 @@ describe('Admin Offering Configs Controller', () => {
         },
         body: body.toString(),
       })
-      assert.equal(response.status, 404)
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location') || ''
+      assert.ok(location.startsWith('/verwaltung/offering-configs'))
     })
 
     it('denies delete for non-admin users', async () => {
