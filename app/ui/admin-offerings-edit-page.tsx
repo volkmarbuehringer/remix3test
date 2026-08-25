@@ -8,6 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { IntervalBounds } from './interval-bounds.browser.tsx'
 import { routes, frames } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
@@ -107,6 +108,7 @@ export function AdminOfferingsEditPage(handle: Handle<AdminOfferingsEditPageProp
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
+          <IntervalBounds startId="oe-start" endId="oe-end" />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>

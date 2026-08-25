@@ -31,6 +31,7 @@ export const AdminOfferingsContextMenu = clientEntry(
   import.meta.url + '#AdminOfferingsContextMenu',
   function AdminOfferingsContextMenu(handle: Handle) {
     let rightClickedRowId: string | null = null
+    let rightClickedResourceId: string | null = null
 
     return () => (
       <menu.Context label="Angebotsaktionen">
@@ -55,6 +56,7 @@ export const AdminOfferingsContextMenu = clientEntry(
                 if (!row) return
 
                 rightClickedRowId = row.dataset.rowId ?? null
+                rightClickedResourceId = row.dataset.resourceId ?? null
 
                 el.style.left = mouseEvent.clientX + 'px'
                 el.style.top = mouseEvent.clientY + 'px'
@@ -88,11 +90,16 @@ export const AdminOfferingsContextMenu = clientEntry(
               handleEditAction(rowId)
             } else if (event.item.name === 'delete') {
               handleDeleteAction(rowId)
+            } else if (event.item.name === 'config') {
+              if (rightClickedResourceId) handleConfigAction(rightClickedResourceId)
             }
           })}
         >
           <MenuItem name="edit">
             <Glyph name="edit" width={14} height={14} /> Bearbeiten
+          </MenuItem>
+          <MenuItem name="config">
+            <Glyph name="cog" width={14} height={14} /> Konfiguration
           </MenuItem>
           <Separator />
           <MenuItem name="delete" mix={css({ color: theme.colors.action.danger.background })}>
@@ -120,6 +127,27 @@ export const AdminOfferingsContextMenu = clientEntry(
         safeNavigate(baseHref + '?' + params.toString(), handle)
       } catch {
         safeNavigate('/verwaltung/offerings?editing=' + rowId, handle)
+      }
+    }
+
+    function handleConfigAction(resourceId: string) {
+      let dataEl = document.getElementById('offerings-grid-state')
+      if (!dataEl) return
+
+      try {
+        let state: GridState = JSON.parse(dataEl.textContent || '{}')
+        let baseHref = state.baseHref || '/verwaltung/offerings'
+        let params = new URLSearchParams()
+        params.set('config', resourceId)
+        if (state.offset) params.set('offset', state.offset)
+        params.set('sort', state.sort || 'ao.id')
+        params.set('order', state.order || 'asc')
+        if (state.filter) params.set('filter', state.filter)
+        if (state.period) params.set('period', state.period)
+        if (state.status) params.set('status', state.status)
+        safeNavigate(baseHref + '?' + params.toString(), handle)
+      } catch {
+        safeNavigate('/verwaltung/offerings?config=' + resourceId, handle)
       }
     }
 

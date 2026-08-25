@@ -119,6 +119,70 @@ describe('Admin Offerings Controller', () => {
       )
     })
 
+    it('status=all shows both past and future offerings', async () => {
+      let pastDayMs = Date.now() - 86400000 * 10
+      let futureDayMs = Date.now() + 86400000 * 10
+      let now = Date.now()
+
+      let r1 = await pool.query(
+        `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+         VALUES ($1, $2, '[480,540)', $3, $3) RETURNING id`,
+        [pastDayMs, resourceId, now],
+      )
+      let r2 = await pool.query(
+        `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+         VALUES ($1, $2, '[540,600)', $3, $3) RETURNING id`,
+        [futureDayMs, resourceId, now],
+      )
+      createdOfferingIds.push(r1.rows[0].id, r2.rows[0].id)
+
+      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}?status=all`, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+
+      let pastDayStr = new Date(pastDayMs).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      let futureDayStr = new Date(futureDayMs).toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      assert.ok(html.includes(pastDayStr), 'all view should show past offering date')
+      assert.ok(html.includes(futureDayStr), 'all view should show future offering date')
+    })
+
+    it('clicking the active "Alle" status tab does not drop to the default pending view', async () => {
+      let futureDayMs = Date.now() + 86400000 * 10
+      let pastDayMs = Date.now() - 86400000 * 10
+      let now = Date.now()
+
+      let r1 = await pool.query(
+        `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+         VALUES ($1, $2, '[480,540)', $3, $3) RETURNING id`,
+        [pastDayMs, resourceId, now],
+      )
+      let r2 = await pool.query(
+        `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+         VALUES ($1, $2, '[540,600)', $3, $3) RETURNING id`,
+        [futureDayMs, resourceId, now],
+      )
+      createdOfferingIds.push(r1.rows[0].id, r2.rows[0].id)
+
+      // The active "Alle" tab's generated href (with its status param) must include status=all.
+      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}?status=all`, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+      assert.ok(
+        html.includes('status%3Dall') || html.includes('status=all'),
+        'active "Alle" tab href should keep status=all',
+      )
+    })
+
     it('preserves status parameter in sort URLs', async () => {
       let response = await router.fetch(
         `${ADMIN_OFFERINGS_URL}?status=expired&sort=ao.day&order=desc`,
@@ -156,10 +220,9 @@ describe('Admin Offerings Controller', () => {
     })
 
     it('re-renders the edit form at 200 with preserved values on validation failure', async () => {
-      let row = await pool.query(
-        'SELECT id FROM appointoffering WHERE resource_id = $1 LIMIT 1',
-        [resourceId],
-      )
+      let row = await pool.query('SELECT id FROM appointoffering WHERE resource_id = $1 LIMIT 1', [
+        resourceId,
+      ])
       let id = row.rows[0]?.id as number | undefined
       if (!id) throw new Error('expected a seed offering to edit')
 
@@ -235,7 +298,11 @@ describe('Admin Offerings Controller', () => {
         headers: { Cookie: fresh.cookie, 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
       })
-      assert.equal(response.status, 302, 'config parse failure should PRG back to the grid, not JSON 400')
+      assert.equal(
+        response.status,
+        302,
+        'config parse failure should PRG back to the grid, not JSON 400',
+      )
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
 

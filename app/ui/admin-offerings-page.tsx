@@ -47,6 +47,7 @@ interface AdminOfferingsPageProps {
   configResourceId?: number
   offeringConfig?: OfferingConfig
   addWeek?: boolean
+  pastCount?: number
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -81,7 +82,10 @@ const iconActionStyle = css({
 const iconActionDangerStyle = css({
   color: theme.colors.action.danger.background,
   borderColor: 'transparent',
-  '&:hover': { background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground },
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
 })
 
 function buildEditUrl(
@@ -124,7 +128,7 @@ function buildAddWeekUrl(
 }
 
 function buildConfigUrl(
-  resourceId: number,
+  resourceId: number | string,
   offset: number,
   sort: string,
   order: string,
@@ -192,6 +196,10 @@ function formatDate(day: string): string {
   })
 }
 
+function formatDayCell(day: string): string {
+  return `KW ${formatWeekNumber(day)} \u00b7 ${formatWeekday(day)} \u00b7 ${formatDate(day)}`
+}
+
 function formatDuring(during: string): string {
   let match = during.match(/^\[(\d+),(\d+)\)$/)
   if (!match) return during
@@ -228,6 +236,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
       configResourceId,
       offeringConfig,
       addWeek = false,
+      pastCount = 0,
       formValues,
       fieldErrors,
       formError,
@@ -327,19 +336,28 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               alignItems: 'center',
             })}
           >
-            {(['pending', 'expired'] as const).map((value, i, arr) => {
+            {(['all', 'pending', 'expired'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1
-              let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
+              let label =
+                value === 'all' ? 'Alle' : value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
               let active =
-                value === 'pending' ? !status || status === 'pending' : status === 'expired'
+                value === 'pending'
+                  ? !status || status === 'pending'
+                  : value === 'expired'
+                    ? status === 'expired'
+                    : status === 'all'
               let params = new URLSearchParams()
               if (offset > 0) params.set('offset', String(offset))
               params.set('sort', sortColumn)
               params.set('order', sortDirection)
               if (filter) params.set('filter', filter)
               if (period) params.set('period', period)
-              if (!active) params.set('status', value)
+              // Only omit `status` when this is the neutral default (pending) view;
+              // re-clicking the active "Alle"/"Abgelaufen" tab must keep its own filter.
+              if (!(value === 'pending' && (!status || status === 'pending'))) {
+                params.set('status', value)
+              }
               let href = routes.verwaltung.offerings.index.href() + '?' + params.toString()
               return (
                 <a
@@ -389,7 +407,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             data-rmx-target={frames.adminContent}
             mix={table.linkPlain}
           >
-            <button mix={[button({ tone: 'primary' })]}>
+            <button mix={[button({ tone: 'secondary' })]}>
               <Glyph name="add" width={14} height={14} /> Woche hinzufügen
             </button>
           </a>
@@ -402,6 +420,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             filter={filter ?? ''}
             period={period ?? ''}
             status={status ?? ''}
+            pastCount={pastCount}
             deletePastHref={routes.verwaltung.offerings.deletePast.href()}
           />
         </div>
@@ -411,23 +430,40 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Angebote gefunden für diese Suche.' : 'Keine Angebote vorhanden.'}
+              {!hasFormPanel && (
+                <div mix={css({ marginTop: theme.space.md })}>
+                  <a
+                    href={buildCreateUrl(
+                      ADMIN_BASE,
+                      offset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      period,
+                      status,
+                    )}
+                    data-rmx-target={frames.adminContent}
+                    mix={table.linkPlain}
+                  >
+                    <button mix={[button({ tone: 'primary' })]}>
+                      <Glyph name="add" width={14} height={14} /> Neu anlegen
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '35px' })} />
-                <col mix={css({ width: '30px' })} />
-                <col />
-                <col />
+                <col mix={css({ width: '170px' })} />
                 <col />
                 <col />
                 <col />
                 <col mix={css({ width: '90px' })} />
+                <col mix={css({ width: '130px' })} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.th}>KW</th>
-                  <th mix={table.th}>WD</th>
                   <th mix={table.thSortable} title="Tag">
                     <a
                       href={buildSortUrl(
@@ -532,11 +568,10 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     key={row.id}
                     mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
                     data-row-id={row.id}
+                    data-resource-id={row.resource_id}
                   >
-                    <td mix={table.td}>{formatWeekNumber(row.day)}</td>
-                    <td mix={table.td}>{formatWeekday(row.day)}</td>
                     <td mix={table.td} title={formatDate(row.day)}>
-                      {formatDate(row.day)}
+                      {formatDayCell(row.day)}
                     </td>
                     <td mix={table.td} title={row.resource_name ?? ''}>
                       {row.resource_name ?? '\u2014'}
@@ -553,7 +588,32 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     <td mix={table.actionCell}>
                       <div mix={rowActionsStyle}>
                         <a
-                          href={buildEditUrl(row.id, offset, sortColumn, sortDirection, filter, period, status)}
+                          href={buildConfigUrl(
+                            row.resource_id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
+                          data-rmx-target={frames.adminContent}
+                          mix={iconActionStyle}
+                          aria-label="Konfiguration"
+                          title="Konfiguration"
+                        >
+                          <Glyph name="cog" width={14} height={14} />
+                        </a>
+                        <a
+                          href={buildEditUrl(
+                            row.id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
                           data-rmx-target={frames.adminContent}
                           mix={iconActionStyle}
                           aria-label="Bearbeiten"
@@ -620,23 +680,11 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasMore ? (

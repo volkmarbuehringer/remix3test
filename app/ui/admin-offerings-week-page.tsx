@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
-import { frames } from '../routes.ts'
+import { frames, routes } from '../routes.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -52,7 +52,11 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action="/verwaltung/offerings/week" data-rmx-target={frames.adminContent}>
+        <RestfulForm
+          method="POST"
+          action="/verwaltung/offerings/week"
+          data-rmx-target={frames.adminContent}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -62,7 +66,19 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
             <div mix={table.panelBody}>
               <div mix={noteStyle}>
                 Erzeugt Angebote für alle Ressourcen mit Konfiguration. Feiertage werden automatisch
-                übersprungen.
+                übersprungen. Ohne Konfigurationen?{' '}
+                <a
+                  href={routes.verwaltung.offeringConfigs.index.href()}
+                  data-rmx-target={frames.adminContent}
+                  mix={css({
+                    color: theme.colors.action.primary.background,
+                    textDecoration: 'underline',
+                    '&:hover': { color: theme.colors.text.primary },
+                  })}
+                >
+                  Konfigurationen einrichten
+                </a>
+                .
               </div>
 
               {/* Year */}

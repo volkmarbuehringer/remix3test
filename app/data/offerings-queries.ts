@@ -84,7 +84,9 @@ export async function listOfferings(
   }
 
   let todayMidnight = getTodayUtcMidnight()
-  if (status === 'pending' || !status) {
+  if (status === 'all') {
+    // No day filter — show every offering regardless of date.
+  } else if (status === 'pending' || !status) {
     paramIndex++
     if (hasWhere) {
       query += ` AND ao.day >= $${paramIndex}`
@@ -182,6 +184,14 @@ export async function listResourceIdsWithConfigs(db: Database): Promise<number[]
 export async function deletePastOfferings(db: Database): Promise<number> {
   let result = await db.exec('DELETE FROM appointoffering WHERE day < $1', [getTodayUtcMidnight()])
   return result.affectedRows ?? 0
+}
+
+export async function countPastOfferings(db: Database): Promise<number> {
+  let result = await db.exec('SELECT COUNT(*) AS count FROM appointoffering WHERE day < $1', [
+    getTodayUtcMidnight(),
+  ])
+  let row = result.rows?.[0] as { count: string | number } | undefined
+  return row ? Number(row.count) : 0
 }
 
 // ---- helpers (shared with data/offering-configs.ts) ----

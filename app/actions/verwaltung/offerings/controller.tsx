@@ -42,6 +42,7 @@ import {
   deleteOffering,
   listResourceIdsWithConfigs,
   deletePastOfferings,
+  countPastOfferings,
 } from '../../../data/offerings-queries.ts'
 import type { OfferingRow, OfferingsResourceOption } from '../../../data/offerings-queries.ts'
 
@@ -91,6 +92,7 @@ interface OfferingPageData {
   configResourceId: number | undefined
   offeringConfig: OfferingConfig | undefined
   addWeek: boolean
+  pastCount: number
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
@@ -130,7 +132,7 @@ async function loadOfferingPageData(
         defaultDirection: 'asc',
       })
 
-  let [{ rows, hasMore }, resourceOptions] = await Promise.all([
+  let [{ rows, hasMore }, resourceOptions, pastCount] = await Promise.all([
     listOfferings(context.db, {
       offset,
       pageSize: effectivePageSize,
@@ -141,6 +143,7 @@ async function loadOfferingPageData(
       status,
     }),
     listResources(context.db),
+    countPastOfferings(context.db),
   ])
 
   let editingParam =
@@ -187,6 +190,7 @@ async function loadOfferingPageData(
     configResourceId: configResourceId ? parseInt(configResourceId, 10) : undefined,
     offeringConfig: offeringConfig ?? undefined,
     addWeek,
+    pastCount,
     formValues,
     fieldErrors,
     formError,
@@ -214,6 +218,7 @@ function renderOfferingsPage(context: any, data: OfferingPageData, init?: Respon
       configResourceId={data.configResourceId}
       offeringConfig={data.offeringConfig}
       addWeek={data.addWeek}
+      pastCount={data.pastCount}
       formValues={data.formValues}
       fieldErrors={data.fieldErrors}
       formError={data.formError}
