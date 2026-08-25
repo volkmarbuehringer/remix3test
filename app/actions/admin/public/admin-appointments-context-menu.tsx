@@ -131,12 +131,11 @@ export const AdminAppointmentsContextMenu = clientEntry(
     }
 
     function handleDeleteAction(rowId: string) {
-      if (!confirm('Wirklich löschen?')) return
-
       let form = document.querySelector<HTMLFormElement>(`form[data-delete-form="${rowId}"]`)
-      if (form) {
-        form.requestSubmit()
-      }
+      if (!form) return
+      let message = form.getAttribute('data-confirm') || 'Wirklich löschen?'
+      if (!confirm(message)) return
+      form.requestSubmit()
     }
   },
 )

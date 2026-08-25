@@ -300,6 +300,19 @@ export default createController(routes.verwaltung.appointments, {
       return renderAppointmentsPage(context, data)
     },
 
+    async show(context) {
+      let id = context.params.id
+      let editRow = id ? (await fetchAppointmentEditRow(context.db, id)) ?? null : null
+      if (!editRow) {
+        let data = await loadAppointmentPageData(context, {
+          error: 'Eintrag nicht gefunden.',
+        })
+        return renderAppointmentsPage(context, data, { status: 404 })
+      }
+      let data = await loadAppointmentPageData(context, { editRow })
+      return renderAppointmentsPage(context, data)
+    },
+
     async create(context) {
       let formData = context.formData
       let formValues = readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)

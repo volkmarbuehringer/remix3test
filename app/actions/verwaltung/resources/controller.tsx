@@ -176,6 +176,16 @@ export default createController(routes.verwaltung.resources, {
       return renderResourcePage(context, data)
     },
 
+    async show(context) {
+      // Raw /:id renders the edit panel — the frame commits this path as its
+      // address after a PUT/DELETE, so it must be a valid GET.
+      let editRow = (await context.db.findOne(resources, {
+        where: { id: context.params.id },
+      })) as ResourceRow | null
+      let data = await loadResourcePageData(context, editRow ? { editRow } : {})
+      return renderResourcePage(context, data, editRow ? undefined : { status: 404 })
+    },
+
     async create(context) {
       let db = context.db
       let formData = context.formData

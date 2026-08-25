@@ -159,16 +159,20 @@ export const routes = route({
 
     appointments: route('appointments', {
       index: get('/'),
+      // Raw /:id renders the edit panel — the frame commits this path as its
+      // address after a PUT/DELETE, so it must be a valid GET (see README:
+      // form action == frame src). Mirrors ?editing=<id>.
+      show: get('/:id'),
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),
       events: get('/events'),
     }),
 
-    resources: resources('resources', { exclude: ['new', 'show', 'edit'] }),
+    resources: resources('resources', { exclude: ['new', 'edit'] }),
 
     offeringConfigs: resources('offering-configs', {
-      exclude: ['new', 'show', 'edit'],
+      exclude: ['new', 'edit'],
     }),
 
     report1: route('report1', {

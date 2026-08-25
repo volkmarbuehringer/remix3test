@@ -11,6 +11,7 @@ import {
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
+  buildEditUrl,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 
@@ -19,6 +20,8 @@ import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
+import { getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { AdminAppointmentsContextMenu } from '../actions/admin/public/admin-appointments-context-menu.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
@@ -102,6 +105,15 @@ function formatDuring(during: unknown): string {
   return String(during)
 }
 
+function sortRule(
+  field: string,
+  sortField: string,
+  sortOrder: 'asc' | 'desc',
+): 'ascending' | 'descending' | undefined {
+  if (field !== sortField) return undefined
+  return sortOrder === 'asc' ? 'ascending' : 'descending'
+}
+
 // ── Styles ──
 
 const headerBarStyle = css({
@@ -109,6 +121,46 @@ const headerBarStyle = css({
   justifyContent: 'space-between',
   alignItems: 'center',
   marginBottom: theme.space.lg,
+})
+
+const rowActionsStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+})
+
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+})
+
+const colActionsWidth = css({ width: '96px' })
+
+const dateCellStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  whiteSpace: 'nowrap',
 })
 
 // errorBannerStyle and editingRowStyle moved to mixin (table.errorBanner, table.editingRow)
@@ -142,9 +194,12 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
 
+    let todayMidnight = getTodayUtcMidnight()
+
     let hasFormPanel = !!(editRow || creating)
     let gridSection = (
       <div mix={table.minWidth0}>
+        <ConfirmDelete />
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
         {!hasFormPanel && error ? <div mix={table.errorBanner}>{error}</div> : null}
         {/* Toolbar + Filter combined */}
@@ -322,11 +377,15 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 <col />
                 <col />
                 <col />
-                <col />
+                <col mix={colActionsWidth} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.thSortable} title="Titel">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('a.title', sortColumn, sortDirection)}
+                    title="Titel"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -349,7 +408,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable} title="E-Mail">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('u.email', sortColumn, sortDirection)}
+                    title="E-Mail"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -372,7 +435,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable} title="Ressource">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('r.description', sortColumn, sortDirection)}
+                    title="Ressource"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -397,8 +464,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Beschreibung</th>
-                  <th mix={table.thSortable} title="Datum">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('a.date', sortColumn, sortDirection)}
+                    title="Datum"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -419,7 +489,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable} title="Zeit">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('a.during', sortColumn, sortDirection)}
+                    title="Zeit"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -442,7 +516,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
-                  <th mix={table.thSortable} title="Aktualisiert">
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('a.updated_at', sortColumn, sortDirection)}
+                    title="Aktualisiert"
+                  >
                     <a
                       href={buildSortUrl(
                         ADMIN_BASE,
@@ -467,6 +545,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       </span>
                     </a>
                   </th>
+                  <th mix={[table.th, colActionsWidth]}>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -482,14 +561,23 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     <td mix={table.td} title={row.user_email ?? ''}>
                       {row.user_email ?? '\u2014'}
                     </td>
-                    <td mix={table.td} title={row.resource_name ?? ''}>
-                      {row.resource_name ?? '\u2014'}
-                    </td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>
-                      {row.resource_description ?? '\u2014'}
+                    <td mix={table.td} title={row.resource_description ?? row.resource_name ?? ''}>
+                      {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
                     <td mix={table.td} title={formatDate(row.date)}>
-                      {formatDate(row.date)}
+                      <span mix={dateCellStyle}>
+                        <span
+                          mix={[
+                            table.statusBadge,
+                            Number(row.date) < todayMidnight
+                              ? table.statusBadgeDisabled
+                              : table.statusBadgeActive,
+                          ]}
+                        >
+                          {Number(row.date) < todayMidnight ? 'Abgelaufen' : 'Ausstehend'}
+                        </span>
+                        {formatDate(row.date)}
+                      </span>
                     </td>
                     <td mix={table.td} title={row.during}>
                       {formatDuring(row.during)}
@@ -497,35 +585,61 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     <td mix={table.td} title={formatTimestamp(row.updated_at)}>
                       {formatTimestamp(row.updated_at)}
                     </td>
+                    <td mix={table.actionCell}>
+                      <div mix={rowActionsStyle}>
+                        <a
+                          href={buildEditUrl(
+                            ADMIN_BASE,
+                            row.id,
+                            offset,
+                            sortColumn,
+                            sortDirection,
+                            filter,
+                            period,
+                            status,
+                          )}
+                          data-rmx-target={frames.adminContent}
+                          mix={iconActionStyle}
+                          aria-label="Bearbeiten"
+                          title="Bearbeiten"
+                        >
+                          <Glyph name="edit" width={14} height={14} />
+                        </a>
+
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.verwaltung.appointments.destroy.href({ id: row.id })}
+                          data-delete-form={row.id}
+                          data-confirm={`Termin "${row.title}" wirklich löschen?`}
+                          data-rmx-target={frames.adminContent}
+                          mix={css({ margin: 0, padding: 0 })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortColumn,
+                              order: sortDirection,
+                              filter: filter ?? '',
+                              period: period ?? '',
+                              status: status ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-          {/* Hidden DELETE forms for context menu — kept in DOM for .requestSubmit() */}
-          {rows.length > 0 ? (
-            <div mix={table.displayNone} aria-hidden="true">
-              {rows.map((row) => (
-                <RestfulForm
-                  key={row.id}
-                  method="DELETE"
-                  action={routes.verwaltung.appointments.destroy.href({ id: row.id })}
-                  data-delete-form={row.id}
-                >
-                  <GridStateHiddenInputs
-                    state={{
-                      offset: String(offset),
-                      sort: sortColumn,
-                      order: sortDirection,
-                      filter: filter ?? '',
-                      period: period ?? '',
-                      status: status ?? '',
-                    }}
-                  />
-                </RestfulForm>
-              ))}
-            </div>
-          ) : null}
         </div>
 
         {/* Pagination */}
@@ -551,23 +665,11 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   data-rmx-target={frames.adminContent}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasMore ? (

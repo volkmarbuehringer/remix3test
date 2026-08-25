@@ -349,6 +349,14 @@ export default createController(routes.verwaltung.offeringConfigs, {
       return renderOfferingConfigPage(context, data)
     },
 
+    async show(context) {
+      // Raw /:id renders the edit panel — the frame commits this path as its
+      // address after a PUT/DELETE, so it must be a valid GET.
+      let editRow = (await getOfferingConfig(context.db, Number(context.params.id))) ?? null
+      let data = await loadOfferingConfigPageData(context, editRow ? { editRow } : {})
+      return renderOfferingConfigPage(context, data, editRow ? undefined : { status: 404 })
+    },
+
     async create(context) {
       let db = context.db
       let formData = context.formData
