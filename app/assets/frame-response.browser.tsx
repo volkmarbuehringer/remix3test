@@ -50,6 +50,15 @@ export async function resolveFrameResponse(
   }
 
   if (!response.ok) {
+    // The server may return a meaningful fragment for a non-2xx outcome such as
+    // a form validation re-render (400) or a not-found page (404). Render the
+    // response body so the actionable message is shown in the frame instead of
+    // a generic crash card. Treat 5xx as a genuine server error, where the body
+    // is not a usable fragment and a reload is the right recovery.
+    if (response.status < 500) {
+      return response
+    }
+
     return (
       <ErrorCard
         eyebrow="Unexpected Error"

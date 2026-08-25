@@ -105,4 +105,41 @@ describe('resolveFrameResponse redirect handling', () => {
 
     assert.equal(result, response, 'should return the 200 response for subframe rendering')
   })
+
+  it('renders a 4xx response body so validation errors show in the frame', async () => {
+    let response = {
+      redirected: false,
+      ok: false,
+      url: 'https://remix.run/admin/client',
+      status: 400,
+      text: async () => '<div>slot outside booking hours</div>',
+    } as Response
+    stubFetch(response)
+
+    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+      target: 'admin-content',
+    })
+
+    // 4xx is an intended validation/not-found fragment — return it so the frame
+    // renders the inline error instead of the generic crash card.
+    assert.equal(result, response, 'should return the 4xx response for subframe rendering')
+  })
+
+  it('shows the reload card for a 5xx server error', async () => {
+    let response = {
+      redirected: false,
+      ok: false,
+      url: 'https://remix.run/admin/client',
+      status: 500,
+      text: async () => '<div>boom</div>',
+    } as Response
+    stubFetch(response)
+
+    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+      target: 'admin-content',
+    })
+
+    // 5xx is a genuine server error — discard the body and surface the reload card.
+    assert.ok(result !== response, 'should not return the crash body for a 5xx')
+  })
 })
