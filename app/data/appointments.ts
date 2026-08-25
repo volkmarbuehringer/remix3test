@@ -376,7 +376,9 @@ export async function listAppointments(
   }
 
   let todayMidnight = getTodayUtcMidnight()
-  if (status === 'pending' || !status) {
+  if (status === 'all') {
+    // No day filter — show every appointment regardless of date.
+  } else if (status === 'pending' || !status) {
     paramIndex++
     addWhere(`a.date >= $${paramIndex}`)
     params.push(todayMidnight)

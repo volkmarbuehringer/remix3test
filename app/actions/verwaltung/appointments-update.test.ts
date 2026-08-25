@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/test-pool.ts'
+import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
 import {
   BASE,
   ADMIN_APPT_URL,
@@ -204,7 +205,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(updateResponse.status, 400, 'update outside offering should render with error')
+      assert.equal(updateResponse.status, 200, 'update outside offering should re-render at 200')
     })
 
     it('2.6 update fails with collision error when new time range overlaps another appointment', async () => {
@@ -257,7 +258,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'overlapping update should render with error')
+      assert.equal(response.status, 200, 'overlapping update should re-render at 200')
     })
   })
 
@@ -349,10 +350,10 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'past-date update should render with error')
+      assert.equal(response.status, 200, 'past-date update should re-render at 200')
     })
 
-    it('returns error redirect for non-existent appointment ID', async () => {
+    it('redirects with a flash error for a non-existent appointment ID', async () => {
       // Arrange
       let { startMin: sm, endMin: em } = nextSlot()
       let body = new URLSearchParams({
@@ -376,8 +377,15 @@ describe('Admin Appointments Controller', () => {
         redirect: 'manual',
       })
 
-      // Assert
-      assert.equal(response.status, 400, 'non-existent ID should render with error')
+      // Assert: no 400/404 — PRG back to the grid with a flash error
+      assert.equal(response.status, 302, 'non-existent update should PRG back to the grid')
+      let location = response.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
+
+      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
 
     it('returns error redirect for invalid update data', async () => {
@@ -404,7 +412,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('handles overlapping time range on update with error redirect', async () => {
@@ -455,7 +463,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'overlapping update should render with error')
+      assert.equal(response.status, 200, 'overlapping update should re-render at 200')
     })
 
     it('preserves grid state on successful update', async () => {
@@ -492,9 +500,9 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.date'), 'should preserve sort param')
       assert.ok(location.includes('order=asc'), 'should preserve order param')
-      assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
-      assert.ok(!location.includes('period='), 'should NOT preserve period param')
-      assert.ok(!location.includes('status='), 'should NOT preserve status param')
+      assert.ok(location.includes('filter=updatefilter'), 'should preserve filter param')
+      assert.ok(location.includes('period=this-month'), 'should preserve period param')
+      assert.ok(location.includes('status=expired'), 'should preserve status param')
     })
   })
 })

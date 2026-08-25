@@ -3,6 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/test-pool.ts'
+import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
 import {
   BASE,
   ADMIN_APPT_URL,
@@ -97,13 +98,15 @@ describe('Admin Appointments Controller', () => {
         redirect: 'manual',
       })
 
-      // Assert
+      // Assert: no 400 — PRG back to the grid with a flash error
       assert.equal(response.status, 302, 'non-existent ID should redirect with error')
       let location = response.headers.get('Location') ?? ''
-      assert.ok(
-        decodeURIComponent(location.replace(/\+/g, ' ')).includes('Eintrag nicht gefunden'),
-        'redirect should include error: Eintrag nicht gefunden',
-      )
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
+
+      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let session = await sessionStorage.read(rawSid)
+      let err = session.get('error') as string | undefined
+      assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
     })
 
     it('includes grid state parameters in redirect after delete', async () => {
@@ -180,9 +183,46 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
       assert.ok(location.includes('order=desc'), 'should preserve order param')
-      assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
-      assert.ok(!location.includes('period='), 'should NOT preserve period param')
-      assert.ok(!location.includes('status='), 'should NOT preserve status param')
+      assert.ok(location.includes('filter=deletefilter'), 'should preserve filter param')
+      assert.ok(location.includes('period=this-week'), 'should preserve period param')
+      assert.ok(location.includes('status=expired'), 'should preserve status param')
+    })
+
+    it('GET /verwaltung/appointments/:id for a deleted row redirects to the grid, not 404', async () => {
+      // Arrange: create an appointment to delete
+      let dayMs = new Date('2026-08-25T00:00:00Z').getTime()
+      let result = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, 'Delete-then-GET row', $3, '[480,540)', $4, $4)
+         RETURNING id`,
+        [userId, resourceId, dayMs, Date.now()],
+      )
+      let deleteId = result.rows[0].id as number
+      createdAppointmentIds.push(deleteId)
+
+      // Act: delete it (the frame commits the action path and then GETs it)
+      let deleteResponse = await router.fetch(`${ADMIN_APPT_URL}/${deleteId}`, {
+        method: 'DELETE',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: new URLSearchParams().toString(),
+        redirect: 'manual',
+      })
+      assert.equal(deleteResponse.status, 302, 'delete should redirect')
+
+      // Act: the frame then GETs /verwaltung/appointments/:id
+      let getResponse = await router.fetch(`${ADMIN_APPT_URL}/${deleteId}`, {
+        headers: { Cookie: adminCookie },
+        redirect: 'manual',
+      })
+
+      // Assert: it must PRG back to the grid, not render a 404 "Eintrag nicht gefunden."
+      assert.equal(getResponse.status, 302, 'missing appointment GET should redirect to the grid')
+      let location = getResponse.headers.get('Location') ?? ''
+      assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
     })
   })
 })

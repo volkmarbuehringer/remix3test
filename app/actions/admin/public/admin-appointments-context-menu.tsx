@@ -5,6 +5,7 @@ import { MenuItem, MenuList } from 'remix/ui/menu'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../../../ui/theme/separator/separator.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { safeNavigate } from '../../../utils/frame-utils.ts'
 
 // ── Types ──
 
@@ -123,10 +124,10 @@ export const AdminAppointmentsContextMenu = clientEntry(
         params.set('order', state.order || 'asc')
         if (state.filter) params.set('filter', state.filter)
         if (state.period) params.set('period', state.period)
-        window.location.href = baseHref + '?' + params.toString()
+        safeNavigate(baseHref + '?' + params.toString(), handle)
       } catch {
-        // Fallback: navigate without grid state
-        window.location.href = '/verwaltung/appointments?editing=' + rowId
+        // Fallback: navigate the frame without grid state
+        safeNavigate('/verwaltung/appointments?editing=' + rowId, handle)
       }
     }
 

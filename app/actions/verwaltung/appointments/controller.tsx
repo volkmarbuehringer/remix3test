@@ -126,10 +126,11 @@ interface AppointmentPageData {
   formError?: string
 }
 
-function errorRedirectDestroy(formData: FormData, error: string): Response {
+/** Builds the appointments grid index URL from the submitted grid-state form fields. */
+function appointmentsGridUrl(formData: FormData): string {
   let params = gridStateToParams(gridStateFromFormData(formData))
-  params.set('error', error)
-  return redirect(routes.verwaltung.appointments.index.href() + '?' + params.toString())
+  let qs = params.toString()
+  return routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '')
 }
 
 async function loadAppointmentPageData(
@@ -302,12 +303,13 @@ export default createController(routes.verwaltung.appointments, {
 
     async show(context) {
       let id = context.params.id
-      let editRow = id ? (await fetchAppointmentEditRow(context.db, id)) ?? null : null
+      let editRow = id ? ((await fetchAppointmentEditRow(context.db, id)) ?? null) : null
       if (!editRow) {
-        let data = await loadAppointmentPageData(context, {
-          error: 'Eintrag nicht gefunden.',
-        })
-        return renderAppointmentsPage(context, data, { status: 404 })
+        // The frame commits the form action path as its src and GETs it after a
+        // PUT/DELETE. After a delete the row is gone, so rather than surfacing a
+        // 404 "Eintrag nicht gefunden." card we PRG back to the grid (matching
+        // the non-field-error contract for missing/not-found rows).
+        return redirect(routes.verwaltung.appointments.index.href())
       }
       let data = await loadAppointmentPageData(context, { editRow })
       return renderAppointmentsPage(context, data)
@@ -333,7 +335,7 @@ export default createController(routes.verwaltung.appointments, {
             period: gridStatePeriod(gridValues),
             status: gridStateStatus(gridValues),
           })
-          return renderAppointmentsPage(context, data, { status: 400 })
+          return renderAppointmentsPage(context, data)
         }
       }
 
@@ -350,7 +352,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
       let userIdRaw = (formData.get('user_id') as string) ?? ''
       if (!userIdRaw.trim()) {
@@ -365,7 +367,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let result = s.parseSafe(appointmentSaveSchema, formData)
@@ -383,7 +385,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let { resource_id, user_id, title, date, start_min, end_min } = result.value
@@ -401,7 +403,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let trimmedTitle = title.trim()
@@ -419,7 +421,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
@@ -435,7 +437,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let during = `[${start_min},${end_min})`
@@ -474,20 +476,14 @@ export default createController(routes.verwaltung.appointments, {
             period: gridStatePeriod(gridValues),
             status: gridStateStatus(gridValues),
           })
-          return renderAppointmentsPage(context, data, { status: 400 })
+          return renderAppointmentsPage(context, data)
         }
         throw error
       }
 
       appointmentChannel.broadcast('invalidate')
 
-      let params = gridStateToParams({
-        ...gridValues,
-        period: '',
-        filter: '',
-        offset: '',
-        status: '',
-      })
+      let params = gridStateToParams(gridValues)
       params.set('editing', String(newId))
       let qs = params.toString()
       return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
@@ -514,24 +510,15 @@ export default createController(routes.verwaltung.appointments, {
             period: gridStatePeriod(gridValues),
             status: gridStateStatus(gridValues),
           })
-          return renderAppointmentsPage(context, data, { status: 400 })
+          return renderAppointmentsPage(context, data)
         }
       }
 
       let id = context.params.id
 
       if (!id) {
-        let data = await loadAppointmentPageData(context, {
-          formValues,
-          formError: 'Ungültige ID.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
-        })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(appointmentsGridUrl(formData))
       }
 
       let resourceIdRaw = (formData.get('resource_id') as string) ?? ''
@@ -548,7 +535,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
       let userIdRaw = (formData.get('user_id') as string) ?? ''
       if (!userIdRaw.trim()) {
@@ -564,7 +551,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let result = s.parseSafe(appointmentSaveSchema, formData)
@@ -583,7 +570,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let { resource_id, user_id, title, date, start_min, end_min } = result.value
@@ -602,7 +589,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let trimmedTitle = title.trim()
@@ -621,7 +608,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let bookable = await isSlotBookable(context.db, dayMs, resource_id, start_min, end_min)
@@ -638,7 +625,7 @@ export default createController(routes.verwaltung.appointments, {
           period: gridStatePeriod(gridValues),
           status: gridStateStatus(gridValues),
         })
-        return renderAppointmentsPage(context, data, { status: 400 })
+        return renderAppointmentsPage(context, data)
       }
 
       let during = `[${start_min},${end_min})`
@@ -653,19 +640,8 @@ export default createController(routes.verwaltung.appointments, {
         })
 
         if (!updated) {
-          let editRow = await fetchAppointmentEditRow(context.db, id)
-          let data = await loadAppointmentPageData(context, {
-            editRow,
-            formValues,
-            formError: 'Eintrag nicht gefunden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
-          })
-          return renderAppointmentsPage(context, data, { status: 400 })
+          context.session.flash('error', 'Eintrag nicht gefunden.')
+          return redirect(appointmentsGridUrl(formData))
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -693,20 +669,14 @@ export default createController(routes.verwaltung.appointments, {
             period: gridStatePeriod(gridValues),
             status: gridStateStatus(gridValues),
           })
-          return renderAppointmentsPage(context, data, { status: 400 })
+          return renderAppointmentsPage(context, data)
         }
         throw error
       }
 
       appointmentChannel.broadcast('invalidate')
 
-      let params = gridStateToParams({
-        ...gridValues,
-        period: '',
-        filter: '',
-        offset: '',
-        status: '',
-      })
+      let params = gridStateToParams(gridValues)
       let qs = params.toString()
       return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
     },
@@ -719,19 +689,22 @@ export default createController(routes.verwaltung.appointments, {
       if (auth?.ok) {
         let authUserId = (auth.identity as { id: number }).id
         if (process.env.NODE_ENV !== 'test' && !appointmentsDeleteLimiter.attempt(authUserId)) {
-          return errorRedirectDestroy(formData, 'Bitte warten Sie, bevor Sie einen Termin löschen.')
+          context.session.flash('error', 'Bitte warten Sie, bevor Sie einen Termin löschen.')
+          return redirect(appointmentsGridUrl(formData))
         }
       }
 
       if (!id) {
-        return errorRedirectDestroy(formData, 'Ungültige ID.')
+        context.session.flash('error', 'Ungültige ID.')
+        return redirect(appointmentsGridUrl(formData))
       }
 
       try {
         let deleted = await adminDeleteAppointment(context.db, id)
 
         if (!deleted) {
-          return errorRedirectDestroy(formData, 'Eintrag nicht gefunden.')
+          context.session.flash('error', 'Eintrag nicht gefunden.')
+          return redirect(appointmentsGridUrl(formData))
         }
 
         let authIdentity = getAdminIdentity(context.auth)
@@ -746,23 +719,18 @@ export default createController(routes.verwaltung.appointments, {
         }
       } catch (error: unknown) {
         if (isConstraintViolation(error)) {
-          return errorRedirectDestroy(
-            formData,
+          context.session.flash(
+            'error',
             'Dieser Termin kann nicht gelöscht werden, da noch Verweise darauf bestehen.',
           )
+          return redirect(appointmentsGridUrl(formData))
         }
         throw error
       }
 
       appointmentChannel.broadcast('invalidate')
 
-      let params = gridStateToParams({
-        ...gridStateFromFormData(formData),
-        period: '',
-        filter: '',
-        offset: '',
-        status: '',
-      })
+      let params = gridStateToParams(gridStateFromFormData(formData))
       let qs = params.toString()
       return redirect(routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : ''))
     },

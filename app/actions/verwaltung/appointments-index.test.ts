@@ -249,6 +249,35 @@ describe('Admin Appointments Controller', () => {
       assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })
 
+    it('status=all shows both past and future appointments', async () => {
+      // Arrange: create a past appointment and a future appointment
+      let pastDayMs = Date.now() - 86400000 * 10
+      let futureDayMs = Date.now() + 86400000 * 10
+      let now = Date.now()
+
+      let r1 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'PAST-APPT-ALL', pastDayMs, '[480,540)', now],
+      )
+      let r2 = await pool.query(
+        `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING id`,
+        [userId, resourceId, 'FUTURE-APPT-ALL', futureDayMs, '[540,600)', now],
+      )
+      createdAppointmentIds.push(r1.rows[0].id, r2.rows[0].id)
+
+      // Act: fetch with status=all
+      let response = await router.fetch(`${ADMIN_APPT_URL}?status=all`, {
+        headers: { Cookie: adminCookie },
+      })
+      let html = await response.text()
+
+      // Assert: both past and future appointments should appear
+      assert.ok(html.includes('PAST-APPT-ALL'), 'all view should show past appointment')
+      assert.ok(html.includes('FUTURE-APPT-ALL'), 'all view should show future appointment')
+    })
+
     it('respects pagination offset', async () => {
       // Arrange & Act: request with a large offset (beyond available data)
       let response = await router.fetch(`${ADMIN_APPT_URL}?offset=1000`, {

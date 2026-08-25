@@ -306,19 +306,28 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               alignItems: 'center',
             })}
           >
-            {(['pending', 'expired'] as const).map((value, i, arr) => {
+            {(['all', 'pending', 'expired'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1
-              let label = value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
+              let label =
+                value === 'all' ? 'Alle' : value === 'pending' ? 'Ausstehend' : 'Abgelaufen'
               let active =
-                value === 'pending' ? !status || status === 'pending' : status === 'expired'
+                value === 'pending'
+                  ? !status || status === 'pending'
+                  : value === 'expired'
+                    ? status === 'expired'
+                    : status === 'all'
               let params = new URLSearchParams()
               if (offset > 0) params.set('offset', String(offset))
               params.set('sort', sortColumn)
               params.set('order', sortDirection)
               if (filter) params.set('filter', filter)
               if (period) params.set('period', period)
-              if (!active) params.set('status', value)
+              // Only omit `status` when this is the neutral default (pending) view;
+              // re-clicking the active "Alle"/"Abgelaufen" tab must keep its own filter.
+              if (!(value === 'pending' && (!status || status === 'pending'))) {
+                params.set('status', value)
+              }
               let href = ADMIN_BASE + '?' + params.toString()
               return (
                 <a
@@ -367,6 +376,27 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
+              {!hasFormPanel && (
+                <div mix={css({ marginTop: theme.space.md })}>
+                  <a
+                    href={buildCreateUrl(
+                      ADMIN_BASE,
+                      offset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      period,
+                      status,
+                    )}
+                    data-rmx-target={frames.adminContent}
+                    mix={table.linkPlain}
+                  >
+                    <button mix={[button({ tone: 'primary' })]}>
+                      <Glyph name="add" width={14} height={14} /> Neu anlegen
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <table mix={table.table}>

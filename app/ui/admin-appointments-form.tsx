@@ -8,6 +8,7 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { IntervalBounds } from './interval-bounds.browser.tsx'
 import { routes, frames } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
@@ -132,8 +133,17 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method={method} action={action} novalidate data-rmx-target={frames.adminContent}>
+        <RestfulForm
+          method={method}
+          action={action}
+          novalidate
+          data-rmx-target={frames.adminContent}
+        >
           <GridStateHiddenInputs state={gridState} />
+          <IntervalBounds
+            startId={isEdit ? 'ae-start' : 'ac-start'}
+            endId={isEdit ? 'ae-end' : 'ac-end'}
+          />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>

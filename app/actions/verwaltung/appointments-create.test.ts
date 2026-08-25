@@ -154,7 +154,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'create outside offering should render with error')
+      assert.equal(response.status, 200, 'create outside offering should re-render at 200')
     })
 
     it('2.3 create fails with collision error when time range overlaps another appointment', async () => {
@@ -214,7 +214,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(responseB.status, 400, 'overlapping create should render with error')
+      assert.equal(responseB.status, 200, 'overlapping create should re-render at 200')
     })
   })
 
@@ -298,7 +298,10 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Termin'), 'should re-render the create panel')
+      assert.ok(text.includes('value="2026-06-15"'), 'should preserve the submitted date value')
     })
 
     it('returns error redirect for missing resource_id', async () => {
@@ -325,7 +328,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect for missing user_id', async () => {
@@ -352,7 +355,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect for invalid date format (not YYYY-MM-DD)', async () => {
@@ -379,7 +382,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect when end time is before start time', async () => {
@@ -406,7 +409,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect when end time equals start time', async () => {
@@ -433,7 +436,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect for invalid start_min (not divisible by 15)', async () => {
@@ -460,7 +463,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('returns error redirect for start_min out of valid range (negative)', async () => {
@@ -487,7 +490,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'validation error should render with 400')
+      assert.equal(response.status, 200, 'validation error should re-render at 200')
     })
 
     it('handles overlapping time range with German error', async () => {
@@ -546,8 +549,8 @@ describe('Admin Appointments Controller', () => {
         redirect: 'manual',
       })
 
-      // Assert: overlapping should re-render with error (exclusion constraint caught)
-      assert.equal(responseB.status, 400, 'overlapping should render with error')
+      // Assert: overlapping should re-render at 200 with error (exclusion constraint caught)
+      assert.equal(responseB.status, 200, 'overlapping should re-render at 200')
     })
 
     it('rejects creating an appointment with a past date', async () => {
@@ -574,7 +577,7 @@ describe('Admin Appointments Controller', () => {
       })
 
       // Assert
-      assert.equal(response.status, 400, 'past-date create should render with error')
+      assert.equal(response.status, 200, 'past-date create should re-render at 200')
     })
 
     it('preserves grid state (sort, order, filter) on successful create', async () => {
@@ -611,9 +614,9 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.includes('sort=a.title'), 'should preserve sort param')
       assert.ok(location.includes('order=desc'), 'should preserve order param')
-      assert.ok(!location.includes('filter='), 'should NOT preserve filter param')
-      assert.ok(!location.includes('period='), 'should NOT preserve period param')
-      assert.ok(!location.includes('status='), 'should NOT preserve status param')
+      assert.ok(location.includes('filter=testsearch'), 'should preserve filter param')
+      assert.ok(location.includes('period=this-week'), 'should preserve period param')
+      assert.ok(location.includes('status=expired'), 'should preserve status param')
 
       let match = location.match(/editing=(\d+)/)
       if (match) createdAppointmentIds.push(parseInt(match[1], 10))

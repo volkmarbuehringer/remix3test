@@ -1,8 +1,4 @@
-## Purpose
-
-Defines how the `/verwaltung/appointments` create and edit forms validate appointment input server-side and re-render the targeted frame with inline per-field errors and preserved values at an OK (200) status, and how form-level and non-field errors are surfaced, so admins get actionable feedback when a submitted appointment is invalid.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Admin appointments form SHALL render per-field validation errors inline
 
@@ -53,25 +49,6 @@ When the admin creates or edits an appointment and validation fails, the control
 - **AND** a `formErrorBanner` inside the form shows "Bitte warten Sie, bevor Sie einen weiteren Termin anlegen."
 - **AND** the form remains in creation mode
 
-### Requirement: Admin appointments form SHALL preserve submitted values on validation failure
-
-When validation fails and the controller re-renders the page, the form SHALL retain all submitted input values so the admin can correct errors without re-entering valid fields. Form values SHALL be read via `readFormFieldValues(APPOINTMENT_FORM_KEYS, formData)` and passed as `formValues` props.
-
-#### Scenario: Values preserved after single-field error
-
-- **WHEN** admin fills title="Test", selects user_id=3, resource_id=5, date="2026-06-15", and submits with an invalid start_min
-- **THEN** the re-rendered form shows "Test" in the title input, user_id=3 selected, resource_id=5 selected, and "2026-06-15" in the date input
-
-#### Scenario: Select values preserved
-
-- **WHEN** admin selects resource_id=3 and submits with an invalid title
-- **THEN** the re-rendered form shows resource_id=3 selected in the resource dropdown
-
-#### Scenario: Values preserved during update
-
-- **WHEN** admin edits an existing appointment and submits with an invalid field
-- **THEN** the re-rendered form preserves all submitted values and remains in edit mode for the same appointment
-
 ### Requirement: Form error SHALL NOT render at page level when a form panel is active
 
 The `formError` prop SHALL render only inside the form panel component, not at the page level above the table. The `AdminAppointmentsPage` SHALL only show `error` (from the index `?error=` URL path) when `!hasFormPanel`. Non-field mutation errors (invalid/not-found id, delete blocked by a foreign-key constraint) SHALL surface via `session.flash` and the shared `verwaltung` flash banner rather than a page-level `error` banner. The `show` GET `/:id` route SHALL NOT render a page-level "Eintrag nicht gefunden." error for a deleted/missing row — it SHALL redirect (Post/Redirect/Get) back to the grid. The `AdminOfferingsPage` SHALL apply the same pattern — `formError` at page level SHALL be gated behind `!hasFormPanel` to avoid double-rendering the error message.
@@ -100,36 +77,3 @@ The `formError` prop SHALL render only inside the form panel component, not at t
 - **WHEN** a destroy or update is blocked (invalid id, not-found row, or a delete blocked by a constraint)
 - **THEN** the controller redirects back to the grid and the message surfaces via `session.flash` in the shared `verwaltung` flash banner
 - **AND** the page-level `error` banner is not used for the mutation result
-
-### Requirement: Admin appointments form SHALL no longer encode form state in URL parameters
-
-The controller SHALL NOT call `encodeFormValues`, `decodeFormValues`, `encodeFieldErrors`, or `decodeFieldErrors`. The `form-params.ts` utility SHALL be removed after migration. The `loadAppointmentPageData()` function SHALL accept `formValues` and `fieldErrors` only via the `overrides` parameter, not from URL query parameters.
-
-#### Scenario: No fv_ or fe_ URL parameters on error
-
-- **WHEN** validation fails during create
-- **THEN** the response URL SHALL NOT contain `fv_` or `fe_` query parameters
-
-#### Scenario: Props are the sole source of form state
-
-- **WHEN** `loadAppointmentPageData()` is called without `formValues` override
-- **THEN** `formValues` SHALL be `undefined`, not decoded from URL parameters
-
-#### Scenario: form-params.ts is deleted
-
-- **WHEN** the migration is complete
-- **THEN** `app/utils/form-params.ts` SHALL NOT exist in the codebase
-
-### Requirement: Admin appointments create and update SHALL use gridStateFromFormData
-
-The create and update actions SHALL extract grid state using `gridStateFromFormData(formData)` and its typed extractor functions (`gridStateOffset`, `gridStateSort`, `gridStateDirection`, `gridStateFilter`) instead of manually destructuring `_offset`, `_sort`, `_order`, and `_filter` from `FormData`.
-
-#### Scenario: Grid state extracted via shared helper
-
-- **WHEN** the create action receives form data with hidden grid state inputs
-- **THEN** it SHALL call `gridStateFromFormData(formData)` and use extractor functions to get offset, sort, direction, and filter values
-
-#### Scenario: Grid state preserved on redirect after success
-
-- **WHEN** the create or update action succeeds
-- **THEN** the redirect URL SHALL include grid state parameters (offset, sort, order, filter) for index page rendering
