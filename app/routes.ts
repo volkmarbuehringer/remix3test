@@ -103,7 +103,9 @@ export const routes = route({
 
     lists: route('lists', {
       index: get('/'),
-      destroy: post('/:id/delete'),
+      create: post('/'),
+      update: put('/:id'),
+      destroy: del('/:id'),
     }),
 
     users: route('users', {
