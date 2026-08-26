@@ -143,22 +143,24 @@ const JSON_HEADERS = { Accept: 'application/json', 'X-Sse-Request': '1' }
 
 describe('Mastra Chat controller', () => {
   let adminCookie: string
-  let userCookie: string
-  let userCsrfToken: string
+  let createdUserEmails: string[] = []
 
   before(async () => {
     await initializeAppDatabase()
 
     let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     adminCookie = adminResult?.cookie ?? ''
-
-    let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
-    userCookie = userResult?.cookie ?? ''
-    userCsrfToken = userResult?.csrfToken ?? ''
   })
 
   after(async () => {
     __setTestAgent(undefined)
+    for (let email of createdUserEmails) {
+      try {
+        await pool.query('DELETE FROM users WHERE email = $1', [email])
+      } catch {
+        /* ignore cleanup errors */
+      }
+    }
     // The real-agent rate-limit test can leave a support-agent thread behind,
     // which would otherwise make the admin chatlog empty-state test fail.
     let agent = mastra.getAgent('supportAgent')
@@ -179,10 +181,23 @@ describe('Mastra Chat controller', () => {
   })
 
   it('POST /admin/support-agent returns 403 for non-admin user', async () => {
+    // Use a dedicated, freshly-created non-admin user rather than the shared
+    // seeded `user@newapp.com`. Tests share one ephemeral DB and run in
+    // parallel; the shared user's session cookie can be invalidated by a
+    // concurrent test (token_version bump / disable), turning this 403 into a
+    // login redirect. An isolated user guarantees a deterministic 403.
+    let email = `mastra-support-nonadmin-${Date.now()}-${Math.random()}@example.com`
+    createdUserEmails.push(email)
+    let createdUserId = await createTestUser(email)
+    assert.ok(createdUserId, 'failed to create non-admin test user')
+
+    let nonAdmin = await createAuthCookieWithCsrfForUser(email)
+    assert.ok(nonAdmin?.cookie, 'failed to create non-admin session cookie')
+
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: userCookie, ...JSON_HEADERS },
-      body: new URLSearchParams({ message: 'test', _csrf: userCsrfToken }),
+      headers: { Cookie: nonAdmin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ message: 'test', _csrf: nonAdmin.csrfToken }),
       redirect: 'manual',
     })
     assert.equal(response.status, 403)

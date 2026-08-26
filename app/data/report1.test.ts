@@ -72,19 +72,23 @@ describe('report1', () => {
       ],
     )
 
+    // Scope the query to the test user. Tests share one ephemeral DB and run in
+    // parallel; an unscoped month query can be affected by concurrent rows in
+    // the same month (pushing this row past the page limit / flipping hasMore).
     let result = await runReport1(db, {
       monthStart,
       monthEnd,
+      selectedUserId: userId,
       column: 'name',
       direction: 'asc',
       effectivePageSize: 20,
       offset: 0,
     })
 
-    assert.ok(result.rows.length >= 1)
-    let row = result.rows.find((r) => r.user_email === 'test-report1-user@example.com')
-    assert.ok(row, 'expected report row for test user')
-    assert.equal(Number(row!.appointment_count), 2)
+    assert.equal(result.rows.length, 1)
+    let row = result.rows[0]
+    assert.equal(row.user_email, 'test-report1-user@example.com')
+    assert.equal(Number(row.appointment_count), 2)
     assert.ok(!result.hasMore)
   })
 
@@ -131,8 +135,11 @@ describe('report1', () => {
 
   it('runReport1 sorts by appointment count', async () => {
     let ts = Date.now()
-    let monthStart = Date.UTC(2026, 5, 1)
-    let monthEnd = Date.UTC(2026, 6, 1)
+    // A far-future month so no concurrent suite inserts rows in the same window
+    // (tests share one ephemeral DB and run in parallel), keeping the sort order
+    // and page window deterministic.
+    let monthStart = Date.UTC(2099, 5, 1)
+    let monthEnd = Date.UTC(2099, 6, 1)
     let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
     let resourceId = resourceResult.rows[0].id
 
