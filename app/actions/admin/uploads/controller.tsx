@@ -1,17 +1,22 @@
-import { createAction, createController } from 'remix/router'
+import { createController } from 'remix/router'
 import { css } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
-import { theme } from '../../ui/theme/theme.ts'
-import { routes, system } from '../../routes.ts'
-import { parseId } from '../../utils/ids.ts'
-import { requireAuth } from '../../middleware/auth.ts'
-import { renderAdminPage } from '../../ui/admin-layout.tsx'
-import { listUploads, claimUpload, getUploadDownload, type UploadRow } from '../../data/uploads.ts'
-import { PageSection, panelCss } from '../../ui/page-primitives.tsx'
-import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
-import { getCurrentUser } from '../../utils/context.ts'
-import { takeUploadedId } from '../../middleware/upload-claim.ts'
-export default createController(routes.uploads, {
+import { theme } from '../../../ui/theme/theme.ts'
+import { routes } from '../../../routes.ts'
+import { parseId } from '../../../utils/ids.ts'
+import { requireAuth } from '../../../middleware/auth.ts'
+import { renderAdminPage } from '../../../ui/admin-layout.tsx'
+import {
+  listUploads,
+  claimUpload,
+  getUploadDownload,
+  type UploadRow,
+} from '../../../data/uploads.ts'
+import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
+import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
+import { getCurrentUser } from '../../../utils/context.ts'
+import { takeUploadedId } from '../../../middleware/upload-claim.ts'
+export default createController(routes.admin.uploads, {
   middleware: [requireAuth()],
   actions: {
     async index(context) {
@@ -56,37 +61,34 @@ export default createController(routes.uploads, {
         />,
       )
     },
-  },
-})
 
-export const download = createAction(system.uploadsDownload, {
-  middleware: [requireAuth()],
-  handler: async (context) => {
-    let user = getCurrentUser()
-    let id = parseId(context.params.id)
-    if (id === undefined) {
-      return new Response('Invalid ID', { status: 400 })
-    }
+    async download(context) {
+      let user = getCurrentUser()
+      let id = parseId(context.params.id)
+      if (id === undefined) {
+        return new Response('Invalid ID', { status: 400 })
+      }
 
-    let row =
-      user.role === 'admin'
-        ? await getUploadDownload(context.db, id)
-        : await getUploadDownload(context.db, id, user.id)
-    if (!row) {
-      return new Response('Not found', { status: 404 })
-    }
+      let row =
+        user.role === 'admin'
+          ? await getUploadDownload(context.db, id)
+          : await getUploadDownload(context.db, id, user.id)
+      if (!row) {
+        return new Response('Not found', { status: 404 })
+      }
 
-    let { filename, mime_type, data } = row
+      let { filename, mime_type, data } = row
 
-    let cleanFilename = filename.replace(/[\r\n"]/g, '')
+      let cleanFilename = filename.replace(/[\r\n"]/g, '')
 
-    let downloadHeaders = new SuperHeaders()
-    downloadHeaders.contentType = mime_type
-    downloadHeaders.contentDisposition = {
-      type: 'attachment',
-      filename: cleanFilename,
-    }
-    return new Response(data, { status: 200, headers: downloadHeaders })
+      let downloadHeaders = new SuperHeaders()
+      downloadHeaders.contentType = mime_type
+      downloadHeaders.contentDisposition = {
+        type: 'attachment',
+        filename: cleanFilename,
+      }
+      return new Response(data, { status: 200, headers: downloadHeaders })
+    },
   },
 })
 
@@ -113,7 +115,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             </p>
           ) : null}
           <form
-            action={routes.uploads.action.href()}
+            action={routes.admin.uploads.action.href()}
             method="POST"
             encType="multipart/form-data"
             mix={formCss}
@@ -149,7 +151,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <td>{formatSize(u.size)}</td>
                     <td>{new Date(u.created_at).toLocaleDateString()}</td>
                     <td>
-                      <a href={system.uploadsDownload.href({ id: u.id })} download>
+                      <a href={routes.admin.uploads.download.href({ id: u.id })} download>
                         Download
                       </a>
                     </td>

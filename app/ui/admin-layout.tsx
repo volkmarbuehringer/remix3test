@@ -40,7 +40,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       },
       { id: 'client', label: 'Client-Test', route: routes.admin.client.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
-      { id: 'uploads', label: 'Uploads', route: routes.uploads.index },
+      { id: 'uploads', label: 'Uploads', route: routes.admin.uploads.index },
       { id: 'webhooks', label: 'Webhooks', route: system.webhookRequests, iframeNav: false },
       { id: 'testagent', label: 'Test-Agent', route: routes.testAgent.index },
       {

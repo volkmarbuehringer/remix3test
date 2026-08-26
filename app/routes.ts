@@ -48,7 +48,6 @@ export const routes = route({
   }),
 
   settings: form('settings'),
-  uploads: form('uploads'),
   chat: route('chat', {
     index: get('/'),
     action: post('/'),
@@ -114,6 +113,12 @@ export const routes = route({
       update: put('/:id'),
       destroy: del('/:id'),
       toggleDisabled: post('/:id/toggle-disabled'),
+    }),
+
+    uploads: route('uploads', {
+      index: get('/'),
+      action: post('/'),
+      download: get('/:id/download'),
     }),
 
     fragments: route('fragments', {
@@ -222,5 +227,4 @@ export const system = {
   webhookRequestResend: post('/webhook-requests/:id/resend'),
   webhookRequestUpdate: put('/webhook-requests/:id'),
   webhookRequestCreate: form('/webhook-requests/create'),
-  uploadsDownload: get('/uploads/:id/download'),
 } as const

@@ -22,9 +22,6 @@ import * as verwaltung from './actions/verwaltung/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
-import uploadsController, {
-  download as uploadsDownloadHandler,
-} from './actions/uploads/controller.tsx'
 import webhookReceive from './actions/webhook/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
@@ -96,8 +93,7 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(system.webhookRequestCreate, webhookRequestsCreate)
 
   // Uploads routes
-  router.map(routes.uploads, uploadsController)
-  router.get(system.uploadsDownload, uploadsDownloadHandler)
+  router.map(routes.admin.uploads, admin.adminUploads)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointment)

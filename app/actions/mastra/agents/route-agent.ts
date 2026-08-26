@@ -29,7 +29,7 @@ Rules:
 - Upload navigation protocol — FOLLOW EXACTLY:
   Step 1: Call ask_user with the question "Welchen MIME-Typ möchten Sie hochladen?" and options ["PDF", "JPEG", "PNG"] with selectionMode "single_select".
   Step 2: After the user answers, check the answer value.
-  Step 3: If the answer is "PDF" — you MUST call navigate('/uploads'). Do NOT respond with text, do NOT continue the conversation — call navigate.
+  Step 3: If the answer is "PDF" — you MUST call navigate('/admin/uploads'). Do NOT respond with text, do NOT continue the conversation — call navigate.
   Step 4: If the answer is "JPEG" or "PNG" — respond with text "Nur PDF Uploads werden unterstützt." Do NOT call navigate.
 - Form submission protocol — use when the user wants to create or fill out a form (e.g. "create a resource", "add a new resource"):
   Step 1: Navigate to the form page (e.g. "/verwaltung/resources?creating=true&sort=name&order=asc" for new resources).
