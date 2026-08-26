@@ -217,6 +217,16 @@ export const routes = route({
     answer: post('/answer'),
     toolDecision: post('/tool-decision'),
   }),
+
+  // Frame traversal scroll-restoration reproduction (see
+  // app/actions/scroll-restoration/). Mirrors the upstream demo so we can
+  // assert that the browser Back button restores scroll when a top-level
+  // client entry reconciliation shrinks the document.
+  scrollRestoration: route('scroll-restoration', {
+    index: get('/'),
+    detail: get('/detail'),
+    items: get('/frames/scroll-restoration-items'),
+  }),
 })
 
 export const system = {

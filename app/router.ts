@@ -22,6 +22,7 @@ import * as verwaltung from './actions/verwaltung/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
+import scrollRestorationController from './actions/scroll-restoration/controller.tsx'
 import webhookReceive from './actions/webhook/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
@@ -81,6 +82,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Settings routes
   router.map(routes.settings, settingsController)
+
+  // Frame traversal scroll-restoration reproduction (public, no auth)
+  router.map(routes.scrollRestoration, scrollRestorationController)
 
   // Webhook routes
   router.post(system.webhook, webhookReceive)
