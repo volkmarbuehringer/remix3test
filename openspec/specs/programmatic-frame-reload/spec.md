@@ -11,20 +11,20 @@ When a create, update, or delete operation completes on the client grid, the gri
 #### Scenario: Grid refreshes after edit save
 
 - **WHEN** user edits a client row and saves
-- **THEN** the page redirects to `/client`
+- **THEN** the page redirects to `/admin/clients`
 - **AND** the client grid frame SHALL reload its content automatically
 - **AND** the sort, filter, and pagination state SHALL be preserved
 
 #### Scenario: Grid refreshes after delete
 
 - **WHEN** user deletes a client row
-- **THEN** the page redirects to `/client`
+- **THEN** the page redirects to `/admin/clients`
 - **AND** the client grid frame SHALL reload its content automatically
 
 #### Scenario: Grid refreshes after create
 
 - **WHEN** user creates a new client record
-- **THEN** the page redirects to `/client`
+- **THEN** the page redirects to `/admin/clients`
 - **AND** the client grid frame SHALL reload its content automatically
 
 ### Requirement: Frame-scoped reload from client entry

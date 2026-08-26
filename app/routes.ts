@@ -76,12 +76,13 @@ export const routes = route({
   admin: route('admin', {
     index: get('/'),
 
-    client: route('client', {
+    clients: route('clients', {
       index: get('/'),
       edit: get('/edit/:rowId'),
       create: post('/'),
       update: put('/:id'),
       destroy: del('/:id'),
+      toggleStatus: post('/:id/toggle-status'),
     }),
 
     chatlog: route('chatlog', {

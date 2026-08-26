@@ -33,8 +33,8 @@ describe('Client Grid', () => {
   // CRUD redirect flow
   // -----------------------------------------------------------------------
 
-  it('POST /admin/client creates a new row and redirects', async () => {
-    let response = await router.fetch(`${BASE}/admin/client`, {
+  it('POST /admin/clients creates a new row and redirects', async () => {
+    let response = await router.fetch(`${BASE}/admin/clients`, {
       method: 'POST',
       body: new URLSearchParams({
         name: 'Test User',
@@ -50,15 +50,15 @@ describe('Client Grid', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
+    assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
   })
 
   // -----------------------------------------------------------------------
   // Grid page rendering
   // -----------------------------------------------------------------------
 
-  it('GET /admin/client?offset=0 renders grid page with content', async () => {
-    let response = await router.fetch(`${BASE}/admin/client?offset=0`, {
+  it('GET /admin/clients?offset=0 renders grid page with content', async () => {
+    let response = await router.fetch(`${BASE}/admin/clients?offset=0`, {
       headers: authHeaders(),
     })
 
@@ -68,8 +68,8 @@ describe('Client Grid', () => {
     assert.ok(html.includes('client-grid-content'), 'grid page should contain the grid content')
   })
 
-  it('GET /admin/client renders the client admin page', async () => {
-    let response = await router.fetch(`${BASE}/admin/client`, {
+  it('GET /admin/clients renders the client admin page', async () => {
+    let response = await router.fetch(`${BASE}/admin/clients`, {
       headers: authHeaders(),
     })
 
@@ -84,14 +84,14 @@ describe('Client Grid', () => {
   // Edit redirect flow
   // -----------------------------------------------------------------------
 
-  it('GET /admin/client/edit/1 redirects to /admin/client with editing param', async () => {
-    let response = await router.fetch(`${BASE}/admin/client/edit/1`, {
+  it('GET /admin/clients/edit/1 redirects to /admin/clients with editing param', async () => {
+    let response = await router.fetch(`${BASE}/admin/clients/edit/1`, {
       headers: authHeaders(),
     })
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/admin/client'), 'should redirect to /admin/client')
+    assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients')
     assert.ok(location.includes('editing=1'), 'should include editing param')
   })
 })

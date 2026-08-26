@@ -8,9 +8,10 @@ import { FrameRefreshButton } from './public/grid-refresh-button.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { routes } from '../../routes.ts'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
-import { CsrfTokenInput, tryGetCsrfToken } from '../../ui/csrf-token-input.tsx'
+import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
+import { table } from '../../ui/mixins/admin-table.ts'
 import { getCspNonce } from '../../middleware/security-headers.ts'
-import { ClientGridInlineEdit } from './public/client-grid-inline-edit.tsx'
+import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
 type Row = Client
 type SortField = 'name' | 'email' | 'role' | 'status' | 'registered' | null
@@ -22,8 +23,6 @@ interface ClientGridPageProps {
   hasNext: boolean
   sortField?: string | null
   sortOrder?: 'asc' | 'desc'
-  totalRows?: number
-  fieldOptions?: Record<string, string[]>
   filter?: string
   pageSize?: number
   editingId?: number | null
@@ -162,6 +161,7 @@ const paginationBtnGroupStyle = css({
 
 const filterBarStyle = css({
   display: 'flex',
+  flexWrap: 'wrap',
   alignItems: 'center',
   gap: theme.space.sm,
   marginBottom: theme.space.md,
@@ -213,15 +213,7 @@ const smallBtnStyle = css({
 const actionBtnGroup = css({
   display: 'inline-flex',
   alignItems: 'stretch',
-  '& > a > button': {
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    borderRight: 'none',
-  },
-  '& > form > button': {
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
-  },
+  gap: '0.25rem',
 })
 
 // ---------------------------------------------------------------------------
@@ -257,7 +249,7 @@ function buildSortUrl(
   params.set('order', newOrder)
   if (filter) params.set('filter', filter)
   if (editingId) params.set('editing', String(editingId))
-  return '/admin/client?' + params.toString()
+  return '/admin/clients?' + params.toString()
 }
 
 function buildPaginationUrl(
@@ -273,7 +265,23 @@ function buildPaginationUrl(
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
   if (editingId) params.set('editing', String(editingId))
-  return '/admin/client?' + params.toString()
+  return '/admin/clients?' + params.toString()
+}
+
+function buildFilterUrl(
+  filterValue: string,
+  currentSort: string | null | undefined,
+  currentOrder: 'asc' | 'desc',
+  offset: number,
+  editingId?: number | null,
+): string {
+  let params = new URLSearchParams()
+  if (filterValue) params.set('filter', filterValue)
+  params.set('sort', currentSort ?? 'id')
+  params.set('order', currentOrder)
+  if (offset > 0) params.set('offset', String(offset))
+  if (editingId) params.set('editing', String(editingId))
+  return '/admin/clients?' + params.toString()
 }
 
 function formatDate(ts: number): string {
@@ -296,7 +304,7 @@ function buildCreateUrl(
   if (order) params.set('order', order)
   if (offset > 0) params.set('offset', String(offset))
   if (filter) params.set('filter', filter)
-  return '/admin/client?' + params.toString()
+  return '/admin/clients?' + params.toString()
 }
 
 function buildEditUrl(
@@ -312,7 +320,7 @@ function buildEditUrl(
   if (sort) params.set('sort', sort)
   if (order) params.set('order', order)
   if (filter) params.set('filter', filter)
-  return '/admin/client?' + params.toString()
+  return '/admin/clients?' + params.toString()
 }
 
 // ---------------------------------------------------------------------------
@@ -328,18 +336,18 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       hasNext,
       sortField = null,
       sortOrder = 'asc',
-      totalRows = rows.length + offset,
       filter,
       pageSize = 20,
       editingId,
     } = handle.props
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
-    let pageTotalRows = Math.max(totalRows, pageEnd)
+    let isStatusFilter = filter === 'active' || filter === 'inactive'
 
     return (
       <div id="client-grid-content">
         <ConfirmDelete />
+
         {/* Toolbar: Add New + Refresh button */}
         <div
           mix={css({
@@ -358,11 +366,38 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>+ Add New</button>
           </a>
         </div>
-        {/* Filter bar */}
+
+        {/* Filter bar: status tabs + search */}
         <div mix={filterBarStyle}>
+          <div mix={table.filterGroup}>
+            <a
+              href={buildFilterUrl('', sortField, sortOrder, offset, editingId)}
+              data-rmx-target="admin-content"
+              mix={[
+                table.filterTab,
+                !isStatusFilter ? table.filterTabActive : undefined,
+              ]}
+            >
+              Alle
+            </a>
+            <a
+              href={buildFilterUrl('active', sortField, sortOrder, offset, editingId)}
+              data-rmx-target="admin-content"
+              mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
+            >
+              Aktiv
+            </a>
+            <a
+              href={buildFilterUrl('inactive', sortField, sortOrder, offset, editingId)}
+              data-rmx-target="admin-content"
+              mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
+            >
+              Inaktiv
+            </a>
+          </div>
           <form
             method="GET"
-            action="/admin/client"
+            action="/admin/clients"
             data-rmx-target="admin-content"
             data-rmx-history="replace"
             mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
@@ -371,7 +406,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               type="text"
               name="filter"
               placeholder="Search by name or email..."
-              defaultValue={filter ?? ''}
+              defaultValue={filter && !isStatusFilter ? filter : ''}
               mix={filterInputStyle}
             />
             {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
@@ -379,8 +414,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
               Search
             </button>
           </form>
-          {filter ? (
-            <a href={routes.admin.client.index.href()} mix={clearLinkStyle}>
+          {filter && !isStatusFilter ? (
+            <a href={routes.admin.clients.index.href()} mix={clearLinkStyle}>
               Clear
             </a>
           ) : null}
@@ -392,7 +427,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           </div>
         ) : (
           <>
-            <table mix={tableStyle}>
+            <table mix={tableStyle} data-clients-table="true">
               <colgroup>
                 <col mix={css({ width: '5%' })} />
                 <col mix={css({ width: '18%' })} />
@@ -482,24 +517,29 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <tr
                     key={row.id}
                     data-row-id={row.id}
+                    data-status={row.status}
                     mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}
                   >
                     <td mix={tdIdStyle}>{row.id}</td>
                     <td mix={tdStyle} title={row.name}>
                       {row.name}
                     </td>
-                    <td
-                      mix={tdStyle}
-                      title={row.email}
-                      data-inline-edit="email"
-                      tabindex={0}
-                      role="button"
-                      aria-label={`Edit email: ${row.email}`}
-                    >
+                    <td mix={tdStyle} title={row.email}>
                       {row.email}
                     </td>
                     <td mix={tdStyle}>{row.role}</td>
-                    <td mix={tdStyle}>{row.status}</td>
+                    <td mix={tdStyle}>
+                      <span
+                        mix={[
+                          table.statusBadge,
+                          row.status === 'Active'
+                            ? table.statusBadgeActive
+                            : table.statusBadgeDisabled,
+                        ]}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
                     <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
                     <td mix={tdActionsStyle}>
                       <div mix={actionBtnGroup}>
@@ -512,8 +552,32 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         </a>
                         <form
                           method="POST"
-                          action={`/admin/client/${row.id}`}
+                          action={routes.admin.clients.toggleStatus.href({ id: row.id })}
+                          data-toggle-form={row.id}
                           data-rmx-target="admin-content"
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
+                        >
+                          <CsrfTokenInput />
+                          <GridStateHiddenInputs
+                            state={{
+                              offset: String(offset),
+                              sort: sortField ?? '',
+                              order: sortOrder,
+                              filter: filter ?? '',
+                            }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[button({ tone: 'secondary' }), smallBtnStyle]}
+                          >
+                            {row.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </form>
+                        <form
+                          method="POST"
+                          action={`/admin/clients/${row.id}`}
+                          data-rmx-target="admin-content"
+                          data-delete-form={row.id}
                           data-confirm="Delete this row?"
                         >
                           <CsrfTokenInput />
@@ -540,7 +604,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
             {/* Pagination bar */}
             <div mix={paginationBarStyle}>
               <span mix={paginationInfoStyle}>
-                {pageStart}–{pageEnd} of {hasNext ? `${pageTotalRows}+` : pageTotalRows}
+                {pageStart}–{pageEnd} of {hasNext ? `${pageEnd}+` : pageEnd}
               </span>
               <div mix={paginationBtnGroupStyle}>
                 <a
@@ -552,7 +616,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     editingId,
                   )}
                   data-rmx-target="admin-content"
-                  mix={css({ textDecoration: 'none' })}
+                  mix={css({ textDecoration: 'none' }) }
                 >
                   <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                     ← Prev
@@ -567,7 +631,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     editingId,
                   )}
                   data-rmx-target="admin-content"
-                  mix={css({ textDecoration: 'none' })}
+                  mix={css({ textDecoration: 'none' }) }
                 >
                   <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                     Next →
@@ -578,13 +642,17 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           </>
         )}
 
-        {/* Inline edit state for clientEntry */}
-        <script id="client-grid-state" type="application/json" nonce={getCspNonce()}>
+        {/* Context menu data and clientEntry */}
+        <script id="clients-grid-state" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
-            csrfToken: tryGetCsrfToken() ?? '',
+            offset: String(offset),
+            sort: sortField ?? '',
+            order: sortOrder,
+            filter: filter ?? '',
+            baseHref: routes.admin.clients.index.href(),
           })}
         </script>
-        <ClientGridInlineEdit />
+        <ClientsContextMenu />
       </div>
     )
   }

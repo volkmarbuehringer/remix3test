@@ -77,7 +77,7 @@ When a frame form submission is intercepted and a pending agent question exists,
 
 ### Requirement: Grid filter form targets the admin content frame
 
-The grid filter form (a GET form with `action="/admin/client"`) in the admin client page SHALL declare `data-rmx-target="admin-content"` so its submission is a native frame navigation that reloads only the content frame instead of the top-level page.
+The grid filter form (a GET form with `action="/admin/clients"`) in the admin client page SHALL declare `data-rmx-target="admin-content"` so its submission is a native frame navigation that reloads only the content frame instead of the top-level page.
 
 #### Scenario: Filter submission does not reload the top-level page
 

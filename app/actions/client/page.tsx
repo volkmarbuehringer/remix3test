@@ -5,26 +5,21 @@ import { ClientGridPage } from './grid-page.tsx'
 import { ClientEditPage } from './edit-page.tsx'
 import { ClientCreatePage } from './create-page.tsx'
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 interface ClientPageProps {
   rows: Client[]
   offset: number
   hasMore: boolean
-  sortField: string
-  sortOrder: 'asc' | 'desc'
+  prevOffset: number
+  nextOffset: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
   filter?: string
   pageSize: number
   editRow?: Client | null
   creating?: boolean
-  editingOffset?: string
-  editingSort?: string
-  editingOrder?: string
-  editingFilter?: string
   formValues?: Record<string, string>
   fieldErrors?: Record<string, string>
+  formError?: string
 }
 
 function ClientPage(handle: Handle<ClientPageProps>) {
@@ -33,18 +28,17 @@ function ClientPage(handle: Handle<ClientPageProps>) {
       rows,
       offset,
       hasMore,
-      sortField,
-      sortOrder,
+      prevOffset,
+      nextOffset,
+      sortColumn,
+      sortDirection,
       filter,
       pageSize,
       editRow,
       creating = false,
-      editingOffset = '',
-      editingSort = '',
-      editingOrder = '',
-      editingFilter = '',
       formValues,
       fieldErrors,
+      formError,
     } = handle.props
     let hasSidebar = editRow || creating
 
@@ -53,10 +47,10 @@ function ClientPage(handle: Handle<ClientPageProps>) {
         <ClientGridPage
           rows={rows}
           offset={offset}
-          hasPrev={offset > 0}
+          hasPrev={prevOffset > 0}
           hasNext={hasMore}
-          sortField={sortField}
-          sortOrder={sortOrder}
+          sortField={sortColumn}
+          sortOrder={sortDirection}
           filter={filter}
           pageSize={pageSize}
           editingId={editRow?.id ?? null}
@@ -81,19 +75,19 @@ function ClientPage(handle: Handle<ClientPageProps>) {
             {editRow ? (
               <ClientEditPage
                 row={editRow}
-                offset={editingOffset}
-                sort={editingSort}
-                order={editingOrder}
-                filter={editingFilter}
+                offset={String(offset)}
+                sort={sortColumn}
+                order={sortDirection}
+                filter={filter ?? ''}
                 formValues={formValues}
                 fieldErrors={fieldErrors}
               />
             ) : (
               <ClientCreatePage
-                offset={editingOffset}
-                sort={editingSort}
-                order={editingOrder}
-                filter={editingFilter}
+                offset={String(offset)}
+                sort={sortColumn}
+                order={sortDirection}
+                filter={filter ?? ''}
                 formValues={formValues}
                 fieldErrors={fieldErrors}
               />

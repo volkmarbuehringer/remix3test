@@ -7,7 +7,7 @@ export { default as adminUsers } from './users/controller.tsx'
 export { default as adminUploads } from './uploads/controller.tsx'
 
 // Flat admin-route groups re-exported through the single admin entry point.
-export { default as adminClient } from '../client/controller.tsx'
+export { default as adminClients } from '../client/controller.tsx'
 export { workflowAgent } from '../workflow-agent/controller.tsx'
 export { default as agentEvents } from '../agent-events/controller.tsx'
 // `mastra/` is the agent subsystem; its controller stays coupled there.

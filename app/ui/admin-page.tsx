@@ -89,7 +89,7 @@ export function AdminDashboardContent() {
         <div mix={cardStyle}>
           <h2 mix={cardTitleStyle}>Client-Test</h2>
           <p mix={cardDescStyle}>CRUD-Tabelle mit Paginierung, Sortierung und Filterung.</p>
-          <a href={routes.admin.client.index.href()} mix={btnStyle}>
+          <a href={routes.admin.clients.index.href()} mix={btnStyle}>
             Client-Test öffnen
           </a>
         </div>

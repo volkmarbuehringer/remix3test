@@ -55,7 +55,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.appointment.types.index.href()]: 'Termintypen',
 
   // Client
-  [routes.admin.client.index.href()]: 'Client',
-  [routeParentPath(routes.admin.client.edit)]: 'Edit',
-  [routes.admin.client.create.href()]: 'Create',
+  [routes.admin.clients.index.href()]: 'Client',
+  [routeParentPath(routes.admin.clients.edit)]: 'Edit',
+  [routes.admin.clients.create.href()]: 'Create',
 }

@@ -508,6 +508,45 @@ let data = await loadPageData(context, {
 return renderPage(context, data, { status: 400 })
 ```
 
+### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
+
+When an admin **grid** page routes its validation-error re-render through the shared helper
+(`app/ui/admin-grid-error.tsx` → `renderGridFormError`), the response is always **status 200**,
+NOT 400.
+
+**Why:** the admin frame transport treats any non-OK response as an unrecoverable error card,
+so a validation-error re-render MUST be a 200 to show inline field errors in the frame. The
+helper renders `renderAdminPage(..., { status: 200 })`.
+
+This is the `/admin/users` pattern — `renderUsersError` delegates to `renderGridFormError`
+(status 200) and the users tests assert `response.status === 200` on validation failure. A grid
+action using this helper MUST assert 200, not 400:
+
+```typescript
+import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-grid-error.tsx'
+
+async function renderClientsError(context, opts): Promise<Response> {
+  let grid: AdminGridErrorState = { offset: opts.offset, sortColumn: opts.column, sortDirection: opts.direction, filter: opts.filter, pageSize: opts.pageSize }
+  return renderGridFormError<Row>({
+    render: context.render,
+    activeItem: 'clients',
+    loadRows: () => loadGridData(context.db, opts),
+    buildPage: (page) => <ClientPage ... />,
+    formValues: opts.formValues,
+    fieldErrors: opts.fieldErrors,
+    grid,
+  }) // → renderAdminPage(..., { status: 200 })
+}
+```
+
+**Contrast:** `context.render(<Page/>, { status: 400 })` (Pattern 1 above) is for full-page /
+non-admin-frame forms. Inside the admin frame, route validation through `renderGridFormError`
+so inline errors appear at 200. When a spec/test says "returns 400" for a grid page that uses
+`renderGridFormError`, it describes stale behavior — correct it to 200 (see the users test
+`assert.equal(response.status, 200)`).
+
+> _Extracted from: upgrade-admin-clients — spec said 400, shared helper returned 200_
+
 ### Form Error Banner Styles
 
 Two distinct banners — page level (solid) and form level (subtle):

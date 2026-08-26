@@ -1,6 +1,5 @@
 import { createController } from 'remix/router'
-import { ilike, or } from 'remix/data-table'
-import type { Database } from 'remix/data-table'
+import { ilike, or, type Database, type WhereInput } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import { minLength, email } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
@@ -12,6 +11,8 @@ import { requireAdmin } from '../../middleware/admin.ts'
 import { routes } from '../../routes.ts'
 import { clients } from '../../data/schema.ts'
 import type { Client } from '../../data/schema.ts'
+import { logAdminAction } from '../../data/audit-log.ts'
+import { getAdminIdentity } from '../../utils/context.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { ClientPage } from './page.tsx'
 import { paginate } from '../../utils/pagination.ts'
@@ -21,10 +22,15 @@ import { getPageSize } from '../../utils/get-page-size.ts'
 import {
   gridStateFromURL,
   gridStateFromForm,
+  gridStateFromFormData,
   gridStateToParams,
   editingRedirect,
 } from '../../utils/grid-state.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
+import {
+  renderGridFormError,
+  type AdminGridErrorState,
+} from '../../ui/admin-grid-error.tsx'
 
 type Row = Client
 
@@ -41,11 +47,6 @@ const CLIENT_FORM_KEYS = [
   '_filter',
 ] as const
 const SORTABLE_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
-const VALID_FIELDS = ['id', 'name', 'email', 'role', 'status', 'registered'] as const
-const FIELD_OPTIONS: Record<string, string[]> = {
-  role: ['Admin', 'Editor', 'Viewer'],
-  status: ['Active', 'Inactive'],
-}
 
 const clientSaveSchema = f.object({
   name: f.field(s.defaulted(s.string(), '').pipe(minLength(8))),
@@ -70,40 +71,127 @@ function parseDate(value: string): number {
   return Number.isFinite(ts) ? ts : Date.now()
 }
 
-async function fetchGridData(
-  db: Database,
-  opts: {
-    offset: number
-    column: string
-    direction: 'asc' | 'desc'
-    filter?: string
-    pageSize?: number
-  },
-) {
-  let effectivePageSize = opts.pageSize ?? getPageSize(undefined, PAGE_SIZE)
-  let pageNum = Math.floor(opts.offset / effectivePageSize) + 1
-  let filter = opts.filter
-
-  let filterPredicate = filter
-    ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
-    : undefined
-
-  let { items: page, hasMore } = (await paginate(db as Database, clients, {
-    pageSize: effectivePageSize,
-    page: pageNum,
-    orderBy: [[opts.column, opts.direction]],
-    where: filterPredicate as Record<string, unknown>,
-  })) as { items: Row[]; page: number; hasMore: boolean }
-
-  return { rows: page, hasMore, effectivePageSize }
+/** Builds the WHERE predicate for the grid from the single `filter` query param. */
+function buildClientsFilterPredicate(filter?: string): WhereInput | undefined {
+  return filter === 'active'
+    ? { status: 'Active' }
+    : filter === 'inactive'
+      ? { status: 'Inactive' }
+      : filter && /^\d+$/.test(filter)
+        ? { id: Number(filter) }
+        : filter
+          ? or(ilike('name', `%${filter}%`), ilike('email', `%${filter}%`))
+          : undefined
 }
 
-export default createController(routes.admin.client, {
+async function loadGridData(
+  db: Database,
+  opts: { offset: number; column: string; direction: 'asc' | 'desc'; filter?: string; pageSize: number },
+): Promise<{ rows: Row[]; hasMore: boolean }> {
+  let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
+  let { items: page, hasMore } = (await paginate(db, clients, {
+    pageSize: opts.pageSize,
+    page: pageNum,
+    orderBy: [[opts.column, opts.direction]],
+    where: buildClientsFilterPredicate(opts.filter),
+  })) as { items: Row[]; page: number; hasMore: boolean }
+
+  return { rows: page, hasMore }
+}
+
+function gridOffset(raw: Record<string, string>): number {
+  return Math.max(0, Number(raw._offset) || 0)
+}
+
+function gridSortColumn(raw: Record<string, string>): string {
+  let col = raw._sort
+  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'id'
+}
+
+function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
+  return raw._order === 'desc' ? 'desc' : 'asc'
+}
+
+function gridFilter(raw: Record<string, string>): string | undefined {
+  return raw._filter || undefined
+}
+
+function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
+  return {
+    id,
+    name: raw.name,
+    email: raw.email,
+    role: (raw.role || 'Viewer') as Row['role'],
+    status: (raw.status || 'Active') as Row['status'],
+    registered: raw.registered ? parseDate(raw.registered) : Date.now(),
+  }
+}
+
+type ClientsRenderContext = { db: Database; render: Parameters<typeof renderAdminPage>[0] }
+
+async function renderClientsError(context: ClientsRenderContext, opts: {
+  creating?: boolean
+  editRow?: Row | null
+  formValues?: Record<string, string>
+  fieldErrors?: Record<string, string>
+  formError?: string
+  offset: number
+  column: string
+  direction: 'asc' | 'desc'
+  filter?: string
+  pageSize: number
+}): Promise<Response> {
+  let grid: AdminGridErrorState = {
+    offset: opts.offset,
+    sortColumn: opts.column,
+    sortDirection: opts.direction,
+    filter: opts.filter,
+    pageSize: opts.pageSize,
+  }
+  return renderGridFormError<Row>({
+    render: context.render,
+    activeItem: 'clients',
+    loadRows: () =>
+      loadGridData(context.db, {
+        offset: opts.offset,
+        column: opts.column,
+        direction: opts.direction,
+        filter: opts.filter,
+        pageSize: opts.pageSize,
+      }),
+    buildPage: (page) => (
+      <ClientPage
+        rows={page.rows}
+        offset={page.offset}
+        hasMore={page.hasMore}
+        prevOffset={Math.max(0, page.offset - page.pageSize)}
+        nextOffset={page.offset + page.pageSize}
+        sortColumn={page.sortColumn}
+        sortDirection={page.sortDirection}
+        filter={page.filter}
+        editRow={opts.editRow ?? null}
+        creating={opts.creating ?? false}
+        pageSize={page.pageSize}
+        formValues={page.formValues}
+        fieldErrors={page.fieldErrors}
+        formError={page.formError}
+      />
+    ),
+    formValues: opts.formValues,
+    fieldErrors: opts.fieldErrors,
+    formError: opts.formError,
+    grid,
+  })
+}
+
+export default createController(routes.admin.clients, {
   middleware: [requireAuth(), requireAdmin()],
+
   actions: {
-    // ── GET /admin/client — Render main page ──
+    // -- GET /admin/clients -- Render main page --
     async index(context) {
       let db = context.db
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
 
@@ -113,16 +201,12 @@ export default createController(routes.admin.client, {
         defaultDirection: 'asc',
       })
 
-      let {
-        rows: page,
-        hasMore,
-        effectivePageSize,
-      } = await fetchGridData(db, {
+      let { rows, hasMore } = await loadGridData(db, {
         offset,
         column,
         direction: direction as 'asc' | 'desc',
         filter,
-        pageSize: getPageSize(context.session, PAGE_SIZE),
+        pageSize: effectivePageSize,
       })
 
       let editingParam = context.url.searchParams.get('editing')
@@ -132,122 +216,69 @@ export default createController(routes.admin.client, {
         editRow = (await db.find(clients, { id: editingRowId })) as Row | null
       }
 
-      // Check if create form was requested
       let creating = context.url.searchParams.get('creating') === 'true'
 
       return renderAdminPage(
         context.render,
-        'client',
+        'clients',
         <ClientPage
-          rows={page}
+          rows={rows}
           offset={offset}
           hasMore={hasMore}
-          sortField={column}
-          sortOrder={direction}
+          prevOffset={Math.max(0, offset - effectivePageSize)}
+          nextOffset={offset + effectivePageSize}
+          sortColumn={column}
+          sortDirection={direction as 'asc' | 'desc'}
           filter={filter}
-          pageSize={effectivePageSize}
           editRow={editRow}
           creating={creating}
-          editingOffset={String(offset)}
-          editingSort={column}
-          editingOrder={direction}
-          editingFilter={filter}
+          pageSize={effectivePageSize}
         />,
       )
     },
 
-    // ── GET /admin/client/edit/:rowId — Redirect to inline edit via ?editing= ──
+    // -- GET /admin/clients/edit/:rowId -- Redirect to inline edit via ?editing= --
     async edit(context) {
       let rowId = parseId(context.params.rowId)
       if (rowId === undefined || rowId < 1) {
         return new Response('Invalid row ID', { status: 400 })
       }
 
-      return editingRedirect('/admin/client', rowId, gridStateFromURL(context.url))
+      return editingRedirect(routes.admin.clients.index.href(), rowId, gridStateFromURL(context.url))
     },
 
-    // ── PUT /admin/client/:id — Update a client row ──
+    // -- PUT /admin/clients/:id -- Update a client row --
     async update(context) {
       let db = context.db
+      let formData = context.formData
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
+
       let id = parseId(context.params.id)
       if (id === undefined || id < 1) {
         return context.json({ ok: false, error: 'Invalid id' }, { status: 400 })
       }
 
-      // Handle JSON body (inline edit) vs form data (sidebar edit)
-      let contentType = context.request.headers.get('Content-Type') || ''
-      let isJson = contentType.includes('application/json')
-
-      if (isJson) {
-        let body = context.jsonBody as Record<string, unknown> | undefined
-        let emailVal = typeof body?.email === 'string' ? (body.email as string).trim() : ''
-        if (!emailVal) {
-          return context.json({ ok: false, error: 'Email is required' }, { status: 400 })
-        }
-        let parsed = s.parseSafe(s.string().pipe(email()), emailVal)
-        if (!parsed.success) {
-          let firstIssue = parsed.issues[0]
-          return context.json(
-            { ok: false, error: firstIssue?.message || 'Invalid email' },
-            { status: 400 },
-          )
-        }
-        await db.updateMany(clients, { email: emailVal }, { where: { id } })
-        return context.json({ ok: true })
-      }
-
-      let formData = context.formData
-
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)
 
       if (!parsed.success) {
-        let fieldErrors = issuesToFieldErrors(parsed.issues)
-        let editRow: Row = {
-          id,
-          name: rawValues.name,
-          email: rawValues.email,
-          role: (rawValues.role || 'Viewer') as Row['role'],
-          status: (rawValues.status || 'Active') as Row['status'],
-          registered: rawValues.registered ? parseDate(rawValues.registered) : Date.now(),
-        }
-        let {
-          rows: gridRows,
-          hasMore,
-          effectivePageSize,
-        } = await fetchGridData(db, {
-          offset: Number(rawValues._offset) || 0,
-          column: rawValues._sort || 'id',
-          direction: (rawValues._order as 'asc' | 'desc') || 'asc',
-          filter: rawValues._filter,
+        return renderClientsError(context, {
+          editRow: buildEditRowFromRaw(id, rawValues),
+          formValues: rawValues,
+          fieldErrors: issuesToFieldErrors(parsed.issues),
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
         })
-        return renderAdminPage(
-          context.render,
-          'client',
-          <ClientPage
-            rows={gridRows}
-            offset={Number(rawValues._offset) || 0}
-            hasMore={hasMore}
-            sortField={rawValues._sort || 'id'}
-            sortOrder={(rawValues._order as 'asc' | 'desc') || 'asc'}
-            filter={rawValues._filter}
-            pageSize={effectivePageSize}
-            editRow={editRow}
-            formValues={rawValues}
-            fieldErrors={fieldErrors}
-            editingOffset={rawValues._offset}
-            editingSort={rawValues._sort}
-            editingOrder={rawValues._order}
-            editingFilter={rawValues._filter}
-          />,
-          { status: 400 },
-        )
       }
 
+      let fields = parsed.value
       let bulkFields = ['name', 'email', 'role', 'status', 'registered'] as const
       let changes: Record<string, string | number> = {}
       for (let field of bulkFields) {
-        let v = parsed.value[field]
+        let v = fields[field]
         if (v) {
           if (field === 'registered') {
             changes[field] = parseDate(v)
@@ -259,11 +290,22 @@ export default createController(routes.admin.client, {
 
       await db.updateMany(clients, changes, { where: { id } })
 
-      // Redirect back to main page with preserved state
-      return editingRedirect(routes.admin.client.index.href(), id, gridStateFromForm(rawValues))
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        await logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'clients',
+          target_id: id,
+          details: { changes },
+        })
+      }
+
+      return editingRedirect(routes.admin.clients.index.href(), id, gridStateFromForm(rawValues))
     },
 
-    // ── DELETE /admin/client/:id — Delete a client row ──
+    // -- DELETE /admin/clients/:id -- Delete a client row --
     async destroy(context) {
       let db = context.db
       let formData = context.formData
@@ -282,72 +324,116 @@ export default createController(routes.admin.client, {
         return context.json({ ok: false, error: message }, { status: 409 })
       }
 
-      // Redirect back to grid with preserved state
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        await logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'destroy',
+          target_type: 'clients',
+          target_id: id,
+        })
+      }
+
       let redirectState = gridStateFromForm(readFormFieldValues(CLIENT_FORM_KEYS, formData))
-      return editingRedirect('/admin/client', null, redirectState)
+      return editingRedirect(routes.admin.clients.index.href(), null, redirectState)
     },
 
-    // ── POST /admin/client — Create a new client row ──
+    // -- POST /admin/clients/:id/toggle-status -- Toggle a client's status --
+    async toggleStatus(context) {
+      let db = context.db
+      let id = parseId(context.params.id)
+
+      let params = gridStateToParams(gridStateFromFormData(context.formData))
+      let baseUrl = routes.admin.clients.index.href()
+
+      let fail = (message: string): Response => {
+        context.session.flash('error', message)
+        let qs = params.toString()
+        return redirect(baseUrl + (qs ? '?' + qs : ''))
+      }
+
+      if (id === undefined || id < 1) {
+        return fail('Ungültige Kunden-ID.')
+      }
+
+      let existing = await db.findOne(clients, { where: { id } })
+      if (!existing) {
+        return fail('Kunde nicht gefunden.')
+      }
+
+      let client = existing as Client
+      let newStatus = client.status === 'Active' ? 'Inactive' : 'Active'
+      await db.updateMany(clients, { status: newStatus }, { where: { id } })
+
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        await logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'update',
+          target_type: 'clients',
+          target_id: id,
+          details: { status: newStatus },
+        })
+      }
+
+      let qs = params.toString()
+      return redirect(baseUrl + (qs ? '?' + qs : ''))
+    },
+
+    // -- POST /admin/clients -- Create a new client row --
     async create(context) {
       let db = context.db
       let formData = context.formData
+      let effectivePageSize = getPageSize(context.session, PAGE_SIZE)
 
       let rawValues = readFormFieldValues(CLIENT_FORM_KEYS, formData)
       let parsed = s.parseSafe(clientSaveSchema, formData)
 
       if (!parsed.success) {
-        let fieldErrors = issuesToFieldErrors(parsed.issues)
-        let {
-          rows: gridRows,
-          hasMore,
-          effectivePageSize,
-        } = await fetchGridData(db, {
-          offset: Number(rawValues._offset) || 0,
-          column: rawValues._sort || 'id',
-          direction: (rawValues._order as 'asc' | 'desc') || 'asc',
-          filter: rawValues._filter,
+        return renderClientsError(context, {
+          creating: true,
+          formValues: rawValues,
+          fieldErrors: issuesToFieldErrors(parsed.issues),
+          offset: gridOffset(rawValues),
+          column: gridSortColumn(rawValues),
+          direction: gridSortDirection(rawValues),
+          filter: gridFilter(rawValues),
+          pageSize: effectivePageSize,
         })
-        return renderAdminPage(
-          context.render,
-          'client',
-          <ClientPage
-            rows={gridRows}
-            offset={Number(rawValues._offset) || 0}
-            hasMore={hasMore}
-            sortField={rawValues._sort || 'id'}
-            sortOrder={(rawValues._order as 'asc' | 'desc') || 'asc'}
-            filter={rawValues._filter}
-            pageSize={effectivePageSize}
-            creating={true}
-            formValues={rawValues}
-            fieldErrors={fieldErrors}
-            editingOffset={rawValues._offset}
-            editingSort={rawValues._sort}
-            editingOrder={rawValues._order}
-            editingFilter={rawValues._filter}
-          />,
-          { status: 400 },
-        )
       }
 
+      let fields = parsed.value
       let row = await db.create(
         clients,
         {
-          name: parsed.value.name || 'New Client',
-          email: parsed.value.email || `${Date.now()}@example.com`,
-          role: parsed.value.role || 'Viewer',
-          status: parsed.value.status || 'Active',
-          registered: parsed.value.registered ? parseDate(parsed.value.registered) : Date.now(),
+          name: fields.name || 'New Client',
+          email: fields.email || `${Date.now()}@example.com`,
+          role: fields.role || 'Viewer',
+          status: fields.status || 'Active',
+          registered: fields.registered ? parseDate(fields.registered) : Date.now(),
         },
         { returnRow: true },
       )
 
-      // Preserve grid state in redirect
+      let authIdentity = getAdminIdentity(context.auth)
+      if (authIdentity) {
+        await logAdminAction(context.db, {
+          admin_user_id: authIdentity.id,
+          admin_email: authIdentity.email,
+          action_type: 'create',
+          target_type: 'clients',
+          target_id: row.id as number,
+          details: { name: (row as Row).name, email: (row as Row).email, role: (row as Row).role, status: (row as Row).status },
+        })
+      }
+
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
       let qs = params.toString()
-      return redirect('/admin/client' + (qs ? '?' + qs : ''))
+      return redirect(routes.admin.clients.index.href() + (qs ? '?' + qs : ''))
     },
   },
 })
