@@ -4,8 +4,18 @@ import { getContext } from 'remix/middleware/async-context'
 import { theme } from './theme/theme.ts'
 
 import { Layout } from './layout.tsx'
+import { frames } from '../routes.ts'
 
-const FRAME_TARGETS = new Set(['admin-content', 'lists-content'])
+const FRAME_TARGETS = new Set([
+  'admin-content',
+  'lists-content',
+  // Nested agent panel frames load verwaltung pages as content-only fragments —
+  // without these, a verwaltung page rendered inside an agent panel would emit a
+  // full <Layout> shell, and its own form/link navigations would target the outer
+  // admin-content frame, tearing down the host agent page.
+  frames.agentEventsPanel,
+  frames.workflowAgentPanel,
+])
 
 // Flash banner styles mirror app/ui/layout.tsx so PRG flash messages surface in
 // frame-fragment renders (the full-document path already shows them via Layout).

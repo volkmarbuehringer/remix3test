@@ -18,7 +18,8 @@ import {
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
@@ -110,7 +111,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
         <form
           method="GET"
           action={routes.verwaltung.resources.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
           <input
@@ -126,7 +127,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           {filter && (
             <a
               href={routes.verwaltung.resources.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -135,7 +136,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -155,7 +156,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                 <div mix={css({ marginTop: theme.space.md })}>
                   <a
                     href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={table.linkPlain}
                   >
                     <button mix={[button({ tone: 'primary' })]}>
@@ -186,7 +187,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Name
@@ -205,7 +206,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Beschreibung
@@ -226,7 +227,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Erstellt
@@ -247,7 +248,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -290,7 +291,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                             sortDirection,
                             filter,
                           )}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={iconActionStyle}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
@@ -303,7 +304,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                           action={routes.verwaltung.resources.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
                           data-confirm={`Ressource "${row.name ?? ''}" wirklich löschen?`}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0 })}
                         >
                           <GridStateHiddenInputs
@@ -339,7 +340,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                   method="DELETE"
                   action={routes.verwaltung.resources.destroy.href({ id: row.id })}
                   data-delete-form={row.id}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                 >
                   <GridStateHiddenInputs
                     state={{
@@ -385,7 +386,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
@@ -404,7 +405,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
@@ -499,7 +500,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
         <RestfulForm
           method="PUT"
           action={routes.verwaltung.resources.update.href({ id: row.id })}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
@@ -640,7 +641,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
         <RestfulForm
           method="POST"
           action={routes.verwaltung.resources.create.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 

@@ -15,7 +15,8 @@ import {
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { AdminAppointmentsEditPage } from './admin-appointments-edit-page.tsx'
 import { AdminAppointmentsCreatePage } from './admin-appointments-create-page.tsx'
 import { RestfulForm } from './restful-form.tsx'
@@ -206,7 +207,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
         <form
           method="GET"
           action={routes.verwaltung.appointments.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
           <input
@@ -222,7 +223,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           {filter && (
             <a
               href={routes.verwaltung.appointments.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -279,7 +280,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                 return (
                   <a
                     href={href}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={css({
                       '& button': {
                         paddingLeft: theme.space.xs,
@@ -332,7 +333,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               return (
                 <a
                   href={href}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={css({
                     '& button': {
                       paddingLeft: theme.space.xs,
@@ -362,7 +363,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               period,
               status,
             )}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -388,7 +389,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                       period,
                       status,
                     )}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={table.linkPlain}
                   >
                     <button mix={[button({ tone: 'primary' })]}>
@@ -427,7 +428,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Titel
@@ -454,7 +455,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       E-Mail
@@ -481,7 +482,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -510,7 +511,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Datum
@@ -535,7 +536,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Zeit
@@ -562,7 +563,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -628,7 +629,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                             period,
                             status,
                           )}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={iconActionStyle}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
@@ -641,7 +642,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                           action={routes.verwaltung.appointments.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
                           data-confirm={`Termin "${row.title}" wirklich löschen?`}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0 })}
                         >
                           <GridStateHiddenInputs
@@ -692,7 +693,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     period,
                     status,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
@@ -713,7 +714,7 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                     period,
                     status,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

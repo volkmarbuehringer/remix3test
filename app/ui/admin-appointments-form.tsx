@@ -9,7 +9,8 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { IntervalBounds } from './interval-bounds.browser.tsx'
-import { routes, frames } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import type { GridState } from '../utils/grid-state.ts'
@@ -137,7 +138,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
           method={method}
           action={action}
           novalidate
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={gridState} />
           <IntervalBounds

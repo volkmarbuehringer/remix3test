@@ -18,7 +18,8 @@ import {
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import type {
@@ -234,7 +235,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
         <form
           method="GET"
           action={routes.verwaltung.offeringConfigs.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
           <input
@@ -250,7 +251,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           {filter && (
             <a
               href={routes.verwaltung.offeringConfigs.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -259,7 +260,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -278,7 +279,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                 <div mix={css({ marginTop: theme.space.md })}>
                   <a
                     href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={table.linkPlain}
                   >
                     <button mix={[button({ tone: 'primary' })]}>
@@ -309,7 +310,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -336,7 +337,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -380,7 +381,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                             sortDirection,
                             filter,
                           )}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={iconActionStyle}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
@@ -392,7 +393,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                           action={routes.verwaltung.offeringConfigs.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
                           data-confirm="Wirklich löschen?"
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0 })}
                         >
                           <GridStateHiddenInputs
@@ -440,7 +441,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} />{' '}
@@ -461,7 +462,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

@@ -8,7 +8,8 @@ import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
-import { routes, frames } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import type { OfferingConfig } from '../data/offering-configs.ts'
 
@@ -86,7 +87,11 @@ export function AdminOfferingsConfigPage(handle: Handle<AdminOfferingsConfigPage
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.verwaltung.offerings.configSave.href()} data-rmx-target={frames.adminContent}>
+        <RestfulForm
+          method="POST"
+          action={routes.verwaltung.offerings.configSave.href()}
+          data-rmx-target={getSelfFrameTarget()}
+        >
           <input type="hidden" name="resource_id" value={String(resourceId)} />
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
 

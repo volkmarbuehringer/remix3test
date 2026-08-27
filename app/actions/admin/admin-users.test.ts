@@ -168,6 +168,25 @@ describe('Admin Users Controller', () => {
       )
     })
 
+    it('embedding in an agent panel frame targets the panel for the toggle form', async () => {
+      // The activate/deactivate (toggle-disabled) form must target the agent panel
+      // frame when the users grid is loaded inside it, so toggling stays put
+      // instead of tearing down the host agent page.
+      let response = await router.fetch(USERS_URL, {
+        headers: { Cookie: adminCookie, 'X-Remix-Target': 'agent-events-panel' },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('data-rmx-target="agent-events-panel"'),
+        'toggle form inside an agent panel should target the panel frame',
+      )
+      assert.ok(
+        !text.includes('data-rmx-target="admin-content"'),
+        'toggle form inside an agent panel must not target the outer admin-content frame',
+      )
+    })
+
     it('renders a page indicator without exposing a total count', async () => {
       for (let i = 0; i < 16; i++) {
         let id = await createTestUser(`page-indicator-${i}-${Date.now()}@example.com`)

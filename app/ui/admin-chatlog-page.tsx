@@ -2,7 +2,8 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
-import { routes, frames } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { ChatMessage } from '../types/chatlog.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ChatlogRowDetail } from '../actions/admin/chatlog/public/chatlog-row-detail.tsx'
@@ -114,7 +115,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                 return (
                   <li key={conv.id} mix={conversationItemStyle}>
                     <div mix={conversationHeaderStyle}>
-                      <a href={link} data-rmx-target={frames.adminContent} mix={conversationLinkStyle}>
+                      <a
+                        href={link}
+                        data-rmx-target={getSelfFrameTarget()}
+                        mix={conversationLinkStyle}
+                      >
                         Konversation #{conv.id}
                       </a>
                     </div>
@@ -126,7 +131,7 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                       <form
                         method="POST"
                         action={routes.admin.chatlog.destroy.href({ id: conv.id })}
-                        data-rmx-target={frames.adminContent}
+                        data-rmx-target={getSelfFrameTarget()}
                         data-confirm={`Konversation #${conv.id} löschen?`}
                       >
                         <CsrfTokenInput />
@@ -145,7 +150,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           {(hasMore || page > 1) && (
             <div mix={paginationStyle}>
               {page > 1 ? (
-                <a href={pageHref(page - 1)} data-rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                <a
+                  href={pageHref(page - 1)}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={pageLinkStyle}
+                >
                   ← Zurück
                 </a>
               ) : (
@@ -153,7 +162,11 @@ function ChatLogPage(handle: Handle<ChatLogPageProps>) {
               )}
               <span mix={pageLabelStyle}>Seite {page}</span>
               {hasMore ? (
-                <a href={pageHref(page + 1)} data-rmx-target={frames.adminContent} mix={pageLinkStyle}>
+                <a
+                  href={pageHref(page + 1)}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={pageLinkStyle}
+                >
                   Weiter →
                 </a>
               ) : (

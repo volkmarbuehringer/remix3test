@@ -7,7 +7,8 @@ import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
@@ -210,7 +211,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
         <form
           method="GET"
           action={routes.admin.lists.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           data-rmx-history="replace"
           mix={table.filterBar}
         >
@@ -231,7 +232,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           {filter && (
             <a
               href={routes.admin.lists.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -240,7 +241,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button type="button" mix={[button({ tone: 'primary' })]}>
@@ -260,7 +261,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               {!hasFormPanel && (
                 <a
                   href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.linkPlain}
                 >
                   <button type="button" mix={[button({ tone: 'primary' })]}>
@@ -292,7 +293,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       ID
@@ -314,7 +315,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Titel
@@ -337,7 +338,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Beschreibung
@@ -362,7 +363,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -449,7 +450,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         <div mix={rowActionsStyle}>
                           <a
                             href={editHref}
-                            data-rmx-target={frames.adminContent}
+                            data-rmx-target={getSelfFrameTarget()}
                             mix={iconActionStyle}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
@@ -464,7 +465,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             data-confirm={
                               'Liste #' + row.id + ' (' + items.length + ' Elemente) löschen?'
                             }
-                            data-rmx-target={frames.adminContent}
+                            data-rmx-target={getSelfFrameTarget()}
                             mix={css({ margin: 0, padding: 0 })}
                           >
                             <GridStateHiddenInputs
@@ -513,7 +514,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Zurück
@@ -528,7 +529,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter
@@ -622,7 +623,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
         <RestfulForm
           method="PUT"
           action={routes.admin.lists.update.href({ id: row.id })}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
@@ -723,7 +724,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
         <RestfulForm
           method="POST"
           action={routes.admin.lists.create.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />

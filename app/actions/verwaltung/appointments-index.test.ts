@@ -115,6 +115,39 @@ describe('Admin Appointments Controller', () => {
       assert.ok(html.includes('Appointments'), 'page should render Appointments heading')
     })
 
+    it('embedding in an agent panel frame targets the panel, not admin-content', async () => {
+      // The agent navigates its nested panel frame to this grid. Every internal
+      // link/form must target that panel frame so it doesn't tear down the host
+      // agent page (regression: "agent dialog disappears after editing a form").
+      let response = await router.fetch(ADMIN_APPT_URL, {
+        headers: { Cookie: adminCookie, 'X-Remix-Target': 'agent-events-panel' },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('data-rmx-target="agent-events-panel"'),
+        'forms/links inside an agent panel should target the panel frame',
+      )
+      assert.ok(
+        !html.includes('data-rmx-target="admin-content"'),
+        'forms/links inside an agent panel must not target the outer admin-content frame',
+      )
+    })
+
+    it('rendering in admin-content keeps the admin-content target', async () => {
+      // Sanity: the normal sidebar flow is unchanged — the page still targets
+      // admin-content when rendered as the admin content frame.
+      let response = await router.fetch(ADMIN_APPT_URL, {
+        headers: { Cookie: adminCookie, 'X-Remix-Target': 'admin-content' },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('data-rmx-target="admin-content"'),
+        'forms/links in admin-content should keep the admin-content target',
+      )
+    })
+
     it('includes resource descriptions from seed data', async () => {
       // Arrange & Act
       let response = await router.fetch(ADMIN_APPT_URL, {

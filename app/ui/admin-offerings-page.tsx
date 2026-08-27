@@ -7,7 +7,8 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
@@ -260,7 +261,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         <form
           method="GET"
           action={routes.verwaltung.offerings.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
           <input
@@ -276,7 +277,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           {filter && (
             <a
               href={routes.verwaltung.offerings.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -309,7 +310,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 return (
                   <a
                     href={href}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={css({
                       '& button': {
                         paddingLeft: theme.space.sm,
@@ -362,7 +363,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               return (
                 <a
                   href={href}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={css({
                     '& button': {
                       paddingLeft: theme.space.xs,
@@ -395,7 +396,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               period,
               status,
             )}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -404,7 +405,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter, period, status)}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'secondary' })]}>
@@ -442,7 +443,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       period,
                       status,
                     )}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     mix={table.linkPlain}
                   >
                     <button mix={[button({ tone: 'primary' })]}>
@@ -476,7 +477,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Tag
@@ -497,7 +498,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -523,7 +524,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Zeitraum
@@ -546,7 +547,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                         period,
                         status,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Aktualisiert
@@ -597,7 +598,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             period,
                             status,
                           )}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={iconActionStyle}
                           aria-label="Konfiguration"
                           title="Konfiguration"
@@ -614,7 +615,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             period,
                             status,
                           )}
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={iconActionStyle}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
@@ -626,7 +627,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                           action={routes.verwaltung.offerings.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
                           data-confirm="Wirklich löschen?"
-                          data-rmx-target={frames.adminContent}
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0 })}
                         >
                           <GridStateHiddenInputs
@@ -677,7 +678,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     period,
                     status,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
@@ -698,7 +699,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     period,
                     status,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

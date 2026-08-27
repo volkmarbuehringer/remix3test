@@ -7,6 +7,7 @@ import type { Client } from '../../data/schema.ts'
 import { FrameRefreshButton } from './public/grid-refresh-button.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { routes } from '../../routes.ts'
+import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { table } from '../../ui/mixins/admin-table.ts'
@@ -372,24 +373,21 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           <div mix={table.filterGroup}>
             <a
               href={buildFilterUrl('', sortField, sortOrder, offset, editingId)}
-              data-rmx-target="admin-content"
-              mix={[
-                table.filterTab,
-                !isStatusFilter ? table.filterTabActive : undefined,
-              ]}
+              data-rmx-target={getSelfFrameTarget()}
+              mix={[table.filterTab, !isStatusFilter ? table.filterTabActive : undefined]}
             >
               Alle
             </a>
             <a
               href={buildFilterUrl('active', sortField, sortOrder, offset, editingId)}
-              data-rmx-target="admin-content"
+              data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
               href={buildFilterUrl('inactive', sortField, sortOrder, offset, editingId)}
-              data-rmx-target="admin-content"
+              data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
             >
               Inaktiv
@@ -398,7 +396,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           <form
             method="GET"
             action="/admin/clients"
-            data-rmx-target="admin-content"
+            data-rmx-target={getSelfFrameTarget()}
             data-rmx-history="replace"
             mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
           >
@@ -443,7 +441,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('name', sortField, sortOrder, offset, filter, editingId)}
-                      data-rmx-target="admin-content"
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={sortLinkStyle}
                     >
                       Name
@@ -455,7 +453,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('email', sortField, sortOrder, offset, filter, editingId)}
-                      data-rmx-target="admin-content"
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={sortLinkStyle}
                     >
                       Email
@@ -467,7 +465,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('role', sortField, sortOrder, offset, filter, editingId)}
-                      data-rmx-target="admin-content"
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={sortLinkStyle}
                     >
                       Role
@@ -479,7 +477,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   <th mix={thSortableStyle}>
                     <a
                       href={buildSortUrl('status', sortField, sortOrder, offset, filter, editingId)}
-                      data-rmx-target="admin-content"
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={sortLinkStyle}
                     >
                       Status
@@ -498,7 +496,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         filter,
                         editingId,
                       )}
-                      data-rmx-target="admin-content"
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={sortLinkStyle}
                     >
                       Reg.
@@ -554,7 +552,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                           method="POST"
                           action={routes.admin.clients.toggleStatus.href({ id: row.id })}
                           data-toggle-form={row.id}
-                          data-rmx-target="admin-content"
+                          data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
                           <CsrfTokenInput />
@@ -576,7 +574,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         <form
                           method="POST"
                           action={`/admin/clients/${row.id}`}
-                          data-rmx-target="admin-content"
+                          data-rmx-target={getSelfFrameTarget()}
                           data-delete-form={row.id}
                           data-confirm="Delete this row?"
                         >
@@ -615,8 +613,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     filter,
                     editingId,
                   )}
-                  data-rmx-target="admin-content"
-                  mix={css({ textDecoration: 'none' }) }
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={css({ textDecoration: 'none' })}
                 >
                   <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                     ← Prev
@@ -630,8 +628,8 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     filter,
                     editingId,
                   )}
-                  data-rmx-target="admin-content"
-                  mix={css({ textDecoration: 'none' }) }
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={css({ textDecoration: 'none' })}
                 >
                   <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
                     Next →

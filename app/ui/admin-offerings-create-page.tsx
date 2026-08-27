@@ -9,7 +9,8 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { IntervalBounds } from './interval-bounds.browser.tsx'
-import { routes, frames } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { formatMinOption, generateMinOptions } from '../utils/date-utils.ts'
 import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
@@ -77,7 +78,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
           method="POST"
           action={routes.verwaltung.offerings.create.href()}
           novalidate
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
           <IntervalBounds startId="oc-start" endId="oc-end" />

@@ -3,7 +3,8 @@ import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
 import button from '../ui/theme/button.ts'
-import { routes, frames } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
@@ -214,7 +215,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   <form
                     method="POST"
                     action={routes.admin.messages.destroy.href({ id: msg.id })}
-                    data-rmx-target={frames.adminContent}
+                    data-rmx-target={getSelfFrameTarget()}
                     data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
                     mix={css({ margin: 0, padding: 0 })}
                   >
@@ -241,7 +242,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               {offset > 0 && (
                 <a
                   href={`${routes.admin.messages.index.href()}?offset=${prevOffset}`}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={pageLinkStyle}
                 >
                   ← Neuere
@@ -250,7 +251,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               {hasMore && (
                 <a
                   href={`${routes.admin.messages.index.href()}?offset=${nextOffset}`}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={pageLinkStyle}
                 >
                   Ältere →

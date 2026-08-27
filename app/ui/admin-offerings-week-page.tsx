@@ -2,7 +2,8 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import button from '../ui/theme/button.ts'
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -55,7 +56,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
         <RestfulForm
           method="POST"
           action="/verwaltung/offerings/week"
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
           <div mix={table.panel}>
@@ -69,7 +70,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                 übersprungen. Ohne Konfigurationen?{' '}
                 <a
                   href={routes.verwaltung.offeringConfigs.index.href()}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={css({
                     color: theme.colors.action.primary.background,
                     textDecoration: 'underline',

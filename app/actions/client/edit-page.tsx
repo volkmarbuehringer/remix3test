@@ -9,7 +9,7 @@ import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
-import { frames } from '../../routes.ts'
+import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 
 import type { Client } from '../../data/schema.ts'
 
@@ -89,7 +89,11 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="PUT" action={`/admin/clients/${row.id}`} data-rmx-target={frames.adminContent}>
+        <RestfulForm
+          method="PUT"
+          action={`/admin/clients/${row.id}`}
+          data-rmx-target={getSelfFrameTarget()}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>

@@ -8,7 +8,8 @@ import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 
-import { frames, routes } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
@@ -96,7 +97,10 @@ const iconActionStyle = css({
 const iconActionDangerStyle = css({
   color: theme.colors.action.danger.background,
   borderColor: 'transparent',
-  '&:hover': { background: theme.colors.action.danger.background, color: theme.colors.action.danger.foreground },
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
 })
 
 const colActionsWidth = css({ width: '120px' })
@@ -143,13 +147,13 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         <form
           method="GET"
           action={routes.admin.users.index.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
           <div mix={table.filterGroup}>
             <a
               href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, offset)}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={[
                 table.filterTab,
                 !filter || (filter !== 'enabled' && filter !== 'disabled')
@@ -163,7 +167,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               href={
                 ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)
               }
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
             >
               Aktiv
@@ -172,7 +176,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               href={
                 ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)
               }
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
             >
               Deaktiviert
@@ -192,7 +196,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           {filter && (
             <a
               href={routes.admin.users.index.href()}
-              data-rmx-target={frames.adminContent}
+              data-rmx-target={getSelfFrameTarget()}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -201,7 +205,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           <span mix={table.spacer} />
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
-            data-rmx-target={frames.adminContent}
+            data-rmx-target={getSelfFrameTarget()}
             mix={table.linkPlain}
           >
             <button mix={[button({ tone: 'primary' })]}>
@@ -239,7 +243,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       ID
@@ -261,7 +265,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Name
@@ -283,7 +287,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       E-Mail
@@ -305,7 +309,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Rolle
@@ -328,14 +332,12 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         offset,
                         filter,
                       )}
-                      data-rmx-target={frames.adminContent}
+                      data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
                       Erstellt
                       <span
-                        mix={
-                          'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow
-                        }
+                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
                       >
                         {sortArrow('created_at', sortColumn, sortDirection)}
                       </span>
@@ -393,7 +395,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         <div mix={rowActionsStyle}>
                           <a
                             href={editHref}
-                            data-rmx-target={frames.adminContent}
+                            data-rmx-target={getSelfFrameTarget()}
                             mix={iconActionStyle}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
@@ -405,7 +407,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             method="POST"
                             action={routes.admin.users.toggleDisabled.href({ id: row.id })}
                             data-toggle-form={row.id}
-                            data-rmx-target={frames.adminContent}
+                            data-rmx-target={getSelfFrameTarget()}
                             mix={css({ margin: 0, padding: 0 })}
                           >
                             <GridStateHiddenInputs
@@ -435,7 +437,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             action={routes.admin.users.destroy.href({ id: row.id })}
                             data-delete-form={row.id}
                             data-confirm={`Benutzer "${row.name}" wirklich löschen?`}
-                            data-rmx-target={frames.adminContent}
+                            data-rmx-target={getSelfFrameTarget()}
                             mix={css({ margin: 0, padding: 0 })}
                           >
                             <GridStateHiddenInputs
@@ -468,9 +470,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
-            <span
-              mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}
-            >
+            <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
               {rows.length > 0 ? (
                 <span mix={table.paginationInfo}>
                   Zeige {pageStart}–{pageEnd}
@@ -492,26 +492,14 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph
-                    name="chevronRight"
-                    width={14}
-                    height={14}
-                    mix={rotatedGlyphCss}
-                  />{' '}
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasMore ? (
@@ -523,7 +511,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     sortDirection,
                     filter,
                   )}
-                  data-rmx-target={frames.adminContent}
+                  data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />
@@ -620,8 +608,15 @@ interface EditPanelProps {
 
 function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
   return () => {
-    let { row, offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } =
-      handle.props
+    let {
+      row,
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -629,7 +624,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
         <RestfulForm
           method="PUT"
           action={routes.admin.users.update.href({ id: row.id })}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
@@ -684,10 +679,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                   mix={[input.base, input.focus, table.select]}
                   aria-invalid={fieldErrors?.role ? true : undefined}
                 >
-                  <option
-                    value="customer"
-                    selected={(formValues?.role ?? row.role) === 'customer'}
-                  >
+                  <option value="customer" selected={(formValues?.role ?? row.role) === 'customer'}>
                     Kunde
                   </option>
                   <option value="admin" selected={(formValues?.role ?? row.role) === 'admin'}>
@@ -765,7 +757,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
         <RestfulForm
           method="POST"
           action={routes.admin.users.create.href()}
-          data-rmx-target={frames.adminContent}
+          data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
@@ -822,7 +814,10 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   mix={[input.base, input.focus, table.select]}
                   aria-invalid={fieldErrors?.role ? true : undefined}
                 >
-                  <option value="customer" selected={(formValues?.role ?? 'customer') === 'customer'}>
+                  <option
+                    value="customer"
+                    selected={(formValues?.role ?? 'customer') === 'customer'}
+                  >
                     Kunde
                   </option>
                   <option value="admin" selected={formValues?.role === 'admin'}>
@@ -842,9 +837,11 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
                   type="password"
                   required
                   minLength={6}
-                  mix={[input.base, input.focus, fieldErrors?.password ? inputErrorStyle : null].filter(
-                    Boolean,
-                  )}
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.password ? inputErrorStyle : null,
+                  ].filter(Boolean)}
                 />
                 {fieldErrors?.password ? (
                   <div mix={fieldErrorStyle}>{fieldErrors.password}</div>
