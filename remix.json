@@ -3,9 +3,9 @@
   "assets": {
     "rootDir": ".",
     "basePath": "/assets",
-    "fileMap": {
-      "app/*path": "app/*path",
-      "node_modules/*path": "node_modules/*path"
+    "mounts": {
+      "app": "app",
+      "node_modules": "node_modules"
     },
     "allowFiles": [
       "app/**/public/**",
