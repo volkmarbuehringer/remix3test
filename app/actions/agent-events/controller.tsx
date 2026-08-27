@@ -28,17 +28,23 @@ type RunFactory = (
 ) => Promise<RunStream>
 
 const defaultRunFactory: RunFactory = async (workflowId, opts) => {
-  let wf = realMastra.getWorkflow(workflowId as 'userManagementWorkflow')
+  let wf = realMastra.getWorkflow(
+    workflowId as 'userManagementWorkflow' | 'deleteUserAppointmentsWorkflow',
+  )
   if (opts.runId != null) {
     let run = await wf.createRun({ runId: opts.runId })
     let stream = run.resumeStream({ resumeData: opts.resumeData as { confirmed: boolean } })
     return { runId: stream.runId, fullStream: stream.fullStream }
   }
   let run = await wf.createRun({ resourceId: opts.resourceId as string })
+  // getWorkflow(union) narrows run.stream's inputData to the intersection of the
+  // two workflow input schemas; cast to that intersection (extra fields such as
+  // the user-management `action` are stripped by the per-workflow zod schema).
   let stream = run.stream({
     inputData: opts.inputData as {
       action: 'cancel' | 'lock' | 'unlock'
       targetUserId: number
+      resourceId: number
       adminUserId: number
       adminEmail: string
     },
@@ -51,6 +57,10 @@ let _runFactory: RunFactory = defaultRunFactory
 export function __setRunFactory(fn: RunFactory | undefined) {
   _runFactory = fn ?? defaultRunFactory
 }
+
+// Tracks the workflow used to start a run so a subsequent resume can re-attach
+// to the correct workflow (mirrors the workflow-agent run map).
+const workflowRunMap = new Map<string, string>()
 
 function AgentEventsEmptyState(_handle: Handle) {
   return () => (
@@ -180,7 +190,9 @@ export default createController(routes.admin.agentEvents, {
                 return
 
               case 'entities.resolved':
-                controller.enqueue(sseEvent('status', { text: 'Entities resolved', kind: 'success' }))
+                controller.enqueue(
+                  sseEvent('status', { text: 'Entities resolved', kind: 'success' }),
+                )
                 break
 
               case 'entities.notfound':
@@ -207,8 +219,9 @@ export default createController(routes.admin.agentEvents, {
                 let input = event.input as Record<string, unknown>
                 let targetUserId = Number(input.targetUserId || 0)
                 let inputData = {
-                  action: input.action as 'cancel' | 'lock' | 'unlock',
+                  action: input.action as 'cancel' | 'lock' | 'unlock' | 'delete-resource',
                   targetUserId,
+                  resourceId: Number(input.resourceId || 0),
                   adminUserId: Number(input.adminUserId || 0),
                   adminEmail: String(input.adminEmail || ''),
                 }
@@ -218,6 +231,7 @@ export default createController(routes.admin.agentEvents, {
                     inputData,
                     closeOnSuspend: false,
                   })
+                  workflowRunMap.set(runId, event.workflowId)
                   controller.enqueue(sseEvent('start', { runId, workflowId: event.workflowId }))
                   await pipeWorkflowStream(fullStream, controller, context.request.signal, {
                     includeReport: false,
@@ -264,20 +278,23 @@ export default createController(routes.admin.agentEvents, {
 
     async resume(context) {
       let runId = context.formData.get('runId')?.toString()
-      let confirmed = context.formData.get('confirmed')?.toString() === 'true'
-
       if (!runId) {
         return sseErrorResponse('Missing runId', 400)
       }
+      let confirmed = context.formData.get('confirmed')?.toString() === 'true'
+      let workflowId =
+        context.formData.get('workflowId')?.toString() ||
+        workflowRunMap.get(runId) ||
+        'userManagementWorkflow'
 
       let body = new ReadableStream({
         start: async (controller) => {
           try {
-            let { runId: outRunId, fullStream } = await _runFactory('userManagementWorkflow', {
+            let { runId: outRunId, fullStream } = await _runFactory(workflowId, {
               runId,
               resumeData: { confirmed },
             })
-            controller.enqueue(sseEvent('start', { runId: outRunId }))
+            controller.enqueue(sseEvent('start', { runId: outRunId, workflowId }))
             await pipeWorkflowStream(fullStream, controller, context.request.signal, {
               includeReport: false,
             })

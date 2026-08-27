@@ -35,16 +35,16 @@ const FAKE_CLASSIFY_TABLE: Record<string, string> = {
   'lock user 5': '{"type":"user-action","action":"lock","targetQuery":"5"}',
   'show appointments for admin@test.com':
     '{"type":"appointment","action":"check","targetQuery":"admin@test.com"}',
-  'ich will john doe sperren':
-    '{"type":"user-action","action":"lock","targetQuery":"john doe"}',
+  'ich will john doe sperren': '{"type":"user-action","action":"lock","targetQuery":"john doe"}',
   'ich will max mustermann kündigen':
     '{"type":"user-action","action":"cancel","targetQuery":"max mustermann"}',
-  'i want to cancel john doe':
-    '{"type":"user-action","action":"cancel","targetQuery":"john doe"}',
+  'i want to cancel john doe': '{"type":"user-action","action":"cancel","targetQuery":"john doe"}',
   'sperre benutzer jane@example.com':
     '{"type":"user-action","action":"lock","targetQuery":"jane@example.com"}',
   'cancel admin@newapp.com':
     '{"type":"user-action","action":"cancel","targetQuery":"admin@newapp.com"}',
+  'delete all appointments for user@newapp.com in raum 1':
+    '{"type":"appointment","action":"delete-resource","targetQuery":"user@newapp.com","resourceQuery":"raum 1"}',
 }
 
 const FAKE_CLASSIFY_AGENT = {
@@ -115,7 +115,6 @@ describe('EventBus', () => {
     assert.ok(emitted.includes('navigate'))
     assert.ok(!emitted.includes('confirm.required'))
   })
-
 })
 
 // ── Validate Handler ──────────────────────────────────────────
@@ -396,6 +395,42 @@ describe('classify handler', () => {
     assert.equal(result.targetQuery, '')
   })
 
+  it('classifies delete-resource with both user and resource queries', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+    let intent: unknown = null
+    let targetQuery: unknown = null
+    let resourceQuery: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'delete all appointments for user@newapp.com in raum 1',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') {
+        intent = event.intent
+        targetQuery = event.params.targetQuery
+        resourceQuery = event.params.resourceQuery
+      }
+    }
+
+    assert.equal(intent, 'delete-appointments')
+    assert.equal(targetQuery, 'user@newapp.com')
+    assert.equal(resourceQuery, 'raum 1')
+  })
+
+  it('emits unclear when delete-resource lacks a resource', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"appointment","action":"delete-resource","targetQuery":"42"}' }
+        },
+      },
+      'delete appointments',
+    )
+    assert.ok('unclear' in result)
+  })
+
   it('emits unclear for unmapped agent actions (lookup)', async () => {
     let result = await classifyWithAgent(
       {
@@ -505,6 +540,43 @@ describe('dispatch handler', () => {
 
     assert.ok(navHref)
     assert.ok(String(navHref).includes('admin%40test.com'))
+  })
+
+  it('delete-appointments intent routes to the delete workflow', async () => {
+    let bus = new EventBus()
+    bus.register(dispatchHandler)
+    let requested: Record<string, unknown> | null = null
+
+    for await (let event of bus.run({
+      type: 'entities.resolved',
+      intent: 'delete-appointments',
+      params: { targetQuery: 'user@newapp.com', resourceQuery: 'raum 1' },
+      resolved: {
+        targetUserId: 2,
+        targetEmail: 'user@newapp.com',
+        resourceId: 1,
+        targetQuery: 'user@newapp.com',
+        resourceQuery: 'raum 1',
+      },
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'workflow.requested') {
+        requested = event as Record<string, unknown>
+      }
+    }
+
+    assert.ok(requested, 'should emit workflow.requested')
+    assert.equal(requested!.workflowId, 'deleteUserAppointmentsWorkflow')
+    let input = requested!.input as Record<string, unknown>
+    assert.equal(input.action, 'delete-resource')
+    assert.equal(input.targetUserId, 2)
+    assert.equal(input.resourceId, 1)
+    assert.equal((requested!.navigate as Record<string, unknown>).target, 'agent-events-panel')
+    assert.ok(
+      String((requested!.navigate as Record<string, unknown>).href).includes(
+        '/verwaltung/appointments',
+      ),
+    )
   })
 })
 
@@ -727,7 +799,82 @@ describe('AgentEvents route (POST validation)', () => {
       __setRunFactory(undefined)
     }
   })
+
+  it('delete-resource runs the delete workflow and resume reuses the recorded workflow', async () => {
+    let resourceResult = await db.exec('SELECT id, name FROM resources ORDER BY id ASC LIMIT 1')
+    let resourceRow = (resourceResult.rows ?? [])[0] as { id: number; name: string } | undefined
+    if (!resourceRow) return // skip if no resources seeded
+
+    let message = `delete all appointments for user@newapp.com in ${resourceRow.name}`
+    FAKE_CLASSIFY_TABLE[message] = JSON.stringify({
+      type: 'appointment',
+      action: 'delete-resource',
+      targetQuery: 'user@newapp.com',
+      resourceQuery: resourceRow.name,
+    })
+
+    let calls: Array<{ workflowId: string; runId?: string; confirmed?: boolean }> = []
+    __setRunFactory(async (workflowId, opts) => {
+      calls.push({
+        workflowId,
+        runId: opts.runId,
+        confirmed: (opts.resumeData as { confirmed?: boolean } | undefined)?.confirmed,
+      })
+      if (opts.runId != null) {
+        return {
+          runId: opts.runId,
+          fullStream: streamOf({
+            type: 'workflow-finish',
+            payload: { workflowStatus: 'success', success: true },
+          }),
+        }
+      }
+      return {
+        runId: 'run-del-appts',
+        fullStream: streamOf({
+          type: 'workflow-step-suspended',
+          payload: {
+            id: 'confirm-gate',
+            suspendPayload: {
+              question: 'Delete?',
+              actionType: 'delete-appointments',
+              targetUserName: 'John Doe',
+              resourceName: resourceRow.name,
+              pendingCount: 2,
+            },
+          },
+        }),
+      }
+    })
+    try {
+      let response = await postForm(AGENT_EVENTS_URL, adminCookie, { message })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('event: start'), 'should emit start')
+      assert.ok(text.includes('run-del-appts'), 'should carry the run id')
+      assert.ok(text.includes('workflow-step-suspended'), 'should emit the suspended step')
+      assert.ok(
+        calls.some((c) => c.workflowId === 'deleteUserAppointmentsWorkflow'),
+        'should start the delete workflow',
+      )
+
+      let resumeResponse = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
+        runId: 'run-del-appts',
+        confirmed: 'true',
+      })
+      assert.equal(resumeResponse.status, 200)
+      let resumeCall = calls[calls.length - 1]
+      assert.equal(
+        resumeCall.workflowId,
+        'deleteUserAppointmentsWorkflow',
+        'resume should reuse the recorded workflow',
+      )
+      assert.equal(resumeCall.confirmed, true, 'resume should pass the confirmed flag')
+    } finally {
+      __setRunFactory(undefined)
+    }
+  })
 })
 
 // Re-use the same helper as in app/db.ts pattern
-import { initializeAppDatabase } from '../../db.ts'
+import { initializeAppDatabase, db } from '../../db.ts'

@@ -18,6 +18,7 @@ export const AgentEventsStream = clientEntry(
     let abortController: AbortController | null = null
     let didNavigate = false
     let currentRunId: string | null = null
+    let currentWorkflowId: string | null = null
     let autoGrowReset: (() => void) | null = null
 
     function getStatusBar() {
@@ -202,6 +203,7 @@ export const AgentEventsStream = clientEntry(
       let body = new FormData()
       body.set('runId', currentRunId)
       body.set('confirmed', String(confirmed))
+      if (currentWorkflowId) body.set('workflowId', currentWorkflowId)
       startStream(routes.admin.agentEvents.resume.href(), { method: 'POST', body })
     }
 
@@ -273,6 +275,7 @@ export const AgentEventsStream = clientEntry(
                 pushRow(parsed.text || '', (parsed.kind as RowKind) ?? inferKind(parsed.text || ''))
               } else if (eventType === 'start') {
                 currentRunId = parsed.runId || null
+                currentWorkflowId = parsed.workflowId || null
               } else if (eventType === 'workflow-step-suspended') {
                 showConfirmGate((parsed.suspendPayload as Record<string, unknown>) || {})
               } else if (eventType === 'workflow-finish') {
@@ -351,6 +354,7 @@ export const AgentEventsStream = clientEntry(
       setFormEnabled(false)
       didNavigate = false
       currentRunId = null
+      currentWorkflowId = null
       clearStatusBar()
       resetPipeline()
       pushRow('Processing…', 'active')

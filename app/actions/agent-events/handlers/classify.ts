@@ -47,7 +47,10 @@ export const classifyHandler: EventHandler = {
     emit({
       type: 'intent.classified',
       intent: result.intent,
-      params: { targetQuery: result.targetQuery },
+      params: {
+        targetQuery: result.targetQuery,
+        ...(result.resourceQuery ? { resourceQuery: result.resourceQuery } : {}),
+      },
       adminUserId: e.adminUserId,
       adminEmail: e.adminEmail,
     })

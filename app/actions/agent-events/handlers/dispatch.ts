@@ -40,6 +40,33 @@ export const dispatchHandler: EventHandler = {
       return
     }
 
+    if (e.intent === INTENTS.DELETE_APPOINTMENTS) {
+      let targetUserId = Number(resolved.targetUserId || 0)
+      let resourceId = Number(resolved.resourceId || 0)
+      let filterValue = String(resolved.targetEmail || resolved.targetQuery || '')
+      let href =
+        '/verwaltung/appointments' +
+        (filterValue ? '?filter=' + encodeURIComponent(filterValue) : '')
+      emit({
+        type: 'workflow.requested',
+        workflowId: 'deleteUserAppointmentsWorkflow',
+        input: {
+          action: INTENT_TO_ACTION[INTENTS.DELETE_APPOINTMENTS] ?? 'delete-resource',
+          targetUserId,
+          resourceId,
+          ...(resolved.targetEmail ? { targetEmail: resolved.targetEmail } : {}),
+          adminUserId: e.adminUserId,
+          adminEmail: e.adminEmail,
+        },
+        navigate: {
+          href,
+          target: frames.agentEventsPanel,
+        },
+        summary: `Delete appointments for ${targetUserId || resolved.targetQuery} on ${resourceId || resolved.resourceQuery}`,
+      })
+      return
+    }
+
     if (e.intent === INTENTS.SHOW_APPOINTMENTS) {
       let val = String(resolved.targetEmail || resolved.targetQuery || '')
       let href = '/verwaltung/appointments' + (val ? '?filter=' + encodeURIComponent(val) : '')

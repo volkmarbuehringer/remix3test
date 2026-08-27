@@ -29,6 +29,40 @@ async function resolveTargetUser(
   }
 }
 
+async function resolveResource(query: string): Promise<{ resourceId: number } | { error: string }> {
+  try {
+    let targetId = Number(query)
+    if (!Number.isNaN(targetId) && Number.isInteger(targetId) && targetId > 0) {
+      let result = await db.exec(sql`SELECT id FROM resources WHERE id = ${targetId}`)
+      if ((result.rows ?? [])[0]) return { resourceId: targetId }
+      return { error: `Resource with ID ${targetId} not found` }
+    }
+    let pattern = `%${query}%`
+    let result = await db.exec(
+      sql`SELECT id, name FROM resources WHERE name ILIKE ${pattern} ORDER BY name`,
+    )
+    let rows = (result.rows ?? []) as Array<{ id: number; name: string }>
+    if (rows.length === 0) return { error: `No resource found matching "${query}"` }
+    let names = rows.map((r) => r.name).join(', ')
+    if (rows.length > 1)
+      return { error: `Multiple resources match "${query}": ${names}. Please be more specific.` }
+    return { resourceId: rows[0].id }
+  } catch (err) {
+    console.error('[resolveResource] database error:', err)
+    return { error: 'An internal error occurred while looking up the resource.' }
+  }
+}
+
+async function resolveUserEmail(userId: number): Promise<string> {
+  try {
+    let result = await db.exec(sql`SELECT email FROM users WHERE id = ${userId}`)
+    let row = (result.rows ?? [])[0] as { email: string } | undefined
+    return row?.email ?? ''
+  } catch {
+    return ''
+  }
+}
+
 const ACTIONABLE_INTS: Set<string> = new Set([
   INTENTS.CANCEL_USER,
   INTENTS.LOCK_USER,
@@ -57,6 +91,42 @@ export const resolveHandler: EventHandler = {
       emit({
         type: 'entities.notfound',
         error: 'No target specified. Please provide a user name, email, or ID.',
+      })
+      return
+    }
+
+    if (e.intent === INTENTS.DELETE_APPOINTMENTS) {
+      let resourceQuery = String(e.params.resourceQuery || '').trim()
+      if (!resourceQuery) {
+        emit({
+          type: 'entities.notfound',
+          error: 'Which resource? Please specify a resource name or ID.',
+        })
+        return
+      }
+      let userResolved = await resolveTargetUser(targetQuery)
+      if ('error' in userResolved) {
+        emit({ type: 'entities.notfound', error: userResolved.error })
+        return
+      }
+      let resourceResolved = await resolveResource(resourceQuery)
+      if ('error' in resourceResolved) {
+        emit({ type: 'entities.notfound', error: resourceResolved.error })
+        return
+      }
+      emit({
+        type: 'entities.resolved',
+        intent: e.intent,
+        params: e.params,
+        resolved: {
+          targetUserId: userResolved.targetUserId,
+          targetEmail: await resolveUserEmail(userResolved.targetUserId),
+          resourceId: resourceResolved.resourceId,
+          targetQuery,
+          resourceQuery,
+        },
+        adminUserId: e.adminUserId,
+        adminEmail: e.adminEmail,
       })
       return
     }
