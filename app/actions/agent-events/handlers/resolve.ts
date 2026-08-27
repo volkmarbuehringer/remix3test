@@ -90,6 +90,7 @@ export const resolveHandler: EventHandler = {
     if (!targetQuery) {
       emit({
         type: 'entities.notfound',
+        intent: e.intent,
         error: 'No target specified. Please provide a user name, email, or ID.',
       })
       return
@@ -100,18 +101,19 @@ export const resolveHandler: EventHandler = {
       if (!resourceQuery) {
         emit({
           type: 'entities.notfound',
+          intent: e.intent,
           error: 'Which resource? Please specify a resource name or ID.',
         })
         return
       }
       let userResolved = await resolveTargetUser(targetQuery)
       if ('error' in userResolved) {
-        emit({ type: 'entities.notfound', error: userResolved.error })
+        emit({ type: 'entities.notfound', intent: e.intent, error: userResolved.error })
         return
       }
       let resourceResolved = await resolveResource(resourceQuery)
       if ('error' in resourceResolved) {
-        emit({ type: 'entities.notfound', error: resourceResolved.error })
+        emit({ type: 'entities.notfound', intent: e.intent, error: resourceResolved.error })
         return
       }
       emit({
@@ -134,7 +136,7 @@ export const resolveHandler: EventHandler = {
     if (ACTIONABLE_INTS.has(e.intent)) {
       let resolved = await resolveTargetUser(targetQuery)
       if ('error' in resolved) {
-        emit({ type: 'entities.notfound', error: resolved.error })
+        emit({ type: 'entities.notfound', intent: e.intent, error: resolved.error })
         return
       }
       emit({

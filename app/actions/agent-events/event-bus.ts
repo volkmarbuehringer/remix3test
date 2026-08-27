@@ -20,7 +20,7 @@ export type BaseEvent =
       adminUserId: number
       adminEmail: string
     }
-  | { type: 'entities.notfound'; error: string }
+  | { type: 'entities.notfound'; error: string; intent?: string }
   | {
       type: 'workflow.requested'
       workflowId: string

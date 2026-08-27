@@ -45,6 +45,9 @@ const FAKE_CLASSIFY_TABLE: Record<string, string> = {
     '{"type":"user-action","action":"cancel","targetQuery":"admin@newapp.com"}',
   'delete all appointments for user@newapp.com in raum 1':
     '{"type":"appointment","action":"delete-resource","targetQuery":"user@newapp.com","resourceQuery":"raum 1"}',
+  'delete appointments for nobody@example.com in no-such-room':
+    '{"type":"appointment","action":"delete-resource","targetQuery":"nobody@example.com","resourceQuery":"no-such-room"}',
+  'cancel user 999999': '{"type":"user-action","action":"cancel","targetQuery":"999999"}',
 }
 
 const FAKE_CLASSIFY_AGENT = {
@@ -724,6 +727,16 @@ describe('AgentEvents route (POST validation)', () => {
     assert.equal(response.status, 400)
   })
 
+  it('resume rejects an unknown run with no workflowId (no workflow guessing)', async () => {
+    // A resume must never silently default to userManagementWorkflow when the run
+    // is unknown — that would re-attach a delete run to the wrong workflow.
+    let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
+      runId: 'unknown-run-without-mapping',
+      confirmed: 'true',
+    })
+    assert.equal(response.status, 400)
+  })
+
   it('returns SSE for a cancel request that suspends at the confirm gate', async () => {
     __setRunFactory(async () => ({
       runId: 'run-suspend-1',
@@ -770,6 +783,7 @@ describe('AgentEvents route (POST validation)', () => {
     try {
       let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
         runId: 'run-resume-1',
+        workflowId: 'userManagementWorkflow',
         confirmed: 'true',
       })
       assert.equal(response.status, 200)
@@ -790,6 +804,7 @@ describe('AgentEvents route (POST validation)', () => {
     try {
       let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
         runId: 'bogus',
+        workflowId: 'userManagementWorkflow',
         confirmed: 'true',
       })
       assert.equal(response.status, 200)
@@ -873,6 +888,36 @@ describe('AgentEvents route (POST validation)', () => {
     } finally {
       __setRunFactory(undefined)
     }
+  })
+
+  it('routes delete-resource errors to the appointments grid, user errors to the users grid', async () => {
+    // M1: a delete-resource resolution failure must land the panel on the
+    // appointments grid — never the users grid (which the notfound handler
+    // used to hardcode for every error).
+    let deleteResponse = await postForm(AGENT_EVENTS_URL, adminCookie, {
+      message: 'delete appointments for nobody@example.com in no-such-room',
+    })
+    assert.equal(deleteResponse.status, 200)
+    let deleteText = await deleteResponse.text()
+    assert.ok(
+      deleteText.includes('"href":"/verwaltung/appointments"'),
+      'delete-resource failure should navigate to the appointments frame',
+    )
+    assert.ok(
+      !deleteText.includes('"href":"/admin/users"'),
+      'delete-resource failure must not navigate to the users grid',
+    )
+
+    // User-action failures still land on the users grid.
+    let userResponse = await postForm(AGENT_EVENTS_URL, adminCookie, {
+      message: 'cancel user 999999',
+    })
+    assert.equal(userResponse.status, 200)
+    let userText = await userResponse.text()
+    assert.ok(
+      userText.includes('"href":"/admin/users"'),
+      'user-action failure should navigate to the users grid',
+    )
   })
 })
 

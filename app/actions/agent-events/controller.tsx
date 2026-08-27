@@ -7,6 +7,7 @@ import { theme } from '../../ui/theme/theme.ts'
 import { AgentEventsPage } from '../../ui/agent-events-page.tsx'
 import { routes, frames } from '../../routes.ts'
 import { EventBus, type BaseEvent, MAX_MESSAGE_LENGTH } from './event-bus.ts'
+import { INTENTS } from './intents.ts'
 import { registerHandlers } from './register.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { mastra as realMastra } from '../mastra/index.ts'
@@ -59,8 +60,34 @@ export function __setRunFactory(fn: RunFactory | undefined) {
 }
 
 // Tracks the workflow used to start a run so a subsequent resume can re-attach
-// to the correct workflow (mirrors the workflow-agent run map).
-const workflowRunMap = new Map<string, string>()
+// to the correct workflow (mirrors the workflow-agent run map). Bounded and
+// TTL-expired: a resume must never silently guess a workflow when the run is
+// unknown, which would re-attach a delete run to userManagementWorkflow.
+const WORKFLOW_MAP_MAX = 200
+const WORKFLOW_MAP_TTL_MS = 1000 * 60 * 60 // 1 hour
+const workflowRunMap = new Map<string, { workflowId: string; ts: number }>()
+
+function recordRunWorkflow(runId: string, workflowId: string): void {
+  let now = Date.now()
+  for (let [k, v] of workflowRunMap) {
+    if (now - v.ts > WORKFLOW_MAP_TTL_MS) workflowRunMap.delete(k)
+  }
+  if (workflowRunMap.size >= WORKFLOW_MAP_MAX) {
+    let oldest = workflowRunMap.keys().next().value
+    if (oldest != null) workflowRunMap.delete(oldest)
+  }
+  workflowRunMap.set(runId, { workflowId, ts: now })
+}
+
+function lookupRunWorkflow(runId: string): string | undefined {
+  let entry = workflowRunMap.get(runId)
+  if (!entry) return undefined
+  if (Date.now() - entry.ts > WORKFLOW_MAP_TTL_MS) {
+    workflowRunMap.delete(runId)
+    return undefined
+  }
+  return entry.workflowId
+}
 
 function AgentEventsEmptyState(_handle: Handle) {
   return () => (
@@ -198,7 +225,10 @@ export default createController(routes.admin.agentEvents, {
               case 'entities.notfound':
                 controller.enqueue(
                   sseEvent('navigate', {
-                    href: '/admin/users',
+                    href:
+                      event.intent === INTENTS.DELETE_APPOINTMENTS
+                        ? routes.verwaltung.appointments.index.href()
+                        : '/admin/users',
                     target: frames.agentEventsPanel,
                     history: 'push',
                   }),
@@ -231,7 +261,7 @@ export default createController(routes.admin.agentEvents, {
                     inputData,
                     closeOnSuspend: false,
                   })
-                  workflowRunMap.set(runId, event.workflowId)
+                  recordRunWorkflow(runId, event.workflowId)
                   controller.enqueue(sseEvent('start', { runId, workflowId: event.workflowId }))
                   await pipeWorkflowStream(fullStream, controller, context.request.signal, {
                     includeReport: false,
@@ -282,10 +312,13 @@ export default createController(routes.admin.agentEvents, {
         return sseErrorResponse('Missing runId', 400)
       }
       let confirmed = context.formData.get('confirmed')?.toString() === 'true'
-      let workflowId =
-        context.formData.get('workflowId')?.toString() ||
-        workflowRunMap.get(runId) ||
-        'userManagementWorkflow'
+      let workflowId = context.formData.get('workflowId')?.toString() || lookupRunWorkflow(runId)
+      // Never guess a workflow: resuming an unknown run against the wrong
+      // workflow (e.g. a delete run defaulted to userManagementWorkflow) would
+      // silently re-attach the wrong semantics — fail fast instead.
+      if (!workflowId) {
+        return sseErrorResponse('Unknown runId: cannot determine workflow to resume', 400)
+      }
 
       let body = new ReadableStream({
         start: async (controller) => {
