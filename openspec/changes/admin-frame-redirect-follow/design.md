@@ -40,6 +40,13 @@ The MODIFIED delta copies the full "Frame reload redirects navigate the top fram
 
 **Why both:** the router-level test is the reliable, always-runnable gate; the browser e2e directly proves "the agent dialog does not disappear."
 
+### D5: Reconcile the frame source after an in-frame followed redirect
+A followed-in-frame redirect returns a `200` fragment, so the frame runtime cannot infer the destination (`response.redirected` is `false`, and the vendor only updates `frame.src` for the top frame). Left unreconciled, the subframe's `src` stays at the POST action URL (e.g. `/admin/users/2/toggle-disabled`), so a later `frame.reload()` (e.g. the agent `workflow-finish` reload) GETs it → `404`.
+
+Implementation: the `frameRedirects` middleware sets an `X-Remix-Redirect-To: <destination>` header on the fragment it returns; the client `resolveFrame` (`app/assets/entry.tsx`) reads it and sets the target frame's `src` to the destination. This keeps the frame's source as the GET-able destination so subsequent reloads render the page instead of a 404.
+
+**Why header + client reconcile:** the destination is computed server-side and cannot be anticipated by the form; the vendor runtime only corrects the top-frame `src` on redirect, so the app must reconcile the subframe itself. **Alternative considered:** `data-rmx-src` on the form — rejected because the frame resolver fetches `frame.src` (not the form action), so it would break the POST.
+
 ## Risks / Trade-offs
 
 - [Middleware ordering / router context] → wire where `context.router.fetch` and session cookie are available; verify via `test-router.ts`.

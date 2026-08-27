@@ -34,3 +34,13 @@ When a form submission rendered inside an admin target frame (`X-Remix-Frame: tr
 
 - **WHEN** an admin subframe form submission redirects and the redirect depth limit is reached
 - **THEN** the redirect SHALL be returned unchanged rather than re-fetched again
+
+### Requirement: In-frame followed redirects reconcile the frame source
+
+When an admin subframe form submission's redirect is followed in-frame, the system SHALL reconcile the target frame's source to the redirect destination so a subsequent frame reload requests the GET-able destination, not the POST action URL.
+
+#### Scenario: Frame reload after an in-frame PRG redirects
+
+- **WHEN** an admin subframe form submission (e.g. activate/deactivate a user) follows a redirect in-frame
+- **THEN** the target frame's source SHALL be set to the redirect destination
+- **AND** a later frame reload (e.g. after the agent workflow finishes) SHALL render the destination fragment instead of a 404 for the POST action URL

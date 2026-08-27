@@ -72,6 +72,18 @@ export function frameRedirects(): Middleware {
       }),
     )
 
+    // Tell the client where the frame actually landed. A following-in-frame
+    // redirect returns a 200 fragment, so the runtime cannot infer the
+    // destination from response.redirected. Without this the frame's `src` is
+    // left at the POST action URL (e.g. /admin/users/2/toggle-disabled) and a
+    // later frame reload GETs that URL → 404. The client stub (entry.tsx)
+    // reads this header and reconciles the frame's src.
+    try {
+      frameResponse.headers.set('X-Remix-Redirect-To', destination.href)
+    } catch {
+      /* headers may be immutable — the frame keeps its current src */
+    }
+
     // The internal fetch re-enters this middleware, so a further 3xx is either
     // followed in-frame or returned unchanged once MAX_FRAME_REDIRECTS is hit.
     return frameResponse

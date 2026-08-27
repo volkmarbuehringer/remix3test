@@ -660,6 +660,11 @@ describe('Admin Users Controller', () => {
         !text.includes('data-rmx-target="admin-content"'),
         'toggle form inside an agent panel must not target the outer admin-content frame',
       )
+      // The middleware must report where the frame landed so the client can
+      // reconcile a stale frame src (which would otherwise GET a 404 later).
+      let redirectTo = response.headers.get('X-Remix-Redirect-To')
+      assert.ok(redirectTo?.includes('/admin/users'), 'should report the grid destination')
+      assert.ok(redirectTo?.includes('sort=name'), 'should keep grid-state params in the destination')
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')

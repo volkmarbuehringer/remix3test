@@ -34,15 +34,40 @@ const FAKE_CLASSIFY_AGENT = {
   },
 }
 
-// Empty workflow stream: the pipeline emits `navigate` (the grid) before the run
-// starts, so an empty stream is enough for the panel to switch to /admin/users.
-const emptyWorkflowStream = (): AsyncIterable<unknown> =>
+// Emulate the workflow run so the panel both navigates to /admin/users AND
+// renders a confirm gate. The initial run suspends (the confirm gate appears); a
+// confirm resume emits workflow-finish success, which is exactly what triggers
+// the frame reload that used to GET the stale POST action URL → 404.
+const streamOf = (...chunks: unknown[]): AsyncIterable<unknown> =>
   (async function* () {
-    /* intentional: no workflow events needed */
+    for (let c of chunks) yield c
   })()
 
 __setAgent(FAKE_CLASSIFY_AGENT)
-__setRunFactory(async () => ({ runId: 'e2e-run', fullStream: emptyWorkflowStream() }))
+__setRunFactory(async (_workflowId, opts) => {
+  if (opts.runId != null) {
+    // Resume after the confirm gate: emit workflow-finish success → reload frame.
+    return {
+      runId: 'e2e-run',
+      fullStream: streamOf({ type: 'workflow-finish', payload: { workflowStatus: 'success' } }),
+    }
+  }
+  // Initial run: suspend so the confirm gate appears.
+  return {
+    runId: 'e2e-run',
+    fullStream: streamOf({
+      type: 'workflow-step-suspended',
+      payload: {
+        id: 'confirm',
+        suspendPayload: {
+          question: 'Cancel user?',
+          actionType: 'cancel',
+          targetUserName: 'user@newapp.com',
+        },
+      },
+    }),
+  }
+})
 
 const AGENT_EVENTS_PATH = routes.admin.agentEvents.index.href()
 
@@ -66,7 +91,8 @@ describe('admin agent-events panel: in-frame user toggle', () => {
     await page.locator('#agent-events-submit').click()
 
     // The SSE pipeline navigates the panel frame to /admin/users?filter=...;
-    // wait for at least one per-row toggle form to render inside the frame.
+    // wait for the confirm gate (workflow suspended) and at least one toggle form.
+    await page.locator('#ae-confirm-gate').waitFor({ timeout: 15_000 })
     let toggleForm = page.locator('[data-toggle-form]').first()
     await toggleForm.waitFor({ timeout: 15_000 })
 
@@ -74,14 +100,17 @@ describe('admin agent-events panel: in-frame user toggle', () => {
     // followed in-frame, so the host agent page must survive.
     await page.locator('[data-toggle-form] >> button[type="submit"]').first().click()
 
-    // The host /admin/agent-events page is still mounted, not replaced.
+    // Confirm in the agent dialog → resume → workflow-finish → frame reload.
+    // The frame must reload the GRID (not the stale POST action URL → 404).
+    await page.locator('#ae-confirm-gate button').first().click()
+
+    // The host /admin/agent-events page is still mounted, not replaced, and the
+    // frame reloaded the grid instead of a Not Found for the POST action URL.
     await page.locator('#agent-events-input').waitFor({ timeout: 10_000 })
     await page.locator('#ae-status-bar').waitFor()
     await page.locator('#agent-events-frame-container').waitFor()
-    // The users grid is still rendered inside the panel frame (no top-level bail).
     await page.locator('[data-toggle-form]').first().waitFor({ timeout: 10_000 })
 
-    // The document is the agent-events page (the frame stays put).
     assert.ok(
       await page.locator('#agent-events-frame-container').count() >= 1,
       'host agent-events frame container should still be present',

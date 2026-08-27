@@ -3,7 +3,8 @@ import { spring } from 'remix/ui/animation'
 
 import { resolveFrameResponse } from './frame-response.browser.tsx'
 
-const app = run({
+let app: ReturnType<typeof run>
+app = run({
   async loadModule(moduleUrl, exportName) {
     let mod = await import(moduleUrl)
     let exp = (mod as Record<string, unknown>)[exportName]
@@ -13,7 +14,20 @@ const app = run({
     return exp
   },
   async resolveFrame(src, options) {
-    return resolveFrameResponse(new URL(src, window.location.href), options)
+    let result = await resolveFrameResponse(new URL(src, window.location.href), options)
+    // An in-frame followed redirect (frameRedirects) returns a 200 fragment but
+    // is not marked `redirected`, so the frame runtime cannot infer the
+    // destination. Left unchecked, the frame's `src` stays at the POST action
+    // URL (e.g. /admin/users/2/toggle-disabled) and a later reload GETs it →
+    // 404. Read the header the middleware set and reconcile the frame's src.
+    if (result instanceof Response) {
+      let dest = result.headers.get('X-Remix-Redirect-To')
+      if (dest && options?.target) {
+        let frame = app.frames.get(options.target)
+        if (frame) frame.src = dest
+      }
+    }
+    return result
   },
 })
 
