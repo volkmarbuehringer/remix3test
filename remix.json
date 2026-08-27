@@ -1,5 +1,24 @@
 {
   "$schema": "https://remix.run/schemas/remix.json",
+  "assets": {
+    "rootDir": ".",
+    "basePath": "/assets",
+    "fileMap": {
+      "app/*path": "app/*path",
+      "node_modules/*path": "node_modules/*path"
+    },
+    "allowFiles": [
+      "app/**/public/**",
+      "app/ui/**",
+      "app/assets/entry.tsx",
+      "app/assets/frame-response.browser.tsx",
+      "app/assets/error-card.browser.tsx",
+      "app/routes.ts",
+      "app/utils/**"
+    ],
+    "allowPackages": ["remix"],
+    "denyFiles": ["app/**/*.server.*", "app/**/*.test.*"]
+  },
   "db": {
     "adapter": {
       "type": "postgres",
