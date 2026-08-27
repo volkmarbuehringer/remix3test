@@ -88,6 +88,25 @@ describe('frameRedirects middleware', () => {
     assert.equal(fetchCalls, 0, 'should not re-fetch a non-redirect response')
   })
 
+  it('leaves a non-admin subframe redirect unchanged', async () => {
+    // Step 1 scope: only admin shell frames follow in-frame. A verwaltung /
+    // appointment target redirect must fall back to the client bail unchanged.
+    let redirect = new Response(null, { status: 302, headers: { Location: '/elsewhere' } })
+    let fetchCalls = 0
+
+    let middleware = frameRedirects()
+    let response = await middleware(
+      createContext({ 'X-Remix-Frame': 'true', 'X-Remix-Target': 'appointment-content' }, () => {
+        fetchCalls++
+        return fragment()
+      }),
+      async () => redirect,
+    )
+
+    assert.equal(response, redirect, 'should return the non-admin redirect unchanged')
+    assert.equal(fetchCalls, 0, 'should not re-fetch a non-admin frame')
+  })
+
   it('does not follow a redirect to an external origin', async () => {
     let redirect = new Response(null, {
       status: 302,

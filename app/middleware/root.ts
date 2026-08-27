@@ -22,6 +22,7 @@ import { securityHeaders } from './security-headers.ts'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
+import { frameRedirects } from './frame-redirect.ts'
 
 /**
  * Logs requests via the built-in logger for non-asset routes, suppresses
@@ -68,5 +69,6 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     loadAssetEntry(),
     render(),
     json(),
+    frameRedirects(),
   )
 }

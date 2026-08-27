@@ -1,7 +1,22 @@
 import type { Middleware } from 'remix/router'
 import { Accept, SuperHeaders } from 'remix/headers'
+import { frames } from '../routes.ts'
 
 const MAX_FRAME_REDIRECTS = 10
+
+/**
+ * Frame targets whose subframe form submissions are allowed to follow a
+ * redirect in-frame (PRG) under the admin shell. Verwalung / appointment
+ * frames are intentionally out of scope for now: their redirects still fall
+ * back to the client-side bail (full top-level navigation).
+ */
+export const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
+  frames.adminContent,
+  frames.listsContent,
+  frames.workflowAgentPanel,
+  frames.agentEventsPanel,
+  frames.supportAgentPanel,
+])
 
 /**
  * Keeps PRG form submissions inside the target frame.
@@ -26,6 +41,9 @@ export function frameRedirects(): Middleware {
     if (context.request.headers.get('X-Remix-Frame') !== 'true' || target == null) {
       return response
     }
+    // Step 1: only admin shell frames follow in-frame. Other targets (e.g.
+    // verwaltung) return the redirect unchanged so the client bail handles them.
+    if (!ADMIN_FRAME_TARGETS.has(target)) return response
     if (!isRedirectResponse(response)) return response
 
     let location = response.headers.get('Location')

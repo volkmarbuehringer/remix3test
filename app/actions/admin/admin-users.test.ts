@@ -621,6 +621,49 @@ describe('Admin Users Controller', () => {
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [adminId])
       assert.equal(result.rows[0]?.disabled_at, null, 'admin should remain enabled')
     })
+
+    it('follows the PRG redirect in-frame for an agent panel target', async () => {
+      // The activate/deactivate form inside an agent panel (X-Remix-Target:
+      // agent-events-panel) must NOT return a bare 302 — the frameRedirects
+      // middleware re-fetches the destination as a GET fragment so the toggle
+      // stays in the panel instead of bailing to a top-level navigation that
+      // tears down the host agent page.
+      let email = `test-toggle-frame-${Date.now()}@example.com`
+      let id = await createTestUser(email)
+      assert.ok(id, 'test user must be created')
+
+      let body = new URLSearchParams({
+        _csrf: adminCsrfToken,
+        _offset: '0',
+        _sort: 'name',
+        _order: 'asc',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'agent-events-panel',
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 200, 'in-frame follow should return the grid fragment')
+      let text = await response.text()
+      assert.ok(
+        text.includes('data-rmx-target="agent-events-panel"'),
+        'toggle form inside an agent panel should target the panel frame',
+      )
+      assert.ok(
+        !text.includes('data-rmx-target="admin-content"'),
+        'toggle form inside an agent panel must not target the outer admin-content frame',
+      )
+
+      let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
+      assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
+    })
   })
 
   describe('destroy (DELETE /admin/users/:id)', () => {
