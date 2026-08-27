@@ -78,7 +78,7 @@ describe('Agent events pipeline', () => {
   function renderWithFrame() {
     let result = render(
       <>
-        <Frame name="agent-events-panel" src="/admin/workflowagent2/panel" />
+        <Frame name="agent-events-panel" src="/admin/agent-events/panel" />
         <AgentEventsStream />
       </>,
       {
@@ -159,5 +159,44 @@ describe('Agent events pipeline', () => {
       !document.getElementById('ae-pipeline-log'),
       'frame log is not re-rendered over the navigated page',
     )
+  })
+
+  it('shows a confirm gate on workflow-step-suspended and resumes the same run', async () => {
+    setupAgentEventsDom()
+    let calls: Array<{ url: string; init: RequestInit }> = []
+    let sse = createControllableSse()
+    window.fetch = async (input, init) => {
+      calls.push({ url: String(input), init: init as RequestInit })
+      return sse.response
+    }
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('panel-page'))
+
+    submitAgentEventsForm('cancel user 42')
+    sse.push('start', { runId: 'run-123', workflowId: 'userManagementWorkflow' })
+    sse.push('workflow-step-suspended', {
+      suspendPayload: {
+        question: 'Cancel Jane Doe?',
+        actionType: 'cancel',
+        targetUserName: 'Jane Doe',
+        pendingCount: 3,
+      },
+    })
+    await waitFor(() => !!document.getElementById('ae-confirm-gate'))
+    sse.close()
+
+    let gate = document.getElementById('ae-confirm-gate')!
+    assert.ok(gate.textContent?.includes('Cancel Jane Doe?'), 'question renders in the gate')
+    assert.ok(gate.textContent?.includes('3 pending appointments'), 'preflight detail renders')
+
+    let confirmBtn = gate.querySelector('button')!
+    confirmBtn.click()
+
+    await waitFor(() => calls.some((c) => c.url.includes('/resume')))
+    let resumeCall = calls.find((c) => c.url.includes('/resume'))!
+    let body = resumeCall.init.body as FormData
+    assert.equal(body.get('runId'), 'run-123', 'resume posts the tracked run id')
+    assert.equal(body.get('confirmed'), 'true', 'resume posts the confirmed flag')
   })
 })

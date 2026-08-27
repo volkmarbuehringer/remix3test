@@ -23,11 +23,13 @@ export async function pipeWorkflowStream(
   stream: AsyncIterable<unknown>,
   controller: ReadableStreamDefaultController,
   signal: AbortSignal,
+  opts?: { includeReport?: boolean },
 ): Promise<WorkflowResult | null> {
   let lastReportPdf: string | undefined
   let lastReportFilename: string | undefined
   let finalOutput: Record<string, unknown> | null = null
   let streamError: string | null = null
+  let includeReport = opts?.includeReport !== false
 
   function handleEvent(chunk: unknown) {
     let c = chunk as Record<string, unknown>
@@ -67,12 +69,15 @@ export async function pipeWorkflowStream(
       })
     } else if (type === 'workflow-finish') {
       let ws = payload?.workflowStatus as string | undefined
-      writeEvent(controller, 'workflow-finish', {
+      let finish: Record<string, unknown> = {
         success: ws === 'success',
         workflowStatus: ws,
-        reportPdf: lastReportPdf,
-        reportFilename: lastReportFilename,
-      })
+      }
+      if (includeReport) {
+        finish.reportPdf = lastReportPdf
+        finish.reportFilename = lastReportFilename
+      }
+      writeEvent(controller, 'workflow-finish', finish)
     } else if (type === 'workflow-canceled') {
       writeEvent(controller, 'workflow-canceled', {})
     } else if (type === 'workflow-paused') {

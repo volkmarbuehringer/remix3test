@@ -136,7 +136,7 @@ export const routes = route({
       stream: get('/stream'),
     }),
 
-    agentEvents: route('workflowagent2', {
+    agentEvents: route('agent-events', {
       index: get('/'),
       panel: get('/panel'),
       action: post('/'),

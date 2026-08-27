@@ -21,20 +21,15 @@ export type BaseEvent =
       adminEmail: string
     }
   | { type: 'entities.notfound'; error: string }
-  | { type: 'action.running'; workflowId: string; input: Record<string, unknown>; summary: string }
+  | {
+      type: 'workflow.requested'
+      workflowId: string
+      input: Record<string, unknown>
+      navigate: { href: string; target: string }
+      summary: string
+    }
   | { type: 'navigate'; href: string; target: string }
   | { type: 'message'; text: string }
-  | {
-      type: 'confirm.required'
-      question: string
-      actionType: string
-      payload: Record<string, unknown>
-    }
-  | { type: 'confirm.skipped'; reason: string }
-  | { type: 'confirm.resolved'; confirmed: boolean; payload?: Record<string, unknown> }
-  | { type: 'action.completed'; success: boolean; result: Record<string, unknown> }
-  | { type: 'request.completed'; result: Record<string, unknown> }
-  | { type: 'request.failed'; error: string }
 
 export type EventHandler = {
   name: string

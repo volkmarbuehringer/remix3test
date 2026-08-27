@@ -7,18 +7,23 @@ import { validateHandler } from './handlers/validate.ts'
 import { classifyHandler, __setAgent } from './handlers/classify.ts'
 import { classifyWithAgent } from '../mastra/intent-classifier.ts'
 import { dispatchHandler } from './handlers/dispatch.ts'
-import { confirmHandler } from './handlers/confirm.ts'
-import { executeHandler, __setExecutors } from './handlers/execute.ts'
-import { finalizeHandler } from './handlers/finalize.ts'
+import { __setRunFactory } from './controller.tsx'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
-const AGENT_EVENTS_URL = `${BASE}/admin/workflowagent2`
-const AGENT_EVENTS_PANEL_URL = `${BASE}/admin/workflowagent2/panel`
+const AGENT_EVENTS_URL = `${BASE}/admin/agent-events`
+const AGENT_EVENTS_PANEL_URL = `${BASE}/admin/agent-events/panel`
 
 const ADMIN_USER = { adminUserId: 1, adminEmail: 'admin@test.com' }
+
+/** Builds an AsyncIterable from plain chunks for use as a fake workflow stream. */
+function streamOf(...chunks: unknown[]): AsyncIterable<unknown> {
+  return (async function* () {
+    for (let c of chunks) yield c
+  })()
+}
 
 // ── Fake classify agent ──────────────────────────────────────
 // Emulates what the real workflowAgent LLM returns for the fixed
@@ -111,44 +116,6 @@ describe('EventBus', () => {
     assert.ok(!emitted.includes('confirm.required'))
   })
 
-  it('full pipeline from request.received to request.completed via resume', async () => {
-    await initializeAppDatabase()
-
-    let bus = new EventBus()
-    registerHandlers(bus)
-    let emitted: string[] = []
-
-    for await (let event of bus.run({
-      type: 'request.received',
-      message: 'cancel admin@newapp.com',
-      ...ADMIN_USER,
-    })) {
-      emitted.push(event.type)
-    }
-
-    assert.ok(emitted.includes('confirm.required'))
-    assert.ok(!emitted.includes('request.completed'))
-
-    let bus2 = new EventBus()
-    registerHandlers(bus2)
-    let emitted2: string[] = []
-
-    for await (let event of bus2.run({
-      type: 'confirm.resolved',
-      confirmed: true,
-      payload: {
-        intent: 'bogus',
-        targetUserId: 42,
-        ...ADMIN_USER,
-      },
-    })) {
-      emitted2.push(event.type)
-    }
-
-    assert.ok(emitted2.includes('confirm.resolved'))
-    assert.ok(emitted2.includes('action.completed'))
-    assert.ok(emitted2.includes('request.completed'))
-  })
 })
 
 // ── Validate Handler ──────────────────────────────────────────
@@ -471,10 +438,10 @@ describe('classify handler', () => {
 // ── Dispatch Handler ──────────────────────────────────────────
 
 describe('dispatch handler', () => {
-  it('cancel-user intent routes to action.running', async () => {
+  it('cancel-user intent routes to workflow.requested', async () => {
     let bus = new EventBus()
     bus.register(dispatchHandler)
-    let running: unknown = null
+    let requested: Record<string, unknown> | null = null
 
     for await (let event of bus.run({
       type: 'entities.resolved',
@@ -483,12 +450,15 @@ describe('dispatch handler', () => {
       resolved: { targetUserId: 42 },
       ...ADMIN_USER,
     })) {
-      if (event.type === 'action.running') {
-        running = event.workflowId
+      if (event.type === 'workflow.requested') {
+        requested = event as Record<string, unknown>
       }
     }
 
-    assert.equal(running, 'userManagementWorkflow')
+    assert.ok(requested, 'should emit workflow.requested')
+    assert.equal(requested!.workflowId, 'userManagementWorkflow')
+    assert.equal((requested!.input as Record<string, unknown>).action, 'cancel')
+    assert.equal((requested!.navigate as Record<string, unknown>).target, 'agent-events-panel')
   })
 
   it('dispatch handler directly emits navigate', async () => {
@@ -538,143 +508,12 @@ describe('dispatch handler', () => {
   })
 })
 
-// ── Confirm Handler ───────────────────────────────────────────
-
-describe('confirm handler', () => {
-  it('action.running emits confirm.required', async () => {
-    let bus = new EventBus()
-    bus.register(confirmHandler)
-    let confirmed = false
-
-    for await (let event of bus.run({
-      type: 'action.running',
-      workflowId: 'userManagementWorkflow',
-      input: { action: 'cancel', targetUserId: 42 },
-      summary: 'Cancel user 42',
-    })) {
-      if (event.type === 'confirm.required') {
-        confirmed = true
-        assert.ok(event.question)
-        assert.equal(event.actionType, 'cancel')
-      }
-    }
-
-    assert.ok(confirmed)
-  })
-})
-
-// ── Execute Handler ───────────────────────────────────────────
-
-describe('execute handler', () => {
-  it('calls executor with correct arguments', async () => {
-    let captured: unknown = null
-    __setExecutors({
-      cancel: async (input) => {
-        captured = input
-        return { success: true }
-      },
-    })
-
-    let bus = new EventBus()
-    bus.register(executeHandler)
-    let completed: unknown = null
-
-    for await (let event of bus.run({
-      type: 'confirm.resolved',
-      confirmed: true,
-      payload: { intent: 'cancel', targetUserId: 42, ...ADMIN_USER },
-    })) {
-      if (event.type === 'action.completed') completed = event
-    }
-
-    assert.ok(completed)
-    assert.ok((completed as any).success)
-    assert.ok(captured)
-    let input = captured as Record<string, unknown>
-    assert.equal(input.targetUserId, 42)
-    assert.equal(input.adminUserId, 1)
-    assert.equal(input.adminEmail, 'admin@test.com')
-  })
-
-  it('confirmed resume with unknown intent emits action.completed error', async () => {
-    let bus = new EventBus()
-    bus.register(executeHandler)
-    let completed: unknown = null
-
-    for await (let event of bus.run({
-      type: 'confirm.resolved',
-      confirmed: true,
-      payload: { intent: 'bogus', targetUserId: 42, ...ADMIN_USER },
-    })) {
-      if (event.type === 'action.completed') {
-        completed = event
-      }
-    }
-
-    assert.ok(completed)
-    assert.equal((completed as any).success, false)
-    assert.ok(String((completed as any).result.error || '').includes('Unknown action'))
-  })
-
-  it('cancelled resume emits action.completed with failure', async () => {
-    let bus = new EventBus()
-    bus.register(executeHandler)
-    let completed: unknown = null
-    let emitted: string[] = []
-
-    for await (let event of bus.run({ type: 'confirm.resolved', confirmed: false })) {
-      emitted.push(event.type)
-      if (event.type === 'action.completed') {
-        completed = event
-      }
-    }
-
-    assert.ok(completed)
-    assert.ok(!(completed as any).success)
-    assert.equal((completed as any).result.error, 'Cancelled by admin')
-  })
-
-  it('missing targetUserId emits error', async () => {
-    let bus = new EventBus()
-    bus.register(executeHandler)
-    let completed: unknown = null
-
-    for await (let event of bus.run({
-      type: 'confirm.resolved',
-      confirmed: true,
-      payload: { intent: 'lock', targetUserId: 0, ...ADMIN_USER },
-    })) {
-      if (event.type === 'action.completed') {
-        completed = event
-      }
-    }
-
-    assert.ok(completed)
-    assert.ok(!(completed as any).success)
-    assert.equal((completed as any).result.error, 'No target user specified')
-  })
-})
-
 // ── Finalize Handler ──────────────────────────────────────────
-
-describe('finalize handler', () => {
-  it('action.completed emits request.completed', async () => {
-    let bus = new EventBus()
-    bus.register(finalizeHandler)
-    let finalized = false
-
-    for await (let event of bus.run({ type: 'action.completed', success: true, result: {} })) {
-      if (event.type === 'request.completed') finalized = true
-    }
-
-    assert.ok(finalized)
-  })
-})
 
 // ── Full Pipeline Integration ─────────────────────────────────
 
 describe('full pipeline integration', () => {
-  it('cancel-user flows from request.received to confirm.required', async () => {
+  it('cancel-user flows from request.received to workflow.requested', async () => {
     await initializeAppDatabase()
 
     let bus = new EventBus()
@@ -693,8 +532,8 @@ describe('full pipeline integration', () => {
     assert.ok(eventTypes.includes('request.validated'))
     assert.ok(eventTypes.includes('intent.classified'))
     assert.ok(eventTypes.includes('entities.resolved'))
-    assert.ok(eventTypes.includes('action.running'))
-    assert.ok(eventTypes.includes('confirm.required'))
+    assert.ok(eventTypes.includes('workflow.requested'))
+    assert.ok(!eventTypes.includes('confirm.required'))
     assert.ok(!eventTypes.includes('request.completed'))
   })
 
@@ -806,39 +645,87 @@ describe('AgentEvents route (POST validation)', () => {
     assert.ok(text.includes('data:'), 'should have data')
   })
 
-  it('returns SSE for confirm-required intent without hanging', async () => {
-    let response = await postForm(AGENT_EVENTS_URL, adminCookie, {
-      message: 'cancel admin@newapp.com',
-    })
-    assert.equal(response.status, 200)
-    let reader = response.body?.getReader()
-    assert.ok(reader, 'should have readable body')
-    let decoder = new TextDecoder()
-    let buffer = ''
-    let found = false
-    let timer = setTimeout(() => reader!.cancel(), 500)
-    try {
-      while (true) {
-        let { done, value } = await reader!.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        if (buffer.includes('confirm-required')) {
-          found = true
-          break
-        }
-      }
-    } finally {
-      clearTimeout(timer)
-      reader!.cancel().catch(() => {})
-    }
-    assert.ok(found, 'confirm-required event should be emitted')
-  })
-
   it('resume rejects missing runId with 400', async () => {
     let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
       confirmed: 'true',
     })
     assert.equal(response.status, 400)
+  })
+
+  it('returns SSE for a cancel request that suspends at the confirm gate', async () => {
+    __setRunFactory(async () => ({
+      runId: 'run-suspend-1',
+      fullStream: streamOf({
+        type: 'workflow-step-suspended',
+        payload: {
+          id: 'confirm-gate',
+          suspendPayload: {
+            question: 'Cancel user?',
+            actionType: 'cancel',
+            targetUserName: 'Jane',
+            pendingCount: 2,
+          },
+        },
+      }),
+    }))
+    try {
+      let response = await postForm(AGENT_EVENTS_URL, adminCookie, {
+        message: 'cancel admin@newapp.com',
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('event: start'), 'should emit start')
+      assert.ok(text.includes('run-suspend-1'), 'should carry the run id')
+      assert.ok(text.includes('workflow-step-suspended'), 'should emit the suspended step')
+      assert.ok(text.includes('Cancel user?'), 'should carry the suspend question')
+    } finally {
+      __setRunFactory(undefined)
+    }
+  })
+
+  it('resume re-attaches to the run and completes after confirmation', async () => {
+    let captured: { confirmed?: boolean } = {}
+    __setRunFactory(async (_workflowId, opts) => {
+      captured.confirmed = (opts.resumeData as { confirmed?: boolean })?.confirmed
+      return {
+        runId: 'run-resume-1',
+        fullStream: streamOf({
+          type: 'workflow-finish',
+          payload: { workflowStatus: 'success', success: true },
+        }),
+      }
+    })
+    try {
+      let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
+        runId: 'run-resume-1',
+        confirmed: 'true',
+      })
+      assert.equal(response.status, 200)
+      assert.equal(captured.confirmed, true, 'resume should pass the confirmed flag')
+      let text = await response.text()
+      assert.ok(text.includes('event: start'), 'should emit start on resume')
+      assert.ok(text.includes('workflow-finish'), 'should emit finish')
+      assert.ok(text.includes('"success":true'), 'should report success')
+    } finally {
+      __setRunFactory(undefined)
+    }
+  })
+
+  it('resume surfaces an error for an invalid run id', async () => {
+    __setRunFactory(async () => {
+      throw new Error('no such run')
+    })
+    try {
+      let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
+        runId: 'bogus',
+        confirmed: 'true',
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('agent-error'), 'invalid run should emit agent-error')
+    } finally {
+      __setRunFactory(undefined)
+    }
   })
 })
 

@@ -9,9 +9,9 @@
   "test": {
     "concurrency": 6,
     "pool": "forks",
-    "files": ["**/*.test{,.browser,.e2e}.ts"],
-    "browserFiles": ["**/*.test.browser.ts"],
-    "e2eFiles": ["**/*.test.e2e.ts"],
+    "files": ["**/*.test{,.browser,.e2e}.{ts,tsx}"],
+    "browserFiles": ["**/*.test.browser.{ts,tsx}"],
+    "e2eFiles": ["**/*.test.e2e.{ts,tsx}"],
     "exclude": [],
     "playwright": {
       "echo": false,

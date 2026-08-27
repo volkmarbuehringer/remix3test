@@ -9,25 +9,47 @@ import { routes, frames } from '../../routes.ts'
 import { EventBus, type BaseEvent, MAX_MESSAGE_LENGTH } from './event-bus.ts'
 import { registerHandlers } from './register.ts'
 import { getCurrentUser } from '../../utils/context.ts'
+import { mastra as realMastra } from '../mastra/index.ts'
+import { pipeWorkflowStream } from '../workflow-agent/workflow-sse.ts'
 
-const CONFIRM_TTL = 5 * 60 * 1000
+// Injectable run-starter seam so tests can stub the Mastra workflow run without
+// initializing Mastra or a real run (mirrors the __setAgent/__setExecutors
+// pattern used by the handlers).
+type RunStream = { runId: string; fullStream: ReadableStream<unknown> | AsyncIterable<unknown> }
+type RunFactory = (
+  workflowId: string,
+  opts: {
+    resourceId?: string
+    runId?: string
+    inputData?: Record<string, unknown>
+    resumeData?: { confirmed: boolean }
+    closeOnSuspend?: boolean
+  },
+) => Promise<RunStream>
 
-type ConfirmState = {
-  message: string
-  intent: string
-  targetUserId: number
-  targetQuery: string
-  adminUserId: number
-  adminEmail: string
-  expiresAt: number
+const defaultRunFactory: RunFactory = async (workflowId, opts) => {
+  let wf = realMastra.getWorkflow(workflowId as 'userManagementWorkflow')
+  if (opts.runId != null) {
+    let run = await wf.createRun({ runId: opts.runId })
+    let stream = run.resumeStream({ resumeData: opts.resumeData as { confirmed: boolean } })
+    return { runId: stream.runId, fullStream: stream.fullStream }
+  }
+  let run = await wf.createRun({ resourceId: opts.resourceId as string })
+  let stream = run.stream({
+    inputData: opts.inputData as {
+      action: 'cancel' | 'lock' | 'unlock'
+      targetUserId: number
+      adminUserId: number
+      adminEmail: string
+    },
+    closeOnSuspend: opts.closeOnSuspend,
+  })
+  return { runId: stream.runId, fullStream: stream.fullStream }
 }
 
-const pendingConfirmMap = new Map<string, ConfirmState>()
-
-let confirmRunIdCounter = 0
-function nextConfirmRunId(): string {
-  confirmRunIdCounter++
-  return `agent-events-${Date.now()}-${confirmRunIdCounter}`
+let _runFactory: RunFactory = defaultRunFactory
+export function __setRunFactory(fn: RunFactory | undefined) {
+  _runFactory = fn ?? defaultRunFactory
 }
 
 function AgentEventsEmptyState(_handle: Handle) {
@@ -95,168 +117,6 @@ function AgentEventsEmptyState(_handle: Handle) {
   )
 }
 
-function createPipeline(
-  message: string,
-  adminUserId: number,
-  adminEmail: string,
-  signal?: AbortSignal,
-): ReadableStream {
-  return new ReadableStream({
-    start: async (controller) => {
-      let closed = false
-      function closeOnce() {
-        if (closed) return
-        closed = true
-        safeClose(controller)
-      }
-
-      let abortListener: (() => void) | undefined
-      if (signal) {
-        abortListener = () => closeOnce()
-        signal.addEventListener('abort', abortListener, { once: true })
-      }
-
-      try {
-        let bus = new EventBus()
-        registerHandlers(bus)
-
-        let initialEvent: BaseEvent = { type: 'request.received', message, adminUserId, adminEmail }
-
-        for await (let event of bus.run(initialEvent)) {
-          if (signal?.aborted) break
-
-          switch (event.type) {
-            case 'request.validated':
-              controller.enqueue(sseEvent('status', { text: 'Input validated', kind: 'success' }))
-              break
-
-            case 'request.invalid':
-              controller.enqueue(sseEvent('agent-error', { error: event.error }))
-              closeOnce()
-              return
-
-            case 'intent.classified':
-              controller.enqueue(
-                sseEvent('status', {
-                  text: `Intent resolved: ${event.intent}`,
-                  kind: 'success',
-                }),
-              )
-              break
-
-            case 'intent.unclear':
-              controller.enqueue(sseEvent('message', { text: event.text }))
-              controller.enqueue(sseEvent('complete', {}))
-              closeOnce()
-              return
-
-            case 'entities.resolved':
-              controller.enqueue(sseEvent('status', { text: 'Entities resolved', kind: 'success' }))
-              break
-
-            case 'entities.notfound':
-              controller.enqueue(
-                sseEvent('navigate', {
-                  href: '/admin/users',
-                  target: frames.agentEventsPanel,
-                  history: 'push',
-                }),
-              )
-              controller.enqueue(sseEvent('message', { text: event.error }))
-              controller.enqueue(sseEvent('complete', {}))
-              closeOnce()
-              return
-
-            case 'action.running':
-              controller.enqueue(sseEvent('status', { text: event.summary, kind: 'active' }))
-              break
-
-            case 'navigate':
-              controller.enqueue(
-                sseEvent('navigate', {
-                  href: event.href,
-                  target: event.target,
-                  history: 'push',
-                }),
-              )
-              break
-
-            case 'message':
-              controller.enqueue(sseEvent('message', { text: event.text }))
-              controller.enqueue(sseEvent('complete', {}))
-              closeOnce()
-              return
-
-            case 'confirm.required': {
-              let runId = nextConfirmRunId()
-              let input = event.payload as Record<string, unknown>
-              pendingConfirmMap.set(runId, {
-                message,
-                intent: String(event.actionType || ''),
-                targetUserId: Number(input.targetUserId || 0),
-                targetQuery: String(input.targetQuery || ''),
-                adminUserId,
-                adminEmail,
-                expiresAt: Date.now() + CONFIRM_TTL,
-              })
-              controller.enqueue(
-                sseEvent('confirm-required', {
-                  runId,
-                  question: event.question,
-                  actionType: event.actionType,
-                  payload: event.payload,
-                }),
-              )
-              setTimeout(closeOnce, 30000)
-              return
-            }
-
-            case 'confirm.resolved':
-              break
-
-            case 'action.completed':
-              if (event.success) {
-                controller.enqueue(
-                  sseEvent('status', { text: 'Action completed', kind: 'success' }),
-                )
-              } else {
-                controller.enqueue(
-                  sseEvent('agent-error', { error: String(event.result.error || 'Action failed') }),
-                )
-              }
-              break
-
-            case 'request.completed':
-              controller.enqueue(sseEvent('complete', {}))
-              closeOnce()
-              return
-
-            case 'request.failed':
-              controller.enqueue(sseEvent('agent-error', { error: event.error }))
-              closeOnce()
-              return
-          }
-        }
-
-        controller.enqueue(sseEvent('complete', {}))
-        closeOnce()
-      } catch (err) {
-        console.error('[agentEvents] pipeline error:', err)
-        try {
-          controller.enqueue(sseEvent('agent-error', { error: String(err) }))
-        } catch {
-          /* already errored */
-        }
-        closeOnce()
-      } finally {
-        if (signal && abortListener) {
-          signal.removeEventListener('abort', abortListener)
-        }
-      }
-    },
-  })
-}
-
 export default createController(routes.admin.agentEvents, {
   middleware: [requireAdmin()],
 
@@ -280,7 +140,125 @@ export default createController(routes.admin.agentEvents, {
       }
 
       let user = getCurrentUser()
-      let body = createPipeline(message, user.id, user.email, context.request.signal)
+      let body = new ReadableStream({
+        start: async (controller) => {
+          let bus = new EventBus()
+          registerHandlers(bus)
+          let initialEvent: BaseEvent = {
+            type: 'request.received',
+            message,
+            adminUserId: user.id,
+            adminEmail: user.email,
+          }
+
+          for await (let event of bus.run(initialEvent)) {
+            if (context.request.signal.aborted) break
+
+            switch (event.type) {
+              case 'request.validated':
+                controller.enqueue(sseEvent('status', { text: 'Input validated', kind: 'success' }))
+                break
+
+              case 'request.invalid':
+                controller.enqueue(sseEvent('agent-error', { error: event.error }))
+                safeClose(controller)
+                return
+
+              case 'intent.classified':
+                controller.enqueue(
+                  sseEvent('status', {
+                    text: `Intent resolved: ${event.intent}`,
+                    kind: 'success',
+                  }),
+                )
+                break
+
+              case 'intent.unclear':
+                controller.enqueue(sseEvent('message', { text: event.text }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+
+              case 'entities.resolved':
+                controller.enqueue(sseEvent('status', { text: 'Entities resolved', kind: 'success' }))
+                break
+
+              case 'entities.notfound':
+                controller.enqueue(
+                  sseEvent('navigate', {
+                    href: '/admin/users',
+                    target: frames.agentEventsPanel,
+                    history: 'push',
+                  }),
+                )
+                controller.enqueue(sseEvent('message', { text: event.error }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+
+              case 'workflow.requested': {
+                controller.enqueue(
+                  sseEvent('navigate', {
+                    href: event.navigate.href,
+                    target: event.navigate.target,
+                    history: 'push',
+                  }),
+                )
+                let input = event.input as Record<string, unknown>
+                let targetUserId = Number(input.targetUserId || 0)
+                let inputData = {
+                  action: input.action as 'cancel' | 'lock' | 'unlock',
+                  targetUserId,
+                  adminUserId: Number(input.adminUserId || 0),
+                  adminEmail: String(input.adminEmail || ''),
+                }
+                try {
+                  let { runId, fullStream } = await _runFactory(event.workflowId, {
+                    resourceId: String(targetUserId),
+                    inputData,
+                    closeOnSuspend: false,
+                  })
+                  controller.enqueue(sseEvent('start', { runId, workflowId: event.workflowId }))
+                  await pipeWorkflowStream(fullStream, controller, context.request.signal, {
+                    includeReport: false,
+                  })
+                } catch (err) {
+                  console.error('[agentEvents] start workflow error:', err)
+                  try {
+                    controller.enqueue(
+                      sseEvent('agent-error', { error: 'Failed to start workflow' }),
+                    )
+                  } catch {
+                    /* already errored */
+                  }
+                  safeClose(controller)
+                }
+                return
+              }
+
+              case 'navigate':
+                controller.enqueue(
+                  sseEvent('navigate', {
+                    href: event.href,
+                    target: event.target,
+                    history: 'push',
+                  }),
+                )
+                break
+
+              case 'message':
+                controller.enqueue(sseEvent('message', { text: event.text }))
+                controller.enqueue(sseEvent('complete', {}))
+                safeClose(controller)
+                return
+            }
+          }
+
+          controller.enqueue(sseEvent('complete', {}))
+          safeClose(controller)
+        },
+      })
+
       return new Response(body, { headers: sseHeaders() })
     },
 
@@ -292,72 +270,21 @@ export default createController(routes.admin.agentEvents, {
         return sseErrorResponse('Missing runId', 400)
       }
 
-      let state = pendingConfirmMap.get(runId)
-      if (!state || state.expiresAt < Date.now()) {
-        pendingConfirmMap.delete(runId)
-        return sseErrorResponse('Invalid or expired runId', 400)
-      }
-      pendingConfirmMap.delete(runId)
-
       let body = new ReadableStream({
         start: async (controller) => {
           try {
-            let bus = new EventBus()
-            registerHandlers(bus)
-
-            let initialEvent: BaseEvent = {
-              type: 'confirm.resolved',
-              confirmed,
-              payload: {
-                message: state.message,
-                intent: state.intent,
-                targetUserId: state.targetUserId,
-                targetQuery: state.targetQuery,
-                adminUserId: state.adminUserId,
-                adminEmail: state.adminEmail,
-              },
-            }
-
-            for await (let event of bus.run(initialEvent)) {
-              switch (event.type) {
-                case 'confirm.resolved':
-                  break
-
-                case 'action.completed':
-                  if (event.success) {
-                    controller.enqueue(
-                      sseEvent('status', { text: 'Action completed', kind: 'success' }),
-                    )
-                  } else {
-                    controller.enqueue(
-                      sseEvent('agent-error', {
-                        error: String(event.result.error || 'Action failed'),
-                      }),
-                    )
-                  }
-                  break
-
-                case 'request.completed':
-                  controller.enqueue(sseEvent('complete', {}))
-                  safeClose(controller)
-                  return
-
-                case 'request.failed':
-                  controller.enqueue(sseEvent('agent-error', { error: event.error }))
-                  safeClose(controller)
-                  return
-
-                default:
-                  break
-              }
-            }
-
-            controller.enqueue(sseEvent('complete', {}))
-            safeClose(controller)
+            let { runId: outRunId, fullStream } = await _runFactory('userManagementWorkflow', {
+              runId,
+              resumeData: { confirmed },
+            })
+            controller.enqueue(sseEvent('start', { runId: outRunId }))
+            await pipeWorkflowStream(fullStream, controller, context.request.signal, {
+              includeReport: false,
+            })
           } catch (err) {
             console.error('[agentEvents] resume error:', err)
             try {
-              controller.enqueue(sseEvent('agent-error', { error: 'Resume error' }))
+              controller.enqueue(sseEvent('agent-error', { error: 'Failed to resume workflow' }))
             } catch {
               /* already errored */
             }

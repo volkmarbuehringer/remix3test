@@ -28,14 +28,13 @@ export const dispatchHandler: EventHandler = {
     ) {
       let action = INTENT_TO_ACTION[e.intent] ?? e.intent
       emit({
-        type: 'navigate',
-        href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
-        target: frames.agentEventsPanel,
-      })
-      emit({
-        type: 'action.running',
+        type: 'workflow.requested',
         workflowId: 'userManagementWorkflow',
         input: { action, ...actionInput },
+        navigate: {
+          href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
+          target: frames.agentEventsPanel,
+        },
         summary: `${actionLabel(action)} user ${resolved.targetUserId || resolved.targetName || resolved.targetEmail}`,
       })
       return

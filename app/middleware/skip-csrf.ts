@@ -17,7 +17,7 @@ const AGENT_PATHS = [
   '/route-agent',
   '/admin/support-agent',
   '/admin/workflow-agent',
-  '/admin/workflowagent2',
+  '/admin/agent-events',
 ]
 
 function isAgentPath(pathname: string): boolean {

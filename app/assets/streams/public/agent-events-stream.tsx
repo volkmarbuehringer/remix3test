@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { routes } from '../../../routes.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import {
@@ -15,8 +16,8 @@ export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',
   function AgentEventsStream(handle: Handle) {
     let abortController: AbortController | null = null
-    let _isResume = false
     let didNavigate = false
+    let currentRunId: string | null = null
     let autoGrowReset: (() => void) | null = null
 
     function getStatusBar() {
@@ -112,7 +113,7 @@ export const AgentEventsStream = clientEntry(
       bar.scrollTop = bar.scrollHeight
     }
 
-    function showConfirmGate(data: Record<string, unknown>) {
+    function showConfirmGate(suspendPayload: Record<string, unknown>) {
       let bar = getStatusBar()
       if (!bar) return
 
@@ -128,10 +129,23 @@ export const AgentEventsStream = clientEntry(
       container.style.gap = '0.5rem'
 
       let q = document.createElement('div')
-      q.textContent = String(data.question || 'Confirm?')
+      q.textContent = String(suspendPayload.question || 'Confirm?')
       q.style.fontWeight = '600'
       q.style.fontSize = '0.875rem'
       container.appendChild(q)
+
+      let actionType = String(suspendPayload.actionType || '')
+      let userName = String(suspendPayload.targetUserName || '')
+      let pendingCount = Number(suspendPayload.pendingCount || 0)
+      let detailsText = actionType ? `${actionType} ${userName}`.trim() : userName
+      if (pendingCount > 0) detailsText += ` — ${pendingCount} pending appointments`
+      if (detailsText) {
+        let details = document.createElement('div')
+        details.style.fontSize = '0.75rem'
+        details.style.color = theme.colors.text.muted
+        details.textContent = detailsText
+        container.appendChild(details)
+      }
 
       let buttons = document.createElement('div')
       buttons.style.display = 'flex'
@@ -149,7 +163,7 @@ export const AgentEventsStream = clientEntry(
       confirmBtn.onclick = () => {
         confirmBtn.disabled = true
         cancelBtn.disabled = true
-        handleResume(true, String(data.runId || ''))
+        handleResume(true)
       }
       buttons.appendChild(confirmBtn)
 
@@ -165,7 +179,7 @@ export const AgentEventsStream = clientEntry(
       cancelBtn.onclick = () => {
         confirmBtn.disabled = true
         cancelBtn.disabled = true
-        handleResume(false, String(data.runId || ''))
+        handleResume(false)
       }
       buttons.appendChild(cancelBtn)
 
@@ -181,22 +195,14 @@ export const AgentEventsStream = clientEntry(
       }
     }
 
-    async function handleResume(confirmed: boolean, runId: string) {
-      if (!runId) return
+    async function handleResume(confirmed: boolean) {
+      if (!currentRunId) return
       setFormEnabled(false)
-      _isResume = true
 
       let body = new FormData()
-      body.set('runId', runId)
+      body.set('runId', currentRunId)
       body.set('confirmed', String(confirmed))
-      startStream('/admin/workflowagent2/resume', { method: 'POST', body })
-    }
-
-    function reloadActiveFrame() {
-      let container = document.getElementById('agent-events-frame-container')
-      let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
-      let frame = handle.frames.get(activeFrame)
-      if (frame) frame.reload().catch(() => {})
+      startStream(routes.admin.agentEvents.resume.href(), { method: 'POST', body })
     }
 
     function restoreFilterValue(url: string) {
@@ -265,8 +271,25 @@ export const AgentEventsStream = clientEntry(
 
               if (eventType === 'status') {
                 pushRow(parsed.text || '', (parsed.kind as RowKind) ?? inferKind(parsed.text || ''))
-              } else if (eventType === 'confirm-required') {
-                showConfirmGate(parsed)
+              } else if (eventType === 'start') {
+                currentRunId = parsed.runId || null
+              } else if (eventType === 'workflow-step-suspended') {
+                showConfirmGate((parsed.suspendPayload as Record<string, unknown>) || {})
+              } else if (eventType === 'workflow-finish') {
+                currentRunId = null
+                if (parsed.success) {
+                  showInfo('Action completed', { kind: 'success' })
+                  let container = document.getElementById('agent-events-frame-container')
+                  let activeFrame =
+                    container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
+                  let theFrame = handle.frames.get(activeFrame)
+                  if (theFrame) theFrame.reload().catch(() => {})
+                } else {
+                  showInfo('Action failed: ' + (parsed.error || 'unknown'), { kind: 'error' })
+                }
+              } else if (eventType === 'workflow-error') {
+                currentRunId = null
+                showInfo('Action failed: ' + (parsed.error || 'unknown'), { kind: 'error' })
               } else if (eventType === 'navigate') {
                 didNavigate = true
                 let href = parsed.href as string
@@ -291,10 +314,7 @@ export const AgentEventsStream = clientEntry(
               } else if (eventType === 'message') {
                 pushRow(parsed.text || '', 'info')
               } else if (eventType === 'complete') {
-                if (_isResume && didNavigate) {
-                  _isResume = false
-                  reloadActiveFrame()
-                }
+                currentRunId = null
                 setFormEnabled(true)
               } else if (eventType === 'agent-error') {
                 let msg = 'Error: ' + (parsed.error || 'unknown')
@@ -330,11 +350,12 @@ export const AgentEventsStream = clientEntry(
       }
       setFormEnabled(false)
       didNavigate = false
+      currentRunId = null
       clearStatusBar()
       resetPipeline()
       pushRow('Processing…', 'active')
 
-      startStream('/admin/workflowagent2', { method: 'POST', body: formData })
+      startStream(routes.admin.agentEvents.index.href(), { method: 'POST', body: formData })
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {
