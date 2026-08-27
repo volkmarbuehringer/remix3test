@@ -172,8 +172,8 @@ npm run typecheck
 | `npm run test`       | Run Playwright E2E and server integration tests |
 | `npm run typecheck`  | Type-check the project (`tsc --noEmit`)         |
 | `npm run lint`       | Lint with oxlint                                |
-| `npm run format`     | Check formatting with Prettier                  |
-| `npm run format:fix` | Auto-format with Prettier                       |
+| `npm run format`     | Check formatting with oxfmt                     |
+| `npm run format:fix` | Auto-format with oxfmt                          |
 
 ## Database Setup
 
