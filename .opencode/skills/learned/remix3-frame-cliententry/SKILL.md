@@ -1634,3 +1634,83 @@ For a `<form method="post" data-rmx-target="...">` whose action equals the curre
 See `b23ecbed2` for the tests: `packages/ui/src/test/navigation.test.ts` asserts `replaceHistory` outcomes for both explicit and attribute-driven cases.
 
 (Consolidated from upstream `b23ecbed2` / #11670)
+
+---
+
+## Post-Form PRG Redirects in Nested Frames — Bail vs. Stale src
+
+**Context:** A grid CRUD form (e.g. activate/deactivate a user) posts inside a nested agent panel frame (agent-events-panel / workflow-agent-panel). The controller redirects (PRG). Two distinct failure modes.
+
+### Failure 1 — Redirect bail tears down the host
+
+`resolveFrameResponse` (`app/assets/frame-response.browser.tsx`) does
+`if (response.redirected && options?.target) window.location.assign(response.url)`.
+A frame-targeted form POST's browser `fetch` follows the 302 → `response.redirected`,
+so the client performs a **top-level** navigation to the redirect destination. When the
+host page is `/admin/agent-events` and the destination is `/admin/users?…`, the whole
+host "agent dialog" disappears.
+
+**Fix:** wire a server-side `frameRedirects()` middleware into the router stack, scoped
+to the frame targets that should follow in-frame (admin shell targets: admin-content,
+lists-content, workflow/agent-events/support panels). It re-fetches a same-origin
+redirect destination as a GET `X-Remix-Frame`/`X-Remix-Target` fragment and returns it,
+so the client never sees a 3xx → no bail. Non-admin targets, cross-origin, and the
+redirect-depth limit return the redirect unchanged (the client bail handles them).
+
+```ts
+// app/middleware/root.ts
+createMiddleware(..., render(), json(), frameRedirects())
+
+// app/middleware/frame-redirect.ts
+if (context.request.headers.get('X-Remix-Frame') !== 'true' || target == null) return response
+if (!ADMIN_FRAME_TARGETS.has(target)) return response        // step-1 scope gate
+if (!isRedirectResponse(response)) return response
+// re-fetch destination as a frame GET fragment → return it
+```
+
+### Failure 2 — Stale frame src → 404 after the in-frame redirect
+
+After the in-frame follow, `navigation.ts` sets `frame.src = state.src` — the **POST
+action URL** (e.g. `/admin/users/2/toggle-disabled`). `redirectedTo` is only populated
+when the response is marked `redirected` (it isn't — the middleware returned a 200
+fragment), and the runtime only reconciles `frame.src` for the **top** frame
+(`if (redirectedTo && frame === topFrame)`). So a nested subframe keeps the POST URL as
+its `src`, and a later `frame.reload()` (e.g. the agent `workflow-finish` reload) does a
+GET on a POST-only route → **404 / "Not Found"**.
+
+**Fix:** the middleware reports the destination (`X-Remix-Redirect-To` header) and the
+client `resolveFrame` (`app/assets/entry.tsx`) reads it and sets the target frame's
+`src` to the destination:
+
+```ts
+// app/middleware/frame-redirect.ts — on the returned fragment
+frameResponse.headers.set('X-Remix-Redirect-To', destination.href)
+
+// app/assets/entry.tsx — inside run({ resolveFrame })
+if (result instanceof Response) {
+  let dest = result.headers.get('X-Remix-Redirect-To')
+  if (dest && options?.target) {
+    let frame = app.frames.get(options.target)
+    if (frame) frame.src = dest
+  }
+}
+```
+
+### Vendor constraints
+
+- `data-rmx-src` does **not** fix this for POST forms: the resolver fetches `frame.src`
+  (not the form `action`), so pointing it at the grid URL would send the POST to the
+  wrong URL. It only works for links.
+- The runtime only reconciles `frame.src` on redirect for the top frame; nested
+  subframes must be reconciled by the app.
+- Server-side grid tests do not send `X-Remix-Frame`/`X-Remix-Target`, so wiring
+  `frameRedirects()` will not disturb them — only the browser frame path changes.
+- Verify with a router-level test that the in-frame follow returns a `200` fragment (not
+  a bare `302`) carrying `X-Remix-Redirect-To`, plus a browser e2e driving the
+  confirm-gate → resume → reload path (no 404).
+
+(Version-dependent: the top-frame-only `src` reconcile and the `resolveFrameResponse`
+redirect bail are remix/ui runtime behavior — re-check against the pinned vendor source
+before relying on it.)
+
+(Consolidated from the admin-frame-redirect-follow session)
