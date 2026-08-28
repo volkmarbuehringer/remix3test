@@ -7,7 +7,7 @@ compatibility: Requires openspec CLI.
 metadata:
   author: openspec
   version: "1.0"
-  generatedBy: "1.10.0"
+  generatedBy: "1.11.0"
 ---
 
 Continue working on a change by creating the next artifact.
@@ -33,7 +33,7 @@ Continue working on a change by creating the next artifact.
 
    Mark the most recently modified change as "(Recommended)" since it's likely what the user wants to continue.
 
-   Always announce: "Using change: <name>" and how to override (e.g., `/opsx-continue <other>`).
+   Always announce: "Using change: <name>" and how to override (e.g., `/openspec-continue-change <other>`).
 
 2. **Check current status**
    ```bash
