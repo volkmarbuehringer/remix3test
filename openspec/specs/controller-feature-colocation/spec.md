@@ -67,5 +67,5 @@ The consolidation convention produces `remix doctor` "missing action controller"
 #### Scenario: `mastra/` is an intentional exception
 
 - **WHEN** the `supportAgent` handler is consolidated
-- **THEN** its implementation SHALL remain in `app/actions/mastra/controller.tsx` (re-exported by `admin/controller.tsx` as `supportAgent`)
+- **THEN** its implementation SHALL live in a colocated top-level `app/actions/support-agent/controller.tsx` (re-exported by `admin/controller.tsx` as `supportAgent`), matching the structure used by `workflow-agent` and `agent-events`, and SHALL NOT be re-exported from `app/actions/mastra/controller.tsx`
 - **AND** the `mastra/` directory (agents, tools, workflows, scorers, notifications, `index.ts`, `shared-agent.ts`, `storage.ts`, `workflow-executor.ts`) SHALL NOT be merged, because it is the Mastra agent subsystem, not a route-controller group
