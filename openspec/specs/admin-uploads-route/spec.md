@@ -92,13 +92,3 @@ The uploads page SHALL render within the admin content frame (the same admin sid
 
 - **WHEN** a user loads `/admin/uploads`
 - **THEN** the page SHALL render within the admin content frame rather than the top-level app layout
-
-### Requirement: Route-agent navigates to /admin/uploads
-
-The route-agent navigation protocol SHALL direct PDF-upload requests to `/admin/uploads` instead of the removed `/uploads` path.
-
-#### Scenario: Route-agent navigates to /admin/uploads for a PDF upload
-
-- **WHEN** the route-agent resolves a user PDF-upload request
-- **THEN** it SHALL navigate to `/admin/uploads`
-- **AND** SHALL NOT navigate to `/uploads`

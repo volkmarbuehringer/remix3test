@@ -1,6 +1,6 @@
 ## Purpose
 
-Provides shared utility functions that client entries use instead of bare `window.location.reload()` or `window.location.href =` assignments. When called from within an agent frame (support agent or route agent), the utilities reload or navigate only the active frame instead of the top-level page.
+Provides shared utility functions that client entries use instead of bare `window.location.reload()` or `window.location.href =` assignments. When called from within the support-agent frame, the utilities reload or navigate only the active frame instead of the top-level page.
 
 ## ADDED Requirements
 
@@ -18,12 +18,6 @@ A shared utility function SHALL be available that client entries call instead of
 
 - **WHEN** `safeReload(handle)` is called outside any agent frame container
 - **THEN** the function SHALL fall back to `window.location.reload()`
-
-#### Scenario: safeReload inside route agent frame
-
-- **WHEN** `safeReload(handle)` is called inside a route agent page
-- **THEN** the function SHALL detect `#route-agent-frame-container`
-- **AND** reload the active frame
 
 ### Requirement: Frame-aware navigation utility
 
