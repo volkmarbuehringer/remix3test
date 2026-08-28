@@ -248,6 +248,10 @@ export const table = {
     gridTemplateColumns: '1fr 380px',
     gap: '24px',
     alignItems: 'start',
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr',
+      gap: theme.space.md,
+    },
   }),
 
   panel: css({
@@ -304,6 +308,10 @@ export const table = {
     marginTop: theme.space.lg,
     paddingTop: theme.space.md,
     borderTop: `1px solid ${theme.colors.border.default}`,
+    '@media (max-width: 768px)': {
+      flexDirection: 'column',
+      alignItems: 'stretch',
+    },
   }),
 
   // ── Repeated inline pattern mixins ──
@@ -317,7 +325,11 @@ export const table = {
   /** Hides content while keeping it in the DOM for JS access */
   displayNone: css({ display: 'none' }),
   /** Wraps the edit/create panel so it scrolls with the user */
-  stickyPanel: css({ position: 'sticky', top: '1.5rem' }),
+  stickyPanel: css({
+    position: 'sticky',
+    top: '1.5rem',
+    '@media (max-width: 768px)': { position: 'static' },
+  }),
   /** Prevents grid section from blowing out the two-column layout */
   minWidth0: css({ minWidth: 0 }),
   /** Highlights the currently-edited row in the table */

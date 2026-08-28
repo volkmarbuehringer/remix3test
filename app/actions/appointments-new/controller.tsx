@@ -99,6 +99,58 @@ interface AppointmentsNewPageData {
   daysWithSlots?: DayWithSlots[]
 }
 
+// Computes the bookable per-day full-hour slots for a resource in a single week,
+// after removing booked ranges and past days/past times. Shared by the default
+// week and the auto-advance probe used when the default week has no free slots.
+async function loadWeekSlots(
+  db: AppContext['db'],
+  resourceId: number,
+  weekStart: number,
+): Promise<DayWithSlots[]> {
+  let searchEnd = weekStart + 7 * 86_400_000
+  let offerings = await listOfferingsByDayRange(db, weekStart, searchEnd, resourceId)
+  let bookedByDay = await getBookedRangesForWeek(db, resourceId, weekStart, searchEnd)
+
+  let dayMap = new Map<
+    number,
+    { ranges: { startMin: number; endMin: number }[]; slots: number[] }
+  >()
+  for (let offering of offerings) {
+    let d = Number(offering.day)
+    if (!dayMap.has(d)) dayMap.set(d, { ranges: [], slots: [] })
+    let parsed = parseDuring(offering.during)
+    if (parsed) dayMap.get(d)!.ranges.push(parsed)
+  }
+  for (let [d, data] of dayMap) {
+    data.slots = computeFullHourSlots(data.ranges)
+    let booked = bookedByDay.get(d) ?? []
+    if (booked.length > 0) data.slots = filterAvailableSlots(data.slots, booked)
+  }
+
+  let days = Array.from(dayMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([day, data]) => ({
+      day,
+      dateStr: new Date(day).toISOString().split('T')[0],
+      slots: data.slots,
+      ranges: data.ranges,
+    }))
+
+  // Drop past days and, for today, past time slots.
+  let todayMs = getTodayUtcMidnight()
+  return days
+    .filter((dws) => dws.day >= todayMs)
+    .map((dws) => {
+      if (dws.day === todayMs) {
+        let now = new Date()
+        let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+        dws.slots = dws.slots.filter((min) => currentMin < min)
+      }
+      return dws
+    })
+    .filter((dws) => dws.slots.length > 0)
+}
+
 async function loadAppointmentsNewPageData(
   context: any,
   userId: number,
@@ -204,64 +256,43 @@ async function loadAppointmentsNewPageData(
   let defaultStartMin = 480
 
   if (creating && step === 2 && wizardResourceId) {
-    let searchStart = weekStart!
-    let searchEnd = searchStart + 7 * 86_400_000
     let resourceIdNum = parseInt(wizardResourceId, 10)
     let resourceExists = await checkResourceExists(context.db, resourceIdNum)
     if (resourceExists) {
-      let offerings = await listOfferingsByDayRange(
-        context.db,
-        searchStart,
-        searchEnd,
-        resourceIdNum,
-      )
-      let bookedByDay = await getBookedRangesForWeek(
-        context.db,
-        resourceIdNum,
-        searchStart,
-        searchEnd,
-      )
-
-      let dayMap = new Map<
-        number,
-        { ranges: { startMin: number; endMin: number }[]; slots: number[] }
-      >()
-      for (let offering of offerings) {
-        let d = Number(offering.day)
-        if (!dayMap.has(d)) dayMap.set(d, { ranges: [], slots: [] })
-        let parsed = parseDuring(offering.during)
-        if (parsed) dayMap.get(d)!.ranges.push(parsed)
-      }
-      for (let [d, data] of dayMap) {
-        data.slots = computeFullHourSlots(data.ranges)
-        let booked = bookedByDay.get(d) ?? []
-        if (booked.length > 0) {
-          data.slots = filterAvailableSlots(data.slots, booked)
-        }
-      }
-      daysWithSlots = Array.from(dayMap.entries())
-        .sort(([a], [b]) => a - b)
-        .map(([day, data]) => ({
-          day,
-          dateStr: new Date(day).toISOString().split('T')[0],
-          slots: data.slots,
-          ranges: data.ranges,
-        }))
-
-      // Filter out past days and past time slots for today
-      let todayMs = getTodayUtcMidnight()
-      daysWithSlots = daysWithSlots
-        .filter((dws) => dws.day >= todayMs)
-        .map((dws) => {
-          if (dws.day === todayMs) {
-            let now = new Date()
-            let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-            dws.slots = dws.slots.filter((min) => currentMin < min)
+      let baseWeek = weekStart!
+      let explicitlyRequestedWeek = weekStartRaw != null
+      // When the user lands on the default (current) week it can already have
+      // no bookable slots (e.g. its offerings are in the past). Auto-advance to
+      // the nearest week that actually has free slots so the wizard never shows
+      // an empty time-picker on first load. Explicit week navigation is left
+      // alone so the ◀/▶ buttons keep behaving predictably.
+      let probeWeeks = explicitlyRequestedWeek ? 1 : 6
+      let slots: DayWithSlots[] = []
+      if (probeWeeks > 1) {
+        // Cheap guard against the worst case: a resource with no offerings in
+        // the whole horizon (e.g. a test fixture with no schedule) would run the
+        // per-week probe ~probeWeeks times. One range query lets us bail out.
+        let horizonEnd = baseWeek + probeWeeks * 7 * 86_400_000
+        let horizonOfferings = await listOfferingsByDayRange(
+          context.db,
+          baseWeek,
+          horizonEnd,
+          resourceIdNum,
+        )
+        if (horizonOfferings.length > 0) {
+          for (let i = 0; i < probeWeeks; i++) {
+            let ws = baseWeek + i * 7 * 86_400_000
+            slots = await loadWeekSlots(context.db, resourceIdNum, ws)
+            if (slots.length > 0) {
+              weekStart = ws
+              break
+            }
           }
-          return dws
-        })
-        .filter((dws) => dws.slots.length > 0)
-
+        }
+      } else {
+        slots = await loadWeekSlots(context.db, resourceIdNum, baseWeek)
+      }
+      daysWithSlots = slots
       if (daysWithSlots.length > 0 && daysWithSlots[0].slots.length > 0) {
         defaultStartMin = daysWithSlots[0].slots[0]
       }

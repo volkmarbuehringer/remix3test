@@ -165,6 +165,12 @@ const emptyStyle = css({
   fontSize: theme.fontSize.sm,
 })
 
+const weekNavBtnCss = css({
+  '@media (max-width: 768px)': {
+    minHeight: '44px',
+  },
+})
+
 function formatRangeLabel(ranges: { startMin: number; endMin: number }[]): string {
   return ranges.map((r) => `${formatMinOption(r.startMin)}–${formatMinOption(r.endMin)}`).join(', ')
 }
@@ -289,7 +295,12 @@ export function Step2(handle: Handle<Step2Props>) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: theme.space.sm,
                   marginBottom: theme.space.sm,
+                  '@media (max-width: 768px)': {
+                    rowGap: theme.space.sm,
+                  },
                 })}
               >
                 {isCurrentWeek ? (
@@ -304,25 +315,36 @@ export function Step2(handle: Handle<Step2Props>) {
                   </span>
                 ) : (
                   <a href={buildWeekUrl(prevWeekStart)} mix={css({ textDecoration: 'none' })}>
-                    <button type="button" mix={[button({ tone: 'secondary' })]}>
+                    <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
                       ◀ Vorherige
                     </button>
                   </a>
                 )}
                 <span
-                  mix={css({ fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.sm })}
+                  mix={css({
+                    fontWeight: theme.fontWeight.semibold,
+                    fontSize: theme.fontSize.sm,
+                    textAlign: 'center',
+                    '@media (max-width: 768px)': {
+                      flexBasis: '100%',
+                      order: -1,
+                    },
+                  })}
                 >
                   {formatWeekLabel(weekStart)}
                 </span>
                 <a href={buildWeekUrl(nextWeekStart)} mix={css({ textDecoration: 'none' })}>
-                  <button type="button" mix={[button({ tone: 'secondary' })]}>
+                  <button type="button" mix={[button({ tone: 'secondary' }), weekNavBtnCss]}>
                     Nächste ▶
                   </button>
                 </a>
               </div>
 
               {daysWithSlots.length === 0 ? (
-                <div mix={emptyStyle}>Keine verfügbaren Tage in dieser Woche</div>
+                <div mix={emptyStyle}>
+                  Für diese Ressource sind derzeit keine freien Termine verfügbar. Wechseln Sie die
+                  Woche (◀ / ▶) oder wählen Sie eine andere Ressource.
+                </div>
               ) : (
                 <fieldset mix={timeGroup}>
                   <legend mix={timeGroupLegend}>Uhrzeit wählen</legend>

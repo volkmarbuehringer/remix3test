@@ -20,6 +20,7 @@ import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
 import type { AppointmentsNewRow, ResourceOption, DayWithSlots } from '../data/appointments.ts'
 import { parseDuring } from '../data/appointofferings.ts'
 import { AppointmentsScrollLock } from '../ui/appointments-scroll-lock.browser.tsx'
+import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
 
 const BASE = '/appointments/new'
 
@@ -98,6 +99,10 @@ const headerBarStyle = css({
 const btnGroupStyle = css({
   display: 'inline-flex',
   alignItems: 'stretch',
+  '@media (max-width: 768px)': {
+    flexWrap: 'wrap',
+    rowGap: theme.space.xs,
+  },
 })
 
 const compactTd = css({
@@ -146,6 +151,46 @@ const delBtnStyle = css({
   fontSize: theme.fontSize.xs,
   cursor: 'pointer',
   '&:hover': { opacity: 0.9 },
+  '@media (max-width: 768px)': {
+    minWidth: '44px',
+    minHeight: '44px',
+  },
+})
+
+const apptTableCard = css({
+  '@media (max-width: 768px)': {
+    '& table': { display: 'block', tableLayout: 'auto' },
+    '& thead': { display: 'none' },
+    '& tbody': { display: 'block' },
+    '& tbody tr': {
+      display: 'grid',
+      gridTemplateColumns: '1fr',
+      gap: theme.space.xs,
+      padding: theme.space.sm,
+      marginBottom: theme.space.sm,
+      border: `1px solid ${theme.colors.border.default}`,
+      borderRadius: theme.radius.md,
+      background: theme.surface.lvl1,
+    },
+    '& tbody td': {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: theme.space.sm,
+      padding: `${theme.space.xs} 0`,
+      borderBottom: 'none',
+      overflow: 'visible',
+      textOverflow: 'clip',
+      whiteSpace: 'normal',
+      '&::before': {
+        content: 'attr(data-label)',
+        flexShrink: 0,
+        fontWeight: theme.fontWeight.semibold,
+        fontSize: theme.fontSize.xs,
+        color: theme.colors.text.secondary,
+      },
+    },
+  },
 })
 
 export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
@@ -324,7 +369,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           </div>
         </div>
 
-        <div mix={table.wrap} data-appointments-table="true">
+        <div mix={[table.wrap, apptTableCard]} data-appointments-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
@@ -434,26 +479,36 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.id} mix={table.row} data-row-id={row.id}>
-                    <td mix={[table.td, compactTd]} title={row.title}>
+                    <td mix={[table.td, compactTd]} title={row.title} data-label="Titel">
                       {row.title}
                     </td>
                     <td
                       mix={[table.td, compactTd]}
                       title={row.resource_name ?? row.resource_description ?? ''}
+                      data-label="Ressource"
                     >
                       {row.resource_name ?? row.resource_description ?? '\u2014'}
                     </td>
-                    <td mix={[table.td, compactTd]} title={formatDateDE(Number(row.date))}>
+                    <td
+                      mix={[table.td, compactTd]}
+                      title={formatDateDE(Number(row.date))}
+                      data-label="Datum"
+                    >
                       {formatDateDE(Number(row.date))}
                     </td>
-                    <td mix={[table.td, compactTd]} title={row.during}>
+                    <td mix={[table.td, compactTd]} title={row.during} data-label="Zeit">
                       {formatDuring(row.during)}
                     </td>
-                    <td mix={[table.td, compactTd, css({ textAlign: 'right' })]}>
+                    <td
+                      mix={[table.td, compactTd, css({ textAlign: 'right' })]}
+                      data-label="Löschen"
+                    >
                       {row.blocked ? (
                         <span
                           mix={lockedIconStyle}
                           title="Nicht löschbar — weniger als 24 Stunden bis zum Beginn"
+                          role="img"
+                          aria-label="Nicht löschbar — weniger als 24 Stunden bis zum Beginn"
                         >
                           {'\u2014'}
                         </span>
@@ -462,6 +517,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                           href={`${BASE}?deleting=${row.id}&offset=${offset}&sort=${sortColumn}&order=${sortDirection}${filter ? '&filter=' + encodeURIComponent(filter) : ''}${period ? '&period=' + encodeURIComponent(period) : ''}${status ? '&status=' + encodeURIComponent(status) : ''}`}
                           mix={delBtnStyle}
                           title="Löschen"
+                          aria-label="Termin löschen"
                         >
                           <Glyph name="close" width={14} height={14} />
                         </a>
@@ -532,12 +588,13 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
       return (
         <div mix={table.page}>
           <AppointmentsScrollLock />
+          <CreatePanelScrollLive />
           <div mix={headerBarStyle}>
             <h2 mix={table.title}>Meine Termine</h2>
           </div>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={table.stickyPanel}>
+            <div mix={table.stickyPanel} data-create-panel="true">
               {deletingRow ? (
                 <div mix={table.panel}>
                   <div mix={table.panelHeader}>
