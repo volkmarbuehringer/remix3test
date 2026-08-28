@@ -101,6 +101,24 @@ async function initExecutors() {
 initExecutors()
 ```
 
+### Apply the seam to every call site
+
+A mutable+setter seam only replaces the dependency for code paths that read through it. If any handler reaches for the real dependency directly, that handler silently runs the real thing in tests — the test sets the mock but gets unmocked behavior, surfacing as confusing SSE-event or output mismatches.
+
+Remix 3 + Mastra example — a route controller exposes a test seam (`_testAgent` + `__setTestAgent`), the `action` handler resolves through it, but the `toolDecision` / `answer` handlers call `mastra.getAgent('supportAgent')` directly. Tests set `__setTestAgent(mock)`; the `action` tests pass but the approval-flow tests run the real agent (or error). Fix: route every handler through one helper:
+
+```ts
+function resolveAgent(): TestAgent {
+  return process.env.NODE_ENV === 'test' && _testAgent
+    ? _testAgent
+    : mastra.getAgent('supportAgent')
+}
+```
+
+Use it in every handler. Diagnostic: if a test sets `__setTestAgent(...)` but the response shows real-agent output (or no mock events), a call site is bypassing the seam — grep the controller for direct `mastra.getAgent(...)` references.
+
+TS wrinkle: methods that exist only in production (e.g. `approveToolCallGenerate`, `declineToolCallGenerate`) are marked optional (`?`) on the test-agent interface, so calling them on the seam-returned agent needs a non-null assertion (`agent.approveToolCallGenerate!(...)`). Safe, because the approve/decline route guarantees the real agent — and its approval-flow mocks — provide those methods.
+
 ## When to Use
 
 - Testing modules that import and capture external function references
