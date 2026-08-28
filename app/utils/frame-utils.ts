@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/ui'
 
-const CONTAINER_IDS = ['support-agent-frame-container', 'route-agent-frame-container'] as const
+const CONTAINER_IDS = ['support-agent-frame-container'] as const
 
 function getActiveFrame(handle: Handle): string | null {
   for (let id of CONTAINER_IDS) {

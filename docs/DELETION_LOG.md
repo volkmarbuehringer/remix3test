@@ -1,5 +1,42 @@
 # Code Deletion Log
 
+## [2026-08-28] Retire routeAgent and testAgent
+
+Retired the `routeAgent` (agentic-routing POC, superseded by `supportAgent`) and `testAgent` (dev-only filesystem-explorer prototype) from the Mastra registry and the app.
+
+### Files Deleted
+
+- `app/actions/mastra/agents/route-agent.ts`
+- `app/actions/mastra/agents/test-agent.ts`
+- `app/actions/mastra/tools/test-tools.ts` + `test-tools.test.ts`
+- `app/actions/mastra/tools/route-find-list.ts` (no surviving agent imported `findList`)
+- `app/actions/route-agent/controller.tsx`
+- `app/actions/test-agent/controller.tsx` + `controller.test.ts`
+- `app/ui/route-agent-page.tsx`, `app/ui/test-agent-page.tsx`
+- `app/assets/streams/public/route-agent-stream.tsx`, `app/assets/streams/public/test-agent-stream.tsx`
+
+### Routes / Wiring Removed
+
+- `/route-agent` and `/testagent` route trees from `app/routes.ts` and their `router.map()` calls in `app/router.ts`
+- Route-Agent link from `app/ui/nav.ts`; Test-Agent nav item, `AdminNavItem` union entry, and `testAgentSvg()` from `app/ui/admin-layout.tsx`
+- `'/testagent'` and `'/route-agent'` from `AGENT_PATHS` in `app/middleware/skip-csrf.ts`
+- `'route-agent-frame-container'` from `CONTAINER_IDS` in `app/utils/frame-utils.ts`
+- `TestAgentStream` / `RouteAgentStream` imports from `app/assets/streams/streams.test.browser.tsx`
+- `testAgent` / `routeAgent` entries from the Mastra agents registry in `app/actions/mastra/index.ts`
+
+### Kept Intentionally
+
+- `app/actions/mastra/tools/route-navigate.ts` — still imported by `supportAgent`
+- `_testAgent` / `__setTestAgent` test seam in `app/actions/mastra/controller.tsx` — a `supportAgent` stub, unrelated to the retired `testAgent`
+
+### Impact
+
+- Mastra agents: 5 → 3 (`supportAgent`, `customerAgent`, `workflowAgent`)
+- Removed the approval-gated filesystem write/edit/delete surface exposed by `testAgent` in the admin panel
+- TypeScript: clean compile (`npm run typecheck`)
+- Lint: oxlint `--max-warnings=0` + theme conformance pass
+- Tests: 1264 pass / 0 fail / 1 todo / 1 skipped
+
 ## [2026-07-23] Refactor Session — Dead Code Cleanup
 
 ### Unused CSS Removed from `app/ui/layout.tsx`

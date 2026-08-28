@@ -15,8 +15,6 @@ import {
   authLogout,
 } from './actions/auth/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
-import testAgent from './actions/test-agent/controller.tsx'
-import routeAgent from './actions/route-agent/controller.tsx'
 import * as admin from './actions/admin/controller.tsx'
 import * as verwaltung from './actions/verwaltung/controller.tsx'
 import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
@@ -106,12 +104,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Customer Chat route (resource matching)
   router.map(routes.chat, customerChat)
-
-  // Test Agent route (auth-gated, SSE streaming)
-  router.map(routes.testAgent, testAgent)
-
-  // Route Agent POC (auth-gated, SSE streaming, frame navigation)
-  router.map(routes.routeAgent, routeAgent)
 
   // Admin routes
   router.map(routes.admin, admin.adminController)

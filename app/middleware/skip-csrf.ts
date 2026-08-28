@@ -13,8 +13,6 @@ const csrfMiddleware = csrf({
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
 const AGENT_PATHS = [
-  '/testagent',
-  '/route-agent',
   '/admin/support-agent',
   '/admin/workflow-agent',
   '/admin/agent-events',

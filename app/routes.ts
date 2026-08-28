@@ -202,23 +202,6 @@ export const routes = route({
     }),
   }),
 
-  testAgent: route('testagent', {
-    index: get('/'),
-    action: post('/'),
-    stream: get('/stream/:runId'),
-    approve: post('/approve'),
-    decline: post('/decline'),
-    answer: post('/answer'),
-  }),
-
-  routeAgent: route('route-agent', {
-    index: get('/'),
-    panel: get('/panel'),
-    action: post('/'),
-    answer: post('/answer'),
-    toolDecision: post('/tool-decision'),
-  }),
-
   // Frame traversal scroll-restoration reproduction (see
   // app/actions/scroll-restoration/). Mirrors the upstream demo so we can
   // assert that the browser Back button restores scroll when a top-level
