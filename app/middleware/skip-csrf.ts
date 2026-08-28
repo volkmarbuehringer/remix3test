@@ -16,6 +16,7 @@ const AGENT_PATHS = [
   '/admin/support-agent',
   '/admin/workflow-agent',
   '/admin/agent-events',
+  '/chat',
 ]
 
 function isAgentPath(pathname: string): boolean {

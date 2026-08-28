@@ -260,3 +260,19 @@ CREATE TABLE IF NOT EXISTS admin_active_runs (
 );
 
 CREATE INDEX IF NOT EXISTS admin_active_runs_run_id_idx ON admin_active_runs (run_id);
+
+-- Durable ownership mapping for the public /chat agent runs. The Mastra run
+-- is the source of truth (PostgresStoreVNext); this row is a run_id -> user
+-- pointer so approve/decline/answer can verify ownership and survive a server
+-- restart or scale-out without an in-memory stream store. Deleted when the
+-- run reaches a terminal state (approve/decline/answer resolution); a TTL
+-- bounds growth for runs abandoned while suspended.
+CREATE TABLE IF NOT EXISTS chat_runs (
+  run_id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  thread_id TEXT NOT NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS chat_runs_user_id_idx ON chat_runs (user_id);
+CREATE INDEX IF NOT EXISTS chat_runs_thread_id_idx ON chat_runs (thread_id);

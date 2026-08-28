@@ -1,4 +1,4 @@
-import { describe, it, before } from 'remix/test'
+import { describe, it, before, afterEach, after } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../db.ts'
@@ -6,7 +6,9 @@ import { pool } from '../../data/test-pool.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { chatRateLimiter } from './controller.tsx'
+import { __setTestAgent, chatRateLimiter } from './controller.tsx'
+import { recordChatRun, findChatRunOwner } from './run-store.ts'
+import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.chat.index.href()}`
@@ -14,27 +16,127 @@ const CHAT_ACTION_URL = `${BASE}${routes.chat.action.href()}`
 const CHAT_APPROVE_URL = `${BASE}${routes.chat.approve.href()}`
 const CHAT_DECLINE_URL = `${BASE}${routes.chat.decline.href()}`
 const CHAT_ANSWER_URL = `${BASE}${routes.chat.answer.href()}`
-const CHAT_STREAM_BASE = `${BASE}/chat/stream`
 
-async function getAdminId(): Promise<number> {
-  let result = await pool.query('SELECT id FROM users WHERE role = $1 ORDER BY id LIMIT 1', [
-    'admin',
-  ])
+const SSE_HEADERS = { Accept: 'text/event-stream', 'X-Sse-Request': '1' }
+
+async function getUserId(email: string): Promise<number> {
+  let result = await pool.query('SELECT id FROM users WHERE email = $1', [email])
   return result.rows[0]?.id as number
+}
+
+async function parseSSEResponse(
+  response: Response,
+): Promise<{ events: Array<{ type: string; data: string }>; text: string }> {
+  let events: Array<{ type: string; data: string }> = []
+  let text = ''
+  let body = response.body
+  if (!body) return { events, text }
+
+  let reader = body.getReader()
+  let decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+    for (let part of parts) {
+      let lines = part.split('\n')
+      let eventType = 'message'
+      let data = ''
+      for (let line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7)
+        else if (line.startsWith('data: ')) data = line.slice(6)
+      }
+      events.push({ type: eventType, data })
+      if (eventType === 'message') {
+        try {
+          let parsed = JSON.parse(data)
+          text += parsed.text || ''
+        } catch {
+          text += data
+        }
+      }
+    }
+  }
+  return { events, text }
+}
+
+function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput {
+  let id = runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        if (text) {
+          controller.enqueue({ type: 'text-delta', textDelta: text })
+        }
+        controller.enqueue({ type: 'finish', payload: {} })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text, finishReason: 'stop' }),
+  }
+}
+
+type MockAgent = {
+  generate: (message: string, opts?: Record<string, unknown>) => Promise<{ text: string }>
+  stream: (message: string, opts?: any) => Promise<AgentStreamOutput>
+  resumeStream: (data: unknown, opts?: any) => Promise<AgentStreamOutput>
+  approveToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
+    text: string
+    finishReason: string
+    runId: string
+  }>
+  declineToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
+    text: string
+    finishReason: string
+    runId: string
+  }>
+}
+
+function makeMockAgent(overrides?: Partial<MockAgent>): MockAgent {
+  return {
+    generate: async () => ({ text: '' }),
+    stream: async () => createMockStreamOutput('Hier ist die Antwort.'),
+    resumeStream: async () => createMockStreamOutput('Fortsetzung.'),
+    approveToolCallGenerate: async () => ({
+      text: 'Bestätigt.',
+      finishReason: 'stop',
+      runId: crypto.randomUUID(),
+    }),
+    declineToolCallGenerate: async () => ({
+      text: 'Die Aktion wurde abgelehnt.',
+      finishReason: 'stop',
+      runId: crypto.randomUUID(),
+    }),
+    ...overrides,
+  }
 }
 
 describe('Customer Chat controller', () => {
   let adminCookie: string
   let userCookie: string
+  let mockAgent: MockAgent
 
   before(async () => {
     await initializeAppDatabase()
 
     let adminResult = await createAuthCookieWithCsrfForUser('admin@newapp.com')
     adminCookie = adminResult?.cookie ?? ''
-
     let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
     userCookie = userResult?.cookie ?? ''
+  })
+
+  afterEach(async () => {
+    await pool.query('DELETE FROM chat_runs')
+    __setTestAgent(undefined)
+  })
+
+  after(async () => {
+    __setTestAgent(undefined)
   })
 
   // ── Index (GET) ─────────────────────────────────────────
@@ -61,242 +163,404 @@ describe('Customer Chat controller', () => {
     assert.ok(text.includes('Beratung'), 'page should contain heading')
   })
 
-  it('GET /chat works for non-admin user', async () => {
+  it('GET /chat works for non-admin user and renders an empty conversation', async () => {
     let response = await router.fetch(CHAT_INDEX_URL, {
       headers: { Cookie: userCookie },
     })
     assert.equal(response.status, 200)
+    let text = await response.text()
+    // History is session-scoped: no server-rendered thread id / recalled messages.
+    assert.ok(!text.includes('Konversation-ID'), 'should not re-render a thread id')
+  })
+
+  // ── CSRF / transport ────────────────────────────────────
+
+  it('POST /chat without X-Sse-Request header is forbidden', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({ message: 'hi' }),
+    })
+    assert.equal(response.status, 403)
   })
 
   // ── Action (POST) ───────────────────────────────────────
 
-  it('POST /chat with empty message returns 400 JSON', async () => {
+  it('POST /chat with empty message returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({ message: '', _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: '' }),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.ok(json.error, 'response should include an error message')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  it('POST /chat with whitespace-only message returns 400 JSON', async () => {
+  it('POST /chat with whitespace-only message returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({ message: '   ', _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: '   ' }),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.ok(json.error, 'response should include an error message')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  it('POST /chat with valid message returns JSON (runId or error)', async () => {
+  it('POST /chat with valid message streams SSE response text', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
 
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({
-        message: 'Ich brauche einen ruhigen Raum',
-        _csrf: session.csrfToken,
-      }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'Ich brauche einen ruhigen Raum' }),
     })
 
-    let contentType = response.headers.get('Content-Type') || ''
-    assert.ok(contentType.includes('application/json'), 'response should be JSON')
-    let json = await response.json()
-    assert.ok(json.runId || json.error, 'should return runId or error')
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Content-Type'), 'text/event-stream')
+
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(events[0]?.type, 'start', 'first event should be start')
+    assert.ok(JSON.parse(events[0]?.data ?? '{}').runId, 'start event should include runId')
+    assert.equal(text, 'Hier ist die Antwort.')
+    assert.ok(events.find((e) => e.type === 'complete'), 'should have a complete event')
   })
 
-  it('POST /chat continues an existing thread when threadId is provided', async () => {
+  it('POST /chat passes threadId and continues the same thread', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
     let existingThreadId = crypto.randomUUID()
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
 
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({
-        message: 'weiter',
-        _csrf: session.csrfToken,
-        threadId: existingThreadId,
-      }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'weiter', threadId: existingThreadId }),
     })
 
-    let json = await response.json()
-    if (json.threadId) {
-      assert.equal(json.threadId, existingThreadId, 'should echo provided threadId')
-    }
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let startEvent = events.find((e) => e.type === 'start')
+    assert.ok(startEvent, 'should emit start')
+    assert.equal(
+      (JSON.parse(startEvent!.data) as { threadId?: string }).threadId,
+      existingThreadId,
+      'should echo provided threadId',
+    )
   })
 
   // ── Approve (POST) ──────────────────────────────────────
 
-  it('POST /chat/approve with missing runId returns 400 JSON', async () => {
+  it('POST /chat/approve with missing runId returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_APPROVE_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({}),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.equal(json.error, 'Missing runId')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  it('POST /chat/approve returns JSON response', async () => {
+  it('POST /chat/approve is rejected for a run owned by another user', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    let otherUserId = await getUserId('user@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: otherUserId, threadId: 't' })
+
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
 
     let response = await router.fetch(CHAT_APPROVE_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({
-        runId: 'test-run-id',
-        toolCallId: 'test-tool-call',
-        _csrf: session.csrfToken,
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    assert.equal(response.status, 403)
+  })
+
+  it('POST /chat/approve streams for the owning user', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    assert.equal(response.status, 200)
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(text, 'Bestätigt.')
+    assert.ok(events.find((e) => e.type === 'complete'), 'should have a complete event')
+  })
+
+  it('POST /chat/approve records ownership for a re-suspended continuation run', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let contRunId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      approveToolCallGenerate: async () => ({
+        text: '',
+        finishReason: 'suspended',
+        runId: contRunId,
+        suspendPayload: { toolCallId: 'tc2', toolName: 'book', args: {} },
       }),
     })
+    __setTestAgent(mockAgent)
 
-    let contentType = response.headers.get('Content-Type') || ''
-    assert.ok(contentType.includes('application/json'), 'response should be JSON')
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+
+    // Consume the stream so the async start() (which records the continuation
+    // run) actually runs.
+    let { events } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.ok(events.find((e) => e.type === 'suspension'), 'should emit a suspension event')
+
+    // The continuation run must have a durable ownership row so a follow-up
+    // approve/decline/answer on it is not rejected.
+    let owner = await findChatRunOwner(contRunId)
+    assert.ok(owner, 'continuation run should have an ownership row')
+    assert.equal(owner!.userId, adminId)
   })
 
   // ── Decline (POST) ──────────────────────────────────────
 
-  it('POST /chat/decline with missing runId returns 400 JSON', async () => {
+  it('POST /chat/decline with missing runId returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_DECLINE_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({}),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.equal(json.error, 'Missing runId')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  it('POST /chat/decline returns JSON response', async () => {
+  it('POST /chat/decline streams for the owning user', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
 
     let response = await router.fetch(CHAT_DECLINE_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({
-        runId: 'test-run-id',
-        toolCallId: 'test-tool-call',
-        _csrf: session.csrfToken,
-      }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
     })
-
-    let contentType = response.headers.get('Content-Type') || ''
-    assert.ok(contentType.includes('application/json'), 'response should be JSON')
+    assert.equal(response.status, 200)
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'Die Aktion wurde abgelehnt.')
   })
 
   // ── Answer (POST) ───────────────────────────────────────
 
-  it('POST /chat/answer with missing runId returns 400 JSON', async () => {
+  it('POST /chat/answer with missing runId returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_ANSWER_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({ _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({}),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.ok(json.error, 'should return error message')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  it('POST /chat/answer with missing answer returns 400 JSON', async () => {
+  it('POST /chat/answer with missing answer returns 400 SSE agent-error', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
+    chatRateLimiter.reset(await getUserId('admin@newapp.com'))
 
     let response = await router.fetch(CHAT_ANSWER_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie },
-      body: new URLSearchParams({
-        runId: 'test-run',
-        _csrf: session.csrfToken,
-      }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId: 'test-run' }),
     })
-
     assert.equal(response.status, 400)
-    let json = await response.json()
-    assert.ok(json.error, 'should return error message')
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
   })
 
-  // ── Stream (GET) ────────────────────────────────────────
+  it('POST /chat/answer streams for the owning user', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
 
-  it('GET /chat/stream/nonexistent redirects when not authenticated', async () => {
-    let response = await router.fetch(`${CHAT_STREAM_BASE}/nonexistent-run-id`, {
-      redirect: 'manual',
-    })
-    assert.equal(response.status, 302)
-  })
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
 
-  it('GET /chat/stream/nonexistent returns 404 when authenticated', async () => {
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
-    let response = await router.fetch(`${CHAT_STREAM_BASE}/nonexistent-run-id`, {
-      headers: { Cookie: session.cookie },
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
     })
-    assert.equal(response.status, 404)
+    assert.equal(response.status, 200)
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'Fortsetzung.')
+  })
+
+  it('POST /chat/answer preserves ownership for a same-run continuation', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      resumeStream: async () => createMockStreamOutput('Fortsetzung.', runId),
+    })
+    __setTestAgent(mockAgent)
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
+    })
+    let { text } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.equal(text, 'Fortsetzung.')
+
+    // The same run continued, so its ownership row must remain, or a follow-up
+    // approve/decline/answer on it would be rejected (403).
+    let owner = await findChatRunOwner(runId)
+    assert.ok(owner, 'same-run continuation should keep its ownership row')
+    assert.equal(owner!.userId, adminId)
+  })
+
+  it('POST /chat/answer moves ownership to a new continuation run', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    let contRunId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      resumeStream: async () => createMockStreamOutput('weiter', contRunId),
+    })
+    __setTestAgent(mockAgent)
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
+    })
+    assert.equal(response.status, 200)
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'weiter')
+
+    assert.equal(await findChatRunOwner(runId), null, 'incoming run cleared when a new run continues')
+    let newOwner = await findChatRunOwner(contRunId)
+    assert.ok(newOwner, 'continuation run should be recorded')
+    assert.equal(newOwner!.userId, adminId)
   })
 
   // ── Rate limiting ───────────────────────────────────────
 
-  it('POST /chat triggers rate limit on rapid requests', async () => {
+  it('POST /chat triggers rate limit after an allowed burst', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
-    chatRateLimiter.reset(await getAdminId())
 
-    // First POST consumes a token
-    await router.fetch(CHAT_ACTION_URL, {
+    // A normal multi-turn conversation must NOT be blocked (the old default of
+    // maxAttempts=1 rejected the second message within the window). Allow an
+    // explicit burst, then assert the limiter trips at the configured cap.
+    let allowed = 10 // must match the controller's maxAttempts
+    for (let i = 0; i < allowed; i++) {
+      let res = await router.fetch(CHAT_ACTION_URL, {
+        method: 'POST',
+        headers: { Cookie: session.cookie, ...SSE_HEADERS },
+        body: new URLSearchParams({ message: 'msg ' + i }),
+      })
+      assert.equal(res.status, 200, 'request ' + i + ' should be allowed')
+    }
+
+    let blocked = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({ message: 'first', _csrf: session.csrfToken }),
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'too fast' }),
     })
 
-    // Second should be rate limited
-    let second = await router.fetch(CHAT_ACTION_URL, {
-      method: 'POST',
-      headers: { Cookie: session.cookie, Accept: 'application/json' },
-      body: new URLSearchParams({ message: 'again', _csrf: session.csrfToken }),
-    })
-
-    assert.equal(second.status, 429)
-    let json = await second.json()
-    assert.ok(json.error, '429 response should include an error message')
+    assert.equal(blocked.status, 429)
+    let { events } = await parseSSEResponse(blocked)
+    assert.ok(events.find((e) => e.type === 'agent-error'), '429 should emit agent-error')
   })
 })

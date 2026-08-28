@@ -28,7 +28,6 @@ function setupChatDom() {
       <button id="chat-submit" type="submit">Send</button>
     </form>
     <div id="chat-messages"></div>
-    <input id="chat-csrf-token" data-token="test-token-123" />
   `
   document.body.appendChild(container)
   return container
@@ -39,8 +38,6 @@ function cleanupChatDom() {
   if (form) form.remove()
   let msgs = document.getElementById('chat-messages')
   if (msgs) msgs.remove()
-  let csrf = document.getElementById('chat-csrf-token')
-  if (csrf) csrf.remove()
 }
 
 // -----------------------------------------------------------------------
@@ -56,41 +53,69 @@ describe('SSE stream EventSource lifecycle', () => {
     cleanupChatDom()
   })
 
-  it('CustomerChatStream opens EventSource after form submission', async () => {
+  function sseResponse(events: Array<{ type: string; data: string }>): Response {
+    let encoder = new TextEncoder()
+    let body = new ReadableStream({
+      start(controller) {
+        for (let { type, data } of events) {
+          controller.enqueue(encoder.encode(`event: ${type}\ndata: ${data}\n\n`))
+        }
+        controller.close()
+      },
+    })
+    return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  it('CustomerChatStream submits via fetch with X-Sse-Request and streams, no EventSource', async () => {
     installSseMock()
     setupChatDom()
     resetCreatedEventSources()
 
+    let captured = { url: '', headers: {} as Record<string, string> }
+    let originalFetch = window.fetch
+    window.fetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+      captured.url = String(url)
+      captured.headers = Object.fromEntries(new Headers(init?.headers).entries())
+      return sseResponse([
+        { type: 'start', data: JSON.stringify({ runId: 'test-run-123', threadId: 't1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Hallo' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
     let { cleanup: c } = render(<CustomerChatStream />)
     cleanup = c
 
-    // Simulate form submission: type a message and submit
     let textarea = document.getElementById('msg') as HTMLTextAreaElement
     let form = document.getElementById('chat-form') as HTMLFormElement
     textarea.value = 'Hello'
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 
-    // After a microtask, fetch should have been called
     await new Promise((r) => setTimeout(r, 50))
 
-    // The form handler calls fetch('/chat', ...). Since we haven't mocked fetch,
-    // it will fail but an EventSource should NOT be created (fetch fails).
-    // Actually, the component calls startStream only if fetch returns a runId.
-    // Without mocking fetch, no EventSource is created.
-    let sources = getCreatedEventSources()
-    assert.equal(sources.length, 0, 'no EventSource created when fetch fails')
+    assert.equal(captured.url, '/chat', 'should POST to /chat')
+    assert.equal(captured.headers['x-sse-request'], '1', 'should send X-Sse-Request: 1')
+
+    // No EventSource is used; the body is streamed from the fetch response.
+    assert.equal(getCreatedEventSources().length, 0, 'should not create an EventSource')
+
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(msgs.textContent?.includes('Hallo'), 'streamed message should be rendered')
+
+    window.fetch = originalFetch
+    cleanup?.()
   })
 
-  it('CustomerChatStream creates EventSource on successful fetch', async () => {
+  it('CustomerChatStream renders an error for a non-SSE error response', async () => {
     installSseMock()
     setupChatDom()
     resetCreatedEventSources()
 
-    // Mock fetch to return a successful response with a runId
     let originalFetch = window.fetch
     window.fetch = async () =>
-      new Response(JSON.stringify({ runId: 'test-run-123' }), {
-        headers: { 'Content-Type': 'application/json' },
+      new Response('Fehler bei der Verarbeitung.', {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain' },
       })
 
     let { cleanup: c } = render(<CustomerChatStream />)
@@ -103,9 +128,8 @@ describe('SSE stream EventSource lifecycle', () => {
 
     await new Promise((r) => setTimeout(r, 50))
 
-    let sources = getCreatedEventSources()
-    assert.equal(sources.length, 1, 'one EventSource should be created')
-    assert.ok(sources[0].url.includes('test-run-123'), 'EventSource URL should contain the runId')
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(msgs.textContent?.includes('Fehler'), 'error should be rendered')
 
     window.fetch = originalFetch
     cleanup?.()

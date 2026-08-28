@@ -1,6 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 
 import { theme } from '../../../ui/theme/theme.ts'
+import { readEventStream } from './read-sse.ts'
 
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
@@ -11,9 +12,9 @@ export const CustomerChatStream = clientEntry(
       handle.signal.addEventListener('abort', () => ac.abort(), { once: true })
     }
 
-    let currentEventSource: EventSource | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
+    let currentAbort: AbortController | null = null
     let streamingAssistant: HTMLDivElement | null = null
     let suspended = false
 
@@ -23,9 +24,9 @@ export const CustomerChatStream = clientEntry(
     let reasoningBody: HTMLDivElement | null = null
 
     function abortStream() {
-      if (currentEventSource) {
-        currentEventSource.close()
-        currentEventSource = null
+      if (currentAbort) {
+        currentAbort.abort()
+        currentAbort = null
       }
     }
 
@@ -36,11 +37,6 @@ export const CustomerChatStream = clientEntry(
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;')
-    }
-
-    function getCsrfToken(): string {
-      let el = document.getElementById('chat-csrf-token')
-      return el?.getAttribute('data-token') || ''
     }
 
     function getChatArea(): HTMLElement | null {
@@ -287,37 +283,6 @@ export const CustomerChatStream = clientEntry(
       return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
     }
 
-    function renderSlotButtons(result: Record<string, unknown>): string {
-      let slots = result.slots as Array<Record<string, unknown>> | undefined
-      if (!slots || slots.length === 0) return 'Keine freien Termine gefunden.'
-      let resourceName = esc(String(result.resource_name ?? ''))
-      let groups = new Map<string, typeof slots>()
-      for (let s of slots) {
-        let day = String(s.date_display ?? '')
-        if (!groups.has(day)) groups.set(day, [])
-        groups.get(day)!.push(s)
-      }
-
-      let html = `<div style="font-weight:500;margin-bottom:0.5rem">${resourceName}</div>`
-      for (let [day, daySlots] of groups) {
-        html += `<div style="font-size:0.85rem;font-weight:600;margin:0.5rem 0 0.25rem">${esc(day)}</div>`
-        for (let s of daySlots) {
-          let startMin = Number(s.start_min ?? 0)
-          let endMin = Number(s.end_min ?? 60)
-          let label = `${formatMin(startMin)}–${formatMin(endMin)}`
-          let data = JSON.stringify({
-            resourceId: result.resource_id,
-            dateEpochMs: s.date_epoch_ms,
-            startMin,
-            label,
-            resourceName: result.resource_name,
-          })
-          html += `<button type="button" class="slot-btn" data-slot='${esc(data)}' style="display:inline-block;margin:0.2rem;padding:0.4rem 0.75rem;background:${theme.surface.lvl1};color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};border-radius:6px;cursor:pointer;font-size:0.85rem">${esc(label)}</button>`
-        }
-      }
-      return html
-    }
-
     function appendStepStats(
       reason: string,
       usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number },
@@ -382,8 +347,7 @@ export const CustomerChatStream = clientEntry(
 
     function finalizeAssistantBubble() {
       if (!streamingAssistant) return
-      let raw = streamingAssistant.textContent || ''
-      streamingAssistant.textContent = raw
+      streamingAssistant.textContent = streamingAssistant.textContent || ''
       streamingAssistant = null
     }
 
@@ -552,161 +516,114 @@ export const CustomerChatStream = clientEntry(
 
     // ── Stream lifecycle ──────────────────────────────────────
 
-    function startStream(runId: string) {
-      abortStream()
+    function beginStream() {
       streamingAssistant = null
       suspended = false
-      currentRunId = runId
       toolCards = {}
       toolArgsAcc = {}
       reasoningBlock = null
       reasoningBody = null
       hideQuestion()
+    }
 
-      let url = `/chat/stream/${encodeURIComponent(runId)}`
-      let es = new EventSource(url)
-      currentEventSource = es
+    function handleEvent(type: string, raw: unknown) {
+      let d = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
 
-      es.addEventListener('message', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.text) {
-            appendMessage(data.text, 'assistant', true)
-          }
-        } catch {
-          appendMessage(event.data, 'assistant', true)
-        }
-      })
-
-      es.addEventListener('suspension', (event) => {
+      if (type === 'start') {
+        if (d.threadId != null) currentThreadId = String(d.threadId)
+        if (d.runId != null) currentRunId = String(d.runId)
+        beginStream()
+      } else if (type === 'message') {
+        let text = String(d.text ?? '')
+        if (text) appendMessage(text, 'assistant', true)
+      } else if (type === 'suspension') {
         suspended = true
-        try {
-          let data = JSON.parse(event.data)
-          showApproval(data)
-        } catch {
-          /* ignore */
-        }
-        es.close()
-        currentEventSource = null
-        currentRunId = null
+        showApproval({
+          runId: String(d.runId ?? currentRunId ?? ''),
+          toolCallId: d.toolCallId as string | undefined,
+          toolName: d.toolName as string | undefined,
+          args: d.args as Record<string, unknown> | undefined,
+        })
         finalizeAssistantBubble()
-        setFormEnabled(true)
-      })
-
-      es.addEventListener('question', (event) => {
+      } else if (type === 'question') {
         suspended = true
-        try {
-          let data = JSON.parse(event.data)
-          showQuestion(data)
-        } catch {
-          /* ignore */
+        showQuestion({
+          runId: String(d.runId ?? currentRunId ?? ''),
+          toolCallId: d.toolCallId as string | undefined,
+          question: String(d.question ?? ''),
+          options: (d.options as { label: string; description?: string }[] | null | undefined) ?? null,
+          selectionMode: String(d.selectionMode ?? 'single_select'),
+        })
+        finalizeAssistantBubble()
+      } else if (type === 'agent-error') {
+        appendMessage('Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
+      } else if (type === 'stream-error') {
+        appendMessage('Stream-Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
+      } else if (type === 'tool-call-input-streaming-start') {
+        appendToolCard(String(d.toolName ?? 'unbekannt'), String(d.toolCallId ?? ''))
+      } else if (type === 'tool-call-delta') {
+        if (d.toolCallId != null && d.argsTextDelta != null) {
+          updateToolArgs(String(d.toolCallId), String(d.argsTextDelta))
         }
-        es.close()
-        currentEventSource = null
-        currentRunId = null
-        finalizeAssistantBubble()
-        setFormEnabled(true)
-      })
+      } else if (type === 'tool-call') {
+        if (d.toolCallId != null && d.args != null) {
+          finalizeToolArgs(String(d.toolCallId), d.args as Record<string, unknown>)
+        }
+      } else if (type === 'tool-result') {
+        if (d.toolCallId != null) appendToolResult(String(d.toolCallId), d.result, d.isError as boolean)
+      } else if (type === 'tool-error') {
+        if (d.toolCallId != null) appendToolResult(String(d.toolCallId), d.error, true)
+      } else if (type === 'step-finish') {
+        if (d.usage != null || d.reason != null) {
+          appendStepStats(String(d.reason ?? ''), (d.usage as Record<string, never> | undefined) ?? {})
+        }
+      } else if (type === 'reasoning-start') {
+        startReasoning()
+      } else if (type === 'reasoning-delta') {
+        if (d.text != null) appendReasoning(String(d.text))
+      } else if (type === 'reasoning-end') {
+        endReasoning()
+      }
+    }
 
-      function streamEnded() {
-        if (suspended) return
-        es.close()
-        currentEventSource = null
-        currentRunId = null
-        finalizeAssistantBubble()
-        setFormEnabled(true)
-        hideApproval()
+    async function submitAndStream(url: string, formData: FormData) {
+      abortStream()
+      let requestAbort = new AbortController()
+      currentAbort = requestAbort
+      if (lifecycleSignal) {
+        lifecycleSignal.addEventListener('abort', () => requestAbort.abort(), { once: true })
       }
 
-      es.addEventListener('complete', streamEnded)
-      es.addEventListener('agent-error', streamEnded)
-      es.addEventListener('error', streamEnded)
+      setFormEnabled(false)
+      try {
+        let res = await fetch(url, {
+          method: 'POST',
+          headers: { 'X-Sse-Request': '1' },
+          body: formData,
+          signal: requestAbort.signal,
+        })
 
-      es.addEventListener('stream-error', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          appendMessage('Stream-Fehler: ' + (data.error || 'unbekannt'), 'error')
-        } catch {
-          appendMessage('Stream-Fehler', 'error')
-        }
-        streamEnded()
-      })
+        let isSse = (res.headers.get('Content-Type') || '').includes('text/event-stream')
 
-      // Tool lifecycle events
-      es.addEventListener('tool-call-input-streaming-start', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          appendToolCard(data.toolName || 'unbekannt', data.toolCallId || '')
-        } catch {
-          /* ignore */
+        if (!res.ok && !isSse) {
+          let text = await res.text()
+          appendMessage('Fehler: ' + (text || res.statusText), 'error')
+          return
         }
-      })
 
-      es.addEventListener('tool-call-delta', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.toolCallId && data.argsTextDelta != null) {
-            updateToolArgs(data.toolCallId, data.argsTextDelta as string)
-          }
-        } catch {
-          /* ignore */
+        if (isSse) {
+          await readEventStream(res, handleEvent)
+        } else {
+          await res.text()
         }
-      })
-
-      es.addEventListener('tool-call', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.toolCallId && data.args) {
-            finalizeToolArgs(data.toolCallId, data.args as Record<string, unknown>)
-          }
-        } catch {
-          /* ignore */
-        }
-      })
-
-      es.addEventListener('tool-result', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.toolCallId) {
-            appendToolResult(data.toolCallId, data.result, data.isError)
-          }
-        } catch {
-          /* ignore */
-        }
-      })
-
-      es.addEventListener('tool-error', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.toolCallId) {
-            appendToolResult(data.toolCallId, data.error, true)
-          }
-        } catch {
-          /* ignore */
-        }
-      })
-
-      es.addEventListener('step-finish', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.usage || data.reason) {
-            appendStepStats(data.reason || '', data.usage || {})
-          }
-        } catch {
-          /* ignore */
-        }
-      })
-
-      es.addEventListener('reasoning-start', () => startReasoning())
-      es.addEventListener('reasoning-delta', (event) => {
-        try {
-          let data = JSON.parse(event.data)
-          if (data.text) appendReasoning(data.text as string)
-        } catch {
-          /* ignore */
-        }
-      })
-      es.addEventListener('reasoning-end', () => endReasoning())
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return
+        appendMessage('Fehler: ' + String(err), 'error')
+      } finally {
+        currentAbort = null
+        if (!suspended) finalizeAssistantBubble()
+        setFormEnabled(true)
+      }
     }
 
     // ── Event handlers ────────────────────────────────────────
@@ -723,28 +640,8 @@ export const CustomerChatStream = clientEntry(
       if (currentThreadId) formData.set('threadId', currentThreadId)
       appendMessage(message, 'user')
       ;(document.getElementById('msg') as HTMLTextAreaElement)!.value = ''
-      setFormEnabled(false)
-
-      try {
-        let res = await fetch('/chat', {
-          method: 'POST',
-          body: formData,
-        })
-        if (!res.ok) {
-          let err = await res.json().catch(() => ({ error: 'Anfrage fehlgeschlagen' }))
-          appendMessage('Fehler: ' + (err.error || res.statusText), 'error')
-          setFormEnabled(true)
-          return
-        }
-        let data = await res.json()
-        if (data.threadId) currentThreadId = data.threadId
-        if (data.runId) {
-          startStream(data.runId)
-        }
-      } catch (err) {
-        appendMessage('Fehler: ' + String(err), 'error')
-        setFormEnabled(true)
-      }
+      beginStream()
+      await submitAndStream('/chat', formData)
     }
 
     function handleSlotCancel() {
@@ -779,33 +676,13 @@ export const CustomerChatStream = clientEntry(
       })
       let message = `Ich möchte den Termin am ${dayStr} um ${slot.label} bei ${slot.resourceName} buchen.`
       appendMessage(message, 'user')
-      setFormEnabled(false)
 
       let formData = new FormData()
       if (currentThreadId) formData.set('threadId', currentThreadId)
       formData.set('message', message)
-      formData.set('_csrf', getCsrfToken())
 
-      try {
-        let res = await fetch('/chat', {
-          method: 'POST',
-          body: formData,
-        })
-        if (!res.ok) {
-          let err = await res.json().catch(() => ({ error: 'Buchungsanfrage fehlgeschlagen' }))
-          appendMessage('Fehler: ' + (err.error || res.statusText), 'error')
-          setFormEnabled(true)
-          return
-        }
-        let data = await res.json()
-        if (data.threadId) currentThreadId = data.threadId
-        if (data.runId) {
-          startStream(data.runId)
-        }
-      } catch (err) {
-        appendMessage('Fehler: ' + String(err), 'error')
-        setFormEnabled(true)
-      }
+      beginStream()
+      await submitAndStream('/chat', formData)
     }
 
     let submittingOtherResource = false
@@ -813,42 +690,16 @@ export const CustomerChatStream = clientEntry(
     async function handleOtherResource() {
       if (submittingOtherResource) return
       submittingOtherResource = true
-      abortStream()
-      let picker = document.getElementById('chat-slot-picker')
-      if (picker) picker.remove()
-
       let message = 'Ich möchte eine andere Ressource ausprobieren.'
       appendMessage(message, 'user')
-      setFormEnabled(false)
 
       let formData = new FormData()
       if (currentThreadId) formData.set('threadId', currentThreadId)
       formData.set('message', message)
-      formData.set('_csrf', getCsrfToken())
 
-      try {
-        let res = await fetch('/chat', {
-          method: 'POST',
-          body: formData,
-        })
-        if (!res.ok) {
-          let err = await res.json().catch(() => ({ error: 'Anfrage fehlgeschlagen' }))
-          appendMessage('Fehler: ' + (err.error || res.statusText), 'error')
-          setFormEnabled(true)
-          submittingOtherResource = false
-          return
-        }
-        let data = await res.json()
-        if (data.threadId) currentThreadId = data.threadId
-        if (data.runId) {
-          startStream(data.runId)
-        }
-        submittingOtherResource = false
-      } catch (err) {
-        appendMessage('Fehler: ' + String(err), 'error')
-        setFormEnabled(true)
-        submittingOtherResource = false
-      }
+      beginStream()
+      await submitAndStream('/chat', formData)
+      submittingOtherResource = false
     }
 
     async function handleApproval(action: 'approve' | 'decline', e: Event) {
@@ -857,39 +708,15 @@ export const CustomerChatStream = clientEntry(
       let runId = btn.dataset.runId
       let toolCallId = btn.dataset.toolCallId
 
-      try {
-        let body = new FormData()
-        body.set('runId', runId || '')
-        if (toolCallId) body.set('toolCallId', toolCallId)
-        body.set('_csrf', getCsrfToken())
+      hideApproval()
+      beginStream()
 
-        let res = await fetch('/chat/' + action, {
-          method: 'POST',
-          body,
-        })
-        if (!res.ok) {
-          appendMessage('Bestätigung fehlgeschlagen', 'error')
-          setFormEnabled(true)
-          hideApproval()
-          return
-        }
-        let data = await res.json()
-        hideApproval()
-        if (data.requiresApproval) {
-          showApproval({
-            runId: data.runId,
-            toolCallId: data.toolCallId,
-            toolName: data.toolName,
-            args: data.args,
-          })
-        } else if (data.runId) {
-          startStream(data.runId)
-        }
-      } catch (err) {
-        appendMessage('Bestätigungsfehler: ' + String(err), 'error')
-        setFormEnabled(true)
-        hideApproval()
-      }
+      let body = new FormData()
+      body.set('runId', runId || '')
+      if (toolCallId) body.set('toolCallId', toolCallId)
+      if (currentThreadId) body.set('threadId', currentThreadId)
+
+      await submitAndStream('/chat/' + action, body)
     }
 
     async function handleAnswer() {
@@ -903,43 +730,17 @@ export const CustomerChatStream = clientEntry(
         btn.textContent = 'Sende...'
       }
 
-      try {
-        let body = new FormData()
-        body.set('runId', pendingQuestion.runId)
-        body.set('answer', answer)
-        body.set('selectionMode', pendingQuestion.selectionMode)
-        if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-        if (currentThreadId) body.set('threadId', currentThreadId)
-        body.set('_csrf', getCsrfToken())
+      let body = new FormData()
+      body.set('runId', pendingQuestion.runId)
+      body.set('answer', answer)
+      body.set('selectionMode', pendingQuestion.selectionMode)
+      if (pendingQuestion.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
+      if (currentThreadId) body.set('threadId', currentThreadId)
 
-        setFormEnabled(false)
+      hideQuestion()
+      beginStream()
 
-        let res = await fetch('/chat/answer', {
-          method: 'POST',
-          body,
-        })
-        if (!res.ok) {
-          appendMessage('Antwort konnte nicht gesendet werden', 'error')
-          if (btn) {
-            btn.disabled = false
-            btn.textContent = 'Antworten'
-          }
-          setFormEnabled(true)
-          return
-        }
-        hideQuestion()
-        let data = await res.json()
-        if (data.runId) {
-          startStream(data.runId)
-        }
-      } catch (err) {
-        appendMessage('Antwort-Fehler: ' + String(err), 'error')
-        if (btn) {
-          btn.disabled = false
-          btn.textContent = 'Antworten'
-        }
-        setFormEnabled(true)
-      }
+      await submitAndStream('/chat/answer', body)
     }
 
     return () => (

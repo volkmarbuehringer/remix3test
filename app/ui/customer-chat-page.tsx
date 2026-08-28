@@ -2,18 +2,9 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
-import { CsrfTokenInput } from './csrf-token-input.tsx'
-import type { ChatMessage } from '../types/chatlog.ts'
 import { CustomerChatStream } from '../assets/streams/public/customer-chat-stream.tsx'
 
 const MAX_MESSAGE_LENGTH = 5000
-
-interface CustomerChatPageProps {
-  messages: ChatMessage[]
-  threadId?: string
-  error?: string
-  csrfToken?: string
-}
 
 const containerStyle = css({
   maxWidth: '800px',
@@ -85,109 +76,44 @@ const buttonStyle = css({
   cursor: 'pointer',
 })
 
-const threadIdStyle = css({
-  marginTop: '0.75rem',
-  fontSize: '0.75rem',
-  color: theme.colors.text.muted,
-})
+export function CustomerChatPage(handle: Handle) {
+  return () => (
+    <div mix={containerStyle}>
+      <h2 mix={headingStyle}>Beratung</h2>
+      <p mix={subtitleStyle}>
+        Beschreibe dein Anliegen — ich finde die passende Ressource für dich.
+      </p>
 
-const errorBoxStyle = css({
-  marginTop: '1rem',
-  padding: '0.75rem',
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
-  borderRadius: theme.radius.md,
-  fontSize: '0.875rem',
-})
-
-export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
-  return () => {
-    let { messages, threadId, error, csrfToken } = handle.props
-
-    return (
-      <div mix={containerStyle}>
-        <h2 mix={headingStyle}>Beratung</h2>
-        <p mix={subtitleStyle}>
-          Beschreibe dein Anliegen — ich finde die passende Ressource für dich.
-        </p>
-
-        <div id="chat-messages" mix={chatAreaStyle}>
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              style={{
-                padding: '0.75rem',
-                borderRadius: theme.radius.lg,
-                maxWidth: '75%',
-                background:
-                  msg.role === 'user' ? theme.colors.action.primary.background : theme.surface.lvl1,
-                color:
-                  msg.role === 'user'
-                    ? theme.colors.action.primary.foreground
-                    : theme.colors.text.primary,
-                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                borderBottomLeftRadius: msg.role === 'user' ? theme.radius.lg : '4px',
-                borderBottomRightRadius: msg.role === 'user' ? '4px' : theme.radius.lg,
-              }}
-            >
-              <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{msg.content}</p>
-              <div
-                style={{
-                  fontSize: theme.fontSize.xxs,
-                  color: theme.colors.text.muted,
-                  marginTop: '0.25rem',
-                }}
-              >
-                {msg.role === 'user' ? 'Du' : 'Berater'}
-                {msg.timestamp
-                  ? ' · ' +
-                    new Date(msg.timestamp).toLocaleTimeString('de-DE', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : ''}
-              </div>
-            </div>
-          ))}
-
-          <div id="chat-end" />
-        </div>
-
-        <form
-          id="chat-form"
-          method="POST"
-          action={routes.chat.action.href()}
-          autoComplete="off"
-          mix={formStyle}
-        >
-          <CsrfTokenInput />
-          {threadId && <input type="hidden" name="threadId" value={threadId} />}
-          <label htmlFor="msg" mix={labelStyle}>
-            Dein Anliegen
-          </label>
-          <textarea
-            id="msg"
-            name="message"
-            rows={3}
-            required
-            maxLength={MAX_MESSAGE_LENGTH}
-            mix={textareaStyle}
-          />
-          <div style={{ marginTop: '0.75rem' }}>
-            <button id="chat-submit" type="submit" mix={buttonStyle}>
-              Senden
-            </button>
-          </div>
-        </form>
-
-        {threadId && <p mix={threadIdStyle}>Konversation-ID: {threadId}</p>}
-
-        {error && <div mix={errorBoxStyle}>{error}</div>}
-
-        <div id="chat-csrf-token" data-token={csrfToken ?? ''} style="display:none"></div>
-
-        <CustomerChatStream />
+      <div id="chat-messages" mix={chatAreaStyle}>
+        <div id="chat-end" />
       </div>
-    )
-  }
+
+      <form
+        id="chat-form"
+        method="POST"
+        action={routes.chat.action.href()}
+        autoComplete="off"
+        mix={formStyle}
+      >
+        <label htmlFor="msg" mix={labelStyle}>
+          Dein Anliegen
+        </label>
+        <textarea
+          id="msg"
+          name="message"
+          rows={3}
+          required
+          maxLength={MAX_MESSAGE_LENGTH}
+          mix={textareaStyle}
+        />
+        <div style={{ marginTop: '0.75rem' }}>
+          <button id="chat-submit" type="submit" mix={buttonStyle}>
+            Senden
+          </button>
+        </div>
+      </form>
+
+      <CustomerChatStream />
+    </div>
+  )
 }
