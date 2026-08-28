@@ -2,10 +2,12 @@ import { css } from 'remix/ui'
 import type { Handle } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
-import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
 import { MainNav } from './main-nav.tsx'
 
+// Brand accent palette for the landing hero. Kept as explicit values so the
+// landing stays visually distinct from the app chrome; the neutral surfaces,
+// borders and text below all flow through the theme object so dark mode tracks.
 const indigo = {
   50: '#eef2ff',
   100: '#e0e7ff',
@@ -40,13 +42,15 @@ function Keyframes() {
   return () => (
     <style>{`
       @keyframes fadeSlideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-      @keyframes fadeSlideLeft { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-      @keyframes fadeSlideRight { from{opacity:0;transform:translateX(-40px)} to{opacity:1;transform:translateX(0)} }
       @keyframes pulse-dim { 0%,100%{opacity:.6} 50%{opacity:1} }
       @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
       @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-      @keyframes revealWidth { from{width:0} to{width:100%} }
-      @keyframes scaleIn { from{opacity:0;transform:scale(.8)} to{opacity:1;transform:scale(1)} }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
     `}</style>
   )
 }
@@ -57,14 +61,10 @@ export function HomePage() {
       <FontLoader />
       <Keyframes />
       <MainNav />
-      <div mix={scrollWrapperCss}>
-        <div mix={scrollAreaCss}>
-          <HeroSection />
-          <ApproachSection />
-          <CapabilitiesSection />
-          <CtaSection />
-        </div>
-      </div>
+      <main mix={mainCss}>
+        <HeroSection />
+        <ValueStrip />
+      </main>
       <MiniFooter />
     </div>
   )
@@ -76,7 +76,7 @@ function HeroSection() {
       <div mix={heroContentCss}>
         <div mix={heroLabelCss}>
           <span mix={heroLabelDotCss} />
-          v2.0 — Grundlegend neu entwickelt
+          Neu — Verwaltung, die begeistert
         </div>
         <h1 mix={heroTitleCss}>
           Verwaltung,
@@ -85,13 +85,16 @@ function HeroSection() {
         </h1>
         <div mix={heroDividerCss} />
         <p mix={heroDescCss}>
-          openDesk vereint Terminplanung, Kundenmanagement und intelligente KI-Assistenz in einer
+          newapp vereint Terminplanung, Kundenmanagement und intelligente KI-Assistenz in einer
           Plattform, die dein Team lieben wird.
         </p>
         <div mix={heroBtnGroupCss}>
           <a href={routes.auth.register.index.href()} mix={heroBtnCss}>
-            <span>30 Tage testen</span>
+            <span>Kostenlos starten</span>
             <Glyph name="arrowRight" width={16} height={16} />
+          </a>
+          <a href={routes.auth.login.index.href()} mix={heroGhostBtnCss}>
+            Ich habe bereits ein Konto
           </a>
         </div>
         <div mix={trustRowCss}>
@@ -109,8 +112,8 @@ function HeroSection() {
           </span>
         </div>
       </div>
+
       <div mix={heroVisualCss}>
-        <div mix={heroVisualBgCss} />
         <div mix={heroMockupCss}>
           <div mix={mockupHeaderCss}>
             <div mix={mockupDotsCss}>
@@ -164,185 +167,50 @@ function StatBar(handle: Handle<{ label: string; value: string; color: string }>
   }
 }
 
-function ApproachSection() {
-  return () => (
-    <section mix={approachSectionCss}>
-      <div mix={approachLabelCss}>Unsere Philosophie</div>
-      <h2 mix={approachTitleCss}>
-        Administration, die sich nach <span mix={approachHighlightCss}>Menschen</span> richtet
-      </h2>
-      <p mix={approachDescCss}>
-        Nicht nach Tabellen. Wir haben die typische Verwaltungssoftware von Grund auf neu gedacht —
-        mit Fokus auf Geschwindigkeit, Klarheit und einem Hauch von Freude.
-      </p>
-      <div mix={approachGridCss}>
-        <div mix={approachCardCss}>
-          <div mix={approachIconCss} style={{ background: `${indigo[100]}`, color: indigo[600] }}>
-            <Glyph name="zap" width={20} height={20} />
-          </div>
-          <h3 mix={approachCardTitleCss}>Blitzschnell</h3>
-          <p mix={approachCardDescCss}>
-            Seitenwechsel ohne Neuladen. Keine Wartezeiten, keine Unterbrechungen.
-          </p>
-        </div>
-        <div mix={approachCardCss}>
-          <div mix={approachIconCss} style={{ background: `${emerald}15`, color: emerald }}>
-            <Glyph name="shield" width={20} height={20} />
-          </div>
-          <h3 mix={approachCardTitleCss}>Sicher & DSGVO</h3>
-          <p mix={approachCardDescCss}>
-            Europäische Server, Ende-zu-Ende-Verschlüsselung, volle Kontrolle.
-          </p>
-        </div>
-        <div mix={approachCardCss}>
-          <div mix={approachIconCss} style={{ background: `${amber}15`, color: amber }}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-              <path d="M12 18V6" />
-            </svg>
-          </div>
-          <h3 mix={approachCardTitleCss}>Fair Prepaid</h3>
-          <p mix={approachCardDescCss}>
-            Keine versteckten Kosten. Ein klarer Preis, alle Funktionen.
-          </p>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function CapabilitiesSection() {
+function ValueStrip() {
   return () => {
-    let user = getCurrentUserSafely()
-    let authHref = (path: string) => (user ? path : routes.auth.login.index.href())
+    let items = [
+      {
+        glyph: 'zap' as const,
+        title: 'Blitzschnell',
+        desc: 'Ohne Neuladen, ohne Wartezeit',
+        accent: indigo[500],
+      },
+      {
+        glyph: 'shield' as const,
+        title: 'Sicher & DSGVO',
+        desc: 'Europäische Server, volle Kontrolle',
+        accent: emerald,
+      },
+      {
+        glyph: 'calendar' as const,
+        title: 'Termine',
+        desc: 'Intelligente Planung & Erinnerungen',
+        accent: amber,
+      },
+    ]
     return (
-      <section mix={capSectionCss}>
-        <div mix={capGridCss}>
-          <CapCard
-            number="01"
-            title="Terminplanung"
-            desc="Intelligente Kalender mit Konflikterkennung, Wiederholungen und freien Slots."
-            tags={['Kalender', 'Auto-Verteilung', 'Erinnerungen']}
-            accent={indigo[500]}
-            href={authHref(routes.appointment.index.href())}
-          />
-          <CapCard
-            number="02"
-            title="KI-Assistenz"
-            desc="KI-Chat für schnelle Antworten, Datenabfragen und Support-Aufgaben."
-            tags={['Chat', 'Wetter', 'Datenabfragen']}
-            accent={amber}
-            href={
-              !user
-                ? routes.auth.login.index.href()
-                : user.role === 'admin'
-                  ? routes.admin.supportAgent.index.href()
-                  : undefined
-            }
-          />
-          <CapCard
-            number="03"
-            title="Kundenverwaltung"
-            desc="360°-Sicht auf Kunden, Termine, Nachrichten und Historie."
-            tags={['Profil', 'Verlauf', 'Benachrichtigungen']}
-            accent={emerald}
-          />
-          <CapCard
-            number="04"
-            title="Administration"
-            desc="Nutzer, Rollen, Ressourcen und Systemstatus in Echtzeit."
-            tags={['Rollen', 'Audit', 'Reports']}
-            accent={rose}
-            href={authHref(routes.admin.index.href())}
-          />
-        </div>
-      </section>
-    )
-  }
-}
-
-function CapCard(
-  handle: Handle<{
-    number: string
-    title: string
-    desc: string
-    tags: string[]
-    accent: string
-    href?: string
-  }>,
-) {
-  return () => {
-    let { number, title, desc, tags, accent, href } = handle.props
-    let content = (
-      <>
-        <div mix={capCardTopCss}>
-          <span mix={capNumCss} style={{ color: accent }}>
-            {number}
-          </span>
-          {href ? (
-            <Glyph name="arrowRight" width={20} height={20} style={{ color: accent }} />
-          ) : null}
-        </div>
-        <h3 mix={capTitleCss}>{title}</h3>
-        <p mix={capDescCss}>{desc}</p>
-        <div mix={capTagsCss}>
-          {tags.map((t) => (
-            <span key={t} mix={capTagCss} style={{ background: `${accent}12`, color: accent }}>
-              {t}
-            </span>
-          ))}
-        </div>
-        <div
-          mix={capBarCss}
-          style={{ background: `linear-gradient(90deg, ${accent}, ${accent}40)` }}
-        />
-      </>
-    )
-    if (href) {
-      return (
-        <a href={href} mix={[capCardCss, capCardLinkCss]}>
-          {content}
-        </a>
-      )
-    }
-    return <article mix={capCardCss}>{content}</article>
-  }
-}
-
-function CtaSection() {
-  return () => (
-    <section mix={ctaSectionCss}>
-      <div mix={ctaInnerCss}>
-        <h2 mix={ctaTitleCss}>Bereit für den Wechsel?</h2>
-        <p mix={ctaDescCss}>Starte in 2 Minuten. Keine Kreditkarte nötig.</p>
-        <div mix={ctaBtnGroupCss}>
-          <a href={routes.auth.register.index.href()} mix={ctaBtnCss}>
-            Kostenlos starten
-            <Glyph name="arrowRight" width={16} height={16} />
-          </a>
-          <a href={routes.auth.login.index.href()} mix={ctaGhostCss}>
-            Ich habe bereits ein Konto
-          </a>
-        </div>
+      <div mix={valueStripCss}>
+        {items.map((it) => (
+          <div key={it.title} mix={valueStripItemCss}>
+            <div mix={valueStripIconCss} style={{ background: `${it.accent}1a`, color: it.accent }}>
+              <Glyph name={it.glyph} width={18} height={18} />
+            </div>
+            <div mix={valueStripTextCss}>
+              <span mix={valueStripTitleCss}>{it.title}</span>
+              <span mix={valueStripDescCss}>{it.desc}</span>
+            </div>
+          </div>
+        ))}
       </div>
-    </section>
-  )
+    )
+  }
 }
 
 function MiniFooter() {
   return () => (
     <footer mix={miniFooterCss}>
-      <p mix={miniFooterTextCss}>&copy; {new Date().getFullYear()} newapp. Built with Remix.</p>
+      <p mix={miniFooterTextCss}>&copy; {new Date().getFullYear()} newapp.</p>
     </footer>
   )
 }
@@ -352,30 +220,22 @@ function MiniFooter() {
 const rootCss = css({
   display: 'flex',
   flexDirection: 'column',
+  flex: 1,
   minHeight: '100vh',
-  overflow: 'hidden',
   background: theme.surface.lvl0,
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
 })
 
-const scrollWrapperCss = css({
+const mainCss = css({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  overflow: 'hidden',
-  minHeight: 0,
-})
-
-const scrollAreaCss = css({
-  flex: 1,
-  overflowY: 'auto',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '6rem',
-  maxWidth: '1100px',
+  justifyContent: 'center',
+  gap: '2.5rem',
   width: '100%',
+  maxWidth: '1100px',
   margin: '0 auto',
-  padding: '0 2rem 4rem',
+  padding: '0 2rem',
   boxSizing: 'border-box',
 })
 
@@ -386,8 +246,10 @@ const heroSectionCss = css({
   gridTemplateColumns: '1fr 1fr',
   gap: '3rem',
   alignItems: 'center',
-  minHeight: 'calc(100vh - 80px)',
-  paddingTop: '2rem',
+  '@media (max-width: 900px)': {
+    gridTemplateColumns: '1fr',
+    gap: '2rem',
+  },
 })
 
 const heroContentCss = css({
@@ -422,11 +284,14 @@ const heroLabelDotCss = css({
 
 const heroTitleCss = css({
   margin: 0,
-  fontSize: '3.25rem',
+  fontSize: '3rem',
   fontWeight: 800,
   lineHeight: 1.08,
   letterSpacing: '-0.03em',
   color: theme.colors.text.primary,
+  '@media (max-width: 640px)': {
+    fontSize: '2.25rem',
+  },
 })
 
 const heroTitleGradCss = css({
@@ -455,6 +320,7 @@ const heroDescCss = css({
 
 const heroBtnGroupCss = css({
   display: 'flex',
+  flexWrap: 'wrap',
   gap: '0.75rem',
   marginTop: '0.5rem',
 })
@@ -532,16 +398,11 @@ const heroVisualCss = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '480px',
-})
-
-const heroVisualBgCss = css({
-  position: 'absolute',
-  width: '400px',
-  height: '400px',
-  borderRadius: '50%',
-  background: `radial-gradient(circle, ${indigo[500]}15, transparent 70%)`,
-  animation: 'float 6s ease-in-out infinite',
+  minHeight: '300px',
+  '@media (max-width: 900px)': {
+    minHeight: '240px',
+    marginTop: '0.5rem',
+  },
 })
 
 const heroMockupCss = css({
@@ -642,7 +503,7 @@ const mockupCellCss = css({
 
 const heroFloatingBadge1Css = css({
   position: 'absolute',
-  top: '15%',
+  top: '10%',
   right: '-5%',
   display: 'inline-flex',
   alignItems: 'center',
@@ -676,251 +537,52 @@ const heroFloatingBadge2Css = css({
   animation: 'float 6s ease-in-out infinite 1s',
 })
 
-// ── Approach ──
+// ── Value strip ──
 
-const approachSectionCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '1rem',
-  alignItems: 'center',
-  textAlign: 'center',
-})
-
-const approachLabelCss = css({
-  fontSize: '0.75rem',
-  fontWeight: 600,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
-  color: indigo[500],
-})
-
-const approachTitleCss = css({
-  margin: 0,
-  fontSize: '2.25rem',
-  fontWeight: 700,
-  lineHeight: 1.15,
-  letterSpacing: '-0.02em',
-  color: theme.colors.text.primary,
-  maxWidth: '600px',
-})
-
-const approachHighlightCss = css({
-  color: indigo[500],
-})
-
-const approachDescCss = css({
-  margin: 0,
-  fontSize: '0.9375rem',
-  lineHeight: 1.65,
-  color: theme.colors.text.secondary,
-  maxWidth: '520px',
-})
-
-const approachGridCss = css({
+const valueStripCss = css({
   display: 'grid',
   gridTemplateColumns: 'repeat(3, 1fr)',
-  gap: '1.5rem',
-  marginTop: '2rem',
-  width: '100%',
-})
-
-const approachCardCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.75rem',
-  padding: '2rem 1.5rem',
-  borderRadius: theme.radius.xl,
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  textAlign: 'left',
-  transition: 'all 250ms ease',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: theme.shadow.lg,
-    borderColor: theme.colors.border.default,
+  gap: '1rem',
+  paddingTop: '1.5rem',
+  borderTop: `1px solid ${theme.colors.border.subtle}`,
+  '@media (max-width: 640px)': {
+    gridTemplateColumns: '1fr',
   },
 })
 
-const approachIconCss = css({
+const valueStripItemCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.75rem',
+})
+
+const valueStripIconCss = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   width: '40px',
   height: '40px',
   borderRadius: theme.radius.lg,
+  flexShrink: 0,
 })
 
-const approachCardTitleCss = css({
-  margin: 0,
-  fontSize: '1.125rem',
-  fontWeight: 600,
-  color: theme.colors.text.primary,
-})
-
-const approachCardDescCss = css({
-  margin: 0,
-  fontSize: '0.8125rem',
-  lineHeight: 1.6,
-  color: theme.colors.text.secondary,
-})
-
-// ── Capabilities ──
-
-const capSectionCss = css({})
-
-const capGridCss = css({
-  display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: '1.5rem',
-})
-
-const capCardCss = css({
+const valueStripTextCss = css({
   display: 'flex',
   flexDirection: 'column',
-  gap: '0.75rem',
-  padding: '1.75rem',
-  borderRadius: theme.radius.xl,
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  overflow: 'hidden',
-  position: 'relative',
-  transition: 'all 250ms ease',
-  '&:hover': { transform: 'translateY(-3px)', boxShadow: theme.shadow.md },
+  gap: '0.125rem',
+  minWidth: 0,
 })
 
-const capCardLinkCss = css({
-  textDecoration: 'none',
-  color: 'inherit',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.75rem',
-  padding: '1.75rem',
-  borderRadius: theme.radius.xl,
-  background: theme.surface.lvl1,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  overflow: 'hidden',
-  position: 'relative',
-  transition: 'all 250ms ease',
-  cursor: 'pointer',
-  '&:hover': {
-    transform: 'translateY(-3px)',
-    boxShadow: theme.shadow.md,
-    borderColor: theme.colors.border.default,
-  },
-})
-
-const capCardTopCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-})
-
-const capNumCss = css({
-  fontSize: '2.5rem',
-  fontWeight: 800,
-  lineHeight: 1,
-  opacity: 0.2,
-  fontFamily: theme.fontFamily.sans,
-})
-
-const capTitleCss = css({
-  margin: 0,
-  fontSize: '1.25rem',
-  fontWeight: 600,
-  color: theme.colors.text.primary,
-})
-
-const capDescCss = css({
-  margin: 0,
-  fontSize: '0.8125rem',
-  lineHeight: 1.6,
-  color: theme.colors.text.secondary,
-})
-
-const capTagsCss = css({
-  display: 'flex',
-  gap: '0.375rem',
-  flexWrap: 'wrap',
-})
-
-const capTagCss = css({
-  fontSize: '0.6875rem',
-  fontWeight: 600,
-  padding: '0.125rem 0.5rem',
-  borderRadius: theme.radius.full,
-})
-
-const capBarCss = css({
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: '3px',
-  opacity: 0.5,
-})
-
-// ── CTA ──
-
-const ctaSectionCss = css({
-  padding: '4rem 2rem',
-  borderRadius: theme.radius.xl,
-  background: `linear-gradient(135deg, ${indigo[700]}, ${indigo[500]})`,
-  textAlign: 'center',
-})
-
-const ctaInnerCss = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '1rem',
-  alignItems: 'center',
-})
-
-const ctaTitleCss = css({
-  margin: 0,
-  fontSize: '2rem',
-  fontWeight: 700,
-  color: 'white',
-  letterSpacing: '-0.02em',
-})
-
-const ctaDescCss = css({
-  margin: 0,
-  fontSize: '1rem',
-  color: `${indigo[200]}`,
-})
-
-const ctaBtnGroupCss = css({
-  display: 'flex',
-  gap: '1rem',
-  marginTop: '0.5rem',
-})
-
-const ctaBtnCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  padding: '0.75rem 2rem',
-  borderRadius: theme.radius.lg,
-  background: 'white',
-  color: indigo[700],
-  textDecoration: 'none',
-  fontSize: '0.9375rem',
-  fontWeight: 700,
-  transition: 'all 200ms ease',
-  '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 25px rgba(0,0,0,0.2)' },
-})
-
-const ctaGhostCss = css({
-  display: 'inline-flex',
-  padding: '0.75rem 1.5rem',
-  borderRadius: theme.radius.lg,
-  color: `${indigo[100]}`,
-  textDecoration: 'none',
+const valueStripTitleCss = css({
   fontSize: '0.875rem',
-  fontWeight: 500,
-  border: `1px solid ${indigo[400]}`,
-  transition: 'all 150ms ease',
-  '&:hover': { background: `${indigo[600]}`, color: 'white' },
+  fontWeight: 600,
+  color: theme.colors.text.primary,
+})
+
+const valueStripDescCss = css({
+  fontSize: '0.7813rem',
+  color: theme.colors.text.secondary,
+  lineHeight: 1.4,
 })
 
 // ── Footer ──
@@ -928,7 +590,7 @@ const ctaGhostCss = css({
 const miniFooterCss = css({
   flexShrink: 0,
   borderTop: `1px solid ${theme.colors.border.subtle}`,
-  padding: '2px 0',
+  padding: '0.75rem 0',
   textAlign: 'center',
 })
 
