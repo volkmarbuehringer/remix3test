@@ -35,6 +35,8 @@ import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 
 import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
 import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
+import { getCspNonce } from '../../middleware/security-headers.ts'
+import { SettingsPasswordEnhance } from '../../ui/settings-password-enhance.browser.tsx'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
 
@@ -151,6 +153,7 @@ export default createController(routes.settings, {
           let pageSize = typeof raw === 'string' ? Number(raw) : NaN
           if (!isNaN(pageSize) && (VALID_PAGE_SIZES as readonly number[]).includes(pageSize)) {
             session.set('pageSize', pageSize)
+            session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }
         return redirect(routes.settings.index.href())
@@ -268,231 +271,242 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
       deleteSuccess,
     } = handle.props
 
+    let nonce = getCspNonce()
+
     return (
       <Layout title="Einstellungen">
         <PageSection title="Einstellungen" description="Verwalten Sie Ihre Kontoeinstellungen.">
-          <div mix={panelCss}>
-            <div mix={profileGridCss}>
-              <div mix={profileFieldCss}>
-                <span mix={profileLabelCss}>Name</span>
-                <span mix={profileValueCss}>{user.name}</span>
-              </div>
-              <div mix={profileFieldCss}>
-                <span mix={profileLabelCss}>E-Mail</span>
-                <span mix={profileValueCss}>{user.email}</span>
+          <div mix={settingsGridCss}>
+            <div mix={panelCss}>
+              <div mix={profileGridCss}>
+                <div mix={profileFieldCss}>
+                  <span mix={profileLabelCss}>Name</span>
+                  <span mix={profileValueCss}>{user.name}</span>
+                </div>
+                <div mix={profileFieldCss}>
+                  <span mix={profileLabelCss}>E-Mail</span>
+                  <span mix={profileValueCss}>{user.email}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div mix={panelCss}>
-            <h2 mix={sectionTitleCss}>Anzeige</h2>
-            <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
-            <form action={routes.settings.action.href()} method="POST">
-              <input type="hidden" name="_action" value="set-page-size" />
-              <CsrfTokenInput />
-              <div mix={formContainer}>
-                <label mix={fieldLabelCss}>
-                  <span>Einträge pro Seite</span>
-                  <select name="pageSize" mix={selectCss}>
-                    <option value={10} selected={pageSize === 10}>
-                      10
-                    </option>
-                    <option value={15} selected={pageSize === 15}>
-                      15
-                    </option>
-                    <option value={20} selected={pageSize === 20}>
-                      20
-                    </option>
-                    <option value={25} selected={pageSize === 25}>
-                      25
-                    </option>
-                    <option value={50} selected={pageSize === 50}>
-                      50
-                    </option>
-                    <option value={100} selected={pageSize === 100}>
-                      100
-                    </option>
-                  </select>
-                </label>
-                <button type="submit" mix={submitButton}>
-                  Speichern
-                </button>
-              </div>
-            </form>
-          </div>
+            <div mix={panelCss}>
+              <h2 mix={sectionTitleCss}>Anzeige</h2>
+              <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
+              <form action={routes.settings.action.href()} method="POST">
+                <input type="hidden" name="_action" value="set-page-size" />
+                <CsrfTokenInput />
+                <div mix={formContainer}>
+                  <label mix={fieldLabelCss}>
+                    <span>Einträge pro Seite</span>
+                    <select name="pageSize" mix={selectCss}>
+                      <option value={10} selected={pageSize === 10}>
+                        10
+                      </option>
+                      <option value={15} selected={pageSize === 15}>
+                        15
+                      </option>
+                      <option value={20} selected={pageSize === 20}>
+                        20
+                      </option>
+                      <option value={25} selected={pageSize === 25}>
+                        25
+                      </option>
+                      <option value={50} selected={pageSize === 50}>
+                        50
+                      </option>
+                      <option value={100} selected={pageSize === 100}>
+                        100
+                      </option>
+                    </select>
+                  </label>
+                  <button type="submit" mix={submitButton}>
+                    Speichern
+                  </button>
+                </div>
+              </form>
+            </div>
 
-          <div mix={panelCss}>
-            <h2 mix={sectionTitleCss}>Passwort ändern</h2>
-            {passwordError ? (
-              <p role="alert" mix={errorBanner}>
-                {passwordError}
+            <div mix={panelCss} data-settings-panel>
+              <h2 mix={sectionTitleCss}>Passwort ändern</h2>
+              {passwordError ? (
+                <p role="alert" data-settings-alert mix={errorBanner}>
+                  {passwordError}
+                </p>
+              ) : null}
+              {passwordSuccess ? (
+                <p role="status" mix={successBanner}>
+                  {passwordSuccess}
+                </p>
+              ) : null}
+              <form action={routes.settings.action.href()} method="POST">
+                <CsrfTokenInput />
+                <PasswordToggle />
+                <SettingsPasswordEnhance />
+                <div mix={formContainer}>
+                  <label mix={fieldLabelCss}>
+                    <span>Aktuelles Passwort</span>
+                    <div mix={inputWrapperCss}>
+                      <input
+                        type="password"
+                        name="currentPassword"
+                        required
+                        autoComplete="current-password"
+                        aria-invalid={passwordErrors?.currentPassword ? true : undefined}
+                        aria-describedby={
+                          passwordErrors?.currentPassword ? 'current-password-error' : undefined
+                        }
+                        mix={[
+                          input.base,
+                          input.focus,
+                          passwordErrors?.currentPassword ? input.error : undefined,
+                          inputHasToggleCss,
+                        ]}
+                      />
+                      <button
+                        type="button"
+                        data-toggle-pw="currentPassword"
+                        aria-label="Passwort anzeigen"
+                        mix={toggleButtonCss}
+                      >
+                        <Glyph name="eye" width={18} height={18} />
+                      </button>
+                    </div>
+                    {passwordErrors?.currentPassword ? (
+                      <span id="current-password-error" role="alert" mix={fieldErrorCss}>
+                        {passwordErrors.currentPassword}
+                      </span>
+                    ) : null}
+                  </label>
+
+                  <label mix={fieldLabelCss}>
+                    <span>Neues Passwort</span>
+                    <div mix={inputWrapperCss}>
+                      <input
+                        type="password"
+                        name="newPassword"
+                        required
+                        autoComplete="new-password"
+                        minLength={PASSWORD_MIN_LENGTH}
+                        aria-invalid={passwordErrors?.newPassword ? true : undefined}
+                        aria-describedby={
+                          passwordErrors?.newPassword ? 'new-password-error' : undefined
+                        }
+                        mix={[
+                          input.base,
+                          input.focus,
+                          passwordErrors?.newPassword ? input.error : undefined,
+                          inputHasToggleCss,
+                        ]}
+                      />
+                      <button
+                        type="button"
+                        data-toggle-pw="newPassword"
+                        aria-label="Passwort anzeigen"
+                        mix={toggleButtonCss}
+                      >
+                        <Glyph name="eye" width={18} height={18} />
+                      </button>
+                    </div>
+                    {passwordErrors?.newPassword ? (
+                      <span id="new-password-error" role="alert" mix={fieldErrorCss}>
+                        {passwordErrors.newPassword}
+                      </span>
+                    ) : null}
+                    <div data-pw-complexity mix={complexityFeedbackCss}></div>
+                    <script nonce={nonce}>{passwordComplexityScript('newPassword')}</script>
+                  </label>
+
+                  <label mix={fieldLabelCss}>
+                    <span>Neues Passwort bestätigen</span>
+                    <div mix={inputWrapperCss}>
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        required
+                        autoComplete="new-password"
+                        aria-invalid={passwordErrors?.confirmPassword ? true : undefined}
+                        aria-describedby={
+                          passwordErrors?.confirmPassword ? 'confirm-password-error' : undefined
+                        }
+                        mix={[
+                          input.base,
+                          input.focus,
+                          passwordErrors?.confirmPassword ? input.error : undefined,
+                          inputHasToggleCss,
+                        ]}
+                      />
+                      <button
+                        type="button"
+                        data-toggle-pw="confirmPassword"
+                        aria-label="Passwort anzeigen"
+                        mix={toggleButtonCss}
+                      >
+                        <Glyph name="eye" width={18} height={18} />
+                      </button>
+                    </div>
+                    {passwordErrors?.confirmPassword ? (
+                      <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
+                        {passwordErrors.confirmPassword}
+                      </span>
+                    ) : null}
+                    <div
+                      data-pw-match
+                      role="status"
+                      aria-live="polite"
+                      mix={matchFeedbackCss}
+                    ></div>
+                  </label>
+
+                  <button type="submit" mix={submitButton}>
+                    Speichern
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div mix={[panelCss, dangerZoneCss]}>
+              <h2 mix={[sectionTitleCss, dangerTitleCss]}>Konto löschen</h2>
+              <p mix={warningTextCss}>
+                Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht
+                rückgängig gemacht werden.
               </p>
-            ) : null}
-            {passwordSuccess ? (
-              <p role="status" mix={successBanner}>
-                {passwordSuccess}
-              </p>
-            ) : null}
-            <form action={routes.settings.action.href()} method="POST">
-              <CsrfTokenInput />
-              <PasswordToggle />
-              <div mix={formContainer}>
-                <label mix={fieldLabelCss}>
-                  <span>Aktuelles Passwort</span>
-                  <div mix={inputWrapperCss}>
-                    <input
-                      type="password"
-                      name="currentPassword"
-                      required
-                      autoComplete="current-password"
-                      aria-invalid={passwordErrors?.currentPassword ? true : undefined}
-                      aria-describedby={
-                        passwordErrors?.currentPassword ? 'current-password-error' : undefined
-                      }
-                      mix={[
-                        input.base,
-                        input.focus,
-                        passwordErrors?.currentPassword ? input.error : undefined,
-                        inputHasToggleCss,
-                      ]}
-                    />
-                    <button
-                      type="button"
-                      data-toggle-pw="currentPassword"
-                      aria-label="Passwort anzeigen"
-                      mix={toggleButtonCss}
-                    >
-                      <Glyph name="eye" width={18} height={18} />
-                    </button>
-                  </div>
-                  {passwordErrors?.currentPassword ? (
-                    <span id="current-password-error" role="alert" mix={fieldErrorCss}>
-                      {passwordErrors.currentPassword}
-                    </span>
-                  ) : null}
-                </label>
-
-                <label mix={fieldLabelCss}>
-                  <span>Neues Passwort</span>
-                  <div mix={inputWrapperCss}>
-                    <input
-                      type="password"
-                      name="newPassword"
-                      required
-                      autoComplete="new-password"
-                      minLength={PASSWORD_MIN_LENGTH}
-                      aria-invalid={passwordErrors?.newPassword ? true : undefined}
-                      aria-describedby={
-                        passwordErrors?.newPassword ? 'new-password-error' : undefined
-                      }
-                      mix={[
-                        input.base,
-                        input.focus,
-                        passwordErrors?.newPassword ? input.error : undefined,
-                        inputHasToggleCss,
-                      ]}
-                    />
-                    <button
-                      type="button"
-                      data-toggle-pw="newPassword"
-                      aria-label="Passwort anzeigen"
-                      mix={toggleButtonCss}
-                    >
-                      <Glyph name="eye" width={18} height={18} />
-                    </button>
-                  </div>
-                  {passwordErrors?.newPassword ? (
-                    <span id="new-password-error" role="alert" mix={fieldErrorCss}>
-                      {passwordErrors.newPassword}
-                    </span>
-                  ) : null}
-                  <div data-pw-complexity mix={complexityFeedbackCss}></div>
-                  <script>{passwordComplexityScript('newPassword')}</script>
-                </label>
-
-                <label mix={fieldLabelCss}>
-                  <span>Neues Passwort bestätigen</span>
-                  <div mix={inputWrapperCss}>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      required
-                      autoComplete="new-password"
-                      aria-invalid={passwordErrors?.confirmPassword ? true : undefined}
-                      aria-describedby={
-                        passwordErrors?.confirmPassword ? 'confirm-password-error' : undefined
-                      }
-                      mix={[
-                        input.base,
-                        input.focus,
-                        passwordErrors?.confirmPassword ? input.error : undefined,
-                        inputHasToggleCss,
-                      ]}
-                    />
-                    <button
-                      type="button"
-                      data-toggle-pw="confirmPassword"
-                      aria-label="Passwort anzeigen"
-                      mix={toggleButtonCss}
-                    >
-                      <Glyph name="eye" width={18} height={18} />
-                    </button>
-                  </div>
-                  {passwordErrors?.confirmPassword ? (
-                    <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
-                      {passwordErrors.confirmPassword}
-                    </span>
-                  ) : null}
-                </label>
-
-                <button type="submit" mix={submitButton}>
-                  Speichern
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div mix={panelCss}>
-            <h2 mix={sectionTitleCss}>Konto löschen</h2>
-            <p mix={warningTextCss}>
-              Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht
-              rückgängig gemacht werden.
-            </p>
-            {deleteError ? (
-              <p role="alert" mix={errorBanner}>
-                {deleteError}
-              </p>
-            ) : null}
-            {deleteSuccess ? (
-              <p role="status" mix={successBanner}>
-                {deleteSuccess}
-              </p>
-            ) : null}
-            <form action={routes.settings.action.href()} method="POST">
-              <input type="hidden" name="_action" value="delete-account" />
-              <CsrfTokenInput />
-              <div mix={[formContainer, deleteFormCss]}>
-                <label mix={fieldLabelCss}>
-                  <span>Passwort eingeben zur Bestätigung</span>
-                  <div mix={inputWrapperCss}>
-                    <input
-                      type="password"
-                      name="currentPassword"
-                      required
-                      autoComplete="current-password"
-                      mix={[input.base, input.focus]}
-                    />
-                  </div>
-                </label>
-                <label mix={confirmLabelCss}>
-                  <input type="checkbox" name="confirmDelete" required />
-                  <span>Wollen Sie wirklich löschen?</span>
-                </label>
-                <button type="submit" mix={deleteButtonCss}>
-                  Konto löschen
-                </button>
-              </div>
-            </form>
+              {deleteError ? (
+                <p role="alert" mix={errorBanner}>
+                  {deleteError}
+                </p>
+              ) : null}
+              {deleteSuccess ? (
+                <p role="status" mix={successBanner}>
+                  {deleteSuccess}
+                </p>
+              ) : null}
+              <form action={routes.settings.action.href()} method="POST">
+                <input type="hidden" name="_action" value="delete-account" />
+                <CsrfTokenInput />
+                <div mix={[formContainer, deleteFormCss]}>
+                  <label mix={fieldLabelCss}>
+                    <span>Passwort eingeben zur Bestätigung</span>
+                    <div mix={inputWrapperCss}>
+                      <input
+                        type="password"
+                        name="currentPassword"
+                        required
+                        autoComplete="current-password"
+                        mix={[input.base, input.focus]}
+                      />
+                    </div>
+                  </label>
+                  <label mix={confirmLabelCss}>
+                    <input type="checkbox" name="confirmDelete" required />
+                    <span>Wollen Sie wirklich löschen?</span>
+                  </label>
+                  <button type="submit" mix={deleteButtonCss}>
+                    Konto löschen
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </PageSection>
       </Layout>
@@ -505,6 +519,39 @@ const sectionTitleCss = css({
   fontSize: theme.fontSize.lg,
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.primary,
+})
+
+// Two-column grid on desktop so the four settings panels fit without
+// scrolling; collapses to a single column on small screens/narrow windows.
+const settingsGridCss = css({
+  display: 'grid',
+  gridTemplateColumns: '1fr',
+  gap: theme.space.lg,
+  alignItems: 'start',
+  '@media (min-width: 900px)': {
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  },
+})
+
+const dangerZoneCss = css({
+  border: `1px solid ${theme.colors.action.danger.border}`,
+  borderLeft: `4px solid ${theme.colors.action.danger.border}`,
+})
+
+const dangerTitleCss = css({
+  color: theme.colors.action.danger.foreground,
+})
+
+const matchFeedbackCss = css({
+  minHeight: '1.25rem',
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xs,
+  '&[data-match="ok"]': {
+    color: theme.colors.success.foreground,
+  },
+  '&[data-match="bad"]': {
+    color: theme.colors.action.danger.foreground,
+  },
 })
 
 const profileGridCss = css({

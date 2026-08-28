@@ -11,6 +11,9 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routes.auth.login.index.href()]: 'Login',
   [routes.auth.register.index.href()]: 'Register',
 
+  // Settings
+  [routes.settings.index.href()]: 'Einstellungen',
+
   // Support-Agent
   [routes.admin.supportAgent.index.href()]: 'KI Chat',
 
