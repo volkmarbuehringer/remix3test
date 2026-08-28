@@ -261,7 +261,7 @@ async function validateCreate(db, schema, formData) {
 async function handleFrameFormSubmit(e: Event) {
   if (!pendingQuestion || !currentThreadId) return
   let form = (e.target as HTMLElement).closest('form')
-  if (!form || form.id === 'route-agent-form') return
+  if (!form || form.id === 'support-agent-form') return
   e.preventDefault()
 
   let headers: Record<string, string> = { 'X-Agent-Thread': currentThreadId }
@@ -275,7 +275,7 @@ async function handleFrameFormSubmit(e: Event) {
     body.set('answer', JSON.stringify(data))
     body.set('selectionMode', 'single_select')
     if (pendingQuestion?.toolCallId) body.set('toolCallId', pendingQuestion.toolCallId)
-    startStream('/route-agent/answer', { method: 'POST', body })
+    startStream('/admin/support-agent/answer', { method: 'POST', body })
     return
   }
   // HTML fallback: reload frame
@@ -304,7 +304,7 @@ if (data.status === 'created') {
 }
 
 // ✅ GOOD — remove it entirely; the agent will navigate where needed
-startStream('/route-agent/answer', { method: 'POST', body })
+startStream('/admin/support-agent/answer', { method: 'POST', body })
 return
 ```
 
@@ -331,7 +331,7 @@ if (!didNavigate) {
 
 ```typescript
 // app/middleware/skip-csrf.ts
-if (context.url.pathname === '/route-agent' || context.url.pathname.startsWith('/route-agent/')) {
+if (context.url.pathname === '/admin/support-agent' || context.url.pathname.startsWith('/admin/support-agent/')) {
   return next()
 }
 ```

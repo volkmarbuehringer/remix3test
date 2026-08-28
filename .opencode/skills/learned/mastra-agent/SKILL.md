@@ -115,9 +115,9 @@ async action(context) {
   let body = new ReadableStream({
     start: async (controller) => {
       try {
-        let agent = mastra.getAgent('routeAgent')
+        let agent = mastra.getAgent('supportAgent')
         let output = await agent.stream(message, {
-          memory: { thread: threadId, resource: 'route-user' },
+          memory: { thread: threadId, resource: String(user.id) },
         })
         controller.enqueue(
           sseEncoder.encode(
@@ -328,7 +328,7 @@ async answer(context) {
   let body = new ReadableStream({
     start: async (controller) => {
       try {
-        let agent = mastra.getAgent('routeAgent')
+        let agent = mastra.getAgent('supportAgent')
         let output = await agent.resumeStream(resumeData, { runId, toolCallId })
         controller.enqueue(
           sseEncoder.encode(`event: start\ndata: ${JSON.stringify({ runId: output.runId })}\n\n`),
@@ -619,5 +619,5 @@ The utility above extracts only `type: 'text'` parts — tool calls, reasoning b
 - `mastra-workflow` — Mastra Workflow resume/abort race and step type compatibility
 - `mastra-storage` — PostgresStore-backed observability and storage API usage
 - `remix3-agent-routing` — agent-driven frame navigation and form prefill using the `navigate` event
-- `remix-security-middleware` — CSRF bypass for SSE endpoints (`/mastra/chat`, `/route-agent`)
+- `remix-security-middleware` — CSRF bypass for SSE endpoints (`/admin/support-agent`, `/admin/workflow-agent`, `/admin/agent-events`)
 - `rate-limiter-pitfalls` — rate limiter configuration for multi-step agent flows

@@ -270,7 +270,7 @@ Key facts:
 
 # Remix 3: Form Submissions Inside Frames — Native Interception (As of #11668)
 
-**Context:** A route-agent page uses a `<Frame>` to show target routes. Historically, any `<form method="POST">` inside the frame caused a full-page navigation, destroying the parent page (agent input bar, message history).
+**Context:** A support-agent page uses a `<Frame>` to show target routes. Historically, any `<form method="POST">` inside the frame caused a full-page navigation, destroying the parent page (agent input bar, message history).
 
 **Version alert:** As of `fa6e26f90` (#11668, merged upstream 2026-08-12), forms inside frames are **intercepted natively** — no `submit` listener needed. Give the `<form>` `data-rmx-target="<frame-name>"` (or leave it default to reload the top frame) and the runtime routes it like a link. The event-delegation shim below is only needed on pre-#11668 builds or when `run({ resolveFrame })` is inactive.
 
@@ -282,7 +282,7 @@ Remix 3's `<Frame>` did **not** intercept HTML form submissions:
 2. The Navigation API (`window.navigation`) sets `event.canIntercept === false` for all non-GET navigations per spec — POST/PUT/DELETE form submissions are never captured
 3. `data-rmx-target` attribute is only read from `<a>`/`<area>` elements (`navigation.ts`), never from `<form>` elements
 
-Result: any `<form method="POST">` inside a Frame navigates the **main window** to the action URL. For the route-agent page, this replaces the entire agent interface with the target page.
+Result: any `<form method="POST">` inside a Frame navigates the **main window** to the action URL. For the support-agent page, this replaces the entire agent interface with the target page.
 
 ### Solution (post-#11668 — preferred)
 
@@ -319,12 +319,12 @@ Key facts (post-#11668):
 When interception is unavailable, add a single `submit` event listener on the frame container element using **event delegation**. This catches all forms inside the frame with one listener:
 
 ```typescript
-// In the route-agent's clientEntry (RouteAgentStream):
-let container = document.getElementById('route-agent-frame-container')
+// In the support-agent's clientEntry (SupportAgentStream):
+let container = document.getElementById('support-agent-frame-container')
 if (container) {
   container.addEventListener('submit', async (e) => {
     let form = (e.target as HTMLElement).closest('form')
-    if (!form || form.id === 'route-agent-form') return // skip agent's own form
+    if (!form || form.id === 'support-agent-form') return // skip agent's own form
     e.preventDefault()
 
     // Submit the form server-side via fetch
@@ -391,7 +391,7 @@ A per-form clientEntry (one per form inside the frame) duplicates interception l
 
 - Any Remix 3 app where a parent page uses `<Frame>` to show content with server-rendered forms
 - Applying native frame interception to a form via `data-rmx-target` (preferred as of #11668)
-- The route-agent page (or similar "agent/command bar" pattern) where forms inside the frame must not destroy the parent interface
+- The support-agent page (or similar "agent/command bar" pattern) where forms inside the frame must not destroy the parent interface
 - Debugging "why does this form navigate away from my parent page?" inside a Frame — first check whether the runtime is post-#11668 and `data-rmx-target` is set
 - Pre-#11668 builds, or custom fetch pipelines the native resolver can't express: use the legacy delegation shim
 

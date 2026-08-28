@@ -50,7 +50,7 @@ const pageStyle = css({
 })
 ```
 
-**Standalone exception:** a page rendered directly inside the plain `Layout` — not the sidebar shell (e.g. route-agent at `/route-agent`) — has a definite-height scroll container as its parent, so `height: 100%` works there and it must NOT be registered in `fullHeightTargets`.
+**Standalone exception:** a page rendered directly inside the plain `Layout` — not the sidebar shell (e.g. the customer chat at `/chat`) — has a definite-height scroll container as its parent, so `height: 100%` works there and it must NOT be registered in `fullHeightTargets`.
 
 **Verify, don't assume:** a change marked complete in OpenSpec does not mean the code landed — grep the actual files for the old `height: '100vh'` pattern before trusting it.
 

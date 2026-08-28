@@ -22,12 +22,12 @@ Covers two common traps when using `createRateLimiter` from `app/utils/rate-limi
 
 ```typescript
 // Only 1 attempt allowed per 10-second window
-const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000 })
+const supportAgentRateLimiter = createRateLimiter({ windowMs: 10_000 })
 //   maxAttempts defaults to 1 ↑
 
 // Flow:
-// POST /route-agent          → attempt() → OK (count=1)
-// POST /route-agent/answer   → attempt() → BLOCKED (count >= 1)
+// POST /admin/support-agent          → attempt() → OK (count=1)
+// POST /admin/support-agent/answer   → attempt() → BLOCKED (count >= 1)
 //   (arrives within 10s of first request)
 ```
 
@@ -36,7 +36,7 @@ const routeAgentRateLimiter = createRateLimiter({ windowMs: 10_000 })
 Always set `maxAttempts` explicitly when you expect more than one request per window:
 
 ```typescript
-const routeAgentRateLimiter = createRateLimiter({
+const supportAgentRateLimiter = createRateLimiter({
   windowMs: 10_000,
   perKey: true,
   maxAttempts: 5, // explicit: action + answer + toolDecision = ~3

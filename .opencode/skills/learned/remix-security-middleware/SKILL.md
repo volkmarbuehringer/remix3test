@@ -137,8 +137,8 @@ export function skipCsrf(): Middleware {
     if (
       context.url.pathname.startsWith('/webhook/') ||
       context.url.pathname.startsWith('/callback') ||
-      context.url.pathname === '/route-agent' ||
-      context.url.pathname.startsWith('/route-agent/') ||
+      context.url.pathname === '/admin/support-agent' ||
+      context.url.pathname.startsWith('/admin/support-agent/') ||
       context.url.pathname === '/mastra/chat' ||
       context.url.pathname.startsWith('/mastra/chat/')
     ) {
