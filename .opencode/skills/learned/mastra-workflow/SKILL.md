@@ -188,6 +188,63 @@ Make earlier steps pass through fields needed by later steps in their output sch
 
 ---
 
+## Part 3: Reader Cancellation Does Not Abort the Run
+
+### Problem
+
+A client reload / page close cancels the SSE reader. Because `stream()` /
+`resumeStream()` call `_start()` and the `ReadableStream` only *watches*
+events, cancelling the reader does **not** abort the workflow run — the run
+continues executing server-side and can still suspend and persist its snapshot.
+
+This silently breaks "reconnect-on-reload" designs: a reload mid-flight leaves
+the index row `running` with a `NULL` suspend payload while the snapshot later
+becomes `suspended`. Treating `running` as stale (clearing the row) orphans the
+gate even though the run is recoverable.
+
+```
+Client reloads
+  → SSE reader cancelled (request signal aborts)
+  → pipeWorkflowStream returns on signal.aborted
+  → onRunState never fires markSuspended
+  → BUT _start() continues in the background
+  → run reaches confirm gate, suspends, snapshot persists
+  → index row: status='running', suspend_payload=NULL
+  → snapshot: status='suspended' with gate payload
+```
+
+### Solution
+
+1. **Never treat a live `running` snapshot as stale.** On reconnect, a
+   `running` status means "still in flight" — keep the index row and surface
+   nothing; a later reconnect recovers it. Only clear the row when the run is
+   gone from storage or terminal (`success`/`failed`/`canceled`).
+2. **Source the gate payload from the snapshot, not the index.** The SSE loop
+   can die before `markSuspended` runs, so the index payload may be `NULL` while
+   the snapshot is already `suspended`. Fall back to the snapshot's suspended
+   step payload (`row.suspendPayload ?? snapshot.suspendPayload`); the snapshot
+   `steps` retain it per step (`status === 'suspended'`).
+3. **Treat a resolver failure as "run unavailable", not a 500.** Unknown
+   workflow id or storage down → clear the stale pointer + return `none`.
+
+```typescript
+// reconnect handler
+let run = await resolver(workflowId, runId).catch(() => null)
+if (!run) { await clear(row); return none }        // gone → stale
+if (run.status === 'running') return none           // in flight → keep row
+if (run.status !== 'suspended') { await clear(row); return none } // terminal
+let payload = row.suspendPayload ?? run.suspendPayload  // NULL-payload window
+```
+
+### When to Use
+
+- Building a reconnect / re-attach flow for a suspended Mastra workflow gate
+- The client cancels the SSE stream (reload, nav away) and you later need to
+  recover the run state from the snapshot
+- An index/cache row says `running` but the snapshot says `suspended`
+
+---
+
 ## When to Use
 
 - You are using Mastra workflows with `closeOnSuspend: false` and SSE
@@ -198,6 +255,9 @@ Make earlier steps pass through fields needed by later steps in their output sch
 - TypeScript errors about output/input mismatch across `.then()` chains in Mastra Workflows
 - You need to run system-wide queries (no specific input) alongside user-specific queries in parallel
 - You want to reuse existing Mastra Workflow steps defined with `z.object({})` input in a workflow that has structured input
+- You are building a reconnect / re-attach flow for a suspended Mastra workflow gate
+- The client cancels the SSE stream (reload, nav away) and you later need to recover the run state from the snapshot
+- An index/cache row says `running` but the snapshot says `suspended`
 
 ## Related Skills
 

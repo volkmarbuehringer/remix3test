@@ -12,6 +12,13 @@ import { registerHandlers } from './register.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { mastra as realMastra } from '../mastra/index.ts'
 import { pipeWorkflowStream } from '../workflow-agent/workflow-sse.ts'
+import {
+  upsertActiveRun,
+  markSuspended,
+  clearActiveRun,
+  findActiveRun,
+  findRunById,
+} from './active-run-store.ts'
 
 // Injectable run-starter seam so tests can stub the Mastra workflow run without
 // initializing Mastra or a real run (mirrors the __setAgent/__setExecutors
@@ -57,6 +64,42 @@ const defaultRunFactory: RunFactory = async (workflowId, opts) => {
 let _runFactory: RunFactory = defaultRunFactory
 export function __setRunFactory(fn: RunFactory | undefined) {
   _runFactory = fn ?? defaultRunFactory
+}
+
+// Injectable run-status resolver for the reconnect snapshot verification, so
+// tests can stub Mastra storage (mirrors __setRunFactory). Returns the live
+// snapshot status plus the suspended step's payload/id when the run suspended.
+type RunSnapshot = {
+  status: string
+  stepId?: string
+  suspendPayload?: Record<string, unknown>
+}
+type RunStatusResolver = (workflowId: string, runId: string) => Promise<RunSnapshot | null>
+
+const defaultRunStatusResolver: RunStatusResolver = async (workflowId, runId) => {
+  let wf = realMastra.getWorkflow(
+    workflowId as 'userManagementWorkflow' | 'deleteUserAppointmentsWorkflow',
+  )
+  let run = await wf.getWorkflowRunById(runId)
+  if (!run) return null
+  // The snapshot's steps retain the suspended step's payload (see
+  // workflow-event-processor cleanStepResult); fall back to the index row.
+  let stepId: string | undefined
+  let suspendPayload: Record<string, unknown> | undefined
+  for (let [id, step] of Object.entries((run.steps as Record<string, unknown>) ?? {})) {
+    let s = step as { status?: string; suspendPayload?: Record<string, unknown> }
+    if (s?.status === 'suspended') {
+      stepId = id
+      suspendPayload = s.suspendPayload
+      break
+    }
+  }
+  return { status: run.status, stepId, suspendPayload }
+}
+
+let _runStatusResolver: RunStatusResolver = defaultRunStatusResolver
+export function __setRunStatusResolver(fn: RunStatusResolver | undefined) {
+  _runStatusResolver = fn ?? defaultRunStatusResolver
 }
 
 // Tracks the workflow used to start a run so a subsequent resume can re-attach
@@ -262,9 +305,28 @@ export default createController(routes.admin.agentEvents, {
                     closeOnSuspend: false,
                   })
                   recordRunWorkflow(runId, event.workflowId)
+                  await upsertActiveRun(user.id, {
+                    runId,
+                    workflowId: event.workflowId,
+                    status: 'running',
+                  })
                   controller.enqueue(sseEvent('start', { runId, workflowId: event.workflowId }))
                   await pipeWorkflowStream(fullStream, controller, context.request.signal, {
                     includeReport: false,
+                    runId,
+                    workflowId: event.workflowId,
+                    onRunState: (state) => {
+                      if (state.phase === 'suspended') {
+                        return markSuspended(user.id, runId, state.stepId, state.suspendPayload)
+                      }
+                      if (
+                        state.phase === 'finished' ||
+                        state.phase === 'error' ||
+                        state.phase === 'canceled'
+                      ) {
+                        return clearActiveRun(user.id, runId)
+                      }
+                    },
                   })
                 } catch (err) {
                   console.error('[agentEvents] start workflow error:', err)
@@ -312,7 +374,19 @@ export default createController(routes.admin.agentEvents, {
         return sseErrorResponse('Missing runId', 400)
       }
       let confirmed = context.formData.get('confirmed')?.toString() === 'true'
-      let workflowId = context.formData.get('workflowId')?.toString() || lookupRunWorkflow(runId)
+      let adminId = getCurrentUser().id
+      // Resolve the workflow for THIS run id from the durable index (not the
+      // admin's current active run — that may have moved to a newer run).
+      let runRow = await findRunById(runId)
+      // Only enforce ownership when the run is indexed; a run with no index row
+      // (pre-reconnect flow) is resolved purely from the client/memory.
+      if (runRow && runRow.adminUserId !== adminId) {
+        return sseErrorResponse('Unknown runId: cannot determine workflow to resume', 400)
+      }
+      let workflowId =
+        context.formData.get('workflowId')?.toString() ||
+        lookupRunWorkflow(runId) ||
+        runRow?.workflowId
       // Never guess a workflow: resuming an unknown run against the wrong
       // workflow (e.g. a delete run defaulted to userManagementWorkflow) would
       // silently re-attach the wrong semantics — fail fast instead.
@@ -330,6 +404,20 @@ export default createController(routes.admin.agentEvents, {
             controller.enqueue(sseEvent('start', { runId: outRunId, workflowId }))
             await pipeWorkflowStream(fullStream, controller, context.request.signal, {
               includeReport: false,
+              runId,
+              workflowId,
+              onRunState: (state) => {
+                if (state.phase === 'suspended') {
+                  return markSuspended(adminId, runId, state.stepId, state.suspendPayload)
+                }
+                if (
+                  state.phase === 'finished' ||
+                  state.phase === 'error' ||
+                  state.phase === 'canceled'
+                ) {
+                  return clearActiveRun(adminId, runId)
+                }
+              },
             })
           } catch (err) {
             console.error('[agentEvents] resume error:', err)
@@ -344,6 +432,60 @@ export default createController(routes.admin.agentEvents, {
       })
 
       return new Response(body, { headers: sseHeaders() })
+    },
+
+    async reconnect(context) {
+      let adminId = getCurrentUser().id
+      let row = await findActiveRun(adminId)
+      if (!row) {
+        return context.json({ status: 'none' })
+      }
+
+      // The index is a pointer; the Mastra snapshot is the source of truth.
+      // Reconnect is best-effort: a resolver failure (unknown workflow, storage
+      // down) must not 500 — treat the run as unavailable and clear the stale
+      // pointer so a later reconnect can recover.
+      let run: RunSnapshot | null
+      try {
+        run = await _runStatusResolver(row.workflowId, row.runId)
+      } catch {
+        await clearActiveRun(adminId, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      if (!run) {
+        // Run gone from storage entirely → truly stale.
+        await clearActiveRun(adminId, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      if (run.status === 'running') {
+        // Still in flight (e.g. mid-flight reload before the gate): the run is
+        // executing in the background and may suspend momentarily. Keep the row
+        // and surface nothing yet — a later reconnect will recover it.
+        return context.json({ status: 'none' })
+      }
+
+      if (run.status !== 'suspended') {
+        // success / failed / canceled → stale.
+        await clearActiveRun(adminId, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      // The run suspended. The index payload may be NULL when the run suspended
+      // after the SSE loop died (mid-flight reload), so fall back to the
+      // snapshot's suspended step payload.
+      let payload = row.suspendPayload ?? run.suspendPayload
+      if (!payload) {
+        return context.json({ status: 'none' })
+      }
+      return context.json({
+        status: 'suspended',
+        runId: row.runId,
+        workflowId: row.workflowId,
+        stepId: row.stepId ?? run.stepId ?? null,
+        suspendPayload: payload,
+      })
     },
   },
 })

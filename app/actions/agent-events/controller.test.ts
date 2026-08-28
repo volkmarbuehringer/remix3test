@@ -7,7 +7,15 @@ import { validateHandler } from './handlers/validate.ts'
 import { classifyHandler, __setAgent } from './handlers/classify.ts'
 import { classifyWithAgent } from '../mastra/intent-classifier.ts'
 import { dispatchHandler } from './handlers/dispatch.ts'
-import { __setRunFactory } from './controller.tsx'
+import { __setRunFactory, __setRunStatusResolver } from './controller.tsx'
+import {
+  upsertActiveRun,
+  markSuspended,
+  findActiveRun,
+  clearActiveRun,
+  findRunOwner,
+  findRunById,
+} from './active-run-store.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
@@ -15,6 +23,7 @@ import { routes } from '../../routes.ts'
 const BASE = 'https://remix.run'
 const AGENT_EVENTS_URL = `${BASE}/admin/agent-events`
 const AGENT_EVENTS_PANEL_URL = `${BASE}/admin/agent-events/panel`
+const AGENT_EVENTS_RECONNECT_URL = `${BASE}/admin/agent-events/reconnect`
 
 const ADMIN_USER = { adminUserId: 1, adminEmail: 'admin@test.com' }
 
@@ -737,6 +746,45 @@ describe('AgentEvents route (POST validation)', () => {
     assert.equal(response.status, 400)
   })
 
+  it('resume rejects a run indexed to another admin (ownership check)', async () => {
+    let otherEmail = `other-admin-${Date.now()}@newapp.com`
+    let otherAdminResult = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, $3, 'admin', 1, 1, $4) RETURNING id`,
+      [otherEmail, 'hashed', 'Other Admin', Date.now()],
+    )
+    let otherAdminId = ((otherAdminResult.rows ?? [])[0] as { id: number }).id
+    let otherAuth = await createAuthCookieWithCsrfForUser(otherEmail)
+    assert.ok(otherAuth, 'other admin should get a session')
+
+    // Index a suspended run to the OTHER admin, then try to resume it as the
+    // primary admin — must be rejected, not silently resumed.
+    await upsertActiveRun(otherAdminId, {
+      runId: 'run-owned-by-other',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(otherAdminId, 'run-owned-by-other', 'confirm-gate', {
+      question: 'Cancel?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 1,
+    })
+    let row = await findRunById('run-owned-by-other')
+    assert.equal(row?.adminUserId, otherAdminId, 'run should be indexed to the other admin')
+
+    try {
+      let response = await postForm(AGENT_EVENTS_URL + '/resume', adminCookie, {
+        runId: 'run-owned-by-other',
+        confirmed: 'true',
+      })
+      assert.equal(response.status, 400, 'cross-admin resume must be rejected')
+    } finally {
+      await clearActiveRun(otherAdminId, 'run-owned-by-other')
+      await db.exec('DELETE FROM users WHERE id = $1', [otherAdminId])
+    }
+  })
+
   it('returns SSE for a cancel request that suspends at the confirm gate', async () => {
     __setRunFactory(async () => ({
       runId: 'run-suspend-1',
@@ -918,6 +966,341 @@ describe('AgentEvents route (POST validation)', () => {
       userText.includes('"href":"/admin/users"'),
       'user-action failure should navigate to the users grid',
     )
+  })
+})
+
+describe('active-run-store', () => {
+  let adminUserId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+    let userResult = await db.exec('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+    adminUserId = ((userResult.rows ?? [])[0] as { id: number }).id
+  })
+
+  async function clearIndex() {
+    await db.exec('DELETE FROM admin_active_runs WHERE admin_user_id = $1', [adminUserId])
+  }
+
+  it('upserts a running run and finds it by admin', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-1',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    let row = await findActiveRun(adminUserId)
+    assert.equal(row?.runId, 'store-run-1')
+    assert.equal(row?.status, 'running')
+    assert.equal(row?.suspendPayload, null)
+  })
+
+  it('upsert replaces the previous run (one active run per admin)', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-old',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-new',
+      workflowId: 'deleteUserAppointmentsWorkflow',
+      status: 'running',
+    })
+    let row = await findActiveRun(adminUserId)
+    assert.equal(row?.runId, 'store-run-new')
+    assert.equal(row?.workflowId, 'deleteUserAppointmentsWorkflow')
+  })
+
+  it('markSuspended records the step and payload', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-suspend',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'store-run-suspend', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    let row = await findActiveRun(adminUserId)
+    assert.equal(row?.status, 'suspended')
+    assert.equal(row?.stepId, 'confirm-gate')
+    assert.equal((row?.suspendPayload as { question: string }).question, 'Cancel Jane?')
+  })
+
+  it('upsert clears a prior suspended run step and payload', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-old-suspend',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'store-run-old-suspend', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    // A new run replaces the pointer; the stale step/payload must not bleed.
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-new',
+      workflowId: 'deleteUserAppointmentsWorkflow',
+      status: 'running',
+    })
+    let row = await findActiveRun(adminUserId)
+    assert.equal(row?.runId, 'store-run-new')
+    assert.equal(row?.stepId, null)
+    assert.equal(row?.suspendPayload, null)
+  })
+
+  it('clearActiveRun is guarded by run id (old run must not clear a newer one)', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-a',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    // Admin starts run B while A is still suspended; the pointer moves to B.
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-b',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    // A's late completion fires clearActiveRun(A) — must not clear B's row.
+    await clearActiveRun(adminUserId, 'store-run-a')
+    let row = await findActiveRun(adminUserId)
+    assert.equal(row?.runId, 'store-run-b', 'clearing the old run must not clear the new row')
+
+    await clearActiveRun(adminUserId, 'store-run-b')
+    assert.equal(await findActiveRun(adminUserId), null)
+  })
+
+  it('findRunOwner resolves the admin for a run id', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'store-run-owner',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    assert.equal(await findRunOwner('store-run-owner'), adminUserId)
+    assert.equal(await findRunOwner('store-run-nonexistent'), null)
+  })
+})
+
+describe('AgentEvents route (reconnect)', () => {
+  let adminCookie: string
+  let adminUserId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+    let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!session) throw new Error('Failed to create auth session')
+    adminCookie = session.cookie
+    let userResult = await db.exec('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+    adminUserId = ((userResult.rows ?? [])[0] as { id: number }).id
+  })
+
+  async function clearIndex() {
+    await db.exec('DELETE FROM admin_active_runs WHERE admin_user_id = $1', [adminUserId])
+  }
+
+  it('redirects to login for unauthenticated requests', async () => {
+    let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, { redirect: 'manual' })
+    assert.equal(response.status, 302)
+  })
+
+  it('returns none when no active run is indexed', async () => {
+    await clearIndex()
+    let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+      headers: { Cookie: adminCookie },
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.status, 'none')
+  })
+
+  it('returns the suspended run with its payload when the snapshot confirms suspension', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-suspend',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'run-reconnect-suspend', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    __setRunStatusResolver(async () => ({ status: 'suspended' }))
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'suspended')
+      assert.equal(body.runId, 'run-reconnect-suspend')
+      assert.equal(body.workflowId, 'userManagementWorkflow')
+      assert.equal(body.stepId, 'confirm-gate')
+      assert.equal(body.suspendPayload.question, 'Cancel Jane?')
+      assert.equal(body.suspendPayload.targetUserName, 'Jane')
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
+  })
+
+  it('clears a stale index and returns none when the run is no longer suspended', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-stale',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'run-reconnect-stale', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    __setRunStatusResolver(async () => ({ status: 'finished' }))
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'none')
+      let row = await findActiveRun(adminUserId)
+      assert.equal(row, null, 'stale index row should be cleared')
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
+  })
+
+  it('clears a stale index and returns none when the run is missing from storage', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-missing',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'run-reconnect-missing', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    __setRunStatusResolver(async () => null)
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'none')
+      let row = await findActiveRun(adminUserId)
+      assert.equal(row, null, 'missing run should clear the index row')
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
+  })
+
+  it('does not clear the row for a still-running snapshot (mid-flight reload)', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-inflight',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    __setRunStatusResolver(async () => ({ status: 'running' }))
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'none')
+      let row = await findActiveRun(adminUserId)
+      assert.equal(
+        row?.runId,
+        'run-reconnect-inflight',
+        'running row must be kept for later recovery',
+      )
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
+  })
+
+  it('recovers a suspended run whose index payload is NULL (reload before the SSE loop died)', async () => {
+    await clearIndex()
+    // Simulate the mid-flight reload window: the row was upserted as 'running'
+    // and the SSE loop died before markSuspended ran, so the index payload is
+    // NULL — but the run suspended in the background and its snapshot carries
+    // the gate payload.
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-late-suspend',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    __setRunStatusResolver(async () => ({
+      status: 'suspended',
+      stepId: 'confirm-gate',
+      suspendPayload: {
+        question: 'Cancel Jane?',
+        actionType: 'cancel',
+        targetUserName: 'Jane',
+        pendingCount: 2,
+      },
+    }))
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'suspended')
+      assert.equal(body.runId, 'run-reconnect-late-suspend')
+      assert.equal(body.stepId, 'confirm-gate')
+      assert.equal(body.suspendPayload.question, 'Cancel Jane?')
+      let row = await findActiveRun(adminUserId)
+      assert.equal(row?.runId, 'run-reconnect-late-suspend', 'row must be retained')
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
+  })
+
+  it('clears the index and returns none when the resolver throws', async () => {
+    await clearIndex()
+    await upsertActiveRun(adminUserId, {
+      runId: 'run-reconnect-throw',
+      workflowId: 'userManagementWorkflow',
+      status: 'running',
+    })
+    await markSuspended(adminUserId, 'run-reconnect-throw', 'confirm-gate', {
+      question: 'Cancel Jane?',
+      actionType: 'cancel',
+      targetUserName: 'Jane',
+      pendingCount: 2,
+    })
+    __setRunStatusResolver(async () => {
+      throw new Error('storage down')
+    })
+    try {
+      let response = await router.fetch(AGENT_EVENTS_RECONNECT_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let body = await response.json()
+      assert.equal(body.status, 'none')
+      let row = await findActiveRun(adminUserId)
+      assert.equal(row, null, 'resolver failure should clear the stale pointer')
+    } finally {
+      __setRunStatusResolver(undefined)
+    }
   })
 })
 

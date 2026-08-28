@@ -61,6 +61,27 @@ function submitAgentEventsForm(message: string) {
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
 }
 
+/** Stubs window.fetch so the reconnect probe resolves to JSON and every other
+ * request returns the controllable SSE stream (matching the live server). */
+function stubFetchWithReconnect(
+  sse: ReturnType<typeof createControllableSse>,
+  opts?: {
+    reconnectBody?: Record<string, unknown>
+    calls?: Array<{ url: string; init: RequestInit }>
+  },
+) {
+  window.fetch = async (input, init) => {
+    let url = String(input)
+    if (opts?.calls) opts.calls.push({ url, init: init as RequestInit })
+    if (url.includes('/reconnect')) {
+      return new Response(JSON.stringify(opts?.reconnectBody ?? { status: 'none' }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    return sse.response
+  }
+}
+
 describe('Agent events pipeline', () => {
   let cleanup: (() => void) | undefined
   let originalFetch: typeof window.fetch
@@ -97,7 +118,7 @@ describe('Agent events pipeline', () => {
   it('renders pipeline rows into the frame log and escapes agent text', async () => {
     setupAgentEventsDom()
     let sse = createControllableSse()
-    window.fetch = async () => sse.response
+    stubFetchWithReconnect(sse)
     renderWithFrame()
 
     // The frame resolves its initial src asynchronously; wait for it so the
@@ -124,7 +145,7 @@ describe('Agent events pipeline', () => {
   it('routes pipeline rows to the status bar after a navigate event', async () => {
     setupAgentEventsDom()
     let sse = createControllableSse()
-    window.fetch = async () => sse.response
+    stubFetchWithReconnect(sse)
     renderWithFrame()
 
     await waitFor(() => !!document.getElementById('panel-page'))
@@ -165,10 +186,7 @@ describe('Agent events pipeline', () => {
     setupAgentEventsDom()
     let calls: Array<{ url: string; init: RequestInit }> = []
     let sse = createControllableSse()
-    window.fetch = async (input, init) => {
-      calls.push({ url: String(input), init: init as RequestInit })
-      return sse.response
-    }
+    stubFetchWithReconnect(sse, { calls })
     renderWithFrame()
 
     await waitFor(() => !!document.getElementById('panel-page'))
@@ -197,6 +215,45 @@ describe('Agent events pipeline', () => {
     let resumeCall = calls.find((c) => c.url.includes('/resume'))!
     let body = resumeCall.init.body as FormData
     assert.equal(body.get('runId'), 'run-123', 'resume posts the tracked run id')
+    assert.equal(body.get('confirmed'), 'true', 'resume posts the confirmed flag')
+  })
+
+  it('re-renders the confirm gate from the reconnect probe on mount', async () => {
+    setupAgentEventsDom()
+    let calls: Array<{ url: string; init: RequestInit }> = []
+    let sse = createControllableSse()
+    stubFetchWithReconnect(sse, {
+      calls,
+      reconnectBody: {
+        status: 'suspended',
+        runId: 'run-reconnect-1',
+        workflowId: 'userManagementWorkflow',
+        stepId: 'confirm-gate',
+        suspendPayload: {
+          question: 'Cancel Jane Doe?',
+          actionType: 'cancel',
+          targetUserName: 'Jane Doe',
+          pendingCount: 3,
+        },
+      },
+    })
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('ae-confirm-gate'))
+    let gate = document.getElementById('ae-confirm-gate')!
+    assert.ok(gate.textContent?.includes('Cancel Jane Doe?'), 'reconnected question renders')
+    assert.ok(gate.textContent?.includes('3 pending appointments'), 'reconnected preflight renders')
+
+    let reconnectCall = calls.find((c) => c.url.includes('/reconnect'))
+    assert.ok(reconnectCall, 'reconnect probe fires on mount')
+
+    let confirmBtn = gate.querySelector('button')!
+    confirmBtn.click()
+
+    await waitFor(() => calls.some((c) => c.url.includes('/resume')))
+    let resumeCall = calls.find((c) => c.url.includes('/resume'))!
+    let body = resumeCall.init.body as FormData
+    assert.equal(body.get('runId'), 'run-reconnect-1', 'resume posts the reconnected run id')
     assert.equal(body.get('confirmed'), 'true', 'resume posts the confirmed flag')
   })
 })

@@ -222,6 +222,79 @@ describe('pipeWorkflowStream', () => {
     assert.equal(result, null)
   })
 
+  it('fires onRunState lifecycle events in order', async () => {
+    let source = sourceOf([
+      { type: 'workflow-start', payload: { workflowId: 'userManagementWorkflow' } },
+      {
+        type: 'workflow-step-suspended',
+        payload: { id: 'confirm-gate', suspendPayload: { question: 'Confirm?' } },
+      },
+      { type: 'workflow-finish', payload: { workflowStatus: 'success' } },
+    ])
+    let sink = makeSink()
+    let phases: string[] = []
+    await pipeWorkflowStream(source, sink.controller, new AbortController().signal, {
+      runId: 'run-1',
+      workflowId: 'userManagementWorkflow',
+      onRunState: (state) => {
+        phases.push(state.phase)
+        if (state.phase === 'suspended') {
+          assert.equal(state.stepId, 'confirm-gate')
+          assert.equal((state.suspendPayload as { question: string }).question, 'Confirm?')
+        }
+      },
+    })
+
+    assert.deepEqual(phases, ['started', 'suspended', 'finished'])
+  })
+
+  it('fires onRunState canceled and error phases', async () => {
+    let canceledPhases: string[] = []
+    let canceledSink = makeSink()
+    await pipeWorkflowStream(
+      sourceOf([{ type: 'workflow-canceled', payload: {} }]),
+      canceledSink.controller,
+      new AbortController().signal,
+      { runId: 'run-2', workflowId: 'wf', onRunState: (s) => void canceledPhases.push(s.phase) },
+    )
+    assert.deepEqual(canceledPhases, ['canceled'])
+
+    let errorPhases: string[] = []
+    let errorSink = makeSink()
+    let errorSource = new ReadableStream<unknown>({
+      start(c) {
+        c.error(new Error('boom'))
+      },
+    })
+    await pipeWorkflowStream(errorSource, errorSink.controller, new AbortController().signal, {
+      runId: 'run-3',
+      workflowId: 'wf',
+      onRunState: (s) => void errorPhases.push(s.phase),
+    })
+    assert.deepEqual(errorPhases, ['error'])
+  })
+
+  it('ignores onRunState failures without breaking the stream', async () => {
+    let source = sourceOf([
+      { type: 'workflow-start', payload: { workflowId: 'wf' } },
+      stepResultChunk({ success: true, targetUserName: 'Test User' }),
+      { type: 'workflow-finish', payload: { workflowStatus: 'success' } },
+    ])
+    let sink = makeSink()
+    let result = await pipeWorkflowStream(source, sink.controller, new AbortController().signal, {
+      runId: 'run-4',
+      workflowId: 'wf',
+      onRunState: () => {
+        throw new Error('store down')
+      },
+    })
+
+    assert.equal(result?.success, true)
+    let text = await drainAll(sink.stream)
+    assert.ok(text.includes('event: workflow-finish'))
+    assert.ok(!text.includes('event: workflow-error'))
+  })
+
   it('ignores non-object chunks without crashing', async () => {
     let source = sourceOf([
       null,

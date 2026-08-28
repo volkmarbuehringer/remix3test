@@ -141,6 +141,7 @@ export const routes = route({
       panel: get('/panel'),
       action: post('/'),
       resume: post('/resume'),
+      reconnect: get('/reconnect'),
     }),
 
     supportAgent: route('support-agent', {

@@ -370,6 +370,43 @@ export const AgentEventsStream = clientEntry(
       }
     }
 
+    async function checkReconnect(handle: Handle) {
+      try {
+        let res = await fetch(routes.admin.agentEvents.reconnect.href(), {
+          signal: handle.signal,
+        })
+        if (!res.ok) return
+        let body = (await res.json()) as {
+          status: string
+          runId?: string
+          workflowId?: string
+          suspendPayload?: Record<string, unknown>
+        }
+        if (body.status !== 'suspended' || !body.runId || !body.suspendPayload) return
+
+        // A stream (submit or resume) is already active: the admin submitted a
+        // new command while the reconnect probe was in flight. Applying the
+        // stale gate now would clobber the new run's state — drop it.
+        if (abortController) return
+
+        let container = document.getElementById('agent-events-frame-container')
+        let activeFrame = container?.getAttribute('data-active-frame') ?? 'agent-events-panel'
+        let frame = handle.frames.get(activeFrame)
+        if (!frame) return
+
+        // Re-attach the stream closures to the suspended run so confirm/cancel
+        // resume the correct run, then render the gate.
+        currentRunId = body.runId
+        currentWorkflowId = body.workflowId ?? null
+        didNavigate = false
+        clearStatusBar()
+        resetPipeline()
+        showConfirmGate(body.suspendPayload)
+      } catch {
+        // ignore — reconnect is best-effort
+      }
+    }
+
     return () => (
       <div
         mix={[
@@ -387,6 +424,11 @@ export const AgentEventsStream = clientEntry(
               textarea.addEventListener('keydown', handleTextareaKeydown, { signal: handle.signal })
               autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
+
+            // Reconnect after a reload / browser change / server restart: if a
+            // workflow run is still suspended at the confirm gate, re-render it
+            // so the admin can confirm or cancel the pending action.
+            checkReconnect(handle)
           }),
         ]}
       />

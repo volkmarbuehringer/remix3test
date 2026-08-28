@@ -241,3 +241,22 @@ CREATE TABLE IF NOT EXISTS mastra_workflow_snapshot (
   "updatedAtZ" TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (workflow_name, run_id)
 );
+
+-- Durable per-admin pointer to the currently active workflow run. One row per
+-- admin (upsert): the client loses currentRunId on reload, and the server's
+-- workflowRunMap is process-local, so a suspended confirm gate would otherwise
+-- be orphaned after a reload, browser change, or server restart. The row is a
+-- pointer — the Mastra snapshot remains the source of truth — and is deleted
+-- when the run finishes, errors, or is cancelled.
+CREATE TABLE IF NOT EXISTS admin_active_runs (
+  admin_user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  run_id TEXT NOT NULL,
+  workflow_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'suspended')),
+  step_id TEXT,
+  suspend_payload JSONB,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS admin_active_runs_run_id_idx ON admin_active_runs (run_id);

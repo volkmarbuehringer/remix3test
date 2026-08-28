@@ -19,19 +19,50 @@ export type WorkflowResult = {
   error?: string
 }
 
+export type RunStateEvent =
+  | { phase: 'started'; runId: string; workflowId: string }
+  | {
+      phase: 'suspended'
+      runId: string
+      workflowId: string
+      stepId: string
+      suspendPayload: Record<string, unknown>
+    }
+  | { phase: 'finished'; runId: string; workflowId: string; success: boolean }
+  | { phase: 'error'; runId: string; workflowId: string; error: string }
+  | { phase: 'canceled'; runId: string; workflowId: string }
+
 export async function pipeWorkflowStream(
   stream: AsyncIterable<unknown>,
   controller: ReadableStreamDefaultController,
   signal: AbortSignal,
-  opts?: { includeReport?: boolean },
+  opts?: {
+    includeReport?: boolean
+    runId?: string
+    workflowId?: string
+    onRunState?: (state: RunStateEvent) => void | Promise<void>
+  },
 ): Promise<WorkflowResult | null> {
   let lastReportPdf: string | undefined
   let lastReportFilename: string | undefined
   let finalOutput: Record<string, unknown> | null = null
   let streamError: string | null = null
   let includeReport = opts?.includeReport !== false
+  let runId = opts?.runId ?? ''
+  let workflowId = opts?.workflowId ?? ''
+  let onRunState = opts?.onRunState
 
-  function handleEvent(chunk: unknown) {
+  async function emitRunState(state: RunStateEvent) {
+    if (!onRunState) return
+    try {
+      await onRunState(state)
+    } catch (err) {
+      // A run-state bookkeeping failure must not break the workflow stream.
+      console.error('[pipeWorkflowStream] onRunState failed:', err)
+    }
+  }
+
+  async function handleEvent(chunk: unknown) {
     let c = chunk as Record<string, unknown>
     if (!c || typeof c !== 'object') return
     let type = c.type as string | undefined
@@ -39,6 +70,7 @@ export async function pipeWorkflowStream(
 
     if (type === 'workflow-start') {
       writeEvent(controller, 'workflow-start', { workflowId: payload?.workflowId })
+      await emitRunState({ phase: 'started', runId, workflowId })
     } else if (type === 'workflow-step-start') {
       writeEvent(controller, 'workflow-step-start', {
         stepId: payload?.id ?? c.id,
@@ -47,6 +79,13 @@ export async function pipeWorkflowStream(
       writeEvent(controller, 'workflow-step-suspended', {
         stepId: payload?.id,
         suspendPayload: payload?.suspendPayload ?? {},
+      })
+      await emitRunState({
+        phase: 'suspended',
+        runId,
+        workflowId,
+        stepId: String(payload?.id ?? ''),
+        suspendPayload: (payload?.suspendPayload as Record<string, unknown>) ?? {},
       })
     } else if (type === 'workflow-step-result') {
       let stepOutput = payload?.output as Record<string, unknown> | undefined
@@ -78,8 +117,15 @@ export async function pipeWorkflowStream(
         finish.reportFilename = lastReportFilename
       }
       writeEvent(controller, 'workflow-finish', finish)
+      await emitRunState({
+        phase: 'finished',
+        runId,
+        workflowId,
+        success: ws === 'success',
+      })
     } else if (type === 'workflow-canceled') {
       writeEvent(controller, 'workflow-canceled', {})
+      await emitRunState({ phase: 'canceled', runId, workflowId })
     } else if (type === 'workflow-paused') {
       writeEvent(controller, 'workflow-step-suspended', {
         stepId: 'unknown',
@@ -115,17 +161,18 @@ export async function pipeWorkflowStream(
         let { done, value } = await reader.read()
         if (done) break
         if (signal.aborted) return null
-        handleEvent(value)
+        await handleEvent(value)
       }
     } else {
       for await (let chunk of stream) {
         if (signal.aborted) return null
-        handleEvent(chunk)
+        await handleEvent(chunk)
       }
     }
   } catch (err) {
     streamError = String(err)
     writeEvent(controller, 'workflow-error', { error: streamError })
+    await emitRunState({ phase: 'error', runId, workflowId, error: streamError })
   }
 
   safeClose(controller)
