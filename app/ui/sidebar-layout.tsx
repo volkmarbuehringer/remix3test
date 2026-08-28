@@ -65,7 +65,7 @@ export type SidebarLayoutConfig<ID extends string> = {
   headerIcon: RemixNode
   /** Label text for the sidebar header (e.g. "Admin" or "AI"). */
   headerLabel: string
-  /** Optional extra content rendered below the navigation (e.g. AdminViewToggle). */
+  /** Optional extra content rendered below the navigation (e.g. a view toggle). */
   sidebarExtras?: RemixNode
   /** Pathname prefixes whose content should fill the available height instead of
    *  growing to content height (e.g. full-height chat pages). Matched exactly or

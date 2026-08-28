@@ -62,7 +62,7 @@ export function StatsFragment(handle: Handle<StatsFragmentProps>) {
             <div mix={statValueStyle}>{serverTime}</div>
           </div>
           <div mix={statItemStyle}>
-            <div mix={statLabelStyle}>Date</div>
+            <div mix={statLabelStyle}>Datum</div>
             <div mix={statValueStyle}>{serverDate}</div>
           </div>
           <div mix={statItemStyle}>

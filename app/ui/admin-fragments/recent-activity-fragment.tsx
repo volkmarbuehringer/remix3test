@@ -33,6 +33,9 @@ const listStyle = css({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.space.sm,
+  overflowY: 'auto',
+  maxHeight: '153px',
+  paddingRight: theme.space.xs,
 })
 
 const activityRowStyle = css({

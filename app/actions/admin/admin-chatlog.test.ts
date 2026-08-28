@@ -65,29 +65,18 @@ describe('Admin Chatlog controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // Root reload lifecycle demo entries rendered in sidebar
+  // Sidebar should not render lifecycle/demo debug widgets
   // -----------------------------------------------------------------------
 
-  it('renders AdminViewToggle lifecycle demo in admin sidebar', async () => {
+  it('does not render lifecycle demo widgets in the admin sidebar', async () => {
     let response = await adminChatlogGet()
 
     assert.equal(response.status, 200)
     let html = await response.text()
 
-    // AdminViewToggle renders view buttons with "Dashboard"/"Chatlog" labels
-    assert.ok(html.includes('View:'), 'should render View: label')
-    assert.ok(html.includes('Dashboard'), 'should render Dashboard toggle button')
-    assert.ok(html.includes('Chatlog'), 'should render Chatlog toggle button')
-  })
-
-  it('renders PersistentAdminCounter lifecycle demo in admin sidebar', async () => {
-    let response = await adminChatlogGet()
-
-    assert.equal(response.status, 200)
-    let html = await response.text()
-
-    // PersistentAdminCounter renders counter UI
-    assert.ok(html.includes('Persist Counter'), 'should render Persist Counter label')
+    // Demo/debug widgets were removed from the sidebar (regression guard)
+    assert.ok(!html.includes('Persist Counter'), 'should not render Persist Counter label')
+    assert.ok(!html.includes('View:'), 'should not render View: label')
   })
 
   // -----------------------------------------------------------------------
