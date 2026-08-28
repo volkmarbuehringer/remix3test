@@ -10,5 +10,5 @@ export { default as adminUploads } from './uploads/controller.tsx'
 export { default as adminClients } from '../client/controller.tsx'
 export { workflowAgent } from '../workflow-agent/controller.tsx'
 export { default as agentEvents } from '../agent-events/controller.tsx'
-// `mastra/` is the agent subsystem; its controller stays coupled there.
-export { default as supportAgent } from './support-agent/controller.tsx'
+// Support-Agent handler is a colocated top-level controller, like workflow-agent / agent-events.
+export { supportAgentChat as supportAgent } from '../support-agent/controller.tsx'

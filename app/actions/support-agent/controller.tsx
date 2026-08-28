@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes, frames } from '../../routes.ts'
-import { mastra } from './index.ts'
+import { mastra } from '../mastra/index.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import {
@@ -13,20 +13,20 @@ import {
   pipeStream,
   safeClose,
 } from '../../utils/agent-sse.ts'
-import { runWithAdminId } from './tools/admin-context.ts'
+import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import {
   MAX_MESSAGE_LENGTH,
   AGENT_TIMEOUT_MS,
   sanitizeLog,
   validateMessage,
-} from './shared-agent.ts'
+} from '../mastra/shared-agent.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
 import { css } from 'remix/ui'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { SupportAgentPage } from '../../ui/support-agent-page.tsx'
 import { theme } from '../../ui/theme/theme.ts'
-import type { TestAgent } from './shared-agent.ts'
+import type { TestAgent } from '../mastra/shared-agent.ts'
 
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
@@ -43,7 +43,12 @@ export function __setTestAgent(agent: typeof _testAgent) {
     _testAgent = agent
   }
 }
-export const mastraChat = createController(routes.admin.supportAgent, {
+function resolveAgent(): TestAgent {
+  return process.env.NODE_ENV === 'test' && _testAgent
+    ? _testAgent
+    : mastra.getAgent('supportAgent')
+}
+export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async panel(context) {
@@ -71,7 +76,7 @@ export const mastraChat = createController(routes.admin.supportAgent, {
       let user = getCurrentUser()
       let log = (...args: unknown[]) =>
         context.logger?.(
-          `[MastraChat] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+          `[SupportAgentChat] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
         )
 
       log('POST action start')
@@ -113,10 +118,7 @@ export const mastraChat = createController(routes.admin.supportAgent, {
 
       let body = new ReadableStream({
         start: async (controller) => {
-          let agent: TestAgent =
-            process.env.NODE_ENV === 'test' && _testAgent
-              ? _testAgent
-              : mastra.getAgent('supportAgent')
+          let agent = resolveAgent()
 
           let abortController = new AbortController()
           let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
@@ -179,7 +181,7 @@ export const mastraChat = createController(routes.admin.supportAgent, {
       let user = getCurrentUser()
       let log = (...args: unknown[]) =>
         context.logger?.(
-          `[MastraChat] [toolDecision] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+          `[SupportAgentChat] [toolDecision] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
         )
 
       if (!chatRateLimiter.attempt(user.id)) {
@@ -207,11 +209,11 @@ export const mastraChat = createController(routes.admin.supportAgent, {
           try {
             controller.enqueue(sseEvent('start', { runId, threadId }))
 
-            let agent = mastra.getAgent('supportAgent')
+            let agent = resolveAgent()
             let result = (await runWithAdminId(user.id, () =>
               decision === 'approve'
-                ? agent.approveToolCallGenerate({ runId, toolCallId })
-                : agent.declineToolCallGenerate({ runId, toolCallId }),
+                ? agent.approveToolCallGenerate!({ runId, toolCallId })
+                : agent.declineToolCallGenerate!({ runId, toolCallId }),
             )) as {
               text?: string
               finishReason?: string
@@ -309,7 +311,7 @@ export const mastraChat = createController(routes.admin.supportAgent, {
       let user = getCurrentUser()
       let log = (...args: unknown[]) =>
         context.logger?.(
-          `[MastraChat] [answer] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+          `[SupportAgentChat] [answer] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
         )
 
       if (!chatRateLimiter.attempt(user.id)) {
@@ -344,7 +346,7 @@ export const mastraChat = createController(routes.admin.supportAgent, {
       let body = new ReadableStream({
         start: async (controller) => {
           try {
-            let agent = mastra.getAgent('supportAgent')
+            let agent = resolveAgent()
             let output = await runWithAdminId(user.id, () =>
               agent.resumeStream(resumeData, { runId, toolCallId }),
             )

@@ -11,12 +11,12 @@ import {
 } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
 import { __setTestAgent, chatRateLimiter } from './controller.tsx'
-import { mastra } from './index.ts'
+import { mastra } from '../mastra/index.ts'
 import { deleteChatThread, listChatThreads } from '../../utils/mastra-memory.ts'
 
-import { supportTools } from './tools/support-tools.ts'
-import { runWithAdminId } from './tools/admin-context.ts'
-import type { AgentStreamOutput } from './shared-agent.ts'
+import { supportTools } from '../mastra/tools/support-tools.ts'
+import { runWithAdminId } from '../mastra/tools/admin-context.ts'
+import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
 // ── SSE response parser ──
 
@@ -138,6 +138,8 @@ function jsonResponse(data: unknown): Promise<Response> {
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.admin.supportAgent.index.href()}`
 const CHAT_ACTION_URL = `${BASE}${routes.admin.supportAgent.action.href()}`
+const CHAT_TOOL_DECISION_URL = `${BASE}${routes.admin.supportAgent.toolDecision.href()}`
+const CHAT_ANSWER_URL = `${BASE}${routes.admin.supportAgent.answer.href()}`
 
 const JSON_HEADERS = { Accept: 'application/json', 'X-Sse-Request': '1' }
 
@@ -381,6 +383,248 @@ describe('Mastra Chat controller', () => {
     let data = JSON.parse(navigateEvent!.data)
     assert.equal(data.href, '/admin/users')
     assert.equal(data.target, 'support-agent-panel')
+
+    __setTestAgent(undefined)
+  })
+
+  it('POST /admin/support-agent/tool-decision approves a question suspension', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let runId = crypto.randomUUID()
+    let toolCallId = crypto.randomUUID()
+    let question = 'Which user should I look up?'
+    let options = [{ label: 'Alice', description: 'alice@example.com' }]
+
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({
+        finishReason: 'suspended',
+        runId,
+        suspendPayload: { question, options, selectionMode: 'single_select', toolCallId },
+      }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({
+        runId,
+        toolCallId,
+        decision: 'approve',
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let questionEvent = events.find((e) => e.type === 'question')
+    assert.ok(questionEvent, 'response should include a question event')
+    let data = JSON.parse(questionEvent!.data)
+    assert.equal(data.runId, runId)
+    assert.equal(data.question, question)
+    assert.equal(data.selectionMode, 'single_select')
+    assert.deepEqual(data.options, options)
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'response should end with complete',
+    )
+
+    __setTestAgent(undefined)
+  })
+
+  it('POST /admin/support-agent/tool-decision decline emits the decline message', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let runId = crypto.randomUUID()
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ runId, decision: 'decline', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let messageEvent = events.find((e) => e.type === 'message')
+    assert.ok(messageEvent, 'response should include a message event')
+    assert.equal(JSON.parse(messageEvent!.data).text, 'Die Aktion wurde abgelehnt.')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'response should end with complete',
+    )
+
+    __setTestAgent(undefined)
+  })
+
+  it('POST /admin/support-agent/tool-decision with missing runId returns SSE error', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ decision: 'approve', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 400)
+    let { events } = await parseSSEResponse(response)
+    let errorEvent = events.find((e) => e.type === 'agent-error')
+    assert.ok(errorEvent, '400 response should include an agent-error event')
+  })
+
+  it('POST /admin/support-agent/tool-decision with invalid decision returns SSE error', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({
+        runId: crypto.randomUUID(),
+        decision: 'maybe',
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 400)
+    let { events } = await parseSSEResponse(response)
+    let errorEvent = events.find((e) => e.type === 'agent-error')
+    assert.ok(errorEvent, '400 response should include an agent-error event')
+  })
+
+  it('POST /admin/support-agent/answer resumes the agent and streams the reply', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let runId = crypto.randomUUID()
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput('Confirmed.'),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'yes', _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.equal(text, 'Confirmed.')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'response should end with complete',
+    )
+
+    __setTestAgent(undefined)
+  })
+
+  it('POST /admin/support-agent/answer with missing runId or answer returns SSE error', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ runId: crypto.randomUUID(), _csrf: session.csrfToken }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 400)
+    let { events } = await parseSSEResponse(response)
+    let errorEvent = events.find((e) => e.type === 'agent-error')
+    assert.ok(errorEvent, '400 response should include an agent-error event')
+  })
+
+  it('POST /admin/support-agent/answer passes multi-select answer as a JSON array', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let runId = crypto.randomUUID()
+    let toolCallId = crypto.randomUUID()
+    let received: unknown
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async (data: unknown, opts?: any) => {
+        received = data
+        assert.equal(opts?.runId, runId, 'runId passed to resumeStream')
+        return createMockStreamOutput('Selection recorded.')
+      },
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({
+        runId,
+        toolCallId,
+        answer: JSON.stringify(['option-a', 'option-b']),
+        selectionMode: 'multi_select',
+        _csrf: session.csrfToken,
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(received, ['option-a', 'option-b'])
+    let { events } = await parseSSEResponse(response)
+    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'response should end with complete',
+    )
 
     __setTestAgent(undefined)
   })

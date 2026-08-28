@@ -1,1 +1,0 @@
-export { mastraChat as default } from '../../mastra/controller.tsx'
