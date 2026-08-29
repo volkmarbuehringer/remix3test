@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
-import { logAdminAction } from '../../../data/audit-log.ts'
+import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 
 const preflightStep = createStep({
@@ -186,10 +186,28 @@ const executeStep = createStep({
     }
 
     let todayMidnight = getTodayUtcMidnight()
-    let delResult = await db.exec(
-      'DELETE FROM appointments WHERE user_id = $1 AND resource_id = $2 AND date >= $3',
-      [inputData.targetUserId, inputData.resourceId, todayMidnight],
-    )
+    let deletedCount = await db.transaction(async (tx) => {
+      let delResult = await tx.exec(
+        'DELETE FROM appointments WHERE user_id = $1 AND resource_id = $2 AND date >= $3',
+        [inputData.targetUserId, inputData.resourceId, todayMidnight],
+      )
+
+      await logAdminActionStrict(tx, {
+        admin_user_id: inputData.adminUserId,
+        admin_email: inputData.adminEmail,
+        action_type: 'delete-appointments',
+        target_type: 'appointment',
+        target_id: String(inputData.targetUserId),
+        details: {
+          resourceId: inputData.resourceId,
+          resourceName: inputData.resourceName,
+          deletedCount: delResult.affectedRows ?? 0,
+          targetUserName: inputData.targetUserName,
+        },
+      })
+
+      return delResult.affectedRows ?? 0
+    })
 
     return {
       success: true,
@@ -199,7 +217,7 @@ const executeStep = createStep({
       adminEmail: inputData.adminEmail,
       targetUserName: inputData.targetUserName,
       resourceName: inputData.resourceName,
-      deletedCount: delResult.affectedRows ?? 0,
+      deletedCount,
     }
   },
 })
@@ -239,37 +257,13 @@ const finalizeStep = createStep({
       }
     }
 
-    try {
-      await logAdminAction(db, {
-        admin_user_id: inputData.adminUserId,
-        admin_email: inputData.adminEmail,
-        action_type: 'delete-appointments',
-        target_type: 'appointment',
-        target_id: String(inputData.targetUserId),
-        details: {
-          resourceId: inputData.resourceId,
-          resourceName: inputData.resourceName,
-          deletedCount: inputData.deletedCount,
-          targetUserName: inputData.targetUserName,
-        },
-      })
-      return {
-        success: true,
-        targetUserId: inputData.targetUserId,
-        targetUserName: inputData.targetUserName,
-        resourceName: inputData.resourceName,
-        deletedCount: inputData.deletedCount,
-        auditLogged: true,
-      }
-    } catch {
-      return {
-        success: true,
-        targetUserId: inputData.targetUserId,
-        targetUserName: inputData.targetUserName,
-        resourceName: inputData.resourceName,
-        deletedCount: inputData.deletedCount,
-        auditLogged: false,
-      }
+    return {
+      success: true,
+      targetUserId: inputData.targetUserId,
+      targetUserName: inputData.targetUserName,
+      resourceName: inputData.resourceName,
+      deletedCount: inputData.deletedCount,
+      auditLogged: true,
     }
   },
 })

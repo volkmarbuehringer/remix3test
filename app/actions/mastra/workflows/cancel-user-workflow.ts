@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
-import { logAdminAction } from '../../../data/audit-log.ts'
+import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
 import { consoleNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
@@ -105,6 +105,7 @@ const deleteAndDisableAccountStep = createStep({
     userEmail: z.string().optional(),
     userName: z.string().optional(),
     deletedAppointments: z.number(),
+    auditLogged: z.boolean(),
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
@@ -118,6 +119,7 @@ const deleteAndDisableAccountStep = createStep({
         userEmail: inputData.userEmail,
         userName: inputData.userName,
         deletedAppointments: 0,
+        auditLogged: false,
         error: inputData.error,
       }
     }
@@ -125,15 +127,6 @@ const deleteAndDisableAccountStep = createStep({
     let todayMidnight = getTodayUtcMidnight()
 
     return await db.transaction(async (tx) => {
-      let deletedAppointments = 0
-      if (inputData.deleteAppointments) {
-        let delResult = await tx.exec(
-          'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
-          [inputData.targetUserId, todayMidnight],
-        )
-        deletedAppointments = delResult.affectedRows ?? 0
-      }
-
       let disableResult = await tx.exec(
         'UPDATE users SET disabled_at = $1, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NULL',
         [now, inputData.targetUserId],
@@ -147,15 +140,38 @@ const deleteAndDisableAccountStep = createStep({
           adminEmail: inputData.adminEmail,
           userEmail: inputData.userEmail,
           userName: inputData.userName,
-          deletedAppointments,
+          deletedAppointments: 0,
+          auditLogged: false,
           error: 'Account already disabled',
         }
+      }
+
+      let deletedAppointments = 0
+      if (inputData.deleteAppointments) {
+        let delResult = await tx.exec(
+          'DELETE FROM appointments WHERE user_id = $1 AND date >= $2',
+          [inputData.targetUserId, todayMidnight],
+        )
+        deletedAppointments = delResult.affectedRows ?? 0
       }
 
       await tx.exec(
         'UPDATE api_tokens SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL',
         [now, inputData.targetUserId],
       )
+
+      await logAdminActionStrict(tx, {
+        admin_user_id: inputData.adminUserId,
+        admin_email: inputData.adminEmail,
+        action_type: 'user_cancelled',
+        target_type: 'user',
+        target_id: String(inputData.targetUserId),
+        details: {
+          targetEmail: inputData.userEmail,
+          targetName: inputData.userName,
+          deletedAppointments,
+        },
+      })
 
       return {
         valid: true,
@@ -166,88 +182,9 @@ const deleteAndDisableAccountStep = createStep({
         userEmail: inputData.userEmail,
         userName: inputData.userName,
         deletedAppointments,
-      }
-    })
-  },
-})
-
-const auditLogStep = createStep({
-  id: 'audit-log',
-  inputSchema: z.object({
-    valid: z.boolean(),
-    disabled: z.boolean(),
-    targetUserId: z.number(),
-    adminUserId: z.number(),
-    adminEmail: z.string(),
-    userEmail: z.string().optional(),
-    userName: z.string().optional(),
-    deletedAppointments: z.number(),
-    error: z.string().optional(),
-  }),
-  outputSchema: z.object({
-    valid: z.boolean(),
-    disabled: z.boolean(),
-    targetUserId: z.number(),
-    adminUserId: z.number(),
-    adminEmail: z.string(),
-    userEmail: z.string().optional(),
-    userName: z.string().optional(),
-    deletedAppointments: z.number(),
-    auditLogged: z.boolean(),
-    error: z.string().optional(),
-  }),
-  execute: async ({ inputData }) => {
-    if (!inputData.valid || !inputData.disabled) {
-      return {
-        valid: inputData.valid,
-        disabled: inputData.disabled,
-        targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail,
-        userEmail: inputData.userEmail,
-        userName: inputData.userName,
-        deletedAppointments: inputData.deletedAppointments,
-        auditLogged: false,
-        error: inputData.error,
-      }
-    }
-    try {
-      await logAdminAction(db, {
-        admin_user_id: inputData.adminUserId,
-        admin_email: inputData.adminEmail,
-        action_type: 'user_cancelled',
-        target_type: 'user',
-        target_id: String(inputData.targetUserId),
-        details: {
-          targetEmail: inputData.userEmail,
-          targetName: inputData.userName,
-          deletedAppointments: inputData.deletedAppointments,
-        },
-      })
-      return {
-        valid: true,
-        disabled: true,
-        targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail,
-        userEmail: inputData.userEmail,
-        userName: inputData.userName,
-        deletedAppointments: inputData.deletedAppointments,
         auditLogged: true,
       }
-    } catch {
-      return {
-        valid: true,
-        disabled: true,
-        targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail,
-        userEmail: inputData.userEmail,
-        userName: inputData.userName,
-        deletedAppointments: inputData.deletedAppointments,
-        auditLogged: false,
-      }
-    }
+    })
   },
 })
 
@@ -346,6 +283,5 @@ export const cancelUserWorkflow = createWorkflow({
 })
   .then(validateTargetStep)
   .then(deleteAndDisableAccountStep)
-  .then(auditLogStep)
   .then(notifyUserStep)
   .commit()

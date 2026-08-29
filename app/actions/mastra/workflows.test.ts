@@ -176,6 +176,11 @@ describe('LockUserWorkflow', () => {
     // Ensure unlocked before test
     await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
 
+    let auditBefore = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'lock' AND target_id = $1 AND admin_user_id = $2",
+      [String(customerId), adminId],
+    )
+
     let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
     let result = await executeLockUserWorkflow({
       targetUserId: customerId,
@@ -183,10 +188,24 @@ describe('LockUserWorkflow', () => {
       adminEmail,
     })
     assert.equal(result.success, true)
+    assert.equal(result.auditLogged, true)
 
     // Verify locked
     let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [customerId])
     assert.notEqual(check.rows[0]?.disabled_at, null)
+
+    let auditAfter = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'lock' AND target_id = $1 AND admin_user_id = $2",
+      [String(customerId), adminId],
+    )
+    assert.equal(
+      auditAfter.rows[0].n,
+      auditBefore.rows[0].n + 1,
+      'successful lock must write exactly one audit entry',
+    )
+
+    // Restore unlocked state for other tests
+    await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
   })
 
   it('rejects self-lock', async () => {
@@ -213,6 +232,11 @@ describe('LockUserWorkflow', () => {
     // Ensure locked
     await pool.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [Date.now(), customerId])
 
+    let auditBefore = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'lock' AND target_id = $1",
+      [String(customerId)],
+    )
+
     let { executeLockUserWorkflow } = await import('./workflow-executor.ts')
     let result = await executeLockUserWorkflow({
       targetUserId: customerId,
@@ -221,6 +245,16 @@ describe('LockUserWorkflow', () => {
     })
     assert.equal(result.success, true)
     assert.equal(result.alreadyLocked, true)
+
+    let auditAfter = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'lock' AND target_id = $1",
+      [String(customerId)],
+    )
+    assert.equal(
+      auditAfter.rows[0].n,
+      auditBefore.rows[0].n,
+      'no-op lock must not write an audit entry',
+    )
 
     // Restore unlocked state for other tests
     await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
@@ -284,6 +318,11 @@ describe('UnlockUserWorkflow', () => {
     // Ensure locked first
     await pool.query('UPDATE users SET disabled_at = $1 WHERE id = $2', [Date.now(), customerId])
 
+    let auditBefore = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'unlock' AND target_id = $1 AND admin_user_id = $2",
+      [String(customerId), adminId],
+    )
+
     let { executeUnlockUserWorkflow } = await import('./workflow-executor.ts')
     let result = await executeUnlockUserWorkflow({
       targetUserId: customerId,
@@ -291,10 +330,21 @@ describe('UnlockUserWorkflow', () => {
       adminEmail,
     })
     assert.equal(result.success, true)
+    assert.equal(result.auditLogged, true)
 
     // Verify unlocked
     let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [customerId])
     assert.equal(check.rows[0]?.disabled_at, null)
+
+    let auditAfter = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'unlock' AND target_id = $1 AND admin_user_id = $2",
+      [String(customerId), adminId],
+    )
+    assert.equal(
+      auditAfter.rows[0].n,
+      auditBefore.rows[0].n + 1,
+      'successful unlock must write exactly one audit entry',
+    )
   })
 
   it('rejects self-unlock', async () => {
@@ -321,6 +371,11 @@ describe('UnlockUserWorkflow', () => {
     // Ensure unlocked
     await pool.query('UPDATE users SET disabled_at = NULL WHERE id = $1', [customerId])
 
+    let auditBefore = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'unlock' AND target_id = $1",
+      [String(customerId)],
+    )
+
     let { executeUnlockUserWorkflow } = await import('./workflow-executor.ts')
     let result = await executeUnlockUserWorkflow({
       targetUserId: customerId,
@@ -329,5 +384,152 @@ describe('UnlockUserWorkflow', () => {
     })
     assert.equal(result.success, true)
     assert.equal(result.alreadyUnlocked, true)
+
+    let auditAfter = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'unlock' AND target_id = $1",
+      [String(customerId)],
+    )
+    assert.equal(
+      auditAfter.rows[0].n,
+      auditBefore.rows[0].n,
+      'no-op unlock must not write an audit entry',
+    )
+  })
+})
+
+describe('Transactional audit atomicity', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('cancel-user rolls back mutation and audit together when the audit write fails', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+    let resourceId = await getAnyResourceId()
+
+    let targetEmail = `wf-cancel-target-${Date.now()}@example.com`
+    let created = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, $3, 'customer', 1, 1, $4) RETURNING id`,
+      [targetEmail, 'hashed-password-for-testing', 'Cancel Target', Date.now()],
+    )
+    let targetId = created.rows[0]?.id as number
+
+    let dayMs = Date.now() + 86_400_000
+    await createAppointmentRecord(db, {
+      userId: targetId,
+      resourceId,
+      title: 'Atomicity Test',
+      dayMs,
+      during: '[600,660)',
+      now: Date.now(),
+    })
+
+    try {
+      let { executeCancelUserWorkflow } = await import('./workflow-executor.ts')
+      let result: Awaited<ReturnType<typeof executeCancelUserWorkflow>> | undefined
+      let rejected = false
+      try {
+        result = await executeCancelUserWorkflow({
+          targetUserId: targetId,
+          adminUserId: 99999999,
+          adminEmail,
+          deleteAppointments: true,
+        })
+      } catch {
+        rejected = true
+      }
+      assert.equal(rejected, false, 'executor should resolve failed runs, not reject')
+      assert.equal(result!.success, false, 'audit failure must fail the workflow')
+      assert.match(
+        result!.error ?? '',
+        /audit log write failed/i,
+        'error should trace to the audit write',
+      )
+
+      let user = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [targetId])
+      assert.equal(user.rows[0]?.disabled_at, null, 'disable must be rolled back')
+
+      let appts = await pool.query('SELECT id FROM appointments WHERE user_id = $1', [targetId])
+      assert.equal(appts.rows.length, 1, 'appointment deletion must be rolled back')
+
+      let audit = await pool.query(
+        "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
+        [String(targetId)],
+      )
+      assert.equal(audit.rows[0].n, 0, 'no audit entry may survive a failed run')
+    } finally {
+      await pool.query('DELETE FROM appointments WHERE user_id = $1', [targetId])
+      await pool.query('DELETE FROM users WHERE id = $1', [targetId])
+      await pool.query(
+        "DELETE FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
+        [String(targetId)],
+      )
+    }
+  })
+
+  it('cancel-user success writes exactly one audit entry with the mutation', async () => {
+    let adminId = await getAdminId()
+    let admin = await pool.query('SELECT email FROM users WHERE id = $1', [adminId])
+    let adminEmail = admin.rows[0]?.email as string
+    let resourceId = await getAnyResourceId()
+
+    let targetEmail = `wf-cancel-ok-${Date.now()}@example.com`
+    let created = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, $3, 'customer', 1, 1, $4) RETURNING id`,
+      [targetEmail, 'hashed-password-for-testing', 'Cancel Success Target', Date.now()],
+    )
+    let targetId = created.rows[0]?.id as number
+
+    let dayMs = Date.now() + 86_400_000
+    await createAppointmentRecord(db, {
+      userId: targetId,
+      resourceId,
+      title: 'Cancel Success Test',
+      dayMs,
+      during: '[600,660)',
+      now: Date.now(),
+    })
+
+    try {
+      let auditBefore = await pool.query(
+        "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
+        [String(targetId)],
+      )
+
+      let { executeCancelUserWorkflow } = await import('./workflow-executor.ts')
+      let result = await executeCancelUserWorkflow({
+        targetUserId: targetId,
+        adminUserId: adminId,
+        adminEmail,
+        deleteAppointments: true,
+      })
+      assert.equal(result.success, true)
+
+      let user = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [targetId])
+      assert.notEqual(user.rows[0]?.disabled_at, null, 'account must be disabled on success')
+
+      let appts = await pool.query('SELECT id FROM appointments WHERE user_id = $1', [targetId])
+      assert.equal(appts.rows.length, 0, 'upcoming appointments must be deleted on success')
+
+      let auditAfter = await pool.query(
+        "SELECT COUNT(*)::int AS n FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
+        [String(targetId)],
+      )
+      assert.equal(
+        auditAfter.rows[0].n,
+        auditBefore.rows[0].n + 1,
+        'successful cancel must write exactly one audit entry',
+      )
+    } finally {
+      await pool.query('DELETE FROM appointments WHERE user_id = $1', [targetId])
+      await pool.query('DELETE FROM users WHERE id = $1', [targetId])
+      await pool.query(
+        "DELETE FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
+        [String(targetId)],
+      )
+    }
   })
 })

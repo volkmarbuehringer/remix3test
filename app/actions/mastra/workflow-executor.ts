@@ -6,6 +6,16 @@ export function setMastra(m: Mastra) {
   _mastra = m
 }
 
+function runErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object') {
+    let e = error as { message?: unknown }
+    if (typeof e.message === 'string') return e.message
+    return JSON.stringify(error)
+  }
+  return String(error)
+}
+
 export async function executeUserPreflightWorkflow(input: { targetUserId: number }): Promise<{
   found: boolean
   user?: { id: number; name: string; email: string; role: string; disabledAt: number | null }
@@ -103,7 +113,7 @@ export async function executeBookingWorkflow(input: {
       ? (result.result as { success?: boolean; id?: number; error?: string })
       : {
           success: false,
-          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
         }
   return {
     workflowRunId: run.runId,
@@ -126,7 +136,7 @@ export async function executeCancellationWorkflow(input: {
       ? (result.result as { success?: boolean; error?: string })
       : {
           success: false,
-          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
         }
   return { workflowRunId: run.runId, success: out.success ?? false, error: out.error }
 }
@@ -159,7 +169,7 @@ export async function executeCancelUserWorkflow(input: {
           success: false,
           targetUserId: input.targetUserId,
           deletedAppointments: 0,
-          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
         }
   return {
     workflowRunId: run.runId,
@@ -203,7 +213,7 @@ export async function executeConsistencyCheckWorkflow(): Promise<{
     lockedTotal: 0,
     activeUsers: [],
     activeTotal: 0,
-    error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+    error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
   }
 }
 
@@ -232,7 +242,7 @@ export async function executeLockUserWorkflow(input: {
         })
       : {
           success: false,
-          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
           auditLogged: false,
         }
   return {
@@ -269,7 +279,7 @@ export async function executeUnlockUserWorkflow(input: {
         })
       : {
           success: false,
-          error: result.status === 'failed' ? String(result.error) : 'unknown_error',
+          error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
           auditLogged: false,
         }
   return {

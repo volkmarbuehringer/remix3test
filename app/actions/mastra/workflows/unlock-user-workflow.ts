@@ -1,7 +1,7 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
-import { logAdminAction } from '../../../data/audit-log.ts'
+import { logAdminActionStrict } from '../../../data/audit-log.ts'
 
 const validateTargetStep = createStep({
   id: 'validate-target',
@@ -74,6 +74,7 @@ const executeUnlockStep = createStep({
     userName: z.string().optional(),
     userEmail: z.string().optional(),
     alreadyUnlocked: z.boolean().optional(),
+    auditLogged: z.boolean(),
     error: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
@@ -85,76 +86,19 @@ const executeUnlockStep = createStep({
         adminEmail: inputData.adminEmail,
         userName: inputData.userName,
         userEmail: inputData.userEmail,
+        auditLogged: false,
         error: inputData.error,
       }
     }
-    let result = await db.exec(
-      'UPDATE users SET disabled_at = NULL, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NOT NULL',
-      [Date.now(), inputData.targetUserId],
-    )
-    if ((result.affectedRows ?? 0) === 0) {
-      // Already in the desired state (e.g. unlocked via the admin panel) — treat as idempotent success.
-      return {
-        success: true,
-        targetUserId: inputData.targetUserId,
-        adminUserId: inputData.adminUserId,
-        adminEmail: inputData.adminEmail,
-        userName: inputData.userName,
-        userEmail: inputData.userEmail,
-        alreadyUnlocked: true,
+    let unlocked = await db.transaction(async (tx) => {
+      let result = await tx.exec(
+        'UPDATE users SET disabled_at = NULL, token_version = token_version + 1, updated_at = $1 WHERE id = $2 AND disabled_at IS NOT NULL',
+        [Date.now(), inputData.targetUserId],
+      )
+      if ((result.affectedRows ?? 0) === 0) {
+        return false
       }
-    }
-    return {
-      success: true,
-      targetUserId: inputData.targetUserId,
-      adminUserId: inputData.adminUserId,
-      adminEmail: inputData.adminEmail,
-      userName: inputData.userName,
-      userEmail: inputData.userEmail,
-    }
-  },
-})
-
-const auditLogStep = createStep({
-  id: 'audit-log',
-  inputSchema: z.object({
-    success: z.boolean(),
-    targetUserId: z.number(),
-    adminUserId: z.number(),
-    adminEmail: z.string(),
-    userName: z.string().optional(),
-    userEmail: z.string().optional(),
-    alreadyUnlocked: z.boolean().optional(),
-    error: z.string().optional(),
-  }),
-  outputSchema: z.object({
-    success: z.boolean(),
-    targetUserId: z.number(),
-    alreadyUnlocked: z.boolean().optional(),
-    error: z.string().optional(),
-    auditLogged: z.boolean(),
-  }),
-  execute: async ({ inputData }) => {
-    if (!inputData.success) {
-      return {
-        success: false,
-        targetUserId: inputData.targetUserId,
-        error: inputData.error,
-        auditLogged: false,
-      }
-    }
-    if (inputData.alreadyUnlocked) {
-      // No state change — skip the audit entry to avoid double-logging
-      // when the unlock already happened via the admin panel.
-      return {
-        success: true,
-        targetUserId: inputData.targetUserId,
-        alreadyUnlocked: true,
-        auditLogged: false,
-      }
-    }
-    try {
-      await logAdminAction(db, {
+      await logAdminActionStrict(tx, {
         admin_user_id: inputData.adminUserId,
         admin_email: inputData.adminEmail,
         action_type: 'unlock',
@@ -165,9 +109,29 @@ const auditLogStep = createStep({
           targetName: inputData.userName,
         },
       })
-      return { success: true, targetUserId: inputData.targetUserId, auditLogged: true }
-    } catch {
-      return { success: true, targetUserId: inputData.targetUserId, auditLogged: false }
+      return true
+    })
+    if (!unlocked) {
+      // Already in the desired state (e.g. unlocked via the admin panel) — treat as idempotent success.
+      return {
+        success: true,
+        targetUserId: inputData.targetUserId,
+        adminUserId: inputData.adminUserId,
+        adminEmail: inputData.adminEmail,
+        userName: inputData.userName,
+        userEmail: inputData.userEmail,
+        alreadyUnlocked: true,
+        auditLogged: false,
+      }
+    }
+    return {
+      success: true,
+      targetUserId: inputData.targetUserId,
+      adminUserId: inputData.adminUserId,
+      adminEmail: inputData.adminEmail,
+      userName: inputData.userName,
+      userEmail: inputData.userEmail,
+      auditLogged: true,
     }
   },
 })
@@ -189,5 +153,4 @@ export const unlockUserWorkflow = createWorkflow({
 })
   .then(validateTargetStep)
   .then(executeUnlockStep)
-  .then(auditLogStep)
   .commit()

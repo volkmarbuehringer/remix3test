@@ -2,7 +2,7 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from './test-pool.ts'
-import { logAdminAction } from './audit-log.ts'
+import { logAdminAction, logAdminActionStrict } from './audit-log.ts'
 
 describe('audit-log', () => {
   before(async () => {
@@ -71,5 +71,35 @@ describe('audit-log', () => {
       action_type: 'test-ignore-me',
       target_type: 'user',
     })
+  })
+
+  it('logAdminActionStrict inserts an audit log entry', async () => {
+    let userResult = await pool.query("SELECT id FROM users WHERE email = 'admin@newapp.com'")
+    let adminId = userResult.rows[0].id
+
+    await logAdminActionStrict(db, {
+      admin_user_id: adminId,
+      admin_email: 'admin@newapp.com',
+      action_type: 'test-strict-create',
+      target_type: 'user',
+      target_id: 42,
+      details: { reason: 'testing' },
+    })
+
+    let rows = await pool.query("SELECT * FROM audit_logs WHERE action_type = 'test-strict-create'")
+    assert.equal(rows.rows.length, 1)
+    assert.equal(rows.rows[0].admin_email, 'admin@newapp.com')
+    assert.equal(rows.rows[0].target_id, '42')
+  })
+
+  it('logAdminActionStrict propagates db failures (foreign key violation)', async () => {
+    await assert.rejects(() =>
+      logAdminActionStrict(db, {
+        admin_user_id: 99999999,
+        admin_email: 'missing@example.com',
+        action_type: 'test-strict-fail',
+        target_type: 'user',
+      }),
+    )
   })
 })
