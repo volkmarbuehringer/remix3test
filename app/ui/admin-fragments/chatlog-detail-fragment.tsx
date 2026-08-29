@@ -3,6 +3,8 @@ import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { decodeHtml } from '../../utils/decode-html-entities.ts'
+import { routes } from '../../routes.ts'
+import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 
 interface ChatlogDetailFragmentProps {
   conversationId: string
@@ -93,6 +95,20 @@ const emptyStyle = css({
   padding: theme.space.xl,
 })
 
+const backLinkStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  marginBottom: theme.space.sm,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  '&:hover': {
+    color: theme.colors.action.primary.background,
+    textDecoration: 'underline',
+  },
+})
+
 export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>) {
   return () => {
     let { conversationId, messages, error } = handle.props
@@ -100,6 +116,13 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
 
     return (
       <div mix={detailStyle}>
+        <a
+          href={routes.admin.chatlog.index.href()}
+          data-rmx-target={getSelfFrameTarget()}
+          mix={backLinkStyle}
+        >
+          ← Zurück zur Übersicht
+        </a>
         <div mix={headerStyle}>
           <h3 mix={titleStyle}>{displayTitle}</h3>
           <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>

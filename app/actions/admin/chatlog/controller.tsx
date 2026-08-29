@@ -18,28 +18,33 @@ import {
   deleteChatThread,
 } from '../../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../../utils/thread-id.ts'
-import type { ChatMessage } from '../../../types/chatlog.ts'
 
-const CHATLOG_PAGE_SIZE = 5
+const CHATLOG_PAGE_SIZE = 10
+
+/** Clamps a query/form offset to a non-negative integer. */
+function parseOffset(raw: string | null | undefined): number {
+  let value = Number(raw ?? '')
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+}
 
 export const adminChatlog = createController(routes.admin.chatlog, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async index(context) {
+      let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
+
       try {
-        let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
-        let rawPage = parseInt(context.url.searchParams.get('page') ?? '1', 10)
-        let page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
+        let offset = parseOffset(context.url.searchParams.get('offset'))
+        let page = Math.floor(offset / effectivePageSize)
 
         let agent = mastra.getAgent('supportAgent')
         let { threads, hasMore } = await listChatThreads(agent, {
-          page: page - 1,
+          page,
           perPage: effectivePageSize,
         })
 
         let conversations = threads.map((t) => ({
           id: t.id,
-          conversation: [] as ChatMessage[],
           created_at: t.createdAt,
           updated_at: t.updatedAt,
         }))
@@ -47,7 +52,14 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         return renderAdminPage(
           context.render,
           'chatlog',
-          <ChatLogPage conversations={conversations} page={page} hasMore={hasMore} />,
+          <ChatLogPage
+            conversations={conversations}
+            offset={offset}
+            hasMore={hasMore}
+            pageSize={effectivePageSize}
+            prevOffset={Math.max(0, offset - effectivePageSize)}
+            nextOffset={offset + effectivePageSize}
+          />,
         )
       } catch (error) {
         if (process.env.NODE_ENV !== 'test')
@@ -55,7 +67,14 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         return renderAdminPage(
           context.render,
           'chatlog',
-          <ChatLogPage conversations={[]} page={1} hasMore={false} />,
+          <ChatLogPage
+            conversations={[]}
+            offset={0}
+            hasMore={false}
+            pageSize={effectivePageSize}
+            prevOffset={0}
+            nextOffset={effectivePageSize}
+          />,
         )
       }
     },
@@ -63,9 +82,11 @@ export const adminChatlog = createController(routes.admin.chatlog, {
     async destroy(context) {
       let { params } = context
       let id = params.id
+      let offset = parseOffset(context.formData.get('_offset') as string | null)
+      let qs = offset > 0 ? `?offset=${offset}` : ''
 
       if (!id || !validateThreadId(id)) {
-        return redirect(routes.admin.chatlog.index.href())
+        return redirect(routes.admin.chatlog.index.href() + qs)
       }
 
       try {
@@ -88,7 +109,7 @@ export const adminChatlog = createController(routes.admin.chatlog, {
         })
       }
 
-      return redirect(routes.admin.chatlog.index.href())
+      return redirect(routes.admin.chatlog.index.href() + qs)
     },
   },
 })

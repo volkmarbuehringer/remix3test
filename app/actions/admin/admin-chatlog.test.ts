@@ -80,31 +80,41 @@ describe('Admin Chatlog controller', () => {
   })
 
   // -----------------------------------------------------------------------
-  // Pagination
+  // Pagination — offset-based (matches the other admin grid routes)
   // -----------------------------------------------------------------------
 
-  it('GET /admin/chatlog?page=2 renders the requested page number', async () => {
-    let response = await adminChatlogGet('page=2')
+  it('GET /admin/chatlog?offset=10 renders the requested page number', async () => {
+    // With no Mastra memory configured the grid is empty, but a non-zero offset
+    // still renders the pagination bar with the computed "Seite N" badge.
+    let response = await adminChatlogGet('offset=10')
 
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('Seite 2'), 'should render the requested page number')
+    assert.ok(html.includes('Zurück'), 'should show a back link when offset > 0')
   })
 
-  it('GET /admin/chatlog?page=-1 falls back to page 1', async () => {
-    let response = await adminChatlogGet('page=-1')
+  it('GET /admin/chatlog?offset=-5 falls back to offset 0', async () => {
+    let response = await adminChatlogGet('offset=-5')
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('Seite 1'), 'should fall back to page 1 for negative input')
+    assert.ok(
+      html.includes('Noch keine Konversationen gespeichert.'),
+      'should fall back to offset 0 and show the empty state',
+    )
+    assert.ok(!html.includes('Zurück'), 'should not show a back link at offset 0')
   })
 
-  it('GET /admin/chatlog?page=abc falls back to page 1', async () => {
-    let response = await adminChatlogGet('page=abc')
+  it('GET /admin/chatlog?offset=abc falls back to offset 0', async () => {
+    let response = await adminChatlogGet('offset=abc')
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('Seite 1'), 'should fall back to page 1 for non-numeric input')
+    assert.ok(
+      html.includes('Noch keine Konversationen gespeichert.'),
+      'should fall back to offset 0 for non-numeric input',
+    )
   })
 
   // -----------------------------------------------------------------------
@@ -167,7 +177,7 @@ describe('Admin Chatlog controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
 
-    assert.ok(!html.includes('← Zurück'), 'should not show back link with empty state')
-    assert.ok(!html.includes('Weiter →'), 'should not show forward link with empty state')
+    assert.ok(!html.includes('Zurück'), 'should not show back link with empty state')
+    assert.ok(!html.includes('Weiter'), 'should not show forward link with empty state')
   })
 })
