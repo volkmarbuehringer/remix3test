@@ -186,13 +186,17 @@ export const ListsClient = clientEntry(
       return headers
     }
 
-    let saveNow = async (): Promise<boolean> => {
+    let saveNow = async (manual = false): Promise<boolean> => {
       conflictState = { show: false, serverState: null }
       if (loadedListId === null) {
-        // Don't auto-create lists without a description or items
+        // A brand-new list is created only by an explicit user action (the
+        // "+ Liste hinzufügen" button). Autosave must never materialize a list
+        // on its own, or a half-typed list silently appears and navigates away.
+        if (!manual) {
+          return false
+        }
+        // Don't create without a description and at least one item.
         if (!description.trim() || items.length === 0) {
-          saveStatus = 'saved'
-          handle.update()
           return false
         }
         // Create new list
@@ -1026,6 +1030,8 @@ export const ListsClient = clientEntry(
         )
       }
 
+      let doneCount = items.filter((item) => item.done === true).length
+
       return (
         <div mix={css({ fontFamily: theme.fontFamily.sans, maxWidth: '600px' })}>
           {/* Conflict banner */}
@@ -1111,10 +1117,10 @@ export const ListsClient = clientEntry(
                 mix={[
                   button({ tone: 'primary' }),
                   on('click', () => {
-                    saveNow()
+                    saveNow(true)
                   }),
                 ]}
-                disabled={!description.trim() || items.length === 0 || saving}
+                disabled={saving}
               >
                 + Liste hinzufügen
               </button>
@@ -1155,6 +1161,26 @@ export const ListsClient = clientEntry(
               {statusLabel()}
             </span>
           </div>
+
+          {/* New-list helper hint */}
+          {loadedListId === null && (
+            <p
+              mix={css({
+                marginBottom: theme.space.lg,
+                marginTop: '-0.5rem',
+                fontSize: theme.fontSize.xs,
+                color: theme.colors.text.muted,
+              })}
+            >
+              {!description.trim() && items.length === 0
+                ? 'Für eine neue Liste fehlen noch eine Beschreibung und ein Element.'
+                : !description.trim()
+                  ? 'Für eine neue Liste fehlt noch eine Beschreibung.'
+                  : items.length === 0
+                    ? 'Für eine neue Liste fehlt noch ein Element.'
+                    : 'Bereit — klicke auf „+ Liste hinzufügen“, um die Liste zu speichern.'}
+            </p>
+          )}
 
           {/* Keyboard hint + live region */}
           <p
@@ -1247,7 +1273,20 @@ export const ListsClient = clientEntry(
               marginBottom: theme.space.lg,
             })}
           >
-            <input
+            <label
+              mix={css({
+                display: 'block',
+                fontSize: theme.fontSize.xs,
+                fontWeight: theme.fontWeight.semibold,
+                color: theme.colors.text.muted,
+                marginBottom: theme.space.xs,
+              })}
+              htmlFor="lists-description"
+            >
+              Beschreibung
+            </label>
+            <textarea
+              id="lists-description"
               mix={[
                 css({
                   width: '100%',
@@ -1260,6 +1299,8 @@ export const ListsClient = clientEntry(
                   boxSizing: 'border-box',
                   backgroundColor: theme.surface.lvl0,
                   color: theme.colors.text.primary,
+                  minHeight: '72px',
+                  resize: 'vertical',
                   '&:focus': {
                     borderColor: theme.colors.focus.ring,
                     boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
@@ -1277,11 +1318,13 @@ export const ListsClient = clientEntry(
                   scheduleAutosave(true)
                 }),
               ]}
-              type="text"
               placeholder="Beschreibung für diese Liste eingeben…"
               maxLength={500}
-              defaultValue={description}
-            />
+              rows={3}
+              wrap="soft"
+            >
+              {description as never}
+            </textarea>
           </div>
 
           {/* Add item */}
@@ -1365,17 +1408,50 @@ export const ListsClient = clientEntry(
               >
                 ELEMENTE
               </span>
-              <span
+              <div
                 mix={css({
-                  fontSize: theme.fontSize.sm,
-                  color: theme.colors.text.secondary,
-                  backgroundColor: theme.colors.border.default,
-                  padding: `${theme.space.xs} ${theme.space.md}`,
-                  borderRadius: theme.radius.full,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.space.md,
                 })}
               >
-                {items.length} Einträge
-              </span>
+                {items.length > 0 && (
+                  <div
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={items.length}
+                    aria-valuenow={doneCount}
+                    aria-label={`${doneCount} von ${items.length} erledigt`}
+                    mix={css({
+                      width: '80px',
+                      height: '6px',
+                      borderRadius: theme.radius.full,
+                      backgroundColor: theme.surface.lvl0,
+                      overflow: 'hidden',
+                    })}
+                  >
+                    <div
+                      mix={css({
+                        height: '100%',
+                        width: `${(doneCount / items.length) * 100}%`,
+                        backgroundColor: theme.colors.success.background,
+                        borderRadius: theme.radius.full,
+                        transition: 'width 0.2s ease',
+                      })}
+                    />
+                  </div>
+                )}
+                <span
+                  mix={css({
+                    fontSize: theme.fontSize.sm,
+                    color: theme.colors.text.secondary,
+                  })}
+                >
+                  {items.length > 0
+                    ? `${doneCount} von ${items.length} erledigt`
+                    : `${items.length} Einträge`}
+                </span>
+              </div>
             </div>
 
             {items.length === 0 ? (
