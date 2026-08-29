@@ -1,6 +1,6 @@
 ---
 name: mastra-workflow
-description: 'Mastra Workflow pitfalls — SSE resume/abort race with server-side state, and strict step schema type compatibility in .parallel()/.then() chains'
+description: 'Mastra Workflow pitfalls — SSE resume/abort race with server-side state, strict step schema type compatibility in .parallel()/.then() chains, and failed-run result.error being a plain object (String() → "[object Object]")'
 origin: consolidated
 ---
 
@@ -245,6 +245,55 @@ let payload = row.suspendPayload ?? run.suspendPayload  // NULL-payload window
 
 ---
 
+## Part 4: Failed-Run `result.error` Is a Plain Object, Not an Error
+
+### Problem
+
+When a workflow step throws and the run ends `failed`, `run.start()` resolves
+with `result.status === 'failed'` and `result.error` — but that error is a
+**plain serialized object, not an `Error` instance** (verified against
+`@mastra/core` 1.63.0). The common executor mapping silently destroys it:
+
+```ts
+error: result.status === 'failed' ? String(result.error) : 'unknown_error'
+```
+
+→ `"[object Object]"`. The real message (e.g. `'Audit log write failed; action
+rolled back'` or a FK-violation detail) never reaches the admin, the SSE
+report, or a test assertion. The loss happens at the mapping boundary, not at
+the throw site — a `JSON.stringify(result.error)` probe after the executor
+showing the string `"[object Object]"` proves the object was already
+stringified somewhere upstream of your log.
+
+### Solution
+
+Extract shape-agnostically at one choke point; use it for every failed-run
+mapping:
+
+```ts
+function runErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object') {
+    let e = error as { message?: unknown }
+    if (typeof e.message === 'string') return e.message
+    return JSON.stringify(error)
+  }
+  return String(error)
+}
+```
+
+```ts
+error: result.status === 'failed' ? runErrorMessage(result.error) : 'unknown_error',
+```
+
+### When to Use
+
+- An executor (or any `run.start()` consumer) maps failed runs to `error?: string`
+- A test asserting a failed run's error text receives `"[object Object]"`
+- Admin-facing reports show `[object Object]` after a workflow failure
+
+---
+
 ## When to Use
 
 - You are using Mastra workflows with `closeOnSuspend: false` and SSE
@@ -258,6 +307,8 @@ let payload = row.suspendPayload ?? run.suspendPayload  // NULL-payload window
 - You are building a reconnect / re-attach flow for a suspended Mastra workflow gate
 - The client cancels the SSE stream (reload, nav away) and you later need to recover the run state from the snapshot
 - An index/cache row says `running` but the snapshot says `suspended`
+- A failed Mastra run surfaces `"[object Object]"` instead of the step's error message
+- You write executor wrappers that map `run.start()` results to `error?: string`
 
 ## Related Skills
 
