@@ -33,7 +33,7 @@ import { appointmentChannel } from '../../utils/appointments-sse.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
 import { requireAuth } from '../../middleware/auth.ts'
-import { fragmentResponseInit } from '../../middleware/render.tsx'
+import { fragmentResponseInit } from '../../utils/fragment-response.ts'
 import { routes } from '../../routes.ts'
 
 const MINUTES_IN_DAY = 1440

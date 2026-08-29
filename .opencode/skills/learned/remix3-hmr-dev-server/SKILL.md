@@ -12,6 +12,8 @@ origin: auto-extracted
 
 **Validated:** 2026-08-18 against installed build `5e6e9862` (remix 0.7.0 / beta.10). API claims below confirmed in `@remix-run/node-hmr/dist`: `run(entry, { env, nodeArgs, browserHmrChannel })` (`index.d.ts`), `createHmrReadyFetch(runner, fetch, { shouldRetry })` with default retry of GET/HEAD on `502/503/504` (`index.js:17,81`), `createBrowserHmrChannel`/`emitServerReady` from `remix/node-hmr/runtime` (`runtime.d.ts`), `REMIX_NODE_HMR` injected by the runner itself (`lib/runner.js:16,878`), and the `fingerprint cannot be used with watch mode` guard in `@remix-run/assets/dist/lib/asset-server.js:695`.
 
+**Re-validated:** 2026-08-29 against installed build `f597ce701` (installable dist of `fc87ca9`, includes #11607/#11751/#11665; version string still `3.0.0-beta.10`). All five claims hold: `run(entry, { env, nodeArgs, browserHmrChannel })` still at `index.d.ts:126` (`RunOptions` gained `cwd`/`entryArgs`/`watch` — superset, no break); `createHmrReadyFetch(runner, fetch, { shouldRetry })` at `index.js:16` with default `shouldRetrySafeUnavailableRequest` at `index.js:81-87` retrying GET/HEAD on `502/503/504` **and now also on thrown errors** (`response === undefined`); `createBrowserHmrChannel`/`emitServerReady` unchanged in `runtime.d.ts`; `REMIX_NODE_HMR` injection unchanged (`lib/runner.js:16,878`); the `fingerprint cannot be used with watch mode` guard moved to `@remix-run/assets/dist/lib/asset-server.js:715` (was 695).
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:

@@ -253,10 +253,10 @@ function getRequestBody(
 Key facts:
 
 - `ResolveFrameOptions` exposes `target`, `formData`, `method`, `encType`, and `signal` — no positional args.
-- The runtime does **not** decode `_method`; `methodOverride` middleware / `app/middleware/render.tsx` stays responsible for that.
+- The runtime does **not** decode `_method`; the `methodOverride()` middleware in `app/middleware/root.ts` stays responsible for that. (Since upstream #11607 the app's hand-rolled `app/middleware/render.tsx` was replaced by the conventional `render({ assets })` from `remix/middleware/render`.)
 - Multipart forms pass the raw `FormData`; `application/x-www-form-urlencoded` must be flattened to `URLSearchParams` (the `getRequestBody` pattern above) or the server receives no parsable body.
 - Returning a `Response` directly (instead of a `FrameContent` fragment) is the supported path for streaming SSE/agent frames.
-- `render.tsx`'s server `resolveFrame` already forwards `X-Remix-Frame`/`X-Remix-Target` and handles `formData`/`method`/`encType`; only the client resolver needed migration.
+- Since #11607 the server `resolveFrame` lives in the conventional render middleware (`@remix-run/render-middleware/dist/lib/render-ui.js`): it forwards `X-Remix-Frame`/`X-Remix-Target`/`X-Remix-Top-Frame-Src`, strips hop-by-hop and `sec-fetch-*` headers, and always re-fetches the frame src with **GET** — `formData`/`method`/`encType` remain client-side `ResolveFrameOptions` concerns only.
 
 ### When to Use
 

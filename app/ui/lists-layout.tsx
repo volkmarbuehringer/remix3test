@@ -52,6 +52,19 @@ export type PaginationState = {
 
 const frameTarget = frames.listsContent
 
+/**
+ * Slot content for the shell's self-relay frame. Without a fallback the frame
+ * is blocking: a non-HTML frame response would fail the whole page render.
+ */
+const frameFallbackStyle = css({
+  padding: '1.5rem',
+  background: theme.surface.lvl0,
+  borderRadius: theme.radius.lg,
+  border: `1px solid ${theme.colors.border.default}`,
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.sm,
+})
+
 function isFrameRequest(): boolean {
   return getContext().request.headers.get('X-Remix-Target') === frameTarget
 }
@@ -112,7 +125,11 @@ function ShellOrFragment(
     }
     return (
       <Layout>
-        <Frame name={frameTarget} src={getContext().request.url} />
+        <Frame
+          name={frameTarget}
+          src={getContext().request.url}
+          fallback={<div mix={frameFallbackStyle}>Inhalt wird geladen…</div>}
+        />
       </Layout>
     )
   }

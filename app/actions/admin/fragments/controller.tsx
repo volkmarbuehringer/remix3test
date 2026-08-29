@@ -2,7 +2,7 @@ import { createController } from 'remix/router'
 
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { fragmentResponseInit } from '../../../middleware/render.tsx'
+import { fragmentResponseInit } from '../../../utils/fragment-response.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
 import { delay } from '../../../utils/async.ts'

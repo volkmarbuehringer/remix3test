@@ -81,8 +81,9 @@ describe('Admin page — frame streaming', () => {
 
     let chunks = readChunks(response.body)
 
-    // Read until we see admin sidebar content — this renders synchronously
-    // inside the adminContent frame (blocking frame)
+    // Read until we see admin sidebar content — the shell's self-relay frame
+    // (adminContent) is non-blocking and streams its content after the
+    // fallback, but it resolves before the nested stats/activity frames
     let initial = await readUntil(chunks, (html) => html.includes('Chat-Protokolle'))
     assert.ok(initial.includes('Chat-Protokolle'), 'Admin dashboard cards should appear')
     assert.ok(initial.includes('Listen'), 'Listen card should appear')
@@ -102,8 +103,10 @@ describe('Admin page — frame streaming', () => {
     assert.ok(response.body)
     let chunks = readChunks(response.body)
 
-    // Read until we see the first <template> tag (stats frame resolving)
-    let resolved = await readUntil(chunks, (html) => html.includes('<template'))
+    // Read until the stats frame content resolves. The shell's self-relay
+    // frame (adminContent) is non-blocking and streams first, so the first
+    // <template> tag is the shell swap — the stats frame resolves after it.
+    let resolved = await readUntil(chunks, (html) => html.includes('Betriebszeit'))
     assert.ok(
       countTemplates(resolved) >= 1,
       'Should have at least one <template> tag when frames resolve',

@@ -81,6 +81,10 @@ export const StoreScrollReproduction = clientEntry(
         </div>
 
         {handle.props.variant === 'list' ? (
+          // Deliberately blocking (no fallback): this page reproduces upstream
+          // traversal scroll restoration, which requires the full-height list
+          // to be server-rendered in the initial document. Its frame src always
+          // returns HTML, so blocking is safe here.
           <Frame src={routes.scrollRestoration.items.href()} />
         ) : (
           <article
@@ -89,8 +93,8 @@ export const StoreScrollReproduction = clientEntry(
           >
             <h2>Short detail view</h2>
             <p>
-              The top-level client entry now renders much less content than the collection. Use
-              the browser Back button while this short layout is present.
+              The top-level client entry now renders much less content than the collection. Use the
+              browser Back button while this short layout is present.
             </p>
           </article>
         )}

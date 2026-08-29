@@ -51,7 +51,7 @@ app/workflows/         → AI workflow definitions and engine
 1. **`routes.ts`** — Declares typed route contracts using `get()`, `post()`, `put()`, `del()`, `form()`, `resources()`.
 2. **`router.ts`** — Creates a `Router` with a middleware stack (logging, security, session, CSRF, database, auth, render) and maps route trees to controller modules.
 3. **`app/actions/*`** — Controllers handle requests, access context, and return Remix UI trees.
-4. **`app/middleware/render.tsx`** — Renders Remix UI nodes into HTML streams, resolving client entries and frame content.
+4. **Conventional `render()` middleware** (`remix/middleware/render`, wired in `app/middleware/root.ts`) — Renders Remix UI nodes into HTML streams, resolving client entries and frame content.
 
 Routes are organized into named trees:
 

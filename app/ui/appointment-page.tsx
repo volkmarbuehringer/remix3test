@@ -81,7 +81,11 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
         <div mix={shellStyle}>
           <div data-sidebar-col="true" mix={sidebarColumnStyle}>
             <AppointmentSidebar />
-            <Frame name={frames.appointTypes} src={routes.appointment.types.index.href()} />
+            <Frame
+              name={frames.appointTypes}
+              src={routes.appointment.types.index.href()}
+              fallback={<div mix={appointTypesFallbackStyle}>Terminarten werden geladen…</div>}
+            />
           </div>
           <div mix={gridColumnStyle}>
             <div mix={indicatorBarStyle}>
@@ -94,6 +98,19 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
     )
   }
 }
+
+/**
+ * Slot content for the appointment-types panel frame. Without a fallback the
+ * frame is blocking: a non-HTML frame response would fail the whole page render.
+ */
+const appointTypesFallbackStyle = css({
+  padding: '1rem',
+  background: theme.surface.lvl1,
+  borderRadius: theme.radius.md,
+  border: `1px solid ${theme.colors.border.default}`,
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.sm,
+})
 
 const shellStyle = css({
   display: 'grid',

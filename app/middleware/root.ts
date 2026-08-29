@@ -16,13 +16,15 @@ import { skipCsrf } from './skip-csrf.ts'
 
 import { json } from './json-render.ts'
 import { jsonBody } from './json-body.ts'
-import { render } from './render.tsx'
+import { render } from 'remix/middleware/render'
 import { loadAssetEntry } from './asset-entry.ts'
 import { securityHeaders } from './security-headers.ts'
 import { loadDatabase } from './database.ts'
 import { loadAuth } from './auth.ts'
 import { mailer } from './mailer.ts'
 import { frameRedirects } from './frame-redirect.ts'
+
+import { assetServer } from '../assets.ts'
 
 /**
  * Logs requests via the built-in logger for non-asset routes, suppresses
@@ -67,7 +69,7 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
     loadAuth(),
     mailer(),
     loadAssetEntry(),
-    render(),
+    render({ assets: assetServer }),
     json(),
     frameRedirects(),
   )

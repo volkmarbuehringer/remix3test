@@ -46,7 +46,7 @@ When a delta is found outdated, update the skill in place (keep the delta, corre
 - `app/actions/controller.tsx` owns the top-level route actions
 - `app/routes.ts` defines the route contract
 - `app/router.ts` wires routes to route handlers
-- `app/middleware/render.tsx` installs the request-scoped renderer used by actions
+- `app/middleware/root.ts` installs the conventional request-scoped renderer (`render({ assets })` from `remix/middleware/render`) used by actions
 - `app/ui/` holds the shared document shell and home page UI
 - `app/assets.ts` owns the server-side asset pipeline used by the asset route and renderer
 - `public/` contains static files served from the app root
@@ -64,3 +64,9 @@ When a delta is found outdated, update the skill in place (keep the delta, corre
 - This starter intentionally begins small; add directories like `app/data/` and `test/` only when you need them.
 - Prefer putting code in the narrowest owner before introducing shared modules.
 - Avoid generic dumping-ground directories like `app/lib/` or `app/components/`.
+
+## Frame Rendering Invariants (conventional `render()` middleware)
+
+- Every blocking `<Frame>` (no `fallback` prop) must render HTML on **all** responses, including error paths — a non-HTML response fails the whole outer page render. Prefer giving frames a `fallback` so failures degrade to the slot instead.
+- Frame render errors inside fragment requests (`X-Remix-Frame: true`) are silently swallowed by upstream design (`onError` is forced to a no-op); the `fallback` slot is the visibility mechanism. Top-level document render errors log via `onError`.
+- Frame sub-requests copy all outer request headers minus hop-by-hop/`sec-fetch-*` (allowlist → denylist since #11607). App control headers like `X-Agent-Prefill` therefore reach nested SSR frame resolutions — see the note in `app/utils/agent-prefill.ts`. Cross-origin frame resolutions additionally strip cookies/credentials.
