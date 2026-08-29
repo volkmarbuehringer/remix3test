@@ -68,9 +68,29 @@ describe('uploads', () => {
       size: 1,
       now: Date.now(),
     })
-    await claimUpload(db, Number(id), uploadUserId)
+    let claimed = await claimUpload(db, Number(id), uploadUserId)
+    assert.ok(claimed)
     let rows = await listUploads(db, uploadUserId)
     assert.ok(rows.some((r) => r.filename === 'test-claim.txt'))
+  })
+
+  it('claimUpload returns false for a non-existent upload', async () => {
+    let claimed = await claimUpload(db, 999999999, uploadUserId)
+    assert.equal(claimed, false)
+  })
+
+  it('claimUpload rejects and deletes the upload when the per-user quota is exceeded', async () => {
+    let id = await insertUpload(db, {
+      filename: 'test-quota.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('too big for the quota'),
+      size: 22,
+      now: Date.now(),
+    })
+    let claimed = await claimUpload(db, Number(id), uploadUserId, 10)
+    assert.equal(claimed, false)
+    let result = await pool.query('SELECT * FROM uploads WHERE id = $1', [Number(id)])
+    assert.equal(result.rows.length, 0)
   })
 
   it('getUploadDownload returns undefined for non-existent id', async () => {

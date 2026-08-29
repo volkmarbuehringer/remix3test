@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'customer',
-  email_verified INTEGER NOT NULL DEFAULT 0,
+  role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'admin')),
+  email_verified INTEGER NOT NULL DEFAULT 0 CHECK (email_verified IN (0, 1)),
   verification_token TEXT,
   verification_expires BIGINT,
   password_reset_token TEXT,
@@ -25,35 +25,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS users_name_trgm_idx ON users USING GIN (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS users_email_trgm_idx ON users USING GIN (email gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS users_password_reset_token_idx ON users (password_reset_token);
-
-CREATE TABLE IF NOT EXISTS chatlog (
-  id TEXT PRIMARY KEY,
-  conversation JSONB NOT NULL DEFAULT '[]',
-  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS chatlog_created_at_idx ON chatlog (created_at);
-CREATE INDEX IF NOT EXISTS chatlog_user_id_idx ON chatlog (user_id);
-
-CREATE TABLE IF NOT EXISTS workflow_runs (
-  id TEXT PRIMARY KEY,
-  workflow_id TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  params TEXT NOT NULL DEFAULT '{}',
-  steps TEXT NOT NULL DEFAULT '[]',
-  result TEXT,
-  error TEXT,
-  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  parent_run_id TEXT,
-  chain_depth INTEGER NOT NULL DEFAULT 0,
-  created_at BIGINT NOT NULL,
-  completed_at BIGINT
-);
-
-CREATE INDEX IF NOT EXISTS workflow_runs_status_idx ON workflow_runs (status);
-CREATE INDEX IF NOT EXISTS workflow_runs_created_at_idx ON workflow_runs (created_at);
 
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
@@ -102,6 +73,8 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_lists_desc ON lists USING GIN (description gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_lists_title ON lists USING GIN (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id);
+CREATE INDEX IF NOT EXISTS lists_created_at_id_idx ON lists (created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS lists_user_created_at_id_idx ON lists (user_id, created_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS resources (
   id SERIAL PRIMARY KEY,
@@ -127,6 +100,11 @@ CREATE TABLE IF NOT EXISTS appointments (
   end_min INTEGER GENERATED ALWAYS AS (upper(during)) STORED,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
+  -- Minutes-of-day bounds mirror the app-layer validation; the raw-SQL write
+  -- paths bypass the data-table validators, so the database is the backstop.
+  CONSTRAINT during_bounds CHECK (
+    lower(during) >= 0 AND upper(during) <= 1440 AND lower(during) < upper(during)
+  ),
   CONSTRAINT no_overlapping_seats EXCLUDE USING GIST (
     resource_id WITH =,
     date WITH =,
@@ -156,6 +134,9 @@ CREATE TABLE IF NOT EXISTS appointoffering (
   during int4range NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
+  CONSTRAINT during_bounds CHECK (
+    lower(during) >= 0 AND upper(during) <= 1440 AND lower(during) < upper(during)
+  ),
   CONSTRAINT no_overlapping_offerings EXCLUDE USING GIST (
     resource_id WITH =,
     day WITH =,
@@ -205,7 +186,6 @@ CREATE INDEX IF NOT EXISTS uploads_created_at_idx ON uploads (created_at DESC);
 CREATE TABLE IF NOT EXISTS webhook_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   payload JSONB NOT NULL DEFAULT '{}',
-  token TEXT,
   headers JSONB NOT NULL DEFAULT '{}',
   source_ip TEXT NOT NULL DEFAULT '',
   hermes_status TEXT,

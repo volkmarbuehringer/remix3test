@@ -45,7 +45,17 @@ export async function globalSetup() {
 
   appModule = await import('../app/db.ts')
   try {
-    await appModule.db.wipe()
+    // app/db.ts builds the driver from a caller-owned pool (so the pool can
+    // attach an 'error' handler), which makes the config-only db.wipe()
+    // unavailable. The test database was created fresh above; reset the
+    // schema defensively in case this process ever reuses one.
+    let testPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 })
+    try {
+      await testPool.query('DROP SCHEMA IF EXISTS public CASCADE')
+      await testPool.query('CREATE SCHEMA public')
+    } finally {
+      await testPool.end()
+    }
     await appModule.initializeAppDatabase()
   } catch (err) {
     console.error(`Setup failed for "${testDbName}":`, err)

@@ -37,9 +37,10 @@ export default createController(routes.admin.uploads, {
       let uploadedId = takeUploadedId()
       let uploadId = uploadedId != null ? Number(uploadedId) : null
 
-      if (uploadId && !Number.isNaN(uploadId)) {
-        await claimUpload(context.db, uploadId, user.id)
-      }
+      let claimed =
+        uploadId && !Number.isNaN(uploadId)
+          ? await claimUpload(context.db, uploadId, user.id)
+          : null
 
       let rows: UploadRow[] =
         user.role === 'admin'
@@ -47,16 +48,20 @@ export default createController(routes.admin.uploads, {
           : await listUploads(context.db, user.id)
       let attemptedUpload =
         context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
-      let uploadError =
-        uploadedId == null && attemptedUpload
-          ? 'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
-          : null
+      let uploadError: string | null = null
+      if (claimed === false) {
+        uploadError =
+          'Upload abgelehnt: Das Speicherkontingent ist erschöpft. Bitte löschen Sie alte Dateien.'
+      } else if (uploadedId == null && attemptedUpload) {
+        uploadError =
+          'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
+      }
       return renderAdminPage(
         context.render,
         'uploads',
         <UploadsContent
           uploads={rows}
-          uploadId={uploadId && !Number.isNaN(uploadId) ? uploadId : null}
+          uploadId={claimed ? uploadId : null}
           uploadError={uploadError}
         />,
       )

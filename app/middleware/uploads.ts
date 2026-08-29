@@ -1,6 +1,6 @@
 import type { FileUpload } from 'remix/form-data-parser'
 import { db } from '../db.ts'
-import { insertUpload } from '../data/uploads.ts'
+import { insertUpload, uploadsTotalQuotaBytes } from '../data/uploads.ts'
 import { setUploadedId } from './upload-claim.ts'
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
@@ -67,6 +67,16 @@ export async function uploadHandler(file: FileUpload): Promise<string | void> {
     chunks.push(chunk)
   }
   let data = Buffer.concat(chunks)
+
+  // Global storage quota. Returning without storing (and without throwing — a
+  // throw inside the handler rejects formData() and becomes a 500) leaves
+  // uploadedId unset, so the uploads action renders its "Upload fehlgeschlagen"
+  // banner for this multipart post.
+  let total = await db.exec('SELECT COALESCE(SUM(size), 0) AS total FROM uploads')
+  let storedBytes = Number((total.rows?.[0] as { total: unknown } | undefined)?.total ?? 0)
+  if (storedBytes + data.length > uploadsTotalQuotaBytes) {
+    return
+  }
 
   let id = await insertUpload(db, {
     filename: file.name,
