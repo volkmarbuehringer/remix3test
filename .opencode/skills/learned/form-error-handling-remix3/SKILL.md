@@ -663,6 +663,7 @@ if (gridValues.val) params.set('val', gridValues.val)
 - Update local URL builder functions to accept and pass `val`
 - Thread `val` through calls to imported URL builders (`buildSortUrl`, `buildPaginationUrl`, `buildCreateUrl`, `buildEditUrl`, `buildCancelUrl`)
 - Add filter UI (button group, select, etc.)
+- For segmented tab links, see the active filter-tab self-link note below — don't omit the active tab's param just because it is active
 - Add `val` to `GridStateHiddenInputs` state
 - Pass `val` to sub-page components (edit, create panels)
 
@@ -689,6 +690,29 @@ if (gridValues.val) params.set('val', gridValues.val)
 - Test: param set to each valid value
 - Test: param filters correctly (verify content present/absent)
 - For filters that exclude data (e.g., "expired"), insert test data directly via SQL if the controller blocks creation of matching records
+
+### Active Filter-Tab Self-Links Must Not Drop the Active Param
+
+When the segmented filter UI (e.g. period/status tabs) encodes the default filter by omitting a query param, do not generate the active tab's href with the same omission. Omitting the param is only correct when the tab's value actually equals the route's default (e.g. `pending`), not merely because the tab is active. `?status=all` may be the active tab, but dropping `status=all` navigates back to the default view.
+
+Buggy pattern:
+
+```ts
+if (!active) params.set('status', value)   // WRONG: 'active' is not the same as 'is the default value'
+```
+
+Correct pattern (keep the param unless the value is the true default):
+
+```ts
+// Keep `status` unless this is the neutral default (pending) view.
+if (!(value === 'pending' && (!status || status === 'pending'))) {
+  params.set('status', value)
+}
+```
+
+**Rule of thumb:** the default representation must be keyed off the default value, not the active state. When adding a new non-default tab (e.g. `all`/`Alle`), re-check the shared active-tab href logic or the new tab will ship this bug.
+
+> _Consolidated from: filter-tab-self-link-resets-to-default_
 
 > _Consolidated from: remix-url-param-sql-filter_
 

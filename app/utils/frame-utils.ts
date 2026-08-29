@@ -12,18 +12,6 @@ function getActiveFrame(handle: Handle): string | null {
   return null
 }
 
-export function safeReload(handle: Handle): void {
-  let frameName = getActiveFrame(handle)
-  if (frameName) {
-    let frame = handle.frames.get(frameName)
-    if (frame) {
-      frame.reload()
-      return
-    }
-  }
-  window.location.reload()
-}
-
 export function safeNavigate(href: string, handle: Handle): void {
   let frameName = getActiveFrame(handle)
   if (frameName) {

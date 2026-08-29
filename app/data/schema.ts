@@ -555,4 +555,3 @@ export const chatRuns = table({
 
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>
-export type ChatRun = TableRow<typeof chatRuns>
