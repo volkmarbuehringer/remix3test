@@ -1,14 +1,22 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-
+import { Glyph } from '../ui/theme/glyph/glyph.tsx'
+import { rotatedGlyphCss } from './mixins/icon.ts'
+import { input } from './mixins/input.ts'
+import { table } from './mixins/admin-table.ts'
 import button from '../ui/theme/button.ts'
+import { formatTimestamp } from './mixins/admin-urls.ts'
+
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
-import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
-import { formatTimestamp } from './mixins/admin-urls.ts'
+import { RestfulForm } from './restful-form.tsx'
+import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { ConfirmDelete } from './confirm-delete.browser.tsx'
+
+const ADMIN_BASE = routes.admin.messages.index.href()
 
 interface MessageRow {
   id: number
@@ -22,28 +30,20 @@ interface AdminMessagesPageProps {
   messages: MessageRow[]
   offset: number
   hasMore: boolean
+  pageSize: number
   prevOffset: number
   nextOffset: number
 }
 
 // ── Styles ──
 
-const pageStyle = css({
-  maxWidth: '800px',
-})
-
-const headerStyle = css({
+const headerRowStyle = css({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  marginBottom: theme.space.lg,
-})
-
-const titleStyle = css({
-  margin: 0,
-  fontSize: theme.fontSize.xxl,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
+  flexWrap: 'wrap',
+  gap: theme.space.sm,
+  marginBottom: theme.space.md,
 })
 
 const descriptionStyle = css({
@@ -52,243 +52,219 @@ const descriptionStyle = css({
   fontSize: theme.fontSize.sm,
 })
 
-const messagesListStyle = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
-  marginBottom: theme.space.xl,
-  maxHeight: '60vh',
-  overflowY: 'auto',
-  padding: theme.space.md,
-  background: theme.surface.lvl1,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
-})
-
-const messageItemStyle = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.xs,
-  padding: theme.space.sm,
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.md,
-  borderLeft: `3px solid ${theme.colors.action.primary.background}`,
-  position: 'relative',
-})
-
-const messageHeaderStyle = css({
-  display: 'flex',
-  justifyContent: 'space-between',
+const rowActionsStyle = css({
+  display: 'inline-flex',
   alignItems: 'center',
+  gap: '6px',
 })
 
-const senderNameStyle = css({
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.action.primary.background,
-  fontSize: theme.fontSize.sm,
+const iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
 })
 
-const timestampStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
+const iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
 })
 
-const messageContentStyle = css({
-  fontSize: theme.fontSize.lg,
-  color: theme.colors.text.primary,
+/** Message content is the primary data — let it wrap instead of truncating. */
+const contentCellStyle = css({
   whiteSpace: 'pre-wrap',
   wordBreak: 'break-word',
-})
-
-const messageActionsStyle = css({
-  position: 'absolute',
-  top: theme.space.sm,
-  right: theme.space.sm,
-})
-
-const emptyStateStyle = css({
-  textAlign: 'center',
-  padding: theme.space.xxl,
-  color: theme.colors.text.muted,
-})
-
-const formStyle = css({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.md,
-  padding: theme.space.lg,
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  border: `1px solid ${theme.colors.border.default}`,
+  overflow: 'hidden',
+  color: theme.colors.text.primary,
 })
 
 const textareaStyle = css({
-  width: '100%',
-  padding: theme.space.md,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.lg,
-  fontFamily: 'inherit',
   resize: 'vertical',
   minHeight: '80px',
-  maxHeight: '200px',
-  color: theme.colors.text.primary,
-  background: theme.surface.lvl1,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}`,
-  },
+  maxHeight: '240px',
 })
 
-const paginationStyle = css({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: theme.space.md,
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.md,
-  border: `1px solid ${theme.colors.border.default}`,
-  '@media (max-width: 480px)': {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: theme.space.sm,
-  },
-})
+const colActionsWidth = css({ width: '80px' })
 
-const paginationInfoStyle = css({
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-})
-
-const smallBtnStyle = css({
-  minHeight: '1.75rem',
-  paddingInline: '0.5rem',
-  fontSize: '0.75rem',
-})
-
-const pageLinkStyle = css({
-  padding: `${theme.space.sm} ${theme.space.md}`,
+const pageBadgeStyle = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
-  borderRadius: theme.radius.md,
-  fontSize: theme.fontSize.sm,
-  textDecoration: 'none',
-  '&:hover': {
-    background: theme.surface.lvl3,
-    color: theme.colors.text.primary,
-  },
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
 })
 
-// ── Page component ──
+// ── Component ──
 
 export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
   return () => {
-    let { messages, offset, hasMore, prevOffset, nextOffset } = handle.props
+    let { messages, offset, hasMore, pageSize, prevOffset, nextOffset } = handle.props
     let pageStart = messages.length > 0 ? offset + 1 : 0
     let pageEnd = offset + messages.length
+    let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
 
     return (
-      <div mix={pageStyle}>
+      <div mix={table.page}>
         <ConfirmDelete />
-        <div mix={headerStyle}>
-          <h2 mix={titleStyle}>Nachrichten</h2>
+        <div mix={headerRowStyle}>
+          <h2 mix={table.title}>Nachrichten</h2>
           <ConnectionIndicator url={routes.admin.messages.subscribe.href()} />
         </div>
         <p mix={descriptionStyle}>
           Öffentliche Nachrichten verwalten. Nur Admins können Nachrichten senden und löschen.
         </p>
 
-        {/* Messages list */}
-        <div id="messages-container" role="log" aria-live="polite" mix={messagesListStyle}>
-          {messages.length === 0 ? (
-            <div mix={emptyStateStyle}>Noch keine Nachrichten. Sende die erste!</div>
-          ) : (
-            messages.map((msg) => (
-              <div key={msg.id} mix={messageItemStyle}>
-                <div mix={messageHeaderStyle}>
-                  <span mix={senderNameStyle}>{msg.sender_name}</span>
-                  <span mix={timestampStyle}>{formatTimestamp(msg.created_at)}</span>
-                </div>
-                <div mix={messageContentStyle}>{msg.content}</div>
-                <div mix={messageActionsStyle}>
-                  <form
-                    method="POST"
-                    action={routes.admin.messages.destroy.href({ id: msg.id })}
-                    data-rmx-target={getSelfFrameTarget()}
-                    data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
-                    mix={css({ margin: 0, padding: 0 })}
-                  >
-                    <CsrfTokenInput />
-                    <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>
-                      Löschen
-                    </button>
-                  </form>
-                </div>
+        {/* Compose panel */}
+        <form
+          method="POST"
+          action={routes.admin.messages.action.href()}
+          data-rmx-target={getSelfFrameTarget()}
+          mix={css({ marginBottom: theme.space.lg })}
+        >
+          <CsrfTokenInput />
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <Glyph name="send" width={14} height={14} />
+              <span mix={table.panelTitle}>Neue Nachricht senden</span>
+            </div>
+            <div mix={table.panelBody}>
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="messages-content">
+                  Nachricht
+                </label>
+                <textarea
+                  id="messages-content"
+                  name="content"
+                  required
+                  maxLength={1000}
+                  placeholder="Nachricht schreiben…"
+                  mix={[input.base, input.focus, textareaStyle]}
+                />
               </div>
-            ))
+              <div mix={table.actions}>
+                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
+                  <Glyph name="send" width={14} height={14} /> Nachricht senden
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        {/* Messages grid */}
+        <div mix={table.wrap} role="log" aria-live="polite" data-messages-table="true">
+          {messages.length === 0 ? (
+            <div mix={table.empty}>Noch keine Nachrichten. Sende die erste!</div>
+          ) : (
+            <table mix={table.table}>
+              <colgroup>
+                <col mix={css({ width: '170px' })} />
+                <col />
+                <col mix={css({ width: '140px' })} />
+                <col mix={colActionsWidth} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th mix={table.th}>Absender</th>
+                  <th mix={table.th}>Nachricht</th>
+                  <th mix={table.th}>Erstellt</th>
+                  <th mix={table.th}>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {messages.map((msg) => (
+                  <tr key={msg.id} mix={table.row}>
+                    <td mix={table.td} title={msg.sender_name}>
+                      {msg.sender_name}
+                    </td>
+                    <td mix={[table.td, contentCellStyle]} title={msg.content}>
+                      {msg.content}
+                    </td>
+                    <td mix={table.td} title={formatTimestamp(msg.created_at)}>
+                      {formatTimestamp(msg.created_at)}
+                    </td>
+                    <td mix={table.actionCell}>
+                      <div mix={rowActionsStyle}>
+                        <RestfulForm
+                          method="POST"
+                          action={routes.admin.messages.destroy.href({ id: msg.id })}
+                          data-delete-form={msg.id}
+                          data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
+                          data-rmx-target={getSelfFrameTarget()}
+                          mix={css({ margin: 0, padding: 0 })}
+                        >
+                          <GridStateHiddenInputs
+                            state={{ offset: String(offset), sort: '', order: '', filter: '' }}
+                          />
+                          <button
+                            type="submit"
+                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            aria-label="Löschen"
+                            title="Löschen"
+                          >
+                            <Glyph name="trash" width={14} height={14} />
+                          </button>
+                        </RestfulForm>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
-          <div mix={paginationStyle}>
-            {messages.length > 0 && (
-              <span mix={paginationInfoStyle}>
-                Zeige {pageStart}–{pageEnd}
-              </span>
-            )}
-            <div mix={css({ display: 'flex', gap: '0.5rem' })}>
-              {offset > 0 && (
+          <div mix={table.pagination}>
+            <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
+              {messages.length > 0 ? (
+                <span mix={table.paginationInfo}>
+                  Zeige {pageStart}–{pageEnd}
+                </span>
+              ) : null}
+              {currentPage > 0 ? (
+                <span mix={pageBadgeStyle} aria-label={`Seite ${currentPage}`}>
+                  Seite {currentPage}
+                </span>
+              ) : null}
+            </span>
+            <div mix={table.flexGapSm}>
+              {offset > 0 ? (
                 <a
-                  href={`${routes.admin.messages.index.href()}?offset=${prevOffset}`}
+                  href={`${ADMIN_BASE}?offset=${prevOffset}`}
                   data-rmx-target={getSelfFrameTarget()}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 >
-                  ← Neuere
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
-              )}
-              {hasMore && (
+              ) : null}
+              {hasMore ? (
                 <a
-                  href={`${routes.admin.messages.index.href()}?offset=${nextOffset}`}
+                  href={`${ADMIN_BASE}?offset=${nextOffset}`}
                   data-rmx-target={getSelfFrameTarget()}
-                  mix={pageLinkStyle}
+                  mix={table.pageLink}
                 >
-                  Ältere →
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
         )}
-
-        {/* Send message form */}
-        <form method="POST" action={routes.admin.messages.action.href()} mix={formStyle}>
-          <CsrfTokenInput />
-          <textarea
-            name="content"
-            required
-            maxLength={1000}
-            placeholder="Nachricht schreiben…"
-            mix={textareaStyle}
-          />
-          <button
-            type="submit"
-            mix={css({
-              alignSelf: 'flex-end',
-              padding: `${theme.space.sm} ${theme.space.lg}`,
-              background: theme.colors.action.primary.background,
-              color: theme.colors.action.primary.foreground,
-              border: 'none',
-              borderRadius: theme.radius.md,
-              fontSize: theme.fontSize.md,
-              fontWeight: theme.fontWeight.semibold,
-              cursor: 'pointer',
-              '&:hover': { background: theme.colors.action.primary.backgroundHover },
-            })}
-          >
-            Nachricht senden
-          </button>
-        </form>
       </div>
     )
   }

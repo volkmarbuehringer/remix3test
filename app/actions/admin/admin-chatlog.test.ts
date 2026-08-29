@@ -180,4 +180,19 @@ describe('Admin Chatlog controller', () => {
     assert.ok(!html.includes('Zurück'), 'should not show back link with empty state')
     assert.ok(!html.includes('Weiter'), 'should not show forward link with empty state')
   })
+
+  // -----------------------------------------------------------------------
+  // GET /admin/chatlog/:id/delete — frame action-path resolver
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/chatlog/:id/delete resolves to the list (no 404)', async () => {
+    let session = await getAdminSessionCookie()
+    let response = await router.fetch(`https://remix.run/admin/chatlog/test-thread/delete`, {
+      headers: { Cookie: session },
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Chat-Konversationen'), 'should render the chatlog list')
+  })
 })

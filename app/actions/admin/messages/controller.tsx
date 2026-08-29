@@ -14,7 +14,7 @@ import {
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
-import { getAdminIdentity, getCurrentUser } from '../../../utils/context.ts'
+import { getCurrentUser } from '../../../utils/context.ts'
 
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
@@ -35,30 +35,50 @@ function sanitizeContent(content: string): string {
 
 const MESSAGES_PAGE_LIMIT = 10
 
+/** Clamps a query/form offset to a non-negative integer. */
+function parseOffset(raw: string | null | undefined): number {
+  let value = Number(raw ?? '')
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+}
+
+async function renderMessagesPage(context: any, offset: number): Promise<Response> {
+  let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
+
+  let rows = await listMessages(context.db, effectivePageSize + 1, offset)
+
+  let hasMore = rows.length > effectivePageSize
+  if (hasMore) rows.pop()
+
+  return renderAdminPage(
+    context.render,
+    'messages',
+    <AdminMessagesPage
+      messages={rows}
+      offset={offset}
+      hasMore={hasMore}
+      pageSize={effectivePageSize}
+      prevOffset={Math.max(0, offset - effectivePageSize)}
+      nextOffset={offset + effectivePageSize}
+    />,
+  )
+}
+
 export default createController(routes.admin.messages, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
-      let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let offset = parseOffset(context.url.searchParams.get('offset'))
+      return renderMessagesPage(context, offset)
+    },
 
-      let rows = await listMessages(context.db, effectivePageSize + 1, offset)
-
-      let hasMore = rows.length > effectivePageSize
-      if (hasMore) rows.pop()
-
-      return renderAdminPage(
-        context.render,
-        'messages',
-        <AdminMessagesPage
-          messages={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - effectivePageSize)}
-          nextOffset={offset + effectivePageSize}
-        />,
-      )
+    // The frame commits the POST delete form action path (form action == frame
+    // src) as its address after submission, and the live ConnectionIndicator
+    // reloads it on invalidate. Render the list so that GET of the action path
+    // resolves instead of falling to a 404 (POST-only route).
+    async destroyResolve(context) {
+      let offset = parseOffset(context.url.searchParams.get('offset'))
+      return renderMessagesPage(context, offset)
     },
 
     async action(context) {
@@ -111,6 +131,9 @@ export default createController(routes.admin.messages, {
       let db = context.db
       let { params } = context
       let messageId = parseId(params.id)
+      let rawOffset = context.formData.get('_offset') as string | null
+      let offset = parseOffset(rawOffset)
+      let qs = offset > 0 ? `?offset=${offset}` : ''
 
       if (messageId === undefined || messageId < 1) {
         return new Response('Invalid message ID', { status: 400 })
@@ -129,7 +152,7 @@ export default createController(routes.admin.messages, {
 
       broadcastInvalidate()
 
-      return redirect(routes.admin.messages.index.href())
+      return redirect(routes.admin.messages.index.href() + qs)
     },
 
     subscribe(context) {

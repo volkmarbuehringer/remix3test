@@ -27,56 +27,68 @@ function parseOffset(raw: string | null | undefined): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
+async function renderChatLogPage(context: any, offset: number): Promise<Response> {
+  let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
+
+  try {
+    let page = Math.floor(offset / effectivePageSize)
+
+    let agent = mastra.getAgent('supportAgent')
+    let { threads, hasMore } = await listChatThreads(agent, {
+      page,
+      perPage: effectivePageSize,
+    })
+
+    let conversations = threads.map((t) => ({
+      id: t.id,
+      created_at: t.createdAt,
+      updated_at: t.updatedAt,
+    }))
+
+    return renderAdminPage(
+      context.render,
+      'chatlog',
+      <ChatLogPage
+        conversations={conversations}
+        offset={offset}
+        hasMore={hasMore}
+        pageSize={effectivePageSize}
+        prevOffset={Math.max(0, offset - effectivePageSize)}
+        nextOffset={offset + effectivePageSize}
+      />,
+    )
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'test')
+      console.error('[Admin Chatlog] Error loading conversations: ' + String(error))
+    return renderAdminPage(
+      context.render,
+      'chatlog',
+      <ChatLogPage
+        conversations={[]}
+        offset={0}
+        hasMore={false}
+        pageSize={effectivePageSize}
+        prevOffset={0}
+        nextOffset={effectivePageSize}
+      />,
+    )
+  }
+}
+
 export const adminChatlog = createController(routes.admin.chatlog, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async index(context) {
-      let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
+      let offset = parseOffset(context.url.searchParams.get('offset'))
+      return renderChatLogPage(context, offset)
+    },
 
-      try {
-        let offset = parseOffset(context.url.searchParams.get('offset'))
-        let page = Math.floor(offset / effectivePageSize)
-
-        let agent = mastra.getAgent('supportAgent')
-        let { threads, hasMore } = await listChatThreads(agent, {
-          page,
-          perPage: effectivePageSize,
-        })
-
-        let conversations = threads.map((t) => ({
-          id: t.id,
-          created_at: t.createdAt,
-          updated_at: t.updatedAt,
-        }))
-
-        return renderAdminPage(
-          context.render,
-          'chatlog',
-          <ChatLogPage
-            conversations={conversations}
-            offset={offset}
-            hasMore={hasMore}
-            pageSize={effectivePageSize}
-            prevOffset={Math.max(0, offset - effectivePageSize)}
-            nextOffset={offset + effectivePageSize}
-          />,
-        )
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'test')
-          console.error('[Admin Chatlog] Error loading conversations: ' + String(error))
-        return renderAdminPage(
-          context.render,
-          'chatlog',
-          <ChatLogPage
-            conversations={[]}
-            offset={0}
-            hasMore={false}
-            pageSize={effectivePageSize}
-            prevOffset={0}
-            nextOffset={effectivePageSize}
-          />,
-        )
-      }
+    // The frame commits the POST delete form action path as its src after
+    // submission; render the list so a reload of that path resolves instead of
+    // 404ing on the POST-only delete route.
+    async destroyResolve(context) {
+      let offset = parseOffset(context.url.searchParams.get('offset'))
+      return renderChatLogPage(context, offset)
     },
 
     async destroy(context) {

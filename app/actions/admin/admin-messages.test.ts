@@ -34,6 +34,14 @@ describe('Admin Messages controller', () => {
     userCookie = userResult?.cookie ?? ''
   })
 
+  /** Make an authenticated GET request to the admin messages endpoint. */
+  async function adminMessagesGet(queryString?: string): Promise<Response> {
+    let url = queryString ? `${ADMIN_MESSAGES_URL}?${queryString}` : ADMIN_MESSAGES_URL
+    return await router.fetch(url, {
+      headers: { Cookie: adminCookie },
+    })
+  }
+
   it('GET /admin/messages redirects to login when not authenticated', async () => {
     let response = await router.fetch(ADMIN_MESSAGES_URL)
     assert.equal(response.status, 302)
@@ -225,5 +233,108 @@ describe('Admin Messages controller', () => {
     broadcastInvalidate()
     // If we reach here without an exception, the broadcast was clean.
     assert.ok(true)
+  })
+
+  // -----------------------------------------------------------------------
+  // Grid rendering — shared admin-table data grid
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/messages renders the messages data grid', async () => {
+    let response = await adminMessagesGet()
+    let text = await response.text()
+
+    assert.ok(text.includes('data-messages-table'), 'grid wrapper should be present')
+    assert.ok(text.includes('<table'), 'should render a data table')
+    assert.ok(text.includes('Absender'), 'should render the Absender column header')
+    assert.ok(text.includes('Erstellt'), 'should render the Erstellt column header')
+    assert.ok(text.includes('Aktionen'), 'should render the Aktionen column header')
+  })
+
+  it('GET /admin/messages renders the compose panel', async () => {
+    let response = await adminMessagesGet()
+    let text = await response.text()
+
+    assert.ok(text.includes('Neue Nachricht senden'), 'compose panel should render')
+    assert.ok(text.includes('Nachricht senden'), 'submit button should render')
+  })
+
+  // -----------------------------------------------------------------------
+  // Pagination — offset-based (matches the other admin grid routes)
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/messages?offset=10 renders the requested page number', async () => {
+    // With only a few seeded messages a non-zero offset renders an empty grid,
+    // but the pagination bar still shows the computed "Seite N" badge + back link.
+    let response = await adminMessagesGet('offset=10')
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('Seite 2'), 'should render the requested page number')
+    assert.ok(text.includes('Zurück'), 'should show a back link when offset > 0')
+  })
+
+  it('GET /admin/messages?offset=-5 falls back to offset 0', async () => {
+    let response = await adminMessagesGet('offset=-5')
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(!text.includes('Zurück'), 'should not show a back link at offset 0')
+  })
+
+  it('GET /admin/messages?offset=abc falls back to offset 0', async () => {
+    let response = await adminMessagesGet('offset=abc')
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(!text.includes('Zurück'), 'should fall back to offset 0 for non-numeric input')
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /admin/messages/:id/delete — preserves the current offset
+  // -----------------------------------------------------------------------
+
+  it('POST /admin/messages/:id/delete preserves the current offset in the redirect', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let now = Date.now()
+    let createResult = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'Delete me (offset)', $1) RETURNING id`,
+      [now],
+    )
+    let messageId = createResult.rows[0].id as number
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_offset', '10')
+    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    assert.equal(response.headers.get('Location'), '/admin/messages?offset=10')
+  })
+
+  // -----------------------------------------------------------------------
+  // GET /admin/messages/:id/delete — frame action-path resolver
+  //
+  // The frame runtime commits the POST delete form's action path as the
+  // frame src after submission, and the live ConnectionIndicator reloads it
+  // on invalidate. That GET must resolve (form action == frame src) rather
+  // than 404 on the POST-only delete route.
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/messages/:id/delete resolves to the messages list (no 404)', async () => {
+    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/1/delete`, {
+      headers: { Cookie: adminCookie },
+    })
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('Nachrichten'), 'should render the messages list')
+    assert.ok(text.includes('data-messages-table'), 'should render the data grid')
   })
 })

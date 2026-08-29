@@ -87,6 +87,10 @@ export const routes = route({
     chatlog: route('chatlog', {
       index: get('/'),
       destroy: post('/:id/delete'),
+      // Frame action-path resolver: the frame commits the POST delete form
+      // action as its src after submission, so that path must also resolve as
+      // a GET to avoid a 404 on reload.
+      destroyResolve: get('/:id/delete'),
 
       fragments: route('fragments', {
         detail: get('/detail/:id'),
@@ -97,6 +101,11 @@ export const routes = route({
       index: get('/'),
       action: post('/'),
       destroy: post('/:id/delete'),
+      // The frame commits the POST form action path as its address after a
+      // submission, and the live ConnectionIndicator reloads it on invalidate.
+      // The action path must therefore also resolve as a GET (form action ==
+      // frame src); this resolver renders the messages list.
+      destroyResolve: get('/:id/delete'),
       subscribe: get('/subscribe'),
     }),
 
