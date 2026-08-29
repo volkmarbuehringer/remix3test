@@ -15,7 +15,7 @@ export function PageSection(handle: Handle<PageSectionProps>) {
       <section mix={sectionCss}>
         {title || description ? (
           <div mix={sectionHeaderCss}>
-            {title ? <h2 mix={sectionTitleCss}>{title}</h2> : null}
+            {title ? <h1 mix={sectionTitleCss}>{title}</h1> : null}
             {description ? <p mix={sectionDescriptionCss}>{description}</p> : null}
           </div>
         ) : null}

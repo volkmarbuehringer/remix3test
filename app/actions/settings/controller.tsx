@@ -1,7 +1,7 @@
 import * as s from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
-import type { Handle } from 'remix/ui'
+import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
@@ -32,11 +32,8 @@ import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/pas
 import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
-
-import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
-import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
-import { getCspNonce } from '../../middleware/security-headers.ts'
-import { SettingsPasswordEnhance } from '../../ui/settings-password-enhance.browser.tsx'
+import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
+import { SettingsEnhance } from '../../ui/settings-enhance.browser.tsx'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
 
@@ -82,7 +79,7 @@ export default createController(routes.settings, {
             <SettingsPage
               user={user}
               pageSize={pageSize}
-              deleteError="Zu viele Versuche. Bitte versuchen Sie es später erneut."
+              deleteError="Zu viele Versuche. Bitte versuchen Sie es in einer Minute erneut."
             />,
             { status: 429 },
           )
@@ -164,7 +161,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
-            passwordError="Zu viele Versuche. Bitte versuchen Sie es später erneut."
+            passwordError="Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."
           />,
           { status: 429 },
         )
@@ -242,7 +239,7 @@ export default createController(routes.settings, {
         <SettingsPage
           user={user}
           pageSize={pageSize}
-          passwordSuccess="Passwort erfolgreich aktualisiert."
+          passwordSuccess="Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet."
         />,
       )
     },
@@ -256,28 +253,20 @@ type SettingsPageProps = {
   passwordErrors?: Record<string, string | undefined>
   passwordSuccess?: string
   deleteError?: string
-  deleteSuccess?: string
 }
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
-    let {
-      user,
-      pageSize,
-      passwordError,
-      passwordErrors,
-      passwordSuccess,
-      deleteError,
-      deleteSuccess,
-    } = handle.props
-
-    let nonce = getCspNonce()
+    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
+      handle.props
 
     return (
       <Layout title="Einstellungen">
         <PageSection title="Einstellungen" description="Verwalten Sie Ihre Kontoeinstellungen.">
+          <SettingsEnhance />
           <div mix={settingsGridCss}>
             <div mix={panelCss}>
+              <h2 mix={sectionTitleCss}>Profil</h2>
               <div mix={profileGridCss}>
                 <div mix={profileFieldCss}>
                   <span mix={profileLabelCss}>Name</span>
@@ -288,6 +277,9 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                   <span mix={profileValueCss}>{user.email}</span>
                 </div>
               </div>
+              <p mix={hintTextCss}>
+                Um Name oder E-Mail zu ändern, kontaktieren Sie Ihren Administrator.
+              </p>
             </div>
 
             <div mix={panelCss}>
@@ -320,196 +312,185 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                       </option>
                     </select>
                   </label>
-                  <button type="submit" mix={submitButton}>
+                  <button type="submit" mix={submitButton} aria-label="Anzeige speichern">
                     Speichern
                   </button>
                 </div>
               </form>
             </div>
 
-            <div mix={panelCss} data-settings-panel>
-              <h2 mix={sectionTitleCss}>Passwort ändern</h2>
+            <div mix={[panelCss, fullSpanCss]} data-settings-panel>
+              <h3 mix={sectionTitleCss}>Passwort ändern</h3>
               {passwordError ? (
                 <p role="alert" data-settings-alert mix={errorBanner}>
                   {passwordError}
                 </p>
               ) : null}
               {passwordSuccess ? (
-                <p role="status" mix={successBanner}>
+                <p role="status" data-settings-status mix={successBanner}>
                   {passwordSuccess}
                 </p>
               ) : null}
               <form action={routes.settings.action.href()} method="POST">
                 <CsrfTokenInput />
-                <PasswordToggle />
-                <SettingsPasswordEnhance />
                 <div mix={formContainer}>
-                  <label mix={fieldLabelCss}>
-                    <span>Aktuelles Passwort</span>
-                    <div mix={inputWrapperCss}>
-                      <input
-                        type="password"
-                        name="currentPassword"
-                        required
-                        autoComplete="current-password"
-                        aria-invalid={passwordErrors?.currentPassword ? true : undefined}
-                        aria-describedby={
-                          passwordErrors?.currentPassword ? 'current-password-error' : undefined
-                        }
-                        mix={[
-                          input.base,
-                          input.focus,
-                          passwordErrors?.currentPassword ? input.error : undefined,
-                          inputHasToggleCss,
-                        ]}
-                      />
-                      <button
-                        type="button"
-                        data-toggle-pw="currentPassword"
-                        aria-label="Passwort anzeigen"
-                        mix={toggleButtonCss}
-                      >
-                        <Glyph name="eye" width={18} height={18} />
-                      </button>
-                    </div>
-                    {passwordErrors?.currentPassword ? (
-                      <span id="current-password-error" role="alert" mix={fieldErrorCss}>
-                        {passwordErrors.currentPassword}
-                      </span>
-                    ) : null}
-                  </label>
+                  <PasswordField
+                    label="Aktuelles Passwort"
+                    name="currentPassword"
+                    fieldId="current-password"
+                    autoComplete="current-password"
+                    error={passwordErrors?.currentPassword}
+                    errorId="current-password-error"
+                  />
+                  <PasswordField
+                    label="Neues Passwort"
+                    name="newPassword"
+                    fieldId="new-password"
+                    autoComplete="new-password"
+                    minLength
+                    error={passwordErrors?.newPassword}
+                    errorId="new-password-error"
+                  >
+                    <ul
+                      id="password-rules"
+                      mix={complexityListCss}
+                      data-pw-complexity
+                      aria-label="Passwort-Anforderungen"
+                    >
+                      <li data-complexity-rule="length">Mindestens 10 Zeichen</li>
+                      <li data-complexity-rule="digit">Mindestens eine Zahl (0-9)</li>
+                      <li data-complexity-rule="special">Mindestens ein Sonderzeichen</li>
+                    </ul>
+                  </PasswordField>
+                  <PasswordField
+                    label="Neues Passwort bestätigen"
+                    name="confirmPassword"
+                    fieldId="confirm-password"
+                    autoComplete="new-password"
+                    error={passwordErrors?.confirmPassword}
+                    errorId="confirm-password-error"
+                  >
+                    <p data-pw-match role="status" aria-live="polite" mix={matchFeedbackCss}></p>
+                  </PasswordField>
 
-                  <label mix={fieldLabelCss}>
-                    <span>Neues Passwort</span>
-                    <div mix={inputWrapperCss}>
-                      <input
-                        type="password"
-                        name="newPassword"
-                        required
-                        autoComplete="new-password"
-                        minLength={PASSWORD_MIN_LENGTH}
-                        aria-invalid={passwordErrors?.newPassword ? true : undefined}
-                        aria-describedby={
-                          passwordErrors?.newPassword ? 'new-password-error' : undefined
-                        }
-                        mix={[
-                          input.base,
-                          input.focus,
-                          passwordErrors?.newPassword ? input.error : undefined,
-                          inputHasToggleCss,
-                        ]}
-                      />
-                      <button
-                        type="button"
-                        data-toggle-pw="newPassword"
-                        aria-label="Passwort anzeigen"
-                        mix={toggleButtonCss}
-                      >
-                        <Glyph name="eye" width={18} height={18} />
-                      </button>
-                    </div>
-                    {passwordErrors?.newPassword ? (
-                      <span id="new-password-error" role="alert" mix={fieldErrorCss}>
-                        {passwordErrors.newPassword}
-                      </span>
-                    ) : null}
-                    <div data-pw-complexity mix={complexityFeedbackCss}></div>
-                    <script nonce={nonce}>{passwordComplexityScript('newPassword')}</script>
-                  </label>
-
-                  <label mix={fieldLabelCss}>
-                    <span>Neues Passwort bestätigen</span>
-                    <div mix={inputWrapperCss}>
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        required
-                        autoComplete="new-password"
-                        aria-invalid={passwordErrors?.confirmPassword ? true : undefined}
-                        aria-describedby={
-                          passwordErrors?.confirmPassword ? 'confirm-password-error' : undefined
-                        }
-                        mix={[
-                          input.base,
-                          input.focus,
-                          passwordErrors?.confirmPassword ? input.error : undefined,
-                          inputHasToggleCss,
-                        ]}
-                      />
-                      <button
-                        type="button"
-                        data-toggle-pw="confirmPassword"
-                        aria-label="Passwort anzeigen"
-                        mix={toggleButtonCss}
-                      >
-                        <Glyph name="eye" width={18} height={18} />
-                      </button>
-                    </div>
-                    {passwordErrors?.confirmPassword ? (
-                      <span id="confirm-password-error" role="alert" mix={fieldErrorCss}>
-                        {passwordErrors.confirmPassword}
-                      </span>
-                    ) : null}
-                    <div
-                      data-pw-match
-                      role="status"
-                      aria-live="polite"
-                      mix={matchFeedbackCss}
-                    ></div>
-                  </label>
-
-                  <button type="submit" mix={submitButton}>
+                  <button type="submit" mix={submitButton} aria-label="Passwort speichern">
                     Speichern
                   </button>
                 </div>
               </form>
             </div>
 
-            <div mix={[panelCss, dangerZoneCss]}>
-              <h2 mix={[sectionTitleCss, dangerTitleCss]}>Konto löschen</h2>
+            <div mix={[panelCss, dangerZoneCss, fullSpanCss]}>
+              <h3 mix={[sectionTitleCss, dangerTitleCss]}>Konto löschen</h3>
               <p mix={warningTextCss}>
                 Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht
-                rückgängig gemacht werden.
+                rückgängig gemacht werden. Alle Sitzungen werden beendet.
               </p>
               {deleteError ? (
                 <p role="alert" mix={errorBanner}>
                   {deleteError}
                 </p>
               ) : null}
-              {deleteSuccess ? (
-                <p role="status" mix={successBanner}>
-                  {deleteSuccess}
-                </p>
-              ) : null}
-              <form action={routes.settings.action.href()} method="POST">
+              <form
+                action={routes.settings.action.href()}
+                method="POST"
+                data-confirm="Möchten Sie Ihr Konto wirklich dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+              >
                 <input type="hidden" name="_action" value="delete-account" />
                 <CsrfTokenInput />
                 <div mix={[formContainer, deleteFormCss]}>
                   <label mix={fieldLabelCss}>
                     <span>Passwort eingeben zur Bestätigung</span>
-                    <div mix={inputWrapperCss}>
-                      <input
-                        type="password"
-                        name="currentPassword"
-                        required
-                        autoComplete="current-password"
-                        mix={[input.base, input.focus]}
-                      />
-                    </div>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      required
+                      autoComplete="current-password"
+                      mix={[input.base, input.focus]}
+                    />
                   </label>
                   <label mix={confirmLabelCss}>
-                    <input type="checkbox" name="confirmDelete" required />
-                    <span>Wollen Sie wirklich löschen?</span>
+                    <input
+                      type="checkbox"
+                      name="confirmDelete"
+                      required
+                      defaultChecked={deleteError ? true : undefined}
+                      mix={confirmCheckboxCss}
+                    />
+                    <span>Ich möchte mein Konto dauerhaft löschen</span>
                   </label>
                   <button type="submit" mix={deleteButtonCss}>
-                    Konto löschen
+                    Konto dauerhaft löschen
                   </button>
                 </div>
               </form>
             </div>
           </div>
+          <ConfirmDelete />
         </PageSection>
       </Layout>
+    )
+  }
+}
+
+type PasswordFieldProps = {
+  autoComplete: string
+  error?: string
+  errorId: string
+  fieldId: string
+  label: string
+  minLength?: boolean
+  name: string
+  children?: RemixNode
+}
+
+function PasswordField(handle: Handle<PasswordFieldProps>) {
+  return () => {
+    let { autoComplete, error, errorId, fieldId, label, minLength, name, children } = handle.props
+
+    return (
+      <div mix={fieldGroupCss}>
+        <label mix={fieldLabelCss} htmlFor={fieldId}>
+          <span>{label}</span>
+        </label>
+        <div mix={inputWrapperCss}>
+          <input
+            id={fieldId}
+            type="password"
+            name={name}
+            required
+            autoComplete={autoComplete}
+            minLength={minLength ? PASSWORD_MIN_LENGTH : undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={
+              error
+                ? minLength
+                  ? `${errorId} password-rules`
+                  : errorId
+                : minLength
+                  ? 'password-rules'
+                  : undefined
+            }
+            mix={[input.base, input.focus, error ? input.error : undefined, inputHasToggleCss]}
+          />
+          <button
+            type="button"
+            data-toggle-pw={name}
+            aria-label={`${label} anzeigen`}
+            data-label-show={`${label} anzeigen`}
+            data-label-hide={`${label} ausblenden`}
+            mix={toggleButtonCss}
+          >
+            <Glyph name="eye" width={18} height={18} />
+          </button>
+        </div>
+        {error ? (
+          <span id={errorId} role="alert" mix={fieldErrorCss}>
+            {error}
+          </span>
+        ) : null}
+        {children}
+      </div>
     )
   }
 }
@@ -539,7 +520,14 @@ const dangerZoneCss = css({
 })
 
 const dangerTitleCss = css({
-  color: theme.colors.action.danger.foreground,
+  color: theme.colors.action.danger.background,
+})
+
+// Full-width panels (password change + danger zone) on the desktop two-column
+// grid; the danger zone stays visually separated at the bottom instead of
+// sitting next to a normal settings panel.
+const fullSpanCss = css({
+  gridColumn: '1 / -1',
 })
 
 const matchFeedbackCss = css({
@@ -550,7 +538,7 @@ const matchFeedbackCss = css({
     color: theme.colors.success.foreground,
   },
   '&[data-match="bad"]': {
-    color: theme.colors.action.danger.foreground,
+    color: theme.colors.action.danger.background,
   },
 })
 
@@ -568,7 +556,7 @@ const profileFieldCss = css({
 
 const profileLabelCss = css({
   fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
+  color: theme.colors.text.secondary,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 })
@@ -577,6 +565,12 @@ const profileValueCss = css({
   fontSize: theme.fontSize.md,
   color: theme.colors.text.primary,
   fontWeight: theme.fontWeight.medium,
+})
+
+const fieldGroupCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: theme.space.xs,
 })
 
 const formContainer = css({
@@ -590,11 +584,26 @@ const deleteFormCss = css({
   },
 })
 
-const complexityFeedbackCss = css({
+const complexityListCss = css({
+  listStyle: 'none',
+  margin: `${theme.space.xs} 0 0`,
+  padding: 0,
   display: 'flex',
   flexDirection: 'column',
   gap: '2px',
-  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  '& li::before': {
+    content: '"○ "',
+    color: theme.colors.text.secondary,
+  },
+  '& li[data-ok="true"]::before': {
+    content: '"✓ "',
+    color: theme.colors.success.foreground,
+  },
+  '& li[data-ok="true"]': {
+    color: theme.colors.text.secondary,
+  },
 })
 
 const errorBanner = css({
@@ -631,7 +640,7 @@ const selectCss = css({
 
 const hintTextCss = css({
   fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
+  color: theme.colors.text.secondary,
   margin: '0 0 1rem',
 })
 
@@ -639,6 +648,7 @@ const submitButton = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  minHeight: '44px',
   padding: '0.5rem 1.5rem',
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.semibold,
@@ -666,6 +676,7 @@ const deleteButtonCss = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  minHeight: '44px',
   padding: '0.5rem 1.5rem',
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.semibold,
@@ -686,4 +697,11 @@ const confirmLabelCss = css({
   gap: theme.space.sm,
   fontSize: theme.fontSize.sm,
   cursor: 'pointer',
+})
+
+const confirmCheckboxCss = css({
+  width: '24px',
+  height: '24px',
+  flexShrink: 0,
+  accentColor: theme.colors.action.danger.background,
 })

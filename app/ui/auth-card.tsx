@@ -148,7 +148,7 @@ export const fieldLabelCss = css({
 })
 
 export const fieldErrorCss = css({
-  color: theme.colors.action.danger.foreground,
+  color: theme.colors.action.danger.background,
   fontSize: theme.fontSize.xs,
 })
 

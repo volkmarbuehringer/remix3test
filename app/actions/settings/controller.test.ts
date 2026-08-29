@@ -218,7 +218,10 @@ describe('Settings controller', () => {
       let html = await response.text()
       assert.ok(html.includes('Konto löschen'), 'page should contain delete account section')
       assert.ok(html.includes('löscht Ihr Konto'), 'should show warning about permanent deletion')
-      assert.ok(html.includes('Wollen Sie wirklich löschen'), 'should show confirmation checkbox')
+      assert.ok(
+        html.includes('Ich möchte mein Konto dauerhaft löschen'),
+        'should show confirmation checkbox',
+      )
       assert.ok(html.includes('name="_action"'), 'should have action routing hidden field')
     })
 

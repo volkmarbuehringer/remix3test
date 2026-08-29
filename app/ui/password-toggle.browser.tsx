@@ -24,6 +24,8 @@ document.addEventListener('click', function(e) {
     useEl.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', ref);
     useEl.setAttribute('href', ref);
   }
-  btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+  var show = btn.getAttribute('data-label-show') || 'Passwort anzeigen';
+  var hide = btn.getAttribute('data-label-hide') || 'Passwort ausblenden';
+  btn.setAttribute('aria-label', isPassword ? hide : show);
 });
 `
