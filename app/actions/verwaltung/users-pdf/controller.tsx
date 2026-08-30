@@ -1,34 +1,12 @@
 import { createController } from 'remix/router'
-import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../../routes.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
-import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import { listUserSummaries } from '../../../data/users-pdf.ts'
-import { formatMinOption as formatMin } from '../../../utils/date-utils.ts'
-
-function formatDate(date: string | number | null): string {
-  if (date === null) return '—'
-  let d = new Date(Number(date))
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
-
-interface UserSummaryRow {
-  user_id: number
-  name: string
-  email: string
-  appointment_count: number
-  total_minutes: number
-  first_date: number | null
-  last_date: number | null
-}
+import { pdfAttachmentResponse } from '../../../utils/pdf-utils.ts'
+import { buildUserSummaryPdf } from '../../../utils/user-summary-pdf.ts'
 
 export default createController(routes.verwaltung.usersPdf, {
   middleware: [requireAuth(), requireAdmin()],
@@ -43,71 +21,18 @@ export default createController(routes.verwaltung.usersPdf, {
       try {
         let { rows, truncated } = await listUserSummaries(context.db)
 
-        let now = Date.now()
-
-        let buffer = await generatePdfBuffer({
-          pageSize: 'A4',
-          pageMargins: [40, 60, 40, 60],
-          content: [
-            { text: 'Benutzerübersicht', style: 'header' },
-            {
-              text: `Erstellt am ${new Date(now).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}`,
-              style: 'subheader',
-            },
-            {
-              text: `Insgesamt ${rows.length} Benutzer${truncated ? ' — Hinweis: Ergebnis auf 10.000 Einträge begrenzt.' : ''}`,
-              style: 'subheader',
-              margin: [0, 0, 0, 20],
-            },
-            {
-              table: {
-                headerRows: 1,
-                widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
-                body: [
-                  [
-                    { text: 'Name', bold: true },
-                    { text: 'E-Mail', bold: true },
-                    { text: 'Termine', bold: true },
-                    { text: 'Gesamtzeit', bold: true },
-                    { text: 'Erster Termin', bold: true },
-                    { text: 'Letzter Termin', bold: true },
-                  ],
-                  ...rows.map((row) => [
-                    row.name ?? row.email,
-                    row.email,
-                    String(row.appointment_count),
-                    row.appointment_count > 0 ? formatMin(row.total_minutes) : '—',
-                    formatDate(row.first_date),
-                    formatDate(row.last_date),
-                  ]),
-                ],
-              },
-              layout: 'lightHorizontalLines',
-            },
-          ],
-          styles: {
-            header: {
-              fontSize: 18,
-              bold: true,
-              margin: [0, 0, 0, 8],
-            },
-            subheader: {
-              fontSize: 11,
-              color: '#666666',
-              margin: [0, 0, 0, 4],
-            },
-          },
+        let buffer = await buildUserSummaryPdf({
+          title: 'Benutzerübersicht',
+          periodLabel: `Erstellt am ${new Date().toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+          countLabel: `Insgesamt ${rows.length} Benutzer`,
+          rows,
+          truncated,
         })
 
-        let pdfHeaders = new SuperHeaders()
-        pdfHeaders.contentType = 'application/pdf'
-        pdfHeaders.contentDisposition = {
-          type: 'attachment',
-          filename: `benutzeruebersicht-${new Date(now).toISOString().split('T')[0]}.pdf`,
-        }
-        pdfHeaders.contentLength = buffer.length
-        return new Response(new Uint8Array(buffer), { headers: pdfHeaders })
-      } catch {
+        let filename = `benutzeruebersicht-${new Date().toISOString().split('T')[0]}.pdf`
+        return pdfAttachmentResponse(buffer, filename)
+      } catch (error) {
+        context.logger?.(`Fehler beim Erstellen des Benutzer-PDFs: ${error}`)
         return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
       }
     },

@@ -1,5 +1,29 @@
 # Code Deletion Log
 
+## [2026-08-30] Consolidate User-Summary Export Helpers (modernize-users-export)
+
+Narrow consolidation of the `/verwaltung/users-export` and `/verwaltung/users-pdf` export family (OpenSpec change `modernize-users-export`). Only byte-identical code was shared; the two data-layer SQL queries were **deliberately kept separate** because their semantics differ (`users-export`: INNER JOIN + date-range WHERE; `users-pdf`: LEFT JOIN over all users). A previous consolidation attempt (8f4dfee, 2026-07-31) merged the data functions themselves and was reverted in `bd78294`.
+
+### Duplicated Code Consolidated
+
+- `UserSummaryRow` interface + row-coercion/`limit+1`-truncation mapping (4 copies → 1) — `app/data/user-summary-rows.ts` (`queryUserSummaryRows`); `users-export.ts`/`users-pdf.ts` keep their own SQL and re-export the row type
+- Inline pdfmake document definition in both user-PDF controllers → `app/utils/user-summary-pdf.ts` (`buildUserSummaryPdf`)
+- SuperHeaders attachment Response construction in both controllers → `app/utils/pdf-utils.ts` (`pdfAttachmentResponse`)
+- Local `formatDate()` helpers in 3 PDF controllers → `app/utils/date-utils.ts` (`formatDateDE` now null-tolerant; new `formatUtcDateDE`/`formatUtcPeriodDayDE` for UTC-rendered export labels)
+
+### Behavior Changes (spec-driven, not refactor side effects)
+
+- `/verwaltung/users-export`: calendar-valid date validation (non-calendar dates like `2024-02-31` now rejected), per-field validation errors, UTC-day period labels, GET `?startDate&endDate` download, 200 empty-state instead of 404 error box, `X-Remix-Frame` download shim, logger in generation catch
+- PDF table date columns now render UTC ("31.01.2026" style via `formatUtcDateDE`); the weekday-prefixed `formatDateDE` remains for calendar UI callers
+
+### Impact
+
+- TypeScript: clean compile (`npm run typecheck`)
+- Lint: oxlint `--max-warnings=0` + theme conformance pass
+- Tests: 1317 pass / 0 fail / 1 todo / 1 skipped
+- Files deleted: 0 (consolidation only); net ~150 duplicate lines removed
+
+
 ## [2026-08-28] Retire routeAgent and testAgent
 
 Retired the `routeAgent` (agentic-routing POC, superseded by `supportAgent`) and `testAgent` (dev-only filesystem-explorer prototype) from the Mastra registry and the app.

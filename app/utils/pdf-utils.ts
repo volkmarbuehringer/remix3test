@@ -2,6 +2,7 @@ import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pdfmake from 'pdfmake'
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
+import { SuperHeaders } from 'remix/headers'
 
 let initialized = false
 
@@ -31,4 +32,17 @@ export async function generatePdfBuffer(docDef: TDocumentDefinitions): Promise<B
     ...docDef,
   })
   return await doc.getBuffer()
+}
+
+/**
+ * Wrap a PDF buffer as an attachment-download Response with the standard
+ * headers (Content-Type, Content-Disposition, Content-Length) used by the
+ * verwaltung PDF export routes.
+ */
+export function pdfAttachmentResponse(buffer: Buffer, filename: string): Response {
+  let headers = new SuperHeaders()
+  headers.contentType = 'application/pdf'
+  headers.contentDisposition = { type: 'attachment', filename }
+  headers.contentLength = buffer.length
+  return new Response(new Uint8Array(buffer), { headers })
 }

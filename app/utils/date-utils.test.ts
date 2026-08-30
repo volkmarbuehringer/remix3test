@@ -1,7 +1,15 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { isDateInPast, isWithinHours, generateMinOptions } from './date-utils.ts'
+import {
+  isDateInPast,
+  isWithinHours,
+  generateMinOptions,
+  formatDateDE,
+  formatUtcDateDE,
+  formatUtcPeriodDayDE,
+  parseIsoDateUtc,
+} from './date-utils.ts'
 
 describe('isDateInPast', () => {
   it('returns true for a date in the past (yesterday)', () => {
@@ -127,5 +135,64 @@ describe('generateMinOptions', () => {
 
   it('returns empty array for negative count', () => {
     assert.deepEqual(generateMinOptions(-1, 15), [])
+  })
+})
+
+describe('formatDateDE', () => {
+  it('returns an em dash for null and undefined', () => {
+    assert.equal(formatDateDE(null), '\u2014')
+    assert.equal(formatDateDE(undefined), '\u2014')
+  })
+
+  it('returns an em dash for invalid timestamps', () => {
+    assert.equal(formatDateDE(NaN), '\u2014')
+  })
+
+  it('renders a weekday-prefixed German date for valid input', () => {
+    assert.equal(formatDateDE(Date.UTC(2026, 0, 15)), 'Do., 15.01.2026')
+  })
+})
+
+describe('formatUtcDateDE', () => {
+  it('returns an em dash for null and invalid input', () => {
+    assert.equal(formatUtcDateDE(null), '\u2014')
+    assert.equal(formatUtcDateDE(NaN), '\u2014')
+  })
+
+  it('renders the UTC calendar day deterministically', () => {
+    assert.equal(formatUtcDateDE(Date.UTC(2026, 0, 31, 23, 30)), '31.01.2026')
+  })
+})
+
+describe('formatUtcPeriodDayDE', () => {
+  it('renders a long German UTC day without leading zero', () => {
+    assert.equal(formatUtcPeriodDayDE(Date.UTC(2026, 0, 1)), '1. Januar 2026')
+    assert.equal(formatUtcPeriodDayDE(Date.UTC(2026, 0, 31)), '31. Januar 2026')
+  })
+
+  it('renders leap day correctly', () => {
+    assert.equal(formatUtcPeriodDayDE(Date.UTC(2024, 1, 29)), '29. Februar 2024')
+  })
+})
+
+describe('parseIsoDateUtc', () => {
+  it('accepts real calendar dates and returns UTC midnight', () => {
+    assert.equal(parseIsoDateUtc('2026-01-31'), Date.UTC(2026, 0, 31))
+  })
+
+  it('accepts leap days', () => {
+    assert.equal(parseIsoDateUtc('2024-02-29'), Date.UTC(2024, 1, 29))
+  })
+
+  it('rejects non-calendar dates that would roll over', () => {
+    assert.equal(parseIsoDateUtc('2024-02-31'), null)
+    assert.equal(parseIsoDateUtc('2026-04-31'), null)
+    assert.equal(parseIsoDateUtc('2026-13-01'), null)
+  })
+
+  it('rejects malformed strings', () => {
+    assert.equal(parseIsoDateUtc('2026-1-1'), null)
+    assert.equal(parseIsoDateUtc('not-a-date'), null)
+    assert.equal(parseIsoDateUtc(''), null)
   })
 })

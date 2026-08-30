@@ -1,20 +1,15 @@
 import { type Database } from 'remix/data-table'
 
-export interface UserSummaryRow {
-  user_id: number
-  name: string
-  email: string
-  appointment_count: number
-  total_minutes: number
-  first_date: number | null
-  last_date: number | null
-}
+import { type UserSummaryRow, queryUserSummaryRows } from './user-summary-rows.ts'
+
+export type { UserSummaryRow }
 
 export async function listUserSummaries(
   db: Database,
   limit: number = 10000,
 ): Promise<{ rows: UserSummaryRow[]; truncated: boolean }> {
-  let result = await db.exec(
+  return queryUserSummaryRows(
+    db,
     `SELECT u.id AS user_id, u.name, u.email,
             COUNT(a.id)::int AS appointment_count,
             COALESCE(SUM(a.end_min - a.start_min), 0)::int AS total_minutes,
@@ -26,17 +21,6 @@ export async function listUserSummaries(
      ORDER BY u.name ASC
      LIMIT $1`,
     [limit + 1],
+    limit,
   )
-  let rows = ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
-    user_id: Number(row.user_id),
-    name: row.name as string,
-    email: row.email as string,
-    appointment_count: Number(row.appointment_count),
-    total_minutes: Number(row.total_minutes),
-    first_date: row.first_date != null ? Number(row.first_date) : null,
-    last_date: row.last_date != null ? Number(row.last_date) : null,
-  }))
-  let truncated = rows.length > limit
-  if (truncated) rows = rows.slice(0, limit)
-  return { rows, truncated }
 }

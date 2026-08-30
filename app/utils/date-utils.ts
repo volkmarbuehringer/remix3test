@@ -53,15 +53,60 @@ export function formatWeekLabel(weekStart: number): string {
 }
 
 /**
- * Format an epoch ms value to German date locale, e.g. "Mo, 10.06.2026"
+ * Format an epoch ms value to German date locale, e.g. "Mo, 10.06.2026".
+ * Returns an em dash for null/invalid input.
  */
-export function formatDateDE(epochMs: number): string {
-  return new Date(Number(epochMs)).toLocaleDateString('de-DE', {
+export function formatDateDE(epochMs: number | null | undefined): string {
+  if (epochMs == null) return '\u2014'
+  let d = new Date(Number(epochMs))
+  if (isNaN(d.getTime())) return '\u2014'
+  return d.toLocaleDateString('de-DE', {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   })
+}
+
+/**
+ * Format an epoch ms value as a short UTC date, e.g. "10.06.2026".
+ * Returns an em dash for null/invalid input.
+ */
+export function formatUtcDateDE(epochMs: number | null | undefined): string {
+  if (epochMs == null) return '\u2014'
+  let d = new Date(Number(epochMs))
+  if (isNaN(d.getTime())) return '\u2014'
+  return d.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/**
+ * Format a UTC-midnight epoch ms value as a long German UTC day, e.g.
+ * "1. Januar 2026". Used for export period labels so the label always
+ * describes the exact queried UTC window.
+ */
+export function formatUtcPeriodDayDE(epochMs: number): string {
+  return new Date(epochMs).toLocaleDateString('de-DE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+}
+
+/**
+ * Parse a YYYY-MM-DD calendar date into UTC-midnight epoch ms. Returns null
+ * for non-calendar dates (e.g. 2024-02-31) that would silently roll over.
+ */
+export function parseIsoDateUtc(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  let ms = Date.parse(value + 'T00:00:00Z')
+  if (Number.isNaN(ms)) return null
+  return new Date(ms).toISOString().slice(0, 10) === value ? ms : null
 }
 
 export function generateMinOptions(count: number, step: number, offset = 0): number[] {

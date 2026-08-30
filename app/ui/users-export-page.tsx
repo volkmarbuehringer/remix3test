@@ -2,10 +2,12 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { routes } from '../routes.ts'
-import { CsrfTokenInput } from './csrf-token-input.tsx'
 
 interface UsersExportPageProps {
-  error?: string
+  /** Per-field validation errors keyed by input name. */
+  fieldErrors?: Record<string, string>
+  /** Neutral informational message (e.g. empty result), not an error. */
+  notice?: string
   startDate?: string
   endDate?: string
 }
@@ -60,6 +62,11 @@ const inputStyle = css({
   color: theme.colors.text.primary,
 })
 
+const fieldErrorStyle = css({
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.action.danger.foreground,
+})
+
 const submitStyle = css({
   fontSize: theme.fontSize.sm,
   fontWeight: theme.fontWeight.semibold,
@@ -72,13 +79,13 @@ const submitStyle = css({
   alignSelf: 'flex-start',
 })
 
-const errorStyle = css({
+const noticeStyle = css({
   fontSize: theme.fontSize.sm,
   color: theme.colors.text.primary,
   padding: '0.75rem',
-  border: `1px solid ${theme.colors.action.danger.border}`,
+  border: `1px solid ${theme.colors.border.default}`,
   borderRadius: theme.radius.md,
-  background: theme.colors.action.danger.background,
+  background: theme.surface.lvl1,
   marginBottom: '1rem',
 })
 
@@ -94,10 +101,17 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
           exportieren.
         </p>
 
-        {p.error && <div mix={errorStyle}>{p.error}</div>}
+        {p.notice && <div mix={noticeStyle}>{p.notice}</div>}
 
-        <form method="POST" action={routes.verwaltung.usersExport.index.href()} mix={formStyle}>
-          <CsrfTokenInput />
+        {/* data-rmx-document: the PDF download must bypass frame interception
+            and submit as a native document navigation, or the frame runtime
+            fetches it and swallows the attachment response. */}
+        <form
+          method="GET"
+          action={routes.verwaltung.usersExport.index.href()}
+          data-rmx-document
+          mix={formStyle}
+        >
           <div mix={fieldRowStyle}>
             <div mix={fieldGroupStyle}>
               <label mix={labelStyle} htmlFor="startDate">
@@ -111,6 +125,9 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
                 mix={inputStyle}
                 required
               />
+              {p.fieldErrors?.startDate && (
+                <div mix={fieldErrorStyle}>{p.fieldErrors.startDate}</div>
+              )}
             </div>
             <div mix={fieldGroupStyle}>
               <label mix={labelStyle} htmlFor="endDate">
@@ -124,6 +141,7 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
                 mix={inputStyle}
                 required
               />
+              {p.fieldErrors?.endDate && <div mix={fieldErrorStyle}>{p.fieldErrors.endDate}</div>}
             </div>
           </div>
           <button type="submit" mix={submitStyle}>
