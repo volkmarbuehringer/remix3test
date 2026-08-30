@@ -72,8 +72,14 @@ export const webhookRequestsIndex = createAction(system.webhookRequests, {
 
     let editingParam = context.url.searchParams.get('editing')
     let editRow: WebhookRequestRow | null = null
+    let viewRow: WebhookRequestRow | null = null
     if (editingParam && UUID_RE.test(editingParam)) {
       editRow = (await getWebhookRequest(context.db, editingParam)) ?? null
+    } else {
+      let viewingParam = context.url.searchParams.get('viewing')
+      if (viewingParam && UUID_RE.test(viewingParam)) {
+        viewRow = (await getWebhookRequest(context.db, viewingParam)) ?? null
+      }
     }
 
     return context.render(
@@ -81,6 +87,7 @@ export const webhookRequestsIndex = createAction(system.webhookRequests, {
         <WebhookRequestsPage
           {...data}
           editRow={editRow}
+          viewRow={viewRow}
           editingOffset={context.url.searchParams.get('offset') || '0'}
           editingSort={context.url.searchParams.get('sort') || 'created_at'}
           editingOrder={context.url.searchParams.get('order') || 'desc'}

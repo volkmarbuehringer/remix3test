@@ -22,6 +22,7 @@ interface WebhookRequestsPageProps {
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
   editRow?: WebhookRequestRow | null
+  viewRow?: WebhookRequestRow | null
   editingOffset?: string
   editingSort?: string
   editingOrder?: string
@@ -34,6 +35,7 @@ function buildUrl(overrides: Record<string, string | undefined>): string {
   params.set('sort', overrides.sort ?? 'created_at')
   params.set('order', overrides.order ?? 'desc')
   if (overrides.filter) params.set('filter', overrides.filter)
+  if (overrides.viewing) params.set('viewing', overrides.viewing)
   let qs = params.toString()
   return BASE + (qs ? '?' + qs : '')
 }
@@ -42,15 +44,39 @@ function fmtDate(ts: number | string): string {
   return new Date(Number(ts)).toLocaleString('de-DE')
 }
 
+function relTime(ts: number | string): string {
+  let diffSec = Math.round((Date.now() - Number(ts)) / 1000)
+  let rtf = new Intl.RelativeTimeFormat('de-DE', { numeric: 'auto' })
+  if (Math.abs(diffSec) < 60) return rtf.format(-diffSec, 'second')
+  let diffMin = Math.round(diffSec / 60)
+  if (Math.abs(diffMin) < 60) return rtf.format(-diffMin, 'minute')
+  let diffHr = Math.round(diffMin / 60)
+  if (Math.abs(diffHr) < 24) return rtf.format(-diffHr, 'hour')
+  let diffDay = Math.round(diffHr / 24)
+  if (Math.abs(diffDay) < 30) return rtf.format(-diffDay, 'day')
+  return fmtDate(ts)
+}
+
 function is2xx(s: string): boolean {
   let n = Number(s)
   return !Number.isNaN(n) && n >= 200 && n < 300
+}
+
+function statusBadgeMix(status: string | null) {
+  if (!status) return statusBadgeNeutral
+  if (status === 'error') return statusBadgeError
+  return is2xx(status) ? statusBadgeOk : statusBadgeError
 }
 
 function truncatePayload(payload: Record<string, unknown>): string {
   let text = JSON.stringify(payload)
   if (text.length > 100) return text.slice(0, 100) + '...'
   return text
+}
+
+function pretty(value: unknown): string {
+  if (typeof value === 'string') return value
+  return JSON.stringify(value, null, 2)
 }
 
 export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
@@ -61,7 +87,15 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
     let curOffset = p.offset
     let curFilter = p.filter ?? ''
     let editRow = p.editRow
-    let hasSidebar = !!editRow
+    let viewRow = p.viewRow ?? null
+    let hasSidebar = !!editRow || !!viewRow
+
+    let gridReturnUrl = buildUrl({
+      offset: String(curOffset),
+      sort: curSort,
+      order: curOrder,
+      filter: curFilter || undefined,
+    })
 
     let headerContent = (
       <div mix={headerRow}>
@@ -73,7 +107,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
           <ConnectionIndicator
             url={system.webhookRequestEvents.href()}
             reloadMode="window"
-            skipReloadParams={['editing']}
+            skipReloadParams={['editing', 'viewing']}
           />
         </div>
       </div>
@@ -97,7 +131,10 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             Suchen
           </button>
           {curFilter && (
-            <a href={BASE} mix={table.clearLink}>
+            <a
+              href={buildUrl({ offset: '0', sort: curSort, order: curOrder, filter: undefined })}
+              mix={table.clearLink}
+            >
               Zurücksetzen
             </a>
           )}
@@ -149,50 +186,86 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
               {p.rows.length === 0 ? (
                 <tr>
                   <td colspan={7} mix={table.empty}>
-                    Noch keine Webhook-Requests.
+                    {curFilter ? (
+                      <div mix={emptyStack}>
+                        <span>Keine Treffer für „{curFilter}“.</span>
+                        <a
+                          href={buildUrl({
+                            offset: '0',
+                            sort: curSort,
+                            order: curOrder,
+                            filter: undefined,
+                          })}
+                          mix={emptyCta}
+                        >
+                          Filter zurücksetzen
+                        </a>
+                      </div>
+                    ) : (
+                      <div mix={emptyStack}>
+                        <span>Noch keine Webhook-Requests.</span>
+                        <a href="/webhook-requests/create" mix={emptyCta}>
+                          Ersten Request erstellen
+                        </a>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ) : (
                 p.rows.map((row) => (
                   <tr
                     key={row.id}
-                    mix={[table.row, editRow?.id === row.id ? table.editingRow : undefined]}
+                    mix={[
+                      table.row,
+                      editRow?.id === row.id || viewRow?.id === row.id
+                        ? table.editingRow
+                        : undefined,
+                    ]}
                   >
-                    <td mix={table.td}>{fmtDate(row.created_at)}</td>
+                    <td mix={table.td} title={fmtDate(row.created_at)}>
+                      {relTime(row.created_at)}
+                    </td>
                     <td mix={table.td}>{row.source_ip}</td>
                     <td mix={table.td}>
-                      <span
-                        mix={
-                          !row.hermes_status
-                            ? statusBadgeNeutral
-                            : row.hermes_status === 'error'
-                              ? statusBadgeError
-                              : is2xx(row.hermes_status)
-                                ? statusBadgeOk
-                                : statusBadgeError
-                        }
-                      >
-                        {row.hermes_status ?? '-'}
-                      </span>
+                      {row.hermes_status ? (
+                        <span mix={statusBadgeMix(row.hermes_status)}>{row.hermes_status}</span>
+                      ) : (
+                        <span mix={mutedDash}>—</span>
+                      )}
                     </td>
-                    <td mix={table.td}>
+                    <td
+                      mix={table.td}
+                      title={
+                        row.callback_received_at ? fmtDate(row.callback_received_at) : undefined
+                      }
+                    >
                       {row.callback_received_at ? (
-                        fmtDate(row.callback_received_at)
+                        relTime(row.callback_received_at)
                       ) : (
-                        <span mix={statusBadgeNeutral}>-</span>
+                        <span mix={mutedDash}>—</span>
+                      )}
+                    </td>
+                    <td mix={table.td} title={JSON.stringify(row.callback_response)}>
+                      {row.callback_response ? (
+                        <code mix={codeStyle}>{JSON.stringify(row.callback_response)}</code>
+                      ) : (
+                        <span mix={mutedDash}>—</span>
                       )}
                     </td>
                     <td mix={table.td}>
-                      {row.callback_response ? (
-                        <code mix={codeStyle} title={JSON.stringify(row.callback_response)}>
-                          {JSON.stringify(row.callback_response)}
-                        </code>
-                      ) : (
-                        <span mix={statusBadgeNeutral}>-</span>
-                      )}
-                    </td>
-                    <td mix={table.td} title={JSON.stringify(row.payload)}>
-                      <code mix={codeStyle}>{truncatePayload(row.payload)}</code>
+                      <a
+                        href={buildUrl({
+                          offset: String(curOffset),
+                          sort: curSort,
+                          order: curOrder,
+                          filter: curFilter || undefined,
+                          viewing: row.id,
+                        })}
+                        mix={payloadLink}
+                        title="Details anzeigen"
+                      >
+                        <code mix={codeStyle}>{truncatePayload(row.payload)}</code>
+                      </a>
                     </td>
                     <td mix={table.td}>
                       <div mix={table.btnGroup}>
@@ -224,7 +297,9 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
 
         {p.rows.length > 0 && (
           <div mix={table.pagination}>
-            <span mix={table.paginationInfo}>ab Zeile {curOffset + 1}</span>
+            <span mix={table.paginationInfo}>
+              Zeile {curOffset + 1}–{curOffset + p.rows.length}
+            </span>
             <div mix={table.flexGapSm}>
               {curOffset > 0 ? (
                 <a
@@ -262,17 +337,80 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       </div>
     )
 
-    let editPanel =
-      hasSidebar && editRow ? (
+    let editPanel = editRow ? (
+      <div mix={table.stickyPanel}>
+        <WebhookComposer
+          initialPayload={JSON.stringify(editRow.payload)}
+          editId={editRow.id}
+          _offset={p.editingOffset ?? String(curOffset)}
+          _sort={p.editingSort ?? curSort}
+          _order={p.editingOrder ?? curOrder}
+          _filter={p.editingFilter ?? curFilter}
+        />
+      </div>
+    ) : null
+
+    let viewPanel =
+      !editRow && viewRow ? (
         <div mix={table.stickyPanel}>
-          <WebhookComposer
-            initialPayload={JSON.stringify(editRow.payload)}
-            editId={editRow.id}
-            _offset={p.editingOffset ?? String(curOffset)}
-            _sort={p.editingSort ?? curSort}
-            _order={p.editingOrder ?? curOrder}
-            _filter={p.editingFilter ?? curFilter}
-          />
+          <div mix={table.panel}>
+            <div mix={table.panelHeader}>
+              <span mix={table.panelTitle}>Request-Details</span>
+              <div mix={table.spacer} />
+              <a href={gridReturnUrl} mix={panelClose}>
+                Schließen
+              </a>
+            </div>
+            <div mix={table.panelBody}>
+              <dl mix={metaGrid}>
+                <div>
+                  <dt mix={metaLabel}>Zeit</dt>
+                  <dd mix={metaValue}>{fmtDate(viewRow.created_at)}</dd>
+                </div>
+                <div>
+                  <dt mix={metaLabel}>Quelle</dt>
+                  <dd mix={metaValue}>{viewRow.source_ip}</dd>
+                </div>
+                <div>
+                  <dt mix={metaLabel}>Hermes-Status</dt>
+                  <dd mix={metaValue}>
+                    {viewRow.hermes_status ? (
+                      <span mix={statusBadgeMix(viewRow.hermes_status)}>
+                        {viewRow.hermes_status}
+                      </span>
+                    ) : (
+                      <span mix={mutedDash}>—</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt mix={metaLabel}>Callback empfangen</dt>
+                  <dd mix={metaValue}>
+                    {viewRow.callback_received_at ? fmtDate(viewRow.callback_received_at) : '—'}
+                  </dd>
+                </div>
+              </dl>
+
+              <section mix={detailSection}>
+                <h2 mix={detailTitle}>Payload</h2>
+                <pre mix={preJson}>{JSON.stringify(viewRow.payload, null, 2)}</pre>
+              </section>
+
+              <section mix={detailSection}>
+                <h2 mix={detailTitle}>Headers</h2>
+                <pre mix={preJson}>{JSON.stringify(viewRow.headers, null, 2)}</pre>
+              </section>
+
+              <section mix={detailSection}>
+                <h2 mix={detailTitle}>Callback-Antwort</h2>
+                {viewRow.callback_response != null ? (
+                  <pre mix={preJson}>{pretty(viewRow.callback_response)}</pre>
+                ) : (
+                  <p mix={mutedDash}>—</p>
+                )}
+              </section>
+            </div>
+          </div>
         </div>
       ) : null
 
@@ -281,7 +419,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
         {headerContent}
         <div mix={hasSidebar ? table.twoColumn : undefined}>
           {gridSection}
-          {editPanel}
+          {editPanel ?? viewPanel}
         </div>
       </div>
     )
@@ -319,27 +457,27 @@ const headerRow = css({
 const statusBadgeOk = css({
   fontSize: theme.fontSize.xs,
   padding: `2px 8px`,
-  borderRadius: theme.radius.sm,
-  backgroundColor: '#22c55e',
-  color: '#fff',
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.colors.success.background,
+  color: theme.colors.success.foreground,
   fontWeight: theme.fontWeight.semibold,
 })
 
 const statusBadgeNeutral = css({
   fontSize: theme.fontSize.xs,
   padding: `2px 8px`,
-  borderRadius: theme.radius.sm,
-  backgroundColor: '#6b7280',
-  color: '#fff',
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.colors.action.secondary.background,
+  color: theme.colors.action.secondary.foreground,
   fontWeight: theme.fontWeight.semibold,
 })
 
 const statusBadgeError = css({
   fontSize: theme.fontSize.xs,
   padding: `2px 8px`,
-  borderRadius: theme.radius.sm,
-  backgroundColor: '#ef4444',
-  color: '#fff',
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.colors.action.danger.background,
+  color: theme.colors.action.danger.foreground,
   fontWeight: theme.fontWeight.semibold,
 })
 
@@ -348,6 +486,96 @@ const codeStyle = css({
   backgroundColor: theme.surface.lvl2,
   padding: '2px 6px',
   borderRadius: theme.radius.sm,
+})
+
+const mutedDash = css({
+  color: theme.colors.text.muted,
+})
+
+const payloadLink = css({
+  display: 'block',
+  color: 'inherit',
+  textDecoration: 'none',
+  cursor: 'pointer',
+  '&:hover': { opacity: 0.75 },
+})
+
+const emptyStack = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.space.xs,
+})
+
+const emptyCta = css({
+  display: 'inline-flex',
+  padding: `${theme.space.xs} ${theme.space.md}`,
+  backgroundColor: theme.colors.action.secondary.background,
+  color: theme.colors.action.secondary.foreground,
+  borderRadius: theme.radius.md,
+  fontSize: theme.fontSize.sm,
+  textDecoration: 'none',
+  '&:hover': { opacity: 0.9 },
+})
+
+const panelClose = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  textDecoration: 'none',
+  '&:hover': { color: theme.colors.text.primary, textDecoration: 'underline' },
+})
+
+const metaGrid = css({
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: theme.space.sm,
+  margin: `0 0 ${theme.space.md}`,
+})
+
+const metaLabel = css({
+  fontSize: theme.fontSize.xxs,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  color: theme.colors.text.muted,
+  fontWeight: theme.fontWeight.semibold,
+  marginBottom: '2px',
+})
+
+const metaValue = css({
+  margin: 0,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.primary,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+})
+
+const detailSection = css({
+  marginBottom: theme.space.md,
+})
+
+const detailTitle = css({
+  margin: `0 0 ${theme.space.xs}`,
+  fontSize: theme.fontSize.xs,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  color: theme.colors.text.muted,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const preJson = css({
+  margin: 0,
+  padding: theme.space.sm,
+  background: theme.surface.lvl0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  fontFamily: theme.fontFamily.mono,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.primary,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+  maxHeight: '320px',
+  overflowY: 'auto',
 })
 
 const inlineForm = css({
