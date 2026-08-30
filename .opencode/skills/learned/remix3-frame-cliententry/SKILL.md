@@ -1086,20 +1086,31 @@ The `data-rmx-document` attribute tells the Remix navigation runtime to skip fra
 
 #### Guard the controller against frame requests
 
-If the URL is reached directly while inside a frame, the request still carries `X-Remix-Frame: true`. Redirect to force a full-page navigation:
+If the URL is reached directly while inside a frame, the request still carries `X-Remix-Frame: true` — **do not bare-redirect to the same URL**. `fetch()` preserves custom headers across same-origin redirects, so the frame fetch re-requests with `X-Remix-Frame: true` and the controller 302s again: the chain loops until the browser aborts (~20 hops → `NetworkError when attempting to fetch resource`), with the `frameRedirects()` middleware depth-follow stacking ~10 more server-side requests per browser hop. Seen in production 2026-08-30 on `/verwaltung/users-export`; `users-pdf` still ships the latent loop.
+
+The client bail (`frame-response.browser.tsx`: `if (response.redirected && options?.target) window.location.assign(response.url)`) only fires when the frame fetch has an `X-Remix-Target`. Top-frame resolutions (links/forms without `data-rmx-target`) never bail — they render whatever HTML the fetch returns.
+
+Safe shim: redirect once to a **marker URL** whose handler renders HTML when framed (terminating the chain) and the binary when not:
 
 ```tsx
+const MARKER = 'frameDownload'
 async index(context) {
-  if (context.request.headers.get('X-Remix-Frame') === 'true') {
-    let url = new URL(context.url)
-    return new Response(null, {
-      status: 302,
-      headers: { Location: url.href },
-    })
+  let url = new URL(context.url)
+  if (hasDownloadParams(url)) {
+    if (context.request.headers.get('X-Remix-Frame') === 'true') {
+      if (url.searchParams.get(MARKER) === '1') {
+        return renderPageFragment(...)          // terminates the chain
+      }
+      url.searchParams.set(MARKER, '1')
+      return redirect(url.href)                 // one hop only
+    }
+    return downloadPdf(context, url.searchParams)
   }
-  // ... generate and return binary response ...
+  return renderPageFragment(...)
 }
 ```
+
+Target-ful frame clients then bail to a full-page navigation of the marker URL (no frame headers → binary downloads); target-less fetches degrade to rendering the page fragment. For the download trigger itself, prefer `data-rmx-document` **on the form** (as of #11668 forms are intercepted like links): native navigation hands the attachment to the browser's download manager without leaving the page — no shim needed on the happy path.
 
 #### Conditionally apply `data-rmx-document` in shared navigation
 
