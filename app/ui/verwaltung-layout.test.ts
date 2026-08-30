@@ -26,10 +26,7 @@ describe('Verwaltung fragment — flash messages', () => {
     assert.equal(typeof renderVerwaltungPage, 'function')
   })
 
-  async function createAdminSessionWith(
-    key: 'error' | 'success',
-    value: string,
-  ): Promise<string> {
+  async function createAdminSessionWith(key: 'error' | 'success', value: string): Promise<string> {
     let result = await pool.query('SELECT id, token_version FROM users WHERE email = $1', [
       'admin@newapp.com',
     ])

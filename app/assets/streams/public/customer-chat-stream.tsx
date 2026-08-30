@@ -551,7 +551,8 @@ export const CustomerChatStream = clientEntry(
           runId: String(d.runId ?? currentRunId ?? ''),
           toolCallId: d.toolCallId as string | undefined,
           question: String(d.question ?? ''),
-          options: (d.options as { label: string; description?: string }[] | null | undefined) ?? null,
+          options:
+            (d.options as { label: string; description?: string }[] | null | undefined) ?? null,
           selectionMode: String(d.selectionMode ?? 'single_select'),
         })
         finalizeAssistantBubble()
@@ -570,12 +571,16 @@ export const CustomerChatStream = clientEntry(
           finalizeToolArgs(String(d.toolCallId), d.args as Record<string, unknown>)
         }
       } else if (type === 'tool-result') {
-        if (d.toolCallId != null) appendToolResult(String(d.toolCallId), d.result, d.isError as boolean)
+        if (d.toolCallId != null)
+          appendToolResult(String(d.toolCallId), d.result, d.isError as boolean)
       } else if (type === 'tool-error') {
         if (d.toolCallId != null) appendToolResult(String(d.toolCallId), d.error, true)
       } else if (type === 'step-finish') {
         if (d.usage != null || d.reason != null) {
-          appendStepStats(String(d.reason ?? ''), (d.usage as Record<string, never> | undefined) ?? {})
+          appendStepStats(
+            String(d.reason ?? ''),
+            (d.usage as Record<string, never> | undefined) ?? {},
+          )
         }
       } else if (type === 'reasoning-start') {
         startReasoning()

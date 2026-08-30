@@ -27,10 +27,7 @@ import {
   editingRedirect,
 } from '../../utils/grid-state.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-utils.ts'
-import {
-  renderGridFormError,
-  type AdminGridErrorState,
-} from '../../ui/admin-grid-error.tsx'
+import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-grid-error.tsx'
 
 type Row = Client
 
@@ -86,7 +83,13 @@ function buildClientsFilterPredicate(filter?: string): WhereInput | undefined {
 
 async function loadGridData(
   db: Database,
-  opts: { offset: number; column: string; direction: 'asc' | 'desc'; filter?: string; pageSize: number },
+  opts: {
+    offset: number
+    column: string
+    direction: 'asc' | 'desc'
+    filter?: string
+    pageSize: number
+  },
 ): Promise<{ rows: Row[]; hasMore: boolean }> {
   let pageNum = Math.floor(opts.offset / opts.pageSize) + 1
   let { items: page, hasMore } = (await paginate(db, clients, {
@@ -129,18 +132,21 @@ function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
 
 type ClientsRenderContext = { db: Database; render: Parameters<typeof renderAdminPage>[0] }
 
-async function renderClientsError(context: ClientsRenderContext, opts: {
-  creating?: boolean
-  editRow?: Row | null
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
-  offset: number
-  column: string
-  direction: 'asc' | 'desc'
-  filter?: string
-  pageSize: number
-}): Promise<Response> {
+async function renderClientsError(
+  context: ClientsRenderContext,
+  opts: {
+    creating?: boolean
+    editRow?: Row | null
+    formValues?: Record<string, string>
+    fieldErrors?: Record<string, string>
+    formError?: string
+    offset: number
+    column: string
+    direction: 'asc' | 'desc'
+    filter?: string
+    pageSize: number
+  },
+): Promise<Response> {
   let grid: AdminGridErrorState = {
     offset: opts.offset,
     sortColumn: opts.column,
@@ -244,7 +250,11 @@ export default createController(routes.admin.clients, {
         return new Response('Invalid row ID', { status: 400 })
       }
 
-      return editingRedirect(routes.admin.clients.index.href(), rowId, gridStateFromURL(context.url))
+      return editingRedirect(
+        routes.admin.clients.index.href(),
+        rowId,
+        gridStateFromURL(context.url),
+      )
     },
 
     // -- PUT /admin/clients/:id -- Update a client row --
@@ -425,7 +435,12 @@ export default createController(routes.admin.clients, {
           action_type: 'create',
           target_type: 'clients',
           target_id: row.id as number,
-          details: { name: (row as Row).name, email: (row as Row).email, role: (row as Row).role, status: (row as Row).status },
+          details: {
+            name: (row as Row).name,
+            email: (row as Row).email,
+            role: (row as Row).role,
+            status: (row as Row).status,
+          },
         })
       }
 

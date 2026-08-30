@@ -200,7 +200,14 @@ function NavCard(handle: Handle<NavCardProps>) {
 }
 
 /** A single at-a-glance figure shown in the KPI strip. */
-function KpiTile(handle: Handle<{ label: string; value: string; hint?: string; kind?: 'normal' | 'danger' | 'success' }>) {
+function KpiTile(
+  handle: Handle<{
+    label: string
+    value: string
+    hint?: string
+    kind?: 'normal' | 'danger' | 'success'
+  }>,
+) {
   return () => {
     let { label, value, hint, kind } = handle.props
     let valueClass =

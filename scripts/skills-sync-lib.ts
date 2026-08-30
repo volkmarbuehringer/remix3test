@@ -85,10 +85,7 @@ export async function syncVendorSkill(cliPkg?: string): Promise<string[]> {
   }
 
   let sourceDir = path.join(pkg, 'template/.agents/skills/remix')
-  let links = [
-    path.join(OPENCODE_SKILLS_DIR, 'remix'),
-    path.join(AGENTS_SKILLS_DIR, 'remix'),
-  ]
+  let links = [path.join(OPENCODE_SKILLS_DIR, 'remix'), path.join(AGENTS_SKILLS_DIR, 'remix')]
 
   await fs.mkdir(AGENTS_SKILLS_DIR, { recursive: true })
   for (let linkPath of links) {

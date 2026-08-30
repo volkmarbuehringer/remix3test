@@ -2,10 +2,7 @@ import { createController } from 'remix/router'
 
 import { Document } from '../../ui/document.tsx'
 import { routes } from '../../routes.ts'
-import {
-  ScrollRestorationList,
-  StoreScrollReproduction,
-} from './public/scroll-restoration.tsx'
+import { ScrollRestorationList, StoreScrollReproduction } from './public/scroll-restoration.tsx'
 
 /**
  * Frame traversal scroll-restoration reproduction.
@@ -29,9 +26,9 @@ export default createController(routes.scrollRestoration, {
           <a href={routes.home.href()}>← Back to home</a>
           <h1>Navigation scroll behavior</h1>
           <p>
-            A top-level client entry switches between a short detail and a tall collection
-            rendered by a frame. Scroll down, open the detail page, then use the browser Back
-            button — the collection scroll position should be restored.
+            A top-level client entry switches between a short detail and a tall collection rendered
+            by a frame. Scroll down, open the detail page, then use the browser Back button — the
+            collection scroll position should be restored.
           </p>
 
           <StoreScrollReproduction variant="list" />
@@ -66,9 +63,7 @@ export default createController(routes.scrollRestoration, {
     },
 
     items(context) {
-      return context.render(
-        <ScrollRestorationList loadedAt={new Date().toLocaleTimeString()} />,
-      )
+      return context.render(<ScrollRestorationList loadedAt={new Date().toLocaleTimeString()} />)
     },
   },
 })

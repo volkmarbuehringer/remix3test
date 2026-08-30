@@ -25,7 +25,8 @@ import { __setRunFactory } from './controller.tsx'
 // ---------------------------------------------------------------------------
 
 const FAKE_CLASSIFY_TABLE: Record<string, string> = {
-  'cancel user@newapp.com': '{"type":"user-action","action":"cancel","targetQuery":"user@newapp.com"}',
+  'cancel user@newapp.com':
+    '{"type":"user-action","action":"cancel","targetQuery":"user@newapp.com"}',
 }
 
 const FAKE_CLASSIFY_AGENT = {
@@ -79,7 +80,9 @@ describe('admin agent-events panel: in-frame user toggle', () => {
 
     let server = await createTestServer((request) => router.fetch(request))
     let page = await t.serve(server)
-    await page.context().addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
+    await page
+      .context()
+      .addCookies([{ name: 'session', value: auth!.cookie.slice(8), url: server.baseUrl }])
 
     await page.goto(AGENT_EVENTS_PATH)
 
@@ -112,7 +115,7 @@ describe('admin agent-events panel: in-frame user toggle', () => {
     await page.locator('[data-toggle-form]').first().waitFor({ timeout: 10_000 })
 
     assert.ok(
-      await page.locator('#agent-events-frame-container').count() >= 1,
+      (await page.locator('#agent-events-frame-container').count()) >= 1,
       'host agent-events frame container should still be present',
     )
   })

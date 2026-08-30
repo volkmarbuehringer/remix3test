@@ -1,7 +1,4 @@
-import {
-  syncSkillFarm,
-  syncVendorSkill,
-} from './skills-sync-lib.ts'
+import { syncSkillFarm, syncVendorSkill } from './skills-sync-lib.ts'
 
 async function main() {
   let links = await syncVendorSkill()

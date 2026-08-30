@@ -17,9 +17,7 @@ import { routes } from '../../routes.ts'
 
 describe('scroll restoration', () => {
   it('restores traversal scroll when client entry reconciliation shrinks the document', async (t) => {
-    let page = await t.serve(
-      await createTestServer((request) => router.fetch(request)),
-    )
+    let page = await t.serve(await createTestServer((request) => router.fetch(request)))
     await page.goto(routes.scrollRestoration.index.href())
 
     let reproduction = page.locator('#store-scroll-reproduction')

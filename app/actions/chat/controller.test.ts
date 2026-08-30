@@ -201,7 +201,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat with whitespace-only message returns 400 SSE agent-error', async () => {
@@ -216,7 +219,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat with valid message streams SSE response text', async () => {
@@ -242,7 +248,10 @@ describe('Customer Chat controller', () => {
     assert.equal(events[0]?.type, 'start', 'first event should be start')
     assert.ok(JSON.parse(events[0]?.data ?? '{}').runId, 'start event should include runId')
     assert.equal(text, 'Hier ist die Antwort.')
-    assert.ok(events.find((e) => e.type === 'complete'), 'should have a complete event')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'should have a complete event',
+    )
   })
 
   it('POST /chat passes threadId and continues the same thread', async () => {
@@ -287,7 +296,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat/approve is rejected for a run owned by another user', async () => {
@@ -330,7 +342,10 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 200)
     let { events, text } = await parseSSEResponse(response)
     assert.equal(text, 'Bestätigt.')
-    assert.ok(events.find((e) => e.type === 'complete'), 'should have a complete event')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'should have a complete event',
+    )
   })
 
   it('POST /chat/approve records ownership for a re-suspended continuation run', async () => {
@@ -364,7 +379,10 @@ describe('Customer Chat controller', () => {
     // run) actually runs.
     let { events } = await parseSSEResponse(response)
     assert.equal(response.status, 200)
-    assert.ok(events.find((e) => e.type === 'suspension'), 'should emit a suspension event')
+    assert.ok(
+      events.find((e) => e.type === 'suspension'),
+      'should emit a suspension event',
+    )
 
     // The continuation run must have a durable ownership row so a follow-up
     // approve/decline/answer on it is not rejected.
@@ -387,7 +405,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat/decline streams for the owning user', async () => {
@@ -427,7 +448,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat/answer with missing answer returns 400 SSE agent-error', async () => {
@@ -442,7 +466,10 @@ describe('Customer Chat controller', () => {
     })
     assert.equal(response.status, 400)
     let { events } = await parseSSEResponse(response)
-    assert.ok(events.find((e) => e.type === 'agent-error'), 'should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should emit agent-error',
+    )
   })
 
   it('POST /chat/answer streams for the owning user', async () => {
@@ -522,7 +549,11 @@ describe('Customer Chat controller', () => {
     let { text } = await parseSSEResponse(response)
     assert.equal(text, 'weiter')
 
-    assert.equal(await findChatRunOwner(runId), null, 'incoming run cleared when a new run continues')
+    assert.equal(
+      await findChatRunOwner(runId),
+      null,
+      'incoming run cleared when a new run continues',
+    )
     let newOwner = await findChatRunOwner(contRunId)
     assert.ok(newOwner, 'continuation run should be recorded')
     assert.equal(newOwner!.userId, adminId)
@@ -561,6 +592,9 @@ describe('Customer Chat controller', () => {
 
     assert.equal(blocked.status, 429)
     let { events } = await parseSSEResponse(blocked)
-    assert.ok(events.find((e) => e.type === 'agent-error'), '429 should emit agent-error')
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      '429 should emit agent-error',
+    )
   })
 })

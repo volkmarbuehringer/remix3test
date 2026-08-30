@@ -21,7 +21,9 @@ const customerEmail = process.env.SEED_USER_EMAIL || 'user@newapp.com'
 const customerPassword =
   process.env.SEED_USER_PASSWORD || process.env.SEED_USER_PASSWORD_DEFAULT || undefined
 if (!customerPassword) {
-  throw new Error('SEED_USER_PASSWORD is required (load it from .env) to run the mobile validation.')
+  throw new Error(
+    'SEED_USER_PASSWORD is required (load it from .env) to run the mobile validation.',
+  )
 }
 
 function metricsScript() {
@@ -50,7 +52,11 @@ function metricsScript() {
   if (grid) {
     for (const child of grid.children) {
       const r = child.getBoundingClientRect()
-      gridChildren.push({ width: Math.round(r.width), left: Math.round(r.left), right: Math.round(r.right) })
+      gridChildren.push({
+        width: Math.round(r.width),
+        left: Math.round(r.left),
+        right: Math.round(r.right),
+      })
     }
   }
   return {
@@ -115,7 +121,10 @@ async function run() {
     screenshots.push(listShot)
 
     // Row count from the table
-    const rowCount = await page.locator('table tbody tr').count().catch(() => 0)
+    const rowCount = await page
+      .locator('table tbody tr')
+      .count()
+      .catch(() => 0)
     const emptyText = await page
       .locator('div', { hasText: 'Keine Termine' })
       .count()

@@ -72,7 +72,10 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('toggle-status') || html.includes('data-toggle-form'), 'should render a server-rendered toggle form')
+    assert.ok(
+      html.includes('toggle-status') || html.includes('data-toggle-form'),
+      'should render a server-rendered toggle form',
+    )
   })
 
   // -----------------------------------------------------------------------
@@ -282,7 +285,10 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 302)
     let location = response.headers.get('Location') || ''
-    assert.ok(location.startsWith('/admin/clients'), 'should redirect to /admin/clients after create')
+    assert.ok(
+      location.startsWith('/admin/clients'),
+      'should redirect to /admin/clients after create',
+    )
   })
 
   // -----------------------------------------------------------------------

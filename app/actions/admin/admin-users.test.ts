@@ -664,7 +664,10 @@ describe('Admin Users Controller', () => {
       // reconcile a stale frame src (which would otherwise GET a 404 later).
       let redirectTo = response.headers.get('X-Remix-Redirect-To')
       assert.ok(redirectTo?.includes('/admin/users'), 'should report the grid destination')
-      assert.ok(redirectTo?.includes('sort=name'), 'should keep grid-state params in the destination')
+      assert.ok(
+        redirectTo?.includes('sort=name'),
+        'should keep grid-state params in the destination',
+      )
 
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')

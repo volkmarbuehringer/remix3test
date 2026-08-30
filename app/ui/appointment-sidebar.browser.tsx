@@ -148,12 +148,7 @@ export const AppointmentSidebar = clientEntry(
                   }),
                 ]}
               >
-                <Glyph
-                  name="chevronRight"
-                  width={16}
-                  height={16}
-                  mix={rotatedGlyphCss}
-                />
+                <Glyph name="chevronRight" width={16} height={16} mix={rotatedGlyphCss} />
               </button>
               <span mix={dateRangeStyle}>{weekDateRange}</span>
               <button

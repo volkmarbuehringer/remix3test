@@ -82,7 +82,9 @@ export function MainNav() {
                     <a
                       key={item.href}
                       href={item.href}
-                      {...(item.href && isCrossSection(item.href) ? { 'data-rmx-document': '' } : {})}
+                      {...(item.href && isCrossSection(item.href)
+                        ? { 'data-rmx-document': '' }
+                        : {})}
                       mix={[
                         navLinkCss,
                         item.href && isActive(item.href) ? navActiveCss : null,
@@ -98,7 +100,9 @@ export function MainNav() {
               <>
                 <a
                   href={routes.settings.index.href()}
-                  {...(isCrossSection(routes.settings.index.href()) ? { 'data-rmx-document': '' } : {})}
+                  {...(isCrossSection(routes.settings.index.href())
+                    ? { 'data-rmx-document': '' }
+                    : {})}
                   mix={iconLinkCss}
                   aria-label="Settings"
                   title="Einstellungen"
@@ -204,7 +208,9 @@ export function MainNav() {
             ) : (
               <a
                 href={routes.auth.login.index.href()}
-                {...(isCrossSection(routes.auth.login.index.href()) ? { 'data-rmx-document': '' } : {})}
+                {...(isCrossSection(routes.auth.login.index.href())
+                  ? { 'data-rmx-document': '' }
+                  : {})}
                 mix={drawerCtaCss}
               >
                 Anmelden

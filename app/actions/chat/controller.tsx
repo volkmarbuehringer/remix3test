@@ -16,14 +16,23 @@ import { recordChatRun, findChatRunOwner, clearChatRun } from './run-store.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
 import { createLogger } from '../../utils/logger.ts'
-import { MAX_MESSAGE_LENGTH, AGENT_TIMEOUT_MS, validateMessage, sanitizeLog } from '../mastra/shared-agent.ts'
+import {
+  MAX_MESSAGE_LENGTH,
+  AGENT_TIMEOUT_MS,
+  validateMessage,
+  sanitizeLog,
+} from '../mastra/shared-agent.ts'
 import type { TestAgent } from '../mastra/shared-agent.ts'
 
 // Anti-spam throttle: allow a normal multi-turn conversation (a couple of
 // messages plus approve/decline/answer steps) per minute, while capping abuse.
 // maxAttempts MUST be set explicitly — the default of 1 would block the second
 // message of a normal conversation within the window (see rate-limiter-pitfalls).
-export const chatRateLimiter = createRateLimiter({ windowMs: 60_000, perUser: true, maxAttempts: 10 })
+export const chatRateLimiter = createRateLimiter({
+  windowMs: 60_000,
+  perUser: true,
+  maxAttempts: 10,
+})
 const chatLog = createLogger('[CustomerChat]')
 
 // Test-only agent injection point — setter is a no-op outside test env.
@@ -129,12 +138,7 @@ function toolDecisionStream(options: {
           if (contRunId !== runId) {
             await recordChatRun({ runId: contRunId, userId, threadId })
           }
-          await pipeStream(
-            result.fullStream as ReadableStream,
-            controller,
-            signal,
-            contRunId,
-          )
+          await pipeStream(result.fullStream as ReadableStream, controller, signal, contRunId)
         } else {
           let text = (
             result.text || (decision === 'approve' ? '' : 'Die Aktion wurde abgelehnt.')
@@ -196,7 +200,10 @@ export const customerChat = createController(routes.chat, {
       let threadId = validation.threadId
 
       if (!chatRateLimiter.attempt(user.id)) {
-        return sseErrorResponse('Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.', 429)
+        return sseErrorResponse(
+          'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
+          429,
+        )
       }
 
       if (!threadId) {
@@ -343,7 +350,11 @@ export const customerChat = createController(routes.chat, {
             )
 
             if (output.runId !== runId) {
-              await recordChatRun({ runId: output.runId, userId: user.id, threadId: owner.threadId })
+              await recordChatRun({
+                runId: output.runId,
+                userId: user.id,
+                threadId: owner.threadId,
+              })
               await clearChatRun(runId)
             }
 
@@ -361,7 +372,9 @@ export const customerChat = createController(routes.chat, {
           } catch (err) {
             chatLog.error('answer error:', sanitizeLog(String(err)))
             try {
-              controller.enqueue(sseEvent('agent-error', { error: 'Fehler bei der Antwortverarbeitung.' }))
+              controller.enqueue(
+                sseEvent('agent-error', { error: 'Fehler bei der Antwortverarbeitung.' }),
+              )
             } catch {
               /* already closed */
             }

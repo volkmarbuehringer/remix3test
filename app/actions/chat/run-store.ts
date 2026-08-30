@@ -47,10 +47,9 @@ export async function recordChatRun(run: {
 
 /** Resolves the owning user (and thread) for a run id, or null if unknown. */
 export async function findChatRunOwner(runId: string): Promise<ChatRunRow | null> {
-  let result = await db.exec(
-    `SELECT run_id, user_id, thread_id FROM chat_runs WHERE run_id = $1`,
-    [runId],
-  )
+  let result = await db.exec(`SELECT run_id, user_id, thread_id FROM chat_runs WHERE run_id = $1`, [
+    runId,
+  ])
   let row = (result.rows ?? [])[0] as DbRow | undefined
   return row ? toRow(row) : null
 }
