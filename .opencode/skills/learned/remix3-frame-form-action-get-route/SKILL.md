@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-form-action-get-route
-description: "When a frame-targeted form posts to /resource/:id and the frame then GETs /resource/:id (404, no GET :id route), add a get('/:id') that renders the edit page."
+description: "When a frame-targeted form posts to /resource/:id and the frame then GETs /resource/:id (404, no GET :id route), add a get('/:id') that renders the edit page. On standalone pages a racing SSE invalidate-reload of the committed action path crashes with Node.insertBefore instead — same fix: make the action path a valid GET."
 metadata:
   origin: auto-extracted
 ---
@@ -69,6 +69,24 @@ resources: resources('resources', { exclude: ['new', 'edit'] })   // was ['new',
 ```
 
 Static sibling routes are unaffected: a static `/events` still wins over `/:id` (route-pattern matcher prioritizes static segments), so `GET /resource/events` keeps hitting the SSE handler.
+
+## Variant — standalone pages crash instead of 404 (validated 2026-08-30)
+
+The same missing-GET contract applies to **standalone (non-Frame) pages**, where the top frame *is* the document — but the failure is a hard crash, not a 404 page. Case: `/webhook-requests` resend form (`POST /webhook-requests/:id/resend`, 303 PRG) crashed Firefox with `Node.insertBefore: Cannot insert a Text as a child of a Document` (Chromium: silent 404 + URL stuck on the action path).
+
+Chain (stack-verified):
+
+1. Post-#11668 the runtime intercepts the form submission and commits `topFrame.src` = the **POST action path** before the response arrives (the precommit handler `controller.redirect(event.destination.url, {history:'replace'})` also puts the action path in the address bar).
+2. The action handler broadcasts SSE `invalidate` **before** returning the 303, so `ConnectionIndicator` fires `window.location.reload()` while the POST navigation is still in flight.
+3. The runtime intercepts that reload and re-fetches `topFrame.src` = the action path → `GET /webhook-requests/:id/resend` → **404** (POST-only route).
+4. `resolveFrameResponse` returns any status < 500 as renderable, so the runtime diff-renders the 404 body as a **fragment** into the document container (`renderFrameStream` finds no `rmx:flush` marker → fragment path) → `diffNodes` inserts a Text node into `#document` → `HierarchyRequestError` → fatal error card.
+
+Fix is the same contract — the action path must resolve as a GET. Two resolver shapes, both validated:
+
+- **Render in place** (`GET /webhook-requests/:id` → renders the grid with the edit panel, mirroring `?editing=<id>`; unknown/invalid id → 303 to the grid). Used for the PUT commit path.
+- **PRG to the grid** (`GET /webhook-requests/:id/resend` → 303 to the grid URL preserving the grid-state query). This one also cleans up the committed action-path URL: the client `fetch` follows the 303, `unwrapFrameResolution` sets `redirectedTo = response.url`, and the reload path runs `frame.src = redirectedTo` + `navigation.navigate(redirectedTo, {history:'replace'})`. After the fix both Firefox and Chromium land on `/webhook-requests?offset=…&sort=…` with zero page errors.
+
+Full-suite note: adding the GET resolver to a `system`-style route map means new `system.webhookRequest*` entries in `app/routes.ts` + `router.get(...)` wiring; static siblings (`/events`, `/create`) still outrank `/:id`.
 
 ## When to Use
 
