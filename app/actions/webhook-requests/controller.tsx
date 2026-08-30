@@ -65,14 +65,18 @@ async function loadPageData(
   }
 }
 
-export const webhookRequestsIndex = createAction(system.webhookRequests, {
-  middleware: [requireAuth(), requireAdmin()],
-  handler: async (context) => {
-    let data = await loadPageData(context)
+interface IndexRenderOptions {
+  editRow?: WebhookRequestRow | null
+  viewRow?: WebhookRequestRow | null
+}
 
-    let editingParam = context.url.searchParams.get('editing')
-    let editRow: WebhookRequestRow | null = null
-    let viewRow: WebhookRequestRow | null = null
+async function renderIndexPage(context: any, overrides: IndexRenderOptions = {}) {
+  let data = await loadPageData(context)
+
+  let editingParam = context.url.searchParams.get('editing')
+  let editRow = overrides.editRow ?? null
+  let viewRow = overrides.viewRow ?? null
+  if (!overrides.editRow && !overrides.viewRow) {
     if (editingParam && UUID_RE.test(editingParam)) {
       editRow = (await getWebhookRequest(context.db, editingParam)) ?? null
     } else {
@@ -81,26 +85,79 @@ export const webhookRequestsIndex = createAction(system.webhookRequests, {
         viewRow = (await getWebhookRequest(context.db, viewingParam)) ?? null
       }
     }
+  }
 
-    return context.render(
-      <Layout title="Webhook Requests">
-        <WebhookRequestsPage
-          {...data}
-          editRow={editRow}
-          viewRow={viewRow}
-          editingOffset={context.url.searchParams.get('offset') || '0'}
-          editingSort={context.url.searchParams.get('sort') || 'created_at'}
-          editingOrder={context.url.searchParams.get('order') || 'desc'}
-          editingFilter={context.url.searchParams.get('filter') || ''}
-        />
-      </Layout>,
-    )
-  },
+  return context.render(
+    <Layout title="Webhook Requests">
+      <WebhookRequestsPage
+        {...data}
+        editRow={editRow}
+        viewRow={viewRow}
+        editingOffset={context.url.searchParams.get('offset') || '0'}
+        editingSort={context.url.searchParams.get('sort') || 'created_at'}
+        editingOrder={context.url.searchParams.get('order') || 'desc'}
+        editingFilter={context.url.searchParams.get('filter') || ''}
+      />
+    </Layout>,
+  )
+}
+
+export const webhookRequestsIndex = createAction(system.webhookRequests, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => renderIndexPage(context),
 })
 
 export const webhookRequestsEvents = createAction(system.webhookRequestEvents, {
   middleware: [requireSseAuth()],
   handler: async (context) => webhookChannel.subscribe(context.request),
+})
+
+// The frame runtime commits the POST resend action path as the top frame's src
+// after an intercepted submission. Any reload of that path (SSE invalidate
+// reload racing the in-flight POST, or a manual F5) must resolve instead of
+// 404ing — a 404 body diffed into the document crashes the client runtime
+// (Node.insertBefore: Cannot insert a Text as a child of a Document). PRG back
+// to the grid preserving the grid-state query so the committed URL is cleaned
+// up via the runtime's redirectedTo reconciliation.
+export const webhookRequestsResendResolve = createAction(system.webhookRequestResendResolve, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => {
+    let params = new URLSearchParams(context.url.searchParams)
+    params.delete('editing')
+    params.delete('viewing')
+    let qs = params.toString()
+
+    return new Response(null, {
+      status: 303,
+      headers: { Location: system.webhookRequests.href() + (qs ? '?' + qs : '') },
+    })
+  },
+})
+
+// Same contract for the PUT update action path: GET /webhook-requests/:id
+// mirrors ?editing=<id> (form action == frame src). A missing row PRGs back to
+// the grid instead of surfacing a 404 card.
+export const webhookRequestsShow = createAction(system.webhookRequestShow, {
+  middleware: [requireAuth(), requireAdmin()],
+  handler: async (context) => {
+    let id = context.params.id
+    if (!id || !UUID_RE.test(id)) {
+      return new Response(null, {
+        status: 303,
+        headers: { Location: system.webhookRequests.href() },
+      })
+    }
+
+    let editRow = (await getWebhookRequest(context.db, id)) ?? null
+    if (!editRow) {
+      return new Response(null, {
+        status: 303,
+        headers: { Location: system.webhookRequests.href() },
+      })
+    }
+
+    return renderIndexPage(context, { editRow })
+  },
 })
 
 function hermesUrl(): string {

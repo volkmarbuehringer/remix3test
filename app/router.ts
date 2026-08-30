@@ -27,6 +27,8 @@ import {
   webhookRequestsIndex,
   webhookRequestsEvents,
   webhookRequestsResend,
+  webhookRequestsResendResolve,
+  webhookRequestsShow,
   webhookRequestsUpdate,
 } from './actions/webhook-requests/controller.tsx'
 import webhookRequestsCreate from './actions/webhook-requests/create/controller.tsx'
@@ -91,7 +93,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.get(system.webhookRequests, webhookRequestsIndex)
   router.get(system.webhookRequestEvents, webhookRequestsEvents)
   router.post(system.webhookRequestResend, webhookRequestsResend)
+  router.get(system.webhookRequestResendResolve, webhookRequestsResendResolve)
   router.put(system.webhookRequestUpdate, webhookRequestsUpdate)
+  router.get(system.webhookRequestShow, webhookRequestsShow)
   router.map(system.webhookRequestCreate, webhookRequestsCreate)
 
   // Uploads routes

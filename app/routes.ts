@@ -230,4 +230,11 @@ export const system = {
   webhookRequestResend: post('/webhook-requests/:id/resend'),
   webhookRequestUpdate: put('/webhook-requests/:id'),
   webhookRequestCreate: form('/webhook-requests/create'),
+  // The frame runtime commits the POST/PUT form action path as the top frame's
+  // src after an intercepted submission; any reload (including the SSE
+  // ConnectionIndicator's invalidate reload racing the in-flight POST) GETs
+  // that path. Both action paths must therefore also resolve as GETs — see
+  // admin chatlog/messages destroyResolve and verwaltung.appointments.show.
+  webhookRequestResendResolve: get('/webhook-requests/:id/resend'),
+  webhookRequestShow: get('/webhook-requests/:id'),
 } as const
