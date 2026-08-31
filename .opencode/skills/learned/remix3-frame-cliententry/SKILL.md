@@ -1563,6 +1563,50 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 - Filter/search inputs are empty after a Frame reload even though the URL has the correct query parameter
 - The frame content updates but `<input>` elements keep their old values
 
+### Corrected mechanism (this fork) + the simpler clear/reset fix
+
+The `diff-dom.js`/`shouldPreserveLiveAttribute` description above predates this
+fork. `remix 3.0.0-beta.10` (github:remix-run/remix#preview/main, pinned in
+`node_modules/remix`) reconciles frame content with its own runtime at
+`@remix-run/ui` `src/runtime/reconcile.ts` + `core/props.ts`:
+
+- `diffVNodes(curr, next)` reuses an existing host DOM node whenever
+  `curr.kind === next.kind && curr.type === next.type` — it **ignores `key`**,
+  so putting `key={...}` on an `<input>` to force a remount does **not** work.
+- `patchHostProps` skips a prop when `prevValue === nextValue` and only sets the
+  `defaultValue` **property** (not the live `.value`) on change, so the
+  displayed value isn't restored either.
+
+**Net effect:** after a frame navigation that re-renders an uncontrolled
+`<input defaultValue={...}>` with a *different* value (e.g. clearing a filter to
+`''`), the input reuses its DOM node and keeps its old text. Verified empirically
+(`sameNode === true`, stale `value` attribute).
+
+**Simplest reliable fix — full-page navigation for clear/reset.** Instead of a
+client-side restore, make "clear"/"reset" a plain `<a href>` with **no
+`data-rmx-target`** (as `/admin/clients` already does). The browser does a full
+document load, so every input mounts fresh with the server's new `defaultValue`:
+
+```tsx
+{/* Frame SPA nav — input keeps its old text */}
+<a href={base} data-rmx-target={getSelfFrameTarget()}>Zurücksetzen</a>
+
+{/* Full-page nav — input clears */}
+<a href={base}>Zurücksetzen</a>
+```
+
+The pre-existing `restoreFilterValue` client-side approach still applies when a
+value must *persist* across navigations; use the full-nav form when it should reset.
+
+**Related gotcha — filtering must reset pagination.** A GET filter form should
+**not** carry a hidden `offset` input set to the current page
+(`value={String(offset)}`) — that keeps the user on page N when they filter. Omit
+it (or hard-code `value="0"`) so filtering returns to page 1, while keeping hidden
+`sort`/`order` if you want the active sort preserved.
+
+**Validated:** 2026-08-31 against `remix 3.0.0-beta.10` +
+`@remix-run/ui` `reconcile.ts`/`core/props.ts` in `/home/lucky/remix3test`.
+
 (Consolidated from `remix-frame-input-value-preservation`)
 
 ---
