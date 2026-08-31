@@ -151,21 +151,37 @@ export const SupportAgentStream = clientEntry(
           questionLine.style.marginBottom = '8px'
           el.appendChild(questionLine)
 
-          let promptBtn = document.createElement('button')
-          promptBtn.textContent = 'Klicken zum Antworten...'
-          promptBtn.style.padding = '4px 14px'
-          promptBtn.style.border = '1px solid ' + theme.colors.border.default
-          promptBtn.style.borderRadius = '4px'
-          promptBtn.style.cursor = 'pointer'
-          promptBtn.style.background = theme.surface.lvl1
-          promptBtn.style.color = theme.colors.text.primary
-          promptBtn.style.fontSize = '0.8125rem'
-          promptBtn.style.alignSelf = 'flex-start'
-          promptBtn.onclick = () => {
-            let answer = prompt(data.question)
+          let input = document.createElement('input')
+          input.type = 'text'
+          input.placeholder = 'Antwort...'
+          input.style.padding = '6px 10px'
+          input.style.border = '1px solid ' + theme.colors.border.default
+          input.style.borderRadius = '4px'
+          input.style.fontSize = '0.8125rem'
+          input.style.width = '100%'
+          input.style.boxSizing = 'border-box'
+          el.appendChild(input)
+
+          let btn = document.createElement('button')
+          btn.textContent = 'Antworten'
+          btn.style.padding = '4px 14px'
+          btn.style.marginTop = '6px'
+          btn.style.border = '1px solid ' + theme.colors.border.default
+          btn.style.borderRadius = '4px'
+          btn.style.cursor = 'pointer'
+          btn.style.background = theme.surface.lvl1
+          btn.style.color = theme.colors.text.primary
+          btn.style.fontSize = '0.8125rem'
+          btn.style.alignSelf = 'flex-start'
+          let submit = () => {
+            let answer = input.value.trim()
             if (answer) handleAnswer(answer)
           }
-          el.appendChild(promptBtn)
+          btn.onclick = submit
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submit()
+          })
+          el.appendChild(btn)
         })
         return
       }
@@ -293,6 +309,130 @@ export const SupportAgentStream = clientEntry(
       })
     }
 
+    // ── Structured tool-result rendering ─────────────────────────────
+
+    function renderToolResult(result: Record<string, unknown>) {
+      let chat = getChat()
+      if (!chat) return
+
+      let card = document.createElement('div')
+      card.style.maxWidth = '90%'
+      card.style.alignSelf = 'flex-start'
+      card.style.padding = '0.5rem 0.75rem'
+      card.style.borderRadius = '8px 8px 8px 4px'
+      card.style.background = theme.surface.lvl1
+      card.style.border = '1px solid ' + theme.colors.border.subtle
+      card.style.fontSize = '0.8125rem'
+      card.style.lineHeight = '1.4'
+      card.style.display = 'flex'
+      card.style.flexDirection = 'column'
+      card.style.gap = '0.375rem'
+
+      // Generated PDF → downloadable artifact.
+      if (typeof result.data === 'string' && typeof result.reportType === 'string') {
+        let link = document.createElement('a')
+        link.href = 'data:application/pdf;base64,' + result.data
+        link.download = (result.filename as string) || 'bericht.pdf'
+        link.textContent = '📄 ' + ((result.filename as string) || 'Bericht herunterladen')
+        link.style.color = theme.colors.action.primary.background
+        link.style.fontWeight = '600'
+        link.style.textDecoration = 'none'
+        card.appendChild(link)
+        chat.appendChild(card)
+        currentAgentMessageEl = card
+        scrollToBottom(true)
+        return
+      }
+
+      // Collection result → table (or empty state).
+      let arrKey = Object.keys(result).find((k) => Array.isArray(result[k]))
+      if (typeof result.count === 'number' && arrKey && Array.isArray(result[arrKey])) {
+        let rows = (result[arrKey] as Record<string, unknown>[]) ?? []
+        if (rows.length === 0) {
+          card.textContent = '✅ Keine Ergebnisse gefunden.'
+          chat.appendChild(card)
+          currentAgentMessageEl = card
+          scrollToBottom(true)
+          return
+        }
+        let columns = Object.keys(rows[0] ?? {})
+        let table = document.createElement('table')
+        table.style.borderCollapse = 'collapse'
+        table.style.width = '100%'
+        table.style.fontSize = '0.75rem'
+        let thead = document.createElement('thead')
+        let headerRow = document.createElement('tr')
+        for (let col of columns) {
+          let th = document.createElement('th')
+          th.textContent = col
+          th.style.textAlign = 'left'
+          th.style.padding = '4px 8px'
+          th.style.borderBottom = '1px solid ' + theme.colors.border.default
+          th.style.color = theme.colors.text.muted
+          headerRow.appendChild(th)
+        }
+        thead.appendChild(headerRow)
+        table.appendChild(thead)
+        let tbody = document.createElement('tbody')
+        for (let row of rows.slice(0, 20)) {
+          let tr = document.createElement('tr')
+          for (let col of columns) {
+            let td = document.createElement('td')
+            let v = row[col]
+            td.textContent = v === null || v === undefined ? '' : String(v)
+            td.style.padding = '4px 8px'
+            td.style.borderBottom = '1px solid ' + theme.colors.border.subtle
+            tr.appendChild(td)
+          }
+          tbody.appendChild(tr)
+        }
+        table.appendChild(tbody)
+        card.appendChild(table)
+        chat.appendChild(card)
+        currentAgentMessageEl = card
+        scrollToBottom(true)
+        return
+      }
+
+      // Single-entity detail → key/value card.
+      if (result.found === true) {
+        let entityKey = Object.keys(result).find(
+          (k) =>
+            k !== 'found' && k !== 'message' && typeof result[k] === 'object' && result[k] !== null,
+        )
+        if (entityKey) {
+          let entity = result[entityKey] as Record<string, unknown>
+          let dl = document.createElement('dl')
+          dl.style.margin = '0'
+          dl.style.display = 'grid'
+          dl.style.gridTemplateColumns = 'auto 1fr'
+          dl.style.gap = '4px 12px'
+          for (let [k, v] of Object.entries(entity)) {
+            let dt = document.createElement('dt')
+            dt.textContent = k
+            dt.style.color = theme.colors.text.muted
+            dt.style.fontWeight = '600'
+            let dd = document.createElement('dd')
+            dd.textContent = v === null || v === undefined ? '' : String(v)
+            dd.style.margin = '0'
+            dl.appendChild(dt)
+            dl.appendChild(dd)
+          }
+          card.appendChild(dl)
+          chat.appendChild(card)
+          currentAgentMessageEl = card
+          scrollToBottom(true)
+          return
+        }
+      }
+
+      // Fallback: plain text.
+      card.textContent = JSON.stringify(result)
+      chat.appendChild(card)
+      currentAgentMessageEl = card
+      scrollToBottom(true)
+    }
+
     // ── Navigation ───────────────────────────────────────────────────
 
     function handleNavigate(data: { href: string; target?: string; history?: string }) {
@@ -355,6 +495,50 @@ export const SupportAgentStream = clientEntry(
 
       currentAgentMessageEl = null
       startStream('/admin/support-agent/answer', { method: 'POST', body })
+    }
+
+    // ── Reconnect: re-surface a pending gate after a reload ───────────
+
+    async function checkReconnect() {
+      try {
+        let res = await fetch('/admin/support-agent/reconnect', {
+          headers: { 'X-Sse-Request': '1' },
+        })
+        if (!res.ok) return
+        let data = await res.json()
+        if (!data || data.status !== 'suspended') return
+
+        currentRunId = data.runId
+        currentThreadId = data.threadId
+        currentAgentMessageEl = null
+        appendAgentMessage()
+        // Disable the message input until the re-surfaced gate is resolved, so
+        // the admin can't start a new query on top of a pending decision.
+        setFormEnabled(false)
+
+        if (data.gateType === 'question') {
+          let sp = (data.suspendPayload || {}) as {
+            question?: string
+            options?: { label: string; description?: string }[]
+            selectionMode?: string
+          }
+          showQuestion({
+            runId: data.runId,
+            toolCallId: data.toolCallId,
+            question: sp.question || 'Bitte beantworte die Frage.',
+            options: sp.options ?? null,
+            selectionMode: sp.selectionMode || 'single_select',
+          })
+        } else {
+          showSuspension({
+            toolCallId: data.toolCallId,
+            toolName: data.toolName,
+            args: data.args,
+          })
+        }
+      } catch {
+        /* reconnect is best-effort; ignore connection errors */
+      }
     }
 
     // ── SSE Stream ───────────────────────────────────────────────────
@@ -439,6 +623,8 @@ export const SupportAgentStream = clientEntry(
                 return
               } else if (eventType === 'tool-error') {
                 appendStatusMessage('Tool-Fehler: ' + (parsed.error || 'unbekannt'), true)
+              } else if (eventType === 'tool-result') {
+                renderToolResult((parsed.result as Record<string, unknown>) ?? {})
               } else if (eventType === 'stream-error') {
                 appendStatusMessage('Stream-Fehler: ' + (parsed.error || 'unbekannt'), true)
               } else if (eventType === 'complete') {
@@ -591,6 +777,10 @@ export const SupportAgentStream = clientEntry(
                 signal: handle.signal,
               })
             }
+
+            // Surface any pending gate (tool decision or question) that survived
+            // a reload / tab switch / server restart.
+            checkReconnect()
           }),
         ]}
       />

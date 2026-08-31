@@ -33,12 +33,28 @@ export function safeClose(controller: ReadableStreamDefaultController) {
   }
 }
 
-function filterAndForward(
+export type SuspensionInfo = {
+  runId?: string
+  toolCallId?: string
+  toolName?: string
+  args?: Record<string, unknown>
+  gateType: 'tool_decision' | 'question'
+  suspendPayload?: Record<string, unknown>
+}
+
+export type PipeHooks = {
+  /** Called when the run suspends on a tool decision or an ask_user question. */
+  onSuspension?: (info: SuspensionInfo) => void
+  /** Called exactly once when the stream settles, with the terminal reason. */
+  onEnd?: (reason: 'complete' | 'suspended' | 'error' | 'aborted') => void
+}
+
+async function filterAndForward(
   chunk: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
-  options?: { runId?: string; getTarget?: (path: string) => string },
-): 'suspended' | undefined {
-  let { runId, getTarget } = options ?? {}
+  options?: { runId?: string; getTarget?: (path: string) => string; hooks?: PipeHooks },
+): Promise<'suspended' | undefined> {
+  let { runId, getTarget, hooks } = options ?? {}
   let p = chunk.payload as Record<string, unknown> | undefined
   let type = chunk.type as string
 
@@ -65,11 +81,27 @@ function filterAndForward(
     let text = String(p?.text ?? chunk.textDelta ?? '')
     if (text) fwd('message', { text })
   } else if (type === 'tool-call-approval') {
+    // Only the durable-index flow (which supplies onSuspension) needs the
+    // stream to end at the approval; consumers without a hook keep the prior
+    // behavior of forwarding the suspension event without stopping.
+    let hasHook = hooks?.onSuspension != null
+    if (hasHook) {
+      await hooks?.onSuspension?.({
+        runId,
+        toolCallId: p?.toolCallId as string | undefined,
+        toolName: p?.toolName as string | undefined,
+        args: p?.args as Record<string, unknown> | undefined,
+        gateType: 'tool_decision',
+      })
+    }
     fwd('suspension', {
+      runId,
       toolCallId: p?.toolCallId,
       toolName: p?.toolName,
       args: p?.args,
+      gateType: 'tool_decision',
     })
+    return hasHook ? 'suspended' : undefined
   } else if (type === 'tool-call-suspended') {
     let sp = p?.suspendPayload as
       | {
@@ -85,6 +117,18 @@ function filterAndForward(
         question: sp.question,
         options: sp.options ?? null,
         selectionMode: sp.selectionMode ?? 'single_select',
+        gateType: 'question',
+      })
+      await hooks?.onSuspension?.({
+        runId,
+        toolCallId: p?.toolCallId as string | undefined,
+        toolName: p?.toolName as string | undefined,
+        gateType: 'question',
+        suspendPayload: {
+          question: sp.question,
+          options: sp.options ?? null,
+          selectionMode: sp.selectionMode ?? 'single_select',
+        },
       })
     }
     return 'suspended'
@@ -125,9 +169,11 @@ export function pipeStream(
   signal: AbortSignal,
   runId?: string,
   getTarget?: (path: string) => string,
+  hooks?: PipeHooks,
 ): Promise<void> {
   let reader: ReadableStreamDefaultReader<unknown> | undefined
   let closed = false
+  let settled = false
 
   function closeOnce() {
     if (closed) return
@@ -140,11 +186,18 @@ export function pipeStream(
   }
 
   return new Promise<void>((resolve) => {
+    function settle(reason: 'complete' | 'suspended' | 'error' | 'aborted') {
+      if (settled) return
+      settled = true
+      hooks?.onEnd?.(reason)
+      resolve()
+    }
+
     reader = fullStream.getReader()
     if (signal.aborted) {
       reader.cancel().catch(() => {})
       closeOnce()
-      resolve()
+      settle('aborted')
       return
     }
     signal.addEventListener(
@@ -152,7 +205,7 @@ export function pipeStream(
       () => {
         reader?.cancel().catch(() => {})
         closeOnce()
-        resolve()
+        settle('aborted')
       },
       { once: true },
     )
@@ -164,21 +217,22 @@ export function pipeStream(
           if (done) break
           if (signal.aborted) {
             closeOnce()
-            resolve()
+            settle('aborted')
             return
           }
           if (!value || typeof value !== 'object') continue
 
           let chunk = value as Record<string, unknown>
-          let result = filterAndForward(chunk, controller, { runId, getTarget })
+          let result = await filterAndForward(chunk, controller, { runId, getTarget, hooks })
           if (result === 'suspended') {
             reader?.cancel().catch(() => {})
             closeOnce()
-            resolve()
+            settle('suspended')
             return
           }
         }
         closeOnce()
+        settle('complete')
       } catch (err) {
         try {
           controller.enqueue(
@@ -190,8 +244,8 @@ export function pipeStream(
           /* controller already errored */
         }
         closeOnce()
+        settle('error')
       }
-      resolve()
     })()
   })
 }

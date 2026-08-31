@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'remix/test'
+import { describe, it, before, after, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../db.ts'
@@ -10,11 +10,18 @@ import {
   createTestUser,
 } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestAgent, chatRateLimiter } from './controller.tsx'
+import { __setTestAgent, chatRateLimiter, __setRunStatusResolver } from './controller.tsx'
+import {
+  upsertPendingGate,
+  markGateSuspended,
+  clearPendingGate,
+  resolvePendingGate,
+} from './run-store.ts'
 import { mastra } from '../mastra/index.ts'
 import { deleteChatThread, listChatThreads } from '../../utils/mastra-memory.ts'
 
 import { supportTools } from '../mastra/tools/support-tools.ts'
+import { supportAgent } from '../mastra/agents/support-agent.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
 // ── SSE response parser ──
@@ -139,6 +146,7 @@ const CHAT_INDEX_URL = `${BASE}${routes.admin.supportAgent.index.href()}`
 const CHAT_ACTION_URL = `${BASE}${routes.admin.supportAgent.action.href()}`
 const CHAT_TOOL_DECISION_URL = `${BASE}${routes.admin.supportAgent.toolDecision.href()}`
 const CHAT_ANSWER_URL = `${BASE}${routes.admin.supportAgent.answer.href()}`
+const CHAT_RECONNECT_URL = `${BASE}${routes.admin.supportAgent.reconnect.href()}`
 
 const JSON_HEADERS = { Accept: 'application/json', 'X-Sse-Request': '1' }
 
@@ -953,5 +961,348 @@ describe('Mastra Chat tools', () => {
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
     assert.ok(tool.inputSchema, 'should have an inputSchema')
+  })
+})
+
+describe('support-agent durable resume', () => {
+  let admin: { id: number; cookie: string; csrfToken: string }
+
+  async function makeAdmin() {
+    let email = `support-resume-${Date.now()}-${Math.random()}@example.com`
+    let res = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, $2, 'SupportResume', 'admin', 1, 1, $3) RETURNING id`,
+      [email, 'hashed-password-for-testing', Date.now()],
+    )
+    let id = res.rows[0].id as number
+    let session = await createAuthCookieWithCsrfForUser(email)
+    return { id, cookie: session?.cookie ?? '', csrfToken: session?.csrfToken ?? '' }
+  }
+
+  beforeEach(async () => {
+    admin = await makeAdmin()
+    chatRateLimiter.reset(admin.id)
+  })
+
+  afterEach(async () => {
+    // Delete only this test's admin (cascades to its index rows), matching the
+    // chat run-store test pattern, rather than a shared accumulating array.
+    let id = admin.id
+    try {
+      await pool.query('DELETE FROM users WHERE id = $1', [id])
+    } catch {
+      /* ignore cleanup errors */
+    }
+    __setTestAgent(undefined)
+  })
+
+  after(async () => {
+    __setRunStatusResolver(undefined)
+    __setTestAgent(undefined)
+  })
+
+  it('GET /reconnect returns none when no gate is pending', async () => {
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: admin.cookie },
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    let data = await response.json()
+    assert.equal(data.status, 'none')
+  })
+
+  it('GET /reconnect resurfices a suspended tool gate', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-1',
+      toolName: 'lookup_user',
+      args: { id: 5 },
+      suspendPayload: { question: 'Proceed?' },
+    })
+
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: admin.cookie },
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    let data = await response.json()
+    assert.equal(data.status, 'suspended')
+    assert.equal(data.runId, runId)
+    assert.equal(data.threadId, 'thread-1')
+    assert.equal(data.gateType, 'tool_decision')
+    assert.equal(data.toolCallId, 'call-1')
+    assert.equal(data.toolName, 'lookup_user')
+    assert.deepEqual(data.args, { id: 5 })
+  })
+
+  it('GET /reconnect is non-mutating: a suspended gate is retained', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'question',
+      suspendPayload: { question: 'Which?', options: [{ label: 'A' }] },
+    })
+
+    await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: admin.cookie },
+      redirect: 'manual',
+    })
+
+    let row = await resolvePendingGate(admin.id, runId)
+    assert.ok(row, 'suspended row should be retained (reconnect must not clear it)')
+    assert.equal(row!.status, 'suspended')
+  })
+
+  it('GET /reconnect clears a stale index when the run is no longer suspended', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    __setRunStatusResolver(async () => ({ status: 'completed' }))
+
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: admin.cookie },
+      redirect: 'manual',
+    })
+    let data = await response.json()
+    assert.equal(data.status, 'none')
+    let row = await resolvePendingGate(admin.id, runId)
+    assert.equal(row, null, 'stale index should be cleared')
+    __setRunStatusResolver(undefined)
+  })
+
+  it('GET /reconnect returns none while the run is still running and keeps the row', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    __setRunStatusResolver(async () => ({ status: 'running' }))
+
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: admin.cookie },
+      redirect: 'manual',
+    })
+    let data = await response.json()
+    assert.equal(data.status, 'none')
+    let row = await resolvePendingGate(admin.id, runId)
+    assert.ok(row, 'running row should be kept for a later reconnect')
+    __setRunStatusResolver(undefined)
+  })
+
+  it('GET /reconnect redirects to login when not authenticated', async () => {
+    let response = await router.fetch(CHAT_RECONNECT_URL, { redirect: 'manual' })
+    assert.equal(response.status, 302)
+  })
+
+  it('POST /action writes the durable index when the agent suspends on a question', async () => {
+    let runId = crypto.randomUUID()
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => ({
+        runId,
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: 'tool-call-suspended',
+              payload: {
+                toolCallId: 'call-1',
+                suspendPayload: {
+                  question: 'Which user?',
+                  options: [{ label: 'A' }],
+                  selectionMode: 'single_select',
+                },
+              },
+            })
+            controller.enqueue({ type: 'finish', payload: {} })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => ({ text: '', finishReason: 'stop' }),
+      }),
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ message: 'test', _csrf: admin.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    // Consume the body so the stream's start callback (and the index write) runs.
+    await parseSSEResponse(response)
+
+    let row = await resolvePendingGate(admin.id, runId)
+    assert.ok(row, 'suspension should write the durable index')
+    assert.equal(row!.status, 'suspended')
+    assert.equal(row!.gateType, 'question')
+    assert.equal(row!.toolCallId, 'call-1')
+    __setTestAgent(undefined)
+  })
+
+  it('POST /tool-decision resolves runId from the durable index when absent', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-1',
+      toolName: 'lookup_user',
+    })
+
+    let approveCalls: Array<Record<string, unknown>> = []
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async (opts: Record<string, unknown>) => {
+        approveCalls.push(opts)
+        return { finishReason: 'stop', text: 'ok' }
+      },
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ decision: 'approve', _csrf: admin.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    assert.equal(approveCalls.length, 1, 'approve should be invoked once')
+    assert.equal(approveCalls[0].runId, runId, 'runId should resolve from the durable index')
+    assert.equal(approveCalls[0].toolCallId, 'call-1')
+    __setTestAgent(undefined)
+  })
+
+  it('POST /tool-decision without runId fails closed when no gate exists', async () => {
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ decision: 'approve', _csrf: admin.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 400)
+    let { events } = await parseSSEResponse(response)
+    assert.ok(
+      events.find((e) => e.type === 'agent-error'),
+      'should return an agent-error event',
+    )
+    __setTestAgent(undefined)
+  })
+
+  it('POST /tool-decision clears the durable index after a terminal resume', async () => {
+    let runId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-1',
+      toolName: 'lookup_user',
+    })
+
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({ finishReason: 'stop', text: 'ok' }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ runId, decision: 'approve', _csrf: admin.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    // Consume the body so the stream's start callback (and the index clear) runs.
+    await parseSSEResponse(response)
+    let row = await resolvePendingGate(admin.id, runId)
+    assert.equal(row, null, 'index should be cleared after a terminal resume')
+    __setTestAgent(undefined)
+  })
+
+  it('POST /tool-decision re-keys the durable index when a resume spawns a continuation run', async () => {
+    let runId = crypto.randomUUID()
+    let continuationRunId = crypto.randomUUID()
+    await upsertPendingGate(admin.id, { runId, threadId: 'thread-1' })
+    await markGateSuspended(admin.id, {
+      runId,
+      threadId: 'thread-1',
+      gateType: 'tool_decision',
+      toolCallId: 'call-1',
+      toolName: 'lookup_user',
+    })
+
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async () => createMockStreamOutput(''),
+      resumeStream: async () => createMockStreamOutput(''),
+      approveToolCallGenerate: async () => ({
+        finishReason: 'suspended',
+        runId: continuationRunId,
+        suspendPayload: {
+          question: 'Which user?',
+          options: [{ label: 'A' }, { label: 'B' }],
+          selectionMode: 'single_select',
+          toolCallId: 'call-2',
+        },
+      }),
+      declineToolCallGenerate: async () => ({ finishReason: 'stop', text: '' }),
+    }
+    __setTestAgent(mockAgent)
+
+    let response = await router.fetch(CHAT_TOOL_DECISION_URL, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({ runId, decision: 'approve', _csrf: admin.csrfToken }),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 200)
+    await parseSSEResponse(response)
+
+    // The index should now point at the continuation run, and its question gate
+    // should be recorded, so a reconnect resumes the correct (new) run.
+    let continuation = await resolvePendingGate(admin.id, continuationRunId)
+    assert.ok(continuation, 'continuation run should be indexed')
+    assert.equal(continuation!.runId, continuationRunId)
+    assert.equal(continuation!.status, 'suspended')
+    assert.equal(continuation!.gateType, 'question')
+    let old = await resolvePendingGate(admin.id, runId)
+    assert.equal(old, null, 'the original run id should be superseded')
+    __setTestAgent(undefined)
+  })
+})
+
+describe('support agent read-only boundary', () => {
+  it('exposes no account-mutation tool and directs mutations to agent-events', async () => {
+    await initializeAppDatabase()
+    let toolIds = Object.keys(supportTools as Record<string, unknown>)
+    let mutating = toolIds.filter((id) =>
+      /cancel|lock|unlock|delete|disable|deactivate/.test(id.toLowerCase()),
+    )
+    assert.deepEqual(mutating, [], 'support agent toolset must be read-only for account mutations')
+    let instructions = String(supportAgent.getInstructions?.() ?? '')
+    assert.ok(
+      /agent-events/i.test(instructions),
+      'instructions must direct account mutations to the agent-events pipeline',
+    )
   })
 })

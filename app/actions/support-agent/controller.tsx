@@ -3,6 +3,12 @@ import { requireAuth } from '../../middleware/auth.ts'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { routes, frames } from '../../routes.ts'
 import { mastra } from '../mastra/index.ts'
+import {
+  upsertPendingGate,
+  markGateSuspended,
+  clearPendingGate,
+  resolvePendingGate,
+} from './run-store.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import {
@@ -48,6 +54,33 @@ function resolveAgent(): TestAgent {
     ? _testAgent
     : mastra.getAgent('supportAgent')
 }
+
+// Injectable run-status resolver for the reconnect snapshot verification, so
+// tests can stub Mastra storage (mirrors the agent-events __setRunStatusResolver
+// seam). A PostgresStoreVNext agent-run-status query is not exposed, so the
+// default reads the durable pending-gate row we write on suspension.
+type RunStatusSnapshot = {
+  status: string
+  suspendPayload?: Record<string, unknown>
+}
+type RunStatusResolver = (adminUserId: number, runId: string) => Promise<RunStatusSnapshot | null>
+
+async function defaultRunStatusResolver(
+  adminUserId: number,
+  runId: string,
+): Promise<RunStatusSnapshot | null> {
+  let row = await resolvePendingGate(adminUserId, runId)
+  if (!row) return null
+  return row.status === 'suspended'
+    ? { status: 'suspended', suspendPayload: row.suspendPayload ?? undefined }
+    : { status: 'running' }
+}
+
+let _runStatusResolver: RunStatusResolver = defaultRunStatusResolver
+export function __setRunStatusResolver(fn: RunStatusResolver | undefined) {
+  _runStatusResolver = fn ?? defaultRunStatusResolver
+}
+
 export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
@@ -138,12 +171,41 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
 
             controller.enqueue(sseEvent('start', { runId: output.runId, threadId }))
 
+            await upsertPendingGate(user.id, { runId: output.runId, threadId: threadId! })
+
             await pipeStream(
               output.fullStream as unknown as ReadableStream,
               controller,
               abortController.signal,
               output.runId,
               getPanelTarget,
+              {
+                onSuspension: (info) =>
+                  markGateSuspended(user.id, {
+                    runId: info.runId ?? output.runId,
+                    threadId: threadId!,
+                    gateType: info.gateType,
+                    toolCallId: info.toolCallId,
+                    toolName: info.toolName,
+                    args: info.args,
+                    suspendPayload: info.suspendPayload,
+                  }).catch((e) =>
+                    log(
+                      'markGateSuspended error: ' +
+                        sanitizeLog(e instanceof Error ? e.message : String(e)),
+                    ),
+                  ),
+                onEnd: (reason) => {
+                  if (reason === 'complete' || reason === 'error') {
+                    clearPendingGate(user.id, output.runId).catch((e) =>
+                      log(
+                        'clearPendingGate error: ' +
+                          sanitizeLog(e instanceof Error ? e.message : String(e)),
+                      ),
+                    )
+                  }
+                },
+              },
             )
 
             clearTimeout(timeout)
@@ -194,6 +256,19 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       let decision = context.formData.get('decision')?.toString()
       let threadId = context.formData.get('threadId')?.toString()
 
+      // Resolve the pending gate from the durable index so a resume can
+      // re-attach after a restart (thread/toolCall are not in process memory).
+      let gate = await resolvePendingGate(user.id, runId)
+      if (!runId) {
+        if (!gate) return sseErrorResponse('Fehlende runId', 400)
+        runId = gate.runId
+      }
+      if (gate) {
+        threadId = threadId ?? gate.threadId
+        toolCallId = toolCallId ?? gate.toolCallId ?? undefined
+      }
+      let gateThreadId = threadId ?? ''
+
       if (!runId) {
         return sseErrorResponse('Fehlende runId', 400)
       }
@@ -206,6 +281,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
 
       let body = new ReadableStream({
         start: async (controller) => {
+          let contRunId = runId!
           try {
             controller.enqueue(sseEvent('start', { runId, threadId }))
 
@@ -233,6 +309,14 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
               })
             }
 
+            // A resume may spawn a continuation run with a new run id. Re-key
+            // the durable index to it so a subsequent suspension is tracked and
+            // a reconnect resumes the correct run (mirrors chat/controller.tsx).
+            contRunId = result.runId || runId!
+            if (result.runId && result.runId !== runId) {
+              await upsertPendingGate(user.id, { runId: result.runId, threadId: gateThreadId })
+            }
+
             if (result.finishReason === 'suspended') {
               let sp = result.suspendPayload as
                 | {
@@ -247,12 +331,29 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
               if (sp?.question) {
                 controller.enqueue(
                   sseEvent('question', {
-                    runId: result.runId || runId,
+                    runId: contRunId,
                     toolCallId: sp?.toolCallId,
                     question: sp.question,
                     options: sp.options ?? null,
                     selectionMode: sp.selectionMode ?? 'single_select',
+                    gateType: 'question',
                   }),
+                )
+                await markGateSuspended(user.id, {
+                  runId: contRunId,
+                  threadId: gateThreadId,
+                  gateType: 'question',
+                  toolCallId: sp.toolCallId,
+                  suspendPayload: {
+                    question: sp.question,
+                    options: sp.options ?? null,
+                    selectionMode: sp.selectionMode ?? 'single_select',
+                  },
+                }).catch((e) =>
+                  log(
+                    'markGateSuspended error: ' +
+                      sanitizeLog(e instanceof Error ? e.message : String(e)),
+                  ),
                 )
                 controller.enqueue(sseEvent('complete', {}))
                 controller.close()
@@ -261,11 +362,25 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
               if (sp?.toolCallId || sp?.toolName) {
                 controller.enqueue(
                   sseEvent('suspension', {
-                    runId: result.runId || runId,
+                    runId: contRunId,
                     toolCallId: sp.toolCallId,
                     toolName: sp.toolName,
                     args: sp.args,
+                    gateType: 'tool_decision',
                   }),
+                )
+                await markGateSuspended(user.id, {
+                  runId: contRunId,
+                  threadId: gateThreadId,
+                  gateType: 'tool_decision',
+                  toolCallId: sp.toolCallId,
+                  toolName: sp.toolName,
+                  args: sp.args,
+                }).catch((e) =>
+                  log(
+                    'markGateSuspended error: ' +
+                      sanitizeLog(e instanceof Error ? e.message : String(e)),
+                  ),
                 )
                 controller.enqueue(sseEvent('complete', {}))
                 controller.close()
@@ -280,6 +395,33 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
                 context.request.signal,
                 undefined,
                 getPanelTarget,
+                {
+                  onSuspension: (info) =>
+                    markGateSuspended(user.id, {
+                      runId: info.runId ?? contRunId,
+                      threadId: gateThreadId,
+                      gateType: info.gateType,
+                      toolCallId: info.toolCallId,
+                      toolName: info.toolName,
+                      args: info.args,
+                      suspendPayload: info.suspendPayload,
+                    }).catch((e) =>
+                      log(
+                        'markGateSuspended error: ' +
+                          sanitizeLog(e instanceof Error ? e.message : String(e)),
+                      ),
+                    ),
+                  onEnd: (reason) => {
+                    if (reason === 'complete' || reason === 'error') {
+                      clearPendingGate(user.id, contRunId).catch((e) =>
+                        log(
+                          'clearPendingGate error: ' +
+                            sanitizeLog(e instanceof Error ? e.message : String(e)),
+                        ),
+                      )
+                    }
+                  },
+                },
               )
               return
             }
@@ -289,9 +431,23 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
             ).trim()
             if (text) controller.enqueue(sseEvent('message', { text }))
             controller.enqueue(sseEvent('complete', {}))
+            // Clear before closing so the durable record is gone when the body
+            // ends (avoids a reconnect racing the terminal clear).
+            await clearPendingGate(user.id, contRunId).catch((e) =>
+              log(
+                'clearPendingGate error: ' +
+                  sanitizeLog(e instanceof Error ? e.message : String(e)),
+              ),
+            )
             controller.close()
           } catch (err) {
             log('error: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
+            await clearPendingGate(user.id, contRunId).catch((e) =>
+              log(
+                'clearPendingGate error: ' +
+                  sanitizeLog(e instanceof Error ? e.message : String(e)),
+              ),
+            )
             try {
               controller.enqueue(
                 sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung der Entscheidung.' }),
@@ -323,6 +479,19 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       let answerRaw = context.formData.get('answer')?.toString()
       let toolCallId = context.formData.get('toolCallId')?.toString() || undefined
       let selectionMode = context.formData.get('selectionMode')?.toString()
+      let threadId = context.formData.get('threadId')?.toString()
+
+      // Resolve from the durable index so a resume can re-attach after a
+      // restart (thread/toolCall are not in process memory).
+      let gate = await resolvePendingGate(user.id, runId)
+      if (!runId) {
+        if (!gate) return sseErrorResponse('Fehlende runId', 400)
+        runId = gate.runId
+      }
+      if (gate) {
+        threadId = threadId ?? gate.threadId
+        toolCallId = toolCallId ?? gate.toolCallId ?? undefined
+      }
 
       if (!runId || !answerRaw) {
         return sseErrorResponse('Fehlende runId oder Antwort', 400)
@@ -345,6 +514,7 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
 
       let body = new ReadableStream({
         start: async (controller) => {
+          let contRunId = runId!
           try {
             let agent = resolveAgent()
             let output = await runWithAdminId(user.id, () =>
@@ -358,12 +528,49 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
               }),
             )
 
+            // A resume may spawn a continuation run with a new run id. Re-key
+            // the durable index to it so a subsequent suspension is tracked.
+            contRunId = output.runId || runId!
+            if (output.runId && output.runId !== runId) {
+              await upsertPendingGate(user.id, {
+                runId: output.runId,
+                threadId: threadId ?? gate?.threadId ?? '',
+              })
+            }
+
             await pipeStream(
               output.fullStream as unknown as ReadableStream,
               controller,
               context.request.signal,
               output.runId,
               getPanelTarget,
+              {
+                onSuspension: (info) =>
+                  markGateSuspended(user.id, {
+                    runId: info.runId ?? contRunId,
+                    threadId: threadId ?? gate?.threadId ?? '',
+                    gateType: info.gateType,
+                    toolCallId: info.toolCallId,
+                    toolName: info.toolName,
+                    args: info.args,
+                    suspendPayload: info.suspendPayload,
+                  }).catch((e) =>
+                    log(
+                      'markGateSuspended error: ' +
+                        sanitizeLog(e instanceof Error ? e.message : String(e)),
+                    ),
+                  ),
+                onEnd: (reason) => {
+                  if (reason === 'complete' || reason === 'error') {
+                    clearPendingGate(user.id, contRunId).catch((e) =>
+                      log(
+                        'clearPendingGate error: ' +
+                          sanitizeLog(e instanceof Error ? e.message : String(e)),
+                      ),
+                    )
+                  }
+                },
+              },
             )
             try {
               controller.enqueue(sseEvent('complete', {}))
@@ -372,6 +579,12 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
             }
           } catch (err) {
             log('error: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
+            await clearPendingGate(user.id, contRunId).catch((e) =>
+              log(
+                'clearPendingGate error: ' +
+                  sanitizeLog(e instanceof Error ? e.message : String(e)),
+              ),
+            )
             try {
               controller.enqueue(
                 sseEvent('agent-error', { error: 'Fehler beim Fortsetzen des Agents.' }),
@@ -385,6 +598,63 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
       })
 
       return new Response(body, { headers: sseHeaders() })
+    },
+
+    async reconnect(context) {
+      let user = getCurrentUser()
+      let log = (...args: unknown[]) =>
+        context.logger?.(
+          `[SupportAgentChat] [reconnect] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+        )
+
+      let row = await resolvePendingGate(user.id)
+      if (!row) {
+        return context.json({ status: 'none' })
+      }
+
+      // The index is a pointer; reconnect is best-effort. A resolver failure
+      // must not 500 — treat the run as unavailable and clear the stale pointer.
+      let snapshot: RunStatusSnapshot | null
+      try {
+        snapshot = await _runStatusResolver(user.id, row.runId)
+      } catch {
+        await clearPendingGate(user.id, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      if (!snapshot) {
+        await clearPendingGate(user.id, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      if (snapshot.status === 'running') {
+        // Still in flight (mid-flight reload before the gate): keep the row and
+        // surface nothing yet — a later reconnect will recover it.
+        return context.json({ status: 'none' })
+      }
+
+      if (snapshot.status !== 'suspended') {
+        // success / failed / canceled → stale.
+        await clearPendingGate(user.id, row.runId)
+        return context.json({ status: 'none' })
+      }
+
+      let payload = row.suspendPayload ?? snapshot.suspendPayload
+      if (!payload) {
+        return context.json({ status: 'none' })
+      }
+
+      log('reconnect: resurfacing suspended gate ' + sanitizeLog(row.runId))
+      return context.json({
+        status: 'suspended',
+        runId: row.runId,
+        threadId: row.threadId,
+        gateType: row.gateType,
+        toolCallId: row.toolCallId,
+        toolName: row.toolName,
+        args: row.args,
+        suspendPayload: payload,
+      })
     },
   },
 })

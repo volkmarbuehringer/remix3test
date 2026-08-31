@@ -149,6 +149,7 @@ export const routes = route({
       action: post('/'),
       toolDecision: post('/tool-decision'),
       answer: post('/answer'),
+      reconnect: get('/reconnect'),
     }),
   }),
 

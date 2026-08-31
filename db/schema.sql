@@ -256,3 +256,27 @@ CREATE TABLE IF NOT EXISTS chat_runs (
 
 CREATE INDEX IF NOT EXISTS chat_runs_user_id_idx ON chat_runs (user_id);
 CREATE INDEX IF NOT EXISTS chat_runs_thread_id_idx ON chat_runs (thread_id);
+
+-- Durable per-admin pointer to the support agent's currently pending gate
+-- (a tool decision or an ask_user question). One row per admin (upsert): the
+-- client loses the run on reload, and the controller holds no in-memory state,
+-- so a suspended approval/question would otherwise be orphaned after a reload,
+-- a browser change, or a server restart. The row is a pointer — the Mastra run
+-- snapshot remains the source of truth — and is deleted when the run finishes,
+-- errors, or is cancelled. gate_type distinguishes a tool-decision gate from a
+-- question gate so reconnect can re-render the right surface.
+CREATE TABLE IF NOT EXISTS support_agent_pending_gates (
+  admin_user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  run_id TEXT NOT NULL,
+  thread_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'suspended')),
+  tool_call_id TEXT,
+  tool_name TEXT,
+  args JSONB,
+  gate_type TEXT NOT NULL DEFAULT 'tool_decision' CHECK (gate_type IN ('tool_decision', 'question')),
+  suspend_payload JSONB,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS support_agent_pending_gates_run_id_idx ON support_agent_pending_gates (run_id);

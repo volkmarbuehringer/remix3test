@@ -22,6 +22,27 @@ export const supportTools = {
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Numeric user ID or email address'),
     }),
+    outputSchema: z
+      .object({
+        found: z.boolean().describe('Whether the user was found'),
+        message: z.string().optional().describe('Why the lookup failed'),
+        user: z
+          .object({
+            id: z.number().describe('Numeric user ID'),
+            email: z.string().describe('User email address'),
+            name: z.string().describe('User display name'),
+            role: z.string().describe('User role (admin or customer)'),
+            emailVerified: z.string().describe('Whether the email is verified ("yes"/"no")'),
+            disabledAt: z
+              .any()
+              .nullable()
+              .describe('Lock timestamp, or null if the account is active'),
+            createdAt: z.any().describe('Account creation unix ms'),
+          })
+          .optional()
+          .describe('The matched user'),
+      })
+      .describe('Lookup user result'),
     execute: async ({ query }) => {
       let isNumeric = /^\d+$/.test(query)
       let rows = await db.exec(
@@ -71,6 +92,18 @@ export const supportTools = {
         .describe('Maximum appointments to return (1-50)'),
       userId: z.number().int().optional().describe('Filter by user ID'),
     }),
+    outputSchema: z.object({
+      count: z.number().int().describe('Number of appointments returned'),
+      appointments: z.array(
+        z.object({
+          id: z.number().describe('Appointment ID'),
+          title: z.string().describe('Appointment title'),
+          date: z.any().describe('Appointment date as unix ms'),
+          timeRange: z.any().describe('Appointment time range'),
+          userName: z.string().describe('Name of the involved user'),
+        }),
+      ),
+    }),
     execute: async ({ limit, userId }) => {
       let result = await db.exec(
         sql`SELECT a.id, a.title, a.date, a.during, a.user_id, u.name as user_name
@@ -98,6 +131,10 @@ export const supportTools = {
       'Count total users, optionally filtered by role (e.g. "admin", "customer"). Returns counts grouped by role.',
     inputSchema: z.object({
       role: z.string().optional().describe('Filter by role (e.g. "admin" or "customer")'),
+    }),
+    outputSchema: z.object({
+      total: z.number().int().describe('Total users matching the filter'),
+      byRole: z.record(z.string(), z.number()).describe('User counts grouped by role'),
     }),
     execute: async ({ role }) => {
       let result = await db.exec(
@@ -228,6 +265,22 @@ export const supportTools = {
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Numeric resource ID or resource name'),
     }),
+    outputSchema: z
+      .object({
+        found: z.boolean().describe('Whether the resource was found'),
+        message: z.string().optional().describe('Why the lookup failed'),
+        resource: z
+          .object({
+            id: z.number().describe('Resource ID'),
+            name: z.string().describe('Resource name'),
+            description: z.string().describe('Resource description'),
+            createdAt: z.any().describe('Creation unix ms'),
+            updatedAt: z.any().describe('Last update unix ms'),
+          })
+          .optional()
+          .describe('The matched resource'),
+      })
+      .describe('Look up resource result'),
     execute: async ({ query }) => {
       let isNumeric = /^\d+$/.test(query)
       let rows = await db.exec(
@@ -263,6 +316,21 @@ export const supportTools = {
         .max(30)
         .describe('Date in ISO format (YYYY-MM-DD) or unix millisecond timestamp string'),
     }),
+    outputSchema: z.union([
+      z.object({
+        date: z.string().describe('The queried date'),
+        count: z.number().int().describe('Number of offerings'),
+        offerings: z.array(
+          z.object({
+            id: z.number().describe('Offering ID'),
+            resourceId: z.number().describe('Resource ID'),
+            resourceName: z.string().describe('Resource name'),
+            timeRange: z.any().describe('Offering time range'),
+          }),
+        ),
+      }),
+      z.object({ error: z.string().describe('Why the query failed') }),
+    ]),
     execute: async ({ date }) => {
       let timestamp: number
       if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -302,6 +370,24 @@ export const supportTools = {
       startDate: z.string().min(1).max(30).describe('Start date in ISO format (YYYY-MM-DD)'),
       endDate: z.string().min(1).max(30).describe('End date in ISO format (YYYY-MM-DD)'),
     }),
+    outputSchema: z.union([
+      z.object({
+        count: z.number().int().describe('Number of appointments in range'),
+        startDate: z.string().describe('Requested start date'),
+        endDate: z.string().describe('Requested end date'),
+        appointments: z.array(
+          z.object({
+            id: z.number().describe('Appointment ID'),
+            title: z.string().describe('Appointment title'),
+            date: z.any().describe('Appointment date as unix ms'),
+            timeRange: z.any().describe('Appointment time range'),
+            userName: z.string().describe('Involved user name'),
+            resourceName: z.string().describe('Resource name'),
+          }),
+        ),
+      }),
+      z.object({ error: z.string().describe('Why the query failed') }),
+    ]),
     execute: async ({ startDate, endDate }) => {
       let startTs = new Date(startDate + 'T00:00:00Z').getTime()
       let endTs = new Date(endDate + 'T23:59:59Z').getTime()
@@ -346,6 +432,18 @@ export const supportTools = {
     inputSchema: z.object({
       userId: z.number().int().describe('The numeric user ID'),
     }),
+    outputSchema: z.object({
+      count: z.number().int().describe('Number of appointments for the user'),
+      appointments: z.array(
+        z.object({
+          id: z.number().describe('Appointment ID'),
+          title: z.string().describe('Appointment title'),
+          date: z.any().describe('Appointment date as unix ms'),
+          timeRange: z.any().describe('Appointment time range'),
+          resourceName: z.string().describe('Resource name'),
+        }),
+      ),
+    }),
     execute: async ({ userId }) => {
       let result = await db.exec(sql`
         SELECT a.id, a.title, a.date, a.during, r.name AS resource_name
@@ -376,6 +474,26 @@ export const supportTools = {
     inputSchema: z.object({
       id: z.number().int().describe('The appointment ID'),
     }),
+    outputSchema: z
+      .object({
+        found: z.boolean().describe('Whether the appointment was found'),
+        message: z.string().optional().describe('Why the lookup failed'),
+        appointment: z
+          .object({
+            id: z.any().describe('Appointment ID'),
+            title: z.any().describe('Appointment title'),
+            date: z.any().describe('Appointment date as unix ms'),
+            timeRange: z.any().describe('Appointment time range'),
+            userName: z.any().describe('Involved user name'),
+            userEmail: z.any().describe('Involved user email'),
+            resourceName: z.any().describe('Resource name'),
+            createdAt: z.any().describe('Creation unix ms'),
+            updatedAt: z.any().describe('Last update unix ms'),
+          })
+          .optional()
+          .describe('The matched appointment'),
+      })
+      .describe('Get appointment details result'),
     execute: async ({ id }) => {
       let result = await db.exec(sql`
         SELECT a.id, a.title, a.date, a.during, a.created_at, a.updated_at,
@@ -414,6 +532,22 @@ export const supportTools = {
     inputSchema: z.object({
       resourceId: z.number().int().describe('The numeric resource ID'),
     }),
+    outputSchema: z
+      .object({
+        found: z.boolean().describe('Whether the config was found'),
+        message: z.string().optional().describe('Why the lookup failed'),
+        config: z
+          .object({
+            id: z.number().describe('Offering config ID'),
+            resourceId: z.number().describe('Resource ID'),
+            rules: z.any().describe('Offering configuration rules'),
+            createdAt: z.any().describe('Creation unix ms'),
+            updatedAt: z.any().describe('Last update unix ms'),
+          })
+          .optional()
+          .describe('The matched config'),
+      })
+      .describe('Get offering config result'),
     execute: async ({ resourceId }) => {
       let r = await db.findOne(offeringConfigs, { where: { resource_id: resourceId } })
       if (!r) return { found: false, message: 'No offering config found for that resource' }
@@ -434,6 +568,15 @@ export const supportTools = {
     id: 'get_appoint_types',
     description: 'List all appointment types. Returns type IDs and titles.',
     inputSchema: z.object({}),
+    outputSchema: z.object({
+      count: z.number().int().describe('Number of appointment types'),
+      types: z.array(
+        z.object({
+          id: z.number().describe('Appointment type ID'),
+          title: z.string().describe('Appointment type title'),
+        }),
+      ),
+    }),
     execute: async () => {
       let types = await db.findMany(appointtypes, { orderBy: [['title', 'asc']] })
       return {
@@ -453,6 +596,18 @@ export const supportTools = {
     inputSchema: z.object({
       query: z.string().min(1).max(200).describe('Search term to find in message content'),
       senderId: z.number().int().optional().describe('Optional sender user ID to filter by'),
+    }),
+    outputSchema: z.object({
+      count: z.number().int().describe('Number of messages returned'),
+      messages: z.array(
+        z.object({
+          id: z.number().describe('Message ID'),
+          senderId: z.number().describe('Sender user ID'),
+          senderName: z.string().describe('Sender display name'),
+          content: z.string().describe('Message content'),
+          createdAt: z.any().describe('Message creation unix ms'),
+        }),
+      ),
     }),
     execute: async ({ query, senderId }) => {
       let pattern = `%${query.replace(/[%_\\]/g, '\\$&')}%`
@@ -495,6 +650,18 @@ export const supportTools = {
         .optional()
         .describe('Optional end date (YYYY-MM-DD) to filter appointments'),
     }),
+    outputSchema: z.union([
+      z.object({
+        users: z.object({
+          total: z.number().int().describe('Total users'),
+          byRole: z.record(z.string(), z.number()).describe('User counts grouped by role'),
+        }),
+        appointments: z.object({ total: z.number().int().describe('Total appointments') }),
+        resources: z.object({ total: z.number().int().describe('Total resources') }),
+        messages: z.object({ total: z.number().int().describe('Total messages') }),
+      }),
+      z.object({ error: z.string().describe('Why the stats request failed') }),
+    ]),
     execute: async ({ startDate, endDate }) => {
       let userResult = await db.exec(
         sql`SELECT role, count(*)::int AS count FROM users GROUP BY role ORDER BY role`,
@@ -569,6 +736,15 @@ export const supportTools = {
         .describe('Start date (YYYY-MM-DD) for appointment-list reports'),
       endDate: z.string().optional().describe('End date (YYYY-MM-DD) for appointment-list reports'),
     }),
+    outputSchema: z
+      .object({
+        filename: z.string().optional().describe('Suggested PDF filename'),
+        data: z.string().optional().describe('Base64-encoded PDF data'),
+        size: z.number().int().optional().describe('PDF byte size'),
+        reportType: z.string().optional().describe('Type of report generated'),
+        error: z.string().optional().describe('Why the report generation failed'),
+      })
+      .describe('Generate PDF report result'),
     execute: async ({ reportType, startDate, endDate }) => {
       if (reportType === 'appointment-list') {
         if (!startDate || !endDate) {
