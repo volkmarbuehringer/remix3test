@@ -1,7 +1,5 @@
 import { Agent } from '@mastra/core/agent'
-import { Memory } from '@mastra/memory'
-import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
-import { mastraStorage } from '../storage.ts'
+import { createModel, createMemory } from '../agent-config.ts'
 
 export const workflowAgent = new Agent({
   id: 'workflow-agent',
@@ -29,17 +27,7 @@ The "action" field must ALWAYS be one of the English values cancel|lock|unlock|l
 - suchen, finden, anzeigen, show, find, lookup → "lookup"
 
 If the admin is asking about something else or the intent is unclear, ask one clarifying question. Keep it brief. Do NOT add any text before or after the JSON.`,
-  model: {
-    providerId: 'opencode-go',
-    modelId: 'deepseek-v4-flash',
-    url: OPENCODE_API_URL,
-    apiKey: process.env.OPENCODE_API_KEY,
-  },
+  model: createModel(),
   tools: {},
-  memory: new Memory({
-    storage: mastraStorage,
-    options: {
-      lastMessages: 10,
-    },
-  }),
+  memory: createMemory({ lastMessages: 10 }),
 })

@@ -253,50 +253,26 @@ export const SupportAgentStream = clientEntry(
       toolName?: string
       args?: Record<string, unknown>
     }) {
-      let isCancelUser = data.toolName === 'cancel_user_account'
-
       replaceAgentMessageContent((el) => {
         let warning = document.createElement('div')
-        warning.textContent = isCancelUser
-          ? '⚠ Benutzerkonto löschen?'
-          : 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
+        warning.textContent = 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
         warning.style.fontWeight = '600'
         warning.style.marginBottom = '8px'
         warning.style.fontSize = '0.875rem'
-        if (isCancelUser) {
-          warning.style.color = theme.colors.action.danger.background
-        }
         el.appendChild(warning)
-
-        if (isCancelUser && data.args?.targetUserId) {
-          let info = document.createElement('div')
-          info.textContent =
-            'Benutzer #' +
-            data.args.targetUserId +
-            ' löschen? Diese Aktion löscht alle zukünftigen Termine und deaktiviert den Login.'
-          info.style.fontSize = '0.75rem'
-          info.style.color = theme.colors.text.muted
-          info.style.marginBottom = '8px'
-          el.appendChild(info)
-        }
 
         let actions = document.createElement('div')
         actions.style.display = 'flex'
         actions.style.gap = '8px'
 
         let approveBtn = document.createElement('button')
-        approveBtn.textContent = isCancelUser ? '✔ Bestätigen' : '✔ Zulassen'
+        approveBtn.textContent = '✔ Zulassen'
         approveBtn.style.padding = '4px 14px'
         approveBtn.style.border = 'none'
         approveBtn.style.borderRadius = '4px'
         approveBtn.style.cursor = 'pointer'
-        if (isCancelUser) {
-          approveBtn.style.background = '#dc3545'
-          approveBtn.style.color = '#fff'
-        } else {
-          approveBtn.style.background = theme.colors.action.primary.background
-          approveBtn.style.color = theme.colors.action.primary.foreground
-        }
+        approveBtn.style.background = theme.colors.action.primary.background
+        approveBtn.style.color = theme.colors.action.primary.foreground
         approveBtn.style.fontSize = '0.8125rem'
         approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
         actions.appendChild(approveBtn)

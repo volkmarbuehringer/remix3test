@@ -1,25 +1,12 @@
 import { Agent } from '@mastra/core/agent'
-import { Memory } from '@mastra/memory'
 import {
   UnicodeNormalizer,
   RegexFilterProcessor,
   TokenLimiterProcessor,
   CostGuardProcessor,
 } from '@mastra/core/processors'
-import { askUserTool } from '@mastra/core/tools'
 import { customerTools } from '../tools/customer-tools.ts'
-import { mastraStorage } from '../storage.ts'
-import { OPENCODE_API_URL } from '../../../utils/ai-provider.ts'
-
-function requireApiKey(): string {
-  let key = process.env.OPENCODE_API_KEY
-  if (!key) {
-    throw new Error(
-      'OPENCODE_API_KEY environment variable is required. Set it before starting the server.',
-    )
-  }
-  return key
-}
+import { createModel, createMemory, withUserTools } from '../agent-config.ts'
 
 export const customerAgent = new Agent({
   id: 'customer-agent',
@@ -70,21 +57,7 @@ Regeln:
       strategy: 'block',
     }),
   ],
-  model: {
-    providerId: 'opencode-go',
-    modelId: 'deepseek-v4-flash',
-    url: OPENCODE_API_URL,
-    get apiKey() {
-      return requireApiKey()
-    },
-  },
-  tools: { ...customerTools, askUserTool },
-  memory: new Memory({
-    storage: mastraStorage,
-    options: {
-      workingMemory: {
-        enabled: true,
-      },
-    },
-  }),
+  model: createModel(),
+  tools: withUserTools(customerTools),
+  memory: createMemory(),
 })

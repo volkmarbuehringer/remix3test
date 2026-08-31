@@ -24,43 +24,20 @@ The system SHALL provide a `lookup_user` tool that looks up a user by ID (intege
 - **WHEN** the user exists but has a non-null disabled_at timestamp
 - **THEN** the tool returns the disabled_at value so the agent can report the account is locked
 
-### Requirement: Lock user account
+### Requirement: Support agent toolset is read-only for account mutations
 
-The system SHALL provide a `lock_user_account` tool that locks a user account by setting `disabled_at` to the current timestamp. This is a non-destructive lock — it does not delete appointments or data. Requires admin approval.
+The support agent SHALL NOT expose any tool that mutates user accounts. Its toolset SHALL be read-only with respect to accounts: it MAY look up users, appointments, resources, offerings, and messages and generate PDF reports, but MUST NOT cancel, lock, or unlock a user account. Account mutations SHALL be performed only through the agent-events pipeline.
 
-#### Scenario: Lock an active user
+#### Scenario: Admin requests an account mutation in support chat
 
-- **WHEN** the admin asks "lock user 42"
-- **THEN** the agent calls `lock_user_account` with userId=42 and the tool sets disabled_at to now, then returns `{ success: true, message: "User account locked" }`
+- **WHEN** an admin asks the support agent to cancel, lock, or unlock a user account
+- **THEN** the support agent SHALL NOT invoke a mutation tool
+- **AND** it SHALL either decline the mutation or redirect the admin to the agent-events pipeline for the account mutation
 
-#### Scenario: User already locked
+#### Scenario: Support agent still answers read-only queries
 
-- **WHEN** the admin tries to lock an already-locked user
-- **THEN** the tool returns `{ success: true, message: "User account is already locked" }` (idempotent)
-
-#### Scenario: User not found
-
-- **WHEN** the admin tries to lock a non-existent user
-- **THEN** the tool returns `{ found: false, message: "No user found with id..." }`
-
-### Requirement: Unlock user account
-
-The system SHALL provide an `unlock_user_account` tool that re-enables a locked user account by setting `disabled_at` to null and incrementing `token_version` (invalidating existing sessions). Requires admin approval.
-
-#### Scenario: Unlock a disabled user
-
-- **WHEN** the admin asks "unlock user 42"
-- **THEN** the agent calls `unlock_user_account` with userId=42 and the tool clears disabled_at and increments token_version, then returns `{ success: true, message: "User account unlocked" }`
-
-#### Scenario: User is already active
-
-- **WHEN** the admin tries to unlock a user that is not locked (disabled_at is null)
-- **THEN** the tool returns `{ success: true, message: "User account is already active" }` (idempotent)
-
-#### Scenario: User not found
-
-- **WHEN** the admin tries to unlock a non-existent user
-- **THEN** the tool returns `{ found: false, message: "No user found with id..." }`
+- **WHEN** an admin asks the support agent to look up a user, list appointments, or generate a report
+- **THEN** the support agent SHALL continue to answer using its read-only Q&A tools
 
 ### Requirement: Look up resource details
 

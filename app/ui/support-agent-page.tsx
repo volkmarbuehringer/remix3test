@@ -73,6 +73,15 @@ const btnStyle = css({
   '&:disabled': { opacity: 0.5, cursor: 'not-allowed' },
 })
 
+const hintStyle = css({
+  padding: '0.375rem 1rem',
+  fontSize: '0.75rem',
+  color: theme.colors.text.muted,
+  background: theme.surface.lvl0,
+  borderTop: `1px solid ${theme.colors.border.subtle}`,
+  lineHeight: '1.4',
+})
+
 export function SupportAgentPage(handle: Handle) {
   return () => (
     <div mix={pageStyle}>
@@ -93,6 +102,11 @@ export function SupportAgentPage(handle: Handle) {
       </div>
 
       <div id="chat-messages" mix={chatMessagesStyle} />
+
+      <div mix={hintStyle}>
+        Beantwortet Fragen zu Benutzern, Terminen, Ressourcen, Angeboten, Wetter und Statistiken —
+        nur Lesen, keine Kontoänderungen.
+      </div>
 
       <form id="support-agent-form" mix={inputBarStyle}>
         <textarea

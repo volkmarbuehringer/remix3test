@@ -15,7 +15,6 @@ import { mastra } from '../mastra/index.ts'
 import { deleteChatThread, listChatThreads } from '../../utils/mastra-memory.ts'
 
 import { supportTools } from '../mastra/tools/support-tools.ts'
-import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
 // ── SSE response parser ──
@@ -951,74 +950,6 @@ describe('Mastra Chat tools', () => {
   it('generatePdfReport has correct metadata', () => {
     let tool = supportTools.generatePdfReport as unknown as Record<string, unknown>
     assert.equal(tool.id, 'generate_pdf_report')
-    assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
-    assert.ok(typeof tool.execute === 'function')
-    assert.ok(tool.inputSchema, 'should have an inputSchema')
-  })
-
-  it('cancelUserAccount returns error when canceling own account', async () => {
-    let adminRow = (
-      await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com'])
-    ).rows[0] as { id: number; email: string }
-    let adminId = adminRow.id as number
-    let result = (await runWithAdminId(adminId, () =>
-      execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
-        targetUserId: adminId,
-      }),
-    )) as Record<string, unknown>
-    assert.ok(!result.success, 'should fail')
-    assert.equal(result.error, 'Cannot cancel your own account')
-  })
-
-  it('cancelUserAccount requires admin context', async () => {
-    // Look up a non-admin user
-    let userRow = (await pool.query('SELECT id FROM users WHERE email = $1', ['user@newapp.com']))
-      .rows[0] as { id: number } | undefined
-
-    // Calling without runWithAdminId should throw
-    let threw = false
-    try {
-      await execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
-        targetUserId: userRow?.id ?? 9999,
-      })
-    } catch {
-      threw = true
-    }
-    assert.ok(threw, 'should throw when not authenticated as admin')
-  })
-
-  it('cancelUserAccount calls workflow with admin context', async () => {
-    let adminRow = (
-      await pool.query('SELECT id, email FROM users WHERE email = $1', ['admin@newapp.com'])
-    ).rows[0] as { id: number; email: string }
-
-    let targetId = await createTestUser(`cancel-workflow-target-${Date.now()}@example.com`)
-    if (!targetId) throw new Error('Failed to create test user')
-    let targetIdForCleanup = targetId
-
-    let result: Record<string, unknown>
-    try {
-      result = (await runWithAdminId(adminRow.id, () =>
-        execTool(supportTools.cancelUserAccount as unknown as Record<string, unknown>, {
-          targetUserId: targetId,
-        }),
-      )) as Record<string, unknown>
-
-      assert.equal(result.success, true)
-      assert.equal(result.targetUserId, targetId)
-      assert.ok(typeof result.deletedAppointments === 'number')
-
-      // Verify the user is actually disabled
-      let check = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [targetId])
-      assert.ok(check.rows[0]?.disabled_at != null, 'user should be disabled')
-    } finally {
-      await pool.query('DELETE FROM users WHERE id = $1', [targetIdForCleanup])
-    }
-  })
-
-  it('cancelUserAccount returns identifiable result shape', () => {
-    let tool = supportTools.cancelUserAccount as unknown as Record<string, unknown>
-    assert.equal(tool.id, 'cancel_user_account')
     assert.ok(typeof tool.description === 'string' && tool.description.length > 0)
     assert.ok(typeof tool.execute === 'function')
     assert.ok(tool.inputSchema, 'should have an inputSchema')

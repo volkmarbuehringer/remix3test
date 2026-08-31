@@ -14,9 +14,6 @@ import {
 } from '../../../data/schema.ts'
 import { generatePdfBuffer } from '../../../utils/pdf-utils.ts'
 import type { TDocumentDefinitions } from 'pdfmake/interfaces.js'
-import { requireAdminId } from './admin-context.ts'
-import { executeCancelUserWorkflow } from '../workflow-executor.ts'
-
 export const supportTools = {
   lookupUser: createTool({
     id: 'lookup_user',
@@ -687,72 +684,5 @@ export const supportTools = {
       latitude: 50.4667,
       longitude: 7.7333,
     }),
-  }),
-
-  cancelUserAccount: createTool({
-    id: 'cancel_user_account',
-    description:
-      'Cancel a user account by ID: deletes all future appointments, disables login, and prevents re-registration with the same email. The user account stays in the database but is marked as disabled.',
-    requireApproval: true,
-    inputSchema: z.object({
-      targetUserId: z.number().int().positive().describe('The user ID to cancel'),
-    }),
-    execute: async ({ targetUserId }) => {
-      let adminUserId = requireAdminId()
-      if (adminUserId === targetUserId) {
-        return { success: false, error: 'Cannot cancel your own account' }
-      }
-      let admin = await db.findOne(users, { where: { id: adminUserId } })
-      let adminEmail = admin?.email ?? 'unknown'
-      return executeCancelUserWorkflow({ targetUserId, adminUserId, adminEmail })
-    },
-  }),
-
-  lockUserAccount: createTool({
-    id: 'lock_user_account',
-    description:
-      'Lock a user account by ID. Sets disabled_at to now to prevent login. Non-destructive — does not delete appointments or data. Use cancelUserAccount for full account cancellation.',
-    requireApproval: true,
-    inputSchema: z.object({
-      targetUserId: z.number().int().positive().describe('The user ID to lock'),
-    }),
-    execute: async ({ targetUserId }) => {
-      let adminUserId = requireAdminId()
-      if (adminUserId === targetUserId) {
-        return { success: false, error: 'Cannot lock your own account' }
-      }
-      let existing = await db.findOne(users, { where: { id: targetUserId } })
-      if (!existing) return { found: false, message: 'No user found with that ID' }
-      if (existing.disabled_at !== null) {
-        return { success: true, message: 'User account is already locked' }
-      }
-      await db.update(users, targetUserId, { disabled_at: Date.now() })
-      return { success: true, message: 'User account locked' }
-    },
-  }),
-
-  unlockUserAccount: createTool({
-    id: 'unlock_user_account',
-    description:
-      'Unlock a user account by ID. Clears disabled_at, allowing the user to log in again, and increments token_version to invalidate existing sessions. Requires admin approval.',
-    requireApproval: true,
-    inputSchema: z.object({
-      targetUserId: z.number().int().positive().describe('The user ID to unlock'),
-    }),
-    execute: async ({ targetUserId }) => {
-      let adminUserId = requireAdminId()
-      if (adminUserId === targetUserId) {
-        return { success: false, error: 'Cannot unlock your own account' }
-      }
-      let existing = await db.findOne(users, { where: { id: targetUserId } })
-      if (!existing) return { found: false, message: 'No user found with that ID' }
-      if (existing.disabled_at === null) {
-        return { success: true, message: 'User account is already active' }
-      }
-      await db.exec(
-        sql`UPDATE users SET disabled_at = NULL, token_version = token_version + 1 WHERE id = ${targetUserId}`,
-      )
-      return { success: true, message: 'User account unlocked' }
-    },
   }),
 }
