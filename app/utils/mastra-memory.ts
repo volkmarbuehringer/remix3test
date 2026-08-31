@@ -16,7 +16,8 @@ interface MemoryHandle {
   recall: (opts: {
     threadId: string
     resource?: string
-    perPage: false
+    perPage?: number | false
+    orderBy?: { field: string; direction: string }
   }) => Promise<{ messages?: unknown[] }>
   listThreads: (opts: {
     page: number
@@ -93,4 +94,87 @@ export async function deleteChatThread(agent: AgentHandle, threadId: string): Pr
   if (memory) {
     await memory.deleteThread(threadId)
   }
+}
+
+// ── Conversation previews ──
+
+export interface ChatThreadPreview {
+  /** Single-line snippet rendered in the list cell. */
+  preview: string
+  /** Longer opening exchange shown in the hover tooltip. */
+  previewFull: string
+}
+
+const PREVIEW_MAX_LENGTH = 220
+const PREVIEW_FULL_MAX_LENGTH = 600
+
+function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+function buildChatThreadPreview(
+  rawMessages: Array<{ role: string; content: unknown }>,
+): ChatThreadPreview {
+  let turns = rawMessages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      text: messageContentToText(m.content).trim(),
+    }))
+    .filter((t) => t.text.length > 0)
+
+  if (turns.length === 0) return { preview: '', previewFull: '' }
+
+  // The list column leads with the conversation's opening question (the first
+  // user turn, falling back to the first turn for tool-only conversations).
+  let opening = turns.find((t) => t.role === 'user') ?? turns[0]
+  let preview = collapseWhitespace(opening.text).slice(0, PREVIEW_MAX_LENGTH)
+
+  // The tooltip reveals a little more: the opening question plus the first reply.
+  let firstUser = opening.role === 'user' ? opening : turns.find((t) => t.role === 'user')
+  let firstAssistant = turns.find((t) => t.role === 'assistant')
+  let exchangeLines: string[] = []
+  if (firstUser) exchangeLines.push(`User: ${firstUser.text}`)
+  if (firstAssistant) exchangeLines.push(`Assistant: ${firstAssistant.text}`)
+  let previewFull = exchangeLines
+    .map(collapseWhitespace)
+    .join('\n')
+    .slice(0, PREVIEW_FULL_MAX_LENGTH)
+
+  return { preview, previewFull }
+}
+
+/**
+ * Fetches a lightweight preview for a batch of threads by reading a bounded
+ * slice of the opening messages for each one. Each thread is isolated: a failed
+ * lookup falls back to an empty preview rather than failing the whole page.
+ */
+export async function fetchChatThreadPreviews(
+  agent: AgentHandle,
+  threadIds: string[],
+): Promise<Map<string, ChatThreadPreview>> {
+  let previews = new Map<string, ChatThreadPreview>()
+  if (threadIds.length === 0) return previews
+
+  let memory = await getMemory(agent)
+
+  await Promise.all(
+    threadIds.map(async (threadId) => {
+      try {
+        let { messages } = await memory.recall({
+          threadId,
+          perPage: 8,
+          orderBy: { field: 'createdAt', direction: 'ASC' },
+        })
+        let rawMessages = (messages ?? []) as Array<{ role: string; content: unknown }>
+        previews.set(threadId, buildChatThreadPreview(rawMessages))
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'test')
+          console.error(`[mastra-memory] preview failed for ${threadId}: ${String(error)}`)
+        previews.set(threadId, { preview: '', previewFull: '' })
+      }
+    }),
+  )
+
+  return previews
 }

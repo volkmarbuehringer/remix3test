@@ -109,10 +109,19 @@ const backLinkStyle = css({
   },
 })
 
+/** Derives a human-readable title from the conversation's opening question. */
+function conversationTitle(messages: ChatMessage[]): string {
+  let firstUser = messages.find((m) => m.role === 'user')
+  if (!firstUser) return 'Konversation'
+  let text = decodeHtml(firstUser.content).replace(/\s+/g, ' ').trim()
+  if (!text) return 'Konversation'
+  return text.length > 64 ? text.slice(0, 64) + '…' : text
+}
+
 export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>) {
   return () => {
-    let { conversationId, messages, error } = handle.props
-    let displayTitle = `Conversation #${conversationId.substring(0, 8)}…`
+    let { messages, error } = handle.props
+    let displayTitle = conversationTitle(messages)
 
     return (
       <div mix={detailStyle}>

@@ -16,6 +16,8 @@ import {
   recallChatMessages,
   listChatThreads,
   deleteChatThread,
+  fetchChatThreadPreviews,
+  type ChatThreadPreview,
 } from '../../../utils/mastra-memory.ts'
 import { validateThreadId } from '../../../utils/thread-id.ts'
 
@@ -43,6 +45,27 @@ async function renderChatLogPage(context: any, offset: number): Promise<Response
       id: t.id,
       created_at: t.createdAt,
       updated_at: t.updatedAt,
+      preview: '',
+      previewFull: '',
+    }))
+
+    // Enrich each row with a text preview of the conversation opening so the
+    // list no longer has to display a bare UUID. Failing to build a preview is
+    // non-fatal — the column falls back to a muted placeholder.
+    let previews = new Map<string, ChatThreadPreview>()
+    try {
+      previews = await fetchChatThreadPreviews(
+        agent,
+        conversations.map((c) => c.id),
+      )
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'test')
+        console.error('[Admin Chatlog] Error loading conversation previews: ' + String(error))
+    }
+    conversations = conversations.map((c) => ({
+      ...c,
+      preview: previews.get(c.id)?.preview ?? '',
+      previewFull: previews.get(c.id)?.previewFull ?? '',
     }))
 
     return renderAdminPage(

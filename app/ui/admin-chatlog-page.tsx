@@ -5,6 +5,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { table } from './mixins/admin-table.ts'
 import { formatTimestamp } from './mixins/admin-urls.ts'
+import { decodeHtml } from '../utils/decode-html-entities.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -19,6 +20,8 @@ interface ChatLogPageProps {
     id: string
     created_at: number
     updated_at: number
+    preview: string
+    previewFull: string
   }>
   offset: number
   hasMore: boolean
@@ -67,10 +70,18 @@ const iconActionDangerStyle = css({
 })
 
 const conversationLinkStyle = css({
+  display: 'block',
   color: theme.colors.action.primary.background,
   textDecoration: 'none',
-  fontWeight: theme.fontWeight.semibold,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
   '&:hover': { textDecoration: 'underline' },
+})
+
+const previewPlaceholderStyle = css({
+  color: theme.colors.text.muted,
+  fontStyle: 'italic',
 })
 
 const emptyStateStyle = css({
@@ -92,10 +103,6 @@ const pageBadgeStyle = css({
 const colActionsWidth = css({ width: '120px' })
 
 // ── Component ──
-
-function shortThreadId(id: string): string {
-  return id.length > 10 ? id.slice(0, 10) + '…' : id
-}
 
 export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
   return () => {
@@ -134,13 +141,20 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                   let detailHref = routes.admin.chatlog.fragments.detail.href({ id: conv.id })
                   return (
                     <tr key={conv.id} mix={table.row}>
-                      <td mix={table.td} title={conv.id}>
+                      <td mix={table.td}>
                         <a
                           href={detailHref}
                           data-rmx-target={getSelfFrameTarget()}
                           mix={conversationLinkStyle}
+                          title={
+                            decodeHtml(conv.previewFull || conv.preview) || 'Konversation öffnen'
+                          }
                         >
-                          #{shortThreadId(conv.id)}
+                          {conv.preview ? (
+                            decodeHtml(conv.preview)
+                          ) : (
+                            <span mix={previewPlaceholderStyle}>Keine Nachrichten</span>
+                          )}
                         </a>
                       </td>
                       <td mix={table.td} title={formatTimestamp(conv.created_at)}>
@@ -165,7 +179,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                             method="POST"
                             action={routes.admin.chatlog.destroy.href({ id: conv.id })}
                             data-delete-form={conv.id}
-                            data-confirm={`Konversation #${conv.id} löschen?`}
+                            data-confirm="Diese Konversation wirklich löschen?"
                             data-rmx-target={getSelfFrameTarget()}
                             mix={css({ margin: 0, padding: 0 })}
                           >
