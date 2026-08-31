@@ -32,6 +32,17 @@ The manual dedicated-`Client` migration path and the data-table migration runner
 
 So the dedicated-client workaround below remains a **fallback pattern** for projects that still run the data-table migration runner (or need atomic cross-statement DDL on a dedicated connection with `statement_timeout: 0`) when the pool `statement_timeout` is hit on slow hardware — not the default newapp approach.
 
+### Diagnosing an intermittent catalog duplicate-key in tests
+
+`initializeAppDatabase()` / Mastra `PostgresStoreVNext` runs DDL on the shared local test DB. When several test files each init the store concurrently (default parallel workers), their `CREATE TABLE/EXTENSION` can collide on the Postgres **catalog**, surfacing as an intermittent `duplicate key value violates unique constraint "pg_class_relname_nsp_index"` (or the sibling `pg_extension_name_index`). The failing test **varies between runs** — it is whichever worker happened to race, not a logic bug in the code under test.
+
+**Confirm it's an infra race, not a regression:**
+1. Run the failing test file **alone** — it should pass deterministically.
+2. Run the **full suite** (`npm test`) — green (the same race may surface in a *different* file, so the single-file pass is the strong signal).
+3. For a fully deterministic run, pass `--concurrency 1` to `remix test` to serialize DDL init — slower, but avoids the race.
+
+**When to use:** a test fails only when run with multiple files, with a `pg_class_…` / `pg_extension…` duplicate-key catalog error, and passes in isolation.
+
 ### Config-backed pool tradeoff: no `'error'` listener
 
 Config-backed construction makes the driver own the pool internally (`this.#client = new pg.Pool(config)`), so `wipe()`/`reset()`/`close()` work — but the driver attaches **no `pool.on('error')` listener** and exposes no accessor (all 760 lines of the postgres driver keep `#client` private). Consequences:
