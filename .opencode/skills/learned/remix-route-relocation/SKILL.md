@@ -1,6 +1,6 @@
 ---
 name: remix-route-relocation
-description: Relocate Remix 3 routes between route trees — moving from admin frame-sidebar to top-level, frame to full-page, or upgrading form validation from error-redirect to parseSafe + context.render. Use when moving a route out of a frame layout or upgrading form error handling.
+description: Relocate Remix 3 routes between route trees — moving from admin frame-sidebar to top-level, frame to full-page, upgrading form validation from error-redirect to parseSafe + context.render, or deleting a route with a full frame-reference sweep. Use when moving a route out of a frame layout, upgrading form error handling, or removing a route entirely.
 ---
 
 # Remix 3 Route Relocation & Form Validation Upgrade
@@ -68,3 +68,24 @@ After route relocation + validation upgrade, verify:
 - [ ] Required DB fields have corresponding `minLength(1)` in schema
 - [ ] DB error catch blocks re-render with user-friendly message (no re-throw)
 - [ ] `route-labels.ts` entry updated for the new path
+
+## Route Deletion Sweep
+
+When REMOVING a route entirely (not moving it), the reference sweep is wider than relocation — and a missed reference breaks the WHOLE test suite, not just the removed route.
+
+### Sweep checklist (beyond relocation's items 1-4)
+
+- [ ] `app/routes.ts` — remove the route tree AND its frame name from the `frames` const
+- [ ] `app/router.ts` — remove `router.map(...)`
+- [ ] `app/actions/admin/controller.tsx` — remove the re-export
+- [ ] `app/ui/admin-layout.tsx` — nav item, icon case, `AdminNavItem` union member, `contentOnlyTargets`, `fullHeightTargets`
+- [ ] `app/middleware/frame-redirect.ts` — remove the frame from `ADMIN_FRAME_TARGETS`
+- [ ] `app/route-labels.ts` — remove the `ROUTE_LABELS` entry
+- [ ] `app/ui/verwaltung-layout.tsx` — remove the frame from `FRAME_TARGETS`
+- [ ] `app/utils/frame-target.ts` — remove the frame from `getSelfFrameTarget`
+- [ ] `app/middleware/skip-csrf.ts` — remove the path from `AGENT_PATHS` (SSE/agent routes)
+
+### The two gotchas
+
+1. **Grep by the FRAME name, not the route path.** `frames.<name>` references live in `frame-redirect.ts`, `verwaltung-layout.tsx`, and `frame-target.ts` — a `grep "old/path" app/` misses them. Sweep with `grep -rn "<FrameName>\|routes.<tree>.<key>" app/`.
+2. **The test runner loads every controller transitively via the router.** A broken import in a to-be-deleted controller (e.g. it imports a file you moved) fails the ENTIRE `remix test` run with a confusing `Cannot find module ... imported from <deleted-controller>` — even for unrelated test files. Delete/repair all references before running any test, or the suite never loads.
