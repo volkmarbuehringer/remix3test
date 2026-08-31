@@ -275,11 +275,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a
-              href={routes.verwaltung.offerings.index.href()}
-              data-rmx-target={getSelfFrameTarget()}
-              mix={table.clearLink}
-            >
+            <a href={routes.verwaltung.offerings.index.href()} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}

@@ -194,11 +194,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a
-              href={routes.admin.users.index.href()}
-              data-rmx-target={getSelfFrameTarget()}
-              mix={table.clearLink}
-            >
+            <a href={routes.admin.users.index.href()} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}

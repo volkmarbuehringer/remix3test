@@ -223,18 +223,13 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
             aria-label="Nach Element oder Beschreibung suchen"
             mix={table.filterInput}
           />
-          <input type="hidden" name="offset" value={String(offset)} />
           <input type="hidden" name="sort" value={sortColumn} />
           <input type="hidden" name="order" value={sortDirection} />
           <button type="submit" mix={table.searchBtn}>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
           {filter && (
-            <a
-              href={routes.admin.lists.index.href()}
-              data-rmx-target={getSelfFrameTarget()}
-              mix={table.clearLink}
-            >
+            <a href={routes.admin.lists.index.href()} mix={table.clearLink}>
               Zurücksetzen
             </a>
           )}

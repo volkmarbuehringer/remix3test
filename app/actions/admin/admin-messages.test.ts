@@ -366,6 +366,60 @@ describe('Admin Messages controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // Sorting — sortable columns like the other admin grids
+  // -----------------------------------------------------------------------
+
+  it('GET /admin/messages renders sortable column headers with sort links', async () => {
+    let response = await adminMessagesGet()
+    let text = await response.text()
+
+    // Each sortable column header links to toggle its sort.
+    assert.ok(text.includes('sort=sender_name'), 'Absender header should link to sort by sender')
+    assert.ok(text.includes('sort=content'), 'Nachricht header should link to sort by content')
+    assert.ok(text.includes('sort=created_at'), 'Erstellt header should link to sort by created_at')
+    // Default sort is created_at DESC, so the active column reports descending.
+    assert.ok(text.includes('aria-sort="descending"'), 'active sort column should report aria-sort')
+  })
+
+  it('GET /admin/messages sorts messages by created_at ascending/descending', async () => {
+    let base = Date.now()
+    let ids: number[] = []
+    for (let [content, ts] of [
+      ['SORT_ALPHA', base],
+      ['SORT_GAMMA', base + 1000],
+      ['SORT_BETA', base + 2000],
+    ] as const) {
+      let r = await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, $2) RETURNING id`,
+        [content, ts],
+      )
+      ids.push(r.rows[0].id as number)
+    }
+
+    try {
+      // Restrict the grid to these rows via a unique filter so ordering is
+      // deterministic regardless of other seeded messages.
+      let asc = await adminMessagesGet('filter=SORT_&sort=created_at&order=asc')
+      let ascText = await asc.text()
+      assert.ok(
+        ascText.indexOf('SORT_ALPHA') < ascText.indexOf('SORT_GAMMA') &&
+          ascText.indexOf('SORT_GAMMA') < ascText.indexOf('SORT_BETA'),
+        'ascending sort should show oldest first (ALPHA, GAMMA, BETA)',
+      )
+
+      let desc = await adminMessagesGet('filter=SORT_&sort=created_at&order=desc')
+      let descText = await desc.text()
+      assert.ok(
+        descText.indexOf('SORT_BETA') < descText.indexOf('SORT_GAMMA') &&
+          descText.indexOf('SORT_GAMMA') < descText.indexOf('SORT_ALPHA'),
+        'descending sort should show newest first (BETA, GAMMA, ALPHA)',
+      )
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = ANY($1)', [ids])
+    }
+  })
+
+  // -----------------------------------------------------------------------
   // POST /admin/messages/:id/delete — preserves the current offset
   // -----------------------------------------------------------------------
 
@@ -417,6 +471,36 @@ describe('Admin Messages controller', () => {
 
     assert.equal(response.status, 302)
     assert.equal(response.headers.get('Location'), '/admin/messages?filter=filtered+term')
+  })
+
+  it('POST /admin/messages/:id/delete preserves the current sort in the redirect', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let now = Date.now()
+    let createResult = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'Delete me (sort)', $1) RETURNING id`,
+      [now],
+    )
+    let messageId = createResult.rows[0].id as number
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_offset', '10')
+    formData.set('_sort', 'sender_name')
+    formData.set('_order', 'asc')
+    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    assert.equal(
+      response.headers.get('Location'),
+      '/admin/messages?offset=10&sort=sender_name&order=asc',
+    )
   })
 
   // -----------------------------------------------------------------------

@@ -6,7 +6,12 @@ import { rotatedGlyphCss } from './mixins/icon.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import button from '../ui/theme/button.ts'
-import { formatTimestamp } from './mixins/admin-urls.ts'
+import {
+  formatTimestamp,
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+} from './mixins/admin-urls.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -35,6 +40,8 @@ interface AdminMessagesPageProps {
   prevOffset: number
   nextOffset: number
   filter?: string
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
 }
 
 // ── Styles ──
@@ -163,18 +170,23 @@ const pageBadgeStyle = css({
 
 export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
   return () => {
-    let { messages, offset, hasMore, pageSize, prevOffset, nextOffset, filter } = handle.props
+    let {
+      messages,
+      offset,
+      hasMore,
+      pageSize,
+      prevOffset,
+      nextOffset,
+      filter,
+      sortColumn,
+      sortDirection,
+    } = handle.props
     let pageStart = messages.length > 0 ? offset + 1 : 0
     let pageEnd = offset + messages.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
 
-    let pageUrl = (newOffset: number): string => {
-      let params = new URLSearchParams()
-      if (newOffset > 0) params.set('offset', String(newOffset))
-      if (filter) params.set('filter', filter)
-      let qs = params.toString()
-      return ADMIN_BASE + (qs ? '?' + qs : '')
-    }
+    let pageHref = (newOffset: number): string =>
+      buildPaginationUrl(ADMIN_BASE, newOffset, sortColumn, sortDirection, filter)
 
     return (
       <div mix={table.page}>
@@ -233,16 +245,13 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               aria-label="Nach Inhalt oder Absender suchen"
               mix={table.filterInput}
             />
-            <input type="hidden" name="offset" value={String(offset)} />
+            <input type="hidden" name="sort" value={sortColumn} />
+            <input type="hidden" name="order" value={sortDirection} />
             <button type="submit" mix={table.searchBtn}>
               <Glyph name="search" width={14} height={14} /> Suchen
             </button>
             {filter && (
-              <a
-                href={routes.admin.messages.index.href()}
-                data-rmx-target={getSelfFrameTarget()}
-                mix={table.clearLink}
-              >
+              <a href={routes.admin.messages.index.href()} mix={table.clearLink}>
                 Zurücksetzen
               </a>
             )}
@@ -270,9 +279,78 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={table.th}>Absender</th>
-                  <th mix={table.th}>Nachricht</th>
-                  <th mix={table.th}>Erstellt</th>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('sender_name', sortColumn, sortDirection)}
+                  >
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'sender_name',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.sortLink}
+                    >
+                      Absender
+                      <span
+                        mix={'sender_name' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
+                        {sortArrow('sender_name', sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  </th>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('content', sortColumn, sortDirection)}
+                  >
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'content',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.sortLink}
+                    >
+                      Nachricht
+                      <span
+                        mix={'content' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
+                        {sortArrow('content', sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  </th>
+                  <th
+                    mix={table.thSortable}
+                    aria-sort={sortRule('created_at', sortColumn, sortDirection)}
+                  >
+                    <a
+                      href={buildSortUrl(
+                        ADMIN_BASE,
+                        'created_at',
+                        sortColumn,
+                        sortDirection,
+                        offset,
+                        filter,
+                      )}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.sortLink}
+                    >
+                      Erstellt
+                      <span
+                        mix={'created_at' === sortColumn ? table.sortArrowActive : table.sortArrow}
+                      >
+                        {sortArrow('created_at', sortColumn, sortDirection)}
+                      </span>
+                    </a>
+                  </th>
                   <th mix={table.th}>Aktionen</th>
                 </tr>
               </thead>
@@ -318,8 +396,8 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                           <GridStateHiddenInputs
                             state={{
                               offset: String(offset),
-                              sort: '',
-                              order: '',
+                              sort: sortColumn,
+                              order: sortDirection,
                               filter: filter ?? '',
                             }}
                           />
@@ -359,7 +437,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={pageUrl(prevOffset)}
+                  href={pageHref(prevOffset)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
@@ -368,7 +446,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               ) : null}
               {hasMore ? (
                 <a
-                  href={pageUrl(nextOffset)}
+                  href={pageHref(nextOffset)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
@@ -381,4 +459,13 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       </div>
     )
   }
+}
+
+function sortRule(
+  field: string,
+  sortField: string,
+  sortOrder: 'asc' | 'desc',
+): 'ascending' | 'descending' | undefined {
+  if (field !== sortField) return undefined
+  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }

@@ -20,6 +20,8 @@ import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
 import { parseId } from '../../../utils/ids.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
+import { gridStateFromFormData, gridStateToParams } from '../../../utils/grid-state.ts'
+import { parseSort } from '../../../utils/sort-params.ts'
 
 const messageSchema = f.object({
   content: f.field(s.string()),
@@ -35,6 +37,10 @@ function sanitizeContent(content: string): string {
 
 const MESSAGES_PAGE_LIMIT = 10
 
+/** Sortable columns (whitelisted; the SQL expressions are the keys of
+ *  SORT_EXPRS in ../data/admin-messages.ts). */
+const SORTABLE_FIELDS = ['id', 'sender_name', 'content', 'created_at'] as const
+
 /** Clamps a query/form offset to a non-negative integer. */
 function parseOffset(raw: string | null | undefined): number {
   let value = Number(raw ?? '')
@@ -49,12 +55,18 @@ function parseFilter(raw: string | null | undefined): string | undefined {
 
 async function renderMessagesPage(
   context: any,
-  offset: number,
-  filter?: string,
+  opts: { offset: number; filter?: string; column: string; direction: 'asc' | 'desc' },
 ): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
 
-  let rows = await listMessages(context.db, effectivePageSize + 1, offset, filter)
+  let rows = await listMessages(
+    context.db,
+    effectivePageSize + 1,
+    opts.offset,
+    opts.filter,
+    opts.column,
+    opts.direction,
+  )
 
   let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
@@ -64,12 +76,14 @@ async function renderMessagesPage(
     'messages',
     <AdminMessagesPage
       messages={rows}
-      offset={offset}
+      offset={opts.offset}
       hasMore={hasMore}
       pageSize={effectivePageSize}
-      prevOffset={Math.max(0, offset - effectivePageSize)}
-      nextOffset={offset + effectivePageSize}
-      filter={filter}
+      prevOffset={Math.max(0, opts.offset - effectivePageSize)}
+      nextOffset={opts.offset + effectivePageSize}
+      filter={opts.filter}
+      sortColumn={opts.column}
+      sortDirection={opts.direction}
     />,
   )
 }
@@ -81,7 +95,12 @@ export default createController(routes.admin.messages, {
     async index(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
       let filter = parseFilter(context.url.searchParams.get('filter'))
-      return renderMessagesPage(context, offset, filter)
+      let { column, direction } = parseSort(context.url, {
+        allowedColumns: SORTABLE_FIELDS,
+        defaultColumn: 'created_at',
+        defaultDirection: 'desc',
+      })
+      return renderMessagesPage(context, { offset, filter, column, direction })
     },
 
     // The frame commits the POST delete form action path (form action == frame
@@ -91,7 +110,12 @@ export default createController(routes.admin.messages, {
     async destroyResolve(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
       let filter = parseFilter(context.url.searchParams.get('filter'))
-      return renderMessagesPage(context, offset, filter)
+      let { column, direction } = parseSort(context.url, {
+        allowedColumns: SORTABLE_FIELDS,
+        defaultColumn: 'created_at',
+        defaultDirection: 'desc',
+      })
+      return renderMessagesPage(context, { offset, filter, column, direction })
     },
 
     async action(context) {
@@ -144,9 +168,6 @@ export default createController(routes.admin.messages, {
       let db = context.db
       let { params } = context
       let messageId = parseId(params.id)
-      let rawOffset = context.formData.get('_offset') as string | null
-      let offset = parseOffset(rawOffset)
-      let filter = parseFilter(context.formData.get('_filter') as string | null)
 
       if (messageId === undefined || messageId < 1) {
         return new Response('Invalid message ID', { status: 400 })
@@ -165,9 +186,9 @@ export default createController(routes.admin.messages, {
 
       broadcastInvalidate()
 
-      let urlParams = new URLSearchParams()
-      if (offset > 0) urlParams.set('offset', String(offset))
-      if (filter) urlParams.set('filter', filter)
+      // Preserve the current grid state (offset, sort, order, filter) so the
+      // post-delete redirect lands back on the same view.
+      let urlParams = gridStateToParams(gridStateFromFormData(context.formData))
       let qs = urlParams.toString()
       return redirect(routes.admin.messages.index.href() + (qs ? '?' + qs : ''))
     },
