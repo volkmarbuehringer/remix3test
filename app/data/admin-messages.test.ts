@@ -45,4 +45,32 @@ describe('admin-messages', () => {
     assert.ok(Array.isArray(rows))
     assert.equal(rows.length, 0)
   })
+
+  it('listMessages filters by message content (case-insensitive)', async () => {
+    now = Date.now()
+    let user = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, created_at, updated_at)
+       VALUES ('test-filter@example.com', 'hash', 'Filter Sender', 'customer', $1, $1)
+       RETURNING id`,
+      [now],
+    )
+    testUserId = user.rows[0].id
+    await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ($1, 'Alpha Unique Token', $2)`,
+      [testUserId, now],
+    )
+    await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ($1, 'Beta Different', $2)`,
+      [testUserId, now + 1],
+    )
+    let rows = await listMessages(db, 10, 0, 'alpha unique')
+    assert.ok(
+      rows.some((r) => r.content === 'Alpha Unique Token'),
+      'matching message should be returned',
+    )
+    assert.ok(
+      !rows.some((r) => r.content === 'Beta Different'),
+      'non-matching message should be excluded',
+    )
+  })
 })

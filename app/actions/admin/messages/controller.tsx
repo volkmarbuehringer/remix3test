@@ -41,10 +41,20 @@ function parseOffset(raw: string | null | undefined): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
-async function renderMessagesPage(context: any, offset: number): Promise<Response> {
+/** Clamps a query/form filter to a bounded string (optional). */
+function parseFilter(raw: string | null | undefined): string | undefined {
+  let value = raw?.trim() ?? ''
+  return value ? value.slice(0, 200) : undefined
+}
+
+async function renderMessagesPage(
+  context: any,
+  offset: number,
+  filter?: string,
+): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
 
-  let rows = await listMessages(context.db, effectivePageSize + 1, offset)
+  let rows = await listMessages(context.db, effectivePageSize + 1, offset, filter)
 
   let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
@@ -59,6 +69,7 @@ async function renderMessagesPage(context: any, offset: number): Promise<Respons
       pageSize={effectivePageSize}
       prevOffset={Math.max(0, offset - effectivePageSize)}
       nextOffset={offset + effectivePageSize}
+      filter={filter}
     />,
   )
 }
@@ -69,7 +80,8 @@ export default createController(routes.admin.messages, {
   actions: {
     async index(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
-      return renderMessagesPage(context, offset)
+      let filter = parseFilter(context.url.searchParams.get('filter'))
+      return renderMessagesPage(context, offset, filter)
     },
 
     // The frame commits the POST delete form action path (form action == frame
@@ -78,7 +90,8 @@ export default createController(routes.admin.messages, {
     // resolves instead of falling to a 404 (POST-only route).
     async destroyResolve(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
-      return renderMessagesPage(context, offset)
+      let filter = parseFilter(context.url.searchParams.get('filter'))
+      return renderMessagesPage(context, offset, filter)
     },
 
     async action(context) {
@@ -133,7 +146,7 @@ export default createController(routes.admin.messages, {
       let messageId = parseId(params.id)
       let rawOffset = context.formData.get('_offset') as string | null
       let offset = parseOffset(rawOffset)
-      let qs = offset > 0 ? `?offset=${offset}` : ''
+      let filter = parseFilter(context.formData.get('_filter') as string | null)
 
       if (messageId === undefined || messageId < 1) {
         return new Response('Invalid message ID', { status: 400 })
@@ -152,7 +165,11 @@ export default createController(routes.admin.messages, {
 
       broadcastInvalidate()
 
-      return redirect(routes.admin.messages.index.href() + qs)
+      let urlParams = new URLSearchParams()
+      if (offset > 0) urlParams.set('offset', String(offset))
+      if (filter) urlParams.set('filter', filter)
+      let qs = urlParams.toString()
+      return redirect(routes.admin.messages.index.href() + (qs ? '?' + qs : ''))
     },
 
     subscribe(context) {

@@ -254,8 +254,84 @@ describe('Admin Messages controller', () => {
     let response = await adminMessagesGet()
     let text = await response.text()
 
-    assert.ok(text.includes('Neue Nachricht senden'), 'compose panel should render')
+    assert.ok(text.includes('name="content"'), 'compose textarea should be present')
+    assert.ok(text.includes('for="messages-content"'), 'compose label should be present')
     assert.ok(text.includes('Nachricht senden'), 'submit button should render')
+    assert.ok(
+      text.includes('id="messages-compose-form"'),
+      'compose form should be id-targetable for the external submit button',
+    )
+    assert.ok(
+      text.includes('form="messages-compose-form"'),
+      'the toolbar submit button should target the compose form via its form attribute',
+    )
+  })
+
+  it('GET /admin/messages renders clamped message previews with an expand toggle', async () => {
+    // Seed a message so at least one row renders with the content cell markup.
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let now = Date.now()
+    let createResult = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'A longer message for the preview clamp', $1) RETURNING id`,
+      [now],
+    )
+    let messageId = createResult.rows[0].id as number
+
+    let response = await adminMessagesGet()
+    let text = await response.text()
+
+    assert.ok(
+      text.includes('data-message-text'),
+      'content cells should be marked for the clamp/expand behaviour',
+    )
+    assert.ok(text.includes('data-expand-msg'), 'an expand toggle button should be rendered')
+    assert.ok(text.includes('>Mehr</button>'), 'Expand toggle should be labelled "Mehr"')
+
+    // Clean up the seeded message.
+    await pool.query('DELETE FROM messages WHERE id = $1', [messageId])
+  })
+
+  it('GET /admin/messages renders the filter bar', async () => {
+    let response = await adminMessagesGet()
+    let text = await response.text()
+
+    assert.ok(text.includes('name="filter"'), 'filter input should be present')
+    assert.ok(
+      text.includes('Nach Inhalt oder Absender suchen'),
+      'filter input should carry its placeholder',
+    )
+  })
+
+  it('GET /admin/messages?filter=… returns only matching messages', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let now = Date.now()
+    let matchId = (
+      await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'FILTER_MATCH_ONLY_AB12', $1) RETURNING id`,
+        [now],
+      )
+    ).rows[0].id
+    let missId = (
+      await pool.query(
+        `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'FILTER_SHOULD_NOT_APPEAR_CD34', $1) RETURNING id`,
+        [now + 1],
+      )
+    ).rows[0].id
+
+    let response = await adminMessagesGet('filter=FILTER_MATCH_ONLY_AB12')
+    let text = await response.text()
+
+    assert.ok(text.includes('FILTER_MATCH_ONLY_AB12'), 'matching message content should be shown')
+    assert.ok(
+      !text.includes('FILTER_SHOULD_NOT_APPEAR_CD34'),
+      'non-matching message content should be excluded',
+    )
+
+    await pool.query('DELETE FROM messages WHERE id IN ($1, $2)', [matchId, missId])
   })
 
   // -----------------------------------------------------------------------
@@ -316,6 +392,31 @@ describe('Admin Messages controller', () => {
 
     assert.equal(response.status, 302)
     assert.equal(response.headers.get('Location'), '/admin/messages?offset=10')
+  })
+
+  it('POST /admin/messages/:id/delete preserves the current filter in the redirect', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let now = Date.now()
+    let createResult = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at) VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), 'Delete me (filter)', $1) RETURNING id`,
+      [now],
+    )
+    let messageId = createResult.rows[0].id as number
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_filter', 'filtered term')
+    let response = await router.fetch(`${ADMIN_MESSAGES_URL}/${messageId}/delete`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    assert.equal(response.headers.get('Location'), '/admin/messages?filter=filtered+term')
   })
 
   // -----------------------------------------------------------------------
