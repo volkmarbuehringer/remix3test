@@ -1,5 +1,52 @@
 # Code Deletion Log
 
+## [2026-08-31] Dead-Code Audit (research-first, conservative)
+
+Full-repo dead-code audit with knip, ts-prune, depcheck, oxlint, and tsc. The
+codebase is largely clean: the 122 files knip flagged as "unused" are test files
+(remix.json `test.files` globs), browser assets (remix.json `assets.allowFiles`),
+test utilities, and manually-run scripts — none are dead. The `openspec` /
+`@fission-ai/openspec` devDeps are CLI tools (binary on PATH, `openspec/` tree
+present), not imports — kept. All other flagged exports are either exported for
+tests (kept, per policy) or used internally within their module (kept; noted as
+low-value `export`-keyword candidates below).
+
+### Unused Exports Removed
+
+- `app/data/schema.ts` — `chatRuns` table object (`export const chatRuns = table({...})`)
+  - Reason: zero references in production or test code; the `chat_runs` table is
+    accessed exclusively via raw SQL (`app/actions/chat/run-store.ts`,
+    `app/data/maintenance.ts`). No barrel `export *` re-exports it.
+
+### Impact
+
+- Files deleted: 0
+- Lines of code removed: ~24
+- Verification: `npm run typecheck` (clean), `npm run lint` (clean + theme
+  conformance OK), `npm test` (1322 pass / 0 fail / 1 skipped / 1 todo)
+
+### Kept Deliberately (with reason)
+
+- Test-only exports (`__set*` setters, `chatRateLimiter`, `findRunOwner`,
+  `skipAssetsLogger`, `AdminLayout`, `pipelineRowHtml`, `tryGetCsrfToken`,
+  `defaultLayoutPolicy`, `previewDeleteBlock`, `writeEvent`,
+  `listDaysWithOfferings`, `normalizeUserAction`, `_agentThreadId`,
+  `_recordWorkflowResult`, `getFailedNotifications`, `clearFailedNotifications`,
+  types `AgentStreamOutput`/`PgErr`/`KeyboardListItem`/`SendEmailOptions`) —
+  imported by `*.test.*` files; removing would break the suite.
+- `openspec` + `@fission-ai/openspec` devDependencies — CLI tools used via the
+  `openspec` binary; not import-tracked by knip/depcheck.
+- Internal-use exports (used only within their own module) — `sidebarRowFor`,
+  `parseIntentJson`, `requireCurrentUserId`, `checkLocked*`/
+  `checkActiveUsersPendingAppointments`, `parseSseFrame`, `chatRunsTtlMs`/
+  `webhookRequestsRetentionMs`/`auditLogsRetentionMs`/`uploadsRetentionMs`/
+  `deleteExpired*`/`runDatabaseMaintenance`, `uploadsPerUserQuotaBytes`,
+  `pool`, `loadAppSchema`, `ADMIN_FRAME_TARGETS`, `shellFullHeightStyle`,
+  `contentFullHeightStyle`, `prefersReducedMotion`, types `NotificationResult`/
+  `MastraSuspendableResult`/`UserWithPending`/`ListItem`/`GlyphSymbol`,
+  `scripts/skills-sync-lib.ts` constants. Removing just the `export` keyword is
+  safe but churn-y; left for a future API-hygiene pass.
+
 ## [2026-08-30] Consolidate User-Summary Export Helpers (modernize-users-export)
 
 Narrow consolidation of the `/verwaltung/users-export` and `/verwaltung/users-pdf` export family (OpenSpec change `modernize-users-export`). Only byte-identical code was shared; the two data-layer SQL queries were **deliberately kept separate** because their semantics differ (`users-export`: INNER JOIN + date-range WHERE; `users-pdf`: LEFT JOIN over all users). A previous consolidation attempt (8f4dfee, 2026-07-31) merged the data functions themselves and was reverted in `bd78294`.

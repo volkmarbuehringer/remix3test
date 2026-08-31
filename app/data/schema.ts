@@ -531,27 +531,5 @@ export const apiTokens = table({
   },
 })
 
-export const chatRuns = table({
-  name: 'chat_runs',
-  primaryKey: ['run_id'],
-  columns: {
-    run_id: c.text(),
-    user_id: c.integer(),
-    thread_id: c.text(),
-    created_at: bigint(),
-  },
-  beforeWrite({ operation, value }) {
-    let next = { ...value }
-    if (operation === 'create' && next.created_at === undefined) {
-      next.created_at = Date.now()
-    }
-    return { value: next }
-  },
-  afterRead({ value }) {
-    parseIntFields(value, 'created_at')
-    return { value }
-  },
-})
-
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>
