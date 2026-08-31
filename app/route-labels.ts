@@ -17,9 +17,6 @@ export const ROUTE_LABELS: Record<string, string> = {
   // Support-Agent
   [routes.admin.supportAgent.index.href()]: 'KI Chat',
 
-  // Workflow Agent
-  [routes.admin.workflowAgent.index.href()]: 'Workflow-Agent',
-
   // Agent Events (experimental pipeline)
   [routes.admin.agentEvents.index.href()]: 'Agent-Events',
 

@@ -14,7 +14,6 @@ const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
 const AGENT_PATHS = [
   '/admin/support-agent',
-  '/admin/workflow-agent',
   '/admin/agent-events',
   '/chat',
 ]

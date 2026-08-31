@@ -7,7 +7,6 @@ export const frames = {
   appointmentContent: 'appointment-content',
   appointTypes: 'appoint-types',
 
-  workflowAgentPanel: 'workflow-agent-panel',
   agentEventsPanel: 'agent-events-panel',
   supportAgentPanel: 'support-agent-panel',
 } as const
@@ -134,14 +133,6 @@ export const routes = route({
       stats: get('/stats'),
       recentActivity: get('/recent-activity'),
       userDetail: get('/user-detail/:userId'),
-    }),
-
-    workflowAgent: route('workflow-agent', {
-      index: get('/'),
-      panel: get('/panel'),
-      action: post('/'),
-      resume: post('/resume'),
-      stream: get('/stream'),
     }),
 
     agentEvents: route('agent-events', {

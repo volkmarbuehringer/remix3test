@@ -50,6 +50,8 @@ export const classifyHandler: EventHandler = {
       params: {
         targetQuery: result.targetQuery,
         ...(result.resourceQuery ? { resourceQuery: result.resourceQuery } : {}),
+        ...(result.period ? { period: result.period } : {}),
+        ...(result.status ? { status: result.status } : {}),
       },
       adminUserId: e.adminUserId,
       adminEmail: e.adminEmail,

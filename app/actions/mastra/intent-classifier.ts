@@ -6,20 +6,34 @@ export type ClassifyAgent = {
 }
 
 export type ClassifyResult =
-  | { intent: string; targetQuery: string; resourceQuery?: string }
+  | {
+      intent: string
+      targetQuery: string
+      resourceQuery?: string
+      period?: string
+      status?: string
+    }
   | { unclear: string }
 
 const AGENT_ACTION_TO_INTENT: Record<string, string> = {
   'user-action:cancel': INTENTS.CANCEL_USER,
   'user-action:lock': INTENTS.LOCK_USER,
   'user-action:unlock': INTENTS.UNLOCK_USER,
+  'user-action:lookup': INTENTS.LOOKUP_USER,
   'appointment:check': INTENTS.SHOW_APPOINTMENTS,
   'appointment:delete-resource': INTENTS.DELETE_APPOINTMENTS,
 }
 
 export function parseIntentJson(
   text: string,
-): { type?: unknown; action?: unknown; targetQuery?: unknown; resourceQuery?: unknown } | null {
+): {
+  type?: unknown
+  action?: unknown
+  targetQuery?: unknown
+  resourceQuery?: unknown
+  period?: unknown
+  status?: unknown
+} | null {
   let start = text.indexOf('{')
   let end = text.lastIndexOf('}')
   if (start !== -1 && end !== -1 && end > start) {
@@ -77,5 +91,12 @@ export async function classifyWithAgent(
   if (intent === INTENTS.DELETE_APPOINTMENTS && !resourceQuery) {
     return { unclear: text }
   }
-  return { intent, targetQuery, resourceQuery }
+
+  let rawPeriod = parsed.period
+  let period = (typeof rawPeriod === 'string' ? rawPeriod : '').trim() || undefined
+
+  let rawStatus = parsed.status
+  let status = (typeof rawStatus === 'string' ? rawStatus : '').trim() || undefined
+
+  return { intent, targetQuery, resourceQuery, period, status }
 }

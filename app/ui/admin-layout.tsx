@@ -10,7 +10,6 @@ export type AdminNavItem =
   | 'messages'
   | 'lists'
   | 'support'
-  | 'workflow'
   | 'clients'
   | 'users'
   | 'uploads'
@@ -30,11 +29,6 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'messages', label: 'Nachrichten', route: routes.admin.messages.index },
       { id: 'lists', label: 'Listen', route: routes.admin.lists.index },
       { id: 'support', label: 'Support-Agent', route: routes.admin.supportAgent.index },
-      {
-        id: 'workflow',
-        label: 'Workflow-Agent',
-        route: routes.admin.workflowAgent.index,
-      },
       { id: 'clients', label: 'Client-Test', route: routes.admin.clients.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'uploads', label: 'Uploads', route: routes.admin.uploads.index },
@@ -77,8 +71,6 @@ function navIcon(id: AdminNavItem): RemixNode {
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       )
-    case 'workflow':
-      return workflowSvg()
     case 'clients':
       return usersSvg()
     case 'users':
@@ -159,26 +151,6 @@ function usersSvg(): RemixNode {
   )
 }
 
-function workflowSvg(): RemixNode {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  )
-}
-
 function agentEventsSvg(): RemixNode {
   return (
     <svg
@@ -221,14 +193,9 @@ export const { renderPage: renderAdminPage, Layout: AdminLayout } =
   createSidebarLayout<AdminNavItem>({
     frameTarget: frames.adminContent,
     acceptFrameTargets: [frames.listsContent],
-    contentOnlyTargets: [
-      frames.agentEventsPanel,
-      frames.workflowAgentPanel,
-      frames.supportAgentPanel,
-    ],
+    contentOnlyTargets: [frames.agentEventsPanel, frames.supportAgentPanel],
     fullHeightTargets: [
       routes.admin.agentEvents.index.href(),
-      routes.admin.workflowAgent.index.href(),
       routes.admin.supportAgent.index.href(),
     ],
     navGroups: NAV_GROUPS,

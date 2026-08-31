@@ -13,7 +13,6 @@ const MAX_FRAME_REDIRECTS = 10
 export const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
   frames.adminContent,
   frames.listsContent,
-  frames.workflowAgentPanel,
   frames.agentEventsPanel,
   frames.supportAgentPanel,
 ])

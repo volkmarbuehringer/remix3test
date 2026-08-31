@@ -5,7 +5,6 @@ import { render } from 'remix/ui/test'
 import { CustomerChatStream } from './public/customer-chat-stream.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { SupportAgentStream } from './public/support-agent-stream.tsx'
-import { WorkflowAgentStream } from './public/workflow-agent-stream.tsx'
 import { AgentEventsStream } from './public/agent-events-stream.tsx'
 import { ConnectionIndicator } from '../../ui/connection-indicator.browser.tsx'
 import {

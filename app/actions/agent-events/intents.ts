@@ -2,6 +2,7 @@ export const INTENTS = {
   CANCEL_USER: 'cancel-user',
   LOCK_USER: 'lock-user',
   UNLOCK_USER: 'unlock-user',
+  LOOKUP_USER: 'lookup-user',
   SHOW_APPOINTMENTS: 'show-appointments',
   DELETE_APPOINTMENTS: 'delete-appointments',
 } as const

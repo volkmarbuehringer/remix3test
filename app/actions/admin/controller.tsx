@@ -8,7 +8,6 @@ export { default as adminUploads } from './uploads/controller.tsx'
 
 // Flat admin-route groups re-exported through the single admin entry point.
 export { default as adminClients } from '../client/controller.tsx'
-export { workflowAgent } from '../workflow-agent/controller.tsx'
 export { default as agentEvents } from '../agent-events/controller.tsx'
-// Support-Agent handler is a colocated top-level controller, like workflow-agent / agent-events.
+// Support-Agent handler is a colocated top-level controller, like agent-events.
 export { supportAgentChat as supportAgent } from '../support-agent/controller.tsx'

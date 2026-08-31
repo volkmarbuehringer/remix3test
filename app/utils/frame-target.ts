@@ -7,7 +7,7 @@ import { frames } from '../routes.ts'
  * Grid pages (users, appointments, …) hardcode `data-rmx-target={frames.adminContent}`
  * for their sidebar CRUD navigation. That is correct when the page lives directly
  * in the admin content frame, but when such a page is loaded into a nested agent
- * panel frame (agent-events-panel / workflow-agent-panel) the hardcoded target would
+ * panel frame (agent-events-panel) the hardcoded target would
  * reload the OUTER admin-content frame — tearing down the host agent page (the
  * "agent dialog disappears" bug). When rendering inside an agent panel frame, the
  * page's own links/forms must instead target that panel so they stay put.
@@ -18,7 +18,7 @@ import { frames } from '../routes.ts'
 export function getSelfFrameTarget(): string {
   try {
     let target = getContext().request.headers.get('X-Remix-Target')
-    if (target === frames.agentEventsPanel || target === frames.workflowAgentPanel) {
+    if (target === frames.agentEventsPanel) {
       return target
     }
   } catch {

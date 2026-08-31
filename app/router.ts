@@ -118,9 +118,6 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.map(routes.admin.lists, admin.adminLists)
   router.map(routes.admin.users, admin.adminUsers)
 
-  // Workflow Agent (admin-only, workflow-backed tools with navigate-confirm pattern)
-  router.map(routes.admin.workflowAgent, admin.workflowAgent)
-
   // Agent Events (experimental event pipeline, admin-only)
   router.map(routes.admin.agentEvents, admin.agentEvents)
 

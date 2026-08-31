@@ -122,6 +122,11 @@ export function formatMinOption(minutes: number): string {
 export function getPeriodRange(period: string): { startMs: number; endMs: number } | null {
   let now = new Date()
 
+  if (period === 'today') {
+    let start = getTodayUtcMidnight()
+    return { startMs: start, endMs: start + 86_400_000 }
+  }
+
   if (period === 'this-week') {
     let day = now.getUTCDay() || 7
     let monday = new Date(

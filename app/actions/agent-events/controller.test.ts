@@ -57,6 +57,13 @@ const FAKE_CLASSIFY_TABLE: Record<string, string> = {
   'delete appointments for nobody@example.com in no-such-room':
     '{"type":"appointment","action":"delete-resource","targetQuery":"nobody@example.com","resourceQuery":"no-such-room"}',
   'cancel user 999999': '{"type":"user-action","action":"cancel","targetQuery":"999999"}',
+  'find user admin@newapp.com':
+    '{"type":"user-action","action":"lookup","targetQuery":"admin@newapp.com"}',
+  'find user 999999': '{"type":"user-action","action":"lookup","targetQuery":"999999"}',
+  'show appointments next month':
+    '{"type":"appointment","action":"check","period":"next-month","status":"pending"}',
+  'show pending appointments for admin@test.com next week':
+    '{"type":"appointment","action":"check","targetQuery":"admin@test.com","period":"next-week","status":"pending"}',
 }
 
 const FAKE_CLASSIFY_AGENT = {
@@ -350,6 +357,27 @@ describe('classify handler', () => {
     assert.equal(cancelIntent, 'cancel-user')
   })
 
+  it('classify handler carries period and status in the classified event', async () => {
+    let bus = new EventBus()
+    bus.register(classifyHandler)
+    let period: unknown = null
+    let status: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.validated',
+      message: 'show appointments next month',
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'intent.classified') {
+        period = event.params.period
+        status = event.params.status
+      }
+    }
+
+    assert.equal(period, 'next-month')
+    assert.equal(status, 'pending')
+  })
+
   it('emits intent.unclear when the agent rejects after abort', async () => {
     let result = await classifyWithAgent(
       {
@@ -407,6 +435,37 @@ describe('classify handler', () => {
     assert.equal(result.targetQuery, '')
   })
 
+  it('extracts period and status from an appointment check', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return {
+            text: '{"type":"appointment","action":"check","period":"this-week","status":"pending"}',
+          }
+        },
+      },
+      'show appointments this week',
+    )
+    assert.ok('intent' in result)
+    assert.equal(result.intent, 'show-appointments')
+    assert.equal(result.period, 'this-week')
+    assert.equal(result.status, 'pending')
+  })
+
+  it('omits period and status when the agent does not emit them', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"appointment","action":"check","targetQuery":"42"}' }
+        },
+      },
+      'show appointments for 42',
+    )
+    assert.ok('intent' in result)
+    assert.equal(result.period, undefined)
+    assert.equal(result.status, undefined)
+  })
+
   it('classifies delete-resource with both user and resource queries', async () => {
     let bus = new EventBus()
     bus.register(classifyHandler)
@@ -443,7 +502,7 @@ describe('classify handler', () => {
     assert.ok('unclear' in result)
   })
 
-  it('emits unclear for unmapped agent actions (lookup)', async () => {
+  it('classifies a bare user lookup as lookup-user', async () => {
     let result = await classifyWithAgent(
       {
         async generate() {
@@ -451,6 +510,20 @@ describe('classify handler', () => {
         },
       },
       'find user 42',
+    )
+    assert.ok('intent' in result)
+    assert.equal(result.intent, 'lookup-user')
+    assert.equal(result.targetQuery, '42')
+  })
+
+  it('emits unclear for lookup without a target', async () => {
+    let result = await classifyWithAgent(
+      {
+        async generate() {
+          return { text: '{"type":"user-action","action":"lookup"}' }
+        },
+      },
+      'find someone',
     )
     assert.ok('unclear' in result)
   })
@@ -554,6 +627,71 @@ describe('dispatch handler', () => {
     assert.ok(String(navHref).includes('admin%40test.com'))
   })
 
+  it('lookup-user intent navigates to the users grid without a workflow', async () => {
+    let bus = new EventBus()
+    bus.register(dispatchHandler)
+    let navHref: unknown = null
+    let requested = false
+
+    for await (let event of bus.run({
+      type: 'entities.resolved',
+      intent: 'lookup-user',
+      params: { targetQuery: 'john doe' },
+      resolved: { targetQuery: 'john doe' },
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'navigate') navHref = event.href
+      if (event.type === 'workflow.requested') requested = true
+    }
+
+    assert.ok(navHref, 'should emit a navigate event')
+    assert.ok(String(navHref).includes('/admin/users'))
+    assert.ok(String(navHref).includes('filter=john%20doe'))
+    assert.equal(requested, false, 'lookup must not start a workflow')
+  })
+
+  it('show-appointments intent carries period and status filters on the navigation', async () => {
+    let bus = new EventBus()
+    bus.register(dispatchHandler as EventHandler)
+    let navHref: unknown = null
+
+    for await (let event of bus.run({
+      type: 'entities.resolved',
+      intent: 'show-appointments',
+      params: { targetQuery: 'admin@test.com', period: 'this-week', status: 'pending' },
+      resolved: { targetEmail: 'admin@test.com' },
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'navigate') navHref = event.href
+    }
+
+    assert.ok(navHref)
+    assert.ok(String(navHref).includes('/verwaltung/appointments'))
+    assert.ok(String(navHref).includes('filter=admin%40test.com'))
+    assert.ok(String(navHref).includes('period=this-week'))
+    assert.ok(String(navHref).includes('status=pending'))
+  })
+
+  it('drops invalid period and status values from the navigation', async () => {
+    let bus = new EventBus()
+    bus.register(dispatchHandler as EventHandler)
+    let navHref: unknown = null
+
+    for await (let event of bus.run({
+      type: 'entities.resolved',
+      intent: 'show-appointments',
+      params: { targetQuery: 'admin@test.com', period: 'drop table', status: 'all' },
+      resolved: { targetEmail: 'admin@test.com' },
+      ...ADMIN_USER,
+    })) {
+      if (event.type === 'navigate') navHref = event.href
+    }
+
+    assert.ok(navHref)
+    assert.ok(!String(navHref).includes('period='))
+    assert.ok(!String(navHref).includes('status='))
+  })
+
   it('delete-appointments intent routes to the delete workflow', async () => {
     let bus = new EventBus()
     bus.register(dispatchHandler)
@@ -637,6 +775,46 @@ describe('full pipeline integration', () => {
     assert.ok(eventTypes.includes('navigate'))
     assert.ok(!eventTypes.includes('confirm.required'))
   })
+
+  it('lookup-user resolves the target against the DB and navigates without a workflow', async () => {
+    await initializeAppDatabase()
+    let bus = new EventBus()
+    registerHandlers(bus)
+    let eventTypes: string[] = []
+    let navHref: unknown = null
+
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'find user admin@newapp.com',
+      ...ADMIN_USER,
+    })) {
+      eventTypes.push(event.type)
+      if (event.type === 'navigate') navHref = event.href
+    }
+
+    assert.ok(eventTypes.includes('entities.resolved'), 'lookup should resolve the user')
+    assert.ok(eventTypes.includes('navigate'), 'lookup should navigate')
+    assert.ok(String(navHref).includes('/admin/users'))
+    assert.ok(!eventTypes.includes('workflow.requested'), 'lookup must not start a workflow')
+  })
+
+  it('lookup-user of an unknown user emits entities.notfound', async () => {
+    await initializeAppDatabase()
+    let bus = new EventBus()
+    registerHandlers(bus)
+    let eventTypes: string[] = []
+
+    for await (let event of bus.run({
+      type: 'request.received',
+      message: 'find user 999999',
+      ...ADMIN_USER,
+    })) {
+      eventTypes.push(event.type)
+    }
+
+    assert.ok(eventTypes.includes('entities.notfound'), 'unknown lookup should be rejected')
+    assert.ok(!eventTypes.includes('navigate'), 'unknown lookup must not navigate to the grid')
+  })
 })
 
 // ── Controller Tests ──────────────────────────────────────────
@@ -681,6 +859,16 @@ describe('AgentEvents route (GET)', () => {
   it('redirects to login for unauthenticated requests', async () => {
     let response = await router.fetch(AGENT_EVENTS_URL, { redirect: 'manual' })
     assert.equal(response.status, 302)
+  })
+
+  it('retired /admin/workflow-agent path no longer resolves', async () => {
+    let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!session) throw new Error('Failed to create auth session')
+    let response = await router.fetch(`${BASE}/admin/workflow-agent`, {
+      redirect: 'manual',
+      headers: { Cookie: session.cookie },
+    })
+    assert.notEqual(response.status, 200, 'retired workflow-agent page must not render')
   })
 })
 
@@ -727,6 +915,15 @@ describe('AgentEvents route (POST validation)', () => {
     let text = await response.text()
     assert.ok(text.includes('event:'), 'should be SSE')
     assert.ok(text.includes('data:'), 'should have data')
+  })
+
+  it('appointment check navigates with period and status filters', async () => {
+    let response = await postForm(AGENT_EVENTS_URL, adminCookie, {
+      message: 'show pending appointments for admin@test.com next week',
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('"href":"/verwaltung/appointments?filter=admin%40test.com&period=next-week&status=pending"'))
   })
 
   it('resume rejects missing runId with 400', async () => {

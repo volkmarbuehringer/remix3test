@@ -6,6 +6,14 @@ function actionLabel(action: string): string {
   return action.charAt(0).toUpperCase() + action.slice(1)
 }
 
+const PERIOD_VALUES = ['today', 'this-week', 'this-month', 'next-week', 'next-month']
+const STATUS_VALUES = ['pending', 'expired']
+
+function sanitizeFilterParam(value: unknown, allowed: readonly string[]): string | undefined {
+  let v = typeof value === 'string' ? value.trim() : ''
+  return allowed.includes(v) ? v : undefined
+}
+
 export const dispatchHandler: EventHandler = {
   name: 'dispatch',
   eventType: 'entities.resolved',
@@ -20,6 +28,15 @@ export const dispatchHandler: EventHandler = {
 
     let navValue = String(resolved.targetEmail || resolved.targetName || resolved.targetQuery || '')
     let navQuery = navValue ? encodeURIComponent(navValue) : ''
+
+    if (e.intent === INTENTS.LOOKUP_USER) {
+      emit({
+        type: 'navigate',
+        href: '/admin/users' + (navQuery ? '?filter=' + navQuery : ''),
+        target: frames.agentEventsPanel,
+      })
+      return
+    }
 
     if (
       e.intent === INTENTS.CANCEL_USER ||
@@ -69,7 +86,14 @@ export const dispatchHandler: EventHandler = {
 
     if (e.intent === INTENTS.SHOW_APPOINTMENTS) {
       let val = String(resolved.targetEmail || resolved.targetQuery || '')
-      let href = '/verwaltung/appointments' + (val ? '?filter=' + encodeURIComponent(val) : '')
+      let params = new URLSearchParams()
+      if (val) params.set('filter', val)
+      let period = sanitizeFilterParam(e.params.period, PERIOD_VALUES)
+      if (period) params.set('period', period)
+      let status = sanitizeFilterParam(e.params.status, STATUS_VALUES)
+      if (status) params.set('status', status)
+      let qs = params.toString()
+      let href = '/verwaltung/appointments' + (qs ? '?' + qs : '')
       emit({ type: 'navigate', href, target: frames.agentEventsPanel })
       return
     }

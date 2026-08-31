@@ -14,7 +14,6 @@ const FRAME_TARGETS = new Set([
   // full <Layout> shell, and its own form/link navigations would target the outer
   // admin-content frame, tearing down the host agent page.
   frames.agentEventsPanel,
-  frames.workflowAgentPanel,
 ])
 
 // Flash banner styles mirror app/ui/layout.tsx so PRG flash messages surface in

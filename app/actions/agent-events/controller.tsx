@@ -11,7 +11,7 @@ import { INTENTS } from './intents.ts'
 import { registerHandlers } from './register.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { mastra as realMastra } from '../mastra/index.ts'
-import { pipeWorkflowStream } from '../workflow-agent/workflow-sse.ts'
+import { pipeWorkflowStream } from './workflow-sse.ts'
 import {
   upsertActiveRun,
   markSuspended,
@@ -103,7 +103,7 @@ export function __setRunStatusResolver(fn: RunStatusResolver | undefined) {
 }
 
 // Tracks the workflow used to start a run so a subsequent resume can re-attach
-// to the correct workflow (mirrors the workflow-agent run map). Bounded and
+// to the correct workflow. Bounded and
 // TTL-expired: a resume must never silently guess a workflow when the run is
 // unknown, which would re-attach a delete run to userManagementWorkflow.
 const WORKFLOW_MAP_MAX = 200

@@ -9,6 +9,8 @@ import {
   formatUtcDateDE,
   formatUtcPeriodDayDE,
   parseIsoDateUtc,
+  getPeriodRange,
+  getTodayUtcMidnight,
 } from './date-utils.ts'
 
 describe('isDateInPast', () => {
@@ -194,5 +196,19 @@ describe('parseIsoDateUtc', () => {
     assert.equal(parseIsoDateUtc('2026-1-1'), null)
     assert.equal(parseIsoDateUtc('not-a-date'), null)
     assert.equal(parseIsoDateUtc(''), null)
+  })
+})
+
+describe('getPeriodRange', () => {
+  it('returns the current UTC day for period today', () => {
+    let range = getPeriodRange('today')
+    let start = getTodayUtcMidnight()
+    assert.ok(range, 'today should resolve to a range')
+    assert.equal(range!.startMs, start)
+    assert.equal(range!.endMs, start + 86_400_000)
+  })
+
+  it('returns null for an unknown period', () => {
+    assert.equal(getPeriodRange('fortnight'), null)
   })
 })
