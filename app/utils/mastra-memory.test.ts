@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { fetchChatThreadPreviews } from './mastra-memory.ts'
+import { fetchChatThreadPreviews, listLatestCustomerThread } from './mastra-memory.ts'
 
 // ---------------------------------------------------------------------------
 // Conversation preview building
@@ -102,5 +102,68 @@ describe('fetchChatThreadPreviews', () => {
     let result = await fetchChatThreadPreviews(agent, [])
     assert.equal(result.size, 0)
     assert.equal(recallCalled, false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Latest thread per resource (the /chat resume path)
+// The index route resolves the customer's most recent conversation via
+// listLatestCustomerThread, which scopes the query to the customer's resource.
+// These tests pin that contract: the resourceId filter is passed, the ordering is
+// updatedAt DESC, and the newest thread's id wins. That scoping is the boundary
+// that keeps a customer from resuming someone else's conversation.
+// ---------------------------------------------------------------------------
+
+interface ListThreadsOpts {
+  page: number
+  perPage: number
+  orderBy: { field: string; direction: string }
+  filter?: { resourceId?: string; metadata?: Record<string, unknown> }
+}
+
+function makeListAgent(onList: (opts: ListThreadsOpts) => unknown) {
+  return {
+    getMemory: async () => ({ listThreads: async (opts: ListThreadsOpts) => onList(opts) }),
+  }
+}
+
+describe('listLatestCustomerThread', () => {
+  it('queries the most recent thread scoped to the resource and returns its id', async () => {
+    let captured: ListThreadsOpts | undefined
+    let agent = makeListAgent((opts) => {
+      captured = opts
+      return {
+        threads: [
+          { id: 'thread-latest', updatedAt: 300 },
+          { id: 'thread-old', updatedAt: 100 },
+        ],
+      }
+    })
+
+    let id = await listLatestCustomerThread(agent, 'user-42')
+
+    assert.equal(id, 'thread-latest', 'should return the newest thread for the resource')
+    assert.equal(captured?.filter?.resourceId, 'user-42', 'should scope the query to the resource')
+    assert.equal(captured?.page, 0)
+    assert.equal(captured?.perPage, 1)
+    assert.equal(captured?.orderBy?.field, 'updatedAt')
+    assert.equal(captured?.orderBy?.direction, 'DESC')
+  })
+
+  it('returns null when the resource has no threads', async () => {
+    let agent = makeListAgent(() => ({ threads: [] }))
+    let id = await listLatestCustomerThread(agent, 'user-7')
+    assert.equal(id, null)
+  })
+
+  it('propagates a missing-memory error (caller degrades to empty resume)', async () => {
+    let agent = { getMemory: async () => null }
+    let threw = false
+    try {
+      await listLatestCustomerThread(agent, 'user-1')
+    } catch {
+      threw = true
+    }
+    assert.equal(threw, true, 'should throw when memory is unavailable')
   })
 })

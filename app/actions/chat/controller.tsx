@@ -23,6 +23,9 @@ import {
   sanitizeLog,
 } from '../mastra/shared-agent.ts'
 import type { TestAgent } from '../mastra/shared-agent.ts'
+import { recallChatMessages, listLatestCustomerThread } from '../../utils/mastra-memory.ts'
+import type { ChatMessage } from '../../types/chatlog.ts'
+import type { AgentHandle } from '../../utils/mastra-memory.ts'
 
 // Anti-spam throttle: allow a normal multi-turn conversation (a couple of
 // messages plus approve/decline/answer steps) per minute, while capping abuse.
@@ -47,6 +50,39 @@ function resolveCustomerAgent(): TestAgent {
   return process.env.NODE_ENV === 'test' && _testAgent
     ? _testAgent
     : mastra.getAgent('customerAgent')
+}
+
+// ── Conversation resume ────────────────────────────────────────
+export type CustomerResume = { threadId?: string; messages: ChatMessage[] }
+
+// Test-only override for the index route's resume lookup (the mock agent has no
+// real memory). Outside test env this is unused.
+let _testResume: ((userId: number) => Promise<CustomerResume>) | undefined
+export function __setTestResumeResolver(fn: typeof _testResume) {
+  if (process.env.NODE_ENV === 'test') {
+    _testResume = fn
+  }
+}
+
+/**
+ * Resolves the most recent conversation for a customer so the index route can
+ * rehydrate it. Failure (including a test agent with no memory) simply yields an
+ * empty resume — the page renders a fresh conversation rather than erroring.
+ */
+async function resolveCustomerResume(userId: number): Promise<CustomerResume> {
+  if (process.env.NODE_ENV === 'test' && _testResume) {
+    return _testResume(userId)
+  }
+  try {
+    let agent = resolveCustomerAgent() as unknown as AgentHandle
+    let threadId = await listLatestCustomerThread(agent, String(userId))
+    if (!threadId) return { messages: [] }
+    let messages = await recallChatMessages(agent, threadId, String(userId))
+    return { threadId, messages }
+  } catch (err) {
+    chatLog.error('resume error:', sanitizeLog(String(err)))
+    return { messages: [] }
+  }
 }
 
 type ResumeResult = {
@@ -173,9 +209,19 @@ export const customerChat = createController(routes.chat, {
 
   actions: {
     async index(context) {
+      let user = getCurrentUser()
+
+      // A fresh-conversation reload (`/chat?new=1`) skips resurrection so the
+      // customer can start over; otherwise rehydrate the most recent thread.
+      let fresh = context.url.searchParams.get('new') === '1'
+      let resume: CustomerResume = { messages: [] }
+      if (!fresh) {
+        resume = await resolveCustomerResume(user.id)
+      }
+
       return context.render(
         <Layout>
-          <CustomerChatPage />
+          <CustomerChatPage threadId={resume.threadId} messages={resume.messages} />
         </Layout>,
       )
     },

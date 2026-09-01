@@ -744,3 +744,238 @@ describe('ConnectionIndicator invalidate event', () => {
     window.history.replaceState({}, '', originalLocation.href)
   })
 })
+
+// -----------------------------------------------------------------------
+// 7. Customer chat resume, theme tokens, busy indicator, cancel
+// -----------------------------------------------------------------------
+
+describe('Customer chat resume + theme + busy state', () => {
+  let cleanup: (() => void) | undefined
+
+  afterEach(() => {
+    uninstallSseMock()
+    cleanup?.()
+    cleanupChatDom()
+  })
+
+  function sse(events: Array<{ type: string; data: string }>): Response {
+    let encoder = new TextEncoder()
+    let body = new ReadableStream({
+      start(controller) {
+        for (let { type, data } of events) {
+          controller.enqueue(encoder.encode(`event: ${type}\ndata: ${data}\n\n`))
+        }
+        controller.close()
+      },
+    })
+    return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  it('adopts the resumed data-thread-id and continues the same thread', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+
+    let container = document.createElement('div')
+    container.innerHTML = `
+      <form id="chat-form">
+        <textarea id="msg" name="message"></textarea>
+        <button id="chat-submit" type="submit">Send</button>
+      </form>
+      <div id="chat-messages" data-thread-id="thread-resume-1"></div>
+    `
+    document.body.appendChild(container)
+
+    let capturedBody = ''
+    let originalFetch = window.fetch
+    window.fetch = async (_url, init) => {
+      if (init?.body instanceof FormData) {
+        capturedBody = Array.from(init.body.entries())
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join('&')
+      } else {
+        capturedBody = String(init?.body ?? '')
+      }
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 'thread-resume-1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Guten Tag' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    textarea.value = 'Hallo'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      capturedBody.includes('threadId=thread-resume-1'),
+      'should continue the resumed thread',
+    )
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(msgs.textContent?.includes('Guten Tag'), 'should render the streamed reply')
+
+    window.fetch = originalFetch
+  })
+
+  it('renders bubbles with theme tokens instead of hardcoded hex', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let originalFetch = window.fetch
+    window.fetch = async () =>
+      sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Antwort' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    let html = msgs.innerHTML
+    let tokenPrefix = 'var(--' + 'rmx-'
+    assert.ok(html.includes(tokenPrefix), 'bubbles should use theme tokens')
+    ;['#3b82f6', '#ef4444', '#f59e0b', '#b45309', '#ccc'].forEach((hex) => {
+      assert.ok(!html.toLowerCase().includes(hex), `should not contain hardcoded ${hex}`)
+    })
+
+    window.fetch = originalFetch
+  })
+
+  it('shows a busy/thinking indicator with Cancel and clears it after the stream', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let streamState: { controller?: ReadableStreamDefaultController } = {}
+    let encoder = new TextEncoder()
+    let originalFetch = window.fetch
+    window.fetch = async () => {
+      let body = new ReadableStream({
+        start(c) {
+          streamState.controller = c as ReadableStreamDefaultController
+        },
+        pull() {},
+        cancel() {},
+      })
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 0))
+
+    let busy = document.getElementById('chat-busy')
+    assert.ok(busy, 'busy indicator should appear while streaming')
+    assert.ok(document.getElementById('chat-cancel'), 'cancel button should be present')
+
+    streamState.controller?.enqueue(encoder.encode('event: message\ndata: {"text":"Antwort"}\n\n'))
+    streamState.controller?.enqueue(encoder.encode('event: complete\ndata: {}\n\n'))
+    streamState.controller?.close()
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(!document.getElementById('chat-busy'), 'busy indicator should be cleared')
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(msgs.textContent?.includes('Antwort'), 'message should render')
+
+    window.fetch = originalFetch
+  })
+
+  it('Cancel button clears the busy state and re-enables the composer', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let streamState: { controller?: ReadableStreamDefaultController } = {}
+    let originalFetch = window.fetch
+    window.fetch = async () => {
+      let body = new ReadableStream({
+        start(c) {
+          streamState.controller = c as ReadableStreamDefaultController
+        },
+        pull() {},
+        cancel() {},
+      })
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 0))
+
+    let cancel = document.getElementById('chat-cancel')
+    assert.ok(cancel, 'cancel button should exist')
+    cancel!.click()
+
+    await new Promise((r) => setTimeout(r, 20))
+
+    assert.ok(!document.getElementById('chat-busy'), 'busy should be cleared on cancel')
+    textarea = document.getElementById('msg') as HTMLTextAreaElement
+    assert.ok(!textarea.disabled, 'composer should be re-enabled after cancel')
+
+    streamState.controller?.close()
+    await new Promise((r) => setTimeout(r, 20))
+
+    window.fetch = originalFetch
+  })
+
+  it('clears the ?new=1 fresh marker once the customer sends a message', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/chat?new=1')
+
+    let originalFetch = window.fetch
+    window.fetch = async () =>
+      sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Hi' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Hallo'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      !window.location.href.includes('new=1'),
+      'fresh marker should be cleared after sending a message',
+    )
+
+    window.history.replaceState({}, '', '/')
+    window.fetch = originalFetch
+  })
+})

@@ -23,13 +23,14 @@ interface MemoryHandle {
     page: number
     perPage: number
     orderBy: { field: string; direction: string }
+    filter?: { resourceId?: string; metadata?: Record<string, unknown> }
   }) => Promise<{ threads?: unknown[] }>
   deleteThread: (id: string) => Promise<void>
 }
 
 // Accept any agent that has a getMemory() method returning something with the right shape
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AgentHandle = { getMemory: () => Promise<any> }
+export type AgentHandle = { getMemory: () => Promise<any> }
 
 async function getMemory(agent: AgentHandle): Promise<MemoryHandle> {
   let memory = await agent.getMemory()
@@ -87,6 +88,26 @@ export async function listChatThreads(
     })),
     hasMore,
   }
+}
+
+/**
+ * Resolves the most recently updated thread for a resource (the customer's
+ * active conversation), or null if the resource has no threads. Used by the
+ * `/chat` index route to resume the latest conversation on load.
+ */
+export async function listLatestCustomerThread(
+  agent: AgentHandle,
+  resourceId: string,
+): Promise<string | null> {
+  let memory = await getMemory(agent)
+  let result = await memory.listThreads({
+    page: 0,
+    perPage: 1,
+    orderBy: { field: 'updatedAt', direction: 'DESC' },
+    filter: { resourceId },
+  })
+  let threads = (result.threads ?? []) as Array<{ id: string }>
+  return threads[0]?.id ?? null
 }
 
 export async function deleteChatThread(agent: AgentHandle, threadId: string): Promise<void> {

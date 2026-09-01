@@ -54,8 +54,8 @@ export const CustomerChatStream = clientEntry(
         bubble.style.cssText =
           `padding:0.75rem;border-radius:12px;max-width:75%;` +
           `line-height:1.5;font-size:0.9375rem;` +
-          `background:${isUser ? '#3b82f6' : theme.surface.lvl1};` +
-          `color:${isUser ? '#fff' : 'inherit'};` +
+          `background:${isUser ? theme.colors.action.primary.background : theme.surface.lvl1};` +
+          `color:${isUser ? theme.colors.action.primary.foreground : theme.colors.text.primary};` +
           `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
           `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
           `white-space:pre-wrap;word-break:break-word;`
@@ -147,8 +147,10 @@ export const CustomerChatStream = clientEntry(
       div.className = 'tl-card-result'
       if (isError) {
         div.style.cssText =
-          `padding:0.5rem 0.75rem;font-size:0.8125rem;color:#fff;` +
-          `background:#ef4444;border-top:1px solid ${theme.colors.border.default};`
+          `padding:0.5rem 0.75rem;font-size:0.8125rem;` +
+          `color:${theme.colors.action.danger.foreground};` +
+          `background:${theme.colors.action.danger.background};` +
+          `border-top:1px solid ${theme.colors.border.default};`
         div.textContent = typeof result === 'string' ? result : 'Fehler: ' + JSON.stringify(result)
       } else {
         div.style.cssText =
@@ -158,7 +160,7 @@ export const CustomerChatStream = clientEntry(
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
             div.innerHTML =
-              '<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>'
+              `<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>`
             appendSlotPicker(r)
           } else {
             div.textContent =
@@ -358,6 +360,60 @@ export const CustomerChatStream = clientEntry(
       if (submitBtn) submitBtn.disabled = !enabled
     }
 
+    function focusComposer() {
+      let textarea = document.getElementById('msg') as HTMLTextAreaElement | null
+      if (textarea) textarea.focus()
+    }
+
+    // ── Busy / thinking indicator + Cancel ────────────────────
+    let BUSY_ID = 'chat-busy'
+
+    function setBusy(busy: boolean) {
+      let container = getChatArea()
+      if (!container) return
+      let el = document.getElementById(BUSY_ID) as HTMLDivElement | null
+      if (busy) {
+        if (!el) {
+          el = document.createElement('div')
+          el.id = BUSY_ID
+          el.style.cssText =
+            `display:flex;align-items:center;gap:0.75rem;align-self:flex-start;` +
+            `padding:0.5rem 0.75rem;border-radius:${theme.radius.md};` +
+            `background:${theme.surface.lvl1};font-size:0.875rem;color:${theme.colors.text.secondary};`
+          el.innerHTML =
+            `<span aria-live="polite">Agent antwortet…</span>` +
+            `<button type="button" id="chat-cancel" style="padding:0.25rem 0.75rem;background:transparent;color:${theme.colors.text.secondary};border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.8125rem;cursor:pointer">Abbrechen</button>`
+          container.appendChild(el)
+        }
+        el.style.display = 'flex'
+        container.scrollTop = container.scrollHeight
+      } else {
+        if (el) el.remove()
+      }
+    }
+
+    function handleCancel() {
+      abortStream()
+      setBusy(false)
+      setFormEnabled(true)
+      focusComposer()
+    }
+
+    // Once the customer sends a message (or continues an existing conversation)
+    // the one-shot fresh-state marker is no longer wanted: otherwise a page
+    // refresh keeps serving an empty conversation for /chat?new=1. Drop the
+    // query param so the resumed conversation wins on the next load.
+    function clearFreshParam() {
+      try {
+        let url = new URL(window.location.href)
+        if (!url.searchParams.has('new')) return
+        url.searchParams.delete('new')
+        window.history.replaceState({}, '', url.pathname + url.search)
+      } catch {
+        /* best-effort */
+      }
+    }
+
     // ── Approval UI ───────────────────────────────────────────
 
     function showApproval(data: {
@@ -372,7 +428,7 @@ export const CustomerChatStream = clientEntry(
       let card = document.createElement('div')
       card.id = 'chat-approval'
       card.style.cssText =
-        `padding:1rem;border:2px solid #ef4444;border-radius:12px;` +
+        `padding:1rem;border:2px solid ${theme.colors.action.danger.border};border-radius:12px;` +
         `background:${theme.surface.lvl0};align-self:flex-start;width:100%;`
 
       let args = data.args || {}
@@ -393,12 +449,12 @@ export const CustomerChatStream = clientEntry(
       }
 
       card.innerHTML =
-        `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#ef4444">${esc(title)}</div>` +
+        `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.action.danger.background}">${esc(title)}</div>` +
         (description
           ? `<div style="font-size:0.875rem;color:${theme.colors.text.secondary};margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>`
           : '') +
         `<div style="display:flex;gap:0.75rem">` +
-        `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
+        `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.colors.action.danger.background};color:${theme.colors.action.danger.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
         `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.surface.lvl1};color:inherit;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
         `</div>`
 
@@ -438,10 +494,10 @@ export const CustomerChatStream = clientEntry(
       let card = document.createElement('div')
       card.id = 'chat-question'
       card.style.cssText =
-        `padding:1rem;border:2px solid #f59e0b;border-radius:12px;` +
+        `padding:1rem;border:2px solid ${theme.colors.warning.border};border-radius:12px;` +
         `background:${theme.surface.lvl0};align-self:flex-start;width:100%;margin-top:0.5rem;`
 
-      let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:#b45309">${esc(data.question)}</div>`
+      let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.warning.foreground}">${esc(data.question)}</div>`
 
       if (data.options && data.options.length > 0) {
         if (data.selectionMode === 'multi_select') {
@@ -478,10 +534,10 @@ export const CustomerChatStream = clientEntry(
             `</div>`
         }
       } else {
-        html += `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Antwort eingeben..." />`
+        html += `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Antwort eingeben..." />`
       }
 
-      html += `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:#3b82f6;color:#fff;border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">Antworten</button></div>`
+      html += `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:${theme.colors.action.primary.background};color:${theme.colors.action.primary.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">Antworten</button></div>`
 
       card.innerHTML = html
       container.appendChild(card)
@@ -535,7 +591,10 @@ export const CustomerChatStream = clientEntry(
         beginStream()
       } else if (type === 'message') {
         let text = String(d.text ?? '')
-        if (text) appendMessage(text, 'assistant', true)
+        if (text) {
+          appendMessage(text, 'assistant', true)
+          setBusy(false)
+        }
       } else if (type === 'suspension') {
         suspended = true
         showApproval({
@@ -544,6 +603,8 @@ export const CustomerChatStream = clientEntry(
           toolName: d.toolName as string | undefined,
           args: d.args as Record<string, unknown> | undefined,
         })
+        let approveBtn = getChatArea()?.querySelector('.approve-btn') as HTMLButtonElement | null
+        if (approveBtn) approveBtn.focus()
         finalizeAssistantBubble()
       } else if (type === 'question') {
         suspended = true
@@ -555,6 +616,10 @@ export const CustomerChatStream = clientEntry(
             (d.options as { label: string; description?: string }[] | null | undefined) ?? null,
           selectionMode: String(d.selectionMode ?? 'single_select'),
         })
+        let firstOpt = getChatArea()?.querySelector('.q-option') as HTMLInputElement | null
+        let freeText = document.getElementById('q-free-text') as HTMLInputElement | null
+        if (firstOpt) firstOpt.focus()
+        else if (freeText) freeText.focus()
         finalizeAssistantBubble()
       } else if (type === 'agent-error') {
         appendMessage('Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
@@ -562,6 +627,7 @@ export const CustomerChatStream = clientEntry(
         appendMessage('Stream-Fehler: ' + String(d.error ?? 'unbekannt'), 'error')
       } else if (type === 'tool-call-input-streaming-start') {
         appendToolCard(String(d.toolName ?? 'unbekannt'), String(d.toolCallId ?? ''))
+        setBusy(false)
       } else if (type === 'tool-call-delta') {
         if (d.toolCallId != null && d.argsTextDelta != null) {
           updateToolArgs(String(d.toolCallId), String(d.argsTextDelta))
@@ -584,6 +650,7 @@ export const CustomerChatStream = clientEntry(
         }
       } else if (type === 'reasoning-start') {
         startReasoning()
+        setBusy(false)
       } else if (type === 'reasoning-delta') {
         if (d.text != null) appendReasoning(String(d.text))
       } else if (type === 'reasoning-end') {
@@ -593,6 +660,7 @@ export const CustomerChatStream = clientEntry(
 
     async function submitAndStream(url: string, formData: FormData) {
       abortStream()
+      clearFreshParam()
       let requestAbort = new AbortController()
       currentAbort = requestAbort
       if (lifecycleSignal) {
@@ -600,6 +668,7 @@ export const CustomerChatStream = clientEntry(
       }
 
       setFormEnabled(false)
+      setBusy(true)
       try {
         let res = await fetch(url, {
           method: 'POST',
@@ -626,7 +695,11 @@ export const CustomerChatStream = clientEntry(
         appendMessage('Fehler: ' + String(err), 'error')
       } finally {
         currentAbort = null
-        if (!suspended) finalizeAssistantBubble()
+        setBusy(false)
+        if (!suspended) {
+          finalizeAssistantBubble()
+          focusComposer()
+        }
         setFormEnabled(true)
       }
     }
@@ -653,7 +726,9 @@ export const CustomerChatStream = clientEntry(
       abortStream()
       let picker = document.getElementById('chat-slot-picker')
       if (picker) picker.remove()
+      setBusy(false)
       setFormEnabled(true)
+      focusComposer()
     }
 
     async function handleSlotClick(e: Event) {
@@ -759,12 +834,17 @@ export const CustomerChatStream = clientEntry(
             }
 
             let chatArea = document.getElementById('chat-messages')
+            // Adopt the resumed thread id that the server rendered (see
+            // customer-chat-page.tsx data-thread-id), or null for a fresh thread.
+            currentThreadId = chatArea?.getAttribute('data-thread-id') ?? null
             if (chatArea) {
               chatArea.addEventListener(
                 'click',
                 (e) => {
                   let target = e.target as HTMLElement
-                  if (target.classList.contains('slot-btn')) {
+                  if (target.id === 'chat-cancel') {
+                    handleCancel()
+                  } else if (target.classList.contains('slot-btn')) {
                     handleSlotClick(e)
                   } else if (target.classList.contains('approve-btn')) {
                     handleApproval('approve', e)

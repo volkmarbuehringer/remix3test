@@ -6,7 +6,7 @@ import { pool } from '../../data/test-pool.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestAgent, chatRateLimiter } from './controller.tsx'
+import { __setTestAgent, __setTestResumeResolver, chatRateLimiter } from './controller.tsx'
 import { recordChatRun, findChatRunOwner } from './run-store.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
@@ -133,10 +133,12 @@ describe('Customer Chat controller', () => {
   afterEach(async () => {
     await pool.query('DELETE FROM chat_runs')
     __setTestAgent(undefined)
+    __setTestResumeResolver(undefined)
   })
 
   after(async () => {
     __setTestAgent(undefined)
+    __setTestResumeResolver(undefined)
   })
 
   // ── Index (GET) ─────────────────────────────────────────
@@ -154,6 +156,8 @@ describe('Customer Chat controller', () => {
   it('GET /chat returns 200 for authenticated user', async () => {
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
 
     let response = await router.fetch(CHAT_INDEX_URL, {
       headers: { Cookie: session.cookie },
@@ -163,14 +167,68 @@ describe('Customer Chat controller', () => {
     assert.ok(text.includes('Beratung'), 'page should contain heading')
   })
 
-  it('GET /chat works for non-admin user and renders an empty conversation', async () => {
+  it('GET /chat renders an empty conversation when no history is available', async () => {
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
     let response = await router.fetch(CHAT_INDEX_URL, {
       headers: { Cookie: userCookie },
     })
     assert.equal(response.status, 200)
     let text = await response.text()
-    // History is session-scoped: no server-rendered thread id / recalled messages.
-    assert.ok(!text.includes('Konversation-ID'), 'should not re-render a thread id')
+    // No recallable history (mock agent has no memory): no thread id, no bubbles.
+    assert.ok(!text.includes('data-thread-id'), 'should not expose a thread id')
+    assert.ok(
+      !text.includes('Hallo aus der Vergangenheit'),
+      'should not re-render recalled history',
+    )
+  })
+
+  it('GET /chat rehydrates the latest conversation and resumes the thread', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    __setTestResumeResolver(async () => ({
+      threadId: 'thread-resume-1',
+      messages: [
+        { role: 'user', content: 'Hallo aus der Vergangenheit', timestamp: 1 },
+        { role: 'assistant', content: 'Antwort aus der Vergangenheit', timestamp: 2 },
+      ],
+    }))
+
+    let response = await router.fetch(CHAT_INDEX_URL, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(
+      text.includes('data-thread-id="thread-resume-1"'),
+      'should expose the resumed thread id',
+    )
+    assert.ok(
+      text.includes('Hallo aus der Vergangenheit'),
+      'should render the recalled user message',
+    )
+    assert.ok(
+      text.includes('Antwort aus der Vergangenheit'),
+      'should render the recalled assistant message',
+    )
+  })
+
+  it('GET /chat?new=1 starts a fresh conversation even when a thread exists', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    __setTestResumeResolver(async () => ({
+      threadId: 'thread-old',
+      messages: [{ role: 'user', content: 'alte Nachricht', timestamp: 1 }],
+    }))
+
+    let response = await router.fetch(`${CHAT_INDEX_URL}?new=1`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(!text.includes('data-thread-id'), 'fresh conversation should not expose a thread id')
+    assert.ok(!text.includes('alte Nachricht'), 'fresh conversation should not re-render history')
   })
 
   // ── CSRF / transport ────────────────────────────────────
