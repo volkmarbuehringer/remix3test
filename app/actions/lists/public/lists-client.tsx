@@ -164,6 +164,98 @@ export const ListsClient = clientEntry(
       },
     })
 
+    // ── Editor surface: a single centered card with a header + body ──────────
+    let cardStyle = css({
+      fontFamily: theme.fontFamily.sans,
+      maxWidth: '600px',
+      width: '100%',
+      margin: '0 auto',
+      backgroundColor: theme.surface.lvl1,
+      border: `1px solid ${theme.colors.border.default}`,
+      borderRadius: theme.radius.xl,
+      boxShadow: theme.shadow.sm,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      flex: 1,
+    })
+
+    let cardHeaderStyle = css({
+      display: 'flex',
+      alignItems: 'flex-end',
+      gap: theme.space.md,
+      flexWrap: 'wrap',
+      padding: `${theme.space.lg} ${theme.space.lg}`,
+      borderBottom: `1px solid ${theme.colors.border.subtle}`,
+      backgroundColor: theme.surface.lvl2,
+    })
+
+    let cardTitleWrapStyle = css({ flex: 1, minWidth: 0 })
+
+    let titleHeadingStyle = css({ margin: 0, lineHeight: 1.2 })
+
+    let titleInputStyle = css({
+      width: '100%',
+      padding: `0 0 ${theme.space.xs} 0`,
+      border: 'none',
+      borderBottom: '2px solid transparent',
+      borderRadius: theme.radius.sm,
+      fontSize: theme.fontSize.xl,
+      fontWeight: theme.fontWeight.bold,
+      outline: 'none',
+      fontFamily: theme.fontFamily.sans,
+      boxSizing: 'border-box',
+      backgroundColor: 'transparent',
+      color: theme.colors.text.primary,
+      transition: 'border-color 120ms ease',
+      '&:focus': {
+        borderBottomColor: theme.colors.focus.ring,
+      },
+      '&::placeholder': {
+        color: theme.colors.text.muted,
+        fontWeight: theme.fontWeight.semibold,
+      },
+    })
+
+    let visuallyHiddenStyle = css({
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      overflow: 'hidden',
+      clip: 'rect(0 0 0 0)',
+      whiteSpace: 'nowrap',
+    })
+
+    let cardHeaderActionsStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.space.sm,
+      flexShrink: 0,
+    })
+
+    let cardBodyStyle = css({
+      display: 'flex',
+      flexDirection: 'column',
+      padding: theme.space.lg,
+    })
+
+    let toolbarStyle = css({
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: theme.space.sm,
+      alignItems: 'center',
+      marginBottom: theme.space.lg,
+    })
+
+    // Item row action cluster is hidden until the row is hovered/focused.
+    let itemActionsStyle = css({
+      display: 'flex',
+      gap: theme.space.xs,
+      opacity: 0,
+      pointerEvents: 'none',
+      transition: 'opacity 0.12s ease',
+    })
+
     let scrollToBottom = () => {
       if (listRef) {
         listRef.scrollTop = listRef.scrollHeight
@@ -1001,6 +1093,8 @@ export const ListsClient = clientEntry(
             mix={css({
               fontFamily: theme.fontFamily.sans,
               maxWidth: '600px',
+              width: '100%',
+              margin: '0 auto',
               padding: theme.space.xxl,
               textAlign: 'center',
               color: theme.colors.text.secondary,
@@ -1019,6 +1113,8 @@ export const ListsClient = clientEntry(
             mix={css({
               fontFamily: theme.fontFamily.sans,
               maxWidth: '600px',
+              width: '100%',
+              margin: '0 auto',
               padding: theme.space.xxl,
               textAlign: 'center',
               color: theme.colors.action.danger.background,
@@ -1033,684 +1129,707 @@ export const ListsClient = clientEntry(
       let doneCount = items.filter((item) => item.done === true).length
 
       return (
-        <div mix={css({ fontFamily: theme.fontFamily.sans, maxWidth: '600px' })}>
-          {/* Conflict banner */}
-          {conflictState.show && (
-            <div
-              mix={css({
-                marginBottom: theme.space.md,
-                padding: theme.space.md,
-                borderRadius: theme.radius.md,
-                backgroundColor: theme.colors.action.danger.background + '15',
-                border: `1px solid ${theme.colors.action.danger.border}`,
-                fontSize: theme.fontSize.sm,
-                display: 'flex',
-                gap: theme.space.sm,
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              })}
-            >
-              <span mix={css({ flex: 1 })}>Die Liste wurde in einem anderen Tab geändert.</span>
-              <button
-                mix={[
-                  button({ tone: 'secondary' }),
-                  css({ fontSize: theme.fontSize.xs }),
-                  on('click', reloadFromServer),
-                ]}
-              >
-                Neu laden
-              </button>
-              <button
-                mix={[
-                  button({ tone: 'danger' }),
-                  css({ fontSize: theme.fontSize.xs }),
-                  on('click', forceOverwrite),
-                ]}
-              >
-                Trotzdem speichern
-              </button>
+        <div mix={cardStyle}>
+          {/* Card header: editable title + primary action + save status */}
+          <div mix={cardHeaderStyle}>
+            <div mix={cardTitleWrapStyle}>
+              <h1 mix={titleHeadingStyle}>
+                <label mix={visuallyHiddenStyle} htmlFor="lists-title">
+                  Titel der Liste
+                </label>
+                <input
+                  id="lists-title"
+                  mix={[
+                    titleInputStyle,
+                    on('input', (e) => {
+                      title = e.currentTarget.value
+                      setDirty()
+                      handle.update()
+                    }),
+                    on('blur', () => {
+                      scheduleAutosave(true)
+                    }),
+                  ]}
+                  type="text"
+                  placeholder="Kurzer Titel für diese Liste…"
+                  maxLength={200}
+                  defaultValue={title}
+                />
+              </h1>
             </div>
-          )}
-
-          {/* Undo chip */}
-          {undoSnapshot !== null && (
-            <div
-              mix={css({
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.space.md,
-                marginBottom: theme.space.md,
-                padding: `${theme.space.sm} ${theme.space.md}`,
-                borderRadius: theme.radius.md,
-                backgroundColor: theme.surface.lvl2,
-                border: `1px solid ${theme.colors.border.default}`,
-                fontSize: theme.fontSize.sm,
-              })}
-            >
-              <span mix={css({ flex: 1 })}>
-                {undoKind === 'clear' ? 'Alle Elemente gelöscht.' : 'Element gelöscht.'}
-              </span>
-              <button
-                mix={[
-                  button({ tone: 'secondary' }),
-                  css({ fontSize: theme.fontSize.xs }),
-                  on('click', undo),
-                ]}
-              >
-                ↶ Rückgängig
-              </button>
-            </div>
-          )}
-
-          {/* Control bar */}
-          <div
-            mix={css({
-              display: 'flex',
-              gap: theme.space.md,
-              marginBottom: theme.space.lg,
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            })}
-          >
-            {loadedListId === null ? (
-              <button
-                mix={[
-                  button({ tone: 'primary' }),
-                  on('click', () => {
-                    saveNow(true)
-                  }),
-                ]}
-                disabled={saving}
-              >
-                + Liste hinzufügen
-              </button>
-            ) : (
-              <button
-                mix={[
-                  button({ tone: 'primary' }),
-                  on('click', () => {
-                    flushNow()
-                  }),
-                ]}
-                disabled={!isDirty() || saving}
-              >
-                Speichern
-              </button>
-            )}
-            <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>↺ Umkehren</button>
-            <button mix={[button({ tone: 'secondary' }), on('click', shuffle)]}>⇄ Mischen</button>
-            <button
-              mix={[button({ tone: 'danger' }), on('click', clearAll)]}
-              disabled={items.length === 0}
-            >
-              {clearArmed ? 'Wirklich alle löschen?' : '✕ Alle löschen'}
-            </button>
-
-            {/* Status pill */}
-            <span
-              mix={css({
-                marginLeft: 'auto',
-                fontSize: theme.fontSize.xs,
-                fontWeight: theme.fontWeight.semibold,
-                color: statusColor(),
-                padding: `${theme.space.xs} ${theme.space.sm}`,
-                borderRadius: theme.radius.full,
-                backgroundColor: theme.surface.lvl2,
-              })}
-            >
-              {statusLabel()}
-            </span>
-          </div>
-
-          {/* New-list helper hint */}
-          {loadedListId === null && (
-            <p
-              mix={css({
-                marginBottom: theme.space.lg,
-                marginTop: '-0.5rem',
-                fontSize: theme.fontSize.xs,
-                color: theme.colors.text.muted,
-              })}
-            >
-              {!description.trim() && items.length === 0
-                ? 'Für eine neue Liste fehlen noch eine Beschreibung und ein Element.'
-                : !description.trim()
-                  ? 'Für eine neue Liste fehlt noch eine Beschreibung.'
-                  : items.length === 0
-                    ? 'Für eine neue Liste fehlt noch ein Element.'
-                    : 'Bereit — klicke auf „+ Liste hinzufügen“, um die Liste zu speichern.'}
-            </p>
-          )}
-
-          {/* Keyboard hint + live region */}
-          <p
-            mix={css({
-              marginBottom: theme.space.lg,
-              fontSize: theme.fontSize.xs,
-              color: theme.colors.text.muted,
-            })}
-          >
-            Tipp: Enter zum Aufnehmen, Pfeile zum Verschieben, Enter zum Ablegen. Strg+Pfeile für
-            Direktverschieben.
-          </p>
-          <div
-            aria-live="polite"
-            mix={[
-              css({
-                position: 'absolute',
-                width: '1px',
-                height: '1px',
-                overflow: 'hidden',
-                clip: 'rect(0 0 0 0)',
-                whiteSpace: 'nowrap',
-              }),
-              ref((el: HTMLElement) => {
-                liveRegion = el
-              }),
-            ]}
-          />
-
-          {/* Title input */}
-          <div
-            mix={css({
-              marginBottom: theme.space.md,
-            })}
-          >
-            <label
-              mix={css({
-                display: 'block',
-                fontSize: theme.fontSize.xs,
-                fontWeight: theme.fontWeight.semibold,
-                color: theme.colors.text.muted,
-                marginBottom: theme.space.xs,
-              })}
-              htmlFor="lists-title"
-            >
-              Titel
-            </label>
-            <input
-              id="lists-title"
-              mix={[
-                css({
-                  width: '100%',
-                  padding: `${theme.space.sm} ${theme.space.md}`,
-                  borderRadius: theme.radius.md,
-                  border: `1px solid ${theme.colors.border.strong}`,
-                  fontSize: theme.fontSize.md,
-                  fontWeight: theme.fontWeight.semibold,
-                  outline: 'none',
-                  fontFamily: theme.fontFamily.sans,
-                  boxSizing: 'border-box',
-                  backgroundColor: theme.surface.lvl0,
-                  color: theme.colors.text.primary,
-                  '&:focus': {
-                    borderColor: theme.colors.focus.ring,
-                    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
-                  },
-                  '&::placeholder': {
-                    color: theme.colors.text.muted,
-                  },
-                }),
-                on('input', (e) => {
-                  title = e.currentTarget.value
-                  setDirty()
-                  handle.update()
-                }),
-                on('blur', () => {
-                  scheduleAutosave(true)
-                }),
-              ]}
-              type="text"
-              placeholder="Kurzer Titel für diese Liste…"
-              maxLength={200}
-              defaultValue={title}
-            />
-          </div>
-
-          {/* Description input */}
-          <div
-            mix={css({
-              marginBottom: theme.space.lg,
-            })}
-          >
-            <label
-              mix={css({
-                display: 'block',
-                fontSize: theme.fontSize.xs,
-                fontWeight: theme.fontWeight.semibold,
-                color: theme.colors.text.muted,
-                marginBottom: theme.space.xs,
-              })}
-              htmlFor="lists-description"
-            >
-              Beschreibung
-            </label>
-            <textarea
-              id="lists-description"
-              mix={[
-                css({
-                  width: '100%',
-                  padding: `${theme.space.sm} ${theme.space.md}`,
-                  borderRadius: theme.radius.md,
-                  border: `1px solid ${theme.colors.border.strong}`,
-                  fontSize: theme.fontSize.md,
-                  outline: 'none',
-                  fontFamily: theme.fontFamily.sans,
-                  boxSizing: 'border-box',
-                  backgroundColor: theme.surface.lvl0,
-                  color: theme.colors.text.primary,
-                  minHeight: '72px',
-                  resize: 'vertical',
-                  '&:focus': {
-                    borderColor: theme.colors.focus.ring,
-                    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
-                  },
-                  '&::placeholder': {
-                    color: theme.colors.text.muted,
-                  },
-                }),
-                on('input', (e) => {
-                  description = e.currentTarget.value
-                  setDirty()
-                  handle.update()
-                }),
-                on('blur', () => {
-                  scheduleAutosave(true)
-                }),
-              ]}
-              placeholder="Beschreibung für diese Liste eingeben…"
-              maxLength={500}
-              rows={3}
-              wrap="soft"
-            >
-              {description as never}
-            </textarea>
-          </div>
-
-          {/* Add item */}
-          <div
-            mix={css({
-              display: 'flex',
-              gap: theme.space.md,
-              marginBottom: theme.space.lg,
-              alignItems: 'flex-start',
-            })}
-          >
-            <textarea
-              mix={[
-                css({
-                  padding: `${theme.space.sm} ${theme.space.md}`,
-                  borderRadius: theme.radius.md,
-                  border: `1px solid ${theme.colors.border.strong}`,
-                  flex: 1,
-                  fontSize: theme.fontSize.md,
-                  outline: 'none',
-                  fontFamily: theme.fontFamily.sans,
-                  width: '300px',
-                  minHeight: '60px',
-                  resize: 'vertical',
-                  backgroundColor: theme.surface.lvl0,
-                  color: theme.colors.text.primary,
-                  '&:focus': {
-                    borderColor: theme.colors.focus.ring,
-                    boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
-                  },
-                }),
-                on('input', (e) => {
-                  newItemLabel = e.currentTarget.value
-                  handle.update()
-                }),
-                on('keydown', (e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    addItem()
-                  }
-                }),
-                ref((el) => {
-                  newItemRef = el
-                }),
-              ]}
-              placeholder="Neues Element eingeben…"
-              rows={3}
-              wrap="soft"
-            >
-              {newItemLabel as never}
-            </textarea>
-            <button mix={[button({ tone: 'primary' }), on('click', addItem)]}>
-              + Element hinzufügen
-            </button>
-          </div>
-
-          {/* Items list */}
-          <div
-            mix={css({
-              border: `1px solid ${theme.colors.border.default}`,
-              borderRadius: theme.radius.xl,
-              overflow: 'hidden',
-            })}
-          >
-            <div
-              mix={css({
-                backgroundColor: theme.surface.lvl2,
-                padding: `${theme.space.sm} ${theme.space.md}`,
-                borderBottom: `1px solid ${theme.colors.border.default}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              })}
-            >
+            <div mix={cardHeaderActionsStyle}>
+              {loadedListId === null ? (
+                <button
+                  mix={[
+                    button({ tone: 'primary' }),
+                    on('click', () => {
+                      void saveNow(true)
+                    }),
+                  ]}
+                  disabled={saving}
+                >
+                  + Liste hinzufügen
+                </button>
+              ) : (
+                <button
+                  mix={[
+                    button({ tone: 'primary' }),
+                    on('click', () => {
+                      void flushNow()
+                    }),
+                  ]}
+                  disabled={!isDirty() || saving}
+                >
+                  Speichern
+                </button>
+              )}
               <span
                 mix={css({
                   fontSize: theme.fontSize.xs,
                   fontWeight: theme.fontWeight.semibold,
-                  color: theme.colors.text.muted,
+                  color: statusColor(),
+                  padding: `${theme.space.xs} ${theme.space.sm}`,
+                  borderRadius: theme.radius.full,
+                  backgroundColor: theme.surface.lvl3,
                 })}
               >
-                ELEMENTE
+                {statusLabel()}
               </span>
+            </div>
+          </div>
+
+          <div mix={cardBodyStyle}>
+            {/* Conflict banner */}
+            {conflictState.show && (
+              <div
+                mix={css({
+                  marginBottom: theme.space.md,
+                  padding: theme.space.md,
+                  borderRadius: theme.radius.md,
+                  backgroundColor: theme.colors.action.danger.background + '15',
+                  border: `1px solid ${theme.colors.action.danger.border}`,
+                  fontSize: theme.fontSize.sm,
+                  display: 'flex',
+                  gap: theme.space.sm,
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                })}
+              >
+                <span mix={css({ flex: 1 })}>Die Liste wurde in einem anderen Tab geändert.</span>
+                <button
+                  mix={[
+                    button({ tone: 'secondary' }),
+                    css({ fontSize: theme.fontSize.xs }),
+                    on('click', reloadFromServer),
+                  ]}
+                >
+                  Neu laden
+                </button>
+                <button
+                  mix={[
+                    button({ tone: 'danger' }),
+                    css({ fontSize: theme.fontSize.xs }),
+                    on('click', forceOverwrite),
+                  ]}
+                >
+                  Trotzdem speichern
+                </button>
+              </div>
+            )}
+
+            {/* Undo chip */}
+            {undoSnapshot !== null && (
               <div
                 mix={css({
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.space.md,
+                  marginBottom: theme.space.md,
+                  padding: `${theme.space.sm} ${theme.space.md}`,
+                  borderRadius: theme.radius.md,
+                  backgroundColor: theme.surface.lvl2,
+                  border: `1px solid ${theme.colors.border.default}`,
+                  fontSize: theme.fontSize.sm,
                 })}
               >
-                {items.length > 0 && (
-                  <div
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={items.length}
-                    aria-valuenow={doneCount}
-                    aria-label={`${doneCount} von ${items.length} erledigt`}
-                    mix={css({
-                      width: '80px',
-                      height: '6px',
-                      borderRadius: theme.radius.full,
-                      backgroundColor: theme.surface.lvl0,
-                      overflow: 'hidden',
-                    })}
-                  >
-                    <div
-                      mix={css({
-                        height: '100%',
-                        width: `${(doneCount / items.length) * 100}%`,
-                        backgroundColor: theme.colors.success.background,
-                        borderRadius: theme.radius.full,
-                        transition: 'width 0.2s ease',
-                      })}
-                    />
-                  </div>
-                )}
-                <span
-                  mix={css({
-                    fontSize: theme.fontSize.sm,
-                    color: theme.colors.text.secondary,
-                  })}
-                >
-                  {items.length > 0
-                    ? `${doneCount} von ${items.length} erledigt`
-                    : `${items.length} Einträge`}
+                <span mix={css({ flex: 1 })}>
+                  {undoKind === 'clear' ? 'Alle Elemente gelöscht.' : 'Element gelöscht.'}
                 </span>
+                <button
+                  mix={[
+                    button({ tone: 'secondary' }),
+                    css({ fontSize: theme.fontSize.xs }),
+                    on('click', undo),
+                  ]}
+                >
+                  ↶ Rückgängig
+                </button>
               </div>
+            )}
+
+            {/* Secondary actions toolbar */}
+            <div mix={toolbarStyle}>
+              <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>
+                ↺ Umkehren
+              </button>
+              <button mix={[button({ tone: 'secondary' }), on('click', shuffle)]}>⇄ Mischen</button>
+              <button
+                mix={[button({ tone: 'danger' }), on('click', clearAll)]}
+                disabled={items.length === 0}
+              >
+                {clearArmed ? 'Wirklich alle löschen?' : '✕ Alle löschen'}
+              </button>
             </div>
 
-            {items.length === 0 ? (
-              <div
+            {/* New-list helper hint */}
+            {loadedListId === null && (
+              <p
                 mix={css({
-                  padding: `${theme.space.xxl} ${theme.space.lg}`,
-                  textAlign: 'center',
+                  marginBottom: theme.space.lg,
+                  marginTop: '-0.5rem',
+                  fontSize: theme.fontSize.xs,
                   color: theme.colors.text.muted,
                 })}
               >
-                Noch keine Elemente. Füge oben eines hinzu.
-              </div>
-            ) : (
-              <div
-                role="list"
+                {!description.trim() && items.length === 0
+                  ? 'Für eine neue Liste fehlen noch eine Beschreibung und ein Element.'
+                  : !description.trim()
+                    ? 'Für eine neue Liste fehlt noch eine Beschreibung.'
+                    : items.length === 0
+                      ? 'Für eine neue Liste fehlt noch ein Element.'
+                      : 'Bereit — klicke auf „+ Liste hinzufügen“, um die Liste zu speichern.'}
+              </p>
+            )}
+
+            {/* Keyboard hint + live region */}
+            <p
+              mix={css({
+                marginBottom: theme.space.lg,
+                fontSize: theme.fontSize.xs,
+                color: theme.colors.text.muted,
+              })}
+            >
+              Tipp: Enter zum Aufnehmen, Pfeile zum Verschieben, Enter zum Ablegen. Strg+Pfeile für
+              Direktverschieben.
+            </p>
+            <div
+              aria-live="polite"
+              mix={[
+                css({
+                  position: 'absolute',
+                  width: '1px',
+                  height: '1px',
+                  overflow: 'hidden',
+                  clip: 'rect(0 0 0 0)',
+                  whiteSpace: 'nowrap',
+                }),
+                ref((el: HTMLElement) => {
+                  liveRegion = el
+                }),
+              ]}
+            />
+
+            {/* Description input */}
+            <div
+              mix={css({
+                marginBottom: theme.space.lg,
+              })}
+            >
+              <label
+                mix={css({
+                  display: 'block',
+                  fontSize: theme.fontSize.xs,
+                  fontWeight: theme.fontWeight.semibold,
+                  color: theme.colors.text.muted,
+                  marginBottom: theme.space.xs,
+                })}
+                htmlFor="lists-description"
+              >
+                Beschreibung
+              </label>
+              <textarea
+                id="lists-description"
                 mix={[
                   css({
-                    maxHeight: '320px',
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    '&::-webkit-scrollbar': { width: '8px' },
-                    '&::-webkit-scrollbar-track': { backgroundColor: theme.surface.lvl2 },
-                    '&::-webkit-scrollbar-thumb': {
-                      backgroundColor: theme.colors.border.strong,
-                      borderRadius: '4px',
+                    width: '100%',
+                    padding: `${theme.space.sm} ${theme.space.md}`,
+                    borderRadius: theme.radius.md,
+                    border: `1px solid ${theme.colors.border.strong}`,
+                    fontSize: theme.fontSize.md,
+                    outline: 'none',
+                    fontFamily: theme.fontFamily.sans,
+                    boxSizing: 'border-box',
+                    backgroundColor: theme.surface.lvl0,
+                    color: theme.colors.text.primary,
+                    minHeight: '72px',
+                    resize: 'vertical',
+                    '&:focus': {
+                      borderColor: theme.colors.focus.ring,
+                      boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
                     },
-                    '&::-webkit-scrollbar-thumb:hover': {
-                      backgroundColor: theme.colors.text.muted,
+                    '&::placeholder': {
+                      color: theme.colors.text.muted,
                     },
                   }),
-                  ref((el) => {
-                    listRef = el
+                  on('input', (e) => {
+                    description = e.currentTarget.value
+                    setDirty()
+                    handle.update()
                   }),
-                  ref((el) => {
-                    let ac = new AbortController()
-                    el.addEventListener(
-                      'dragover',
-                      (e) => handleContainerDragOver(e as DragEvent),
-                      { signal: ac.signal },
-                    )
-                    el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
-                      signal: ac.signal,
-                    })
-                    return () => ac.abort()
+                  on('blur', () => {
+                    scheduleAutosave(true)
                   }),
                 ]}
+                placeholder="Beschreibung für diese Liste eingeben…"
+                maxLength={500}
+                rows={3}
+                wrap="soft"
               >
-                {items.map((item, index) => (
-                  <div
-                    key={item.id}
-                    mix={[
-                      css({
-                        display: 'flex',
-                        gap: theme.space.md,
-                        alignItems: 'center',
-                        padding: `${theme.space.md} ${theme.space.md}`,
-                        borderBottom:
-                          index < items.length - 1
-                            ? `1px solid ${theme.colors.border.subtle}`
-                            : 'none',
-                        backgroundColor: index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
-                        '&:focus-visible': {
-                          outline: `2px solid ${theme.colors.focus.ring}`,
-                          outlineOffset: '-2px',
-                        },
-                      }),
-                      ...(item.id === grabbedId
-                        ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
-                        : []),
-                      ref((el) => {
-                        let ac = new AbortController()
-                        el.addEventListener(
-                          'dragstart',
-                          (e) => {
-                            let idx = parseInt(
-                              (e.currentTarget as HTMLElement).dataset.index || '0',
-                              10,
-                            )
-                            handleDragStart(e as DragEvent, idx)
-                          },
-                          { signal: ac.signal },
-                        )
-                        el.addEventListener(
-                          'dragover',
-                          (e) => {
-                            let idx = parseInt(
-                              (e.currentTarget as HTMLElement).dataset.index || '0',
-                              10,
-                            )
-                            handleDragOver(e as DragEvent, idx)
-                          },
-                          { signal: ac.signal },
-                        )
-                        el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
-                          signal: ac.signal,
-                        })
-                        el.addEventListener('dragend', () => handleDragEnd(), { signal: ac.signal })
-                        return () => ac.abort()
-                      }),
-                      on('keydown', (e) => handleRowKeyDown(e, index)),
-                      on('click', () => {
-                        focusedId = item.id
-                        handle.update()
-                      }),
-                    ]}
-                    role="listitem"
-                    draggable="true"
-                    data-index={index}
-                    data-item-id={item.id}
-                    tabIndex={item.id === activeItemId() ? 0 : -1}
-                  >
-                    <span mix={gripStyle} data-grip="" aria-hidden="true">
-                      ⠿
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={item.done === true}
-                      aria-label={
-                        item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
-                      }
-                      mix={[
-                        css({
-                          width: '18px',
-                          height: '18px',
-                          flexShrink: 0,
-                          cursor: 'pointer',
-                          accentColor: theme.colors.focus.ring,
-                        }),
-                        on('change', (e) => {
-                          let idx = parseInt(
-                            (e.currentTarget.closest('[data-index]') as HTMLElement | null)?.dataset
-                              .index || '0',
-                            10,
-                          )
-                          toggleDone(idx)
-                        }),
-                      ]}
-                    />
-                    <span
+                {description as never}
+              </textarea>
+            </div>
+
+            {/* Add item */}
+            <div
+              mix={css({
+                display: 'flex',
+                gap: theme.space.md,
+                marginBottom: theme.space.lg,
+                alignItems: 'flex-start',
+              })}
+            >
+              <textarea
+                mix={[
+                  css({
+                    padding: `${theme.space.sm} ${theme.space.md}`,
+                    borderRadius: theme.radius.md,
+                    border: `1px solid ${theme.colors.border.strong}`,
+                    flex: 1,
+                    fontSize: theme.fontSize.md,
+                    outline: 'none',
+                    fontFamily: theme.fontFamily.sans,
+                    width: '300px',
+                    minHeight: '60px',
+                    resize: 'vertical',
+                    backgroundColor: theme.surface.lvl0,
+                    color: theme.colors.text.primary,
+                    '&:focus': {
+                      borderColor: theme.colors.focus.ring,
+                      boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+                    },
+                  }),
+                  on('input', (e) => {
+                    newItemLabel = e.currentTarget.value
+                    handle.update()
+                  }),
+                  on('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      addItem()
+                    }
+                  }),
+                  ref((el) => {
+                    newItemRef = el
+                  }),
+                ]}
+                placeholder="Neues Element eingeben…"
+                rows={3}
+                wrap="soft"
+              >
+                {newItemLabel as never}
+              </textarea>
+              <button mix={[button({ tone: 'primary' }), on('click', addItem)]}>
+                + Element hinzufügen
+              </button>
+            </div>
+
+            {/* Items list */}
+            <div
+              mix={css({
+                border: `1px solid ${theme.colors.border.default}`,
+                borderRadius: theme.radius.xl,
+                overflow: 'hidden',
+              })}
+            >
+              <div
+                mix={css({
+                  backgroundColor: theme.surface.lvl2,
+                  padding: `${theme.space.sm} ${theme.space.md}`,
+                  borderBottom: `1px solid ${theme.colors.border.default}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                })}
+              >
+                <h2
+                  mix={css({
+                    margin: 0,
+                    fontSize: theme.fontSize.xs,
+                    fontWeight: theme.fontWeight.semibold,
+                    color: theme.colors.text.muted,
+                    letterSpacing: '0.06em',
+                  })}
+                >
+                  ELEMENTE
+                </h2>
+                <div
+                  mix={css({
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.space.md,
+                  })}
+                >
+                  {items.length > 0 && (
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={items.length}
+                      aria-valuenow={doneCount}
+                      aria-label={`${doneCount} von ${items.length} erledigt`}
                       mix={css({
-                        width: '28px',
-                        height: '28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: theme.surface.lvl2,
-                        color: theme.colors.text.secondary,
-                        borderRadius: theme.radius.md,
-                        fontSize: theme.fontSize.xs,
-                        fontWeight: theme.fontWeight.semibold,
+                        width: '80px',
+                        height: '6px',
+                        borderRadius: theme.radius.full,
+                        backgroundColor: theme.surface.lvl0,
+                        overflow: 'hidden',
                       })}
                     >
-                      {index + 1}
-                    </span>
+                      <div
+                        mix={css({
+                          height: '100%',
+                          width: `${(doneCount / items.length) * 100}%`,
+                          backgroundColor: theme.colors.success.background,
+                          borderRadius: theme.radius.full,
+                          transition: 'width 0.2s ease',
+                        })}
+                      />
+                    </div>
+                  )}
+                  <span
+                    mix={css({
+                      fontSize: theme.fontSize.sm,
+                      color: theme.colors.text.secondary,
+                    })}
+                  >
+                    {items.length > 0
+                      ? `${doneCount} von ${items.length} erledigt`
+                      : `${items.length} Einträge`}
+                  </span>
+                </div>
+              </div>
 
-                    {editingIndex === index ? (
-                      <textarea
+              {items.length === 0 ? (
+                <div
+                  mix={css({
+                    padding: `${theme.space.xxl} ${theme.space.lg}`,
+                    textAlign: 'center',
+                    color: theme.colors.text.muted,
+                  })}
+                >
+                  Noch keine Elemente. Füge oben eines hinzu.
+                </div>
+              ) : (
+                <div
+                  role="list"
+                  mix={[
+                    css({
+                      maxHeight: '320px',
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      '&::-webkit-scrollbar': { width: '8px' },
+                      '&::-webkit-scrollbar-track': { backgroundColor: theme.surface.lvl2 },
+                      '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: theme.colors.border.strong,
+                        borderRadius: '4px',
+                      },
+                      '&::-webkit-scrollbar-thumb:hover': {
+                        backgroundColor: theme.colors.text.muted,
+                      },
+                    }),
+                    ref((el) => {
+                      listRef = el
+                    }),
+                    ref((el) => {
+                      let ac = new AbortController()
+                      el.addEventListener(
+                        'dragover',
+                        (e) => handleContainerDragOver(e as DragEvent),
+                        { signal: ac.signal },
+                      )
+                      el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
+                        signal: ac.signal,
+                      })
+
+                      // Reveal/hide a row's action cluster on hover or focus.
+                      // Delegated on the container so it survives re-renders.
+                      function setRowActions(row: HTMLElement, op: string) {
+                        let cluster = row.querySelector<HTMLElement>('[data-item-actions]')
+                        if (cluster) {
+                          cluster.style.opacity = op
+                          cluster.style.pointerEvents = op === '1' ? 'auto' : 'none'
+                        }
+                      }
+                      let activeRow: HTMLElement | null = null
+                      function revealRow(row: HTMLElement) {
+                        if (activeRow && activeRow !== row) setRowActions(activeRow, '')
+                        setRowActions(row, '1')
+                        activeRow = row
+                      }
+                      function hideRowActions() {
+                        if (activeRow) {
+                          setRowActions(activeRow, '')
+                          activeRow = null
+                        }
+                      }
+                      el.addEventListener(
+                        'mouseover',
+                        (e) => {
+                          let row = (e.target as HTMLElement).closest<HTMLElement>(
+                            '[role="listitem"]',
+                          )
+                          if (row) revealRow(row)
+                        },
+                        { signal: ac.signal },
+                      )
+                      el.addEventListener('mouseleave', hideRowActions, { signal: ac.signal })
+                      el.addEventListener(
+                        'focusin',
+                        (e) => {
+                          let row = (e.target as HTMLElement).closest<HTMLElement>(
+                            '[role="listitem"]',
+                          )
+                          if (row) revealRow(row)
+                        },
+                        { signal: ac.signal },
+                      )
+                      el.addEventListener(
+                        'focusout',
+                        (e) => {
+                          let row = (e.target as HTMLElement).closest<HTMLElement>(
+                            '[role="listitem"]',
+                          )
+                          let related = e.relatedTarget as Node | null
+                          if (row && (!related || !row.contains(related))) setRowActions(row, '')
+                        },
+                        { signal: ac.signal },
+                      )
+
+                      return () => ac.abort()
+                    }),
+                  ]}
+                >
+                  {items.map((item, index) => (
+                    <div
+                      key={item.id}
+                      mix={[
+                        css({
+                          display: 'flex',
+                          gap: theme.space.md,
+                          alignItems: 'center',
+                          padding: `${theme.space.md} ${theme.space.md}`,
+                          borderBottom:
+                            index < items.length - 1
+                              ? `1px solid ${theme.colors.border.subtle}`
+                              : 'none',
+                          backgroundColor:
+                            index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                          '&:focus-visible': {
+                            outline: `2px solid ${theme.colors.focus.ring}`,
+                            outlineOffset: '-2px',
+                          },
+                        }),
+                        ...(item.id === grabbedId
+                          ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
+                          : []),
+                        ref((el) => {
+                          let ac = new AbortController()
+                          el.addEventListener(
+                            'dragstart',
+                            (e) => {
+                              let idx = parseInt(
+                                (e.currentTarget as HTMLElement).dataset.index || '0',
+                                10,
+                              )
+                              handleDragStart(e as DragEvent, idx)
+                            },
+                            { signal: ac.signal },
+                          )
+                          el.addEventListener(
+                            'dragover',
+                            (e) => {
+                              let idx = parseInt(
+                                (e.currentTarget as HTMLElement).dataset.index || '0',
+                                10,
+                              )
+                              handleDragOver(e as DragEvent, idx)
+                            },
+                            { signal: ac.signal },
+                          )
+                          el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
+                            signal: ac.signal,
+                          })
+                          el.addEventListener('dragend', () => handleDragEnd(), {
+                            signal: ac.signal,
+                          })
+                          return () => ac.abort()
+                        }),
+                        on('keydown', (e) => handleRowKeyDown(e, index)),
+                        on('click', () => {
+                          focusedId = item.id
+                          handle.update()
+                        }),
+                      ]}
+                      role="listitem"
+                      draggable="true"
+                      data-index={index}
+                      data-item-id={item.id}
+                      tabIndex={item.id === activeItemId() ? 0 : -1}
+                    >
+                      <span mix={gripStyle} data-grip="" aria-hidden="true">
+                        ⠿
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={item.done === true}
+                        aria-label={
+                          item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
+                        }
                         mix={[
                           css({
-                            padding: `${theme.space.sm} ${theme.space.md}`,
-                            borderRadius: theme.radius.md,
-                            border: `1px solid ${theme.colors.focus.ring}`,
-                            flex: 1,
-                            fontSize: theme.fontSize.lg,
-                            outline: 'none',
-                            fontFamily: theme.fontFamily.sans,
-                            width: '300px',
-                            minHeight: '60px',
-                            resize: 'vertical',
-                            backgroundColor: theme.surface.lvl0,
-                            color: theme.colors.text.primary,
+                            width: '18px',
+                            height: '18px',
+                            flexShrink: 0,
+                            cursor: 'pointer',
+                            accentColor: theme.colors.focus.ring,
                           }),
-                          on('input', (e) => {
-                            editText = e.currentTarget.value
-                            handle.update()
-                          }),
-                          on('keydown', (e) => {
-                            if (e.key === 'Escape') cancelEdit()
+                          on('change', (e) => {
+                            let idx = parseInt(
+                              (e.currentTarget.closest('[data-index]') as HTMLElement | null)
+                                ?.dataset.index || '0',
+                              10,
+                            )
+                            toggleDone(idx)
                           }),
                         ]}
-                        autoFocus
-                        rows={3}
-                        wrap="soft"
-                      >
-                        {editText as never}
-                      </textarea>
-                    ) : (
-                      <span
-                        mix={[
-                          multilineDisplayStyle,
-                          item.done === true &&
+                      />
+                      {editingIndex === index ? (
+                        <textarea
+                          mix={[
                             css({
-                              textDecoration: 'line-through',
-                              color: theme.colors.text.muted,
+                              padding: `${theme.space.sm} ${theme.space.md}`,
+                              borderRadius: theme.radius.md,
+                              border: `1px solid ${theme.colors.focus.ring}`,
+                              flex: 1,
+                              fontSize: theme.fontSize.lg,
+                              outline: 'none',
+                              fontFamily: theme.fontFamily.sans,
+                              width: '300px',
+                              minHeight: '60px',
+                              resize: 'vertical',
+                              backgroundColor: theme.surface.lvl0,
+                              color: theme.colors.text.primary,
                             }),
+                            on('input', (e) => {
+                              editText = e.currentTarget.value
+                              handle.update()
+                            }),
+                            on('keydown', (e) => {
+                              if (e.key === 'Escape') cancelEdit()
+                            }),
+                          ]}
+                          autoFocus
+                          rows={3}
+                          wrap="soft"
+                        >
+                          {editText as never}
+                        </textarea>
+                      ) : (
+                        <span
+                          mix={[
+                            multilineDisplayStyle,
+                            item.done === true &&
+                              css({
+                                textDecoration: 'line-through',
+                                color: theme.colors.text.muted,
+                              }),
+                          ].filter(Boolean)}
+                        >
+                          {item.label}
+                        </span>
+                      )}
+
+                      <div
+                        draggable="false"
+                        data-item-actions
+                        mix={[
+                          itemActionsStyle,
+                          editingIndex === index && css({ opacity: 1, pointerEvents: 'auto' }),
                         ].filter(Boolean)}
                       >
-                        {item.label}
-                      </span>
-                    )}
-
-                    <div draggable="false" mix={css({ display: 'flex', gap: theme.space.xs })}>
-                      {editingIndex === index ? (
-                        <>
-                          <button
-                            mix={[button({ tone: 'primary' }), on('click', saveEdit)]}
-                            title="Speichern"
-                          >
-                            <Glyph name="check" width={16} height={16} />
-                          </button>
-                          <button
-                            mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]}
-                            title="Abbrechen"
-                          >
-                            <Glyph name="close" width={16} height={16} />
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            mix={[
-                              button({ tone: 'secondary' }),
-                              on('click', () => startEditing(index)),
-                            ]}
-                            title="Bearbeiten"
-                          >
-                            <Glyph name="edit" width={16} height={16} />
-                          </button>
-                          <button
-                            mix={[button({ tone: 'danger' }), on('click', () => deleteItem(index))]}
-                            title="Löschen"
-                          >
-                            <Glyph name="close" width={16} height={16} />
-                          </button>
-                          <button
-                            mix={[button({ tone: 'secondary' }), on('click', () => moveUp(index))]}
-                            disabled={index === 0}
-                            title="Nach oben"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            mix={[
-                              button({ tone: 'secondary' }),
-                              on('click', () => moveDown(index)),
-                            ]}
-                            disabled={index === items.length - 1}
-                            title="Nach unten"
-                          >
-                            ↓
-                          </button>
-                        </>
-                      )}
+                        {editingIndex === index ? (
+                          <>
+                            <button
+                              mix={[button({ tone: 'primary' }), on('click', saveEdit)]}
+                              title="Speichern"
+                            >
+                              <Glyph name="check" width={16} height={16} />
+                            </button>
+                            <button
+                              mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]}
+                              title="Abbrechen"
+                            >
+                              <Glyph name="close" width={16} height={16} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              mix={[
+                                button({ tone: 'secondary' }),
+                                on('click', () => startEditing(index)),
+                              ]}
+                              title="Bearbeiten"
+                            >
+                              <Glyph name="edit" width={16} height={16} />
+                            </button>
+                            <button
+                              mix={[
+                                button({ tone: 'danger' }),
+                                on('click', () => deleteItem(index)),
+                              ]}
+                              title="Löschen"
+                            >
+                              <Glyph name="close" width={16} height={16} />
+                            </button>
+                            <button
+                              mix={[
+                                button({ tone: 'secondary' }),
+                                on('click', () => moveUp(index)),
+                              ]}
+                              disabled={index === 0}
+                              title="Nach oben"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              mix={[
+                                button({ tone: 'secondary' }),
+                                on('click', () => moveDown(index)),
+                              ]}
+                              disabled={index === items.length - 1}
+                              title="Nach unten"
+                            >
+                              ↓
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )

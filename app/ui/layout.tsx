@@ -48,7 +48,9 @@ export function Layout(handle: Handle<LayoutProps>) {
           {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
           <main mix={mainStyle}>
             <div mix={pageStyle}>
-              {currentPath.startsWith('/admin') || currentPath.startsWith('/ai') ? null : (
+              {currentPath.startsWith('/admin') ||
+              currentPath.startsWith('/ai') ||
+              currentPath.startsWith('/lists') ? null : (
                 <Breadcrumbs items={getBreadcrumbs(currentPath)} />
               )}
               {children}

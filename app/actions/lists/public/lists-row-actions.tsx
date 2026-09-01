@@ -15,12 +15,14 @@ export const ListsRowActions = clientEntry(
       function reveal(target: HTMLElement) {
         for (let el of target.querySelectorAll<HTMLElement>('[data-list-row-action]')) {
           el.style.opacity = '1'
+          el.style.pointerEvents = 'auto'
         }
       }
 
       function dim(target: HTMLElement) {
         for (let el of target.querySelectorAll<HTMLElement>('[data-list-row-action]')) {
           el.style.opacity = ''
+          el.style.pointerEvents = ''
         }
       }
 

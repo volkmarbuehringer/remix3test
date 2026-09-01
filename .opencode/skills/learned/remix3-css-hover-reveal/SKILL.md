@@ -99,3 +99,31 @@ Use `0.3` as a still-clickable resting state (so `pointer-events` never traps cl
 - You reached for `&:hover > child` / `&:hover [child]` in `css()` and it does nothing.
 - The row matches `:hover` but the child's computed style never changes; `:hover` on the element itself still works.
 - You need keyboard reachability as well — handle `focusin`/`focusout`, not just `mouseenter`/`mouseleave`.
+
+## Variant: reveal without reserving layout width
+
+The base technique keeps the hidden buttons **in-flow** at a still-clickable `opacity: 0.3`. When the row/column is narrow (e.g. a 220px sidebar) the hidden buttons still reserve flex width and squeeze the row's label. For a no-width-reserve reveal:
+
+- Wrap the actions in a cluster that is `position: absolute; right: 8px; top: 50%; transform: translateY(-50%)` on a `position: relative` row, and give the **cluster** (not just each button) a resting `opacity: 0; pointer-events: none`.
+- On reveal toggle **both** inline `opacity` and `pointer-events` (`auto`) on the cluster — `pointer-events: none` on the container is what lets clicks pass through to the row beneath (nothing is trapped), and it must be turned on again to be interactive.
+- This is the case that *does* use `pointer-events: none`: the cluster is out of flow, so the earlier advice (keep a `0.3` still-clickable in-flow state) does not apply. Use the absolute/`pointer-events` variant only when you must free the layout width.
+
+For a list whose rows **re-render** on every state change (typing, toggling done), wire the reveal by **delegation** on the stable list container instead of per-row `mouseenter` (which is lost on re-render). Use `mouseover`/`focusin` to find the row via `closest('[role="listitem"]')`, plus `mouseleave`/`focusout` to hide, and keep the setup in a `ref` with an `AbortController` (or a `clientEntry` re-init on `reloadComplete`).
+
+```tsx
+// container ref — delegated, survives re-renders
+let active: HTMLElement | null = null
+function setOp(row: HTMLElement, op: string) {
+  let c = row.querySelector<HTMLElement>('[data-item-actions]')
+  if (c) { c.style.opacity = op; c.style.pointerEvents = op === '1' ? 'auto' : 'none' }
+}
+el.addEventListener('mouseover', (e) => {
+  let r = (e.target as HTMLElement).closest<HTMLElement>('[role="listitem"]')
+  if (r) { if (active && active !== r) setOp(active, ''); setOp(r, '1'); active = r }
+}, { signal: ac.signal })
+el.addEventListener('mouseleave', () => {
+  if (active) { setOp(active, ''); active = null }
+}, { signal: ac.signal })
+```
+
+Force-visibly reveal an actively-editing row by adding a conditional style (`opacity: 1; pointer-events: auto`) when that row is in edit mode, so its Save/Cancel actions are always visible instead of waiting for hover.

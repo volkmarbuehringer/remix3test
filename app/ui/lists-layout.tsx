@@ -3,7 +3,6 @@ import { getContext } from 'remix/middleware/async-context'
 import { theme } from '../ui/theme/theme.ts'
 
 import { Layout, tooltipAnchorStyle } from './layout.tsx'
-import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
@@ -63,6 +62,16 @@ const frameFallbackStyle = css({
   border: `1px solid ${theme.colors.border.default}`,
   color: theme.colors.text.muted,
   fontSize: theme.fontSize.sm,
+})
+
+/**
+ * The shared shell grid top-aligns its columns (align-items: start), which
+ * leaves the sidebar and the editor card at different heights. Stretching both
+ * columns here makes the two boxes match — the sidebar `aside` and the editor
+ * card below both fill the grid row height.
+ */
+const shellAlignStretchStyle = css({
+  alignItems: 'stretch',
 })
 
 function isFrameRequest(): boolean {
@@ -165,7 +174,7 @@ function ListsLayout(
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
-      <div mix={shellStyle}>
+      <div mix={[shellStyle, shellAlignStretchStyle]}>
         <aside mix={sidebarStyle}>
           <div mix={sidebarHeaderStyle}>
             <span mix={headerIconWrapStyle}>
@@ -306,44 +315,14 @@ function ListsLayout(
                     </span>
                   </NavLink>
                   {listId !== null && (
-                    <button
-                      type="button"
-                      data-list-rename-btn
-                      data-list-row-action
-                      mix={renameBtnStyle}
-                      aria-label={`Liste "${displayName}" umbenennen`}
-                      title="Umbenennen"
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                      </svg>
-                    </button>
-                  )}
-                  {listId !== null && (
-                    <form
-                      method="POST"
-                      action={routes.lists.destroy.href({ id: listId })}
-                      data-rmx-target={frameTarget}
-                      data-confirm={`"${displayName}" löschen?`}
-                      data-list-row-action
-                      mix={deleteFormStyle}
-                    >
-                      <CsrfTokenInput />
+                    <div mix={rowActionsStyle} data-list-row-actions>
                       <button
-                        type="submit"
-                        data-list-delete-btn
+                        type="button"
+                        data-list-rename-btn
                         data-list-row-action
-                        mix={deleteBtnStyle}
-                        aria-label={`Liste "${displayName}" löschen`}
+                        mix={renameBtnStyle}
+                        aria-label={`Liste "${displayName}" umbenennen`}
+                        title="Umbenennen"
                       >
                         <svg
                           width="12"
@@ -355,11 +334,41 @@ function ListsLayout(
                           stroke-linecap="round"
                           stroke-linejoin="round"
                         >
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                         </svg>
                       </button>
-                    </form>
+                      <form
+                        method="POST"
+                        action={routes.lists.destroy.href({ id: listId })}
+                        data-rmx-target={frameTarget}
+                        data-confirm={`"${displayName}" löschen?`}
+                        data-list-row-action
+                        mix={deleteFormStyle}
+                      >
+                        <CsrfTokenInput />
+                        <button
+                          type="submit"
+                          data-list-delete-btn
+                          data-list-row-action
+                          mix={deleteBtnStyle}
+                          aria-label={`Liste "${displayName}" löschen`}
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                      </form>
+                    </div>
                   )}
                 </div>
               )
@@ -400,10 +409,7 @@ function ListsLayout(
             )}
           </nav>
         </aside>
-        <section mix={contentStyle}>
-          <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
-          {children}
-        </section>
+        <section mix={contentStyle}>{children}</section>
       </div>
     )
   }
@@ -446,11 +452,25 @@ const entryRowStyle = css({
   },
 })
 
+const rowActionsStyle = css({
+  position: 'absolute',
+  right: '8px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '2px',
+  zIndex: 2,
+  pointerEvents: 'none',
+})
+
 const deleteFormStyle = css({
   margin: 0,
   padding: 0,
   flexShrink: 0,
-  opacity: '0.3',
+  display: 'flex',
+  opacity: 0,
+  pointerEvents: 'none',
   transition: 'opacity 0.12s ease',
 })
 
@@ -484,7 +504,8 @@ const renameBtnStyle = css({
   color: theme.colors.text.secondary,
   cursor: 'pointer',
   borderRadius: theme.radius.sm,
-  opacity: '0.3',
+  opacity: 0,
+  pointerEvents: 'none',
   transition: 'opacity 0.12s ease',
   ':hover': {
     background: theme.surface.lvl2,
