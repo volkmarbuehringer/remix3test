@@ -1,9 +1,9 @@
 import type { Handle } from 'remix/ui'
-import { css } from 'remix/ui'
 import type { Client } from '../../data/schema.ts'
 import { ClientGridPage } from './grid-page.tsx'
 import { ClientEditPage } from './edit-page.tsx'
 import { ClientCreatePage } from './create-page.tsx'
+import { table } from '../../ui/mixins/admin-table.ts'
 
 interface ClientPageProps {
   rows: Client[]
@@ -43,7 +43,7 @@ function ClientPage(handle: Handle<ClientPageProps>) {
     let hasSidebar = editRow || creating
 
     let gridSection = (
-      <div mix={css({ minWidth: 0 })} id="client-grid-section">
+      <div mix={table.minWidth0} id="client-grid-section">
         <ClientGridPage
           rows={rows}
           offset={offset}
@@ -60,44 +60,45 @@ function ClientPage(handle: Handle<ClientPageProps>) {
 
     if (hasSidebar) {
       return (
-        <div
-          mix={css({
-            display: 'grid',
-            gridTemplateColumns: '1fr 380px',
-            gap: '24px',
-            alignItems: 'start',
-            maxWidth: '1100px',
-            margin: '0 auto',
-          })}
-        >
-          {gridSection}
-          <div mix={css({ position: 'sticky', top: '1.5rem' })}>
-            {editRow ? (
-              <ClientEditPage
-                row={editRow}
-                offset={String(offset)}
-                sort={sortColumn}
-                order={sortDirection}
-                filter={filter ?? ''}
-                formValues={formValues}
-                fieldErrors={fieldErrors}
-              />
-            ) : (
-              <ClientCreatePage
-                offset={String(offset)}
-                sort={sortColumn}
-                order={sortDirection}
-                filter={filter ?? ''}
-                formValues={formValues}
-                fieldErrors={fieldErrors}
-              />
-            )}
+        <div mix={table.page}>
+          <h2 mix={table.title}>Client-Test</h2>
+          {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+          <div mix={table.twoColumn}>
+            {gridSection}
+            <div mix={table.stickyPanel}>
+              {editRow ? (
+                <ClientEditPage
+                  row={editRow}
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter ?? ''}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                />
+              ) : (
+                <ClientCreatePage
+                  offset={String(offset)}
+                  sort={sortColumn}
+                  order={sortDirection}
+                  filter={filter ?? ''}
+                  formValues={formValues}
+                  fieldErrors={fieldErrors}
+                />
+              )}
+            </div>
           </div>
         </div>
       )
     }
 
-    return <div mix={css({ maxWidth: '960px', margin: '0 auto' })}>{gridSection}</div>
+    return (
+      <div mix={table.page}>
+        <h2 mix={table.title}>Client-Test</h2>
+        {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
+        {gridSection}
+      </div>
+    )
   }
 }
 

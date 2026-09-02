@@ -31,7 +31,7 @@ import { renderGridFormError, type AdminGridErrorState } from '../../ui/admin-gr
 
 type Row = Client
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 15
 const CLIENT_FORM_KEYS = [
   'name',
   'email',

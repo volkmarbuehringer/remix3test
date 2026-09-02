@@ -1,16 +1,26 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
+import { rotatedGlyphCss } from '../../ui/mixins/icon.ts'
 import button from '../../ui/theme/button.ts'
+import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
 import type { Client } from '../../data/schema.ts'
 import { FrameRefreshButton } from './public/grid-refresh-button.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
 import { routes } from '../../routes.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
+import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
-import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { table } from '../../ui/mixins/admin-table.ts'
+import {
+  sortArrow,
+  buildSortUrl,
+  buildPaginationUrl,
+  buildCreateUrl,
+  buildEditUrl,
+  buildFilterParams,
+} from '../../ui/mixins/admin-urls.ts'
 import { getCspNonce } from '../../middleware/security-headers.ts'
 import { ClientsContextMenu } from './public/clients-context-menu.tsx'
 
@@ -29,181 +39,11 @@ interface ClientGridPageProps {
   editingId?: number | null
 }
 
-// ---------------------------------------------------------------------------
-// Table styles
-// ---------------------------------------------------------------------------
-
-const tableStyle = css({
-  width: '100%',
-  tableLayout: 'fixed',
-  borderCollapse: 'collapse',
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.lg,
-  overflow: 'hidden',
-  boxShadow: theme.shadow.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-})
-
-const thStyle = css({
-  textAlign: 'left',
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
-  borderBottom: `2px solid ${theme.colors.border.default}`,
-  verticalAlign: 'middle',
-  whiteSpace: 'nowrap',
-})
-
-const thSortableStyle = css({
-  textAlign: 'left',
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
-  borderBottom: `2px solid ${theme.colors.border.default}`,
-  verticalAlign: 'middle',
-  whiteSpace: 'nowrap',
-})
-
-const sortLinkStyle = css({
-  color: 'inherit',
-  textDecoration: 'none',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '4px',
-  '&:hover': { color: theme.colors.text.primary },
-})
-
-const sortArrowStyle = css({
-  display: 'inline-block',
-  fontSize: '0.7rem',
-  lineHeight: '1',
-  color: theme.colors.text.muted,
-})
-
-const sortArrowActiveStyle = css({
-  display: 'inline-block',
-  fontSize: '0.8rem',
-  lineHeight: '1',
-  color: theme.colors.action.primary.background,
-  fontWeight: theme.fontWeight.bold,
-})
-
-const tdBase = {
-  padding: `${theme.space.sm} ${theme.space.md}`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  verticalAlign: 'middle',
-} as const
-
-const tdStyle = css({
-  ...tdBase,
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.primary,
-})
-
-const tdIdStyle = css({
-  ...tdBase,
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-  fontWeight: theme.fontWeight.medium,
-  fontFamily: theme.fontFamily.mono,
-})
-
-const tdActionsStyle = css({
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  borderBottom: `1px solid ${theme.colors.border.subtle}`,
-  verticalAlign: 'middle',
-  textAlign: 'center',
-})
-
-const rowStyle = css({
-  transition: 'background-color 120ms ease',
-  '&:nth-child(even)': { background: theme.surface.lvl1 },
-  '&:hover': { background: theme.surface.lvl3 },
-})
-
-const editingRowStyle = css({
-  outline: `2px solid ${theme.colors.action.primary.background}`,
-  outlineOffset: '-2px',
-  backgroundColor: theme.surface.lvl0,
-})
+const ADMIN_BASE = routes.admin.clients.index.href()
 
 // ---------------------------------------------------------------------------
-// Pagination
+// Styles
 // ---------------------------------------------------------------------------
-
-const paginationBarStyle = css({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginTop: theme.space.md,
-  padding: `0 ${theme.space.xs}`,
-})
-
-const paginationInfoStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-})
-
-const paginationBtnGroupStyle = css({
-  display: 'flex',
-  gap: theme.space.sm,
-})
-
-// ---------------------------------------------------------------------------
-// Filter bar
-// ---------------------------------------------------------------------------
-
-const filterBarStyle = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  marginBottom: theme.space.md,
-})
-
-const filterInputStyle = css({
-  flex: '1',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  fontSize: theme.fontSize.sm,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl0,
-  color: theme.colors.text.primary,
-  outline: 'none',
-  '&:focus': {
-    borderColor: theme.colors.action.primary.background,
-    boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
-  },
-  '&::placeholder': { color: theme.colors.text.muted },
-})
-
-const clearLinkStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.muted,
-  textDecoration: 'none',
-  '&:hover': {
-    color: theme.colors.action.primary.foreground,
-    textDecoration: 'underline',
-  },
-})
-
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-const emptyStateStyle = css({
-  textAlign: 'center',
-  padding: theme.space.xxl,
-  color: theme.colors.text.muted,
-  fontSize: theme.fontSize.md,
-})
 
 const smallBtnStyle = css({
   minHeight: '1.75rem',
@@ -211,78 +51,69 @@ const smallBtnStyle = css({
   fontSize: '0.75rem',
 })
 
-const actionBtnGroup = css({
+const pageBadgeStyle = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+// Segmented button group for the row actions.
+const actionGroup = css({
   display: 'inline-flex',
   alignItems: 'stretch',
-  gap: '0.25rem',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  overflow: 'hidden',
+  boxShadow: theme.shadow.sm,
+})
+
+const actionSeg = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  minHeight: '26px',
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  borderTop: 'none',
+  borderBottom: 'none',
+  borderLeft: 'none',
+  borderRight: `1px solid ${theme.colors.border.default}`,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  whiteSpace: 'nowrap',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const actionSegDanger = css({
+  background: theme.colors.action.danger.background,
+  color: theme.colors.action.danger.foreground,
+  borderRight: 'none',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+    opacity: 0.9,
+  },
 })
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Component
 // ---------------------------------------------------------------------------
 
-function sortArrow(
+function sortRule(
   field: string,
-  sortField: string | null | undefined,
+  sortField: string,
   sortOrder: 'asc' | 'desc',
-): string {
-  if (field !== sortField) return '\u2195'
-  return sortOrder === 'asc' ? '\u2191' : '\u2193'
-}
-
-function buildSortUrl(
-  field: string,
-  currentSort: string | null | undefined,
-  currentOrder: 'asc' | 'desc',
-  offset: number,
-  filter?: string,
-  editingId?: number | null,
-): string {
-  let newOrder: 'asc' | 'desc'
-  if (field === currentSort) {
-    newOrder = currentOrder === 'asc' ? 'desc' : 'asc'
-  } else {
-    newOrder = 'asc'
-  }
-  let params = new URLSearchParams()
-  params.set('offset', '0')
-  params.set('sort', field)
-  params.set('order', newOrder)
-  if (filter) params.set('filter', filter)
-  if (editingId) params.set('editing', String(editingId))
-  return '/admin/clients?' + params.toString()
-}
-
-function buildPaginationUrl(
-  newOffset: number,
-  sort: string | null | undefined,
-  order: 'asc' | 'desc',
-  filter?: string,
-  editingId?: number | null,
-): string {
-  let params = new URLSearchParams()
-  params.set('offset', String(newOffset))
-  if (sort) params.set('sort', sort)
-  if (order) params.set('order', order)
-  if (filter) params.set('filter', filter)
-  if (editingId) params.set('editing', String(editingId))
-  return '/admin/clients?' + params.toString()
-}
-
-function buildFilterUrl(
-  filterValue: string,
-  currentSort: string | null | undefined,
-  currentOrder: 'asc' | 'desc',
-  offset: number,
-  editingId?: number | null,
-): string {
-  let params = new URLSearchParams()
-  if (filterValue) params.set('filter', filterValue)
-  params.set('sort', currentSort ?? 'id')
-  params.set('order', currentOrder)
-  if (offset > 0) params.set('offset', String(offset))
-  if (editingId) params.set('editing', String(editingId))
-  return '/admin/clients?' + params.toString()
+): 'ascending' | 'descending' | undefined {
+  if (field !== sortField) return undefined
+  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
 function formatDate(ts: number): string {
@@ -292,41 +123,6 @@ function formatDate(ts: number): string {
     year: 'numeric',
   })
 }
-
-function buildCreateUrl(
-  sort: string | null | undefined,
-  order: string,
-  offset: number,
-  filter?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('creating', 'true')
-  if (sort) params.set('sort', sort)
-  if (order) params.set('order', order)
-  if (offset > 0) params.set('offset', String(offset))
-  if (filter) params.set('filter', filter)
-  return '/admin/clients?' + params.toString()
-}
-
-function buildEditUrl(
-  rowId: number,
-  offset: number,
-  sort: string | null | undefined,
-  order: string,
-  filter?: string,
-): string {
-  let params = new URLSearchParams()
-  params.set('editing', String(rowId))
-  params.set('offset', String(offset))
-  if (sort) params.set('sort', sort)
-  if (order) params.set('order', order)
-  if (filter) params.set('filter', filter)
-  return '/admin/clients?' + params.toString()
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 function ClientGridPage(handle: Handle<ClientGridPageProps>) {
   return () => {
@@ -338,176 +134,191 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
       sortField = null,
       sortOrder = 'asc',
       filter,
-      pageSize = 20,
+      pageSize = 15,
       editingId,
     } = handle.props
+    let sortCol = sortField ?? 'id'
     let pageStart = rows.length > 0 ? offset + 1 : 0
     let pageEnd = offset + rows.length
+    let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
     let isStatusFilter = filter === 'active' || filter === 'inactive'
+
+    // Shared grid state carried across row actions / tab filter links.
+    let gridState = {
+      offset: String(offset),
+      sort: sortCol,
+      order: sortOrder,
+      filter: filter ?? '',
+    }
 
     return (
       <div id="client-grid-content">
         <ConfirmDelete />
 
-        {/* Toolbar: Add New + Refresh button */}
-        <div
-          mix={css({
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: theme.space.sm,
-            marginBottom: theme.space.sm,
-          })}
+        {/* Toolbar + Filter bar (single GET form → frame navigation) */}
+        <form
+          method="GET"
+          action={ADMIN_BASE}
+          data-rmx-target={getSelfFrameTarget()}
+          data-rmx-history="replace"
+          mix={table.filterBar}
         >
-          <FrameRefreshButton />
-          <a
-            href={buildCreateUrl(sortField, sortOrder, offset, filter)}
-            data-rmx-document
-            mix={css({ textDecoration: 'none' })}
-          >
-            <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>+ Add New</button>
-          </a>
-        </div>
-
-        {/* Filter bar: status tabs + search */}
-        <div mix={filterBarStyle}>
           <div mix={table.filterGroup}>
             <a
-              href={buildFilterUrl('', sortField, sortOrder, offset, editingId)}
+              href={ADMIN_BASE + '?' + buildFilterParams('', sortCol, sortOrder, offset)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, !isStatusFilter ? table.filterTabActive : undefined]}
             >
               Alle
             </a>
             <a
-              href={buildFilterUrl('active', sortField, sortOrder, offset, editingId)}
+              href={ADMIN_BASE + '?' + buildFilterParams('active', sortCol, sortOrder, offset)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
-              href={buildFilterUrl('inactive', sortField, sortOrder, offset, editingId)}
+              href={ADMIN_BASE + '?' + buildFilterParams('inactive', sortCol, sortOrder, offset)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
             >
               Inaktiv
             </a>
           </div>
-          <form
-            method="GET"
-            action="/admin/clients"
-            data-rmx-target={getSelfFrameTarget()}
-            data-rmx-history="replace"
-            mix={css({ flex: 1, display: 'flex', gap: theme.space.sm, margin: 0 })}
-          >
-            <input
-              type="text"
-              name="filter"
-              placeholder="Search by name or email..."
-              defaultValue={filter && !isStatusFilter ? filter : ''}
-              mix={filterInputStyle}
-            />
-            {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
-            <button type="submit" mix={[button({ tone: 'secondary' })]}>
-              Search
-            </button>
-          </form>
+          <input
+            type="text"
+            name="filter"
+            placeholder="Search by name or email..."
+            defaultValue={filter && !isStatusFilter ? filter : ''}
+            aria-label="Nach Name oder E-Mail suchen"
+            mix={table.filterInput}
+          />
+          <button type="submit" mix={table.searchBtn}>
+            <Glyph name="search" width={14} height={14} /> Search
+          </button>
           {filter && !isStatusFilter ? (
-            <a href={routes.admin.clients.index.href()} mix={clearLinkStyle}>
+            <a href={ADMIN_BASE} mix={table.clearLink}>
               Clear
             </a>
           ) : null}
-        </div>
+          <span mix={table.spacer} />
+          {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
+          <FrameRefreshButton />
+          <a
+            href={buildCreateUrl(ADMIN_BASE, offset, sortCol, sortOrder, filter)}
+            data-rmx-document
+            mix={table.linkPlain}
+          >
+            <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>
+              <Glyph name="add" width={14} height={14} /> Add New
+            </button>
+          </a>
+        </form>
 
+        {/* Table */}
         {rows.length === 0 ? (
-          <div mix={emptyStateStyle}>
-            <p>{filter ? 'No client records match your filter.' : 'No client records found.'}</p>
+          <div mix={table.wrap}>
+            <div mix={table.empty}>
+              {filter ? 'No client records match your filter.' : 'No client records found.'}
+            </div>
           </div>
         ) : (
-          <>
-            <table mix={tableStyle} data-clients-table="true">
+          <div mix={table.wrap} data-clients-table-wrap="true">
+            <table mix={table.table} data-clients-table="true">
               <colgroup>
-                <col mix={css({ width: '5%' })} />
-                <col mix={css({ width: '18%' })} />
-                <col mix={css({ width: '25%' })} />
-                <col mix={css({ width: '10%' })} />
-                <col mix={css({ width: '10%' })} />
-                <col mix={css({ width: '15%' })} />
-                <col mix={css({ width: '17%' })} />
+                <col mix={css({ width: '60px' })} />
+                <col />
+                <col />
+                <col mix={css({ width: '90px' })} />
+                <col mix={css({ width: '100px' })} />
+                <col mix={css({ width: '110px' })} />
+                <col mix={css({ width: '220px' })} />
               </colgroup>
               <thead>
                 <tr>
-                  <th mix={thStyle}>ID</th>
-                  <th mix={thSortableStyle}>
+                  <th mix={table.thSortable} aria-sort={sortRule('id', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl('name', sortField, sortOrder, offset, filter, editingId)}
+                      href={buildSortUrl(ADMIN_BASE, 'id', sortCol, sortOrder, offset, filter)}
                       data-rmx-target={getSelfFrameTarget()}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
+                    >
+                      ID
+                      <span mix={'id' === sortCol ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('id', sortCol, sortOrder)}
+                      </span>
+                    </a>
+                  </th>
+                  <th mix={table.thSortable} aria-sort={sortRule('name', sortCol, sortOrder)}>
+                    <a
+                      href={buildSortUrl(ADMIN_BASE, 'name', sortCol, sortOrder, offset, filter)}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={table.sortLink}
                     >
                       Name
-                      <span mix={sortField === 'name' ? sortArrowActiveStyle : sortArrowStyle}>
-                        {sortArrow('name', sortField, sortOrder)}
+                      <span mix={'name' === sortCol ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('name', sortCol, sortOrder)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
+                  <th mix={table.thSortable} aria-sort={sortRule('email', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl('email', sortField, sortOrder, offset, filter, editingId)}
+                      href={buildSortUrl(ADMIN_BASE, 'email', sortCol, sortOrder, offset, filter)}
                       data-rmx-target={getSelfFrameTarget()}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Email
-                      <span mix={sortField === 'email' ? sortArrowActiveStyle : sortArrowStyle}>
-                        {sortArrow('email', sortField, sortOrder)}
+                      <span mix={'email' === sortCol ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('email', sortCol, sortOrder)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
+                  <th mix={table.thSortable} aria-sort={sortRule('role', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl('role', sortField, sortOrder, offset, filter, editingId)}
+                      href={buildSortUrl(ADMIN_BASE, 'role', sortCol, sortOrder, offset, filter)}
                       data-rmx-target={getSelfFrameTarget()}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Role
-                      <span mix={sortField === 'role' ? sortArrowActiveStyle : sortArrowStyle}>
-                        {sortArrow('role', sortField, sortOrder)}
+                      <span mix={'role' === sortCol ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('role', sortCol, sortOrder)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
+                  <th mix={table.thSortable} aria-sort={sortRule('status', sortCol, sortOrder)}>
                     <a
-                      href={buildSortUrl('status', sortField, sortOrder, offset, filter, editingId)}
+                      href={buildSortUrl(ADMIN_BASE, 'status', sortCol, sortOrder, offset, filter)}
                       data-rmx-target={getSelfFrameTarget()}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Status
-                      <span mix={sortField === 'status' ? sortArrowActiveStyle : sortArrowStyle}>
-                        {sortArrow('status', sortField, sortOrder)}
+                      <span mix={'status' === sortCol ? table.sortArrowActive : table.sortArrow}>
+                        {sortArrow('status', sortCol, sortOrder)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thSortableStyle}>
+                  <th mix={table.thSortable} aria-sort={sortRule('registered', sortCol, sortOrder)}>
                     <a
                       href={buildSortUrl(
+                        ADMIN_BASE,
                         'registered',
-                        sortField,
+                        sortCol,
                         sortOrder,
                         offset,
                         filter,
-                        editingId,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
-                      mix={sortLinkStyle}
+                      mix={table.sortLink}
                     >
                       Reg.
                       <span
-                        mix={sortField === 'registered' ? sortArrowActiveStyle : sortArrowStyle}
+                        mix={'registered' === sortCol ? table.sortArrowActive : table.sortArrow}
                       >
-                        {sortArrow('registered', sortField, sortOrder)}
+                        {sortArrow('registered', sortCol, sortOrder)}
                       </span>
                     </a>
                   </th>
-                  <th mix={thStyle}>Actions</th>
+                  <th mix={table.th}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -516,17 +327,19 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                     key={row.id}
                     data-row-id={row.id}
                     data-status={row.status}
-                    mix={[rowStyle, editingId === row.id ? editingRowStyle : undefined]}
+                    mix={[table.row, editingId === row.id ? table.editingRow : undefined]}
                   >
-                    <td mix={tdIdStyle}>{row.id}</td>
-                    <td mix={tdStyle} title={row.name}>
+                    <td mix={table.td} title={String(row.id)}>
+                      {row.id}
+                    </td>
+                    <td mix={table.td} title={row.name}>
                       {row.name}
                     </td>
-                    <td mix={tdStyle} title={row.email}>
+                    <td mix={table.td} title={row.email}>
                       {row.email}
                     </td>
-                    <td mix={tdStyle}>{row.role}</td>
-                    <td mix={tdStyle}>
+                    <td mix={table.td}>{row.role}</td>
+                    <td mix={table.td}>
                       <span
                         mix={[
                           table.statusBadge,
@@ -538,116 +351,130 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                         {row.status}
                       </span>
                     </td>
-                    <td mix={tdStyle}>{formatDate(row.registered as number)}</td>
-                    <td mix={tdActionsStyle}>
-                      <div mix={actionBtnGroup}>
+                    <td mix={table.td} title={formatDate(row.registered as number)}>
+                      {formatDate(row.registered as number)}
+                    </td>
+                    <td mix={table.actionCell}>
+                      <div mix={actionGroup}>
                         <a
-                          href={buildEditUrl(row.id, offset, sortField, sortOrder, filter)}
-                          target="_top"
-                          data-rmx-document
+                          href={buildEditUrl(
+                            ADMIN_BASE,
+                            row.id,
+                            offset,
+                            sortCol,
+                            sortOrder,
+                            filter,
+                          )}
+                          data-rmx-target={getSelfFrameTarget()}
+                          title="Edit"
+                          mix={actionSeg}
                         >
-                          <button mix={[button({ tone: 'secondary' }), smallBtnStyle]}>Edit</button>
+                          <Glyph name="edit" width={13} height={13} /> Edit
                         </a>
-                        <form
+                        <RestfulForm
                           method="POST"
                           action={routes.admin.clients.toggleStatus.href({ id: row.id })}
                           data-toggle-form={row.id}
                           data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
-                          <CsrfTokenInput />
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortField ?? '',
-                              order: sortOrder,
-                              filter: filter ?? '',
-                            }}
-                          />
+                          <GridStateHiddenInputs state={gridState} />
                           <button
                             type="submit"
-                            mix={[button({ tone: 'secondary' }), smallBtnStyle]}
+                            title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            mix={actionSeg}
                           >
                             {row.status === 'Active' ? 'Deactivate' : 'Activate'}
                           </button>
-                        </form>
-                        <form
-                          method="POST"
-                          action={`/admin/clients/${row.id}`}
-                          data-rmx-target={getSelfFrameTarget()}
+                        </RestfulForm>
+                        <RestfulForm
+                          method="DELETE"
+                          action={routes.admin.clients.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
                           data-confirm="Delete this row?"
+                          data-rmx-target={getSelfFrameTarget()}
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
-                          <CsrfTokenInput />
-                          <input type="hidden" name="_method" value="DELETE" />
-                          <GridStateHiddenInputs
-                            state={{
-                              offset: String(offset),
-                              sort: sortField ?? '',
-                              order: sortOrder,
-                              filter: filter ?? '',
-                            }}
-                          />
-                          <button type="submit" mix={[button({ tone: 'danger' }), smallBtnStyle]}>
-                            Del
+                          <GridStateHiddenInputs state={gridState} />
+                          <button type="submit" title="Delete" mix={[actionSeg, actionSegDanger]}>
+                            <Glyph name="trash" width={13} height={13} /> Del
                           </button>
-                        </form>
+                        </RestfulForm>
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
 
-            {/* Pagination bar */}
-            <div mix={paginationBarStyle}>
-              <span mix={paginationInfoStyle}>
-                {pageStart}–{pageEnd} of {hasNext ? `${pageEnd}+` : pageEnd}
-              </span>
-              <div mix={paginationBtnGroupStyle}>
+        {/* Pagination */}
+        {(offset > 0 || hasNext) && (
+          <div mix={table.pagination}>
+            <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
+              {rows.length > 0 ? (
+                <span mix={table.paginationInfo}>
+                  Zeige {pageStart}–{pageEnd}
+                </span>
+              ) : null}
+              {currentPage > 0 ? (
+                <span mix={pageBadgeStyle} aria-label={`Seite ${currentPage}`}>
+                  Seite {currentPage}
+                </span>
+              ) : null}
+            </span>
+            <div mix={table.flexGapSm}>
+              {hasPrev ? (
                 <a
                   href={buildPaginationUrl(
+                    ADMIN_BASE,
                     offset - pageSize,
-                    sortField,
+                    sortCol,
                     sortOrder,
                     filter,
-                    editingId,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
-                  mix={css({ textDecoration: 'none' })}
+                  mix={table.pageLink}
                 >
-                  <button disabled={!hasPrev} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
-                    ← Prev
-                  </button>
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Prev
                 </a>
+              ) : (
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Prev
+                </span>
+              )}
+              {hasNext ? (
                 <a
                   href={buildPaginationUrl(
+                    ADMIN_BASE,
                     offset + pageSize,
-                    sortField,
+                    sortCol,
                     sortOrder,
                     filter,
-                    editingId,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
-                  mix={css({ textDecoration: 'none' })}
+                  mix={table.pageLink}
                 >
-                  <button disabled={!hasNext} mix={[button({ tone: 'secondary' }), smallBtnStyle]}>
-                    Next →
-                  </button>
+                  Next <Glyph name="chevronRight" width={14} height={14} />
                 </a>
-              </div>
+              ) : (
+                <span mix={table.pageLinkDisabled}>
+                  Next <Glyph name="chevronRight" width={14} height={14} />
+                </span>
+              )}
             </div>
-          </>
+          </div>
         )}
 
         {/* Context menu data and clientEntry */}
         <script id="clients-grid-state" type="application/json" nonce={getCspNonce()}>
           {JSON.stringify({
             offset: String(offset),
-            sort: sortField ?? '',
+            sort: sortCol,
             order: sortOrder,
             filter: filter ?? '',
-            baseHref: routes.admin.clients.index.href(),
+            baseHref: ADMIN_BASE,
           })}
         </script>
         <ClientsContextMenu />
