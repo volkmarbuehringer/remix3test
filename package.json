@@ -24,7 +24,7 @@
     "@mastra/observability": "^1.17.4",
     "@mastra/pg": "^1.22.2",
     "date-holidays": "^3.35.0",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.1.0",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
@@ -48,5 +48,5 @@
   "engines": {
     "node": ">=26.2.0"
   },
-  "packageManager": "pnpm@11.24.0"
+  "packageManager": "pnpm@11.25.0"
 }
