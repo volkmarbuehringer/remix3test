@@ -178,6 +178,7 @@ export const ListsClient = clientEntry(
       display: 'flex',
       flexDirection: 'column',
       flex: 1,
+      minHeight: 0,
     })
 
     let cardHeaderStyle = css({
@@ -236,6 +237,8 @@ export const ListsClient = clientEntry(
     let cardBodyStyle = css({
       display: 'flex',
       flexDirection: 'column',
+      minHeight: 0,
+      flex: 1,
       padding: theme.space.lg,
     })
 
@@ -1449,6 +1452,15 @@ export const ListsClient = clientEntry(
                 border: `1px solid ${theme.colors.border.default}`,
                 borderRadius: theme.radius.xl,
                 overflow: 'hidden',
+                // Flex column so the element list below fills the remaining
+                // height of the bounded card and scrolls internally. Without
+                // this the wrapper stayed `overflow: hidden` block, clipping
+                // the (now flex) list so the last items were unreachable even
+                // when scrolled.
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: 0,
               })}
             >
               <div
@@ -1533,19 +1545,23 @@ export const ListsClient = clientEntry(
                   role="list"
                   mix={[
                     css({
-                      maxHeight: '320px',
+                      // Fill the card's remaining height and scroll internally
+                      // so the element list is always a bounded, scrollable
+                      // region inside the viewport — with any number of items.
+                      // (A fixed 320px cap grew the card past the viewport,
+                      // pushing later elements below the fold.)
+                      flex: 1,
+                      minHeight: 0,
                       overflowY: 'auto',
                       display: 'flex',
                       flexDirection: 'column',
-                      '&::-webkit-scrollbar': { width: '8px' },
-                      '&::-webkit-scrollbar-track': { backgroundColor: theme.surface.lvl2 },
-                      '&::-webkit-scrollbar-thumb': {
-                        backgroundColor: theme.colors.border.strong,
-                        borderRadius: '4px',
-                      },
-                      '&::-webkit-scrollbar-thumb:hover': {
-                        backgroundColor: theme.colors.text.muted,
-                      },
+                      // Use the standardized scrollbar properties (Chrome/Edge
+                      // 121+, Firefox, Safari 18.2+) instead of the non-standard
+                      // ::-webkit-scrollbar pseudo-elements, which Firefox
+                      // ignores — that was leaving the element list without a
+                      // scrollbar when it overflowed.
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: `${theme.colors.border.strong} ${theme.surface.lvl2}`,
                     }),
                     ref((el) => {
                       listRef = el

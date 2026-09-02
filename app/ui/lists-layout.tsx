@@ -74,6 +74,41 @@ const shellAlignStretchStyle = css({
   alignItems: 'stretch',
 })
 
+/**
+ * The /lists editor is a full-height page: `pageStyle` (in the top-level
+ * Layout) is a definite-height scroll container and the Frame splices this grid
+ * in as its direct child, so `height: 100%` bounds the shell to the viewport.
+ * Without it the grid grew to its content height (~780px with 5 items) and the
+ * element list — sitting after the header/description/add-item controls — was
+ * pushed below the fold, so the last elements were unreachable and the list
+ * never showed a scrollbar. Bounding the shell lets the editor card fill the
+ * viewport and the element list scroll internally.
+ */
+const shellFullHeightStyle = css({
+  height: '100%',
+  gridTemplateRows: 'minmax(0, 1fr)',
+})
+
+/**
+ * The full-height shell bounds the sidebar `aside` to the viewport, so its
+ * content (the list of saved lists) can exceed the box. Make the aside a flex
+ * column with the nav filling the remaining height and scrolling internally —
+ * otherwise the list is clipped and fewer than the configured page size of
+ * items is shown (or reachable).
+ */
+const sidebarScrollContainerStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
+  overflow: 'hidden',
+})
+
+const navScrollStyle = css({
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
+})
+
 function isFrameRequest(): boolean {
   return getContext().request.headers.get('X-Remix-Target') === frameTarget
 }
@@ -174,8 +209,8 @@ function ListsLayout(
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
-      <div mix={[shellStyle, shellAlignStretchStyle]}>
-        <aside mix={sidebarStyle}>
+      <div mix={[shellStyle, shellAlignStretchStyle, shellFullHeightStyle]}>
+        <aside mix={[sidebarStyle, sidebarScrollContainerStyle]}>
           <div mix={sidebarHeaderStyle}>
             <span mix={headerIconWrapStyle}>
               <svg
@@ -197,7 +232,7 @@ function ListsLayout(
             <span>Listen</span>
           </div>
           <div mix={headerDividerStyle} />
-          <nav mix={navStyle}>
+          <nav mix={[navStyle, navScrollStyle]}>
             <p mix={groupLabelStyle}>Meine Listen</p>
             <input
               id="lists-sidebar-search"
