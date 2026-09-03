@@ -177,7 +177,11 @@ export const ListsClient = clientEntry(
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      flex: 1,
+      // Content-sized card: cap it below the content column and let the section
+      // center it, so the free space sits above/below the card (and never inside
+      // it) for every list size. The list scrolls internally once it reaches the
+      // cap instead of growing the card to fill the whole column.
+      maxHeight: 'calc(100% - 6rem)',
       minHeight: 0,
     })
 
@@ -238,7 +242,12 @@ export const ListsClient = clientEntry(
       display: 'flex',
       flexDirection: 'column',
       minHeight: 0,
-      flex: 1,
+      // Auto basis (not `flex: 1` = basis 0) so the body's content contributes
+      // to the card's natural height (keeping the card content-sized), while it
+      // still shrinks when tall so the element list can scroll internally.
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 'auto',
       padding: theme.space.lg,
     })
 
@@ -1456,10 +1465,13 @@ export const ListsClient = clientEntry(
                 // height of the bounded card and scrolls internally. Without
                 // this the wrapper stayed `overflow: hidden` block, clipping
                 // the (now flex) list so the last items were unreachable even
-                // when scrolled.
+                // when scrolled. Auto basis keeps the list part of the card's
+                // natural height when it is short.
                 display: 'flex',
                 flexDirection: 'column',
-                flex: 1,
+                flexGrow: 1,
+                flexShrink: 1,
+                flexBasis: 'auto',
                 minHeight: 0,
               })}
             >
@@ -1549,8 +1561,11 @@ export const ListsClient = clientEntry(
                       // so the element list is always a bounded, scrollable
                       // region inside the viewport — with any number of items.
                       // (A fixed 320px cap grew the card past the viewport,
-                      // pushing later elements below the fold.)
-                      flex: 1,
+                      // pushing later elements below the fold.) Auto basis keeps
+                      // items part of the card's natural height when short.
+                      flexGrow: 1,
+                      flexShrink: 1,
+                      flexBasis: 'auto',
                       minHeight: 0,
                       overflowY: 'auto',
                       display: 'flex',

@@ -90,23 +90,35 @@ const shellFullHeightStyle = css({
 })
 
 /**
- * The full-height shell bounds the sidebar `aside` to the viewport, so its
- * content (the list of saved lists) can exceed the box. Make the aside a flex
- * column with the nav filling the remaining height and scrolling internally —
- * otherwise the list is clipped and fewer than the configured page size of
- * items is shown (or reachable).
+ * The sidebar panel height is fixed (independent of how many lists are on the
+ * current page, so it doesn't jump during navigation). It leaves a little free
+ * space below the panel — between it and the footer — by using a bottom margin,
+ * while the nav still fills the panel and scrolls internally.
  */
 const sidebarScrollContainerStyle = css({
   display: 'flex',
   flexDirection: 'column',
+  marginBottom: theme.space.lg,
   minHeight: 0,
   overflow: 'hidden',
 })
 
 const navScrollStyle = css({
-  flex: 1,
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 'auto',
   minHeight: 0,
   overflowY: 'auto',
+})
+
+/**
+ * The content column is a flex column; centering its single child (the content-
+ * sized editor card) vertically puts the free space above and below the card —
+ * never inside it. When the card is taller than the column it is capped by
+ * `max-height` on the card and the element list scrolls internally.
+ */
+const contentVerticalCenterStyle = css({
+  justifyContent: 'center',
 })
 
 function isFrameRequest(): boolean {
@@ -444,7 +456,7 @@ function ListsLayout(
             )}
           </nav>
         </aside>
-        <section mix={contentStyle}>{children}</section>
+        <section mix={[contentStyle, contentVerticalCenterStyle]}>{children}</section>
       </div>
     )
   }
@@ -565,7 +577,9 @@ const paginationStyle = css({
   justifyContent: 'space-between',
   padding: `${theme.space.sm} ${theme.space.md}`,
   borderTop: `1px solid ${theme.colors.border.default}`,
-  marginTop: theme.space.sm,
+  // Pin the pagination to the bottom of the full-height sidebar so there is no
+  // empty space below it; a short list leaves the free space above it instead.
+  marginTop: 'auto',
 })
 
 const paginationBtnStyle = css({
