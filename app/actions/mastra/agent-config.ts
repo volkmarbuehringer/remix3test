@@ -1,7 +1,7 @@
 import { askUserTool } from '@mastra/core/tools'
 import { Memory } from '@mastra/memory'
 import { mastraStorage } from './storage.ts'
-import { OPENCODE_API_URL } from '../../utils/ai-provider.ts'
+import { OPENCODE_API_URL, getOpenCodeSessionId } from '../../utils/ai-provider.ts'
 
 // ── Shared agent scaffolding ───────────────────────────────────────
 
@@ -20,6 +20,9 @@ export function createModel() {
     providerId: 'opencode-go',
     modelId: 'deepseek-v4-flash',
     url: OPENCODE_API_URL,
+    headers: {
+      'X-Opencode-Session': getOpenCodeSessionId(),
+    },
     get apiKey(): string {
       return requireApiKey()
     },

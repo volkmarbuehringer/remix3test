@@ -55,6 +55,7 @@ The inline config works with any OpenAI-compatible provider. The supported field
 - `modelId` — Model name (e.g. `deepseek-v4-flash`, `gpt-4o`)
 - `url` — Base URL for the API endpoint
 - `apiKey` — API key (can be `undefined`; only fails when the agent is actually used)
+- `headers` — Additional HTTP headers merged into every outbound request (e.g. `{ 'X-Opencode-Session': '<stable-id>' }`, canonical PascalCase per the `remix-headers` lint rule; HTTP header names are case-insensitive on the wire); Mastra merges them with its own `User-Agent: mastra/<version>` and per-run memory headers (`x-thread-id`, `x-resource-id`)
 
 ### Benefits
 

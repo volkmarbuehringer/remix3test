@@ -25,3 +25,5 @@ package.json.npm
 # Vendor skill — symlinked from @remix-run/cli via scripts/sync-skills.ts
 .opencode/skills/remix
 .curler
+# Auto-generated OpenCode session id (x-opencode-session header)
+.opencode-session-id
