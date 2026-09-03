@@ -18,7 +18,6 @@ import { deleteUserAppointmentsWorkflow } from './workflows/delete-user-appointm
 import { completenessScorer } from './scorers/support-scorers.ts'
 import { appointmentCreatedScorer } from './scorers/booking-scorers.ts'
 import { mastraStorage } from './storage.ts'
-import { consoleNotificationSender } from './notifications/sender.ts'
 import { setMastra } from './workflow-executor.ts'
 
 export const mastra = new Mastra({

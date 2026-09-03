@@ -42,18 +42,27 @@ export interface Channel<EventMap extends Record<string, unknown>> {
    * Handles `ReadableStream` creation, initial `connected` event,
    * heartbeat interval, subscriber registration, and cleanup
    * on client disconnect or abort.
+   *
+   * An optional `key` scopes this subscriber: it only receives broadcasts
+   * targeted at the same `key`. Omitting `key` group-subscribes the client
+   * to unscoped (global) broadcasts.
    */
-  subscribe(request: Request): Response
+  subscribe(request: Request, key?: string): Response
 
   /**
-   * Broadcasts an event to all active subscribers.
+   * Broadcasts an event to active subscribers.
    *
    * For events with `void` payload (e.g. `{ invalidate: void }`),
    * call without a data argument: `channel.broadcast('invalidate')`.
+   *
+   * An optional `key` targets only subscribers that subscribed with the same
+   * `key`. Omitting `key` (or passing it as `undefined`) broadcasts to all
+   * unscoped subscribers (matching the previous global behavior).
    */
   broadcast<E extends keyof EventMap>(
     event: E,
-    ...[data]: EventMap[E] extends void ? [] : [data: EventMap[E]]
+    data?: EventMap[E] extends void ? undefined : EventMap[E],
+    key?: string,
   ): void
 }
 
@@ -63,16 +72,37 @@ export function createChannel<EventMap extends Record<string, unknown>>(
   options?: ChannelOptions,
 ): Channel<EventMap> {
   let heartbeatMs = options?.heartbeatMs ?? 30_000
-  let subscribers = new Set<ReadableStreamDefaultController>()
+  // Scoped subscriber groups. A keyed subscription (e.g. a user id) is stored
+  // under its `string` key; an unscoped subscription uses the GLOBAL sentinel.
+  // A keyed broadcast reaches only its group; an unscoped broadcast reaches
+  // the GLOBAL group, preserving the original broadcast-to-all behavior for
+  // channels that never use keys (appointments, admin messages).
+  let GLOBAL = Symbol('global') as symbol
+  let subscribers = new Map<string | typeof GLOBAL, Set<ReadableStreamDefaultController>>()
 
-  function subscribe(request: Request): Response {
+  function subscriberGroup(key: string | undefined): string | typeof GLOBAL {
+    return key === undefined ? GLOBAL : key
+  }
+
+  function removeSubscriber(key: string | undefined, controller: ReadableStreamDefaultController) {
+    let group = subscriberGroup(key)
+    let set = subscribers.get(group)
+    if (!set) return
+    set.delete(controller)
+    if (set.size === 0) subscribers.delete(group)
+  }
+
+  function subscribe(request: Request, key?: string): Response {
     let controller: ReadableStreamDefaultController
     let keepAlive: ReturnType<typeof setInterval> | undefined
 
     let stream = new ReadableStream({
       start(enqueueController) {
         controller = enqueueController
-        subscribers.add(controller)
+        let group = subscriberGroup(key)
+        let set = subscribers.get(group) ?? new Set()
+        set.add(controller)
+        subscribers.set(group, set)
 
         // Send initial connected event so the client knows the stream is live
         try {
@@ -92,7 +122,7 @@ export function createChannel<EventMap extends Record<string, unknown>>(
               controller.enqueue(new TextEncoder().encode(`: heartbeat\n\n`))
             } catch {
               clearInterval(keepAlive)
-              subscribers.delete(controller)
+              removeSubscriber(key, controller)
               try {
                 controller.close()
               } catch {
@@ -105,7 +135,7 @@ export function createChannel<EventMap extends Record<string, unknown>>(
         // Clean up when the client disconnects
         request.signal.addEventListener('abort', () => {
           clearInterval(keepAlive)
-          subscribers.delete(controller)
+          removeSubscriber(key, controller)
           try {
             controller.close()
           } catch {
@@ -115,7 +145,7 @@ export function createChannel<EventMap extends Record<string, unknown>>(
       },
       cancel() {
         clearInterval(keepAlive)
-        subscribers.delete(controller)
+        removeSubscriber(key, controller)
       },
     })
 
@@ -130,24 +160,31 @@ export function createChannel<EventMap extends Record<string, unknown>>(
 
   function broadcast<E extends keyof EventMap>(
     event: E,
-    ...[data]: EventMap[E] extends void ? [] : [data: EventMap[E]]
+    data?: EventMap[E] extends void ? undefined : EventMap[E],
+    key?: string,
   ): void {
     let payload = data === undefined ? {} : data
     let encoded = new TextEncoder().encode(
       `event: ${String(event)}\ndata: ${JSON.stringify(payload)}\n\n`,
     )
 
-    // Collect dead subscribers during broadcast to avoid re-entrancy issues
-    let dead: ReadableStreamDefaultController[] = []
-    for (let subscriber of subscribers) {
-      try {
-        subscriber.enqueue(encoded)
-      } catch {
-        dead.push(subscriber)
+    let target = key === undefined ? null : subscriberGroup(key)
+    let groups: Iterable<Set<ReadableStreamDefaultController>> =
+      target === null ? subscribers.values() : subscribers.get(target) ? [subscribers.get(target)!] : []
+
+    // Collect and drop dead subscribers during broadcast to avoid re-entrancy
+    for (let set of groups) {
+      let dead: ReadableStreamDefaultController[] = []
+      for (let subscriber of set) {
+        try {
+          subscriber.enqueue(encoded)
+        } catch {
+          dead.push(subscriber)
+        }
       }
-    }
-    for (let subscriber of dead) {
-      subscribers.delete(subscriber)
+      for (let subscriber of dead) {
+        set.delete(subscriber)
+      }
     }
   }
 

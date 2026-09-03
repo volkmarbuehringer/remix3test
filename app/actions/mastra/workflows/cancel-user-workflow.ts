@@ -3,7 +3,7 @@ import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
-import { consoleNotificationSender } from '../notifications/sender.ts'
+import { dbNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 
 const validateTargetStep = createStep({
@@ -221,7 +221,7 @@ const notifyUserStep = createStep({
       }
     }
     try {
-      let result = await consoleNotificationSender.send(
+      let result = await dbNotificationSender.send(
         String(inputData.targetUserId),
         'cancellation',
         {

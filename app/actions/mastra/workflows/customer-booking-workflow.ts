@@ -6,7 +6,7 @@ import { createAppointmentRecord } from '../../../data/appointments.ts'
 import { isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable } from '../../../data/appointofferings.ts'
-import { consoleNotificationSender } from '../notifications/sender.ts'
+import { dbNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 import { formatMinOption } from '../../../utils/date-utils.ts'
 
@@ -180,7 +180,7 @@ const sendConfirmationStep = createStep({
     }
 
     try {
-      let result = await consoleNotificationSender.send(
+      let result = await dbNotificationSender.send(
         String(inputData.customerId),
         'confirmation',
         payload,

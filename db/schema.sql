@@ -117,6 +117,24 @@ CREATE INDEX IF NOT EXISTS appointments_resource_date_idx ON appointments (resou
 CREATE INDEX IF NOT EXISTS appointments_date_idx ON appointments (date);
 CREATE INDEX IF NOT EXISTS appointments_title_trgm_idx ON appointments USING GIN (title gin_trgm_ops);
 
+-- In-app booking notification inbox, scoped to the user who owns the
+-- appointment. Type matches the Mastra workflow notification events
+-- (confirmation, reminder, cancellation).
+CREATE TABLE IF NOT EXISTS notifications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('confirmation', 'reminder', 'cancellation')),
+  title TEXT NOT NULL DEFAULT '',
+  body TEXT NOT NULL DEFAULT '',
+  appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+  read_at BIGINT,
+  created_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_created_at_idx ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_user_unread_idx ON notifications (user_id) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS notifications_appointment_id_idx ON notifications (appointment_id);
+
 CREATE TABLE IF NOT EXISTS appointtypes (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

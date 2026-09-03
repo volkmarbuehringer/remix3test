@@ -19,6 +19,8 @@ A full-featured Remix 3 web application — no React, built with Remix UI compon
 
 **AI Features** — Mastra-powered support agent with multi-turn chat, tool use (weather, user lookup), and persisted Mastra memory so you can pick up where you left off.
 
+**In-App Notifications** — A per-user notification inbox that surfaces booking confirmations, reminders, and cancellations inside the app. A bell badge in the main navigation updates live via a per-user Server-Sent Events channel (no page reload), and each user only ever sees their own notifications. Notifications track read-state and link through to the related appointment.
+
 **Lists** — User-created JSON-based lists with items, persisted on the server and accessible through REST-like CRUD endpoints. A flexible data store for simple structured content.
 
 **Client Lab** — A frame-based CRUD demo and data grid that showcases Remix's frames architecture. Supports inline editing, sorting, filtering, and pagination — a reference implementation for building data-heavy UIs.

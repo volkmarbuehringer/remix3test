@@ -47,6 +47,15 @@ export const routes = route({
   }),
 
   settings: form('settings'),
+
+  notifications: route('notifications', {
+    index: get('/'),
+    events: get('/events'),
+    unreadCount: get('/unread-count'),
+    markRead: post('/:id/read'),
+    markAllRead: post('/mark-all-read'),
+  }),
+
   chat: route('chat', {
     index: get('/'),
     action: post('/'),

@@ -2,7 +2,7 @@ import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { sql } from 'remix/data-table'
-import { consoleNotificationSender } from '../notifications/sender.ts'
+import { dbNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 
 const REMINDER_WINDOW_HOURS = Number(process.env.REMINDER_WINDOW_HOURS) || 24
@@ -77,19 +77,23 @@ const sendRemindersStep = createStep({
       }
 
       try {
-        let result = await consoleNotificationSender.send(String(appt.userId), 'reminder', {
-          type: 'reminder',
+        let reminderPayload = {
+          type: 'reminder' as const,
           recipient: String(appt.userId),
           appointmentId: appt.id,
-        })
+          title: appt.title,
+          resourceName: appt.resourceName,
+          date: appt.date,
+        }
+        let result = await dbNotificationSender.send(
+          String(appt.userId),
+          'reminder',
+          reminderPayload,
+        )
         if (result.sent) {
           sent++
         } else {
-          enqueueFailedNotification(String(appt.userId), 'reminder', {
-            type: 'reminder',
-            recipient: String(appt.userId),
-            appointmentId: appt.id,
-          })
+          enqueueFailedNotification(String(appt.userId), 'reminder', reminderPayload)
           failed++
         }
       } catch {
@@ -97,6 +101,9 @@ const sendRemindersStep = createStep({
           type: 'reminder',
           recipient: String(appt.userId),
           appointmentId: appt.id,
+          title: appt.title,
+          resourceName: appt.resourceName,
+          date: appt.date,
         })
         failed++
       }

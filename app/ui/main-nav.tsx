@@ -7,6 +7,7 @@ import { getCurrentUserSafely } from '../utils/context.ts'
 import { routes } from '../routes.ts'
 import { MOBILE_ITEMS, NAV_SECTIONS } from './nav.ts'
 import { NavToggle } from '../ui/layout/nav-toggle.browser.tsx'
+import { NotificationBell } from './notification-bell.browser.tsx'
 
 const indigo = {
   500: '#6366f1',
@@ -98,6 +99,11 @@ export function MainNav() {
             })}
             {user ? (
               <>
+                <NotificationBell
+                  eventsUrl={routes.notifications.events.href()}
+                  unreadCountUrl={routes.notifications.unreadCount.href()}
+                  inboxUrl={routes.notifications.index.href()}
+                />
                 <a
                   href={routes.settings.index.href()}
                   {...(isCrossSection(routes.settings.index.href())

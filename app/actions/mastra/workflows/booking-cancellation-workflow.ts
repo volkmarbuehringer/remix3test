@@ -2,7 +2,7 @@ import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { deleteAppointmentRecord } from '../../../data/appointments.ts'
-import { consoleNotificationSender } from '../notifications/sender.ts'
+import { dbNotificationSender } from '../notifications/sender.ts'
 import { enqueueFailedNotification } from '../notifications/queue.ts'
 
 const verifyOwnershipStep = createStep({
@@ -116,16 +116,16 @@ const sendCancellationNotificationStep = createStep({
 
     let recipient = String(inputData.requestingUserId)
     try {
-      let result = await consoleNotificationSender.send(recipient, 'cancellation', {
+      // The appointment row is already deleted, so do not reference it in the
+      // notification (notifications.appointment_id is a FK to appointments).
+      let result = await dbNotificationSender.send(recipient, 'cancellation', {
         type: 'cancellation',
         recipient,
-        appointmentId: inputData.appointmentId,
       })
       if (!result.sent) {
         enqueueFailedNotification(recipient, 'cancellation', {
           type: 'cancellation',
           recipient,
-          appointmentId: inputData.appointmentId,
         })
       }
       return {
@@ -137,7 +137,6 @@ const sendCancellationNotificationStep = createStep({
       enqueueFailedNotification(recipient, 'cancellation', {
         type: 'cancellation',
         recipient,
-        appointmentId: inputData.appointmentId,
       })
       return { success: true, appointmentId: inputData.appointmentId, notificationSent: false }
     }

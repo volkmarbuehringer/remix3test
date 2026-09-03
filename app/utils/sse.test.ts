@@ -218,4 +218,47 @@ describe('createChannel', () => {
       assert.ok(intervalWasCleared)
     })
   })
+
+  describe('per-user scoping', () => {
+    it('delivers a keyed broadcast only to subscribers with the same key', async () => {
+      let channel = createChannel<{ new: { id: number } }>({ heartbeatMs: null })
+      let acA = new AbortController()
+      let acB = new AbortController()
+      let resA = channel.subscribe(new Request('http://localhost/1', { signal: acA.signal }), 'user-5')
+      let resB = channel.subscribe(new Request('http://localhost/2', { signal: acB.signal }), 'user-9')
+
+      channel.broadcast('new', { id: 1 }, 'user-5')
+
+      let textA = await readAllFromStream(resA.body!, acA)
+      let textB = await readAllFromStream(resB.body!, acB)
+
+      // User A (key user-5) receives the event; user B (user-9) does NOT.
+      assert.ok(textA.includes('"id":1'), 'user A should receive the keyed event')
+      assert.ok(!textB.includes('"id":1'), 'user B must not receive a different user’s event')
+      assert.ok(textB.includes('event: connected'), 'user B still gets the initial connected event')
+    })
+
+    it('a keyed subscriber does not receive an event broadcast to another key', async () => {
+      let channel = createChannel<{ new: { id: number } }>({ heartbeatMs: null })
+      let acA = new AbortController()
+      let resA = channel.subscribe(new Request('http://localhost/1', { signal: acA.signal }), 'user-5')
+
+      channel.broadcast('new', { id: 42 }, 'user-9')
+
+      let textA = await readAllFromStream(resA.body!, acA)
+      assert.ok(!textA.includes('"id":42'), 'unrelated key broadcast must not reach user A')
+      assert.ok(textA.includes('event: connected'))
+    })
+
+    it('an unscoped broadcast still reaches unscoped (global) subscribers', async () => {
+      let channel = createChannel<{ invalidate: void }>({ heartbeatMs: null })
+      let acAdmin = new AbortController()
+      let resAdmin = channel.subscribe(new Request('http://localhost/1', { signal: acAdmin.signal }))
+
+      channel.broadcast('invalidate')
+
+      let text = await readAllFromStream(resAdmin.body!, acAdmin)
+      assert.ok(text.includes('event: invalidate'), 'global subscribers receive the global broadcast')
+    })
+  })
 })

@@ -531,5 +531,37 @@ export const apiTokens = table({
   },
 })
 
+export const notifications = table({
+  name: 'notifications',
+  primaryKey: ['id'],
+  columns: {
+    id: c.integer(),
+    user_id: c.integer(),
+    type: c.text(),
+    title: c.text(),
+    body: c.text(),
+    appointment_id: c.integer().nullable(),
+    read_at: bigintNullable(),
+    created_at: bigint(),
+  },
+  beforeWrite({ operation, value }) {
+    let next = { ...value }
+
+    if (operation === 'create') {
+      let now = Date.now()
+      if (next.created_at === undefined) next.created_at = now
+      if (next.title === undefined) next.title = ''
+      if (next.body === undefined) next.body = ''
+    }
+
+    return { value: next }
+  },
+  afterRead({ value }) {
+    parseIntFields(value, 'created_at', 'read_at', 'user_id', 'appointment_id')
+    return { value }
+  },
+})
+
+export type Notification = TableRow<typeof notifications>
 export type AppointOffering = TableRow<typeof appointofferings>
 export type OfferingConfig = TableRow<typeof offeringConfigs>

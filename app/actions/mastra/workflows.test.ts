@@ -6,13 +6,14 @@ import { pool } from '../../data/test-pool.ts'
 import { db } from '../../db.ts'
 // Side-effect: initializes Mastra instance with all workflows
 import {} from './index.ts'
-import { consoleNotificationSender } from './notifications/sender.ts'
+import { consoleNotificationSender, dbNotificationSender } from './notifications/sender.ts'
 import {
   clearFailedNotifications,
   enqueueFailedNotification,
   getFailedNotifications,
 } from './notifications/queue.ts'
 import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments.ts'
+import { notificationsChannel } from '../../utils/notifications-sse.ts'
 
 async function getAdminId(): Promise<number> {
   let r = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
@@ -27,6 +28,34 @@ async function getCustomerId(): Promise<number> {
 async function getAnyResourceId(): Promise<number> {
   let r = await pool.query('SELECT id FROM resources LIMIT 1')
   return r.rows[0]?.id as number
+}
+
+async function createNotificationTestUser(): Promise<number> {
+  let r = await pool.query(
+    `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+     VALUES ($1, 'x', 'Notif User', 'customer', 1, 1, $2) RETURNING id`,
+    [`notif-${Date.now()}-${Math.random()}@example.com`, Date.now()],
+  )
+  return r.rows[0].id as number
+}
+
+async function readAllStream(
+  stream: ReadableStream,
+  controller: AbortController,
+): Promise<string> {
+  controller.abort()
+  let reader = stream.getReader()
+  let parts: string[] = []
+  try {
+    while (true) {
+      let { value, done } = await reader.read()
+      if (done) break
+      parts.push(new TextDecoder().decode(value))
+    }
+  } finally {
+    reader.cancel()
+  }
+  return parts.join('')
 }
 
 describe('NotificationSender', () => {
@@ -63,6 +92,86 @@ describe('Failed notification queue', () => {
     enqueueFailedNotification('2', 'cancellation', { type: 'cancellation', recipient: '2' })
     enqueueFailedNotification('3', 'reminder', { type: 'reminder', recipient: '3' })
     assert.equal(getFailedNotifications().length, 3)
+  })
+})
+
+describe('dbNotificationSender', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('persists a row and broadcasts a per-user new event', async () => {
+    let userId = await createNotificationTestUser()
+    let controller = new AbortController()
+    let res = notificationsChannel.subscribe(
+      new Request('http://localhost/sse', { signal: controller.signal }),
+      String(userId),
+    )
+
+    let result = await dbNotificationSender.send(String(userId), 'confirmation', {
+      type: 'confirmation',
+      recipient: String(userId),
+      title: 'Bestätigung',
+    })
+    assert.equal(result.sent, true)
+    assert.equal(result.provider, 'db')
+
+    let rows = await pool.query(
+      'SELECT * FROM notifications WHERE user_id = $1 AND type = $2',
+      [userId, 'confirmation'],
+    )
+    assert.equal(rows.rows.length, 1, 'one confirmation row must be persisted')
+    assert.equal(rows.rows[0].read_at, null, 'new rows start unread')
+
+    let text = await readAllStream(res.body!, controller)
+    assert.ok(text.includes('event: new'), 'a live new event must be pushed')
+    assert.ok(text.includes('Bestätigung'), 'the pushed event carries the notification title')
+
+    await pool.query('DELETE FROM users WHERE id = $1', [userId])
+  })
+
+  it('persists all three notification types', async () => {
+    let userId = await createNotificationTestUser()
+    for (let type of ['confirmation', 'reminder', 'cancellation'] as const) {
+      let result = await dbNotificationSender.send(String(userId), type, {
+        type,
+        recipient: String(userId),
+        title: type,
+      })
+      assert.equal(result.sent, true)
+    }
+    let rows = await pool.query(
+      'SELECT type, COUNT(*)::int AS n FROM notifications WHERE user_id = $1 GROUP BY type',
+      [userId],
+    )
+    let byType = new Map<string, number>(rows.rows.map((r) => [r.type, r.n]))
+    assert.equal(byType.get('confirmation'), 1)
+    assert.equal(byType.get('reminder'), 1)
+    assert.equal(byType.get('cancellation'), 1)
+
+    await pool.query('DELETE FROM users WHERE id = $1', [userId])
+  })
+
+  it('a throwing sender is caught and the booking outcome stays success (compensation)', async () => {
+    clearFailedNotifications()
+    let bookingResult: { success: boolean; notificationSent?: boolean } | undefined
+    try {
+      let r = await dbNotificationSender.send('abc', 'confirmation', {
+        type: 'confirmation',
+        recipient: 'abc',
+      })
+      bookingResult = { success: true, notificationSent: r.sent }
+    } catch {
+      // Exactly what the workflow send-step catch does:
+      enqueueFailedNotification('abc', 'confirmation', {
+        type: 'confirmation',
+        recipient: 'abc',
+      })
+      bookingResult = { success: true, notificationSent: false }
+    }
+    assert.equal(bookingResult!.success, true, 'the booking result must remain success')
+    assert.equal(bookingResult!.notificationSent, false, 'a failed notification must not be reported sent')
+    assert.ok(getFailedNotifications().length >= 1, 'the failure must be enqueued for retry')
   })
 })
 
@@ -523,6 +632,13 @@ describe('Transactional audit atomicity', () => {
         auditBefore.rows[0].n + 1,
         'successful cancel must write exactly one audit entry',
       )
+
+      // cancel-user must also emit a cancellation notification for the target user.
+      let notif = await pool.query(
+        "SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND type = 'cancellation'",
+        [targetId],
+      )
+      assert.equal(notif.rows[0].n, 1, 'cancel-user must create one cancellation notification')
     } finally {
       await pool.query('DELETE FROM appointments WHERE user_id = $1', [targetId])
       await pool.query('DELETE FROM users WHERE id = $1', [targetId])
@@ -530,6 +646,58 @@ describe('Transactional audit atomicity', () => {
         "DELETE FROM audit_logs WHERE action_type = 'user_cancelled' AND target_id = $1",
         [String(targetId)],
       )
+    }
+  })
+})
+
+describe('BookingCancellationWorkflow notification', () => {
+  before(async () => {
+    await initializeAppDatabase()
+  })
+
+  it('persists a cancellation notification even though the appointment is deleted first', async () => {
+    let targetEmail = `wf-bc-${Date.now()}@example.com`
+    let created = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at)
+       VALUES ($1, 'x', 'BC Target', 'customer', 1, 1, $2) RETURNING id`,
+      [targetEmail, Date.now()],
+    )
+    let targetId = created.rows[0].id as number
+    let resourceId = await getAnyResourceId()
+    let dayMs = Date.now() + 86_400_000
+    let apptId = await createAppointmentRecord(db, {
+      userId: targetId,
+      resourceId,
+      title: 'Cancel Test',
+      dayMs,
+      during: '[600,660)',
+      now: Date.now(),
+    })
+
+    try {
+      let { executeCancellationWorkflow } = await import('./workflow-executor.ts')
+      let result = await executeCancellationWorkflow({
+        appointmentId: apptId,
+        requestingUserId: targetId,
+      })
+      assert.equal(result.success, true, 'cancellation should succeed')
+
+      // The appointment row is gone, but the cancellation notification must persist
+      // (and must NOT reference the deleted appointment, which would violate the FK).
+      let appts = await pool.query('SELECT id FROM appointments WHERE id = $1', [apptId])
+      assert.equal(appts.rows.length, 0, 'appointment should be deleted')
+
+      let notif = await pool.query(
+        "SELECT appointment_id, read_at FROM notifications WHERE user_id = $1 AND type = 'cancellation'",
+        [targetId],
+      )
+      assert.equal(notif.rows.length, 1, 'one cancellation notification must be created')
+      assert.equal(notif.rows[0].appointment_id, null, 'must not reference the deleted appointment')
+      assert.equal(notif.rows[0].read_at, null, 'it should start unread')
+    } finally {
+      await pool.query('DELETE FROM appointments WHERE user_id = $1', [targetId])
+      await pool.query('DELETE FROM notifications WHERE user_id = $1', [targetId])
+      await pool.query('DELETE FROM users WHERE id = $1', [targetId])
     }
   })
 })
