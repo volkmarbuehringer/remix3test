@@ -149,7 +149,7 @@ function ShellOrFragment(
   handle: Handle<{
     activeItem: ListsNavItem
     sidebarEntries: ListSidebarEntry[]
-    pagination?: PaginationState
+    pagination?: PaginationState | undefined
     children?: RemixNode
   }>,
 ) {
@@ -214,7 +214,7 @@ function ListsLayout(
   handle: Handle<{
     activeItem: ListsNavItem
     sidebarEntries: ListSidebarEntry[]
-    pagination?: PaginationState
+    pagination?: PaginationState | undefined
     children?: RemixNode
   }>,
 ) {

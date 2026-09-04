@@ -1,6 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import type { MiddlewareContext } from 'remix/router'
+import type { RequestContext } from 'remix/router'
 
 import { frameRedirects } from './frame-redirect.ts'
 
@@ -17,12 +17,12 @@ const BASE = 'https://remix.run/admin/nutzer'
 function createContext(
   headers: Record<string, string>,
   routerFetch: (request: Request) => Response | Promise<Response>,
-): MiddlewareContext<any> {
+): RequestContext {
   return {
     url: new URL(BASE),
     request: new Request(BASE, { method: 'POST', headers }),
     router: { fetch: routerFetch },
-  } as unknown as MiddlewareContext<any>
+  } as unknown as RequestContext
 }
 
 function fragment(text = '<div>grid</div>', status = 200): Response {

@@ -100,27 +100,24 @@ interface OfferingConfigPageData {
   editRow: OfferingConfigRow | null
   creating: boolean
   resources: OfferingConfigResourceOption[]
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 async function loadOfferingConfigPageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
-  overrides?: Partial<
-    Pick<
-      OfferingConfigPageData,
-      | 'creating'
-      | 'editRow'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
-    >
-  >,
+  overrides?: {
+    creating?: boolean | undefined
+    editRow?: OfferingConfigRow | null | undefined
+    formValues?: Record<string, string> | undefined
+    fieldErrors?: Record<string, string> | undefined
+    formError?: string | undefined
+    offset?: number | undefined
+    sortColumn?: string | undefined
+    sortDirection?: 'asc' | 'desc' | undefined
+    filter?: string | undefined
+  },
 ): Promise<OfferingConfigPageData> {
   let effectivePageSize = getPageSize(context.session, OFFERING_CONFIGS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -288,7 +285,7 @@ interface CreateValidationFailure {
   formValues: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
-  issues?: readonly { path: readonly string[]; message: string; code?: string }[]
+  issues?: readonly { path: readonly string[]; message: string; code?: string | undefined }[] | undefined
 }
 
 type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure

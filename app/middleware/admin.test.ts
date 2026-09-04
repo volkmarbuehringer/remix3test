@@ -1,6 +1,6 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import type { MiddlewareContext } from 'remix/router'
+import type { RequestContext } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 import { Renderer } from 'remix/middleware/render'
@@ -29,7 +29,7 @@ function createMockContext(
     url?: string
     captureForbidden?: (node: RemixNode | null) => void
   },
-): MiddlewareContext<any> {
+): RequestContext {
   let capturedNode: RemixNode | null = null
 
   return {
@@ -54,7 +54,7 @@ function createMockContext(
     has: () => true,
     url: new URL(options?.url ?? 'https://remix.run/admin/messages'),
     request: new Request(options?.url ?? 'https://remix.run/admin/messages'),
-  } as unknown as MiddlewareContext<any>
+  } as unknown as RequestContext
 }
 
 const FORBIDDEN_TEXT = 'ForbiddenPage rendered'

@@ -5,7 +5,7 @@ function sidebarRowFor(listId: number): HTMLElement | null {
 
 export function syncSidebarRow(
   listId: number,
-  opts: { label: string; count?: number; doneCount?: number; updatedAt?: number },
+  opts: { label: string; count?: number; doneCount?: number; updatedAt?: number | undefined },
 ): void {
   let row = sidebarRowFor(listId)
   if (!row) return

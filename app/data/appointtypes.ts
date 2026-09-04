@@ -7,7 +7,7 @@ interface AppointTypeInput {
 }
 
 interface AppointTypeUpdate {
-  title?: string
+  title?: string | undefined
 }
 
 export class AppointTypeError extends Error {

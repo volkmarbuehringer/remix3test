@@ -36,11 +36,11 @@ interface AdminResourcesPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
-  editRow?: Resource | null
-  creating?: boolean
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  editRow?: Resource | null | undefined
+  creating?: boolean | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 const ADMIN_BASE = routes.verwaltung.resources.index.href()
@@ -464,12 +464,12 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
 
 interface EditPanelProps {
   row: Resource
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
@@ -616,12 +616,12 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
 // ── Inline Create Panel ──
 
 interface CreatePanelProps {
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {

@@ -373,7 +373,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
           { status: 400 },
         )
       }
-      return context.render(<ResetFormPage token={token} />)
+      return context.render(<ResetFormPage token={token!} />)
     },
 
     async action(context) {
@@ -406,7 +406,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (!parsed.success) {
         return context.render(
           <ResetFormPage
-            token={token}
+            token={token!}
             error={`Das Passwort muss mindestens ${PASSWORD_MIN_LENGTH} Zeichen lang sein.`}
             errors={issuesToFieldErrors(parsed.issues)}
           />,
@@ -417,7 +417,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (parsed.value.password !== parsed.value.confirmPassword) {
         return context.render(
           <ResetFormPage
-            token={token}
+            token={token!}
             error="Die Passwörter stimmen nicht überein."
             errors={{ confirmPassword: 'Die Passwörter stimmen nicht überein.' }}
           />,
@@ -429,7 +429,7 @@ export const authForgottenReset = createController(routes.auth.forgottenReset, {
       if (complexityError) {
         return context.render(
           <ResetFormPage
-            token={token}
+            token={token!}
             error={complexityError}
             errors={{ password: complexityError }}
           />,

@@ -46,8 +46,8 @@ const ORDER_BY_COLUMNS: Record<string, string> = {
 export interface RunReport1Opts {
   monthStart: number
   monthEnd: number
-  selectedUserId?: number
-  filter?: string
+  selectedUserId?: number | undefined
+  filter?: string | undefined
   column: string
   direction: 'asc' | 'desc'
   effectivePageSize: number

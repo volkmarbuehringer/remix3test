@@ -111,10 +111,16 @@ export const supportTools = {
           ${userId !== undefined ? sql`WHERE a.user_id = ${userId}` : sql``}
           ORDER BY a.created_at DESC LIMIT ${limit}`,
       )
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        title: string
+        date: number
+        during: string
+        user_name: string | null
+      }>
       return {
         count: rows.length,
-        appointments: rows.map((r: any) => ({
+        appointments: rows.map((r) => ({
           id: r.id,
           title: r.title,
           date: r.date,
@@ -348,11 +354,16 @@ export const supportTools = {
         WHERE ao.day = ${timestamp}
         ORDER BY ao.during ASC
       `)
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        resource_id: number
+        resource_name: string | null
+        during: string
+      }>
       return {
         date,
         count: rows.length,
-        offerings: rows.map((r: any) => ({
+        offerings: rows.map((r) => ({
           id: r.id,
           resourceId: r.resource_id,
           resourceName: r.resource_name ?? 'Unknown',
@@ -408,12 +419,19 @@ export const supportTools = {
         ORDER BY a.date ASC
         LIMIT 50
       `)
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        title: string
+        date: number
+        during: string
+        user_name: string | null
+        resource_name: string | null
+      }>
       return {
         count: rows.length,
         startDate,
         endDate,
-        appointments: rows.map((r: any) => ({
+        appointments: rows.map((r) => ({
           id: r.id,
           title: r.title,
           date: r.date,
@@ -453,10 +471,16 @@ export const supportTools = {
         ORDER BY a.date DESC
         LIMIT 50
       `)
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        title: string
+        date: number
+        during: string
+        resource_name: string | null
+      }>
       return {
         count: rows.length,
-        appointments: rows.map((r: any) => ({
+        appointments: rows.map((r) => ({
           id: r.id,
           title: r.title,
           date: r.date,
@@ -507,7 +531,7 @@ export const supportTools = {
       `)
       let rows = result.rows ?? []
       if (rows.length === 0) return { found: false, message: 'No appointment found with that ID' }
-      let r = rows[0]
+      let r = rows[0]!
       return {
         found: true,
         appointment: {
@@ -622,10 +646,16 @@ export const supportTools = {
                WHERE m.content ILIKE ${pattern}
                ORDER BY m.created_at DESC LIMIT 50`,
       )
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        sender_id: number
+        sender_name: string | null
+        content: string
+        created_at: number
+      }>
       return {
         count: rows.length,
-        messages: rows.map((r: any) => ({
+        messages: rows.map((r) => ({
           id: r.id,
           senderId: r.sender_id,
           senderName: r.sender_name ?? 'Unknown',
@@ -767,7 +797,13 @@ export const supportTools = {
           ORDER BY a.date ASC
           LIMIT 500
         `)
-        let rows = result.rows ?? []
+        let rows = (result.rows ?? []) as Array<{
+          title: string
+          date: number
+          during: string
+          user_name: string | null
+          resource_name: string | null
+        }>
         let docDef: TDocumentDefinitions = {
           content: [
             { text: `Appointment Report: ${startDate} to ${endDate}`, style: 'header' },
@@ -779,7 +815,7 @@ export const supportTools = {
                 widths: ['*', 'auto', 'auto', '*', '*'],
                 body: [
                   ['Title', 'Date', 'Time', 'User', 'Resource'],
-                  ...rows.map((r: any) => [
+                  ...rows.map((r) => [
                     r.title,
                     new Date(r.date).toISOString().slice(0, 10),
                     r.during,

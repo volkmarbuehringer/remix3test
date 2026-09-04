@@ -12,7 +12,7 @@ async function createTestUser(): Promise<number> {
      VALUES ($1, 'x', 'Rows Test', 'customer', 1, $2, $2) RETURNING id`,
     [`rows-${Date.now()}-${Math.random()}@example.com`, Date.now()],
   )
-  return Number(result.rows![0].id)
+  return Number(result.rows![0]!.id)
 }
 
 async function cleanupUser(userId: number): Promise<void> {
@@ -40,9 +40,9 @@ describe('queryRows / queryRow', () => {
         userRowSchema,
       )
       assert.equal(rows.length, 2)
-      assert.equal(rows[0].id, a)
-      assert.equal(rows[1].id, b)
-      assert.ok(typeof rows[0].email === 'string')
+      assert.equal(rows[0]!.id, a)
+      assert.equal(rows[1]!.id, b)
+      assert.ok(typeof rows[0]!.email === 'string')
     } finally {
       await cleanupUser(a)
       await cleanupUser(b)
@@ -100,9 +100,9 @@ describe('queryRows / queryRow', () => {
         z.object({ count: int8Aggregate, min_created: int8Aggregate }),
       )
       assert.equal(rows.length, 1)
-      assert.ok(typeof rows[0].count === 'number')
-      assert.equal(rows[0].count, 1)
-      assert.ok(typeof rows[0].min_created === 'number')
+      assert.ok(typeof rows[0]!.count === 'number')
+      assert.equal(rows[0]!.count, 1)
+      assert.ok(typeof rows[0]!.min_created === 'number')
     } finally {
       await cleanupUser(userId)
     }

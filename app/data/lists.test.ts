@@ -18,7 +18,7 @@ describe('lists-api lib', () => {
     assert.ok(typeof row.id === 'number', 'should return numeric id')
     assert.equal(row.description, 'Lib test list')
     assert.equal(row.list.length, 1)
-    assert.equal(row.list[0].label, 'Test Item')
+    assert.equal(row.list[0]!.label, 'Test Item')
     assert.ok(typeof row.created_at === 'number', 'created_at should be number')
     assert.ok(typeof row.updated_at === 'number', 'updated_at should be number')
 
@@ -31,9 +31,9 @@ describe('lists-api lib', () => {
       items: [{ label: 'No id provided' }],
     })
     assert.equal(row.list.length, 1)
-    assert.ok(typeof row.list[0].id === 'string', 'id should be a string')
-    assert.ok(row.list[0].id.length > 0, 'id should not be empty')
-    assert.ok(row.list[0].id !== 'undefined', 'id should not be literal undefined')
+    assert.ok(typeof row.list[0]!.id === 'string', 'id should be a string')
+    assert.ok(row.list[0]!.id.length > 0, 'id should not be empty')
+    assert.ok(row.list[0]!.id !== 'undefined', 'id should not be literal undefined')
 
     await db.delete(lists, { id: row.id })
   })
@@ -44,7 +44,7 @@ describe('lists-api lib', () => {
       items: [{ id: 'my-custom-id', label: 'Known' }],
     })
     assert.equal(row.list.length, 1)
-    assert.equal(row.list[0].id, 'my-custom-id')
+    assert.equal(row.list[0]!.id, 'my-custom-id')
 
     await db.delete(lists, { id: row.id })
   })
@@ -79,7 +79,7 @@ describe('lists-api lib', () => {
     if (result.ok) {
       assert.equal(result.row.description, 'After patch')
       assert.equal(result.row.list.length, 1)
-      assert.equal(result.row.list[0].label, 'Item')
+      assert.equal(result.row.list[0]!.label, 'Item')
       assert.ok(result.row.updated_at >= created.updated_at)
     }
 
@@ -105,11 +105,11 @@ describe('lists-api lib', () => {
       assert.equal(result.row.description, 'Items only')
       assert.equal(result.row.list.length, 2)
       // existing item keeps its id
-      assert.equal(result.row.list[0].id, '1')
-      assert.equal(result.row.list[0].label, 'New')
+      assert.equal(result.row.list[0]!.id, '1')
+      assert.equal(result.row.list[0]!.label, 'New')
       // new item got a UUID
-      assert.ok(result.row.list[1].id.length > 0)
-      assert.ok(result.row.list[1].id !== '1')
+      assert.ok(result.row.list[1]!.id.length > 0)
+      assert.ok(result.row.list[1]!.id !== '1')
     }
 
     await db.delete(lists, { id: created.id })
@@ -132,7 +132,7 @@ describe('lists-api lib', () => {
     assert.ok(result.ok)
     if (result.ok) {
       assert.equal(result.row.description, 'Both after')
-      assert.equal(result.row.list[0].label, 'B')
+      assert.equal(result.row.list[0]!.label, 'B')
     }
 
     await db.delete(lists, { id: created.id })
@@ -146,8 +146,8 @@ describe('lists-api lib', () => {
         { id: '2', label: 'Open' },
       ],
     })
-    assert.equal(created.list[0].done, true)
-    assert.equal(created.list[1].done, undefined)
+    assert.equal(created.list[0]!.done, true)
+    assert.equal(created.list[1]!.done, undefined)
 
     let result = await patchList(
       db,
@@ -165,9 +165,9 @@ describe('lists-api lib', () => {
     )
     assert.ok(result.ok)
     if (result.ok) {
-      assert.equal(result.row.list[0].done, false)
-      assert.equal(result.row.list[1].done, undefined)
-      assert.equal(result.row.list[0].id, '1', 'id preserved')
+      assert.equal(result.row.list[0]!.done, false)
+      assert.equal(result.row.list[1]!.done, undefined)
+      assert.equal(result.row.list[0]!.id, '1', 'id preserved')
     }
 
     await db.delete(lists, { id: created.id })
@@ -178,8 +178,8 @@ describe('lists-api lib', () => {
       description: 'No done flag',
       items: [{ label: 'Bare item' }],
     })
-    assert.equal(created.list[0].done, undefined)
-    assert.ok(!created.list[0].done, 'absent done must be falsy')
+    assert.equal(created.list[0]!.done, undefined)
+    assert.ok(!created.list[0]!.done, 'absent done must be falsy')
 
     await db.delete(lists, { id: created.id })
   })
@@ -300,13 +300,13 @@ describe('lists-api lib', () => {
     assert.ok(result.ok)
     if (result.ok) {
       assert.equal(result.source.list.length, 1)
-      assert.equal(result.source.list[0].id, 's2')
+      assert.equal(result.source.list[0]!.id, 's2')
       assert.equal(result.target.list.length, 2)
-      assert.equal(result.target.list[0].id, 't1')
-      assert.equal(result.target.list[1].id, 's1', 'moved item appended at end')
+      assert.equal(result.target.list[0]!.id, 't1')
+      assert.equal(result.target.list[1]!.id, 's1', 'moved item appended at end')
       assert.ok(result.source.updated_at >= source.updated_at)
       assert.ok(result.target.updated_at >= target.updated_at)
-      assert.equal(result.target.list[1].label, 'Alpha', 'item data preserved')
+      assert.equal(result.target.list[1]!.label, 'Alpha', 'item data preserved')
     }
 
     await db.delete(lists, { id: source.id })
@@ -399,10 +399,10 @@ describe('lists-api lib', () => {
     })
     assert.ok(result.ok)
     if (result.ok) {
-      assert.equal(result.target.list[1].id, 'd1')
-      assert.equal(result.target.list[1].done, true, 'moved item keeps done=true')
+      assert.equal(result.target.list[1]!.id, 'd1')
+      assert.equal(result.target.list[1]!.done, true, 'moved item keeps done=true')
       assert.equal(result.source.list.length, 1)
-      assert.equal(result.source.list[0].done, undefined, 'remaining item keeps done absent')
+      assert.equal(result.source.list[0]!.done, undefined, 'remaining item keeps done absent')
     }
 
     await db.delete(lists, { id: source.id })
@@ -428,7 +428,7 @@ describe('lists-api lib', () => {
     })
     assert.ok(result.ok)
     if (result.ok) {
-      assert.equal(result.target.list[1].label, 'Copy A', 'exactly one duplicate moved')
+      assert.equal(result.target.list[1]!.label, 'Copy A', 'exactly one duplicate moved')
       assert.equal(result.source.list.length, 2, 'one duplicate stays in source')
       assert.equal(
         result.source.list.filter((i) => i.id === 'dup').length,

@@ -39,12 +39,12 @@ interface AdminOfferingConfigsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
-  editRow?: OfferingConfigRow | null
-  creating?: boolean
+  editRow?: OfferingConfigRow | null | undefined
+  creating?: boolean | undefined
   resources: OfferingConfigResourceOption[]
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 const DAYS = [
@@ -536,9 +536,9 @@ interface EditPanelProps {
   offset?: string
   sort?: string
   order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function EditPanel(handle: Handle<EditPanelProps>) {
@@ -667,9 +667,9 @@ interface CreatePanelProps {
   offset?: string
   sort?: string
   order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function CreatePanel(handle: Handle<CreatePanelProps>) {

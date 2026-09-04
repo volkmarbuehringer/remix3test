@@ -26,8 +26,8 @@ export function showToast(message: string, type: 'error' | 'success' = 'error') 
   let container = getContainer()
   let toast = document.createElement('div')
   toast.textContent = message
-  toast.style.backgroundColor = type === 'error' ? surface.dangerBg : surface.successBg
-  toast.style.color = type === 'error' ? surface.dangerText : surface.successText
+  toast.style.backgroundColor = type === 'error' ? surface.dangerBg! : surface.successBg!
+  toast.style.color = type === 'error' ? surface.dangerText! : surface.successText!
   toast.style.padding = `${theme.space.sm} ${theme.space.lg}`
   toast.style.borderRadius = theme.radius.md
   toast.style.fontSize = theme.fontSize.sm

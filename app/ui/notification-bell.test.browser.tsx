@@ -68,7 +68,7 @@ describe('NotificationBell', () => {
     let sources = getCreatedEventSources()
     assert.ok(sources.length > 0, 'bell should subscribe to the per-user SSE channel')
     if (sources.length > 0) {
-      sources[0].open()
+      sources[0]!.open()
       await new Promise((r) => setTimeout(r, 10))
     }
 
@@ -78,7 +78,7 @@ describe('NotificationBell', () => {
 
     // Push a live `new` event -> badge increments without a reload.
     if (sources.length > 0) {
-      sources[0].emit('new', { id: 1, type: 'confirmation', title: 'T' })
+      sources[0]!.emit('new', { id: 1, type: 'confirmation', title: 'T' })
       await new Promise((r) => setTimeout(r, 10))
     }
 

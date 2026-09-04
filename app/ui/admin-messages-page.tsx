@@ -39,7 +39,7 @@ interface AdminMessagesPageProps {
   pageSize: number
   prevOffset: number
   nextOffset: number
-  filter?: string
+  filter?: string | undefined
   sortColumn: string
   sortDirection: 'asc' | 'desc'
 }

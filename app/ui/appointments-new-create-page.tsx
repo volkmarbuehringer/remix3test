@@ -15,21 +15,21 @@ const titleStyle = css({
 
 export interface AppointmentsNewCreatePageProps {
   resources: ResourceOption[]
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  period?: string
-  status?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
-  step?: number
-  wizardResourceId?: string
-  wizardResourceName?: string
-  wizardResourceDescription?: string
-  weekStart?: number
-  daysWithSlots?: DayWithSlots[]
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
+  step?: number | undefined
+  wizardResourceId?: string | undefined
+  wizardResourceName?: string | undefined
+  wizardResourceDescription?: string | undefined
+  weekStart?: number | undefined
+  daysWithSlots?: DayWithSlots[] | undefined
 }
 
 export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePageProps>) {

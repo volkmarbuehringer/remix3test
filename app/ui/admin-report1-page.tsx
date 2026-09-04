@@ -8,6 +8,15 @@ import { table } from './mixins/admin-table.ts'
 import { sortArrow } from './mixins/admin-urls.ts'
 import type { Report1Row, Report1UserOption } from '../data/report1.ts'
 
+const REPORT_COLUMNS: [string, string][] = [
+  ['name', 'Name'],
+  ['count', 'Anzahl'],
+  ['min_date', 'Erster'],
+  ['max_date', 'Letzter'],
+  ['total_hours', 'Std. ges.'],
+  ['avg_hours', 'Std. \u00f8'],
+]
+
 interface AdminReport1PageProps {
   rows: Report1Row[]
   offset: number
@@ -141,14 +150,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
           <table mix={table.table}>
             <thead>
               <tr>
-                {[
-                  ['name', 'Name'],
-                  ['count', 'Anzahl'],
-                  ['min_date', 'Erster'],
-                  ['max_date', 'Letzter'],
-                  ['total_hours', 'Std. ges.'],
-                  ['avg_hours', 'Std. \u00f8'],
-                ].map(([field, label]) => (
+                {REPORT_COLUMNS.map(([field, label]) => (
                   <th key={field} mix={table.thSortable}>
                     <a
                       href={buildUrl({

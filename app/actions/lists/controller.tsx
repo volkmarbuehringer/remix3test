@@ -149,7 +149,7 @@ export default createController(routes.lists, {
       if (!parseResult.success) {
         let message =
           parseResult.issues.length > 0
-            ? parseResult.issues[0].message
+            ? parseResult.issues[0]!.message
             : 'Description and non-empty items array are required'
         return context.json({ error: message }, { status: 400 })
       }
@@ -198,7 +198,7 @@ export default createController(routes.lists, {
       let parseResult = s.parseSafe(listsPatchSchema, body)
       if (!parseResult.success) {
         let message =
-          parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Invalid fields'
+          parseResult.issues.length > 0 ? parseResult.issues[0]!.message : 'Invalid fields'
         return context.json({ error: message }, { status: 400 })
       }
 
@@ -218,7 +218,7 @@ export default createController(routes.lists, {
       let partial: {
         title?: string
         description?: string
-        items?: Array<{ id?: string; label: string; done?: boolean }>
+        items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
       } = {}
       if (title !== undefined) partial.title = title
       if (description !== undefined) partial.description = description
@@ -281,7 +281,7 @@ export default createController(routes.lists, {
       let parseResult = s.parseSafe(listsMoveSchema, body)
       if (!parseResult.success) {
         let message =
-          parseResult.issues.length > 0 ? parseResult.issues[0].message : 'Invalid fields'
+          parseResult.issues.length > 0 ? parseResult.issues[0]!.message : 'Invalid fields'
         return context.json({ error: message }, { status: 400 })
       }
 

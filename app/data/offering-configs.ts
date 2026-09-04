@@ -137,7 +137,7 @@ export async function generateWeek(
     let dayMs = mondayMs + i * 86_400_000
     let dayDate = new Date(dayMs)
     let isoDay = dayDate.getUTCDay() || 7 // 1=Mon .. 7=Sun
-    let dayName = DAY_NAMES[isoDay]
+    let dayName = DAY_NAMES[isoDay] ?? ''
     let rule = rules[dayName]
     if (!isValidRule(rule)) continue
 

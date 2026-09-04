@@ -25,12 +25,13 @@ export async function resolveFrameResponse(
     headers.set('X-Agent-Prefill', btoa(binary))
   }
 
+  let bodyInit = getRequestBody(options?.formData, options?.method, options?.encType)
   let response = await fetch(url, {
     cache: 'no-store',
     headers,
-    method: options?.method,
-    body: getRequestBody(options?.formData, options?.method, options?.encType),
-    signal: options?.signal,
+    ...(options?.method !== undefined ? { method: options.method } : {}),
+    ...(bodyInit !== undefined ? { body: bodyInit } : {}),
+    ...(options?.signal !== undefined ? { signal: options.signal } : {}),
   })
 
   if (prefill && response.ok) {

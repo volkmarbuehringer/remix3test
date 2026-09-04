@@ -61,11 +61,13 @@ describe('Callback controller', () => {
       'SELECT callback_response, callback_received_at FROM webhook_requests WHERE id = $1',
       [id],
     )
-    assert.ok(rows[0].callback_received_at, 'callback_received_at should be set')
+    let row = rows[0]
+    assert.ok(row, 'row should exist')
+    assert.ok(row.callback_received_at, 'callback_received_at should be set')
     let stored =
-      typeof rows[0].callback_response === 'string'
-        ? JSON.parse(rows[0].callback_response)
-        : rows[0].callback_response
+      typeof row.callback_response === 'string'
+        ? JSON.parse(row.callback_response)
+        : row.callback_response
     assert.deepEqual(stored, body)
   })
 

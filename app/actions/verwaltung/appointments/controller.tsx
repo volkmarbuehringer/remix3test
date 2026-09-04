@@ -121,9 +121,9 @@ interface AppointmentPageData {
   error: string | undefined
   defaultStartMin: number
   defaultEndMin: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 /** Builds the appointments grid index URL from the submitted grid-state form fields. */
@@ -135,23 +135,20 @@ function appointmentsGridUrl(formData: FormData): string {
 
 async function loadAppointmentPageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
-  overrides?: Partial<
-    Pick<
-      AppointmentPageData,
-      | 'creating'
-      | 'editRow'
-      | 'error'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
-      | 'period'
-      | 'status'
-    >
-  >,
+  overrides?: {
+    creating?: boolean | undefined
+    editRow?: AppointmentRow | null | undefined
+    error?: string | undefined
+    formValues?: Record<string, string> | undefined
+    fieldErrors?: Record<string, string> | undefined
+    formError?: string | undefined
+    offset?: number | undefined
+    sortColumn?: string | undefined
+    sortDirection?: 'asc' | 'desc' | undefined
+    filter?: string | undefined
+    period?: string | undefined
+    status?: string | undefined
+  },
 ): Promise<AppointmentPageData> {
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -210,7 +207,7 @@ async function loadAppointmentPageData(
   let defaultStartMin = 480
   let defaultEndMin = 1020
   if (creating && resourcesResult.length > 0) {
-    let firstResourceId = resourcesResult[0].id
+    let firstResourceId = resourcesResult[0]!.id
     let today = new Date()
     let searchStart =
       Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000
@@ -222,7 +219,7 @@ async function loadAppointmentPageData(
       firstResourceId,
     )
     if (offerings.length > 0) {
-      let parsed = parseDuring(offerings[0].during)
+      let parsed = parseDuring(offerings[0]!.during)
       if (parsed) {
         defaultStartMin = parsed.startMin
         defaultEndMin = parsed.endMin

@@ -25,8 +25,8 @@ export async function verifyPassword(password: string, encodedHash: string): Pro
   if (!Number.isInteger(iterations) || iterations < 1) return false
 
   try {
-    let salt = Buffer.from(saltText, 'base64url')
-    let expectedHash = Buffer.from(hashText, 'base64url')
+    let salt = Buffer.from(saltText ?? '', 'base64url')
+    let expectedHash = Buffer.from(hashText ?? '', 'base64url')
     if (salt.length === 0 || expectedHash.length === 0) return false
 
     let actualHash = Buffer.from(await derivePasswordHash(password, salt, iterations))

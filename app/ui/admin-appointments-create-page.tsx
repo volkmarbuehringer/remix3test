@@ -8,14 +8,14 @@ export interface AdminAppointmentsCreatePageProps {
   offset?: string
   sort?: string
   order?: string
-  filter?: string
-  period?: string
-  status?: string
-  defaultStartMin?: number
-  defaultEndMin?: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+  defaultStartMin?: number | undefined
+  defaultEndMin?: number | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 export function AdminAppointmentsCreatePage(handle: Handle<AdminAppointmentsCreatePageProps>) {

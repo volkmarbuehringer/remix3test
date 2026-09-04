@@ -82,10 +82,10 @@ export async function markGateSuspended(
     runId: string
     threadId: string
     gateType: GateType
-    toolCallId?: string
-    toolName?: string
-    args?: Record<string, unknown>
-    suspendPayload?: Record<string, unknown>
+    toolCallId?: string | undefined
+    toolName?: string | undefined
+    args?: Record<string, unknown> | undefined
+    suspendPayload?: Record<string, unknown> | undefined
   },
 ): Promise<void> {
   await db.exec(

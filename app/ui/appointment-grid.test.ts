@@ -76,7 +76,7 @@ function parseAppointmentData(html: string): AppointmentData | null {
   let match = html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)
   if (!match) return null
   try {
-    return JSON.parse(match[1])
+    return JSON.parse(match[1]!)
   } catch {
     return null
   }
@@ -112,7 +112,7 @@ describe('Appointment Grid', () => {
     if (allResources.length === 0) {
       throw new Error('No resources found in the database')
     }
-    firstResourceId = allResources[0].id
+    firstResourceId = allResources[0]!.id
 
     // Compute test dates starting from next week so Saturday/Sunday
     // are always in the future regardless of the current day.
@@ -716,8 +716,8 @@ describe('Appointment Grid', () => {
     let jsonMatch = html.match(/<script id="appointment-data"[^>]*>([\s\S]*?)<\/script>/)
     assert.ok(jsonMatch, 'should have appointment-data script tag')
     assert.ok(
-      jsonMatch[1].includes(multilineTitle) ||
-        jsonMatch[1].includes(multilineTitle.replace(/\n/g, '\\n')),
+      jsonMatch[1]!.includes(multilineTitle) ||
+        jsonMatch[1]!.includes(multilineTitle.replace(/\n/g, '\\n')),
       'multiline title should appear in raw HTML JSON',
     )
   })

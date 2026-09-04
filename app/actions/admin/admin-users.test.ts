@@ -449,7 +449,9 @@ describe('Admin Users Controller', () => {
         details = JSON.parse(details)
       }
       assert.ok(details != null, 'details should not be null')
-      let changes = (details as any).changes as Record<string, unknown> | undefined
+      let changes = (details as unknown as Record<string, unknown>).changes as
+        | Record<string, unknown>
+        | undefined
       assert.ok(changes != null, 'changes should be present')
       assert.equal(
         changes?.password_hash,

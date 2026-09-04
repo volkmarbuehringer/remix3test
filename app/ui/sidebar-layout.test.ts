@@ -145,7 +145,7 @@ describe('Admin sidebar shell — flash messages', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
     let cookieHeader = await sessionCookie.serialize(sid)
-    return cookieHeader.split(';')[0]
+    return cookieHeader.split(';')[0]!
   }
 
   it('renders error flash banner in the admin sidebar shell', async () => {

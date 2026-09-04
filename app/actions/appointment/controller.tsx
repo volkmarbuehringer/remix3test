@@ -110,7 +110,7 @@ function weekDates(mondayMs: number): Array<{ dayName: string; date: number; dat
     let ms = mondayMs + i * 86_400_000
     let d = new Date(ms)
     days.push({
-      dayName: DAY_NAMES[i],
+      dayName: DAY_NAMES[i]!,
       date: ms,
       dateStr: `${d.getUTCDate()}.${d.getUTCMonth() + 1}.`,
     })

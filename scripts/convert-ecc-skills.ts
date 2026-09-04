@@ -122,12 +122,12 @@ const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 function parseFrontmatter(raw: string) {
   let m = raw.match(/^---\n([\s\S]*?)\n---\n?/)
   if (!m) return null
-  return { fm: m[1], body: raw.slice(m[0].length) }
+  return { fm: m[1]!, body: raw.slice(m[0].length) }
 }
 
 function fmField(fm: string, key: string) {
   let m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))
-  return m ? m[1].trim() : undefined
+  return m ? m[1]!.trim() : undefined
 }
 
 function fmStrip(fm: string, keys: string[]) {

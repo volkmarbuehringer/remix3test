@@ -16,7 +16,7 @@ const listWireSchema = z.object({
 export interface AdminListRow {
   id: number
   title: string
-  list: Array<{ id: string; label: string; done?: boolean }>
+  list: Array<{ id: string; label: string; done?: boolean | undefined }>
   description: string
   created_at: number
   updated_at: number

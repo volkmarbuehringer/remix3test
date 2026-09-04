@@ -93,28 +93,32 @@ interface OfferingPageData {
   offeringConfig: OfferingConfig | undefined
   addWeek: boolean
   pastCount: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
+
+type Undefinable<T> = { [K in keyof T]: T[K] | undefined }
 
 async function loadOfferingPageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
-  overrides?: Partial<
-    Pick<
-      OfferingPageData,
-      | 'creating'
-      | 'editRow'
-      | 'error'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
-      | 'period'
-      | 'status'
+  overrides?: Undefinable<
+    Partial<
+      Pick<
+        OfferingPageData,
+        | 'creating'
+        | 'editRow'
+        | 'error'
+        | 'formValues'
+        | 'fieldErrors'
+        | 'formError'
+        | 'offset'
+        | 'sortColumn'
+        | 'sortDirection'
+        | 'filter'
+        | 'period'
+        | 'status'
+      >
     >
   >,
 ): Promise<OfferingPageData> {

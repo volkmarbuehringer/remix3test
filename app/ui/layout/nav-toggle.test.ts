@@ -1,17 +1,41 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { type Handle } from 'remix/ui'
 
 import { NavToggle } from './nav-toggle.browser.tsx'
 
+type ClassListMock = {
+  contains: (className: string) => boolean
+  toggle: (className: string) => boolean
+}
+
+type DrawerElMock = {
+  classList: ClassListMock
+  addEventListener: (event: string, handler: Function) => void
+}
+
+type BtnElMock = {
+  setAttribute: (name: string, value: string) => void
+  addEventListener: (event: string, handler: Function) => void
+}
+
+type CloseBtnElMock = {
+  focus: () => void
+}
+
+type PreviousActiveElementMock = {
+  focus: () => void
+}
+
 describe('NavToggle', () => {
   let originalDocument: typeof globalThis.document
-  let drawerEl: Record<string, any>
-  let btnEl: Record<string, any>
-  let closeBtnEl: Record<string, any>
+  let drawerEl: DrawerElMock
+  let btnEl: BtnElMock
+  let closeBtnEl: CloseBtnElMock
   let documentElementStyle: Record<string, string>
   let capturedHandlers: Map<string, Function>
   let isOpen: boolean
-  let previousActiveElement: Record<string, any>
+  let previousActiveElement: PreviousActiveElementMock
 
   function setupDom() {
     originalDocument = globalThis.document
@@ -50,7 +74,7 @@ describe('NavToggle', () => {
       innerWidth: 1024,
     }
 
-    ;(globalThis as any).document = {
+    globalThis.document = {
       getElementById: (id: string) => {
         if (id === 'nav-drawer') return drawerEl
         if (id === 'nav-toggle') return btnEl
@@ -66,7 +90,7 @@ describe('NavToggle', () => {
   }
 
   function restore() {
-    ;(globalThis as any).document = originalDocument
+    globalThis.document = originalDocument
   }
 
   afterEach(() => {
@@ -80,8 +104,8 @@ describe('NavToggle', () => {
   it('locks scroll on open and unlocks on close', () => {
     setupDom()
 
-    let handle = {} as any
-    let initFn = (NavToggle as any)(handle)
+    let handle = {} as unknown as Handle
+    let initFn = NavToggle(handle)
     initFn()
 
     let clickHandler = capturedHandlers.get('btn:click')
@@ -109,8 +133,8 @@ describe('NavToggle', () => {
       focusCalled = true
     }
 
-    let handle = {} as any
-    let initFn = (NavToggle as any)(handle)
+    let handle = {} as unknown as Handle
+    let initFn = NavToggle(handle)
     initFn()
 
     let clickHandler = capturedHandlers.get('btn:click')
@@ -125,8 +149,8 @@ describe('NavToggle', () => {
   it('closes on Escape key', () => {
     setupDom()
 
-    let handle = {} as any
-    let initFn = (NavToggle as any)(handle)
+    let handle = {} as unknown as Handle
+    let initFn = NavToggle(handle)
     initFn()
 
     let clickHandler = capturedHandlers.get('btn:click')
@@ -143,8 +167,8 @@ describe('NavToggle', () => {
   it('does not close on non-Escape key', () => {
     setupDom()
 
-    let handle = {} as any
-    let initFn = (NavToggle as any)(handle)
+    let handle = {} as unknown as Handle
+    let initFn = NavToggle(handle)
     initFn()
 
     let clickHandler = capturedHandlers.get('btn:click')
@@ -159,8 +183,8 @@ describe('NavToggle', () => {
   it('closes on drawer backdrop click', () => {
     setupDom()
 
-    let handle = {} as any
-    let initFn = (NavToggle as any)(handle)
+    let handle = {} as unknown as Handle
+    let initFn = NavToggle(handle)
     initFn()
 
     let clickHandler = capturedHandlers.get('btn:click')

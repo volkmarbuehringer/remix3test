@@ -17,7 +17,7 @@ export const SupportAgentStream = clientEntry(
 
     let pendingQuestion: {
       runId: string
-      toolCallId?: string
+      toolCallId?: string | undefined
       selectionMode: string
     } | null = null
 
@@ -249,7 +249,7 @@ export const SupportAgentStream = clientEntry(
             if (checked.length === 0) return
 
             let selected = [...checked].map((el2) => el2.value)
-            let answer = isMulti ? JSON.stringify(selected) : selected[0]
+            let answer = isMulti ? JSON.stringify(selected) : selected[0]!
 
             el.innerHTML = ''
             handleAnswer(answer)
@@ -559,7 +559,7 @@ export const SupportAgentStream = clientEntry(
         if (!res.ok) {
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
-          let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
+          let msg = match ? (JSON.parse(match[1]!).error ?? res.statusText) : res.statusText
           appendStatusMessage('Fehler: ' + msg, true)
           setFormEnabled(true)
           return

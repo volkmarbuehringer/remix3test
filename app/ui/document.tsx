@@ -14,7 +14,7 @@ import { ThemeToggle } from '../ui/theme-toggle.browser.tsx'
 
 export interface DocumentProps {
   children?: RemixNode
-  title?: string
+  title?: string | undefined
 }
 
 const DEFAULT_TITLE = readAppDisplayName('Newapp')

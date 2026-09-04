@@ -18,13 +18,13 @@ function runErrorMessage(error: unknown): string {
 
 export async function executeUserPreflightWorkflow(input: { targetUserId: number }): Promise<{
   found: boolean
-  user?: { id: number; name: string; email: string; role: string; disabledAt: number | null }
+  user?: { id: number; name: string; email: string; role: string; disabledAt: number | null } | undefined
   pendingCount: number
   lockedUsers: { id: number; name: string; email: string; pendingCount: number }[]
   lockedTotal: number
   activeUsers: { id: number; name: string; email: string; pendingCount: number }[]
   activeTotal: number
-  error?: string
+  error?: string | undefined
 }> {
   if (!_mastra) throw new Error('Mastra not initialized')
 
@@ -103,7 +103,12 @@ export async function executeBookingWorkflow(input: {
   title?: string
   date?: number
   startMin?: number
-}): Promise<{ workflowRunId: string; success: boolean; appointmentId?: number; error?: string }> {
+}): Promise<{
+  workflowRunId: string
+  success: boolean
+  appointmentId?: number | undefined
+  error?: string | undefined
+}> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('customerBookingWorkflow')
   let run = await wf.createRun({ resourceId: String(input.customerId) })
@@ -126,7 +131,7 @@ export async function executeBookingWorkflow(input: {
 export async function executeCancellationWorkflow(input: {
   appointmentId: number
   requestingUserId: number
-}): Promise<{ workflowRunId: string; success: boolean; error?: string }> {
+}): Promise<{ workflowRunId: string; success: boolean; error?: string | undefined }> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('bookingCancellationWorkflow')
   let run = await wf.createRun({ resourceId: String(input.requestingUserId) })
@@ -151,7 +156,7 @@ export async function executeCancelUserWorkflow(input: {
   success: boolean
   targetUserId: number
   deletedAppointments: number
-  error?: string
+  error?: string | undefined
 }> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('cancelUserWorkflow')
@@ -224,9 +229,9 @@ export async function executeLockUserWorkflow(input: {
 }): Promise<{
   workflowRunId: string
   success: boolean
-  error?: string
+  error?: string | undefined
   auditLogged: boolean
-  alreadyLocked?: boolean
+  alreadyLocked?: boolean | undefined
 }> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('lockUserWorkflow')
@@ -261,9 +266,9 @@ export async function executeUnlockUserWorkflow(input: {
 }): Promise<{
   workflowRunId: string
   success: boolean
-  error?: string
+  error?: string | undefined
   auditLogged: boolean
-  alreadyUnlocked?: boolean
+  alreadyUnlocked?: boolean | undefined
 }> {
   if (!_mastra) throw new Error('Mastra not initialized')
   let wf = _mastra.getWorkflow('unlockUserWorkflow')

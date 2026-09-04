@@ -22,7 +22,7 @@ async function resolveTargetUser(
     let names = rows.map((r) => `${r.name} (${r.email})`).join(', ')
     if (rows.length > 1)
       return { error: `Multiple users match "${query}": ${names}. Please be more specific.` }
-    return { targetUserId: rows[0].id }
+    return { targetUserId: rows[0]!.id }
   } catch (err) {
     console.error('[resolveTargetUser] database error:', err)
     return { error: 'An internal error occurred while looking up the user.' }
@@ -46,7 +46,7 @@ async function resolveResource(query: string): Promise<{ resourceId: number } | 
     let names = rows.map((r) => r.name).join(', ')
     if (rows.length > 1)
       return { error: `Multiple resources match "${query}": ${names}. Please be more specific.` }
-    return { resourceId: rows[0].id }
+    return { resourceId: rows[0]!.id }
   } catch (err) {
     console.error('[resolveResource] database error:', err)
     return { error: 'An internal error occurred while looking up the resource.' }

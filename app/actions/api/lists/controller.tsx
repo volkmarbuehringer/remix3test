@@ -84,7 +84,7 @@ export default createController(routes.apiLists, {
       if (!parseResult.success) {
         let message =
           parseResult.issues.length > 0
-            ? parseResult.issues[0].message
+            ? parseResult.issues[0]!.message
             : 'Description and items are required'
         return context.json({ error: message }, { status: 400 })
       }
@@ -129,7 +129,7 @@ export default createController(routes.apiLists, {
       if (!updateResult.success) {
         let message =
           updateResult.issues.length > 0
-            ? updateResult.issues[0].message
+            ? updateResult.issues[0]!.message
             : 'Description and items are required'
         return context.json({ error: message }, { status: 400 })
       }

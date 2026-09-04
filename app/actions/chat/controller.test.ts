@@ -83,8 +83,8 @@ function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput
 
 type MockAgent = {
   generate: (message: string, opts?: Record<string, unknown>) => Promise<{ text: string }>
-  stream: (message: string, opts?: any) => Promise<AgentStreamOutput>
-  resumeStream: (data: unknown, opts?: any) => Promise<AgentStreamOutput>
+  stream: (message: string, opts?: Record<string, unknown>) => Promise<AgentStreamOutput>
+  resumeStream: (data: unknown, opts?: Record<string, unknown>) => Promise<AgentStreamOutput>
   approveToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
     text: string
     finishReason: string

@@ -29,9 +29,9 @@ export interface ListOfferingsOpts {
   pageSize: number
   column: string
   direction: 'asc' | 'desc'
-  filter?: string
-  period?: string
-  status?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
 }
 
 const OFFERINGS_ORDER_BY_COLUMNS: Record<string, string> = {
@@ -206,7 +206,7 @@ export async function countPastOfferings(db: Database): Promise<number> {
     sql`SELECT COUNT(*) AS count FROM appointoffering WHERE day < ${getTodayUtcMidnight()}`,
     z.object({ count: int8Aggregate }),
   )
-  return rows.length > 0 ? rows[0].count : 0
+  return rows.length > 0 ? rows[0]!.count : 0
 }
 
 // ---- helpers (shared with data/offering-configs.ts) ----

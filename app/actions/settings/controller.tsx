@@ -435,7 +435,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
 
 type PasswordFieldProps = {
   autoComplete: string
-  error?: string
+  error?: string | undefined
   errorId: string
   fieldId: string
   label: string

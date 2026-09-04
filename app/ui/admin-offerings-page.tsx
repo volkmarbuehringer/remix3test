@@ -39,19 +39,19 @@ interface AdminOfferingsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
-  period?: string
-  status?: string
+  period?: string | undefined
+  status?: string | undefined
   editRow?: OfferingRow | null
   creating?: boolean
   resources: OfferingsResourceOption[]
-  error?: string
-  configResourceId?: number
-  offeringConfig?: OfferingConfig
+  error?: string | undefined
+  configResourceId?: number | undefined
+  offeringConfig?: OfferingConfig | undefined
   addWeek?: boolean
   pastCount?: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 // ── Helpers ──
@@ -204,8 +204,8 @@ function formatDayCell(day: string): string {
 function formatDuring(during: string): string {
   let match = during.match(/^\[(\d+),(\d+)\)$/)
   if (!match) return during
-  let startMin = parseInt(match[1], 10)
-  let endMin = parseInt(match[2], 10)
+  let startMin = parseInt(match[1]!, 10)
+  let endMin = parseInt(match[2]!, 10)
   let startH = String(Math.floor(startMin / 60)).padStart(2, '0')
   let startM = String(startMin % 60).padStart(2, '0')
   let endH = String(Math.floor(endMin / 60)).padStart(2, '0')

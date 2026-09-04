@@ -13,12 +13,12 @@ export interface AdminAppointmentsEditPageProps {
   offset: string
   sort: string
   order: string
-  filter?: string
-  period?: string
-  status?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 export function AdminAppointmentsEditPage(handle: Handle<AdminAppointmentsEditPageProps>) {

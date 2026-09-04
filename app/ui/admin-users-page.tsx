@@ -52,9 +52,9 @@ interface AdminUsersPageProps {
   editRow?: DisplayUser | null
   creating?: boolean
   pageSize: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 // ── Styles ──
@@ -594,12 +594,12 @@ function sortRule(
 
 interface EditPanelProps {
   row: DisplayUser
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
@@ -735,12 +735,12 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
 // ── Inline Create Panel ──
 
 interface CreatePanelProps {
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {

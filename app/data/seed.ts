@@ -84,13 +84,16 @@ export async function seed(db: Database): Promise<void> {
 
   let clientsCount = Number(await db.count(clients))
   if (clientsCount === 0) {
-    let clientRows = Array.from({ length: 200 }, (_, i) => ({
-      name: `User ${i + 1}`,
-      email: `user${i + 1}@example.com`,
-      role: (['Admin', 'Editor', 'Viewer'] as const)[i % 3],
-      status: i % 4 === 0 ? 'Inactive' : 'Active',
-      registered: Date.now() - i * 86400000 * 3,
-    }))
+    let clientRows = Array.from({ length: 200 }, (_, i) => {
+      let role = (['Admin', 'Editor', 'Viewer'] as const)[i % 3]
+      return {
+        name: `User ${i + 1}`,
+        email: `user${i + 1}@example.com`,
+        ...(role !== undefined ? { role } : {}),
+        status: i % 4 === 0 ? 'Inactive' : 'Active',
+        registered: Date.now() - i * 86400000 * 3,
+      }
+    })
     await db.createMany(clients, clientRows)
     console.log('✅ Seeded 200 clients')
   } else {

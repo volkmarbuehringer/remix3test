@@ -90,7 +90,7 @@ const newButtonStyle = css({
 })
 
 interface CustomerChatPageProps {
-  threadId?: string
+  threadId?: string | undefined
   messages?: ChatMessage[]
 }
 

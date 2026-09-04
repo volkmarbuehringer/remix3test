@@ -81,7 +81,7 @@ export interface ListOfferingConfigsOpts {
 
 export async function countOfferingConfigs(
   db: Database,
-  opts: { filter?: string },
+  opts: { filter?: string | undefined },
 ): Promise<number> {
   let query = `
     SELECT COUNT(*) AS count FROM offering_configs oc
@@ -94,7 +94,7 @@ export async function countOfferingConfigs(
     params.push(`%${esc}%`)
   }
   let rows = await queryRows(db, rawSql(query, params), z.object({ count: int8Aggregate }))
-  return rows.length > 0 ? rows[0].count : 0
+  return rows[0]?.count ?? 0
 }
 
 export async function listOfferingConfigs(

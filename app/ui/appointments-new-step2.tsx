@@ -177,14 +177,14 @@ function formatRangeLabel(ranges: { startMin: number; endMin: number }[]): strin
 
 interface Step2Props {
   resourceId: string
-  resourceName?: string
-  resourceDescription?: string
+  resourceName?: string | undefined
+  resourceDescription?: string | undefined
   weekStart: number
   daysWithSlots: DayWithSlots[]
   gridState: GridState
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 export function Step2(handle: Handle<Step2Props>) {

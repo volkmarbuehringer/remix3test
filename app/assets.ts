@@ -13,19 +13,15 @@ if (config.assets === undefined) {
 export const assetServer = createAssetServer({
   ...config.assets,
   watch: isDevelopment,
-  hmr: isHmr
-    ? async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel()
-    : undefined,
-  fingerprint: !isDevelopment
-    ? { buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}` }
-    : undefined,
+  ...(isHmr ? { hmr: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel() } : {}),
+  ...(isDevelopment ? {} : { fingerprint: { buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}` } }),
   target: { es: '2022', chrome: '109', safari: '16.4' },
-  sourceMaps: isDevelopment ? 'external' : undefined,
+  ...(isDevelopment ? { sourceMaps: 'external' } : {}),
   scripts: {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
     },
-    loaders: isHmr ? [uiHmr()] : undefined,
+    ...(isHmr ? { loaders: [uiHmr()] } : {}),
   },
   minify: !isDevelopment,
 })

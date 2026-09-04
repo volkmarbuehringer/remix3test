@@ -68,15 +68,15 @@ export interface AdminAppointmentsFormProps {
   /** Row data (required in edit mode). */
   row?: AppointmentRow
   /** Default start minute for create mode (default: 480 = 08:00). */
-  defaultStartMin?: number
+  defaultStartMin?: number | undefined
   /** Default end minute for create mode (default: 1020 = 17:00). */
-  defaultEndMin?: number
+  defaultEndMin?: number | undefined
   /** Per-field validation errors (keyed by field name). */
-  fieldErrors?: Record<string, string>
+  fieldErrors?: Record<string, string> | undefined
   /** Form-level error (displayed as banner). */
-  formError?: string
+  formError?: string | undefined
   /** Submitted form values to preserve on validation failure. */
-  formValues?: Record<string, string>
+  formValues?: Record<string, string> | undefined
 }
 
 // ── Component ──

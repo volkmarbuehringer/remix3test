@@ -1,13 +1,13 @@
-import type { Handle, RemixNode } from 'remix/ui'
+import type { Handle, RemixNode, MixValue, ElementProps } from 'remix/ui'
 
 type NavLinkProps = {
-  href?: string
-  route?: { href: () => string }
+  href?: string | undefined
+  route?: { href: () => string } | undefined
   frameSrc?: string
   target?: string
   active?: boolean
   document?: boolean
-  mix?: any
+  mix?: MixValue<HTMLAnchorElement, ElementProps>
   style?: Record<string, string>
   dataTooltip?: string
   children?: RemixNode

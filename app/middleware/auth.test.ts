@@ -1,6 +1,6 @@
 import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
-import type { MiddlewareContext } from 'remix/router'
+import type { RequestContext } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 
@@ -31,7 +31,7 @@ function createMockContext(
   auth: AuthState<User> | undefined,
   url = 'https://remix.run/protected',
   headers?: Record<string, string>,
-): MiddlewareContext<any> {
+): RequestContext {
   return {
     get: (key: symbol) => {
       if (key === Auth) return auth
@@ -42,8 +42,8 @@ function createMockContext(
     },
     has: () => true,
     url: new URL(url),
-    request: new Request(url, { headers }),
-  } as unknown as MiddlewareContext<any>
+    request: new Request(url, { ...(headers !== undefined ? { headers } : {}) }),
+  } as unknown as RequestContext
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ describe('Session token_version invalidation', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]
+    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]!
 
     let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
       headers: { Cookie: cookie },
@@ -293,7 +293,7 @@ describe('Session token_version invalidation', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]
+    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]!
 
     let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
       headers: { Cookie: cookie },

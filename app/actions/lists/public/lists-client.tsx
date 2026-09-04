@@ -636,7 +636,7 @@ export const ListsClient = clientEntry(
       let newItems = [...items]
       let [removed] = newItems.splice(dragIndex, 1)
       let adjustedDrop = dropIndex > dragIndex ? dropIndex - 1 : dropIndex
-      newItems.splice(adjustedDrop, 0, removed)
+      newItems.splice(adjustedDrop, 0, removed!)
       items = newItems
       dragIndex = null
       dropIndex = null
@@ -868,7 +868,7 @@ export const ListsClient = clientEntry(
       let newItems = [...items]
       for (let i = newItems.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1))
-        ;[newItems[i], newItems[j]] = [newItems[j], newItems[i]]
+        ;[newItems[i], newItems[j]] = [newItems[j]!, newItems[i]!]
       }
       items = newItems
       setDirty()
@@ -877,7 +877,7 @@ export const ListsClient = clientEntry(
 
     let startEditing = (index: number) => {
       editingIndex = index
-      editText = items[index].label
+      editText = items[index]!.label
       handle.update()
     }
 
@@ -986,9 +986,9 @@ export const ListsClient = clientEntry(
 
     let moveFocus = (targetIndex: number) => {
       if (targetIndex < 0 || targetIndex >= items.length) return
-      focusedId = items[targetIndex].id
+      focusedId = items[targetIndex]!.id
       handle.update()
-      focusItem(items[targetIndex].id)
+      focusItem(items[targetIndex]!.id)
     }
 
     // The active roving-tabindex id. Falls back to the first item when no item
@@ -1001,10 +1001,10 @@ export const ListsClient = clientEntry(
     let grabbedMove = (from: number, to: number) => {
       if (to < 0 || to >= items.length) return
       moveItem(from, to)
-      grabbedId = items[to].id
-      focusedId = items[to].id
+      grabbedId = items[to]!.id
+      focusedId = items[to]!.id
       announce(`Position ${to + 1} von ${items.length}`)
-      focusItem(items[to].id)
+      focusItem(items[to]!.id)
     }
 
     let handleRowKeyDown = (e: KeyboardEvent, index: number) => {
@@ -1012,14 +1012,14 @@ export const ListsClient = clientEntry(
       // from nested controls (checkbox, edit textarea, action buttons) must
       // keep their own semantics.
       if (e.target !== e.currentTarget) return
-      let id = items[index].id
+      let id = items[index]!.id
 
       // Quick-move: Ctrl/Cmd + Arrow moves the focused item directly
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'ArrowUp') {
           e.preventDefault()
           moveItem(index, index - 1)
-          let target = items[index - 1] ? items[index - 1].id : id
+          let target = items[index - 1] ? items[index - 1]!.id : id
           focusedId = target
           focusItem(target)
           return
@@ -1027,7 +1027,7 @@ export const ListsClient = clientEntry(
         if (e.key === 'ArrowDown') {
           e.preventDefault()
           moveItem(index, index + 1)
-          let target = items[index + 1] ? items[index + 1].id : id
+          let target = items[index + 1] ? items[index + 1]!.id : id
           focusedId = target
           focusItem(target)
           return

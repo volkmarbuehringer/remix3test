@@ -26,7 +26,7 @@ describe('appointment', () => {
 
     let rows = await listUserEmails(db, [userId])
     assert.equal(rows.length, 1)
-    assert.equal(rows[0].email, 'test-appt-a@example.com')
+    assert.equal(rows[0]!.email, 'test-appt-a@example.com')
   })
 
   it('listUserEmails returns empty array for nonexistent ids', async () => {

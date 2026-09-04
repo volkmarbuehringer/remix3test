@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Middleware } from 'remix/router'
 
-type UploadClaimState = { uploadedId?: string }
+type UploadClaimState = { uploadedId?: string | undefined }
 
 const storage = new AsyncLocalStorage<UploadClaimState>()
 

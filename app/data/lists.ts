@@ -61,7 +61,9 @@ function parseRow(row: Record<string, unknown>): ListRow {
   }
 }
 
-function assignStableIds(items: Array<{ id?: string; label: string; done?: boolean }>): ListItem[] {
+function assignStableIds(
+  items: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>,
+): ListItem[] {
   return items.map((item) => ({
     id:
       item.id && typeof item.id === 'string' && item.id.length > 0 ? item.id : crypto.randomUUID(),
@@ -72,7 +74,7 @@ function assignStableIds(items: Array<{ id?: string; label: string; done?: boole
 
 export async function getAllLists(
   db: Database,
-  options: { offset?: number; limit?: number; filter?: string },
+  options: { offset?: number; limit?: number; filter?: string | undefined },
   userId?: number,
 ): Promise<ListResult<ListRow[]>> {
   let offset = Math.max(0, options.offset ?? 0)
@@ -164,9 +166,9 @@ export async function getListById(
 export async function createList(
   db: Database,
   input: {
-    title?: string
+    title?: string | undefined
     description: string
-    items: Array<{ id?: string; label: string; done?: boolean }>
+    items: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
   },
   userId?: number,
 ): Promise<ListRow> {
@@ -193,10 +195,10 @@ export async function patchList(
   partial: {
     title?: string
     description?: string
-    items?: Array<{ id?: string; label: string; done?: boolean }>
+    items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
   },
   userId?: number,
-  options?: { expectedUpdatedAt?: number },
+  options?: { expectedUpdatedAt?: number | undefined },
 ): Promise<PatchResult> {
   return await db.transaction(async (tx) => {
     let where = userId != null ? { id, user_id: userId } : { id }
@@ -269,7 +271,7 @@ type MoveFailure = 'not_found' | 'conflict' | 'item_not_found' | 'last_item' | '
 function throwMoveError(reason: MoveFailure, current?: ListRow): never {
   let error = new Error(reason) as Error & {
     moveReason: MoveFailure
-    moveCurrent?: ListRow
+    moveCurrent?: ListRow | undefined
   }
   error.moveReason = reason
   error.moveCurrent = current

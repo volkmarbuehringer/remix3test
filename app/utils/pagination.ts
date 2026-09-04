@@ -4,7 +4,7 @@ interface PaginateOptions {
   pageSize: number
   page: number
   orderBy: [string, 'asc' | 'desc'][]
-  where?: WhereInput
+  where?: WhereInput | undefined
 }
 
 interface PaginateResult<Row> {

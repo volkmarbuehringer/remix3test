@@ -16,7 +16,7 @@ function utcDate(year: number, month: number, day: number): number {
 }
 
 function day(date: number, dayName?: string) {
-  return { dayName: dayName ?? 'Mo', date, dateStr: new Date(date).toISOString().split('T')[0] }
+  return { dayName: dayName ?? 'Mo', date, dateStr: new Date(date).toISOString().split('T')[0]! }
 }
 
 function offering(day: number, start_min: number, end_min: number) {
@@ -33,8 +33,8 @@ describe('computeVisibleDays', () => {
     let offerings = [offering(MON, 480, 540), offering(WED, 600, 660)]
     let result = computeVisibleDays(days, offerings)
     assert.equal(result.length, 2)
-    assert.equal(result[0].date, MON)
-    assert.equal(result[1].date, WED)
+    assert.equal(result[0]!.date, MON)
+    assert.equal(result[1]!.date, WED)
   })
 
   it('returns empty array when no days match', () => {
@@ -187,9 +187,9 @@ function setupDomMock() {
 }
 
 function cleanupGlobals() {
-  delete (globalThis as any).window
-  delete (globalThis as any).document
-  delete (globalThis as any).requestAnimationFrame
+  delete (globalThis as unknown as { window?: unknown }).window
+  delete (globalThis as unknown as { document?: unknown }).document
+  delete (globalThis as unknown as { requestAnimationFrame?: unknown }).requestAnimationFrame
 }
 
 describe('handleMutationResponse', () => {
@@ -297,13 +297,13 @@ describe('readData', () => {
   })
 
   after(() => {
-    delete (globalThis as any).document
+    delete (globalThis as unknown as { document?: unknown }).document
   })
 
   it('reads and parses embedded appointment data', () => {
     let data = readData()
     assert.equal(data.days.length, 1)
-    assert.equal(data.days[0].date, MON)
+    assert.equal(data.days[0]!.date, MON)
     assert.equal(data.csrfToken, 'abc123')
     assert.equal(data.weekStart, MON)
     assert.equal(data.currentUserId, 1)

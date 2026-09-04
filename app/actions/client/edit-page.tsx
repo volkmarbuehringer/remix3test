@@ -22,8 +22,8 @@ interface ClientEditPageProps {
   sort: string
   order: string
   filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ const fieldErrorStyle = css({
 // ---------------------------------------------------------------------------
 
 function formatDate(ts: number): string {
-  return new Date(ts).toISOString().split('T')[0]
+  return new Date(ts).toISOString().split('T')[0]!
 }
 
 // ---------------------------------------------------------------------------

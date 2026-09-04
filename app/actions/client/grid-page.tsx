@@ -34,7 +34,7 @@ interface ClientGridPageProps {
   hasNext: boolean
   sortField?: string | null
   sortOrder?: 'asc' | 'desc'
-  filter?: string
+  filter?: string | undefined
   pageSize?: number
   editingId?: number | null
 }

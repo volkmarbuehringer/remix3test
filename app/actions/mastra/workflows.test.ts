@@ -76,8 +76,8 @@ describe('Failed notification queue', () => {
     enqueueFailedNotification('1', 'confirmation', { type: 'confirmation', recipient: '1' })
     let items = getFailedNotifications()
     assert.equal(items.length, 1)
-    assert.equal(items[0].recipient, '1')
-    assert.equal(items[0].type, 'confirmation')
+    assert.equal(items[0]!.recipient, '1')
+    assert.equal(items[0]!.type, 'confirmation')
   })
 
   it('clearFailedNotifications empties the queue', () => {
@@ -267,7 +267,7 @@ describe('Booking mutation helpers', () => {
       appointmentId: 999,
     })
     assert.equal(getFailedNotifications().length, 1)
-    assert.equal(getFailedNotifications()[0].data.appointmentId, 999)
+    assert.equal(getFailedNotifications()[0]!.data.appointmentId, 999)
   })
 })
 

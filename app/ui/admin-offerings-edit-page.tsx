@@ -22,18 +22,18 @@ interface AdminOfferingsEditPageProps {
   offset: string
   sort: string
   order: string
-  filter?: string
-  period?: string
-  status?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 // ── Helpers ──
 
 function dayToInputDate(day: string): string {
-  return new Date(Number(day)).toISOString().split('T')[0]
+  return new Date(Number(day)).toISOString().split('T')[0]!
 }
 
 // Hourly interval options

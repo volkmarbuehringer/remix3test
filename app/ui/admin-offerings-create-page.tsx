@@ -17,15 +17,15 @@ import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 
 interface AdminOfferingsCreatePageProps {
   resources: OfferingsResourceOption[]
-  offset?: string
-  sort?: string
-  order?: string
-  filter?: string
-  period?: string
-  status?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  offset?: string | undefined
+  sort?: string | undefined
+  order?: string | undefined
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 // Hourly interval options

@@ -109,7 +109,7 @@ function mockFetchSequence(...responses: Array<() => Promise<Response>>) {
     if (callCount >= responses.length) {
       return Promise.reject(new Error('Unexpected fetch call'))
     }
-    return responses[callCount++]()
+    return responses[callCount++]!()
   }
 }
 
@@ -310,8 +310,8 @@ describe('Mastra Chat controller', () => {
     assert.equal(response.headers.get('Content-Type'), 'text/event-stream')
 
     let { events, text } = await parseSSEResponse(response)
-    assert.equal(events[0].type, 'start', 'first event should be start')
-    assert.ok(JSON.parse(events[0].data).runId, 'start event should include runId')
+    assert.equal(events[0]!.type, 'start', 'first event should be start')
+    assert.ok(JSON.parse(events[0]!.data).runId, 'start event should include runId')
     assert.equal(text, 'Here is the user data you requested.')
     assert.ok(
       events.find((e) => e.type === 'complete'),
@@ -333,7 +333,7 @@ describe('Mastra Chat controller', () => {
 
     let mockAgent = {
       generate: async () => ({ text: '' }),
-      stream: async (_message: string, opts?: any) => {
+      stream: async (_message: string, opts?: { memory?: { thread?: string; resource?: string } }) => {
         assert.equal(opts?.memory?.thread, existingThreadId, 'threadId should be passed to memory')
         assert.equal(opts?.memory?.resource, String(adminId), 'resource should be scoped to user')
         return createMockStreamOutput('Continuing conversation.')
@@ -355,7 +355,7 @@ describe('Mastra Chat controller', () => {
 
     assert.equal(response.status, 200)
     let { events, text } = await parseSSEResponse(response)
-    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.equal(events[0]!.type, 'start', 'first event should be start')
     assert.equal(text, 'Continuing conversation.')
 
     __setTestAgent(undefined)
@@ -558,7 +558,7 @@ describe('Mastra Chat controller', () => {
 
     assert.equal(response.status, 200)
     let { events, text } = await parseSSEResponse(response)
-    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.equal(events[0]!.type, 'start', 'first event should be start')
     assert.equal(text, 'Confirmed.')
     assert.ok(
       events.find((e) => e.type === 'complete'),
@@ -603,7 +603,7 @@ describe('Mastra Chat controller', () => {
     let mockAgent = {
       generate: async () => ({ text: '' }),
       stream: async () => createMockStreamOutput(''),
-      resumeStream: async (data: unknown, opts?: any) => {
+      resumeStream: async (data: unknown, opts?: { runId?: string }) => {
         received = data
         assert.equal(opts?.runId, runId, 'runId passed to resumeStream')
         return createMockStreamOutput('Selection recorded.')
@@ -627,7 +627,7 @@ describe('Mastra Chat controller', () => {
     assert.equal(response.status, 200)
     assert.deepEqual(received, ['option-a', 'option-b'])
     let { events } = await parseSSEResponse(response)
-    assert.equal(events[0].type, 'start', 'first event should be start')
+    assert.equal(events[0]!.type, 'start', 'first event should be start')
     assert.ok(
       events.find((e) => e.type === 'complete'),
       'response should end with complete',
@@ -737,7 +737,7 @@ describe('Mastra Chat tools', () => {
     assert.ok(Array.isArray(result.appointments), 'appointments should be an array')
     assert.ok((result.count as number) >= 0, 'count should be non-negative')
     if ((result.count as number) > 0) {
-      let appt = (result.appointments as Record<string, unknown>[])[0]
+      let appt = (result.appointments as Record<string, unknown>[])[0]!
       assert.ok(typeof appt.id === 'number', 'appointment id should be a number')
       assert.ok(typeof appt.title === 'string', 'appointment title should be a string')
     }
@@ -1175,8 +1175,8 @@ describe('support-agent durable resume', () => {
     })
     assert.equal(response.status, 200)
     assert.equal(approveCalls.length, 1, 'approve should be invoked once')
-    assert.equal(approveCalls[0].runId, runId, 'runId should resolve from the durable index')
-    assert.equal(approveCalls[0].toolCallId, 'call-1')
+    assert.equal(approveCalls[0]!.runId, runId, 'runId should resolve from the durable index')
+    assert.equal(approveCalls[0]!.toolCallId, 'call-1')
     __setTestAgent(undefined)
   })
 

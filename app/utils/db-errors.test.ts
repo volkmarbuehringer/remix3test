@@ -64,7 +64,7 @@ describe('db-errors', () => {
       let middle = pgError({ code: 'P0001', message: 'middle' })
       middle.cause = inner
       let outer = pgError({ code: 'P0001', message: 'outer' })
-      ;(outer as any).cause = middle
+      outer.cause = middle
       assert.ok(isConstraintViolation(outer))
     })
 

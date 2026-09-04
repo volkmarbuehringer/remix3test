@@ -75,7 +75,7 @@ describe('Layout preview functions', () => {
     assert.equal(moved!.start_min, 540, 'block start_min should update')
     assert.equal(moved!.end_min, 600, 'block end_min should maintain duration')
     assert.equal(result.changes.length, 1, 'should record one change')
-    assert.equal(result.changes[0].kind, 'moved', 'change kind should be moved')
+    assert.equal(result.changes[0]!.kind, 'moved', 'change kind should be moved')
   })
 
   it('previewResizeBlockTime resizes block end time without overlap', () => {
@@ -146,7 +146,7 @@ describe('Layout preview functions', () => {
     assert.equal(result.blocks.length, 1, 'should have one less block')
     assert.ok(!result.blocks.find((b) => b.id === 1), 'block with id 1 should be removed')
     assert.equal(result.changes.length, 1, 'should record one change')
-    assert.equal(result.changes[0].kind, 'deleted', 'change kind should be deleted')
+    assert.equal(result.changes[0]!.kind, 'deleted', 'change kind should be deleted')
   })
 })
 
@@ -179,7 +179,7 @@ describe('Grid compute helpers', () => {
 
   it('computeOfferingTimeRange snaps to 15-min boundaries', () => {
     let range = computeOfferingTimeRange([
-      { day: fixture.days[0].date, start_min: 482, end_min: 1078 },
+      { day: fixture.days[0]!.date, start_min: 482, end_min: 1078 },
     ])
     assert.equal(range.startMin, 480)
     assert.equal(range.endMin, 1080)
@@ -343,8 +343,8 @@ describe('Mutation capture', () => {
 
     let mutations = getCapturedMutations()
     assert.equal(mutations.length, 1, 'should capture one mutation')
-    assert.equal(mutations[0].method, 'POST')
-    assert.equal(mutations[0].url, '/test')
+    assert.equal(mutations[0]!.method, 'POST')
+    assert.equal(mutations[0]!.url, '/test')
   })
 
   it('captures DELETE mutations', async () => {
@@ -487,6 +487,6 @@ describe('Trashcan delete gesture', () => {
       result.blocks.find((b) => b.id === 3),
       'block 3 should remain',
     )
-    assert.equal(result.changes[0].kind, 'deleted')
+    assert.equal(result.changes[0]!.kind, 'deleted')
   })
 })

@@ -58,12 +58,12 @@ export function parseDuring(during: unknown): { startMin: number; endMin: number
   // Standard format: "[start,end)"
   let match = str.match(/^\[(\d+),(\d+)\)$/)
   if (match) {
-    return { startMin: parseInt(match[1], 10), endMin: parseInt(match[2], 10) }
+    return { startMin: parseInt(match[1]!, 10), endMin: parseInt(match[2]!, 10) }
   }
   // Fallback: try to extract two numbers separated by comma within brackets
   let fallback = str.match(/\[(\d+)\s*,\s*(\d+)/)
   if (fallback) {
-    return { startMin: parseInt(fallback[1], 10), endMin: parseInt(fallback[2], 10) }
+    return { startMin: parseInt(fallback[1]!, 10), endMin: parseInt(fallback[2]!, 10) }
   }
   return null
 }

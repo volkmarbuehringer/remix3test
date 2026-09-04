@@ -1,4 +1,4 @@
-import type { css, Handle, MixinDescriptor, RemixElement } from 'remix/ui'
+import type { css, Handle, RemixElement } from 'remix/ui'
 
 export interface ThemeVariableTree {
   [key: string]: string | ThemeVariableTree
@@ -199,14 +199,6 @@ export type ThemeComponent = ThemeRenderer & {
 export const theme: ThemeContract = createThemeContract(themeVariableNames)
 
 type ThemeUtility = ReturnType<typeof css>
-
-type ThemeMixLeaf = MixinDescriptor<any, any, any>
-type PreviousThemeMixDepth = [0, 0, 1, 2, 3, 4]
-type NestedThemeMix<value, depth extends number = 4> = depth extends 0
-  ? value | ReadonlyArray<value>
-  : value | ReadonlyArray<NestedThemeMix<value, PreviousThemeMixDepth[depth]>>
-
-type ThemeMix = NestedThemeMix<ThemeMixLeaf>
 
 function createThemeContract<tree extends ThemeVariableTree>(tree: tree): MapLeaves<tree, string> {
   return mapTreeLeaves(tree, (variableName) => `var(${variableName})`) as MapLeaves<tree, string>

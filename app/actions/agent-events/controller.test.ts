@@ -1014,7 +1014,7 @@ describe('AgentEvents route (POST validation)', () => {
   })
 
   it('resume re-attaches to the run and completes after confirmation', async () => {
-    let captured: { confirmed?: boolean } = {}
+    let captured: { confirmed?: boolean | undefined } = {}
     __setRunFactory(async (_workflowId, opts) => {
       captured.confirmed = (opts.resumeData as { confirmed?: boolean })?.confirmed
       return {
@@ -1073,7 +1073,7 @@ describe('AgentEvents route (POST validation)', () => {
       resourceQuery: resourceRow.name,
     })
 
-    let calls: Array<{ workflowId: string; runId?: string; confirmed?: boolean }> = []
+    let calls: Array<{ workflowId: string; runId?: string | undefined; confirmed?: boolean | undefined }> = []
     __setRunFactory(async (workflowId, opts) => {
       calls.push({
         workflowId,
@@ -1123,7 +1123,7 @@ describe('AgentEvents route (POST validation)', () => {
         confirmed: 'true',
       })
       assert.equal(resumeResponse.status, 200)
-      let resumeCall = calls[calls.length - 1]
+      let resumeCall = calls[calls.length - 1]!
       assert.equal(
         resumeCall.workflowId,
         'deleteUserAppointmentsWorkflow',

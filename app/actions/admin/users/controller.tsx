@@ -107,7 +107,7 @@ async function loadGridData(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<{ rows: SafeUser[]; hasMore: boolean }> {
@@ -143,14 +143,14 @@ function gridFilter(raw: Record<string, string>): string | undefined {
 /** Strips sensitive/private fields before passing form values to the UI. Password
  *  is never echoed back into the DOM; grid-state keys are passed as separate props. */
 function userFormValues(raw: Record<string, string>): Record<string, string> {
-  return { name: raw.name, email: raw.email, role: raw.role, disabled: raw.disabled }
+  return { name: raw.name ?? '', email: raw.email ?? '', role: raw.role ?? '', disabled: raw.disabled ?? '' }
 }
 
 function buildEditRowFromRaw(id: number, raw: Record<string, string>): SafeUser {
   return {
     id,
-    email: raw.email,
-    name: raw.name,
+    email: raw.email ?? '',
+    name: raw.name ?? '',
     role: raw.role === 'admin' ? 'admin' : 'customer',
     email_verified: 0,
     disabled_at: raw.disabled === 'true' ? Date.now() : null,
@@ -206,7 +206,7 @@ async function renderUsersError(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<Response> {

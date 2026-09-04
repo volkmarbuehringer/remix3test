@@ -126,7 +126,7 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       let match = location.match(/editing=(\d+)/)
       assert.ok(match, 'should redirect with editing param')
-      if (match) createdAppointmentIds.push(parseInt(match[1], 10))
+      if (match) createdAppointmentIds.push(parseInt(match[1]!, 10))
     })
 
     it('2.2 create fails with offering error when slot is outside offering hours', async () => {
@@ -190,7 +190,7 @@ describe('Admin Appointments Controller', () => {
       let locationA = responseA.headers.get('Location') ?? ''
       let matchA = locationA.match(/editing=(\d+)/)
       assert.ok(matchA, 'first appointment should get an editing ID')
-      createdAppointmentIds.push(parseInt(matchA![1], 10))
+      createdAppointmentIds.push(parseInt(matchA![1]!, 10))
 
       // Act: create a second that overlaps
       let bodyB = new URLSearchParams({
@@ -262,7 +262,7 @@ describe('Admin Appointments Controller', () => {
       // Verify appointment exists in database
       let match = location.match(/editing=(\d+)/)
       assert.ok(match, 'editing param should contain a numeric ID')
-      let newId = parseInt(match![1], 10)
+      let newId = parseInt(match![1]!, 10)
       createdAppointmentIds.push(newId)
 
       let checkResult = await pool.query('SELECT title FROM appointments WHERE id = $1', [newId])
@@ -526,7 +526,7 @@ describe('Admin Appointments Controller', () => {
       let locationA = responseA.headers.get('Location') ?? ''
       let matchA = locationA.match(/editing=(\d+)/)
       assert.ok(matchA, 'first appointment should get an editing ID')
-      createdAppointmentIds.push(parseInt(matchA![1], 10))
+      createdAppointmentIds.push(parseInt(matchA![1]!, 10))
 
       // Act: create a second appointment that overlaps with the first
       let bodyB = new URLSearchParams({
@@ -619,7 +619,7 @@ describe('Admin Appointments Controller', () => {
       assert.ok(location.includes('status=expired'), 'should preserve status param')
 
       let match = location.match(/editing=(\d+)/)
-      if (match) createdAppointmentIds.push(parseInt(match[1], 10))
+      if (match) createdAppointmentIds.push(parseInt(match[1]!, 10))
     })
   })
 
@@ -655,7 +655,7 @@ describe('Admin Appointments Controller', () => {
       let createLocation = createResponse.headers.get('Location') ?? ''
       let match = createLocation.match(/editing=(\d+)/)
       assert.ok(match, 'should have editing param with ID')
-      let roundTripId = parseInt(match![1], 10)
+      let roundTripId = parseInt(match![1]!, 10)
       createdAppointmentIds.push(roundTripId)
 
       // ── Step 2: Verify in grid via GET ──

@@ -38,7 +38,7 @@ export async function createCsrfSession(
       'Could not extract CSRF token from response. Ensure csrf() middleware is active and the page renders a form with _csrf input.',
     )
   }
-  return { cookie, csrfToken: match[1] }
+  return { cookie, csrfToken: match[1]! }
 }
 
 /**
@@ -60,8 +60,8 @@ export async function createAuthCookieWithCsrf(): Promise<{
     let rows = (result.rows ?? []) as { id: number; token_version: number }[]
     if (rows.length === 0) return null
 
-    let userId = rows[0].id as number
-    let tv = rows[0].token_version ?? 1
+    let userId = rows[0]!.id as number
+    let tv = rows[0]!.token_version ?? 1
     let csrfToken = generateCsrfToken()
 
     let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()
@@ -91,7 +91,7 @@ export async function createAuthCookieWithCsrfForUser(
     let rows = (result.rows ?? []) as { id: number; role: string; token_version: number }[]
     if (rows.length === 0) return null
 
-    let user = rows[0]
+    let user = rows[0]!
     let csrfToken = generateCsrfToken()
 
     let session = createSession<{ auth: { userId: number; tv: number }; _csrf: string }>()

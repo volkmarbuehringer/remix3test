@@ -11,7 +11,7 @@ import { fetchChatThreadPreviews, listLatestCustomerThread } from './mastra-memo
 // ---------------------------------------------------------------------------
 
 /** Build a fake agent whose memory.recall returns the given messages. */
-function makeAgent(recall: (opts: { threadId: string; perPage?: number | false }) => Promise<any>) {
+function makeAgent(recall: (opts: { threadId: string; perPage?: number | false }) => Promise<{ messages?: unknown[] }>) {
   return {
     getMemory: async () => ({ recall }),
   }

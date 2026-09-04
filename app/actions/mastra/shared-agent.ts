@@ -9,26 +9,29 @@ export interface AgentStreamOutput {
   fullStream: unknown
   getFullOutput: () => Promise<{
     text: string
-    finishReason?: string
-    toolCalls?: unknown[]
-    toolResults?: unknown[]
-    suspendPayload?: unknown
+    finishReason?: string | undefined
+    toolCalls?: unknown[] | undefined
+    toolResults?: unknown[] | undefined
+    suspendPayload?: unknown | undefined
   }>
 }
 
 export interface TestAgent {
   generate: (
     message: string,
-    opts?: Record<string, unknown>,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor stream opts vary per agent; a wider type breaks Agent→TestAgent assignability
+    opts?: any,
   ) => Promise<{
     text: string
-    toolCalls?: unknown[]
-    toolResults?: unknown[]
-    finishReason?: string
-    runId?: string
-    suspendPayload?: unknown
+    toolCalls?: unknown[] | undefined
+    toolResults?: unknown[] | undefined
+    finishReason?: string | undefined
+    runId?: string | undefined
+    suspendPayload?: unknown | undefined
   }>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor stream opts vary per agent; a wider type breaks Agent→TestAgent assignability
   stream: (message: string, opts?: any) => Promise<AgentStreamOutput>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- vendor stream opts vary per agent; a wider type breaks Agent→TestAgent assignability
   resumeStream: (data: unknown, opts?: any) => Promise<AgentStreamOutput>
   approveToolCallGenerate?: (opts: {
     runId: string
@@ -41,12 +44,12 @@ export interface TestAgent {
 }
 
 interface MastraSuspendableResult {
-  finishReason?: string
-  suspendPayload?: unknown
-  text?: string
-  runId?: string
-  toolCalls?: unknown[]
-  toolResults?: unknown[]
+  finishReason?: string | undefined
+  suspendPayload?: unknown | undefined
+  text?: string | undefined
+  runId?: string | undefined
+  toolCalls?: unknown[] | undefined
+  toolResults?: unknown[] | undefined
 }
 
 // ── Schema ───────────────────────────────────────────────────────────
@@ -74,7 +77,7 @@ export type ValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
 
 export function validateMessage(
   formData: FormData,
-): { ok: true; message: string; threadId?: string } | { ok: false; error: ValidationError } {
+): { ok: true; message: string; threadId?: string | undefined } | { ok: false; error: ValidationError } {
   let parsed = s.parseSafe(messageSchema, formData)
   if (!parsed.success) return { ok: false, error: 'missing' }
 

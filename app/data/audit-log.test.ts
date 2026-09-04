@@ -66,7 +66,7 @@ describe('audit-log', () => {
 
   it('logAdminAction does not throw when db fails (swallows error in test)', async () => {
     await logAdminAction(db, {
-      admin_user_id: null as any,
+      admin_user_id: null as unknown as number,
       admin_email: 'missing@example.com',
       action_type: 'test-ignore-me',
       target_type: 'user',

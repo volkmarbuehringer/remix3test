@@ -369,7 +369,7 @@ describe('ConnectionIndicator component', () => {
 
     let sources = getCreatedEventSources()
     if (sources.length > 0) {
-      sources[0].open()
+      sources[0]!.open()
       await new Promise((r) => setTimeout(r, 10))
     }
 
@@ -395,8 +395,8 @@ describe('ConnectionIndicator component', () => {
 
     let sources = getCreatedEventSources()
     if (sources.length > 0) {
-      sources[0].readyState = EventSource.CLOSED
-      sources[0].emitError()
+      sources[0]!.readyState = EventSource.CLOSED
+      sources[0]!.emitError()
       await new Promise((r) => setTimeout(r, 10))
     }
 
@@ -510,7 +510,7 @@ describe('Workflow agent step rendering', () => {
 
     let steps = statusBar.querySelectorAll('[id^="wf-step-"]')
     assert.equal(steps.length, 1, 'only one step element should exist')
-    assert.equal(steps[0].textContent, '\u2713 Done', 'should show updated state')
+    assert.equal(steps[0]!.textContent, '\u2713 Done', 'should show updated state')
   })
 
   it('showResolving shows resolving indicator and replaces previous content', () => {
@@ -679,7 +679,7 @@ describe('ConnectionIndicator invalidate event', () => {
     let sources = getCreatedEventSources()
     if (sources.length > 0) {
       // The component attaches invalidate handler in queueTask
-      sources[0].emit('invalidate', {})
+      sources[0]!.emit('invalidate', {})
       await new Promise((r) => setTimeout(r, 20))
     }
 
@@ -704,7 +704,7 @@ describe('ConnectionIndicator invalidate event', () => {
     let sources = getCreatedEventSources()
     assert.ok(sources.length > 0, 'EventSource should be created')
 
-    sources[0].emit('invalidate', {})
+    sources[0]!.emit('invalidate', {})
     await new Promise((r) => setTimeout(r, 20))
 
     assert.ok(true, 'invalidate event dispatched in window mode without error')
@@ -735,7 +735,7 @@ describe('ConnectionIndicator invalidate event', () => {
 
     // When editing param is present and skipReloadParams includes 'editing',
     // the component should return early without calling reload.
-    sources[0].emit('invalidate', {})
+    sources[0]!.emit('invalidate', {})
     await new Promise((r) => setTimeout(r, 20))
 
     assert.ok(true, 'invalidate event handled without reload when editing param present')

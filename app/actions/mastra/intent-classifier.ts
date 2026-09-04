@@ -9,9 +9,9 @@ export type ClassifyResult =
   | {
       intent: string
       targetQuery: string
-      resourceQuery?: string
-      period?: string
-      status?: string
+      resourceQuery?: string | undefined
+      period?: string | undefined
+      status?: string | undefined
     }
   | { unclear: string }
 

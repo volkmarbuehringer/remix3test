@@ -14,16 +14,16 @@ export interface AdminGridErrorState {
   offset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
-  filter?: string
+  filter?: string | undefined
   pageSize: number
 }
 
 export interface AdminGridErrorPage<Row> extends AdminGridErrorState {
   rows: Row[]
   hasMore: boolean
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 type RenderFn = Parameters<typeof renderAdminPage>[0]
@@ -42,9 +42,9 @@ export async function renderGridFormError<Row>(opts: {
   activeItem: ActiveItem
   loadRows: () => Promise<{ rows: Row[]; hasMore: boolean }>
   buildPage: (page: AdminGridErrorPage<Row>) => RemixNode
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
   grid: AdminGridErrorState
 }): Promise<Response> {
   let { render, activeItem, loadRows, buildPage, grid } = opts

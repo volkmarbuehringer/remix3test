@@ -125,7 +125,7 @@ describe('Admin Appointments Controller', () => {
       let createLocation = createResponse.headers.get('Location') ?? ''
       let match = createLocation.match(/editing=(\d+)/)
       assert.ok(match, 'should get editing param')
-      let testId = parseInt(match![1], 10)
+      let testId = parseInt(match![1]!, 10)
       createdAppointmentIds.push(testId)
 
       // Act: update only the title, keeping same date/time/resource
@@ -180,7 +180,7 @@ describe('Admin Appointments Controller', () => {
       let createLocation = createResponse.headers.get('Location') ?? ''
       let match = createLocation.match(/editing=(\d+)/)
       assert.ok(match, 'should get editing param')
-      let testId = parseInt(match![1], 10)
+      let testId = parseInt(match![1]!, 10)
       createdAppointmentIds.push(testId)
 
       // Act: update to resource2Id which has no offerings

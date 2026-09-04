@@ -104,7 +104,7 @@ function toolDecisionStream(options: {
   userId: number
   threadId: string
   decision: 'approve' | 'decline'
-  toolCallId?: string
+  toolCallId?: string | undefined
   signal: AbortSignal
 }): Response {
   let { runId, userId, threadId, decision, toolCallId, signal } = options
@@ -120,8 +120,14 @@ function toolDecisionStream(options: {
         }
         let result = (await runWithUserId(userId, () =>
           decision === 'approve'
-            ? agent.approveToolCallGenerate({ runId, toolCallId })
-            : agent.declineToolCallGenerate({ runId, toolCallId }),
+            ? agent.approveToolCallGenerate({
+                runId,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+              })
+            : agent.declineToolCallGenerate({
+                runId,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+              }),
         )) as ResumeResult
 
         if (result.finishReason === 'suspended') {

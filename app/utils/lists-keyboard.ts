@@ -11,7 +11,7 @@ export function moveItemInArray<T>(items: T[], from: number, to: number): T[] {
   if (from === to) return items
   let next = items.slice()
   let [removed] = next.splice(from, 1)
-  next.splice(to, 0, removed)
+  next.splice(to, 0, removed!)
   return next
 }
 

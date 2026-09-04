@@ -391,9 +391,15 @@ export const customerTools = {
         WHERE a.user_id = ${userId} AND a.date >= ${todayMidnight}
         ORDER BY a.date ASC
       `)
-      let rows = result.rows ?? []
+      let rows = (result.rows ?? []) as Array<{
+        id: number
+        date: number
+        during: string
+        title: string
+        resource_name: string
+      }>
       return {
-        appointments: rows.map((r: any) => {
+        appointments: rows.map((r) => {
           let parsed = parseDuring(r.during)
           return {
             id: r.id,
@@ -441,7 +447,15 @@ export const customerTools = {
         WHERE a.user_id = ${userId} AND a.date >= ${todayMidnight}
         ORDER BY a.date ASC
       `)
-      let appointmentIds = (result.rows ?? []).map((r: any) => r.id as number)
+      let appointmentIds = (
+        (result.rows ?? []) as Array<{
+          id: number
+          date: number
+          during: string
+          title: string
+          resource_name: string
+        }>
+      ).map((r) => r.id as number)
       if (appointmentIds.length === 0) {
         return { cancelled: 0, failed: 0, skipped: 0, details: [] }
       }
@@ -453,10 +467,10 @@ export const customerTools = {
       let cancelled = 0
       let failed = 0
       let skipped = 0
-      let details: { id: number; status: string; error?: string }[] = []
+      let details: { id: number; status: string; error?: string | undefined }[] = []
       for (let i = 0; i < results.length; i++) {
-        let id = appointmentIds[i]
-        let r = results[i]
+        let id = appointmentIds[i]!
+        let r = results[i]!
         if (r.status === 'rejected') {
           failed++
           details.push({

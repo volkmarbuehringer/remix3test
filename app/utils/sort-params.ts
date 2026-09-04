@@ -10,7 +10,7 @@ interface ParseSortOptions {
 }
 
 export function parseSort(url: URL, options: ParseSortOptions): SortResult {
-  let { allowedColumns, defaultColumn = allowedColumns[0], defaultDirection = 'asc' } = options
+  let { allowedColumns, defaultColumn = allowedColumns[0]!, defaultDirection = 'asc' } = options
 
   let sortParam = url.searchParams.get('sort')
   let orderParam = url.searchParams.get('order')

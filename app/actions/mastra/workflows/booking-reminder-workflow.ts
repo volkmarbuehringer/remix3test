@@ -34,7 +34,15 @@ const queryUpcomingAppointmentsStep = createStep({
       WHERE a.date >= ${now} AND a.date <= ${end}
       ORDER BY a.date ASC
     `)
-    let appointments = (result.rows ?? []).map((r: any) => ({
+    let appointments = (
+      (result.rows ?? []) as Array<{
+        id: number
+        user_id: number
+        resource_name: string
+        date: number
+        title: string
+      }>
+    ).map((r) => ({
       id: r.id,
       userId: r.user_id,
       resourceName: r.resource_name,

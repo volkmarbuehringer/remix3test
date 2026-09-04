@@ -54,25 +54,29 @@ interface ResourcePageData {
   filter: string | undefined
   editRow?: ResourceRow | null
   creating?: boolean
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
+
+type Undefinable<T> = { [K in keyof T]: T[K] | undefined }
 
 async function loadResourcePageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
-  overrides?: Partial<
-    Pick<
-      ResourcePageData,
-      | 'creating'
-      | 'editRow'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
+  overrides?: Undefinable<
+    Partial<
+      Pick<
+        ResourcePageData,
+        | 'creating'
+        | 'editRow'
+        | 'formValues'
+        | 'fieldErrors'
+        | 'formError'
+        | 'offset'
+        | 'sortColumn'
+        | 'sortDirection'
+        | 'filter'
+      >
     >
   >,
 ): Promise<ResourcePageData> {

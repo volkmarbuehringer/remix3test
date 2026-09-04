@@ -19,7 +19,7 @@ export interface DashboardStats {
 
 async function toCount(db: Database, query: string): Promise<number> {
   let rows = await queryRows(db, query, z.object({ count: int8Aggregate }))
-  return rows.length > 0 ? rows[0].count : 0
+  return rows[0]?.count ?? 0
 }
 
 /**

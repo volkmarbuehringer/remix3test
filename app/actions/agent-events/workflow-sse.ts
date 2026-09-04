@@ -14,9 +14,9 @@ export type WorkflowResult = {
   targetUserId: number
   targetUserName: string
   targetUserEmail: string
-  deletedAppointments?: number
-  auditLogged?: boolean
-  error?: string
+  deletedAppointments?: number | undefined
+  auditLogged?: boolean | undefined
+  error?: string | undefined
 }
 
 export type RunStateEvent =

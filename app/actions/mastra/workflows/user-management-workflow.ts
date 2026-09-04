@@ -246,11 +246,11 @@ const executeActionStep = createStep({
       success: boolean
       targetUserId: number
       deletedAppointments?: number
-      error?: string
-      auditLogged?: boolean
-      alreadyLocked?: boolean
-      alreadyUnlocked?: boolean
-      notificationSent?: boolean
+      error?: string | undefined
+      auditLogged?: boolean | undefined
+      alreadyLocked?: boolean | undefined
+      alreadyUnlocked?: boolean | undefined
+      notificationSent?: boolean | undefined
     } = { success: false, targetUserId: inputData.targetUserId }
 
     if (inputData.action === 'cancel') {

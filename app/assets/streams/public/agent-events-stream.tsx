@@ -230,7 +230,7 @@ export const AgentEventsStream = clientEntry(
         if (!res.ok) {
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
-          let msg = match ? (JSON.parse(match[1]).error ?? res.statusText) : res.statusText
+          let msg = match ? (JSON.parse(match[1]!).error ?? res.statusText) : res.statusText
           showInfo('Error: ' + msg, { kind: 'error' })
           setFormEnabled(true)
           return

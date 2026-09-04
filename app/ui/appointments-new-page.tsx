@@ -50,23 +50,23 @@ interface AppointmentsNewPageProps {
   nextOffset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
-  filter?: string
-  period?: string
-  status?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
   deletingRow?: AppointmentsNewRow | null
   creating?: boolean
   resources: ResourceOption[]
-  error?: string
+  error?: string | undefined
   defaultStartMin?: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
-  step?: number
-  wizardResourceId?: string
-  wizardResourceName?: string
-  wizardResourceDescription?: string
-  weekStart?: number
-  daysWithSlots?: DayWithSlots[]
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
+  step?: number | undefined
+  wizardResourceId?: string | undefined
+  wizardResourceName?: string | undefined
+  wizardResourceDescription?: string | undefined
+  weekStart?: number | undefined
+  daysWithSlots?: DayWithSlots[] | undefined
 }
 
 function formatMinRange(startMin: number, endMin: number): string {

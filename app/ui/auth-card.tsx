@@ -44,7 +44,7 @@ export function AuthShell(handle: Handle<AuthShellProps>) {
 type AuthFormProps = {
   action: string
   children: RemixNode
-  error?: string
+  error?: string | undefined
   footer?: RemixNode
   submitLabel: string
 }

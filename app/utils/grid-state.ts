@@ -5,8 +5,8 @@ export interface GridState {
   sort: string
   order: string
   filter: string
-  period?: string
-  status?: string
+  period?: string | undefined
+  status?: string | undefined
 }
 
 export function gridStateFromURL(url: URL): GridState {

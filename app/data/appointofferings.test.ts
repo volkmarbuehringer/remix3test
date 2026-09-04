@@ -90,9 +90,9 @@ describe('parseDuring', () => {
   })
 
   it('returns null for null input', () => {
-    // Arrange — type cast to simulate what the PostgreSQL driver might pass
+    // Arrange — pass null to simulate what the PostgreSQL driver might pass
     // Act
-    let result = parseDuring(null as any)
+    let result = parseDuring(null)
 
     // Assert
     assert.equal(result, null)
@@ -101,7 +101,7 @@ describe('parseDuring', () => {
   it('returns null for undefined input', () => {
     // Arrange
     // Act
-    let result = parseDuring(undefined as any)
+    let result = parseDuring(undefined)
 
     // Assert
     assert.equal(result, null)
@@ -425,10 +425,10 @@ describe('listDaysWithOfferings', () => {
 
     // Assert: two days returned (day2 has no offerings)
     assert.equal(result.length, 2)
-    assert.equal(result[0].day, testDate1)
-    assert.equal(result[1].day, testDate3)
-    assert.equal(result[0].ranges.length, 1)
-    assert.deepEqual(result[0].ranges[0], { startMin: 480, endMin: 1080 })
+    assert.equal(result[0]!.day, testDate1)
+    assert.equal(result[1]!.day, testDate3)
+    assert.equal(result[0]!.ranges.length, 1)
+    assert.deepEqual(result[0]!.ranges[0]!, { startMin: 480, endMin: 1080 })
   })
 
   it('returns empty array when resource has no offerings in the period', async () => {
@@ -459,8 +459,8 @@ describe('listDaysWithOfferings', () => {
 
     // Assert: one day with two ranges
     assert.equal(result.length, 1)
-    assert.equal(result[0].ranges.length, 2)
-    assert.deepEqual(result[0].ranges, [
+    assert.equal(result[0]!.ranges.length, 2)
+    assert.deepEqual(result[0]!.ranges, [
       { startMin: 480, endMin: 720 },
       { startMin: 780, endMin: 1080 },
     ])

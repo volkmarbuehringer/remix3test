@@ -86,7 +86,7 @@ describe('report1', () => {
     })
 
     assert.equal(result.rows.length, 1)
-    let row = result.rows[0]
+    let row = result.rows[0]!
     assert.equal(row.user_email, 'test-report1-user@example.com')
     assert.equal(Number(row.appointment_count), 2)
     assert.ok(!result.hasMore)
@@ -125,7 +125,7 @@ describe('report1', () => {
     })
 
     assert.equal(result.rows.length, 1)
-    assert.equal(result.rows[0].user_email, 'test-report1-escape@example.com')
+    assert.equal(result.rows[0]!.user_email, 'test-report1-escape@example.com')
   })
 
   it('listReport1Users returns empty array for empty users table', async () => {
@@ -187,8 +187,8 @@ describe('report1', () => {
       (r) => Number(r.user_id) === oneId || Number(r.user_id) === twoId,
     )
     assert.equal(ranked.length, 2)
-    assert.equal(Number(ranked[0].appointment_count), 2, 'two-appointment user sorts first')
-    assert.equal(Number(ranked[1].appointment_count), 1)
+    assert.equal(Number(ranked[0]!.appointment_count), 2, 'two-appointment user sorts first')
+    assert.equal(Number(ranked[1]!.appointment_count), 1)
   })
 
   it('runReport1 throws on unknown sort column instead of silently defaulting', async () => {

@@ -64,7 +64,7 @@ describe('CsrfTokenInput — integration', () => {
     // Assert: extract the token value and verify format
     let match = html.match(/<input[^>]*name="_csrf"[^>]*value="([^"]+)"/)
     assert.ok(match, 'should have a CSRF token value')
-    let token = match![1]
+    let token = match![1]!
     assert.equal(token.length, 64, 'CSRF token value should be 64 characters')
     assert.ok(/^[0-9a-f]{64}$/.test(token), 'CSRF token value should be a hex string')
   })

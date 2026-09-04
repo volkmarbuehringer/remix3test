@@ -56,7 +56,7 @@ function parseFilter(raw: string | null | undefined): string | undefined {
 
 async function renderMessagesPage(
   context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
-  opts: { offset: number; filter?: string; column: string; direction: 'asc' | 'desc' },
+  opts: { offset: number; filter?: string | undefined; column: string; direction: 'asc' | 'desc' },
 ): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)
 

@@ -112,7 +112,7 @@ export const CustomerChatStream = clientEntry(
       if (!card) return
       let body = card.querySelector('.tl-card-body') as HTMLElement | null
       if (!body) return
-      let acc = toolArgsAcc[toolCallId]
+      let acc = toolArgsAcc[toolCallId]!
       try {
         let parsed = JSON.parse(acc)
         body.textContent = JSON.stringify(parsed, null, 2)
@@ -197,7 +197,7 @@ export const CustomerChatStream = clientEntry(
       let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.5rem">Termin buchen — ${resourceName}</div>`
 
       for (let pi = 0; pi < pages.length; pi++) {
-        let pageSlots = pages[pi]
+        let pageSlots = pages[pi]!
         let display = pi === 0 ? '' : 'none'
         html += `<div id="slot-page-${pi}" style="display:${display}">`
         let groups = new Map<string, typeof slots>()
@@ -418,9 +418,9 @@ export const CustomerChatStream = clientEntry(
 
     function showApproval(data: {
       runId: string
-      toolCallId?: string
-      toolName?: string
-      args?: Record<string, unknown>
+      toolCallId?: string | undefined
+      toolName?: string | undefined
+      args?: Record<string, unknown> | undefined
     }) {
       let container = getChatArea()
       if (!container) return
@@ -471,13 +471,13 @@ export const CustomerChatStream = clientEntry(
 
     let pendingQuestion: {
       runId: string
-      toolCallId?: string
+      toolCallId?: string | undefined
       selectionMode: string
     } | null = null
 
     function showQuestion(data: {
       runId: string
-      toolCallId?: string
+      toolCallId?: string | undefined
       question: string
       options?: { label: string; description?: string }[] | null
       selectionMode: string

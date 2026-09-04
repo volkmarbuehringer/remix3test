@@ -54,7 +54,7 @@ describe('Appointments New Controller', () => {
 
     let allResources = await listResources(db)
     if (allResources.length === 0) throw new Error('No resources found')
-    firstResourceId = allResources[0].id
+    firstResourceId = allResources[0]!.id
 
     let mondayMs = currentMonday() + 7 * 86_400_000
     futureDateMs = mondayMs + 14 * 86_400_000

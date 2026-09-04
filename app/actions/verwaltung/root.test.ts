@@ -102,7 +102,7 @@ describe('Verwaltung Dashboard', () => {
 
     function badgeCount(label: string): number {
       let match = html.match(new RegExp(`(\\d[\\d.]*)\\s*${label}`))
-      return match ? Number(match[1].replace(/\./g, '')) : NaN
+      return match ? Number(match[1]!.replace(/\./g, '')) : NaN
     }
 
     let renderedPending = badgeCount('ausstehend')

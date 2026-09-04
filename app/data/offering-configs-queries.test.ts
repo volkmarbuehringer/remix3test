@@ -68,8 +68,8 @@ describe('offering-configs-queries', () => {
       },
     })
     assert.ok(rows.length >= 1)
-    assert.ok(typeof rows[0].rules === 'object')
-    assert.ok(typeof rows[0].id === 'number')
+    assert.ok(typeof rows[0]!.rules === 'object')
+    assert.ok(typeof rows[0]!.id === 'number')
   })
 
   it('listOfferingConfigs returns empty for id < 0', async () => {

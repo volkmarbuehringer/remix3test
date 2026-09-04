@@ -17,7 +17,7 @@ async function createTestUser(): Promise<number> {
      VALUES ($1, 'x', 'Test User', 'customer', 1, $2, $2) RETURNING id`,
     [`notif-${Date.now()}-${Math.random()}@example.com`, Date.now()],
   )
-  return Number(result.rows![0].id)
+  return Number(result.rows![0]!.id)
 }
 
 async function cleanupUser(userId: number): Promise<void> {
@@ -61,7 +61,7 @@ describe('notifications data access', () => {
       let page1 = await listUserNotifications(db, userId, { pageSize: 2 })
       assert.equal(page1.rows.length, 2)
       assert.equal(page1.hasMore, true)
-      assert.ok(Number(page1.rows[0].created_at) >= Number(page1.rows[1].created_at))
+      assert.ok(Number(page1.rows[0]!.created_at) >= Number(page1.rows[1]!.created_at))
 
       let page2 = await listUserNotifications(db, userId, { pageSize: 2, offset: 2 })
       assert.equal(page2.rows.length, 1)
@@ -80,7 +80,7 @@ describe('notifications data access', () => {
       await createNotification(db, { userId, type: 'cancellation', title: 'Storniert' })
       assert.equal(await unreadCount(db, userId), 1)
 
-      let latest = (await listUserNotifications(db, userId, { pageSize: 1 })).rows[0]
+      let latest = (await listUserNotifications(db, userId, { pageSize: 1 })).rows[0]!
       let ok = await markRead(db, userId, latest.id)
       assert.equal(ok, true)
       assert.equal(await unreadCount(db, userId), 0)

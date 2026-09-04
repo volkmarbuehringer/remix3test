@@ -62,18 +62,18 @@ interface AdminAppointmentsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
-  period?: string
-  status?: string
-  editRow?: AppointmentRow | null
-  creating?: boolean
+  period?: string | undefined
+  status?: string | undefined
+  editRow?: AppointmentRow | null | undefined
+  creating?: boolean | undefined
   resources: AppointmentResourceOption[]
   users: AppointmentUserOption[]
-  error?: string
-  defaultStartMin?: number
-  defaultEndMin?: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  error?: string | undefined
+  defaultStartMin?: number | undefined
+  defaultEndMin?: number | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 function formatDate(day: string): string {

@@ -34,12 +34,12 @@ export function safeClose(controller: ReadableStreamDefaultController) {
 }
 
 type SuspensionInfo = {
-  runId?: string
-  toolCallId?: string
-  toolName?: string
-  args?: Record<string, unknown>
+  runId?: string | undefined
+  toolCallId?: string | undefined
+  toolName?: string | undefined
+  args?: Record<string, unknown> | undefined
   gateType: 'tool_decision' | 'question'
-  suspendPayload?: Record<string, unknown>
+  suspendPayload?: Record<string, unknown> | undefined
 }
 
 export type PipeHooks = {
@@ -52,7 +52,7 @@ export type PipeHooks = {
 async function filterAndForward(
   chunk: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
-  options?: { runId?: string; getTarget?: (path: string) => string; hooks?: PipeHooks },
+  options?: { runId?: string | undefined; getTarget?: ((path: string) => string) | undefined; hooks?: PipeHooks | undefined },
 ): Promise<'suspended' | undefined> {
   let { runId, getTarget, hooks } = options ?? {}
   let p = chunk.payload as Record<string, unknown> | undefined
@@ -67,7 +67,7 @@ async function filterAndForward(
     }
     if (payload.length > 65536) {
       if (type === 'message') {
-        let msg = JSON.parse(payload) as { text?: string }
+        let msg = JSON.parse(payload) as { text?: string | undefined }
         msg.text = msg.text?.slice(0, 65536 - 50)
         payload = JSON.stringify(msg)
       } else {

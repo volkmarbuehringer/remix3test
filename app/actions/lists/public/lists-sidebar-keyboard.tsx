@@ -83,8 +83,8 @@ export const ListsSidebarKeyboard = clientEntry(
     function moveFocus(rows: HTMLElement[], target: number) {
       if (target < 0 || target >= rows.length) return
       rows.forEach((r) => r.setAttribute('tabindex', '-1'))
-      rows[target].setAttribute('tabindex', '0')
-      rows[target].focus()
+      rows[target]!.setAttribute('tabindex', '0')
+      rows[target]!.focus()
     }
 
     // All DOM work happens in the ref callback, which only runs on the client.

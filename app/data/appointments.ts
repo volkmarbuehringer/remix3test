@@ -24,11 +24,11 @@ interface AppointmentInput {
 }
 
 interface AppointmentUpdate {
-  title?: string
-  date?: number
-  start_min?: number
-  end_min?: number
-  resource_id?: number
+  title?: string | undefined
+  date?: number | undefined
+  start_min?: number | undefined
+  end_min?: number | undefined
+  resource_id?: number | undefined
 }
 
 export class AppointmentError extends Error {
@@ -316,9 +316,9 @@ export interface ListAppointmentsOpts {
   pageSize: number
   column: string
   direction: 'asc' | 'desc'
-  filter?: string
-  period?: string
-  status?: string
+  filter?: string | undefined
+  period?: string | undefined
+  status?: string | undefined
 }
 
 const ADMIN_ORDER_BY_COLUMNS: Record<string, string> = {
@@ -541,8 +541,8 @@ export interface ListAppointmentsNewOpts {
   pageSize: number
   column: string
   direction: 'asc' | 'desc'
-  period?: string
-  status?: string
+  period?: string | undefined
+  status?: string | undefined
 }
 
 export async function listAppointmentsNew(

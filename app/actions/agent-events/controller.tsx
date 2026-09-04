@@ -56,7 +56,7 @@ const defaultRunFactory: RunFactory = async (workflowId, opts) => {
       adminUserId: number
       adminEmail: string
     },
-    closeOnSuspend: opts.closeOnSuspend,
+    ...(opts.closeOnSuspend !== undefined ? { closeOnSuspend: opts.closeOnSuspend } : {}),
   })
   return { runId: stream.runId, fullStream: stream.fullStream }
 }
@@ -71,8 +71,8 @@ export function __setRunFactory(fn: RunFactory | undefined) {
 // snapshot status plus the suspended step's payload/id when the run suspended.
 type RunSnapshot = {
   status: string
-  stepId?: string
-  suspendPayload?: Record<string, unknown>
+  stepId?: string | undefined
+  suspendPayload?: Record<string, unknown> | undefined
 }
 type RunStatusResolver = (workflowId: string, runId: string) => Promise<RunSnapshot | null>
 

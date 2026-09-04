@@ -1,19 +1,26 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { type Handle } from 'remix/ui'
 
 import { AppointmentsScrollLock } from './appointments-scroll-lock.browser.tsx'
+
+type CapturedEvent = {
+  event: string
+  handler: Function
+  options?: { signal?: AbortSignal } | undefined
+}
 
 describe('AppointmentsScrollLock', () => {
   let originalDocument: typeof globalThis.document
   let originalLocation: typeof globalThis.location
   let originalAddEventListener: typeof globalThis.addEventListener
   let documentElementStyle: Record<string, string>
-  let capturedEvents: Array<{ event: string; handler: Function; options?: any }>
+  let capturedEvents: Array<CapturedEvent>
   let scrollX = 0
   let scrollY = 0
   let abortHandlers: Array<Function>
 
-  function makeHandle() {
+  function makeHandle(): Handle {
     abortHandlers = []
     return {
       signal: {
@@ -21,7 +28,7 @@ describe('AppointmentsScrollLock', () => {
           if (event === 'abort') abortHandlers.push(handler)
         },
       },
-    }
+    } as unknown as Handle
   }
 
   function triggerAbort() {
@@ -36,7 +43,7 @@ describe('AppointmentsScrollLock', () => {
 
     documentElementStyle = { overflow: '', scrollbarGutter: '' }
     capturedEvents = []
-    ;(globalThis as any).location = { search }
+    globalThis.location = { search } as unknown as typeof globalThis.location
 
     let view = {
       scrollX,
@@ -49,20 +56,20 @@ describe('AppointmentsScrollLock', () => {
       innerWidth: 1024,
     }
 
-    ;(globalThis as any).document = {
+    globalThis.document = {
       body: {},
       defaultView: view,
       documentElement: { style: documentElementStyle, clientWidth: 1000 },
-    }
+    } as unknown as typeof globalThis.document
 
-    globalThis.addEventListener = ((event: string, handler: Function, options?: any) => {
+    globalThis.addEventListener = ((event: string, handler: Function, options?: { signal?: AbortSignal }) => {
       capturedEvents.push({ event, handler, options })
     }) as typeof globalThis.addEventListener
   }
 
   function restoreDom() {
-    ;(globalThis as any).document = originalDocument
-    ;(globalThis as any).location = originalLocation
+    globalThis.document = originalDocument
+    globalThis.location = originalLocation
     globalThis.addEventListener = originalAddEventListener
   }
 
@@ -78,7 +85,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?editing=42')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, 'hidden')
@@ -88,7 +95,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?deleting=7')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, 'hidden')
@@ -98,7 +105,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?creating=true')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, 'hidden')
@@ -108,7 +115,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?sort=title&order=asc')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, '')
@@ -118,7 +125,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     let popstateCall = capturedEvents.find((c) => c.event === 'popstate')
@@ -130,12 +137,12 @@ describe('AppointmentsScrollLock', () => {
     setupDom('')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, '')
 
-    ;(globalThis as any).location = { search: '?editing=1' }
+    globalThis.location = { search: '?editing=1' } as unknown as typeof globalThis.location
     let popstateHandler = capturedEvents.find((c) => c.event === 'popstate')!
     popstateHandler.handler()
 
@@ -145,7 +152,7 @@ describe('AppointmentsScrollLock', () => {
       'should lock scroll on popstate with panel param',
     )
 
-    ;(globalThis as any).location = { search: '' }
+    globalThis.location = { search: '' } as unknown as typeof globalThis.location
     popstateHandler.handler()
 
     assert.equal(
@@ -159,7 +166,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?editing=1')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     documentElementStyle.overflow = ''
@@ -172,7 +179,7 @@ describe('AppointmentsScrollLock', () => {
     setupDom('?editing=1')
 
     let handle = makeHandle()
-    let initFn = (AppointmentsScrollLock as any)(handle)
+    let initFn = AppointmentsScrollLock(handle)
     initFn()
 
     assert.equal(documentElementStyle.overflow, 'hidden', 'should be locked after init')

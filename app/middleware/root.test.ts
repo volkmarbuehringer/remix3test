@@ -1,10 +1,10 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
-import type { MiddlewareContext } from 'remix/router'
+import type { RequestContext } from 'remix/router'
 
 import { skipAssetsLogger } from './root.ts'
 
-function context(url: string): MiddlewareContext<any> {
+function context(url: string): RequestContext {
   let log = console.log
   return {
     get: () => log,
@@ -16,7 +16,7 @@ function context(url: string): MiddlewareContext<any> {
     has: () => true,
     url: new URL(url),
     request: new Request(url),
-  } as unknown as MiddlewareContext<any>
+  } as unknown as RequestContext
 }
 
 describe('skipAssetsLogger', () => {
@@ -32,7 +32,7 @@ describe('skipAssetsLogger', () => {
 
     console.log = origLog
     assert.equal(lines.length, 1)
-    assert.ok(lines[0].includes('/admin/users'))
+    assert.ok(lines[0]!.includes('/admin/users'))
   })
 
   it('skips logging for successful asset requests', async () => {
@@ -65,7 +65,7 @@ describe('skipAssetsLogger', () => {
 
     console.log = origLog
     assert.equal(logs.length, 1)
-    assert.ok(logs[0].includes('/assets/missing.js'))
-    assert.ok(logs[0].includes('404'))
+    assert.ok(logs[0]!.includes('/assets/missing.js'))
+    assert.ok(logs[0]!.includes('404'))
   })
 })

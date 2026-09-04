@@ -312,7 +312,7 @@ export const AppointmentGrid = clientEntry(
                     )
                   })}
 
-                  {groups[dayIdx].map((appt) => {
+                  {groups[dayIdx]!.map((appt) => {
                     let isEditing = editingId === appt.id
                     let isForeign = data.currentUserId > 0 && appt.user_id !== data.currentUserId
                     let isCurrentUser =

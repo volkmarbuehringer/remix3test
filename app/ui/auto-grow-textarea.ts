@@ -9,7 +9,7 @@ export function setupAutoGrowTextarea(
     textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px'
   }
 
-  textarea.addEventListener('input', grow, { signal: options.signal })
+  textarea.addEventListener('input', grow, options.signal !== undefined ? { signal: options.signal } : undefined)
 
   return {
     reset() {

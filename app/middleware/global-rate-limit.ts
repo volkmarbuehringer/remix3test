@@ -6,7 +6,7 @@ import { createRateLimiter } from '../utils/rate-limiter.ts'
 import { connectionIp } from '../utils/request-ip.ts'
 
 export function globalRateLimit(options?: {
-  maxPerWindow?: number
+  maxPerWindow?: number | undefined
   windowMs?: number
   skip?: boolean
 }): Middleware {

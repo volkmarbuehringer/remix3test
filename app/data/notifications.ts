@@ -10,9 +10,9 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export interface CreateNotificationInput {
   userId: number
   type: NotificationType
-  title?: string
-  body?: string
-  appointmentId?: number
+  title?: string | undefined
+  body?: string | undefined
+  appointmentId?: number | undefined
 }
 
 const notificationWireSchema = z.object({
@@ -92,7 +92,7 @@ export async function unreadCount(db: Database, userId: number): Promise<number>
     sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${userId} AND read_at IS NULL`,
     z.object({ count: int8Aggregate }),
   )
-  return rows.length > 0 ? rows[0].count : 0
+  return rows[0]?.count ?? 0
 }
 
 /** Mark a single notification read (scoped to its owner). Returns whether a row changed. */

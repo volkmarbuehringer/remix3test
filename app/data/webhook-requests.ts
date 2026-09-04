@@ -29,7 +29,7 @@ export interface ListWebhookRequestsOpts {
   offset: number
   column: string
   direction: 'asc' | 'desc'
-  filter?: string
+  filter?: string | undefined
   pageSize?: number
 }
 

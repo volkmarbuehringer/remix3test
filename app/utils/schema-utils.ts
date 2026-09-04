@@ -12,7 +12,7 @@ export function parseIntFields(value: Record<string, unknown>, ...fields: string
 }
 
 export function issuesToFieldErrors(
-  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> }>,
+  issues: ReadonlyArray<{ message: string; path?: ReadonlyArray<unknown> | undefined }>,
 ): Record<string, string> {
   let errors: Record<string, string> = {}
   for (let issue of issues) {

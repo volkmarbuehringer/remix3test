@@ -87,7 +87,7 @@ async function loadGridData(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<{ rows: Row[]; hasMore: boolean }> {
@@ -122,8 +122,8 @@ function gridFilter(raw: Record<string, string>): string | undefined {
 function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
   return {
     id,
-    name: raw.name,
-    email: raw.email,
+    name: raw.name ?? '',
+    email: raw.email ?? '',
     role: (raw.role || 'Viewer') as Row['role'],
     status: (raw.status || 'Active') as Row['status'],
     registered: raw.registered ? parseDate(raw.registered) : Date.now(),
@@ -143,7 +143,7 @@ async function renderClientsError(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<Response> {

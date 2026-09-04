@@ -70,6 +70,7 @@
             "ignorePackages": true
           }
         ],
+        "@typescript-eslint/no-explicit-any": "error",
         "remix-interface/interface-pascal-case": "error",
         "remix-typescript/no-typescript-accessibility": "error"
       }

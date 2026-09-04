@@ -5,12 +5,12 @@ import { broadcastNotification } from '../../../utils/notifications-sse.ts'
 export interface NotificationData {
   recipient: string
   type: 'confirmation' | 'reminder' | 'cancellation'
-  appointmentId?: number
-  resourceName?: string
-  date?: number
-  timeRange?: string
-  customerName?: string
-  title?: string
+  appointmentId?: number | undefined
+  resourceName?: string | undefined
+  date?: number | undefined
+  timeRange?: string | undefined
+  customerName?: string | undefined
+  title?: string | undefined
 }
 
 interface NotificationResult {

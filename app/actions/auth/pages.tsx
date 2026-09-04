@@ -26,7 +26,7 @@ import { passwordComplexityScript } from '../../ui/password-complexity-script.br
 type LoginPageProps = {
   error?: string
   errors?: AuthFormErrors
-  returnTo?: string
+  returnTo?: string | undefined
 }
 
 export function LoginPage(handle: Handle<LoginPageProps>) {

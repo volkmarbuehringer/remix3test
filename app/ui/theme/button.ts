@@ -18,7 +18,7 @@ interface ButtonOptions {
  * This is a type-level-only adjustment: the descriptor objects are already
  * accepted at runtime on any host.
  */
-type ButtonStyle = MixinDescriptor<HTMLButtonElement, any, ElementProps>
+type ButtonStyle = MixinDescriptor<HTMLButtonElement, unknown[], ElementProps>
 
 type ButtonMixin =
   | readonly [ButtonStyle, ButtonStyle, ButtonStyle, ButtonStyle]

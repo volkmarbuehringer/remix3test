@@ -54,7 +54,7 @@ const listsUpdateSchema = f.object({
 // ── Helpers ──
 
 function listFormValues(raw: Record<string, string>): Record<string, string> {
-  return { title: raw.title, description: raw.description }
+  return { title: raw.title ?? '', description: raw.description ?? '' }
 }
 
 function gridOffset(raw: Record<string, string>): number {
@@ -87,7 +87,7 @@ async function loadGridData(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<{ rows: ListRowData[]; hasMore: boolean }> {
@@ -130,7 +130,7 @@ async function renderListsError(
     offset: number
     column: string
     direction: 'asc' | 'desc'
-    filter?: string
+    filter?: string | undefined
     pageSize: number
   },
 ): Promise<Response> {

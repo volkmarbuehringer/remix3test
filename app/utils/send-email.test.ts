@@ -25,7 +25,7 @@ describe('sendVerificationEmail', () => {
     )
 
     assert.equal(calls.length, 1)
-    let email = calls[0]
+    let email = calls[0]!
     assert.equal(email.to, 'max@example.com')
     assert.equal(email.subject, 'Bestätigen Sie Ihre E-Mail-Adresse')
 
@@ -52,7 +52,7 @@ describe('sendPasswordResetEmail', () => {
     )
 
     assert.equal(calls.length, 1)
-    let email = calls[0]
+    let email = calls[0]!
     assert.equal(email.to, 'anna@example.com')
     assert.equal(email.subject, 'Passwort zurücksetzen')
 
@@ -75,7 +75,7 @@ describe('sendAccountDeletionEmail', () => {
     await sendAccountDeletionEmail(fn, { name: 'Max', email: 'max@example.com' }, 'self')
 
     assert.equal(calls.length, 1)
-    let email = calls[0]
+    let email = calls[0]!
     assert.equal(email.to, 'max@example.com')
     assert.equal(email.subject, 'Ihr Konto wurde gelöscht')
 
@@ -96,7 +96,7 @@ describe('sendAccountDeletionEmail', () => {
     await sendAccountDeletionEmail(fn, { name: 'Anna', email: 'anna@example.com' }, 'admin')
 
     assert.equal(calls.length, 1)
-    let email = calls[0]
+    let email = calls[0]!
     assert.equal(email.to, 'anna@example.com')
     assert.equal(email.subject, 'Ihr Konto wurde gelöscht')
 
@@ -119,7 +119,7 @@ describe('HTML escaping', () => {
       'https://example.com/verify/t',
     )
 
-    let html = calls[0].html as string
+    let html = calls[0]!.html as string
     assert.ok(!html.includes('<b>Max</b>'), 'raw HTML should not appear in output')
     assert.ok(html.includes('&lt;b&gt;Max&lt;/b&gt;'), 'HTML entities should be escaped')
     assert.ok(typeof html === 'string', 'html body should be a plain string, not a SafeHtml object')
@@ -133,7 +133,7 @@ describe('HTML escaping', () => {
       'https://example.com/verify/t',
     )
 
-    let html = calls[0].html as string
+    let html = calls[0]!.html as string
     assert.ok(!html.includes("O'Brien"), 'raw single quote should not appear in output')
     assert.ok(html.includes('O&#39;Brien'), 'single quote should be escaped')
   })

@@ -13,13 +13,13 @@ interface ClientPageProps {
   nextOffset: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
-  filter?: string
+  filter?: string | undefined
   pageSize: number
   editRow?: Client | null
   creating?: boolean
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 function ClientPage(handle: Handle<ClientPageProps>) {

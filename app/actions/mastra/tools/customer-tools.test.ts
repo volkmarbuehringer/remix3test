@@ -92,7 +92,7 @@ describe('Customer tools', () => {
     assert.equal(result.resource_id, resourceId)
     assert.ok(typeof result.resource_name === 'string')
     assert.equal(result.title, 'Test Termin')
-    let firstSlot = (result.slots as Array<Record<string, unknown>>)[0]
+    let firstSlot = (result.slots as Array<Record<string, unknown>>)[0]!
     assert.ok(typeof firstSlot.date_epoch_ms === 'number')
     assert.ok(typeof firstSlot.start_min === 'number')
     assert.ok(typeof firstSlot.end_min === 'number')
@@ -124,8 +124,8 @@ describe('Customer tools', () => {
     )) as Record<string, unknown>
     let slots = result.slots as Array<Record<string, unknown>>
     for (let i = 1; i < slots.length; i++) {
-      let prev = slots[i - 1]
-      let curr = slots[i]
+      let prev = slots[i - 1]!
+      let curr = slots[i]!
       let prevSort = (prev.date_epoch_ms as number) * 10000 + (prev.start_min as number)
       let currSort = (curr.date_epoch_ms as number) * 10000 + (curr.start_min as number)
       assert.ok(currSort >= prevSort, 'slots should be sorted chronologically')
@@ -191,7 +191,7 @@ describe('Customer tools — self-service appointments', () => {
     assert.ok(Array.isArray(result.appointments))
     assert.ok((result.appointments as unknown[]).length >= 1)
     assert.equal(result.count, (result.appointments as unknown[]).length)
-    let first = (result.appointments as Array<Record<string, unknown>>)[0]
+    let first = (result.appointments as Array<Record<string, unknown>>)[0]!
     assert.ok(typeof first.id === 'number')
     assert.ok(typeof first.date_epoch_ms === 'number')
     assert.ok(typeof first.start_min === 'number')

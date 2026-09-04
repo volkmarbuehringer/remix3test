@@ -32,7 +32,7 @@ const verifyOwnershipStep = createStep({
       }
     }
 
-    if (rows[0].user_id !== inputData.requestingUserId) {
+    if (rows[0]!.user_id !== inputData.requestingUserId) {
       return {
         valid: false,
         appointmentId: inputData.appointmentId,

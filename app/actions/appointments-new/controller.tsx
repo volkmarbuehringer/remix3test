@@ -88,16 +88,37 @@ interface AppointmentsNewPageData {
   creating: boolean
   error: string | undefined
   defaultStartMin: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
-  step?: number
-  wizardResourceId?: string
-  wizardResourceName?: string
-  wizardResourceDescription?: string
-  weekStart?: number
-  daysWithSlots?: DayWithSlots[]
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
+  step?: number | undefined
+  wizardResourceId?: string | undefined
+  wizardResourceName?: string | undefined
+  wizardResourceDescription?: string | undefined
+  weekStart?: number | undefined
+  daysWithSlots?: DayWithSlots[] | undefined
 }
+
+type AppointmentsNewPageOverrides = Partial<
+  {
+    [K in
+      | 'creating'
+      | 'deletingRow'
+      | 'error'
+      | 'formValues'
+      | 'fieldErrors'
+      | 'formError'
+      | 'offset'
+      | 'sortColumn'
+      | 'sortDirection'
+      | 'filter'
+      | 'period'
+      | 'status'
+      | 'step'
+      | 'wizardResourceId'
+      | 'weekStart']: AppointmentsNewPageData[K] | undefined
+  }
+>
 
 // Computes the bookable per-day full-hour slots for a resource in a single week,
 // after removing booked ranges and past days/past times. Shared by the default
@@ -131,7 +152,7 @@ async function loadWeekSlots(
     .sort(([a], [b]) => a - b)
     .map(([day, data]) => ({
       day,
-      dateStr: new Date(day).toISOString().split('T')[0],
+      dateStr: new Date(day).toISOString().split('T')[0]!,
       slots: data.slots,
       ranges: data.ranges,
     }))
@@ -154,26 +175,7 @@ async function loadWeekSlots(
 async function loadAppointmentsNewPageData(
   context: Pick<AppContext, 'auth' | 'db' | 'session' | 'url'>,
   userId: number,
-  overrides?: Partial<
-    Pick<
-      AppointmentsNewPageData,
-      | 'creating'
-      | 'deletingRow'
-      | 'error'
-      | 'formValues'
-      | 'fieldErrors'
-      | 'formError'
-      | 'offset'
-      | 'sortColumn'
-      | 'sortDirection'
-      | 'filter'
-      | 'period'
-      | 'status'
-      | 'step'
-      | 'wizardResourceId'
-      | 'weekStart'
-    >
-  >,
+  overrides?: AppointmentsNewPageOverrides,
 ): Promise<AppointmentsNewPageData> {
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_NEW_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -293,8 +295,8 @@ async function loadAppointmentsNewPageData(
         slots = await loadWeekSlots(context.db, resourceIdNum, baseWeek)
       }
       daysWithSlots = slots
-      if (daysWithSlots.length > 0 && daysWithSlots[0].slots.length > 0) {
-        defaultStartMin = daysWithSlots[0].slots[0]
+      if (daysWithSlots.length > 0 && daysWithSlots[0]!.slots.length > 0) {
+        defaultStartMin = daysWithSlots[0]!.slots[0]!
       }
     }
   }
@@ -466,8 +468,8 @@ export default createController(routes.appointmentsNew, {
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
-        let dayMs = parseInt(parts[0], 10)
-        let startMin = parseInt(parts[1], 10)
+        let dayMs = parseInt(parts[0]!, 10)
+        let startMin = parseInt(parts[1]!, 10)
         if (!Number.isFinite(dayMs) || !Number.isFinite(startMin)) {
           let data = await loadAppointmentsNewPageData(context, userId, {
             creating: true,
@@ -485,7 +487,7 @@ export default createController(routes.appointmentsNew, {
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
-        let dateStr = new Date(dayMs).toISOString().split('T')[0]
+        let dateStr = new Date(dayMs).toISOString().split('T')[0]!
 
         // Create a modified formData with date and start_min for schema validation
         let createFormData = new FormData()

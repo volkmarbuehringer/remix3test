@@ -15,7 +15,7 @@ export interface ThreadListResult {
 interface MemoryHandle {
   recall: (opts: {
     threadId: string
-    resource?: string
+    resource?: string | undefined
     perPage?: number | false
     orderBy?: { field: string; direction: string }
   }) => Promise<{ messages?: unknown[] }>
@@ -29,8 +29,7 @@ interface MemoryHandle {
 }
 
 // Accept any agent that has a getMemory() method returning something with the right shape
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AgentHandle = { getMemory: () => Promise<any> }
+export type AgentHandle = { getMemory: () => Promise<unknown> }
 
 async function getMemory(agent: AgentHandle): Promise<MemoryHandle> {
   let memory = await agent.getMemory()
@@ -113,7 +112,7 @@ export async function listLatestCustomerThread(
 export async function deleteChatThread(agent: AgentHandle, threadId: string): Promise<void> {
   let memory = await agent.getMemory()
   if (memory) {
-    await memory.deleteThread(threadId)
+    await (memory as MemoryHandle).deleteThread(threadId)
   }
 }
 
@@ -148,7 +147,7 @@ function buildChatThreadPreview(
 
   // The list column leads with the conversation's opening question (the first
   // user turn, falling back to the first turn for tool-only conversations).
-  let opening = turns.find((t) => t.role === 'user') ?? turns[0]
+  let opening = turns.find((t) => t.role === 'user') ?? turns[0]!
   let preview = collapseWhitespace(opening.text).slice(0, PREVIEW_MAX_LENGTH)
 
   // The tooltip reveals a little more: the opening question plus the first reply.

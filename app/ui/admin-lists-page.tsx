@@ -46,9 +46,9 @@ interface AdminListsPageProps {
   editRow?: ListRowData | null
   creating?: boolean
   pageSize: number
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
-  formError?: string
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 function formatPreview(items: Array<{ label: string }>): string {
@@ -595,9 +595,9 @@ interface EditPanelProps {
   offset?: string
   sort?: string
   order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
@@ -704,9 +704,9 @@ interface CreatePanelProps {
   offset?: string
   sort?: string
   order?: string
-  filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  filter?: string | undefined
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {

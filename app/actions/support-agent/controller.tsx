@@ -61,7 +61,7 @@ function resolveAgent(): TestAgent {
 // default reads the durable pending-gate row we write on suspension.
 type RunStatusSnapshot = {
   status: string
-  suspendPayload?: Record<string, unknown>
+  suspendPayload?: Record<string, unknown> | undefined
 }
 type RunStatusResolver = (adminUserId: number, runId: string) => Promise<RunStatusSnapshot | null>
 
@@ -288,8 +288,14 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
             let agent = resolveAgent()
             let result = (await runWithAdminId(user.id, () =>
               decision === 'approve'
-                ? agent.approveToolCallGenerate!({ runId, toolCallId })
-                : agent.declineToolCallGenerate!({ runId, toolCallId }),
+                ? agent.approveToolCallGenerate!({
+                    runId,
+                    ...(toolCallId !== undefined ? { toolCallId } : {}),
+                  })
+                : agent.declineToolCallGenerate!({
+                    runId,
+                    ...(toolCallId !== undefined ? { toolCallId } : {}),
+                  }),
             )) as {
               text?: string
               finishReason?: string

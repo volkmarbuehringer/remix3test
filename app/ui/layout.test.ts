@@ -53,7 +53,7 @@ describe('Layout — flash messages', () => {
     if (!sid) throw new Error('sessionStorage.save returned null')
 
     let cookieHeader = await sessionCookie.serialize(sid)
-    return cookieHeader.split(';')[0] // "session=abc123"
+    return cookieHeader.split(';')[0]! // "session=abc123"
   }
 
   /** Create an authenticated session with no extra values. */
@@ -72,7 +72,7 @@ describe('Layout — flash messages', () => {
     if (!sid) throw new Error('sessionStorage.save returned null')
 
     let cookieHeader = await sessionCookie.serialize(sid)
-    return cookieHeader.split(';')[0]
+    return cookieHeader.split(';')[0]!
   }
 
   // -----------------------------------------------------------------------

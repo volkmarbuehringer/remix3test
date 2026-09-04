@@ -50,7 +50,7 @@ const fieldErrorStyle = css({
 // ---------------------------------------------------------------------------
 
 function todayString(): string {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toISOString().split('T')[0]!
 }
 
 // ---------------------------------------------------------------------------
@@ -62,8 +62,8 @@ interface ClientCreatePageProps {
   sort?: string
   order?: string
   filter?: string
-  formValues?: Record<string, string>
-  fieldErrors?: Record<string, string>
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
 }
 
 function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
