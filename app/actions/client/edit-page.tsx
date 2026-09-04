@@ -10,6 +10,7 @@ import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
+import { routes } from '../../routes.ts'
 
 import type { Client } from '../../data/schema.ts'
 
@@ -91,7 +92,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
       >
         <RestfulForm
           method="PUT"
-          action={`/admin/clients/${row.id}`}
+          action={routes.admin.clients.update.href({ id: row.id })}
           data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />

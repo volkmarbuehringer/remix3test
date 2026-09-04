@@ -4,6 +4,7 @@ import { Frame } from 'remix/ui'
 import { render } from 'remix/ui/test'
 
 import { AgentEventsStream } from './public/agent-events-stream.tsx'
+import { routes } from '../../routes.ts'
 
 function setupAgentEventsDom() {
   let container = document.createElement('div')
@@ -99,7 +100,7 @@ describe('Agent events pipeline', () => {
   function renderWithFrame() {
     let result = render(
       <>
-        <Frame name="agent-events-panel" src="/admin/agent-events/panel" />
+        <Frame name="agent-events-panel" src={routes.admin.agentEvents.panel.href()} />
         <AgentEventsStream />
       </>,
       {

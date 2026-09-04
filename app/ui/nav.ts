@@ -1,3 +1,5 @@
+import { routes } from '../routes.ts'
+
 /** Base nav item type shared across all navigation systems. */
 export type BaseNavItem = {
   label: string
@@ -24,18 +26,19 @@ export type MobileNavItem = {
 export const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { label: 'Home', href: '/' },
-      { label: 'Termine', href: '/appointments/new' },
-      { label: 'TermineUI', href: '/appointment' },
-      { label: 'Listen', href: '/lists' },
-      { label: 'Verwaltung', href: '/verwaltung', adminOnly: true },
-      { label: 'Admin', href: '/admin', adminOnly: true },
-      { label: 'Beratung', href: '/chat' },
+      { label: 'Home', href: routes.home.href() },
+      { label: 'Termine', href: routes.appointmentsNew.index.href() },
+      { label: 'TermineUI', href: routes.appointment.index.href() },
+      { label: 'Listen', href: routes.lists.index.href() },
+      { label: 'Verwaltung', href: routes.verwaltung.index.href(), adminOnly: true },
+      { label: 'Admin', href: routes.admin.index.href(), adminOnly: true },
+      { label: 'Beratung', href: routes.chat.index.href() },
+      { label: 'Benachrichtigungen', href: routes.notifications.index.href() },
     ],
   },
 ]
 
 export const MOBILE_ITEMS: MobileNavItem[] = [
-  { label: 'Neuer Termin', href: '/appointments/new', requireAuth: true, cta: true },
-  { label: 'Einstellungen', href: '/settings', requireAuth: true },
+  { label: 'Neuer Termin', href: routes.appointmentsNew.index.href(), requireAuth: true, cta: true },
+  { label: 'Einstellungen', href: routes.settings.index.href(), requireAuth: true },
 ]

@@ -101,7 +101,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       <div mix={headerRow}>
         <h1 mix={table.title}>Webhook Requests</h1>
         <div mix={headerActions}>
-          <a href="/webhook-requests/create" mix={composeBtn}>
+          <a href={system.webhookRequestCreate.index.href()} mix={composeBtn}>
             Erstellen
           </a>
           <ConnectionIndicator
@@ -204,7 +204,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     ) : (
                       <div mix={emptyStack}>
                         <span>Noch keine Webhook-Requests.</span>
-                        <a href="/webhook-requests/create" mix={emptyCta}>
+                        <a href={system.webhookRequestCreate.index.href()} mix={emptyCta}>
                           Ersten Request erstellen
                         </a>
                       </div>

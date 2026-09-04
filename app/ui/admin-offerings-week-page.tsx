@@ -55,7 +55,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
       >
         <RestfulForm
           method="POST"
-          action="/verwaltung/offerings/week"
+          action={routes.verwaltung.offerings.weekGenerate.href()}
           data-rmx-target={getSelfFrameTarget()}
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter, period, status }} />
@@ -133,7 +133,7 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Erstellen
                 </button>
-                <a href="/verwaltung/offerings" mix={[table.spacer, table.linkPlain]}>
+                <a href={routes.verwaltung.offerings.index.href()} mix={[table.spacer, table.linkPlain]}>
                   <button
                     type="button"
                     mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}

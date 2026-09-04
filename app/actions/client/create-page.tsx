@@ -10,6 +10,7 @@ import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { gridStateToParams } from '../../utils/grid-state.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
+import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
 // Styles (unique to this panel)
@@ -72,7 +73,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action="/admin/clients" data-rmx-target={getSelfFrameTarget()}>
+        <RestfulForm method="POST" action={routes.admin.clients.index.href()} data-rmx-target={getSelfFrameTarget()}>
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
