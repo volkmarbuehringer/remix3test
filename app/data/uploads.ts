@@ -1,4 +1,7 @@
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
+import { queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 function envBytes(name: string, fallback: number): number {
   let value = Number(process.env[name])
@@ -19,22 +22,26 @@ export interface UploadRow {
   created_at: number
 }
 
+const uploadRowSchema = z.object({
+  id: z.number(),
+  filename: z.string(),
+  mime_type: z.string(),
+  size: z.string(),
+  created_at: z.string(),
+})
+
 export async function listUploads(db: Database, userId?: number): Promise<UploadRow[]> {
-  let result
-  if (userId !== undefined) {
-    result = await db.exec(
-      `SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = $1 ORDER BY created_at DESC LIMIT 100`,
-      [userId],
-    )
-  } else {
-    result = await db.exec(
-      `SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
-    )
-  }
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
-    id: Number(row.id),
-    filename: row.filename as string,
-    mime_type: row.mime_type as string,
+  let rows = await queryRows(
+    db,
+    userId !== undefined
+      ? sql`SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = ${userId} ORDER BY created_at DESC LIMIT 100`
+      : sql`SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
+    uploadRowSchema,
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    filename: row.filename,
+    mime_type: row.mime_type,
     size: Number(row.size),
     created_at: Number(row.created_at),
   }))
@@ -46,18 +53,22 @@ export async function claimUpload(
   userId: number,
   quotaBytes: number = uploadsPerUserQuotaBytes,
 ): Promise<boolean> {
-  let sizeResult = await db.exec('SELECT size FROM uploads WHERE id = $1', [uploadId])
-  let sizeRow = sizeResult.rows?.[0] as { size: unknown } | undefined
+  let sizeRow = await queryRow(
+    db,
+    sql`SELECT size FROM uploads WHERE id = ${uploadId}`,
+    z.object({ size: z.string() }),
+  )
   if (!sizeRow) return false
   let newBytes = Number(sizeRow.size)
 
   // Exclude the row itself so re-claiming an already-owned upload does not
   // double-count it against the quota.
-  let totalResult = await db.exec(
-    'SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = $1 AND id <> $2',
-    [userId, uploadId],
+  let totalRow = await queryRow(
+    db,
+    sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId} AND id <> ${uploadId}`,
+    z.object({ total: int8Aggregate }),
   )
-  let currentBytes = Number((totalResult.rows?.[0] as { total: unknown } | undefined)?.total ?? 0)
+  let currentBytes = totalRow?.total ?? 0
 
   if (currentBytes + newBytes > quotaBytes) {
     // Reject and remove the still-unclaimed row so a refused upload does not
@@ -73,36 +84,39 @@ export async function claimUpload(
   return true
 }
 
+const uploadDownloadRowSchema = z.object({
+  filename: z.string(),
+  mime_type: z.string(),
+  data: z.custom<Buffer>(),
+})
+
 export async function getUploadDownload(
   db: Database,
   id: number,
   userId?: number,
 ): Promise<{ filename: string; mime_type: string; data: BodyInit } | undefined> {
-  let result: { rows?: Record<string, unknown>[] }
-  if (userId !== undefined) {
-    result = await db.exec(
-      `SELECT filename, mime_type, data FROM uploads WHERE id = $1 AND uploaded_by = $2`,
-      [id, userId],
-    )
-  } else {
-    result = await db.exec(`SELECT filename, mime_type, data FROM uploads WHERE id = $1`, [id])
-  }
-  return (result.rows ?? []).length > 0
-    ? (result.rows![0] as unknown as { filename: string; mime_type: string; data: BodyInit })
-    : undefined
+  let row = await queryRow(
+    db,
+    userId !== undefined
+      ? sql`SELECT filename, mime_type, data FROM uploads WHERE id = ${id} AND uploaded_by = ${userId}`
+      : sql`SELECT filename, mime_type, data FROM uploads WHERE id = ${id}`,
+    uploadDownloadRowSchema,
+  )
+  if (!row) return undefined
+  return { filename: row.filename, mime_type: row.mime_type, data: row.data as BodyInit }
 }
 
 export async function insertUpload(
   db: Database,
   data: { filename: string; mimeType: string; buffer: Buffer; size: number; now: number },
 ): Promise<string> {
-  let result = await db.exec(
-    `INSERT INTO uploads (filename, mime_type, data, size, uploaded_by, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO uploads (filename, mime_type, data, size, uploaded_by, created_at)
+     VALUES (${data.filename}, ${data.mimeType}, ${data.buffer}, ${data.size}, NULL, ${data.now})
      RETURNING id`,
-    [data.filename, data.mimeType, data.buffer, data.size, null, data.now],
+    z.object({ id: z.number() }),
   )
-  let row = result.rows?.[0] as { id: unknown } | undefined
   if (!row) throw new Error('insertUpload: INSERT … RETURNING produced no row')
   return String(row.id)
 }

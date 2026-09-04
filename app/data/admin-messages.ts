@@ -1,4 +1,7 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
+import { queryRows } from './rows.ts'
 
 export interface AdminMessageRow {
   id: number
@@ -18,6 +21,14 @@ const SORT_EXPRS: Record<string, string> = {
   created_at: 'm.created_at',
 }
 
+const adminMessageWireSchema = z.object({
+  id: z.number(),
+  sender_id: z.number(),
+  sender_name: z.string(),
+  content: z.string(),
+  created_at: z.string(),
+})
+
 export async function listMessages(
   db: Database,
   limit: number,
@@ -36,23 +47,25 @@ export async function listMessages(
     params.push(`%${esc}%`)
     where = 'WHERE m.content ILIKE $3 OR u.name ILIKE $3'
   }
-  let result = await db.exec(
-    `SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
+  let rows = await queryRows(
+    db,
+    rawSql(
+      `SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
      FROM messages m
      JOIN users u ON m.sender_id = u.id
      ${where}
      ORDER BY ${orderCol} ${orderDir}, m.id DESC
      LIMIT $1
      OFFSET $2`,
-    params,
+      params,
+    ),
+    adminMessageWireSchema,
   )
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
-    id: typeof row.id === 'string' ? Number(row.id) : (row.id as number),
-    sender_id:
-      typeof row.sender_id === 'string' ? Number(row.sender_id) : (row.sender_id as number),
-    sender_name: row.sender_name as string,
-    content: row.content as string,
-    created_at:
-      typeof row.created_at === 'string' ? Number(row.created_at) : (row.created_at as number),
+  return rows.map((row) => ({
+    id: row.id,
+    sender_id: row.sender_id,
+    sender_name: row.sender_name,
+    content: row.content,
+    created_at: Number(row.created_at),
   }))
 }

@@ -1,13 +1,21 @@
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
-export interface UserEmailRow {
-  id: number
-  email: string
-}
+import { queryRows, queryRow } from './rows.ts'
+
+const userEmailRowSchema = z.object({
+  id: z.number(),
+  email: z.string(),
+})
+
+export type UserEmailRow = z.output<typeof userEmailRowSchema>
 
 export async function listUserEmails(db: Database, userIds: number[]): Promise<UserEmailRow[]> {
-  let result = await db.exec('SELECT id, email FROM users WHERE id = ANY($1::int[])', [userIds])
-  return (result.rows ?? []) as unknown as UserEmailRow[]
+  return await queryRows(
+    db,
+    sql`SELECT id, email FROM users WHERE id = ANY(${userIds}::int[])`,
+    userEmailRowSchema,
+  )
 }
 
 export async function createAppointmentFromType(
@@ -21,13 +29,14 @@ export async function createAppointmentFromType(
     resourceId: number
   },
 ): Promise<number | undefined> {
-  let result = await db.exec(
-    `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
-     SELECT user_id, $6, title, $1::bigint, int4range($2::integer, $2::integer + 15, '[)'), $3, $3
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
+     SELECT user_id, ${data.resourceId}, title, ${data.date}::bigint, int4range(${data.startMin}::integer, ${data.startMin}::integer + 15, '[)'), ${data.now}, ${data.now}
      FROM appointtypes
-     WHERE id = $4 AND user_id = $5
+     WHERE id = ${data.typeId} AND user_id = ${data.userId}
      RETURNING id`,
-    [data.date, data.startMin, data.now, data.typeId, data.userId, data.resourceId],
+    z.object({ id: z.number() }),
   )
-  return (result.rows ?? []).length > 0 ? (result.rows![0] as { id: number }).id : undefined
+  return row?.id
 }

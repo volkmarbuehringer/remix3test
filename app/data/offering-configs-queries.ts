@@ -1,4 +1,7 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
+import { queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 export interface OfferingConfigRow {
   id: number
@@ -15,6 +18,16 @@ export interface OfferingConfigResourceOption {
   name: string
   description: string
 }
+
+const offeringConfigWireSchema = z.object({
+  id: z.number(),
+  resource_id: z.number(),
+  resource_name: z.string().nullable(),
+  resource_description: z.string().nullable(),
+  rules: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
 
 function parseRules(raw: unknown): Record<string, [number, number]> {
   let obj: Record<string, unknown>
@@ -71,7 +84,7 @@ export async function countOfferingConfigs(
   opts: { filter?: string },
 ): Promise<number> {
   let query = `
-    SELECT COUNT(*) FROM offering_configs oc
+    SELECT COUNT(*) AS count FROM offering_configs oc
     JOIN resources r ON r.id = oc.resource_id
   `
   let params: unknown[] = []
@@ -80,8 +93,8 @@ export async function countOfferingConfigs(
     query += ' WHERE r.name ILIKE $1'
     params.push(`%${esc}%`)
   }
-  let result = await db.exec(query, params)
-  return Number((result.rows ?? [])[0]?.count ?? 0)
+  let rows = await queryRows(db, rawSql(query, params), z.object({ count: int8Aggregate }))
+  return rows.length > 0 ? rows[0].count : 0
 }
 
 export async function listOfferingConfigs(
@@ -109,33 +122,31 @@ export async function listOfferingConfigs(
   query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
   params.push(pageSize, offset)
 
-  let result = await db.exec(query, params)
-  return (result.rows ?? []).map(toOfferingConfigRow)
+  let rows = await queryRows(db, rawSql(query, params), offeringConfigWireSchema)
+  return rows.map((row) => toOfferingConfigRow(row as Record<string, unknown>))
 }
 
 export async function getOfferingConfig(
   db: Database,
   id: number,
 ): Promise<OfferingConfigRow | undefined> {
-  let result = await db.exec(
-    `SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
+  let row = await queryRow(
+    db,
+    sql`SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description, oc.rules, oc.created_at, oc.updated_at
      FROM offering_configs oc
      JOIN resources r ON r.id = oc.resource_id
-     WHERE oc.id = $1`,
-    [id],
+     WHERE oc.id = ${id}`,
+    offeringConfigWireSchema,
   )
-  return (result.rows ?? []).length > 0
-    ? toOfferingConfigRow(result.rows![0] as Record<string, unknown>)
-    : undefined
+  return row ? toOfferingConfigRow(row as Record<string, unknown>) : undefined
 }
 
 export async function listOfferingConfigResources(
   db: Database,
 ): Promise<OfferingConfigResourceOption[]> {
-  let result = await db.exec('SELECT id, name, description FROM resources ORDER BY name ASC')
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((r) => ({
-    id: Number(r.id),
-    name: r.name as string,
-    description: r.description as string,
-  }))
+  return await queryRows(
+    db,
+    sql`SELECT id, name, description FROM resources ORDER BY name ASC`,
+    z.object({ id: z.number(), name: z.string(), description: z.string() }),
+  )
 }

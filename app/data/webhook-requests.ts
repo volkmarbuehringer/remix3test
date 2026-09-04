@@ -1,15 +1,20 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
-export interface WebhookRequestRow {
-  id: string
-  payload: Record<string, unknown>
-  headers: Record<string, string>
-  source_ip: string
-  created_at: number
-  hermes_status: string | null
-  callback_response: Record<string, unknown> | string | null
-  callback_received_at: number | null
-}
+import { queryRows, queryRow } from './rows.ts'
+
+const webhookRequestRowSchema = z.object({
+  id: z.string(),
+  payload: z.record(z.string(), z.unknown()),
+  headers: z.record(z.string(), z.string()),
+  source_ip: z.string(),
+  created_at: z.string(),
+  hermes_status: z.string().nullable(),
+  callback_response: z.union([z.record(z.string(), z.unknown()), z.string()]).nullable(),
+  callback_received_at: z.string().nullable(),
+})
+
+export type WebhookRequestRow = z.output<typeof webhookRequestRowSchema>
 
 export const WEBHOOK_REQUESTS_PAGE_SIZE = 15
 
@@ -56,8 +61,7 @@ export async function listWebhookRequests(
   query += ` OFFSET $${paramIndex}`
   params.push(offset)
 
-  let result = await db.exec(query, params)
-  let rows = (result.rows ?? []) as unknown as WebhookRequestRow[]
+  let rows = await queryRows(db, rawSql(query, params), webhookRequestRowSchema)
   let hasMore = rows.length > pageSize
   if (hasMore) rows.pop()
 
@@ -68,13 +72,11 @@ export async function getWebhookRequest(
   db: Database,
   id: string,
 ): Promise<WebhookRequestRow | undefined> {
-  let result = await db.exec(
-    `SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = $1`,
-    [id],
+  return await queryRow(
+    db,
+    sql`SELECT id, payload, headers, source_ip, created_at, hermes_status, callback_response, callback_received_at FROM webhook_requests WHERE id = ${id}`,
+    webhookRequestRowSchema,
   )
-  return (result.rows ?? []).length > 0
-    ? (result.rows![0] as unknown as WebhookRequestRow)
-    : undefined
 }
 
 export async function updateWebhookRequestPayload(
@@ -93,10 +95,11 @@ export async function getWebhookRequestPayload(
   db: Database,
   id: string,
 ): Promise<{ payload: Record<string, unknown> } | undefined> {
-  let result = await db.exec('SELECT payload FROM webhook_requests WHERE id = $1', [id])
-  return (result.rows ?? []).length > 0
-    ? (result.rows![0] as { payload: Record<string, unknown> })
-    : undefined
+  return await queryRow(
+    db,
+    sql`SELECT payload FROM webhook_requests WHERE id = ${id}`,
+    z.object({ payload: z.record(z.string(), z.unknown()) }),
+  )
 }
 
 export async function resetWebhookRequestCallback(db: Database, id: string): Promise<void> {
@@ -118,13 +121,13 @@ export async function insertWebhookRequest(
   db: Database,
   data: { payload: string; headers: string; sourceIp: string; now: number },
 ): Promise<string> {
-  let result = await db.exec(
-    `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-     VALUES ($1, $2, $3, $4)
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
+     VALUES (${data.payload}, ${data.headers}, ${data.sourceIp}, ${data.now})
      RETURNING id`,
-    [data.payload, data.headers, data.sourceIp, data.now],
+    z.object({ id: z.string() }),
   )
-  let row = result.rows?.[0] as { id: unknown } | undefined
   if (!row) throw new Error('insertWebhookRequest: INSERT … RETURNING produced no row')
-  return String(row.id)
+  return row.id
 }

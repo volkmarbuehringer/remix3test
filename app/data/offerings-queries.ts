@@ -1,22 +1,28 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 import { getPeriodRange, getTodayUtcMidnight } from '../utils/date-utils.ts'
+import { queryRows, queryRow, int8Aggregate } from './rows.ts'
 
-export interface OfferingRow {
-  id: string
-  day: string
-  resource_id: string
-  resource_name: string | null
-  resource_description: string | null
-  during: string
-  created_at: string
-  updated_at: string
-}
+const offeringRowSchema = z.object({
+  id: z.number(),
+  day: z.string(),
+  resource_id: z.number(),
+  resource_name: z.string().nullable(),
+  resource_description: z.string().nullable(),
+  during: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
 
-export interface OfferingsResourceOption {
-  id: string
-  name: string
-  description: string
-}
+export type OfferingRow = z.output<typeof offeringRowSchema>
+
+const offeringsResourceOptionSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  description: z.string(),
+})
+
+export type OfferingsResourceOption = z.output<typeof offeringsResourceOptionSchema>
 
 export interface ListOfferingsOpts {
   offset: number
@@ -115,8 +121,7 @@ export async function listOfferings(
   query += ` OFFSET $${paramIndex}`
   queryParams.push(offset)
 
-  let result = await db.exec(query, queryParams)
-  let rows = (result.rows ?? []) as unknown as OfferingRow[]
+  let rows = await queryRows(db, rawSql(query, queryParams), offeringRowSchema)
   let hasMore = rows.length > pageSize
   if (hasMore) rows.pop()
 
@@ -124,20 +129,25 @@ export async function listOfferings(
 }
 
 export async function fetchOfferingEditRow(db: Database, id: string): Promise<OfferingRow | null> {
-  let result = await db.exec(
-    `SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
+  return (
+    (await queryRow(
+      db,
+      sql`SELECT ao.id, ao.day, ao.resource_id, r.name AS resource_name, r.description AS resource_description,
             ao.during, ao.created_at, ao.updated_at
      FROM appointoffering ao
      LEFT JOIN resources r ON r.id = ao.resource_id
-     WHERE ao.id = $1`,
-    [id],
+     WHERE ao.id = ${id}`,
+      offeringRowSchema,
+    )) ?? null
   )
-  return (result.rows ?? []).length > 0 ? (result.rows![0] as unknown as OfferingRow) : null
 }
 
 export async function listResources(db: Database): Promise<OfferingsResourceOption[]> {
-  let result = await db.exec('SELECT id, name, description FROM resources ORDER BY name ASC')
-  return (result.rows ?? []) as unknown as OfferingsResourceOption[]
+  return await queryRows(
+    db,
+    sql`SELECT id, name, description FROM resources ORDER BY name ASC`,
+    offeringsResourceOptionSchema,
+  )
 }
 
 export async function createOffering(
@@ -145,13 +155,13 @@ export async function createOffering(
   data: { dayMs: number; resourceId: number; during: string },
 ): Promise<number> {
   let now = Date.now()
-  let result = await db.exec(
-    `INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5)
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO appointoffering (day, resource_id, during, created_at, updated_at)
+     VALUES (${data.dayMs}, ${data.resourceId}, ${data.during}, ${now}, ${now})
      RETURNING id`,
-    [data.dayMs, data.resourceId, data.during, now, now],
+    z.object({ id: z.number() }),
   )
-  let row = result.rows?.[0] as { id: number } | undefined
   if (!row) throw new Error('createOffering: INSERT … RETURNING produced no row')
   return row.id
 }
@@ -177,8 +187,12 @@ export async function deleteOffering(db: Database, id: string): Promise<boolean>
 }
 
 export async function listResourceIdsWithConfigs(db: Database): Promise<number[]> {
-  let result = await db.exec('SELECT resource_id FROM offering_configs')
-  return (result.rows ?? []).map((r: Record<string, unknown>) => r.resource_id as number)
+  let rows = await queryRows(
+    db,
+    sql`SELECT resource_id FROM offering_configs`,
+    z.object({ resource_id: z.number() }),
+  )
+  return rows.map((r) => r.resource_id)
 }
 
 export async function deletePastOfferings(db: Database): Promise<number> {
@@ -187,11 +201,12 @@ export async function deletePastOfferings(db: Database): Promise<number> {
 }
 
 export async function countPastOfferings(db: Database): Promise<number> {
-  let result = await db.exec('SELECT COUNT(*) AS count FROM appointoffering WHERE day < $1', [
-    getTodayUtcMidnight(),
-  ])
-  let row = result.rows?.[0] as { count: string | number } | undefined
-  return row ? Number(row.count) : 0
+  let rows = await queryRows(
+    db,
+    sql`SELECT COUNT(*) AS count FROM appointoffering WHERE day < ${getTodayUtcMidnight()}`,
+    z.object({ count: int8Aggregate }),
+  )
+  return rows.length > 0 ? rows[0].count : 0
 }
 
 // ---- helpers (shared with data/offering-configs.ts) ----

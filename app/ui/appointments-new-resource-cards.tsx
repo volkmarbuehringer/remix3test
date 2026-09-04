@@ -51,11 +51,11 @@ interface ResourceCardsProps {
   gridState: GridState
 }
 
-function buildResourceUrl(resourceId: string, gridState: GridState): string {
+function buildResourceUrl(resourceId: string | number, gridState: GridState): string {
   let params = new URLSearchParams()
   params.set('creating', 'true')
   params.set('step', '2')
-  params.set('resource_id', resourceId)
+  params.set('resource_id', String(resourceId))
   if (gridState.period) params.set('period', gridState.period)
   if (gridState.status) params.set('status', gridState.status)
   if (gridState.offset) params.set('offset', gridState.offset)

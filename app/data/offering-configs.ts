@@ -1,17 +1,11 @@
 import Holidays from 'date-holidays'
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
 import { offeringConfigs, type OfferingConfig as SchemaOfferingConfig } from './schema.ts'
 import { isDateInPast } from '../utils/date-utils.ts'
+import { queryRows, queryRow } from './rows.ts'
 export type OfferingConfig = SchemaOfferingConfig
-
-function safeJsonParse(s: string): Record<string, unknown> {
-  try {
-    return JSON.parse(s)
-  } catch {
-    return {}
-  }
-}
 
 function isValidRule(v: unknown): v is [number, number] {
   return Array.isArray(v) && v.length === 2 && typeof v[0] === 'number' && typeof v[1] === 'number'
@@ -87,14 +81,15 @@ async function listExistingOfferingKeys(
   mondayMs: number,
 ): Promise<Set<string>> {
   let sundayMs = mondayMs + 7 * 86_400_000
-  let result = await db.exec(
-    `SELECT day, lower(during) AS start_min, upper(during) AS end_min
+  let rows = await queryRows(
+    db,
+    sql`SELECT day, lower(during) AS start_min, upper(during) AS end_min
      FROM appointoffering
-     WHERE resource_id = $1 AND day >= $2 AND day < $3`,
-    [resourceId, mondayMs, sundayMs],
+     WHERE resource_id = ${resourceId} AND day >= ${mondayMs} AND day < ${sundayMs}`,
+    z.object({ day: z.string(), start_min: z.number(), end_min: z.number() }),
   )
   let keys = new Set<string>()
-  for (let row of result.rows ?? []) {
+  for (let row of rows) {
     keys.add(`${row.day}:${row.start_min}:${row.end_min}`)
   }
   return keys
@@ -112,16 +107,16 @@ export async function generateWeek(
   week: number,
 ): Promise<{ created: number; skipped: number; errors: string[] }> {
   // Read config via raw SQL to get the JSONB
-  let configResult = await db.exec('SELECT rules FROM offering_configs WHERE resource_id = $1', [
-    resourceId,
-  ])
-  if (!configResult.rows || configResult.rows.length === 0) {
+  let configRow = await queryRow(
+    db,
+    sql`SELECT rules FROM offering_configs WHERE resource_id = ${resourceId}`,
+    z.object({ rules: z.record(z.string(), z.unknown()) }),
+  )
+  if (!configRow) {
     return { created: 0, skipped: 0, errors: ['Keine Konfiguration für diese Ressource.'] }
   }
 
-  let rawRules = configResult.rows[0].rules
-  let rules: Record<string, unknown> =
-    typeof rawRules === 'string' ? safeJsonParse(rawRules) : (rawRules as Record<string, unknown>)
+  let rules = configRow.rules
 
   let mondayMs = mondayOfWeek(year, week)
 

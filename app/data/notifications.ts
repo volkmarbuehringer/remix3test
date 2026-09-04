@@ -1,6 +1,8 @@
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
 import { notifications, type Notification } from './schema.ts'
+import { queryRows, queryRow, int8Aggregate } from './rows.ts'
 
 const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -13,25 +15,42 @@ export interface CreateNotificationInput {
   appointmentId?: number
 }
 
+const notificationWireSchema = z.object({
+  id: z.number(),
+  user_id: z.number(),
+  type: z.string(),
+  title: z.string(),
+  body: z.string(),
+  appointment_id: z.number().nullable(),
+  read_at: z.string().nullable(),
+  created_at: z.string(),
+})
+
+function toNotification(row: z.output<typeof notificationWireSchema>): Notification {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    appointment_id: row.appointment_id,
+    read_at: row.read_at === null ? null : Number(row.read_at),
+    created_at: Number(row.created_at),
+  }
+}
+
 /** Persist a notification row for a user. Returns the created row. */
 export async function createNotification(
   db: Database,
   input: CreateNotificationInput,
 ): Promise<Notification | null> {
-  let result = await db.exec(
-    `INSERT INTO notifications (user_id, type, title, body, appointment_id, read_at, created_at)
-     VALUES ($1, $2, $3, $4, $5, NULL, $6)
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO notifications (user_id, type, title, body, appointment_id, read_at, created_at)
+     VALUES (${input.userId}, ${input.type}, ${input.title ?? ''}, ${input.body ?? ''}, ${input.appointmentId ?? null}, NULL, ${Date.now()})
      RETURNING id`,
-    [
-      input.userId,
-      input.type,
-      input.title ?? '',
-      input.body ?? '',
-      input.appointmentId ?? null,
-      Date.now(),
-    ],
+    z.object({ id: z.number() }),
   )
-  let row = result.rows?.[0] as { id: number } | undefined
   if (!row) return null
   return await findNotification(db, row.id, input.userId)
 }
@@ -50,21 +69,17 @@ export async function listUserNotifications(
   let pageSize = options.pageSize ?? 15
   let offset = options.offset ?? 0
 
-  let result = await db.exec(
-    `SELECT id, user_id, type, title, body, appointment_id, read_at, created_at
+  let rows = (
+    await queryRows(
+      db,
+      sql`SELECT id, user_id, type, title, body, appointment_id, read_at, created_at
      FROM notifications
-     WHERE user_id = $1
+     WHERE user_id = ${userId}
      ORDER BY created_at DESC, id DESC
-     LIMIT $2 OFFSET $3`,
-    [userId, pageSize + 1, offset],
-  )
-  let rows = (result.rows ?? []) as unknown as Notification[]
-  for (let row of rows) {
-    row.user_id = Number(row.user_id)
-    row.appointment_id = row.appointment_id == null ? null : Number(row.appointment_id)
-    row.read_at = row.read_at == null ? null : Number(row.read_at)
-    row.created_at = Number(row.created_at)
-  }
+     LIMIT ${pageSize + 1} OFFSET ${offset}`,
+      notificationWireSchema,
+    )
+  ).map(toNotification)
   let hasMore = rows.length > pageSize
   if (hasMore) rows.pop()
   return { rows, hasMore }
@@ -72,11 +87,12 @@ export async function listUserNotifications(
 
 /** Count a user's unread notifications. */
 export async function unreadCount(db: Database, userId: number): Promise<number> {
-  let result = await db.exec(
-    'SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL',
-    [userId],
+  let rows = await queryRows(
+    db,
+    sql`SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = ${userId} AND read_at IS NULL`,
+    z.object({ count: int8Aggregate }),
   )
-  return Number(result.rows?.[0]?.count ?? 0)
+  return rows.length > 0 ? rows[0].count : 0
 }
 
 /** Mark a single notification read (scoped to its owner). Returns whether a row changed. */
@@ -107,21 +123,12 @@ export async function findNotification(
   id: number,
   userId: number,
 ): Promise<Notification | null> {
-  let result = await db.exec(
-    `SELECT id, user_id, type, title, body, appointment_id, read_at, created_at
-     FROM notifications WHERE id = $1 AND user_id = $2`,
-    [id, userId],
+  let row = await queryRow(
+    db,
+    sql`SELECT id, user_id, type, title, body, appointment_id, read_at, created_at
+     FROM notifications WHERE id = ${id} AND user_id = ${userId}`,
+    notificationWireSchema,
   )
-  let row = result.rows?.[0] as Record<string, unknown> | undefined
   if (!row) return null
-  return {
-    id: Number(row.id),
-    user_id: Number(row.user_id),
-    type: String(row.type),
-    title: String(row.title ?? ''),
-    body: String(row.body ?? ''),
-    appointment_id: row.appointment_id == null ? null : Number(row.appointment_id),
-    read_at: row.read_at == null ? null : Number(row.read_at),
-    created_at: Number(row.created_at),
-  }
+  return toNotification(row)
 }

@@ -1,16 +1,19 @@
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
+import { queryRow } from './rows.ts'
 
 export async function insertAppWebhookRequest(
   db: Database,
   data: { serialized: string; headers: string; sourceIp: string; now: number },
 ): Promise<string> {
-  let result = await db.exec(
-    `INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
-     VALUES ($1, $2, $3, $4)
+  let row = await queryRow(
+    db,
+    sql`INSERT INTO webhook_requests (payload, headers, source_ip, created_at)
+     VALUES (${data.serialized}, ${data.headers}, ${data.sourceIp}, ${data.now})
      RETURNING id`,
-    [data.serialized, data.headers, data.sourceIp, data.now],
+    z.object({ id: z.string() }),
   )
-  let row = result.rows?.[0] as { id: unknown } | undefined
   if (!row) throw new Error('insertAppWebhookRequest: INSERT … RETURNING produced no row')
-  return String(row.id)
+  return row.id
 }

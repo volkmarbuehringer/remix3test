@@ -1,4 +1,26 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
+import { queryRows } from './rows.ts'
+
+const listWireSchema = z.object({
+  id: z.number(),
+  user_id: z.number().nullable(),
+  list: z.array(z.object({ id: z.string(), label: z.string(), done: z.boolean().optional() })),
+  title: z.string(),
+  description: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export interface AdminListRow {
+  id: number
+  title: string
+  list: Array<{ id: string; label: string; done?: boolean }>
+  description: string
+  created_at: number
+  updated_at: number
+}
 
 /** Results are ordered by `sortColumn`/`direction`; the column is
  *  validated against a fixed whitelist so the ORDER BY clause cannot be
@@ -10,7 +32,7 @@ export async function searchLists(
   offset: number,
   sortColumn?: string,
   direction?: 'asc' | 'desc',
-): Promise<Record<string, unknown>[]> {
+): Promise<AdminListRow[]> {
   let column =
     sortColumn === 'id'
       ? 'id'
@@ -22,8 +44,10 @@ export async function searchLists(
             ? 'updated_at'
             : 'created_at'
   let orderDir = direction === 'asc' ? 'ASC' : 'DESC'
-  let result = await db.exec(
-    `SELECT * FROM lists
+  let rows = await queryRows(
+    db,
+    rawSql(
+      `SELECT * FROM lists
      WHERE title ILIKE $1
         OR description ILIKE $1
         OR EXISTS (
@@ -32,22 +56,16 @@ export async function searchLists(
         )
      ORDER BY ${column} ${orderDir}, id DESC
      LIMIT $2 OFFSET $3`,
-    [searchPattern, limit, offset],
+      [searchPattern, limit, offset],
+    ),
+    listWireSchema,
   )
-  return ((result.rows ?? []) as Record<string, unknown>[]).map((row) => {
-    let list = row.list
-    if (typeof list === 'string') {
-      try {
-        list = JSON.parse(list as string)
-      } catch {
-        list = []
-      }
-    }
-    return {
-      ...row,
-      list,
-      created_at: typeof row.created_at === 'string' ? Number(row.created_at) : row.created_at,
-      updated_at: typeof row.updated_at === 'string' ? Number(row.updated_at) : row.updated_at,
-    }
-  })
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    list: row.list,
+    description: row.description,
+    created_at: Number(row.created_at),
+    updated_at: Number(row.updated_at),
+  }))
 }

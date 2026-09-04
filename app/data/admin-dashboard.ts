@@ -1,6 +1,8 @@
-import { type Database } from 'remix/data-table'
+import { sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
 import { getTodayUtcMidnight } from '../utils/date-utils.ts'
+import { queryRows, int8Aggregate } from './rows.ts'
 
 export interface DashboardStats {
   /** Appointments whose date is on/after today (pending / upcoming). */
@@ -15,8 +17,9 @@ export interface DashboardStats {
   offeringConfigs: number
 }
 
-function toCount(result: { rows?: Record<string, unknown>[] }): number {
-  return Number((result.rows ?? [])[0]?.count ?? 0)
+async function toCount(db: Database, query: string): Promise<number> {
+  let rows = await queryRows(db, query, z.object({ count: int8Aggregate }))
+  return rows.length > 0 ? rows[0].count : 0
 }
 
 /**
@@ -27,24 +30,21 @@ function toCount(result: { rows?: Record<string, unknown>[] }): number {
 export async function countDashboardStats(db: Database): Promise<DashboardStats> {
   let todayMidnight = getTodayUtcMidnight()
 
-  let appointmentCounts = await db.exec(
-    `SELECT
-       COUNT(*) FILTER (WHERE date >= $1) AS pending,
-       COUNT(*) FILTER (WHERE date < $1) AS expired
+  let apptRows = await queryRows(
+    db,
+    sql`SELECT
+       COUNT(*) FILTER (WHERE date >= ${todayMidnight}) AS pending,
+       COUNT(*) FILTER (WHERE date < ${todayMidnight}) AS expired
      FROM appointments`,
-    [todayMidnight],
+    z.object({ pending: int8Aggregate, expired: int8Aggregate }),
   )
-  let apptRow = (appointmentCounts.rows ?? [])[0] ?? {}
-
-  let offerings = toCount(await db.exec('SELECT COUNT(*) AS count FROM appointoffering'))
-  let resources = toCount(await db.exec('SELECT COUNT(*) AS count FROM resources'))
-  let offeringConfigs = toCount(await db.exec('SELECT COUNT(*) AS count FROM offering_configs'))
+  let apptRow = apptRows[0]
 
   return {
-    appointmentsPending: Number(apptRow.pending ?? 0),
-    appointmentsExpired: Number(apptRow.expired ?? 0),
-    offerings,
-    resources,
-    offeringConfigs,
+    appointmentsPending: apptRow?.pending ?? 0,
+    appointmentsExpired: apptRow?.expired ?? 0,
+    offerings: await toCount(db, 'SELECT COUNT(*) AS count FROM appointoffering'),
+    resources: await toCount(db, 'SELECT COUNT(*) AS count FROM resources'),
+    offeringConfigs: await toCount(db, 'SELECT COUNT(*) AS count FROM offering_configs'),
   }
 }

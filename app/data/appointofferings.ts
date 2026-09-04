@@ -1,6 +1,8 @@
 import { gte, lt, sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
 import { appointofferings, type AppointOffering } from './schema.ts'
+import { queryRows } from './rows.ts'
 
 export async function listOfferingsByWeek(
   db: Database,
@@ -76,17 +78,21 @@ export async function listDaysWithOfferings(
   startDate: number,
   endDate: number,
 ): Promise<{ day: number; ranges: { startMin: number; endMin: number }[] }[]> {
-  let rows = await db.exec(sql`
+  let rows = await queryRows(
+    db,
+    sql`
     SELECT day, during::text AS during
     FROM appointoffering
     WHERE resource_id = ${resourceId}
       AND day >= ${startDate}
       AND day < ${endDate}
     ORDER BY day ASC, during ASC
-  `)
+  `,
+    z.object({ day: z.string(), during: z.string() }),
+  )
 
   let dayMap = new Map<number, { startMin: number; endMin: number }[]>()
-  for (let row of (rows.rows ?? []) as { day: number; during: string }[]) {
+  for (let row of rows) {
     let day = Number(row.day)
     if (!dayMap.has(day)) {
       dayMap.set(day, [])
@@ -128,16 +134,20 @@ export async function getBookedRangesForWeek(
   weekStart: number,
   weekEnd: number,
 ): Promise<Map<number, { startMin: number; endMin: number }[]>> {
-  let result = await db.exec(sql`
+  let rows = await queryRows(
+    db,
+    sql`
     SELECT date, start_min, end_min
     FROM appointments
     WHERE resource_id = ${resourceId}
       AND date >= ${weekStart}
       AND date < ${weekEnd}
     ORDER BY date ASC, start_min ASC
-  `)
+  `,
+    z.object({ date: z.string(), start_min: z.number(), end_min: z.number() }),
+  )
   let map = new Map<number, { startMin: number; endMin: number }[]>()
-  for (let row of (result.rows ?? []) as { date: number; start_min: number; end_min: number }[]) {
+  for (let row of rows) {
     let d = Number(row.date)
     if (!map.has(d)) map.set(d, [])
     map.get(d)!.push({ startMin: Number(row.start_min), endMin: Number(row.end_min) })

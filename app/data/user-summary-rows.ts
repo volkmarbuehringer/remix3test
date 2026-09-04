@@ -1,14 +1,19 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
-export interface UserSummaryRow {
-  user_id: number
-  name: string
-  email: string
-  appointment_count: number
-  total_minutes: number
-  first_date: number | null
-  last_date: number | null
-}
+import { queryRows, int8Aggregate } from './rows.ts'
+
+const userSummaryRowSchema = z.object({
+  user_id: z.number(),
+  name: z.string(),
+  email: z.string(),
+  appointment_count: int8Aggregate,
+  total_minutes: int8Aggregate,
+  first_date: int8Aggregate.nullable(),
+  last_date: int8Aggregate.nullable(),
+})
+
+export type UserSummaryRow = z.output<typeof userSummaryRowSchema>
 
 /**
  * Execute a user-summary aggregate query (per-user appointment COUNT/SUM/
@@ -22,16 +27,7 @@ export async function queryUserSummaryRows(
   params: unknown[],
   limit: number,
 ): Promise<{ rows: UserSummaryRow[]; truncated: boolean }> {
-  let result = await db.exec(sql, params)
-  let rows = ((result.rows ?? []) as Record<string, unknown>[]).map((row) => ({
-    user_id: Number(row.user_id),
-    name: row.name as string,
-    email: row.email as string,
-    appointment_count: Number(row.appointment_count),
-    total_minutes: Number(row.total_minutes),
-    first_date: row.first_date != null ? Number(row.first_date) : null,
-    last_date: row.last_date != null ? Number(row.last_date) : null,
-  }))
+  let rows = await queryRows(db, rawSql(sql, params), userSummaryRowSchema)
   let truncated = rows.length > limit
   if (truncated) rows = rows.slice(0, limit)
   return { rows, truncated }

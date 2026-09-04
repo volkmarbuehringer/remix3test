@@ -11,21 +11,17 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { mondayOfWeek } from '../data/offering-configs.ts'
+import type { OfferingsResourceOption } from '../data/offerings-queries.ts'
 import { isoWeeksInYear } from '../utils/date-utils.ts'
 
 interface AdminOfferingsWeekPageProps {
-  resources: ResourceOption[]
+  resources: OfferingsResourceOption[]
   offset: string
   sort: string
   order: string
   filter: string
   period?: string
   status?: string
-}
-
-interface ResourceOption {
-  id: string
-  description: string
 }
 
 function weekDateRange(year: number, week: number): string {
@@ -133,7 +129,10 @@ export function AdminOfferingsWeekPage(handle: Handle<AdminOfferingsWeekPageProp
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
                   Erstellen
                 </button>
-                <a href={routes.verwaltung.offerings.index.href()} mix={[table.spacer, table.linkPlain]}>
+                <a
+                  href={routes.verwaltung.offerings.index.href()}
+                  mix={[table.spacer, table.linkPlain]}
+                >
                   <button
                     type="button"
                     mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}

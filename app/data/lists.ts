@@ -1,11 +1,24 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
+
 import { lists } from './schema.ts'
+import { queryRows } from './rows.ts'
 
 interface ListItem {
   id: string
   label: string
   done?: boolean
 }
+
+const listWireSchema = z.object({
+  id: z.number(),
+  user_id: z.number().nullable(),
+  list: z.array(z.object({ id: z.string(), label: z.string(), done: z.boolean().optional() })),
+  title: z.string(),
+  description: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
 
 export interface ListRow {
   id: number
@@ -79,8 +92,11 @@ export async function getAllLists(
       args.push(userId)
       ownerClause = 'AND user_id = $4'
     }
-    let result = await db.exec(
-      `SELECT * FROM lists
+    rows = (
+      await queryRows(
+        db,
+        rawSql(
+          `SELECT * FROM lists
        WHERE (title ILIKE $1
           OR description ILIKE $1
           OR EXISTS (
@@ -89,9 +105,11 @@ export async function getAllLists(
           )) ${ownerClause}
        ORDER BY created_at DESC, id DESC
        LIMIT $2 OFFSET $3`,
-      args,
-    )
-    rows = (result.rows ?? []).map(parseRow)
+          args,
+        ),
+        listWireSchema,
+      )
+    ).map((row) => parseRow(row as Record<string, unknown>))
     hasMore = rows.length > limit
     if (hasMore) rows.pop()
   } else {
@@ -120,12 +138,15 @@ export async function getListsByIds(
   if (ids.length === 0) return []
   let ownerClause = userId != null ? 'AND user_id = $2' : ''
   let params: unknown[] = userId != null ? [ids, userId] : [ids]
-  let result = await db.exec(
-    `SELECT * FROM lists WHERE id = ANY($1::integer[]) ${ownerClause} ORDER BY array_position($1::integer[], id)`,
-    params,
+  let rows = await queryRows(
+    db,
+    rawSql(
+      `SELECT * FROM lists WHERE id = ANY($1::integer[]) ${ownerClause} ORDER BY array_position($1::integer[], id)`,
+      params,
+    ),
+    listWireSchema,
   )
-  let parsed = (result.rows ?? []).map((r: Record<string, unknown>) => parseRow(r))
-  return parsed
+  return rows.map((row) => parseRow(row as Record<string, unknown>))
 }
 
 export async function getListById(

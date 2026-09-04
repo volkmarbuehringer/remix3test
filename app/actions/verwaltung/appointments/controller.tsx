@@ -210,7 +210,7 @@ async function loadAppointmentPageData(
   let defaultStartMin = 480
   let defaultEndMin = 1020
   if (creating && resourcesResult.length > 0) {
-    let firstResourceId = parseInt(resourcesResult[0].id, 10)
+    let firstResourceId = resourcesResult[0].id
     let today = new Date()
     let searchStart =
       Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) + 86_400_000

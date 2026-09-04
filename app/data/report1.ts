@@ -1,20 +1,27 @@
-import { type Database } from 'remix/data-table'
+import { rawSql, sql, type Database } from 'remix/data-table'
+import { z } from 'zod/v4'
 
-export interface Report1Row {
-  user_id: string
-  user_name: string
-  user_email: string
-  appointment_count: string
-  min_date: string | null
-  max_date: string | null
-  total_min: string | null
-  avg_min: string | null
-}
+import { queryRows, int8Aggregate } from './rows.ts'
 
-export interface Report1UserOption {
-  id: string
-  name: string
-}
+const report1RowSchema = z.object({
+  user_id: z.number(),
+  user_name: z.string(),
+  user_email: z.string(),
+  appointment_count: int8Aggregate,
+  min_date: int8Aggregate.nullable(),
+  max_date: int8Aggregate.nullable(),
+  total_min: int8Aggregate.nullable(),
+  avg_min: int8Aggregate.nullable(),
+})
+
+export type Report1Row = z.output<typeof report1RowSchema>
+
+const report1UserOptionSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+})
+
+export type Report1UserOption = z.output<typeof report1UserOptionSchema>
 
 export const REPORT1_PAGE_SIZE = 20
 
@@ -116,8 +123,7 @@ export async function runReport1(
   query += ` OFFSET $${paramIndex}`
   params.push(offset)
 
-  let result = await db.exec(query, params)
-  let rows = (result.rows ?? []) as unknown as Report1Row[]
+  let rows = await queryRows(db, rawSql(query, params), report1RowSchema)
   let hasMore = rows.length > effectivePageSize
   if (hasMore) rows.pop()
 
@@ -125,6 +131,9 @@ export async function runReport1(
 }
 
 export async function listReport1Users(db: Database): Promise<Report1UserOption[]> {
-  let result = await db.exec('SELECT id, name FROM users ORDER BY name ASC')
-  return (result.rows ?? []) as unknown as Report1UserOption[]
+  return await queryRows(
+    db,
+    sql`SELECT id, name FROM users ORDER BY name ASC`,
+    report1UserOptionSchema,
+  )
 }

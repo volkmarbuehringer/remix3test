@@ -47,7 +47,7 @@ function buildUrl(overrides: Record<string, string | undefined>): string {
   return BASE + (qs ? '?' + qs : '')
 }
 
-function fmtDate(ts: string | null): string {
+function fmtDate(ts: number | null): string {
   if (!ts) return '\u2014'
   return new Date(Number(ts)).toLocaleDateString('de-DE', {
     day: '2-digit',
@@ -56,7 +56,7 @@ function fmtDate(ts: string | null): string {
   })
 }
 
-function fmtHours(min: string | null): string {
+function fmtHours(min: number | null): string {
   if (!min) return '\u2014'
   return (Number(min) / 60).toFixed(1)
 }
