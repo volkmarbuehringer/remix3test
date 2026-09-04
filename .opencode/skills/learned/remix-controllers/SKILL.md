@@ -267,6 +267,25 @@ export default createController<typeof routes.admin.users, AppContext>(routes.ad
 })
 ```
 
+**Alternative: fix the source, not the call site.** If `requireAuth()` wraps
+`requireAuthenticatedUser` without a type argument, the identity type defaults to
+`unknown` and every gated controller sees `GoodAuth<unknown>`. Pass the identity
+type through the app's own wrapper once:
+
+```typescript
+// app/middleware/auth.ts — global fix, no per-controller generics needed
+return requireAuthenticatedUser<User>({ ... })   // <-- the fix
+```
+
+This makes `context.auth` resolve to `GoodAuth<User>` in every controller using
+`requireAuth()`, removing the need for explicit `createController<typeof routes.x,
+AppContext>` generics for the auth case. Verified in the
+type-safe-controller-context change: after this fix, 16 redundant
+`context.auth as { identity: User }` casts in `appointment/controller.tsx` and 4
+in `appointments-new/controller.tsx` were deleted. The explicit-generic approach
+above remains valid when other middleware-provided properties need typing and no
+wrapper owns the type.
+
 ### When to Use
 
 - You're removing explicit `<typeof routes.x, AppContext>` generics from `createController()` calls
@@ -504,6 +523,62 @@ assert.equal(response.status, 400)
 
 ---
 
+## Part 6: Whole `AppContext` Not Assignable from Handler Contexts — Use `Pick` Slices
+
+### Problem
+
+Typing a helper parameter as the whole `context: AppContext` and passing the
+`createController` handler's `context` fails even though every property matches:
+
+```
+error TS2345: Argument of type 'RequestContextWithEntries<{}, [...]>' is not
+assignable to parameter of type 'RequestContext<{}, [...]>'.
+  The types returned by 'get(...)' are incompatible between these types.
+    Type 'GoodAuth<{...User...}>' is not assignable to type
+    '(data: unknown, init?: ResponseInit) => Response'.
+```
+
+### Root Cause
+
+`MiddlewareContext` exposes a heavily-overloaded `get(key)` method whose return
+type depends on the context entry keys. When a controller declares its own
+middleware (`middleware: [requireAuth(), ...]`), the handler context's `auth`
+entry becomes `GoodAuth<User>` (from `requireAuth`) instead of `AuthState<User>`
+(from root `loadAuth`), so the `get()` overload set differs from `AppContext`'s.
+TypeScript rejects the whole-object assignment via method variance even though
+every `property:` entry matches. Whole `AppContext` params only work for route
+handlers registered without controller middleware (e.g. `router.get(...)` with
+`createAction`).
+
+### Solution
+
+Type helper params as a `Pick<AppContext, ...>` of exactly the members used.
+`Pick` selects only the `property:` entries (db, url, session, render, request,
+auth, logger), which are identical between the handler context and `AppContext`,
+so assignment is clean:
+
+```typescript
+// ❌ Whole AppContext — fails via get() method variance
+async function loadPageData(context: AppContext, ...) { ... }
+
+// ✅ Pick of used members — property-based, assignable
+async function loadPageData(context: Pick<AppContext, 'db' | 'session' | 'url'>, ...) { ... }
+// single-member: { render: AppContext['render'] }, { url: AppContext['url'] }, db: AppContext['db']
+```
+
+TS flags a member you use but forgot to include in the Pick ("Property 'auth' does
+not exist on type 'Pick<...>"), so the slice stays honest. Verified: the initial
+`context: AppContext` pass produced 60 errors across 10 controllers; the `Pick`
+pass compiles with zero.
+
+### When to Use
+
+- Writing a helper function that receives `context` from a `createController` handler
+- Replacing `context: any` in controller helpers
+- A whole-`AppContext` param fails with "The types returned by 'get(...)' are incompatible"
+
+---
+
 ## When to Use
 
 - Adding a standalone `post()`, `get()`, `put()`, or `del()` route that doesn't belong to a larger route map controller
@@ -512,6 +587,8 @@ assert.equal(response.status, 400)
 - Adding a form page with GET + POST handling via `form()` in routes.ts
 - Adding custom middleware that exposes a typed function or value on `context`
 - Removing explicit generics from `createController()` while passing `context.auth` to typed helpers
+- Fixing `GoodAuth<unknown>` at the source by passing the identity type through `requireAuth()`'s `requireAuthenticatedUser` call
+- Typing controller helpers with `Pick<AppContext, ...>` slices instead of `context: any`
 - Consolidating feature directories following the timeboxer demo pattern
 - Debugging `remix doctor` output after refactoring controllers
 - Refactoring controller-level error handling into shared middleware, when existing tests unexpectedly fail
