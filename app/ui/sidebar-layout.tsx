@@ -335,13 +335,13 @@ export const contentStyle = css({
 
 /** Applied to `shellStyle` when the layout runs in full-height mode: the grid
  *  fills the scroll container and the single row consumes all vertical space. */
-export const shellFullHeightStyle = css({
+const shellFullHeightStyle = css({
   height: '100%',
   gridTemplateRows: 'minmax(0, 1fr)',
 })
 
 /** Applied to `contentStyle` in full-height mode so its flex children can fill
  *  the available height (e.g. chat pages with `flex: 1; min-height: 0`). */
-export const contentFullHeightStyle = css({
+const contentFullHeightStyle = css({
   height: '100%',
 })

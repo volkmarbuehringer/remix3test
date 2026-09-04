@@ -3,7 +3,7 @@ import type { Handle, Props, RemixElement } from 'remix/ui'
 
 import { glyphContract, glyphNames, type GlyphName, type GlyphValues } from '../glyph-contract.ts'
 
-export type { GlyphName, GlyphSymbol, GlyphValues } from '../glyph-contract.ts'
+export type { GlyphName } from '../glyph-contract.ts'
 
 type GlyphSheetProps = Omit<Props<'svg'>, 'children'>
 

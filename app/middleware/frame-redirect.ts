@@ -10,7 +10,7 @@ const MAX_FRAME_REDIRECTS = 10
  * frames are intentionally out of scope for now: their redirects still fall
  * back to the client-side bail (full top-level navigation).
  */
-export const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
+const ADMIN_FRAME_TARGETS: ReadonlySet<string> = new Set([
   frames.adminContent,
   frames.listsContent,
   frames.agentEventsPanel,

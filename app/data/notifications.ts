@@ -2,7 +2,7 @@ import { type Database } from 'remix/data-table'
 
 import { notifications, type Notification } from './schema.ts'
 
-export const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const
+const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
 export interface CreateNotificationInput {

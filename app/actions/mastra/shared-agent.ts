@@ -40,7 +40,7 @@ export interface TestAgent {
   }) => Promise<MastraSuspendableResult>
 }
 
-export interface MastraSuspendableResult {
+interface MastraSuspendableResult {
   finishReason?: string
   suspendPayload?: unknown
   text?: string

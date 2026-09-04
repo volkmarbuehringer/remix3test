@@ -12,8 +12,8 @@ import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
 import { createAsyncStorage } from '../../../utils/async-storage.ts'
 
-export const { runWithId: runWithUserId, requireId: requireCurrentUserId } =
-  createAsyncStorage('customer')
+const { runWithId: runWithUserId, requireId: requireCurrentUserId } = createAsyncStorage('customer')
+export { runWithUserId }
 
 // German stop words that add no search value
 const STOP_WORDS = new Set([

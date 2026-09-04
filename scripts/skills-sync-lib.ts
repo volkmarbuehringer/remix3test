@@ -23,9 +23,9 @@ import { fileURLToPath } from 'node:url'
 
 const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
-export const OPENCODE_SKILLS_DIR = path.join(PROJECT_ROOT, '.opencode/skills')
-export const AGENTS_SKILLS_DIR = path.join(PROJECT_ROOT, '.agents/skills')
-export const LEARNED_SKILLS_DIR = path.join(OPENCODE_SKILLS_DIR, 'learned')
+const OPENCODE_SKILLS_DIR = path.join(PROJECT_ROOT, '.opencode/skills')
+const AGENTS_SKILLS_DIR = path.join(PROJECT_ROOT, '.agents/skills')
+const LEARNED_SKILLS_DIR = path.join(OPENCODE_SKILLS_DIR, 'learned')
 
 /** Kebab-case skill-name grammar used by harness skill catalogs. */
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -34,7 +34,7 @@ const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
  * Locate the `@remix-run/cli` package in the pnpm store that shares its
  * git-commit prefix with the currently installed `remix` package.
  */
-export async function findCliPackage(): Promise<string | null> {
+async function findCliPackage(): Promise<string | null> {
   let pnpmDir = path.join(PROJECT_ROOT, 'node_modules/.pnpm')
   try {
     // Get the pnpm store entry name from the currently installed remix package
@@ -67,7 +67,7 @@ async function removeEntry(target: string): Promise<void> {
 }
 
 /** Replace `linkPath` with a symlink to `sourceDir`, relative to the link's directory. */
-export async function linkSkill(sourceDir: string, linkPath: string): Promise<void> {
+async function linkSkill(sourceDir: string, linkPath: string): Promise<void> {
   await removeEntry(linkPath)
   let target = path.relative(path.dirname(linkPath), sourceDir)
   await fs.symlink(target, linkPath, 'dir')

@@ -1,4 +1,4 @@
-export function sidebarRowFor(listId: number): HTMLElement | null {
+function sidebarRowFor(listId: number): HTMLElement | null {
   let rows = Array.from(document.querySelectorAll<HTMLElement>(`[data-list-id="${listId}"]`))
   return rows.find((el) => el.querySelector('[data-list-name]')) ?? null
 }

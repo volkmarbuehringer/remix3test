@@ -15,11 +15,11 @@ function envMs(name: string, fallback: number): number {
  * this TTL bounds growth for everything else, as documented on the table in
  * db/schema.sql.
  */
-export const chatRunsTtlMs = envMs('CHAT_RUNS_TTL_MS', DAY_MS)
+const chatRunsTtlMs = envMs('CHAT_RUNS_TTL_MS', DAY_MS)
 
-export const webhookRequestsRetentionMs = envMs('WEBHOOK_REQUESTS_RETENTION_MS', 30 * DAY_MS)
-export const auditLogsRetentionMs = envMs('AUDIT_LOGS_RETENTION_MS', 90 * DAY_MS)
-export const uploadsRetentionMs = envMs('UPLOADS_RETENTION_MS', 90 * DAY_MS)
+const webhookRequestsRetentionMs = envMs('WEBHOOK_REQUESTS_RETENTION_MS', 30 * DAY_MS)
+const auditLogsRetentionMs = envMs('AUDIT_LOGS_RETENTION_MS', 90 * DAY_MS)
+const uploadsRetentionMs = envMs('UPLOADS_RETENTION_MS', 90 * DAY_MS)
 
 const maintenanceIntervalMs = envMs('DATABASE_MAINTENANCE_INTERVAL_MS', HOUR_MS)
 
@@ -57,7 +57,7 @@ export async function deleteExpiredUploads(db: Database, retentionMs: number): P
  * individually guarded: a failed sweep must never break the next one, and a
  * failing step is logged instead of propagated (the interval keeps running).
  */
-export async function runDatabaseMaintenance(db: Database): Promise<void> {
+async function runDatabaseMaintenance(db: Database): Promise<void> {
   let deleted = { chatRuns: 0, webhookRequests: 0, auditLogs: 0, uploads: 0 }
 
   try {

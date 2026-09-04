@@ -1,7 +1,7 @@
 import { type Database } from 'remix/data-table'
 import { lists } from './schema.ts'
 
-export interface ListItem {
+interface ListItem {
   id: string
   label: string
   done?: boolean

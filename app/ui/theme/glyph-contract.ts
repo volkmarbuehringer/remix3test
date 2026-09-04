@@ -34,7 +34,7 @@ export const glyphNames = [
 
 export type GlyphName = (typeof glyphNames)[number]
 
-export type GlyphSymbol = RemixElement
+type GlyphSymbol = RemixElement
 
 export type GlyphValues = {
   readonly [key in GlyphName]: GlyphSymbol

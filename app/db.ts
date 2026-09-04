@@ -21,7 +21,7 @@ const localeUrl =
 // process. createPostgresDatabase() accepts a queryable, so the pool is built
 // here and the handler attached before any connection is made. Ownership note:
 // the vendor driver never ends a supplied pool, so closeAppDatabase() must.
-export const pool = new Pool({
+const pool = new Pool({
   connectionString: localeUrl,
   max: 20,
   idleTimeoutMillis: 30000,
@@ -35,7 +35,7 @@ pool.on('error', (error) => {
 
 export const db = createPostgresDatabase(pool)
 
-export async function loadAppSchema() {
+async function loadAppSchema() {
   return await readFile(path.join(import.meta.dirname, '../db/schema.sql'), 'utf8')
 }
 

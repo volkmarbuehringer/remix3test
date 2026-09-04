@@ -1,7 +1,7 @@
 import { db } from '../../db.ts'
 
 export type GateType = 'tool_decision' | 'question'
-export type PendingGateStatus = 'running' | 'suspended'
+type PendingGateStatus = 'running' | 'suspended'
 
 export type PendingGateRow = {
   adminUserId: number

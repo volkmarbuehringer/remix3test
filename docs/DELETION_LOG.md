@@ -1,5 +1,50 @@
 # Code Deletion Log
 
+## [2026-09-04] API-Hygiene Pass (privatize internal-only exports)
+
+Follow-up to the 2026-08-31 audit, which had deferred "low-value `export`-keyword
+candidates" to a future hygiene pass. Every symbol below is used **only within
+its own module** (verified by knip + targeted grep; no barrel `export *`
+re-exports exist). Removed the `export` keyword so the module surface reflects
+actual usage. No behavior change — the symbols remain defined and used.
+
+### Unused Exports Privatized (removed `export` keyword)
+
+- `app/actions/lists/public/sidebar-sync.ts` — `sidebarRowFor` (helper for `syncSidebarRow`)
+- `app/actions/mastra/agent-config.ts` — `requireApiKey` (internal to `createModel`)
+- `app/actions/mastra/intent-classifier.ts` — `parseIntentJson` (internal to `classifyWithAgent`)
+- `app/actions/mastra/tools/customer-tools.ts` — `requireCurrentUserId` (destructure split; `runWithUserId` stays exported — imported by `chat/controller.tsx` + tests)
+- `app/actions/mastra/workflows/consistency-check-workflow.ts` — `UserWithPending` (type), `checkLockedUsersPendingAppointments`, `checkActiveUsersPendingAppointments` (steps used only by `consistencyCheckWorkflow`)
+- `app/assets/streams/public/read-sse.ts` — `parseSseFrame` (internal to `readEventStream`)
+- `app/data/notifications.ts` — `NOTIFICATION_TYPES` (const feeding exported `NotificationType`)
+- `app/data/uploads.ts` — `uploadsPerUserQuotaBytes` (default param of `claimUpload`)
+- `app/db.ts` — `pool`, `loadAppSchema` (internal; `db`/`initializeAppDatabase`/`closeAppDatabase` stay exported)
+- `app/middleware/frame-redirect.ts` — `ADMIN_FRAME_TARGETS` (internal to `frameRedirects`)
+- `app/ui/sidebar-layout.tsx` — `shellFullHeightStyle`, `contentFullHeightStyle` (used only in the shell; `lists-layout.tsx` defines its own local copy)
+- `app/utils/motion.ts` — `prefersReducedMotion` (internal to `entrance`)
+- `app/data/maintenance.ts` — `chatRunsTtlMs`, `webhookRequestsRetentionMs`, `auditLogsRetentionMs`, `uploadsRetentionMs`, `runDatabaseMaintenance` (the four `deleteExpired*` fns stay exported — imported by `maintenance.test.ts`)
+- `scripts/skills-sync-lib.ts` — `OPENCODE_SKILLS_DIR`, `AGENTS_SKILLS_DIR`, `LEARNED_SKILLS_DIR`, `findCliPackage`, `linkSkill` (used only inside the module; `syncVendorSkill`/`syncSkillFarm` stay exported — imported by `sync-skills.ts` and `postinstall.ts`)
+
+### Unused Type Exports Privatized
+
+- `app/actions/mastra/notifications/sender.ts` — `NotificationResult`
+- `app/actions/mastra/shared-agent.ts` — `MastraSuspendableResult` (`AgentStreamOutput` stays — imported by controller tests)
+- `app/actions/support-agent/run-store.ts` — `PendingGateStatus`
+- `app/data/lists.ts` — `ListItem` (the `ListItem` in `lists-client.tsx` is a separate local type)
+- `app/utils/agent-sse.ts` — `SuspensionInfo`
+- `app/ui/theme/glyph-contract.ts` — `GlyphSymbol`; `app/ui/theme/glyph/glyph.tsx` re-export trimmed to `GlyphName` only (`GlyphSymbol`/`GlyphValues` re-exports were dead; `GlyphName` is imported from `glyph.tsx` by admin pages)
+
+### Impact
+
+- Files touched: 21 (export-keyword removal only)
+- Lines changed: 34 insertions / 34 deletions (net 0)
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint `--max-warnings=0` + theme conformance OK), `npm test` (1377 pass / 0 fail / 1 skipped / 1 todo)
+
+### Kept Deliberately (unchanged)
+
+- Test-only exports (`__set*` setters, `chatRateLimiter`, `findRunOwner`, `consoleNotificationSender`, `getFailedNotifications`, `clearFailedNotifications`, `findNotification`, `writeEvent`, `listDaysWithOfferings`, `skipAssetsLogger`, `AdminLayout`, `pipelineRowHtml`, `tryGetCsrfToken`, `defaultLayoutPolicy`, `previewDeleteBlock`, `deleteExpired*`, `pool` in `test-pool.ts`, types `AgentStreamOutput`/`PgErr`/`KeyboardListItem`/`SendEmailOptions`) — imported by `*.test.*` files; removing would break the suite.
+- `openspec` + `@fission-ai/openspec` devDependencies — CLI tools invoked as the `openspec` binary by `.opencode/commands/opsx-*`; not import-tracked by knip/depcheck.
+
 ## [2026-08-31] Dead-Code Audit (research-first, conservative)
 
 Full-repo dead-code audit with knip, ts-prune, depcheck, oxlint, and tsc. The

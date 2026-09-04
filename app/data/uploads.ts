@@ -9,7 +9,7 @@ function envBytes(name: string, fallback: number): number {
 export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 * 1024 * 1024)
 
 /** Hard cap on total BYTEA storage a single user may claim. */
-export const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
+const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
 
 export interface UploadRow {
   id: number

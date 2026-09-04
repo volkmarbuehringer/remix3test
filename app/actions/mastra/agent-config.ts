@@ -5,7 +5,7 @@ import { OPENCODE_API_URL, getOpenCodeSessionId } from '../../utils/ai-provider.
 
 // ── Shared agent scaffolding ───────────────────────────────────────
 
-export function requireApiKey(): string {
+function requireApiKey(): string {
   let key = process.env.OPENCODE_API_KEY
   if (!key) {
     throw new Error(

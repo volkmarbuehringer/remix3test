@@ -5,7 +5,7 @@
  * frames are `event: <type>\ndata: <json>\n\n`. This reads the stream and calls
  * `onEvent(type, data)` for each dispatched frame, closing when the body ends.
  */
-export function parseSseFrame(frame: string): { event: string; data: unknown } | null {
+function parseSseFrame(frame: string): { event: string; data: unknown } | null {
   let event = 'message'
   let dataLines: string[] = []
 

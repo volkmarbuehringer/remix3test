@@ -24,7 +24,7 @@ const AGENT_ACTION_TO_INTENT: Record<string, string> = {
   'appointment:delete-resource': INTENTS.DELETE_APPOINTMENTS,
 }
 
-export function parseIntentJson(
+function parseIntentJson(
   text: string,
 ): {
   type?: unknown

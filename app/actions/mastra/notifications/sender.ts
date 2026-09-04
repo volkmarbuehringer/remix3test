@@ -13,7 +13,7 @@ export interface NotificationData {
   title?: string
 }
 
-export interface NotificationResult {
+interface NotificationResult {
   sent: boolean
   provider: string
   error?: string

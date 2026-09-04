@@ -33,7 +33,7 @@ export function safeClose(controller: ReadableStreamDefaultController) {
   }
 }
 
-export type SuspensionInfo = {
+type SuspensionInfo = {
   runId?: string
   toolCallId?: string
   toolName?: string

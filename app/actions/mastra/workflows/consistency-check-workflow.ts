@@ -2,14 +2,14 @@ import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 
-export type UserWithPending = {
+type UserWithPending = {
   id: number
   name: string
   email: string
   pendingCount: number
 }
 
-export const checkLockedUsersPendingAppointments = createStep({
+const checkLockedUsersPendingAppointments = createStep({
   id: 'check-locked-users-pending-appts',
   inputSchema: z.object({}),
   outputSchema: z.object({
@@ -42,7 +42,7 @@ export const checkLockedUsersPendingAppointments = createStep({
   },
 })
 
-export const checkActiveUsersPendingAppointments = createStep({
+const checkActiveUsersPendingAppointments = createStep({
   id: 'check-active-users-pending-appts',
   inputSchema: z.object({}),
   outputSchema: z.object({
