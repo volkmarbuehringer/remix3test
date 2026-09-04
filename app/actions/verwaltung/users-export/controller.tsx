@@ -3,6 +3,7 @@ import * as s from 'remix/data-schema'
 import { redirect } from 'remix/response/redirect'
 
 import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { listUserSummariesByDateRange } from '../../../data/users-export.ts'
@@ -38,7 +39,7 @@ const FRAME_DOWNLOAD_PARAM = 'frameDownload'
  * the GET index download and the POST create action (design D3).
  */
 async function downloadUsersExport(
-  context: any,
+  context: Pick<AppContext, 'db' | 'logger' | 'render'>,
   startDate: string,
   endDate: string,
 ): Promise<Response> {

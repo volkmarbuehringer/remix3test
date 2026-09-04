@@ -134,7 +134,7 @@ function appointmentsGridUrl(formData: FormData): string {
 }
 
 async function loadAppointmentPageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: Partial<
     Pick<
       AppointmentPageData,
@@ -260,7 +260,7 @@ async function loadAppointmentPageData(
 }
 
 function renderAppointmentsPage(
-  context: any,
+  context: { render: AppContext['render'] },
   data: AppointmentPageData,
   init?: ResponseInit,
 ): Response {

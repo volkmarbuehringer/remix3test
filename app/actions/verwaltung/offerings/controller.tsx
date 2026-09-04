@@ -99,7 +99,7 @@ interface OfferingPageData {
 }
 
 async function loadOfferingPageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: Partial<
     Pick<
       OfferingPageData,
@@ -197,7 +197,7 @@ async function loadOfferingPageData(
   }
 }
 
-function renderOfferingsPage(context: any, data: OfferingPageData, init?: ResponseInit): Response {
+function renderOfferingsPage(context: { render: AppContext['render'] }, data: OfferingPageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminOfferingsPage

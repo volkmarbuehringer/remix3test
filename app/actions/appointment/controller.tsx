@@ -123,8 +123,8 @@ export const appointment = createController(routes.appointment, {
 
   actions: {
     async index(context) {
-      let auth = context.auth as { identity: User }
-      let currentUser = auth.identity as User
+      let auth = context.auth
+      let currentUser = auth.identity
       let currentUserId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
@@ -192,8 +192,8 @@ export const appointment = createController(routes.appointment, {
     },
 
     async create(context) {
-      let auth = context.auth as { identity: User }
-      let userId = (auth.identity as User).id
+      let auth = context.auth
+      let userId = auth.identity.id
 
       if (process.env.NODE_ENV !== 'test' && !appointmentCreateLimiter.attempt(userId)) {
         return context.json(
@@ -309,8 +309,8 @@ export const appointment = createController(routes.appointment, {
     },
 
     async update(context) {
-      let auth = context.auth as { identity: User }
-      let currentUser = auth.identity as User
+      let auth = context.auth
+      let currentUser = auth.identity
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
@@ -399,8 +399,8 @@ export const appointment = createController(routes.appointment, {
     },
 
     async destroy(context) {
-      let auth = context.auth as { identity: User }
-      let currentUser = auth.identity as User
+      let auth = context.auth
+      let currentUser = auth.identity
       let userId = currentUser.id
       let isAdmin = currentUser.role === 'admin'
 
@@ -454,8 +454,8 @@ export const appointmentTypes = createController(routes.appointment.types, {
 
   actions: {
     async index(context) {
-      let auth = context.auth as { identity: User }
-      let userId = (auth.identity as User).id
+      let auth = context.auth
+      let userId = auth.identity.id
 
       let types = await listAppointTypes(context.db, userId)
       let csrfToken = getCsrfToken(context)
@@ -478,8 +478,8 @@ export const appointmentTypes = createController(routes.appointment.types, {
     },
 
     async create(context) {
-      let auth = context.auth as { identity: User }
-      let userId = (auth.identity as User).id
+      let auth = context.auth
+      let userId = auth.identity.id
 
       let body = context.jsonBody
 
@@ -500,8 +500,8 @@ export const appointmentTypes = createController(routes.appointment.types, {
     },
 
     async update(context) {
-      let auth = context.auth as { identity: User }
-      let userId = (auth.identity as User).id
+      let auth = context.auth
+      let userId = auth.identity.id
       let typeId = parseId(context.params.id)
       if (typeId === undefined) {
         return context.json({ error: 'Invalid type ID.' }, { status: 400 })
@@ -533,8 +533,8 @@ export const appointmentTypes = createController(routes.appointment.types, {
     },
 
     async destroy(context) {
-      let auth = context.auth as { identity: User }
-      let userId = (auth.identity as User).id
+      let auth = context.auth
+      let userId = auth.identity.id
       let typeId = parseId(context.params.id)
       if (typeId === undefined) {
         return context.json({ error: 'Invalid type ID.' }, { status: 400 })

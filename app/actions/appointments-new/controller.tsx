@@ -49,7 +49,7 @@ import {
   deleteAppointmentRecord,
 } from '../../data/appointments.ts'
 
-function redirectToLogin(context: any): Response {
+function redirectToLogin(context: { url: AppContext['url'] }): Response {
   let returnTo = getSafeReturnTo(context.url.searchParams.get('returnTo')) ?? context.url.pathname
   let location = returnTo
     ? `${routes.auth.login.index.href()}?returnTo=${encodeURIComponent(returnTo)}`
@@ -152,7 +152,7 @@ async function loadWeekSlots(
 }
 
 async function loadAppointmentsNewPageData(
-  context: any,
+  context: Pick<AppContext, 'auth' | 'db' | 'session' | 'url'>,
   userId: number,
   overrides?: Partial<
     Pick<
@@ -223,7 +223,7 @@ async function loadAppointmentsNewPageData(
     }
   }
 
-  let isAdmin = !!(context.auth?.ok && (context.auth.identity as { role: string }).role === 'admin')
+  let isAdmin = !!(context.auth?.ok && context.auth.identity.role === 'admin')
   for (let r of rows) {
     let apptStartMs = Number(r.date) + r.start_min * 60000
     let isWithinGracePeriod = r.created_at
@@ -347,7 +347,7 @@ async function loadAppointmentsNewPageData(
 }
 
 function renderAppointmentsNewPage(
-  context: any,
+  context: { render: AppContext['render'] },
   data: AppointmentsNewPageData,
   init?: ResponseInit,
 ): Response {
@@ -389,14 +389,14 @@ export default createController(routes.appointmentsNew, {
 
   actions: {
     async index(context) {
-      let auth = context.auth as { identity: { id: number; role: string } }
+      let auth = context.auth
       let userId = auth.identity.id
       let data = await loadAppointmentsNewPageData(context, userId)
       return renderAppointmentsNewPage(context, data)
     },
 
     async create(context) {
-      let auth = context.auth as { identity: { id: number; role: string } }
+      let auth = context.auth
       let userId = auth.identity.id
       let formData = context.formData
       let formValues = readFormFieldValues(APPOINTMENTS_NEW_FORM_KEYS, formData)
@@ -592,7 +592,7 @@ export default createController(routes.appointmentsNew, {
     },
 
     async destroy(context) {
-      let auth = context.auth as { identity: { id: number; role: string } }
+      let auth = context.auth
       let userId = auth.identity.id
       let id = context.params.id
       let formData = context.formData
@@ -614,7 +614,7 @@ export default createController(routes.appointmentsNew, {
       if (
         !isWithinHours(appointmentStartMs, 24) &&
         !isWithinGracePeriod &&
-        (auth.identity as { role: string }).role !== 'admin'
+        auth.identity.role !== 'admin'
       ) {
         return errorRedirectDestroy(
           formData,

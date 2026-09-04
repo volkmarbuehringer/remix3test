@@ -14,6 +14,7 @@ import {
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
 import { getCurrentUser } from '../../../utils/context.ts'
 
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -54,7 +55,7 @@ function parseFilter(raw: string | null | undefined): string | undefined {
 }
 
 async function renderMessagesPage(
-  context: any,
+  context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
   opts: { offset: number; filter?: string; column: string; direction: 'asc' | 'desc' },
 ): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, MESSAGES_PAGE_LIMIT)

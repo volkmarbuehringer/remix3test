@@ -6,6 +6,7 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { fragmentResponseInit } from '../../../utils/fragment-response.ts'
 import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { ChatLogPage } from '../../../ui/admin-chatlog-page.tsx'
@@ -29,7 +30,7 @@ function parseOffset(raw: string | null | undefined): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
-async function renderChatLogPage(context: any, offset: number): Promise<Response> {
+async function renderChatLogPage(context: Pick<AppContext, 'render' | 'session'>, offset: number): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
 
   try {

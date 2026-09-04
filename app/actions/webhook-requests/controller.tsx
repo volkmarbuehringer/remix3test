@@ -31,7 +31,7 @@ interface PageData {
 }
 
 async function loadPageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'url'>,
   overrides?: Partial<Pick<PageData, 'offset' | 'sortColumn' | 'sortDirection' | 'filter'>>,
 ): Promise<PageData> {
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
@@ -70,7 +70,7 @@ interface IndexRenderOptions {
   viewRow?: WebhookRequestRow | null
 }
 
-async function renderIndexPage(context: any, overrides: IndexRenderOptions = {}) {
+async function renderIndexPage(context: Pick<AppContext, 'db' | 'render' | 'request' | 'url'>, overrides: IndexRenderOptions = {}) {
   let data = await loadPageData(context)
 
   let editingParam = context.url.searchParams.get('editing')

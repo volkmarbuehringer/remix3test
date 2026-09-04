@@ -106,7 +106,7 @@ interface OfferingConfigPageData {
 }
 
 async function loadOfferingConfigPageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: Partial<
     Pick<
       OfferingConfigPageData,
@@ -179,7 +179,7 @@ async function loadOfferingConfigPageData(
 }
 
 function renderOfferingConfigPage(
-  context: any,
+  context: { render: AppContext['render'] },
   data: OfferingConfigPageData,
   init?: ResponseInit,
 ): Response {
@@ -294,7 +294,7 @@ interface CreateValidationFailure {
 type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure
 
 async function validateCreate(
-  db: any,
+  db: AppContext['db'],
   schema: typeof offeringConfigSchema,
   formData: FormData,
 ): Promise<CreateValidationResult> {

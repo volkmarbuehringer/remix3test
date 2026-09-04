@@ -34,7 +34,7 @@ interface Report1PageData {
 }
 
 async function loadReport1PageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: Partial<
     Pick<
       Report1PageData,
@@ -102,7 +102,7 @@ async function loadReport1PageData(
   }
 }
 
-function renderReport1Page(context: any, data: Report1PageData, init?: ResponseInit): Response {
+function renderReport1Page(context: { render: AppContext['render'] }, data: Report1PageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminReport1Page

@@ -89,7 +89,7 @@ export const passwordProvider = createCredentialsAuthProvider({
 export function requireAuth(options?: { redirectTo?: string }) {
   let redirectTo = options?.redirectTo ?? routes.auth.login.index.href()
 
-  return requireAuthenticatedUser({
+  return requireAuthenticatedUser<User>({
     onFailure(context) {
       let isSubFrameRequest =
         context.request.headers.get('X-Remix-Frame') === 'true' &&

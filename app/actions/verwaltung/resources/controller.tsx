@@ -60,7 +60,7 @@ interface ResourcePageData {
 }
 
 async function loadResourcePageData(
-  context: any,
+  context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: Partial<
     Pick<
       ResourcePageData,
@@ -142,7 +142,7 @@ const resourceSaveSchema = f.object({
   _filter: f.field(s.defaulted(s.string(), '')),
 })
 
-function renderResourcePage(context: any, data: ResourcePageData, init?: ResponseInit): Response {
+function renderResourcePage(context: { render: AppContext['render'] }, data: ResourcePageData, init?: ResponseInit): Response {
   return renderVerwaltungPage(
     context.render,
     <AdminResourcesPage
