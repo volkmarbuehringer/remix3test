@@ -1,6 +1,7 @@
-import { rawSql, type Database } from 'remix/data-table'
+import { rawSql, type Database, type TableRow } from 'remix/data-table'
 import { z } from 'zod/v4'
 
+import type { lists } from './schema.ts'
 import { queryRows } from './rows.ts'
 
 const listWireSchema = z.object({
@@ -13,13 +14,46 @@ const listWireSchema = z.object({
   updated_at: z.string(),
 })
 
-export interface AdminListRow {
+export interface ListRow {
   id: number
   title: string
   list: Array<{ id: string; label: string; done?: boolean | undefined }>
   description: string
   created_at: number
   updated_at: number
+}
+
+/** Narrow the JSONB `list` column (typed `unknown` in a raw `TableRow`) into
+ *  the display row's item shape, guarding each element. */
+function toListItems(value: unknown): ListRow['list'] {
+  if (!Array.isArray(value)) return []
+  let items: ListRow['list'] = []
+  for (let raw of value) {
+    if (raw && typeof raw === 'object') {
+      let item = raw as { id?: unknown; label?: unknown; done?: unknown }
+      items.push({
+        id: typeof item.id === 'string' ? item.id : '',
+        label: typeof item.label === 'string' ? item.label : '',
+        ...(typeof item.done === 'boolean' ? { done: item.done } : {}),
+      })
+    }
+  }
+  return items
+}
+
+/** Adapt a raw `lists` table row — whose json/bigint columns surface as
+ *  `unknown` — into the typed display row. This is the single boundary where
+ *  the vendor column types are narrowed, so callers never need
+ *  `as unknown as ListRow`. */
+export function toListRow(row: TableRow<typeof lists>): ListRow {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    list: toListItems(row.list),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
 }
 
 /** Results are ordered by `sortColumn`/`direction`; the column is
@@ -32,7 +66,7 @@ export async function searchLists(
   offset: number,
   sortColumn?: string,
   direction?: 'asc' | 'desc',
-): Promise<AdminListRow[]> {
+): Promise<ListRow[]> {
   let column =
     sortColumn === 'id'
       ? 'id'

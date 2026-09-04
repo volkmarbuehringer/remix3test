@@ -3,12 +3,12 @@ import { redirect } from 'remix/response/redirect'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { minLength } from 'remix/data-schema/checks'
-import type { Database } from 'remix/data-table'
+import type { Database, TableRow } from 'remix/data-table'
 
 import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { lists } from '../../../data/schema.ts'
-import { searchLists } from '../../../data/admin-lists.ts'
+import { searchLists, toListRow, type ListRow } from '../../../data/admin-lists.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
@@ -23,7 +23,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
-import { AdminListsPage, type ListRowData } from '../../../ui/admin-lists-page.tsx'
+import { AdminListsPage } from '../../../ui/admin-lists-page.tsx'
 
 const LISTS_PAGE_LIMIT = 10
 
@@ -90,7 +90,7 @@ async function loadGridData(
     filter?: string | undefined
     pageSize: number
   },
-): Promise<{ rows: ListRowData[]; hasMore: boolean }> {
+): Promise<{ rows: ListRow[]; hasMore: boolean }> {
   let limit = opts.pageSize + 1
   if (opts.filter) {
     let filter = opts.filter.length > 200 ? opts.filter.slice(0, 200) : opts.filter
@@ -99,19 +99,19 @@ async function loadGridData(
     let rows = await searchLists(db, searchPattern, limit, opts.offset, opts.column, opts.direction)
     let hasMore = rows.length > opts.pageSize
     if (hasMore) rows.pop()
-    return { rows: rows as unknown as ListRowData[], hasMore }
+    return { rows, hasMore }
   }
-  let rows = await db.findMany(lists, {
+  let rows = (await db.findMany(lists, {
     limit,
     offset: opts.offset,
     orderBy: [
       [opts.column as ListSortColumn, opts.direction],
       ['id', 'desc'],
     ] as const,
-  })
+  })).map(toListRow)
   let hasMore = rows.length > opts.pageSize
   if (hasMore) rows.pop()
-  return { rows: rows as unknown as ListRowData[], hasMore }
+  return { rows, hasMore }
 }
 
 type ListsRenderContext = {
@@ -123,7 +123,7 @@ async function renderListsError(
   context: ListsRenderContext,
   opts: {
     creating?: boolean
-    editRow?: ListRowData | null
+    editRow?: ListRow | null
     formValues?: Record<string, string>
     fieldErrors?: Record<string, string>
     formError?: string
@@ -141,7 +141,7 @@ async function renderListsError(
     filter: opts.filter,
     pageSize: opts.pageSize,
   }
-  return renderGridFormError<ListRowData>({
+  return renderGridFormError<ListRow>({
     render: context.render,
     activeItem: 'lists',
     loadRows: () =>
@@ -202,10 +202,10 @@ export default createController(routes.admin.lists, {
 
       let editingParam = context.url.searchParams.get('editing')
       let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: ListRowData | null = null
+      let editRow: ListRow | null = null
       if (editingRowId && Number.isFinite(editingRowId)) {
         let found = await context.db.findOne(lists, { where: { id: editingRowId } })
-        if (found) editRow = found as unknown as ListRowData
+        if (found) editRow = toListRow(found)
       }
 
       let creating = context.url.searchParams.get('creating') === 'true'
@@ -301,7 +301,7 @@ export default createController(routes.admin.lists, {
 
       if (!parseResult.success) {
         return renderListsError(context, {
-          editRow: existing as unknown as ListRowData,
+          editRow: toListRow(existing),
           formValues: listFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
@@ -313,7 +313,7 @@ export default createController(routes.admin.lists, {
       }
       let fields = parseResult.value
 
-      let changes: Record<string, unknown> = { title: fields.title.trim() }
+      let changes: Partial<TableRow<typeof lists>> = { title: fields.title.trim() }
       if (fields.description !== undefined) {
         changes.description = fields.description.trim()
       }

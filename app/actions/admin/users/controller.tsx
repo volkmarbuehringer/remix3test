@@ -1,4 +1,4 @@
-import { ilike, isNull, notNull, or, type Database, type WhereInput } from 'remix/data-table'
+import { ilike, isNull, notNull, or, type Database, type TableRow, type WhereInput } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { email, minLength } from 'remix/data-schema/checks'
@@ -475,7 +475,7 @@ export default createController(routes.admin.users, {
         }
       }
 
-      let changes: Record<string, unknown> = {}
+      let changes: Partial<TableRow<typeof users>> = {}
       if (fields.name?.trim()) changes.name = fields.name.trim()
       if (fields.email?.trim()) changes.email = fields.email.trim().toLowerCase()
       if (fields.role === 'admin' || fields.role === 'customer') changes.role = fields.role

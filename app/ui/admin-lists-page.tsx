@@ -13,6 +13,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { table } from './mixins/admin-table.ts'
+import type { ListRow } from '../data/admin-lists.ts'
 import {
   sortArrow,
   buildSortUrl,
@@ -25,17 +26,8 @@ import {
 
 const ADMIN_BASE = routes.admin.lists.index.href()
 
-export interface ListRowData {
-  id: number
-  title: string
-  list: Array<{ id: string; label: string }>
-  description: string
-  created_at: number
-  updated_at: number
-}
-
 interface AdminListsPageProps {
-  lists: ListRowData[]
+  lists: ListRow[]
   offset: number
   hasMore: boolean
   prevOffset: number
@@ -43,7 +35,7 @@ interface AdminListsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
-  editRow?: ListRowData | null
+  editRow?: ListRow | null
   creating?: boolean
   pageSize: number
   formValues?: Record<string, string> | undefined
@@ -591,7 +583,7 @@ function sortRule(
 // Inline Edit Panel
 
 interface EditPanelProps {
-  row: ListRowData
+  row: ListRow
   offset?: string
   sort?: string
   order?: string
