@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
@@ -7,25 +7,36 @@ export interface ForbiddenPageProps {
   message?: string
 }
 
+const DEFAULT_MESSAGE = "You don't have admin access to this section."
+
 /**
  * A reusable 403 Forbidden page component.
  * Uses css() mixins and theme tokens for all styling — no inline styles or className.
+ *
+ * As a Remix component it receives a runtime {@link Handle}; middleware that must
+ * render the node without a component frame should call {@link renderForbiddenPage}.
  */
 export function ForbiddenPage(handle: Handle<ForbiddenPageProps>) {
-  return () => {
-    let message = handle.props.message ?? "You don't have admin access to this section."
-    return (
-      <div mix={pageCss}>
-        <div mix={cardCss}>
-          <h1 mix={titleCss}>403</h1>
-          <p mix={messageCss}>{message}</p>
-          <a href="/" mix={linkCss}>
-            Back to Home
-          </a>
-        </div>
+  return () => renderForbiddenPage(handle.props)
+}
+
+/**
+ * Renders the 403 Forbidden node directly from props. Used by middleware (e.g.
+ * {@link requireAdmin}) that must produce a node outside a component frame.
+ */
+export function renderForbiddenPage(props: ForbiddenPageProps = {}): RemixNode {
+  let message = props.message ?? DEFAULT_MESSAGE
+  return (
+    <div mix={pageCss}>
+      <div mix={cardCss}>
+        <h1 mix={titleCss}>403</h1>
+        <p mix={messageCss}>{message}</p>
+        <a href="/" mix={linkCss}>
+          Back to Home
+        </a>
       </div>
-    )
-  }
+    </div>
+  )
 }
 
 const pageCss = css({

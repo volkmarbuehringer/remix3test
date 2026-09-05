@@ -285,7 +285,7 @@ interface CreateValidationFailure {
   formValues: Record<string, string>
   fieldErrors?: Record<string, string>
   formError?: string
-  issues?: readonly { path: readonly string[]; message: string; code?: string | undefined }[] | undefined
+  issues?: readonly { message: string; path?: readonly unknown[] | undefined; code?: string }[] | undefined
 }
 
 type CreateValidationResult = CreateValidationSuccess | CreateValidationFailure
@@ -302,7 +302,7 @@ async function validateCreate(
       status: 400,
       formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
       fieldErrors: issuesToFieldErrors(result.issues),
-      issues: result.issues as unknown as CreateValidationFailure['issues'],
+      issues: result.issues,
     }
   }
 

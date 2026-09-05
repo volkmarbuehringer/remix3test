@@ -2,12 +2,12 @@ import type { Middleware } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 import { Renderer } from 'remix/middleware/render'
-import type { Handle, RemixNode } from 'remix/ui'
+import type { RemixNode } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
 
 import type { User } from '../data/schema.ts'
 import { getSafeReturnTo } from '../utils/redirect.ts'
-import { ForbiddenPage } from '../ui/forbidden-page.tsx'
+import { renderForbiddenPage } from '../ui/forbidden-page.tsx'
 import { routes } from '../routes.ts'
 
 export interface RequireAdminOptions {
@@ -50,7 +50,7 @@ export function requireAdmin(options?: RequireAdminOptions): Middleware {
       }
 
       let render = context.get(Renderer) as (node: RemixNode, init?: ResponseInit) => Response
-      return render(ForbiddenPage({ id: 'forbidden', props: {} } as unknown as Handle)(), {
+      return render(renderForbiddenPage(), {
         status: 403,
       })
     }
