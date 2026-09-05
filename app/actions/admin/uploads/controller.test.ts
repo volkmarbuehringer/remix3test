@@ -258,4 +258,105 @@ describe('Admin Uploads controller', () => {
     assert.ok(html.includes('test-page-16.txt'), '10th newest should close out page 1')
     assert.ok(!html.includes('test-page-15.txt'), '11th newest should be on page 2')
   })
+
+  it('GET /admin/uploads sorts by the requested column and direction', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 3; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-sort-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    // Default (no sort params): newest-first, so test-sort-3 renders before
+    // test-sort-1.
+    let defPage = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(defPage.status, 200)
+    let defHtml = await defPage.text()
+    assert.ok(
+      defHtml.indexOf('test-sort-3.txt') < defHtml.indexOf('test-sort-1.txt'),
+      'default order should be newest-first',
+    )
+
+    // filename ASC: test-sort-1 must render before test-sort-3.
+    let ascPage = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?sort=filename&order=asc&page=1`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(ascPage.status, 200)
+    let ascHtml = await ascPage.text()
+    assert.ok(
+      ascHtml.indexOf('test-sort-1.txt') < ascHtml.indexOf('test-sort-3.txt'),
+      'filename ascending should put test-sort-1 first',
+    )
+
+    // filename DESC: test-sort-3 must render before test-sort-1.
+    let descPage = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?sort=filename&order=desc&page=1`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(descPage.status, 200)
+    let descHtml = await descPage.text()
+    assert.ok(
+      descHtml.indexOf('test-sort-3.txt') < descHtml.indexOf('test-sort-1.txt'),
+      'filename descending should put test-sort-3 first',
+    )
+  })
+
+  it('GET /admin/uploads filters by the search term', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 3; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-filt-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?filter=test-filt-2&sort=created_at&order=desc&page=1`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('test-filt-2.txt'), 'matching upload should appear')
+    assert.ok(!html.includes('test-filt-1.txt'), 'non-matching upload should be excluded')
+    assert.ok(!html.includes('test-filt-3.txt'), 'non-matching upload should be excluded')
+    assert.ok(html.includes('durchsuchen'), 'filter box should render the durchsuchen input')
+  })
+
+  it('GET /admin/uploads shows a no-match message when the filter finds nothing', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?filter=zzz-no-such-upload`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('Keine Dateien gefunden für diese Suche.'),
+      'filtered empty state should be shown',
+    )
+  })
 })

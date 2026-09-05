@@ -197,6 +197,7 @@ export const { renderPage: renderAdminPage, Layout: AdminLayout } =
     fullHeightTargets: [
       routes.admin.agentEvents.index.href(),
       routes.admin.supportAgent.index.href(),
+      routes.admin.uploads.index.href(),
     ],
     navGroups: NAV_GROUPS,
     navIcon,

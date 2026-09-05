@@ -1,18 +1,21 @@
 import { css } from 'remix/ui'
-import type { Handle, RemixNode } from 'remix/ui'
+import type { Handle, RemixNode, MixValue, ElementProps } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
 interface PageSectionProps {
   children: RemixNode
   description?: string
   title?: string
+  /** Optional extra styles merged with `sectionCss` (e.g. `flex: 1` so a
+   *  viewport-bounded page's content can fill the remaining height). */
+  mix?: MixValue<HTMLElement, ElementProps>
 }
 
 export function PageSection(handle: Handle<PageSectionProps>) {
   return () => {
-    let { children, description, title } = handle.props
+    let { children, description, title, mix } = handle.props
     return (
-      <section mix={sectionCss}>
+      <section mix={[sectionCss, mix].filter(Boolean)}>
         {title || description ? (
           <div mix={sectionHeaderCss}>
             {title ? <h1 mix={sectionTitleCss}>{title}</h1> : null}

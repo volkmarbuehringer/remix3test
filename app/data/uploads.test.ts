@@ -97,6 +97,138 @@ describe('uploads', () => {
     assert.equal(page[0]!.filename, 'test-pg-1.txt')
   })
 
+  it('listUploads sorts by the requested column and direction', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await insertUpload(db, {
+        filename: `test-sort-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(String(i)),
+        size: i,
+        now: Date.now(),
+      })
+    }
+    let asc = await listUploads(db, undefined, {
+      sortColumn: 'filename',
+      sortDirection: 'asc',
+    })
+    assert.deepEqual(
+      asc.map((r) => r.filename),
+      ['test-sort-1.txt', 'test-sort-2.txt', 'test-sort-3.txt'],
+    )
+    let desc = await listUploads(db, undefined, {
+      sortColumn: 'filename',
+      sortDirection: 'desc',
+    })
+    assert.deepEqual(
+      desc.map((r) => r.filename),
+      ['test-sort-3.txt', 'test-sort-2.txt', 'test-sort-1.txt'],
+    )
+  })
+
+  it('listUploads falls back to a safe default sort for unknown columns', async () => {
+    await insertUpload(db, {
+      filename: 'test-safe-1.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: 100,
+    })
+    await insertUpload(db, {
+      filename: 'test-safe-2.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('b'),
+      size: 1,
+      now: 200,
+    })
+    // A hostile/unknown sort column must not be interpolated into the SQL — the
+    // grid falls back to the default (newest-first) ordering instead.
+    let rows = await listUploads(db, undefined, {
+      sortColumn: 'filename; DROP TABLE uploads',
+      sortDirection: 'asc',
+    })
+    let mine = rows.filter((r) => r.filename.startsWith('test-safe-'))
+    assert.equal(mine.length, 2)
+    assert.equal(mine[0]!.filename, 'test-safe-2.txt', 'falls back to newest-first')
+  })
+
+  it('listUploads filters by filename substring (case-insensitive)', async () => {
+    await insertUpload(db, {
+      filename: 'test-alpha-only.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: Date.now(),
+    })
+    await insertUpload(db, {
+      filename: 'test-beta.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('b'),
+      size: 1,
+      now: Date.now(),
+    })
+    let rows = await listUploads(db, undefined, { filter: 'ALPHA' })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0]!.filename, 'test-alpha-only.txt')
+  })
+
+  it('listUploads filters by mime_type substring', async () => {
+    await insertUpload(db, {
+      filename: 'test-mime-only.txt',
+      mimeType: 'application/gzip',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: Date.now(),
+    })
+    let rows = await listUploads(db, undefined, { filter: 'gzip' })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0]!.mime_type, 'application/gzip')
+  })
+
+  it('listUploads filters by numeric id', async () => {
+    let id = await insertUpload(db, {
+      filename: 'test-id-only.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: Date.now(),
+    })
+    let rows = await listUploads(db, undefined, { filter: String(Number(id)) })
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0]!.filename, 'test-id-only.txt')
+  })
+
+  it('getUploadsPage counts only matching rows', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await insertUpload(db, {
+        filename: `test-filtpg-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+    }
+    let page = await getUploadsPage(db, undefined, 1, 20, 'created_at', 'desc', 'filtpg-2')
+    assert.equal(page.total, 1)
+    assert.equal(page.totalPages, 1)
+    assert.equal(page.rows.length, 1)
+    assert.equal(page.rows[0]!.filename, 'test-filtpg-2.txt')
+  })
+
+  it('getUploadsPage paginates a filtered result set', async () => {
+    for (let i = 1; i <= 5; i++) {
+      await insertUpload(db, {
+        filename: `test-filtered-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+    }
+    let page = await getUploadsPage(db, undefined, 1, 2, 'created_at', 'desc', 'filtered')
+    assert.equal(page.total, 5)
+    assert.equal(page.totalPages, 3)
+  })
+
   it('getUploadsPage paginates and clamps out-of-range pages', async () => {
     for (let i = 1; i <= 25; i++) {
       await insertUpload(db, {

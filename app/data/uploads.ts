@@ -1,4 +1,4 @@
-import { sql, type Database } from 'remix/data-table'
+import { sql, rawSql, type SqlStatement, type Database } from 'remix/data-table'
 import { z } from 'zod/v4'
 
 import { queryRows, queryRow, int8Aggregate } from './rows.ts'
@@ -30,6 +30,51 @@ export interface UploadRow {
   created_at: number
 }
 
+/** Columns the uploads grid may be sorted by (whitelist for the ORDER BY clause). */
+export const UPLOAD_SORT_FIELDS = ['id', 'filename', 'mime_type', 'size', 'created_at'] as const
+export type UploadSortField = (typeof UPLOAD_SORT_FIELDS)[number]
+
+/**
+ * Build a safe ORDER BY SqlStatement for the uploads grid. A column that is not
+ * in {@link UPLOAD_SORT_FIELDS} is never interpolated (so a URL-driven value
+ * cannot inject SQL) and falls back to the store's default newest-first order;
+ * the `id` tiebreaker keeps pagination stable when the primary column has ties.
+ */
+function orderByStatement(sortColumn: string, sortDirection: 'asc' | 'desc'): SqlStatement {
+  if (!(UPLOAD_SORT_FIELDS as readonly string[]).includes(sortColumn)) {
+    return rawSql('ORDER BY created_at DESC, id DESC')
+  }
+  let dir = sortDirection === 'asc' ? 'ASC' : 'DESC'
+  return rawSql(`ORDER BY ${sortColumn} ${dir}, id ${dir}`)
+}
+
+/**
+ * Build a safe WHERE SqlStatement for the uploads grid. Combines the optional
+ * per-user ownership restriction with an optional search filter (all values are
+ * parameterized). A numeric filter matches the row id exactly; any other filter
+ * matches filename or mime_type with a case-insensitive substring search.
+ */
+function whereStatement(userId?: number, filter?: string): SqlStatement {
+  let conditions: string[] = []
+  let values: unknown[] = []
+  if (userId !== undefined) {
+    conditions.push('uploaded_by = ?')
+    values.push(userId)
+  }
+  let trimmed = filter?.trim()
+  if (trimmed) {
+    if (/^\d+$/.test(trimmed)) {
+      conditions.push('id = ?')
+      values.push(Number(trimmed))
+    } else {
+      conditions.push('(filename ILIKE ? OR mime_type ILIKE ?)')
+      values.push(`%${trimmed}%`, `%${trimmed}%`)
+    }
+  }
+  if (conditions.length === 0) return rawSql('')
+  return rawSql(`WHERE ${conditions.join(' AND ')}`, values)
+}
+
 const uploadRowSchema = z.object({
   id: z.number(),
   filename: z.string(),
@@ -41,14 +86,20 @@ const uploadRowSchema = z.object({
 export async function listUploads(
   db: Database,
   userId?: number,
-  opts: { limit?: number; offset?: number } = {},
+  opts: {
+    limit?: number
+    offset?: number
+    sortColumn?: string | undefined
+    sortDirection?: 'asc' | 'desc' | undefined
+    filter?: string | undefined
+  } = {},
 ): Promise<UploadRow[]> {
-  let { limit = 100, offset = 0 } = opts
+  let { limit = 100, offset = 0, sortColumn = 'created_at', sortDirection = 'desc', filter } = opts
+  let orderBy = orderByStatement(sortColumn, sortDirection)
+  let where = whereStatement(userId, filter)
   let rows = await queryRows(
     db,
-    userId !== undefined
-      ? sql`SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = ${userId} ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`
-      : sql`SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`,
+    sql`SELECT id, filename, mime_type, size, created_at FROM uploads ${where} ${orderBy} LIMIT ${limit} OFFSET ${offset}`,
     uploadRowSchema,
   )
   return rows.map((row) => ({
@@ -60,13 +111,16 @@ export async function listUploads(
   }))
 }
 
-/** Total number of uploads, optionally limited to one user's claims. */
-export async function countUploads(db: Database, userId?: number): Promise<number> {
+/** Total number of uploads, optionally limited to one user's claims or a search filter. */
+export async function countUploads(
+  db: Database,
+  userId?: number,
+  filter?: string,
+): Promise<number> {
+  let where = whereStatement(userId, filter)
   let row = await queryRow(
     db,
-    userId !== undefined
-      ? sql`SELECT COUNT(*) AS total FROM uploads WHERE uploaded_by = ${userId}`
-      : sql`SELECT COUNT(*) AS total FROM uploads`,
+    sql`SELECT COUNT(*) AS total FROM uploads ${where}`,
     z.object({ total: int8Aggregate }),
   )
   return row?.total ?? 0
@@ -74,22 +128,32 @@ export async function countUploads(db: Database, userId?: number): Promise<numbe
 
 /**
  * Fetch one page of uploads with its total count and page count. `page` is
- * 1-based and `pageSize` is the configured page size (session-aware). Results
- * are ordered newest-first. The page is clamped to the valid range and the
- * effective page is returned so callers can render the controls against the
- * page actually displayed.
+ * 1-based and `pageSize` is the configured page size (session-aware).
+ * `sortColumn`/`sortDirection` control ordering (default newest-first) and
+ * `filter` narrows the result set (and the total used for pagination). The page
+ * is clamped to the valid range and the effective page is returned so callers
+ * can render the controls against the page actually displayed.
  */
 export async function getUploadsPage(
   db: Database,
   userId: number | undefined,
   page: number,
   pageSize: number,
+  sortColumn?: string | undefined,
+  sortDirection?: 'asc' | 'desc' | undefined,
+  filter?: string | undefined,
 ): Promise<{ rows: UploadRow[]; total: number; totalPages: number; page: number }> {
-  let total = await countUploads(db, userId)
+  let total = await countUploads(db, userId, filter)
   let totalPages = Math.max(1, Math.ceil(total / pageSize))
   let safePage = Math.min(Math.max(1, page), totalPages)
   let offset = (safePage - 1) * pageSize
-  let rows = await listUploads(db, userId, { limit: pageSize, offset })
+  let rows = await listUploads(db, userId, {
+    limit: pageSize,
+    offset,
+    sortColumn,
+    sortDirection,
+    filter,
+  })
   return { rows, total, totalPages, page: safePage }
 }
 
