@@ -16,8 +16,11 @@ import {
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
+import { getPageSize } from '../../../utils/get-page-size.ts'
 import { takeUploadedIds, takeUploadError } from '../../../middleware/upload-claim.ts'
 import { table } from '../../../ui/mixins/admin-table.ts'
+
+const UPLOADS_PAGE_SIZE = 20
 
 function parseUploadPage(raw: string | null): number {
   let n = Number(raw)
@@ -40,11 +43,17 @@ export default createController(routes.admin.uploads, {
       let user = getCurrentUser()
       let page = parseUploadPage(context.url.searchParams.get('page'))
       let uploadError = uploadErrorFromParam(context.url.searchParams.get('uploadError'))
+      let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
       let {
         rows,
         totalPages,
         page: effectivePage,
-      } = await getUploadsPage(context.db, user.role === 'admin' ? undefined : user.id, page)
+      } = await getUploadsPage(
+        context.db,
+        user.role === 'admin' ? undefined : user.id,
+        page,
+        pageSize,
+      )
       return renderAdminPage(
         context.render,
         'uploads',
@@ -81,10 +90,12 @@ export default createController(routes.admin.uploads, {
         }
       }
 
+      let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
       let { rows, totalPages, page } = await getUploadsPage(
         context.db,
         user.role === 'admin' ? undefined : user.id,
         1,
+        pageSize,
       )
       return renderAdminPage(
         context.render,

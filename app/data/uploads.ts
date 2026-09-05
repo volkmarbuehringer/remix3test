@@ -14,9 +14,6 @@ export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 
 /** Hard cap on total BYTEA storage a single user may claim. */
 const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
 
-/** Page size for the uploads grid. */
-export const UPLOADS_PAGE_SIZE = 20
-
 /** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
 export const uploadErrorMessages: Record<string, string> = {
   file_too_large: 'Eine Datei überschreitet die maximale Größe von 50 MB.',
@@ -77,15 +74,16 @@ export async function countUploads(db: Database, userId?: number): Promise<numbe
 
 /**
  * Fetch one page of uploads with its total count and page count. `page` is
- * 1-based; results are ordered newest-first. The page is clamped to the valid
- * range and the effective page is returned so callers can render the controls
- * against the page actually displayed.
+ * 1-based and `pageSize` is the configured page size (session-aware). Results
+ * are ordered newest-first. The page is clamped to the valid range and the
+ * effective page is returned so callers can render the controls against the
+ * page actually displayed.
  */
 export async function getUploadsPage(
   db: Database,
   userId: number | undefined,
   page: number,
-  pageSize: number = UPLOADS_PAGE_SIZE,
+  pageSize: number,
 ): Promise<{ rows: UploadRow[]; total: number; totalPages: number; page: number }> {
   let total = await countUploads(db, userId)
   let totalPages = Math.max(1, Math.ceil(total / pageSize))

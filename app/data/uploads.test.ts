@@ -10,7 +10,6 @@ import {
   claimUploads,
   getUploadDownload,
   insertUpload,
-  UPLOADS_PAGE_SIZE,
 } from './uploads.ts'
 
 describe('uploads', () => {
@@ -108,16 +107,16 @@ describe('uploads', () => {
         now: Date.now(),
       })
     }
-    let page1 = await getUploadsPage(db, undefined, 1)
+    let page1 = await getUploadsPage(db, undefined, 1, 20)
     assert.equal(page1.total, 25)
     assert.equal(page1.totalPages, 2)
-    assert.equal(page1.rows.length, UPLOADS_PAGE_SIZE)
+    assert.equal(page1.rows.length, 20)
 
-    let page2 = await getUploadsPage(db, undefined, 2)
+    let page2 = await getUploadsPage(db, undefined, 2, 20)
     assert.equal(page2.page, 2)
     assert.equal(page2.rows.length, 5)
 
-    let clamped = await getUploadsPage(db, undefined, 99)
+    let clamped = await getUploadsPage(db, undefined, 99, 20)
     assert.equal(clamped.page, 2)
     assert.equal(clamped.rows.length, 5)
   })

@@ -1,17 +1,48 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { createSession } from 'remix/session'
 import { MaxFileSizeExceededError } from 'remix/form-data-parser'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../data/test-pool.ts'
 import { insertUpload, claimUploads } from '../../../data/uploads.ts'
 import { uploadLimitErrorCode } from '../../../middleware/uploads.ts'
+import { sessionCookie, sessionStorage } from '../../../middleware/session.ts'
 import { router } from '../../../test-router.ts'
-import { createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
+import { createAuthCookieWithCsrfForUser, generateCsrfToken } from '../../../test-utils.ts'
 import { routes } from '../../../routes.ts'
 
 const BASE = 'https://remix.run'
 const UPLOADS_URL = `${BASE}${routes.admin.uploads.action.href()}`
+
+/**
+ * Build an authenticated session cookie with a custom `pageSize` override so
+ * tests can assert that the uploads grid honors the session-configured page
+ * size.
+ */
+async function authCookieForUserWithPageSize(
+  email: string,
+  pageSize: number,
+): Promise<{ cookie: string; csrfToken: string } | null> {
+  try {
+    let result = await db.exec('SELECT id, token_version FROM users WHERE email = $1', [email])
+    let rows = (result.rows ?? []) as { id: number; token_version: number }[]
+    if (rows.length === 0) return null
+    let user = rows[0]!
+    let csrfToken = generateCsrfToken()
+    let session = createSession<{ auth: { userId: number; tv: number }; pageSize: number }>()
+    session.set('auth', { userId: user.id, tv: user.token_version ?? 1 })
+    session.set('pageSize', pageSize)
+    let sid = await sessionStorage.save(session)
+    if (!sid) return null
+    let setCookieValue = await sessionCookie.serialize(sid)
+    let match = setCookieValue.match(/session=([^;]+)/)
+    if (!match) return null
+    return { cookie: `session=${match[1]}`, csrfToken }
+  } catch {
+    return null
+  }
+}
 
 describe('Admin Uploads controller', () => {
   let userId: number
@@ -194,5 +225,36 @@ describe('Admin Uploads controller', () => {
   it('uploadLimitErrorCode maps parser limit errors to stable codes', async () => {
     assert.equal(uploadLimitErrorCode(new MaxFileSizeExceededError(1)), 'file_too_large')
     assert.equal(uploadLimitErrorCode(new Error('nope')), null)
+  })
+
+  it('GET /admin/uploads honors the session-configured page size', async () => {
+    let session = await authCookieForUserWithPageSize('user@newapp.com', 10)
+    if (!session) throw new Error('Could not create auth session with pageSize')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 25; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-page-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?page=1`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    // 25 uploads at a configured page size of 10 → three pages, and page 1
+    // holds only the newest ten (not the default page size of 20).
+    assert.ok(html.includes('Seite 1 von 3'), 'pageSize 10 should yield 3 pages')
+    assert.ok(html.includes('test-page-25.txt'), 'newest upload should be on page 1')
+    assert.ok(html.includes('test-page-16.txt'), '10th newest should close out page 1')
+    assert.ok(!html.includes('test-page-15.txt'), '11th newest should be on page 2')
   })
 })
