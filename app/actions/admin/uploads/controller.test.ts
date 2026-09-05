@@ -210,7 +210,8 @@ describe('Admin Uploads controller', () => {
     let html1 = await page1.text()
     assert.ok(html1.includes('Seite 1 von 2'), 'page 1 should be the first of two pages')
     assert.ok(html1.includes('test-page-25.txt'), 'newest upload should be on page 1')
-    assert.ok(!html1.includes('test-page-1.txt'), 'oldest upload should be on page 2')
+    assert.ok(html1.includes('test-page-11.txt'), '15th newest should close out page 1')
+    assert.ok(!html1.includes('test-page-10.txt'), '16th newest should be on page 2')
 
     let page2 = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?page=2`, {
       headers: { Cookie: session.cookie },

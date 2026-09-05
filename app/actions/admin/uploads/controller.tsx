@@ -20,7 +20,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 import { takeUploadedIds, takeUploadError } from '../../../middleware/upload-claim.ts'
 import { table } from '../../../ui/mixins/admin-table.ts'
 
-const UPLOADS_PAGE_SIZE = 20
+const UPLOADS_PAGE_SIZE = 15
 
 function parseUploadPage(raw: string | null): number {
   let n = Number(raw)
