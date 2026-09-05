@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { Middleware } from 'remix/router'
 
-type UploadClaimState = { uploadedIds: string[] }
+type UploadClaimState = { uploadedIds: string[]; error?: string | undefined }
 
 const storage = new AsyncLocalStorage<UploadClaimState>()
 
@@ -42,4 +42,30 @@ export function takeUploadedIds(): string[] {
   let ids = state.uploadedIds
   state.uploadedIds = []
   return ids
+}
+
+/**
+ * Record a human-readable rejection reason for this request. Set by the upload
+ * handler when it declines a file (unsupported type, invalid name, too large)
+ * without throwing — so a bad file never becomes an uncaught exception.
+ */
+export function setUploadError(message: string): void {
+  let state = storage.getStore()
+  if (!state) {
+    throw new Error(
+      'uploadClaimScope() must run before formData({ uploadHandler }); see app/middleware/root.ts',
+    )
+  }
+  state.error = message
+}
+
+/**
+ * Drain and return the rejection reason recorded by the upload handler, if any.
+ */
+export function takeUploadError(): string | null {
+  let state = storage.getStore()
+  if (!state) return null
+  let error = state.error ?? null
+  state.error = undefined
+  return error
 }

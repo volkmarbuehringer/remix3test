@@ -1,8 +1,11 @@
 import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
+import { MaxFileSizeExceededError } from 'remix/form-data-parser'
 
 import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../data/test-pool.ts'
+import { insertUpload, claimUploads } from '../../../data/uploads.ts'
+import { uploadLimitErrorCode } from '../../../middleware/uploads.ts'
 import { router } from '../../../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../../../test-utils.ts'
 import { routes } from '../../../routes.ts'
@@ -25,7 +28,7 @@ describe('Admin Uploads controller', () => {
     // Remove upload rows created by this suite so runs stay independent. The
     // upload middleware inserts rows with uploaded_by = NULL; claiming assigns
     // them to the test user.
-    await pool.query("DELETE FROM uploads WHERE filename LIKE 'test-multi-%'")
+    await pool.query("DELETE FROM uploads WHERE filename LIKE 'test-%'")
   })
 
   it('GET /admin/uploads redirects unauthenticated users to login', async () => {
@@ -110,5 +113,86 @@ describe('Admin Uploads controller', () => {
       html.includes('Upload fehlgeschlagen'),
       'should surface the failure banner when no usable file is uploaded',
     )
+  })
+
+  it('POST /admin/uploads with a disallowed file type renders a friendly rejection', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.append(
+      'file',
+      new File([Buffer.from('x')], 'bad.exe', { type: 'application/x-msdownload' }),
+    )
+
+    let response = await router.fetch(UPLOADS_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    // The handler declines the file without throwing, so the request completes
+    // with the banner rather than being killed by an uncaught exception.
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Dateityp nicht erlaubt'), 'should explain why the file was rejected')
+    let result = await pool.query("SELECT COUNT(*) AS c FROM uploads WHERE filename = 'bad.exe'")
+    assert.equal(Number(result.rows[0].c), 0, 'rejected file should not be stored')
+  })
+
+  it('GET /admin/uploads?uploadError=file_too_large renders the size message', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?uploadError=file_too_large`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Eine Datei überschreitet die maximale Größe von 50 MB.'))
+  })
+
+  it('GET /admin/uploads paginates when there are many uploads', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 25; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-page-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let page1 = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?page=1`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(page1.status, 200)
+    let html1 = await page1.text()
+    assert.ok(html1.includes('Seite 1 von 2'), 'page 1 should be the first of two pages')
+    assert.ok(html1.includes('test-page-25.txt'), 'newest upload should be on page 1')
+    assert.ok(!html1.includes('test-page-1.txt'), 'oldest upload should be on page 2')
+
+    let page2 = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?page=2`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(page2.status, 200)
+    let html2 = await page2.text()
+    assert.ok(html2.includes('Seite 2 von 2'), 'page 2 should be the second page')
+    assert.ok(html2.includes('test-page-1.txt'), 'oldest upload should appear on page 2')
+    assert.ok(html2.includes('Zurück'), 'page 2 should offer a back link')
+  })
+
+  it('uploadLimitErrorCode maps parser limit errors to stable codes', async () => {
+    assert.equal(uploadLimitErrorCode(new MaxFileSizeExceededError(1)), 'file_too_large')
+    assert.equal(uploadLimitErrorCode(new Error('nope')), null)
   })
 })

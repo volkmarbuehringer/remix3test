@@ -4,10 +4,13 @@ import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from './test-pool.ts'
 import {
   listUploads,
+  countUploads,
+  getUploadsPage,
   claimUpload,
   claimUploads,
   getUploadDownload,
   insertUpload,
+  UPLOADS_PAGE_SIZE,
 } from './uploads.ts'
 
 describe('uploads', () => {
@@ -64,6 +67,59 @@ describe('uploads', () => {
     let rows = await listUploads(db, 999999)
     assert.ok(Array.isArray(rows))
     assert.equal(rows.length, 0)
+  })
+
+  it('countUploads returns the number of uploads', async () => {
+    await insertUpload(db, {
+      filename: 'test-count.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: Date.now(),
+    })
+    let total = await countUploads(db)
+    assert.ok(total >= 1)
+    assert.ok((await countUploads(db, uploadUserId)) >= 0)
+  })
+
+  it('listUploads applies limit and offset in newest-first order', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await insertUpload(db, {
+        filename: `test-pg-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(String(i)),
+        size: 1,
+        now: Date.now(),
+      })
+    }
+    // Skip the two newest (test-pg-3, test-pg-2), keep one row (test-pg-1).
+    let page = await listUploads(db, undefined, { limit: 2, offset: 2 })
+    assert.equal(page.length, 1)
+    assert.equal(page[0]!.filename, 'test-pg-1.txt')
+  })
+
+  it('getUploadsPage paginates and clamps out-of-range pages', async () => {
+    for (let i = 1; i <= 25; i++) {
+      await insertUpload(db, {
+        filename: `test-page-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+    }
+    let page1 = await getUploadsPage(db, undefined, 1)
+    assert.equal(page1.total, 25)
+    assert.equal(page1.totalPages, 2)
+    assert.equal(page1.rows.length, UPLOADS_PAGE_SIZE)
+
+    let page2 = await getUploadsPage(db, undefined, 2)
+    assert.equal(page2.page, 2)
+    assert.equal(page2.rows.length, 5)
+
+    let clamped = await getUploadsPage(db, undefined, 99)
+    assert.equal(clamped.page, 2)
+    assert.equal(clamped.rows.length, 5)
   })
 
   it('claimUpload claims an unowned upload', async () => {

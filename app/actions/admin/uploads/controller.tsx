@@ -7,7 +7,8 @@ import { parseId } from '../../../utils/ids.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import {
-  listUploads,
+  getUploadsPage,
+  uploadErrorMessages,
   claimUploads,
   getUploadDownload,
   type UploadRow,
@@ -15,20 +16,45 @@ import {
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
-import { takeUploadedIds } from '../../../middleware/upload-claim.ts'
+import { takeUploadedIds, takeUploadError } from '../../../middleware/upload-claim.ts'
+import { table } from '../../../ui/mixins/admin-table.ts'
+
+function parseUploadPage(raw: string | null): number {
+  let n = Number(raw)
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+function uploadErrorFromParam(code: string | null): string | null {
+  if (!code) return null
+  return uploadErrorMessages[code] ?? null
+}
+
+function uploadsPageHref(page: number): string {
+  return `${routes.admin.uploads.index.href()}?page=${page}`
+}
+
 export default createController(routes.admin.uploads, {
   middleware: [requireAuth()],
   actions: {
     async index(context) {
       let user = getCurrentUser()
-      let rows: UploadRow[] =
-        user.role === 'admin'
-          ? await listUploads(context.db)
-          : await listUploads(context.db, user.id)
+      let page = parseUploadPage(context.url.searchParams.get('page'))
+      let uploadError = uploadErrorFromParam(context.url.searchParams.get('uploadError'))
+      let {
+        rows,
+        totalPages,
+        page: effectivePage,
+      } = await getUploadsPage(context.db, user.role === 'admin' ? undefined : user.id, page)
       return renderAdminPage(
         context.render,
         'uploads',
-        <UploadsContent uploads={rows} uploadedIds={[]} uploadError={null} />,
+        <UploadsContent
+          uploads={rows}
+          page={effectivePage}
+          totalPages={totalPages}
+          uploadedIds={[]}
+          uploadError={uploadError}
+        />,
       )
     },
 
@@ -38,7 +64,7 @@ export default createController(routes.admin.uploads, {
         .map(Number)
         .filter((id) => !Number.isNaN(id))
 
-      let uploadError: string | null = null
+      let uploadError = takeUploadError()
       if (uploadedIds.length > 0) {
         let claimed = await claimUploads(context.db, uploadedIds, user.id)
         if (!claimed) {
@@ -49,20 +75,27 @@ export default createController(routes.admin.uploads, {
       } else {
         let attemptedUpload =
           context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
-        if (attemptedUpload) {
+        if (attemptedUpload && uploadError == null) {
           uploadError =
             'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
         }
       }
 
-      let rows: UploadRow[] =
-        user.role === 'admin'
-          ? await listUploads(context.db)
-          : await listUploads(context.db, user.id)
+      let { rows, totalPages, page } = await getUploadsPage(
+        context.db,
+        user.role === 'admin' ? undefined : user.id,
+        1,
+      )
       return renderAdminPage(
         context.render,
         'uploads',
-        <UploadsContent uploads={rows} uploadedIds={uploadedIds} uploadError={uploadError} />,
+        <UploadsContent
+          uploads={rows}
+          page={page}
+          totalPages={totalPages}
+          uploadedIds={uploadedIds}
+          uploadError={uploadError}
+        />,
       )
     },
 
@@ -98,13 +131,15 @@ export default createController(routes.admin.uploads, {
 
 type UploadsContentProps = {
   uploads: UploadRow[]
+  page: number
+  totalPages: number
   uploadedIds: number[]
   uploadError: string | null
 }
 
 function UploadsContent(handle: { props: UploadsContentProps }) {
   return () => {
-    let { uploads, uploadedIds, uploadError } = handle.props
+    let { uploads, page, totalPages, uploadedIds, uploadError } = handle.props
 
     return (
       <PageSection
@@ -138,9 +173,9 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
           </form>
         </div>
 
-        {uploads.length > 0 ? (
-          <div mix={panelCss}>
-            <h2 mix={headingCss}>Hochgeladene Dateien</h2>
+        <div mix={panelCss}>
+          <h2 mix={headingCss}>Hochgeladene Dateien</h2>
+          {uploads.length > 0 ? (
             <table mix={tableCss}>
               <thead>
                 <tr>
@@ -169,8 +204,32 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 ))}
               </tbody>
             </table>
+          ) : (
+            <p mix={bodyTextCss}>Noch keine Dateien hochgeladen.</p>
+          )}
+
+          <div mix={paginationCss}>
+            <span mix={table.paginationInfo}>
+              Seite {page} von {totalPages}
+            </span>
+            <div mix={paginationButtonsCss}>
+              {page > 1 ? (
+                <a href={uploadsPageHref(page - 1)} mix={table.pageLink}>
+                  Zurück
+                </a>
+              ) : (
+                <span mix={table.pageLinkDisabled}>Zurück</span>
+              )}
+              {page < totalPages ? (
+                <a href={uploadsPageHref(page + 1)} mix={table.pageLink}>
+                  Vor
+                </a>
+              ) : (
+                <span mix={table.pageLinkDisabled}>Vor</span>
+              )}
+            </div>
           </div>
-        ) : null}
+        </div>
       </PageSection>
     )
   }
@@ -231,6 +290,12 @@ const headingCss = css({
   color: theme.colors.text.primary,
 })
 
+const bodyTextCss = css({
+  margin: 0,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.muted,
+})
+
 const tableCss = css({
   width: '100%',
   borderCollapse: 'collapse',
@@ -244,4 +309,17 @@ const tableCss = css({
     fontSize: theme.fontSize.sm,
     color: theme.colors.text.muted,
   },
+})
+
+const paginationCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.md,
+  marginTop: theme.space.md,
+})
+
+const paginationButtonsCss = css({
+  display: 'flex',
+  gap: theme.space.sm,
 })

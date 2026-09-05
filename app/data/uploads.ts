@@ -14,6 +14,17 @@ export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 
 /** Hard cap on total BYTEA storage a single user may claim. */
 const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
 
+/** Page size for the uploads grid. */
+export const UPLOADS_PAGE_SIZE = 20
+
+/** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
+export const uploadErrorMessages: Record<string, string> = {
+  file_too_large: 'Eine Datei überschreitet die maximale Größe von 50 MB.',
+  too_many_files: 'Zu viele Dateien in einem Upload (maximal 20).',
+  total_too_large: 'Der Upload überschreitet die maximale Gesamtgröße.',
+  too_many_parts: 'Zu viele Formularfelder in der Anfrage.',
+}
+
 export interface UploadRow {
   id: number
   filename: string
@@ -30,12 +41,17 @@ const uploadRowSchema = z.object({
   created_at: z.string(),
 })
 
-export async function listUploads(db: Database, userId?: number): Promise<UploadRow[]> {
+export async function listUploads(
+  db: Database,
+  userId?: number,
+  opts: { limit?: number; offset?: number } = {},
+): Promise<UploadRow[]> {
+  let { limit = 100, offset = 0 } = opts
   let rows = await queryRows(
     db,
     userId !== undefined
-      ? sql`SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = ${userId} ORDER BY created_at DESC LIMIT 100`
-      : sql`SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC LIMIT 100`,
+      ? sql`SELECT id, filename, mime_type, size, created_at FROM uploads WHERE uploaded_by = ${userId} ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`
+      : sql`SELECT id, filename, mime_type, size, created_at FROM uploads ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`,
     uploadRowSchema,
   )
   return rows.map((row) => ({
@@ -45,6 +61,38 @@ export async function listUploads(db: Database, userId?: number): Promise<Upload
     size: Number(row.size),
     created_at: Number(row.created_at),
   }))
+}
+
+/** Total number of uploads, optionally limited to one user's claims. */
+export async function countUploads(db: Database, userId?: number): Promise<number> {
+  let row = await queryRow(
+    db,
+    userId !== undefined
+      ? sql`SELECT COUNT(*) AS total FROM uploads WHERE uploaded_by = ${userId}`
+      : sql`SELECT COUNT(*) AS total FROM uploads`,
+    z.object({ total: int8Aggregate }),
+  )
+  return row?.total ?? 0
+}
+
+/**
+ * Fetch one page of uploads with its total count and page count. `page` is
+ * 1-based; results are ordered newest-first. The page is clamped to the valid
+ * range and the effective page is returned so callers can render the controls
+ * against the page actually displayed.
+ */
+export async function getUploadsPage(
+  db: Database,
+  userId: number | undefined,
+  page: number,
+  pageSize: number = UPLOADS_PAGE_SIZE,
+): Promise<{ rows: UploadRow[]; total: number; totalPages: number; page: number }> {
+  let total = await countUploads(db, userId)
+  let totalPages = Math.max(1, Math.ceil(total / pageSize))
+  let safePage = Math.min(Math.max(1, page), totalPages)
+  let offset = (safePage - 1) * pageSize
+  let rows = await listUploads(db, userId, { limit: pageSize, offset })
+  return { rows, total, totalPages, page: safePage }
 }
 
 export async function claimUpload(
