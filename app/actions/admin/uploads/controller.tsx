@@ -8,14 +8,14 @@ import { requireAuth } from '../../../middleware/auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import {
   listUploads,
-  claimUpload,
+  claimUploads,
   getUploadDownload,
   type UploadRow,
 } from '../../../data/uploads.ts'
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
-import { takeUploadedId } from '../../../middleware/upload-claim.ts'
+import { takeUploadedIds } from '../../../middleware/upload-claim.ts'
 export default createController(routes.admin.uploads, {
   middleware: [requireAuth()],
   actions: {
@@ -28,42 +28,41 @@ export default createController(routes.admin.uploads, {
       return renderAdminPage(
         context.render,
         'uploads',
-        <UploadsContent uploads={rows} uploadId={null} uploadError={null} />,
+        <UploadsContent uploads={rows} uploadedIds={[]} uploadError={null} />,
       )
     },
 
     async action(context) {
       let user = getCurrentUser()
-      let uploadedId = takeUploadedId()
-      let uploadId = uploadedId != null ? Number(uploadedId) : null
+      let uploadedIds = takeUploadedIds()
+        .map(Number)
+        .filter((id) => !Number.isNaN(id))
 
-      let claimed =
-        uploadId && !Number.isNaN(uploadId)
-          ? await claimUpload(context.db, uploadId, user.id)
-          : null
+      let uploadError: string | null = null
+      if (uploadedIds.length > 0) {
+        let claimed = await claimUploads(context.db, uploadedIds, user.id)
+        if (!claimed) {
+          uploadError =
+            'Upload abgelehnt: Das Speicherkontingent ist erschöpft. Bitte löschen Sie alte Dateien.'
+          uploadedIds = []
+        }
+      } else {
+        let attemptedUpload =
+          context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
+        if (attemptedUpload) {
+          uploadError =
+            'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
+        }
+      }
 
       let rows: UploadRow[] =
         user.role === 'admin'
           ? await listUploads(context.db)
           : await listUploads(context.db, user.id)
-      let attemptedUpload =
-        context.request.headers.get('Content-Type')?.startsWith('multipart/') ?? false
-      let uploadError: string | null = null
-      if (claimed === false) {
-        uploadError =
-          'Upload abgelehnt: Das Speicherkontingent ist erschöpft. Bitte löschen Sie alte Dateien.'
-      } else if (uploadedId == null && attemptedUpload) {
-        uploadError =
-          'Upload fehlgeschlagen. Die Datei könnte zu groß sein oder der Server hatte einen Fehler.'
-      }
       return renderAdminPage(
         context.render,
         'uploads',
-        <UploadsContent
-          uploads={rows}
-          uploadId={claimed ? uploadId : null}
-          uploadError={uploadError}
-        />,
+        <UploadsContent uploads={rows} uploadedIds={uploadedIds} uploadError={uploadError} />,
       )
     },
 
@@ -99,13 +98,13 @@ export default createController(routes.admin.uploads, {
 
 type UploadsContentProps = {
   uploads: UploadRow[]
-  uploadId: number | null
+  uploadedIds: number[]
   uploadError: string | null
 }
 
 function UploadsContent(handle: { props: UploadsContentProps }) {
   return () => {
-    let { uploads, uploadId, uploadError } = handle.props
+    let { uploads, uploadedIds, uploadError } = handle.props
 
     return (
       <PageSection
@@ -113,7 +112,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
         description="Laden Sie Dateien hoch, die in der Datenbank gespeichert werden."
       >
         <div mix={panelCss}>
-          {uploadId ? <p mix={successBanner}>Datei hochgeladen (ID: {uploadId}).</p> : null}
+          {uploadedIds.length > 0 ? (
+            <p mix={successBanner}>
+              {uploadedIds.length === 1
+                ? `Datei hochgeladen (ID: ${uploadedIds[0]}).`
+                : `${uploadedIds.length} Dateien hochgeladen (IDs: ${uploadedIds.join(', ')}).`}
+            </p>
+          ) : null}
           {uploadError ? (
             <p role="alert" mix={errorBanner}>
               {uploadError}
@@ -126,7 +131,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             mix={formCss}
           >
             <CsrfTokenInput />
-            <input type="file" name="file" required mix={fileInputCss} />
+            <input type="file" name="file" multiple required mix={fileInputCss} />
             <button type="submit" mix={submitCss}>
               Hochladen
             </button>

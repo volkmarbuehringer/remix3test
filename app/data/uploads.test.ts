@@ -2,7 +2,13 @@ import { describe, it, before, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 import { db, initializeAppDatabase } from '../db.ts'
 import { pool } from './test-pool.ts'
-import { listUploads, claimUpload, getUploadDownload, insertUpload } from './uploads.ts'
+import {
+  listUploads,
+  claimUpload,
+  claimUploads,
+  getUploadDownload,
+  insertUpload,
+} from './uploads.ts'
 
 describe('uploads', () => {
   let uploadUserId: number
@@ -76,6 +82,69 @@ describe('uploads', () => {
 
   it('claimUpload returns false for a non-existent upload', async () => {
     let claimed = await claimUpload(db, 999999999, uploadUserId)
+    assert.equal(claimed, false)
+  })
+
+  it('claimUploads claims a batch of uploads in one quota check', async () => {
+    let idA = await insertUpload(db, {
+      filename: 'test-batch-a.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('aaa'),
+      size: 3,
+      now: Date.now(),
+    })
+    let idB = await insertUpload(db, {
+      filename: 'test-batch-b.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('bbbb'),
+      size: 4,
+      now: Date.now(),
+    })
+    let claimed = await claimUploads(
+      db,
+      [Number(idA), Number(idB)],
+      uploadUserId,
+      Number.MAX_SAFE_INTEGER,
+    )
+    assert.equal(claimed, true)
+    let rows = await listUploads(db, uploadUserId)
+    assert.ok(rows.some((r) => r.filename === 'test-batch-a.txt'))
+    assert.ok(rows.some((r) => r.filename === 'test-batch-b.txt'))
+  })
+
+  it('claimUploads rejects and deletes the whole batch when quota is exceeded', async () => {
+    let idA = await insertUpload(db, {
+      filename: 'test-batch-q-a.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('aaaa'),
+      size: 4,
+      now: Date.now(),
+    })
+    let idB = await insertUpload(db, {
+      filename: 'test-batch-q-b.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('bbbbbbb'),
+      size: 7,
+      now: Date.now(),
+    })
+    // Each file alone fits within the 10-byte quota, but the batch (11 bytes on
+    // top of nothing) does not — no file may slip through by being claimed last.
+    let claimed = await claimUploads(db, [Number(idA), Number(idB)], uploadUserId, 10)
+    assert.equal(claimed, false)
+    let result = await pool.query(
+      'SELECT id FROM uploads WHERE id = ANY($1) AND uploaded_by IS NULL',
+      [[Number(idA), Number(idB)]],
+    )
+    assert.equal(result.rows.length, 0)
+  })
+
+  it('claimUploads returns false for an empty batch', async () => {
+    let claimed = await claimUploads(db, [], uploadUserId)
+    assert.equal(claimed, false)
+  })
+
+  it('claimUploads returns false when no batch row is claimable', async () => {
+    let claimed = await claimUploads(db, [999999999], uploadUserId)
     assert.equal(claimed, false)
   })
 

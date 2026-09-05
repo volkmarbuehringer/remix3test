@@ -84,6 +84,55 @@ export async function claimUpload(
   return true
 }
 
+/**
+ * Claim a batch of freshly-inserted uploads (from one multi-file request) for a
+ * user in a single quota check. Unlike looping {@link claimUpload} per id, this
+ * measures the batch's total size against the user's remaining quota once, so a
+ * near-quota user cannot slip over by the sum of the other files in the request.
+ *
+ * @returns `true` when every row in the batch was claimed; `false` when the
+ *   batch exceeds the user's quota (all still-unclaimed batch rows are deleted).
+ */
+export async function claimUploads(
+  db: Database,
+  uploadIds: number[],
+  userId: number,
+  quotaBytes: number = uploadsPerUserQuotaBytes,
+): Promise<boolean> {
+  if (uploadIds.length === 0) return false
+
+  let sizeRows = await queryRows(
+    db,
+    sql`SELECT id, size FROM uploads WHERE id = ANY(${uploadIds}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
+    z.object({ id: z.number(), size: z.string() }),
+  )
+  if (sizeRows.length === 0) return false
+
+  let batchBytes = sizeRows.reduce((sum, row) => sum + Number(row.size), 0)
+
+  let totalRow = await queryRow(
+    db,
+    sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId}`,
+    z.object({ total: int8Aggregate }),
+  )
+  let currentBytes = totalRow?.total ?? 0
+
+  if (currentBytes + batchBytes > quotaBytes) {
+    // Reject and remove every still-unclaimed row so a refused batch does not
+    // linger as orphans until retention prunes them.
+    await db.exec('DELETE FROM uploads WHERE id = ANY($1::int[]) AND uploaded_by IS NULL', [
+      uploadIds,
+    ])
+    return false
+  }
+
+  await db.exec(
+    `UPDATE uploads SET uploaded_by = $1 WHERE id = ANY($2::int[]) AND (uploaded_by IS NULL OR uploaded_by = $1)`,
+    [userId, uploadIds],
+  )
+  return true
+}
+
 const uploadDownloadRowSchema = z.object({
   filename: z.string(),
   mime_type: z.string(),
