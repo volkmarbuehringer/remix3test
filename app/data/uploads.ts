@@ -265,6 +265,28 @@ export async function deleteUpload(db: Database, id: number, userId?: number): P
   return (result.affectedRows ?? 0) > 0
 }
 
+/**
+ * Delete several uploads in one operation. Admins may delete any row; a
+ * non-admin caller must pass `userId` so each row is only deleted when it
+ * belongs to them (rows the caller did not claim are left untouched) — mirroring
+ * the ownership split used by {@link deleteUpload} and the uploads grid. Ids are
+ * deduplicated before the delete so the `ANY` array parameter stays unambiguous.
+ *
+ * @returns the number of rows actually deleted.
+ */
+export async function deleteUploads(db: Database, ids: number[], userId?: number): Promise<number> {
+  let uniqueIds = [...new Set(ids)]
+  if (uniqueIds.length === 0) return 0
+  let result =
+    userId !== undefined
+      ? await db.exec('DELETE FROM uploads WHERE id = ANY($1::int[]) AND uploaded_by = $2', [
+          uniqueIds,
+          userId,
+        ])
+      : await db.exec('DELETE FROM uploads WHERE id = ANY($1::int[])', [uniqueIds])
+  return result.affectedRows ?? 0
+}
+
 export async function getUploadDownload(
   db: Database,
   id: number,

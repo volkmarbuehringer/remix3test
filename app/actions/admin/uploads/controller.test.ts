@@ -507,4 +507,212 @@ describe('Admin Uploads controller', () => {
     let html = await response.text()
     assert.ok(html.includes('Datei-Upload'), 'resolver should render the uploads page')
   })
+
+  it('GET /admin/uploads renders the multirow selection controls', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-ui.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes(`name="ids" value="${id}"`),
+      'row should expose a named ids checkbox',
+    )
+    assert.ok(html.includes('data-select-all'), 'header should expose a select-all toggle')
+    assert.ok(html.includes('Ausgewählte löschen'), 'page should render the bulk delete button')
+    assert.ok(html.includes('data-bulk-delete-form'), 'bulk form should carry its marker')
+    assert.ok(
+      html.includes(routes.admin.uploads.destroyMany.href()),
+      'bulk form should target the destroy-many action',
+    )
+  })
+
+  it('POST /admin/uploads/delete-many deletes the selected rows and redirects with a deleted banner', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 2; i++) {
+      let id = Number(
+        await insertUpload(db, {
+          filename: `test-bulk-del-${i}.txt`,
+          mimeType: 'text/plain',
+          buffer: Buffer.from('x'),
+          size: 1,
+          now: Date.now(),
+        }),
+      )
+      ids.push(id)
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    for (let id of ids) formData.append('ids', String(id))
+    formData.set('_page', '2')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+    formData.set('_filter', 'test-bulk-del')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroyMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.startsWith(routes.admin.uploads.index.href()), 'should redirect to uploads')
+    assert.ok(location.includes('page=2'), 'redirect should preserve the grid page')
+    assert.ok(location.includes('filter=test-bulk-del'), 'redirect should preserve the grid filter')
+    assert.ok(location.includes('deleted=2'), 'redirect should carry the deleted count')
+
+    let result = await pool.query('SELECT id FROM uploads WHERE id = ANY($1)', [ids])
+    assert.equal(result.rows.length, 0, 'selected uploads should be deleted')
+  })
+
+  it("POST /admin/uploads/delete-many leaves another user's upload untouched", async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other2@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    let owned = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-own.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [owned], userId, Number.MAX_SAFE_INTEGER)
+
+    let other = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-other.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, other])
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.append('ids', String(owned))
+    formData.append('ids', String(other))
+    formData.set('_page', '1')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroyMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    assert.ok(
+      (response.headers.get('Location') ?? '').startsWith(routes.admin.uploads.index.href()),
+      'bulk delete should still redirect to the uploads list',
+    )
+
+    let ownResult = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = $1', [owned])
+    assert.equal(Number(ownResult.rows[0].c), 0, 'owned upload should be deleted')
+    let otherResult = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = $1', [other])
+    assert.equal(Number(otherResult.rows[0].c), 1, "another user's upload must not be deleted")
+  })
+
+  it('POST /admin/uploads/delete-many with no valid ids is a no-op that still redirects', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-nop.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_page', '1')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroyMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.startsWith(routes.admin.uploads.index.href()), 'should redirect to uploads')
+    assert.ok(!location.includes('deleted='), 'no deleted count when nothing was deleted')
+
+    let result = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = $1', [id])
+    assert.equal(Number(result.rows[0].c), 1, 'nothing should be deleted')
+  })
+
+  it('GET /admin/uploads/delete-many (destroyManyResolve) renders the uploads page', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.destroyManyResolve.href()}`,
+      {
+        headers: { Cookie: session.cookie },
+      },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Datei-Upload'), 'resolver should render the uploads page')
+  })
+
+  it('GET /admin/uploads?deleted=3 renders the deleted banner', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?deleted=3`,
+      {
+        headers: { Cookie: session.cookie },
+      },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('3 Dateien gelöscht.'), 'should render the deleted banner')
+  })
 })

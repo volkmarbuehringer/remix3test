@@ -10,6 +10,7 @@ import {
   claimUploads,
   getUploadDownload,
   insertUpload,
+  deleteUploads,
 } from './uploads.ts'
 
 describe('uploads', () => {
@@ -380,5 +381,80 @@ describe('uploads', () => {
     await claimUpload(db, Number(id), uploadUserId)
     let file = await getUploadDownload(db, Number(id), -1)
     assert.equal(file, undefined)
+  })
+
+  it('deleteUploads deletes several rows for an admin (no userId)', async () => {
+    let ids: number[] = []
+    for (let i = 1; i <= 3; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-delmany-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(String(i)),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let deleted = await deleteUploads(db, ids)
+    assert.equal(deleted, 3)
+    let result = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = ANY($1)', [ids])
+    assert.equal(Number(result.rows[0].c), 0)
+  })
+
+  it('deleteUploads deletes only rows owned by a non-admin caller', async () => {
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other-data@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    let owned = Number(
+      await insertUpload(db, {
+        filename: 'test-delmany-owned.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('o'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUpload(db, owned, uploadUserId)
+
+    let other = Number(
+      await insertUpload(db, {
+        filename: 'test-delmany-other.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, other])
+
+    let deleted = await deleteUploads(db, [owned, other], uploadUserId)
+    assert.equal(deleted, 1, 'only the owned row should be deleted')
+
+    let remaining = await pool.query('SELECT id FROM uploads WHERE id = ANY($1)', [[owned, other]])
+    assert.equal(Number(remaining.rows[0].id), other, "another user's row must remain")
+  })
+
+  it('deleteUploads deduplicates ids and returns 0 for an empty array', async () => {
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-delmany-nodup.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('d'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+
+    // Duplicate ids in one call must delete the row only once and count it once.
+    let deleted = await deleteUploads(db, [id, id])
+    assert.equal(deleted, 1)
+
+    let empty = await deleteUploads(db, [])
+    assert.equal(empty, 0)
   })
 })

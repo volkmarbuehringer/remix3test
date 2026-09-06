@@ -143,6 +143,12 @@ export const routes = route({
       // GET of the action path resolves instead of falling to a 404 on the
       // POST-only delete route (see admin chatlog/messages destroyResolve).
       destroyResolve: get('/:id/delete'),
+      // Multirow delete: the grid submits a single fixed POST path (not per-id)
+      // for all selected rows, so it needs its own GET resolver for the same
+      // frame-reload reason. `/delete-many` (one segment) cannot collide with
+      // `/:id/delete` (two segments).
+      destroyMany: post('/delete-many'),
+      destroyManyResolve: get('/delete-many'),
     }),
 
     fragments: route('fragments', {

@@ -13,6 +13,7 @@ import {
   claimUploads,
   getUploadDownload,
   deleteUpload,
+  deleteUploads,
   UPLOAD_SORT_FIELDS,
   type UploadRow,
 } from '../../../data/uploads.ts'
@@ -29,6 +30,7 @@ import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
+import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
@@ -48,13 +50,15 @@ function uploadsPageHref(
   sortColumn: string,
   sortDirection: 'asc' | 'desc',
   filter: string | undefined,
+  deleted?: number | undefined,
 ): string {
   let params = new URLSearchParams()
   params.set('page', String(page))
   params.set('sort', sortColumn)
   params.set('order', sortDirection)
   if (filter) params.set('filter', filter)
-  return `${routes.admin.uploads.index.href()}?${params.toString()}`
+  let base = `${routes.admin.uploads.index.href()}?${params.toString()}`
+  return deleted !== undefined ? `${base}&deleted=${deleted}` : base
 }
 
 /** Sort-toggle link: flipping the sort resets to page 1 for a stable grid. */
@@ -80,6 +84,7 @@ type UploadsGridOpts = {
   filter?: string | undefined
   uploadedIds?: number[] | undefined
   uploadError?: string | null | undefined
+  deletedCount?: number | undefined
 }
 
 /**
@@ -97,6 +102,10 @@ async function renderUploadsPage(
     opts.uploadError !== undefined
       ? opts.uploadError
       : uploadErrorFromParam(context.url.searchParams.get('uploadError'))
+  let deletedCount =
+    opts.deletedCount !== undefined
+      ? opts.deletedCount
+      : Number(context.url.searchParams.get('deleted')) || 0
   let filter =
     opts.filter !== undefined ? opts.filter : context.url.searchParams.get('filter') || undefined
   let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
@@ -129,6 +138,7 @@ async function renderUploadsPage(
       totalPages={totalPages}
       uploadedIds={opts.uploadedIds ?? []}
       uploadError={uploadError}
+      deletedCount={deletedCount}
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       filter={filter}
@@ -236,6 +246,41 @@ export default createController(routes.admin.uploads, {
 
       return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter))
     },
+
+    async destroyMany(context) {
+      let user = getCurrentUser()
+
+      // Checkboxes named `ids` submit only the checked rows; map to numbers and
+      // drop any non-numeric (or empty) values. Ownership is enforced inside
+      // deleteUploads, so a non-admin cannot delete another user's rows even if
+      // their ids are submitted.
+      let ids = context.formData
+        .getAll('ids')
+        .map((value) => Number(value))
+        .filter((id) => !Number.isNaN(id))
+      let deleted = await deleteUploads(
+        context.db,
+        ids,
+        user.role === 'admin' ? undefined : user.id,
+      )
+
+      let form = context.formData
+      let page = parseUploadPage(form.get('_page') as string | null)
+      let sortColumn = (form.get('_sort') as string | null) ?? 'created_at'
+      let sortDirection: 'asc' | 'desc' =
+        (form.get('_order') as string | null) === 'asc' ? 'asc' : 'desc'
+      let filter = (form.get('_filter') as string | null) || undefined
+
+      // Only carry the count (and thus the banner) when rows were actually
+      // removed; omitting it for a no-op keeps the redirect URL clean.
+      return redirect(
+        uploadsPageHref(page, sortColumn, sortDirection, filter, deleted > 0 ? deleted : undefined),
+      )
+    },
+
+    async destroyManyResolve(context) {
+      return renderUploadsPage(context)
+    },
   },
 })
 
@@ -245,6 +290,7 @@ type UploadsContentProps = {
   totalPages: number
   uploadedIds: number[]
   uploadError: string | null
+  deletedCount: number
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
@@ -252,8 +298,17 @@ type UploadsContentProps = {
 
 function UploadsContent(handle: { props: UploadsContentProps }) {
   return () => {
-    let { uploads, page, totalPages, uploadedIds, uploadError, sortColumn, sortDirection, filter } =
-      handle.props
+    let {
+      uploads,
+      page,
+      totalPages,
+      uploadedIds,
+      uploadError,
+      deletedCount,
+      sortColumn,
+      sortDirection,
+      filter,
+    } = handle.props
 
     return (
       <PageSection
@@ -267,6 +322,11 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               {uploadedIds.length === 1
                 ? `Datei hochgeladen (ID: ${uploadedIds[0]}).`
                 : `${uploadedIds.length} Dateien hochgeladen (IDs: ${uploadedIds.join(', ')}).`}
+            </p>
+          ) : null}
+          {deletedCount > 0 ? (
+            <p mix={successBanner} data-deleted-banner>
+              {deletedCount === 1 ? '1 Datei gelöscht.' : `${deletedCount} Dateien gelöscht.`}
             </p>
           ) : null}
           {uploadError ? (
@@ -320,11 +380,44 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
 
         <div mix={[panelCss, tablePanelCss]}>
           <ConfirmDelete />
+          <UploadBulkDelete />
           {uploads.length > 0 ? (
-            <div mix={tableScrollCss}>
-              <table mix={tableCss} data-uploads-table="true">
+            <>
+              <form
+                id="bulk-delete-form"
+                method="POST"
+                action={routes.admin.uploads.destroyMany.href()}
+                data-rmx-target={getSelfFrameTarget()}
+                data-bulk-delete-form
+                mix={bulkFormCss}
+              >
+                <CsrfTokenInput />
+                <UploadsGridStateHiddenInputs
+                  page={page}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  filter={filter}
+                />
+                <div mix={bulkToolbarCss}>
+                  <span mix={selectedCountCss} data-selected-count>
+                    0 ausgewählt
+                  </span>
+                  <button type="submit" disabled mix={bulkDeleteBtnCss}>
+                    <Glyph name="trash" width={14} height={14} /> Ausgewählte löschen
+                  </button>
+                </div>
+              </form>
+              <div mix={tableScrollCss}>
+                <table mix={tableCss} data-uploads-table="true">
                 <thead>
                   <tr>
+                    <th mix={thCheckboxCss}>
+                      <input
+                        type="checkbox"
+                        data-select-all
+                        aria-label="Alle Dateien auf dieser Seite auswählen"
+                      />
+                    </th>
                     <th aria-sort={sortRule('id', sortColumn, sortDirection)}>
                       <a
                         href={uploadsSortHref('id', sortColumn, sortDirection, filter)}
@@ -391,6 +484,15 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                 <tbody>
                   {uploads.map((u) => (
                     <tr key={u.id} data-row-id={u.id} data-upload-filename={u.filename}>
+                      <td mix={tdCheckboxCss}>
+                        <input
+                          type="checkbox"
+                          form="bulk-delete-form"
+                          name="ids"
+                          value={u.id}
+                          aria-label={`Datei ${u.filename} auswählen`}
+                        />
+                      </td>
                       <td>{u.id}</td>
                       <td>{u.filename}</td>
                       <td>{u.mime_type}</td>
@@ -438,7 +540,8 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           ) : (
             <p mix={bodyTextCss}>
               {filter
@@ -669,6 +772,55 @@ const paginationButtonsCss = css({
 const thActionsCss = css({
   textAlign: 'right',
   width: '170px',
+})
+
+const thCheckboxCss = css({
+  width: '36px',
+  textAlign: 'center',
+})
+
+const tdCheckboxCss = css({
+  width: '36px',
+  textAlign: 'center',
+})
+
+// The bulk form is a sibling of the scrollable table (so the per-row delete
+// forms inside the table are not nested inside another <form>, which is invalid
+// HTML). Row checkboxes associate to it via the HTML `form` attribute. As a flex
+// column child of the table panel, it should not grow.
+const bulkFormCss = css({
+  flex: 'none',
+})
+
+const bulkToolbarCss = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.md,
+  flexShrink: 0,
+})
+
+const selectedCountCss = css({
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.muted,
+})
+
+const bulkDeleteBtnCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  padding: '0.4rem 0.9rem',
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.action.danger.foreground,
+  background: theme.colors.action.danger.background,
+  border: 'none',
+  borderRadius: theme.radius.md,
+  cursor: 'pointer',
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
 })
 
 const tdActionsCss = css({
