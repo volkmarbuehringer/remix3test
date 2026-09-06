@@ -15,6 +15,7 @@ export const glyphNames = [
   'close',
   'cog',
   'copy',
+  'download',
   'edit',
   'expand',
   'eye',

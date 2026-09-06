@@ -1,6 +1,7 @@
 import { createController } from 'remix/router'
-import { css } from 'remix/ui'
+import { css, type Handle } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
+import { redirect } from 'remix/response/redirect'
 import { theme } from '../../../ui/theme/theme.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
@@ -11,6 +12,7 @@ import {
   uploadErrorMessages,
   claimUploads,
   getUploadDownload,
+  deleteUpload,
   UPLOAD_SORT_FIELDS,
   type UploadRow,
 } from '../../../data/uploads.ts'
@@ -24,6 +26,10 @@ import { sortArrow } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
+import { RestfulForm } from '../../../ui/restful-form.tsx'
+import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
+import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
+import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
 
@@ -67,47 +73,82 @@ function uploadsSortHref(
   return `${routes.admin.uploads.index.href()}?${params.toString()}`
 }
 
+type UploadsGridOpts = {
+  page?: number | undefined
+  sortColumn?: string | undefined
+  sortDirection?: 'asc' | 'desc' | undefined
+  filter?: string | undefined
+  uploadedIds?: number[] | undefined
+  uploadError?: string | null | undefined
+}
+
+/**
+ * Shared renderer for the uploads grid. Reads the grid state (page, sort,
+ * order, filter) from the request URL by default; callers may override it via
+ * `opts` — used by the frame's destroyResolve and the post-upload action.
+ */
+async function renderUploadsPage(
+  context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
+  opts: UploadsGridOpts = {},
+): Promise<Response> {
+  let user = getCurrentUser()
+  let page = opts.page ?? parseUploadPage(context.url.searchParams.get('page'))
+  let uploadError =
+    opts.uploadError !== undefined
+      ? opts.uploadError
+      : uploadErrorFromParam(context.url.searchParams.get('uploadError'))
+  let filter =
+    opts.filter !== undefined ? opts.filter : context.url.searchParams.get('filter') || undefined
+  let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
+  let { column, direction } = parseSort(context.url, {
+    allowedColumns: UPLOAD_SORT_FIELDS,
+    defaultColumn: 'created_at',
+    defaultDirection: 'desc',
+  })
+  let sortColumn = opts.sortColumn ?? column
+  let sortDirection = opts.sortDirection ?? direction
+  let {
+    rows,
+    totalPages,
+    page: effectivePage,
+  } = await getUploadsPage(
+    context.db,
+    user.role === 'admin' ? undefined : user.id,
+    page,
+    pageSize,
+    sortColumn,
+    sortDirection,
+    filter,
+  )
+  return renderAdminPage(
+    context.render,
+    'uploads',
+    <UploadsContent
+      uploads={rows}
+      page={effectivePage}
+      totalPages={totalPages}
+      uploadedIds={opts.uploadedIds ?? []}
+      uploadError={uploadError}
+      sortColumn={sortColumn}
+      sortDirection={sortDirection}
+      filter={filter}
+    />,
+  )
+}
+
 export default createController(routes.admin.uploads, {
   middleware: [requireAuth()],
   actions: {
     async index(context) {
-      let user = getCurrentUser()
-      let page = parseUploadPage(context.url.searchParams.get('page'))
-      let uploadError = uploadErrorFromParam(context.url.searchParams.get('uploadError'))
-      let filter = context.url.searchParams.get('filter') || undefined
-      let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: UPLOAD_SORT_FIELDS,
-        defaultColumn: 'created_at',
-        defaultDirection: 'desc',
-      })
-      let {
-        rows,
-        totalPages,
-        page: effectivePage,
-      } = await getUploadsPage(
-        context.db,
-        user.role === 'admin' ? undefined : user.id,
-        page,
-        pageSize,
-        column,
-        direction,
-        filter,
-      )
-      return renderAdminPage(
-        context.render,
-        'uploads',
-        <UploadsContent
-          uploads={rows}
-          page={effectivePage}
-          totalPages={totalPages}
-          uploadedIds={[]}
-          uploadError={uploadError}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-        />,
-      )
+      return renderUploadsPage(context)
+    },
+
+    // The frame commits the POST delete form action path (form action == frame
+    // src) as its address after submission, and the live ConnectionIndicator
+    // reloads it on invalidate. Render the list so that a GET of the action
+    // path resolves instead of falling to a 404 on the POST-only delete route.
+    async destroyResolve(context) {
+      return renderUploadsPage(context)
     },
 
     async action(context) {
@@ -133,29 +174,14 @@ export default createController(routes.admin.uploads, {
         }
       }
 
-      let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
-      let { rows, totalPages, page } = await getUploadsPage(
-        context.db,
-        user.role === 'admin' ? undefined : user.id,
-        1,
-        pageSize,
-        'created_at',
-        'desc',
-      )
-      return renderAdminPage(
-        context.render,
-        'uploads',
-        <UploadsContent
-          uploads={rows}
-          page={page}
-          totalPages={totalPages}
-          uploadedIds={uploadedIds}
-          uploadError={uploadError}
-          sortColumn="created_at"
-          sortDirection="desc"
-          filter={undefined}
-        />,
-      )
+      return renderUploadsPage(context, {
+        page: 1,
+        sortColumn: 'created_at',
+        sortDirection: 'desc',
+        filter: undefined,
+        uploadedIds,
+        uploadError,
+      })
     },
 
     async download(context) {
@@ -184,6 +210,31 @@ export default createController(routes.admin.uploads, {
         filename: cleanFilename,
       }
       return new Response(data, { status: 200, headers: downloadHeaders })
+    },
+
+    async destroy(context) {
+      let user = getCurrentUser()
+      let id = parseId(context.params.id)
+      if (id === undefined) {
+        return new Response('Invalid ID', { status: 400 })
+      }
+
+      // Admins may delete any row; a non-admin caller is restricted to rows they
+      // claimed (uploaded_by = user.id). Failing to find a matching row is
+      // treated as a no-op — we still reload the grid.
+      await deleteUpload(context.db, id, user.role === 'admin' ? undefined : user.id)
+
+      // Preserve the current grid state (page, sort, order, filter) so the
+      // post-delete redirect lands back on the same view. The page is clamped
+      // back to a valid range by getUploadsPage on the next render.
+      let form = context.formData
+      let page = parseUploadPage(form.get('_page') as string | null)
+      let sortColumn = (form.get('_sort') as string | null) ?? 'created_at'
+      let sortDirection: 'asc' | 'desc' =
+        (form.get('_order') as string | null) === 'asc' ? 'asc' : 'desc'
+      let filter = (form.get('_filter') as string | null) || undefined
+
+      return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter))
     },
   },
 })
@@ -268,9 +319,10 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
         </div>
 
         <div mix={[panelCss, tablePanelCss]}>
+          <ConfirmDelete />
           {uploads.length > 0 ? (
             <div mix={tableScrollCss}>
-              <table mix={tableCss}>
+              <table mix={tableCss} data-uploads-table="true">
                 <thead>
                   <tr>
                     <th aria-sort={sortRule('id', sortColumn, sortDirection)}>
@@ -333,21 +385,54 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </a>
                     </th>
-                    <th></th>
+                    <th mix={thActionsCss}>Aktionen</th>
                   </tr>
                 </thead>
                 <tbody>
                   {uploads.map((u) => (
-                    <tr key={u.id}>
+                    <tr key={u.id} data-row-id={u.id} data-upload-filename={u.filename}>
                       <td>{u.id}</td>
                       <td>{u.filename}</td>
                       <td>{u.mime_type}</td>
                       <td>{formatSize(u.size)}</td>
                       <td>{new Date(u.created_at).toLocaleDateString()}</td>
-                      <td>
-                        <a href={routes.admin.uploads.download.href({ id: u.id })} download>
-                          Download
-                        </a>
+                      <td mix={tdActionsCss}>
+                        <div mix={rowActionsCss}>
+                          <a
+                            href={routes.admin.uploads.download.href({ id: u.id })}
+                            download
+                            data-download-link
+                            data-rmx-target={getSelfFrameTarget()}
+                            mix={iconActionCss}
+                            aria-label="Datei herunterladen"
+                            title="Datei herunterladen"
+                          >
+                            <Glyph name="download" width={14} height={14} />
+                          </a>
+                          <RestfulForm
+                            method="POST"
+                            action={routes.admin.uploads.destroy.href({ id: u.id })}
+                            data-delete-form={u.id}
+                            data-confirm={`Datei "${u.filename}" wirklich löschen?`}
+                            data-rmx-target={getSelfFrameTarget()}
+                            mix={css({ margin: 0, padding: 0 })}
+                          >
+                            <UploadsGridStateHiddenInputs
+                              page={page}
+                              sortColumn={sortColumn}
+                              sortDirection={sortDirection}
+                              filter={filter}
+                            />
+                            <button
+                              type="submit"
+                              mix={[iconActionCss, iconActionDangerCss]}
+                              aria-label="Datei löschen"
+                              title="Datei löschen"
+                            >
+                              <Glyph name="trash" width={14} height={14} />
+                            </button>
+                          </RestfulForm>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -392,7 +477,34 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             </div>
           </div>
         </div>
+
+        <AdminUploadsContextMenu />
       </PageSection>
+    )
+  }
+}
+
+type UploadsGridStateHiddenInputsProps = {
+  page: number
+  sortColumn: string
+  sortDirection: 'asc' | 'desc'
+  filter: string | undefined
+}
+
+/** Carries the uploads grid state through a delete submit so the post-delete
+ * redirect lands back on the same page/sort/order/filter view. Unlike the
+ * shared {@link GridStateHiddenInputs} (offset-based), uploads paginates by
+ * page number, so it emits `_page` instead of `_offset`. */
+function UploadsGridStateHiddenInputs(handle: Handle<UploadsGridStateHiddenInputsProps>) {
+  return () => {
+    let { page, sortColumn, sortDirection, filter } = handle.props
+    return (
+      <>
+        <input type="hidden" name="_page" value={page} />
+        <input type="hidden" name="_sort" value={sortColumn} />
+        <input type="hidden" name="_order" value={sortDirection} />
+        <input type="hidden" name="_filter" value={filter ?? ''} />
+      </>
     )
   }
 }
@@ -552,4 +664,47 @@ const paginationCss = css({
 const paginationButtonsCss = css({
   display: 'flex',
   gap: theme.space.sm,
+})
+
+const thActionsCss = css({
+  textAlign: 'right',
+  width: '170px',
+})
+
+const tdActionsCss = css({
+  textAlign: 'right',
+  whiteSpace: 'nowrap',
+})
+
+const rowActionsCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: theme.space.xs,
+})
+
+const iconActionCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '28px',
+  height: '28px',
+  minWidth: '28px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border}`,
+  borderRadius: theme.radius.md,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  textDecoration: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+})
+
+const iconActionDangerCss = css({
+  color: theme.colors.action.danger.background,
+  borderColor: 'transparent',
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
 })

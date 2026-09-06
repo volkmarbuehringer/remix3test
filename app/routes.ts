@@ -136,6 +136,13 @@ export const routes = route({
       index: get('/'),
       action: post('/'),
       download: get('/:id/download'),
+      destroy: post('/:id/delete'),
+      // The frame commits the POST delete form action path (form action ==
+      // frame src) as its address after submission, and the live
+      // ConnectionIndicator reloads it on invalidate. Render the list so that a
+      // GET of the action path resolves instead of falling to a 404 on the
+      // POST-only delete route (see admin chatlog/messages destroyResolve).
+      destroyResolve: get('/:id/delete'),
     }),
 
     fragments: route('fragments', {

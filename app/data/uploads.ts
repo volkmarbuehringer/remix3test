@@ -249,6 +249,22 @@ const uploadDownloadRowSchema = z.object({
   data: z.custom<Buffer>(),
 })
 
+/**
+ * Delete a single upload. Admins may delete any row; a non-admin caller must
+ * pass `userId` so the row is only deleted when it belongs to them (an upload
+ * the caller did not claim is left untouched). Mirrors the ownership split used
+ * by {@link getUploadDownload} and the uploads grid.
+ *
+ * @returns `true` when a row was actually deleted.
+ */
+export async function deleteUpload(db: Database, id: number, userId?: number): Promise<boolean> {
+  let result =
+    userId !== undefined
+      ? await db.exec('DELETE FROM uploads WHERE id = $1 AND uploaded_by = $2', [id, userId])
+      : await db.exec('DELETE FROM uploads WHERE id = $1', [id])
+  return (result.affectedRows ?? 0) > 0
+}
+
 export async function getUploadDownload(
   db: Database,
   id: number,

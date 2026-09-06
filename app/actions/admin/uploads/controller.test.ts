@@ -359,4 +359,152 @@ describe('Admin Uploads controller', () => {
       'filtered empty state should be shown',
     )
   })
+
+  it('GET /admin/uploads renders a delete button and context-menu trigger per row', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-del-button.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes(`data-delete-form="${id}"`), 'row should have a delete form')
+    assert.ok(html.includes('data-download-link'), 'row should have a download icon button')
+    assert.ok(html.includes('Aktionen'), 'actions column should be labelled')
+    assert.ok(html.includes('data-uploads-table'), 'context menu should target the uploads table')
+    assert.ok(html.includes('data-row-id'), 'rows should expose a row-id for the context menu')
+  })
+
+  it('POST /admin/uploads/:id/delete deletes the upload the user claimed and redirects', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-del-owner.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_page', '2')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+    formData.set('_filter', 'test-del-owner')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroy.href({ id })}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(
+      location?.startsWith(routes.admin.uploads.index.href()),
+      'should redirect back to the uploads list',
+    )
+    assert.ok(location?.includes('page=2'), 'redirect should preserve the grid page')
+    assert.ok(
+      location?.includes('filter=test-del-owner'),
+      'redirect should preserve the grid filter',
+    )
+
+    let result = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = $1', [id])
+    assert.equal(Number(result.rows[0].c), 0, 'upload should be deleted')
+  })
+
+  it("POST /admin/uploads/:id/delete leaves another user's upload untouched", async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    // A second non-admin user whose upload the authenticated user must not be
+    // able to delete (ownership scoping on the destroy write path).
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-del-other.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, id])
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_page', '1')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroy.href({ id })}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 302)
+    assert.ok(
+      (response.headers.get('Location') ?? '').startsWith(routes.admin.uploads.index.href()),
+      'delete should still redirect to the uploads list',
+    )
+
+    let result = await pool.query('SELECT COUNT(*) AS c FROM uploads WHERE id = $1', [id])
+    assert.equal(Number(result.rows[0].c), 1, "another user's upload must not be deleted")
+  })
+
+  it('GET /admin/uploads/:id/delete (destroyResolve) renders the uploads list', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-del-resolve.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let claimed = await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test upload')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.destroyResolve.href({ id })}`,
+      {
+        headers: { Cookie: session.cookie },
+      },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Datei-Upload'), 'resolver should render the uploads page')
+  })
 })

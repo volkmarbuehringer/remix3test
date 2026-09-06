@@ -129,6 +129,32 @@ export const glyphValues: GlyphValues = {
       strokeWidth: '1.5',
     }),
   ),
+  download: symbol(
+    createElement('path', {
+      d: 'M8 3v6.25',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      strokeWidth: '1.5',
+    }),
+    createElement('path', {
+      d: 'm4.5 6.5 3.5 3.25L11.5 6.5',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      strokeWidth: '1.5',
+    }),
+    createElement('path', {
+      d: 'M3 11.5h10',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      strokeWidth: '1.5',
+    }),
+  ),
   edit: symbol(
     createElement('path', {
       d: 'm10.75 3.75 1.5 1.5',

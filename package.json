@@ -24,7 +24,7 @@
     "@mastra/observability": "^1.17.5",
     "@mastra/pg": "^1.22.3",
     "date-holidays": "^3.35.0",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.0.0",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
@@ -42,7 +42,7 @@
     "oxfmt": "^0.66.0",
     "oxlint": "^1.81.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "playwright": "^1.62.1",
+    "playwright": "^1.63.0",
     "typescript": "7.0.2"
   },
   "engines": {
