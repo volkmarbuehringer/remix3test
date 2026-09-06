@@ -346,43 +346,38 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               Hochladen
             </button>
           </form>
-          <form
-            method="GET"
-            action={routes.admin.uploads.index.href()}
-            data-rmx-target={getSelfFrameTarget()}
-            mix={filterBarCss}
-          >
-            <input type="hidden" name="page" value="1" />
-            <input type="hidden" name="sort" value={sortColumn} />
-            <input type="hidden" name="order" value={sortDirection} />
-            <input
-              type="text"
-              name="filter"
-              placeholder="durchsuchen"
-              defaultValue={filter ?? ''}
-              aria-label="Dateien durchsuchen"
-              mix={table.filterInput}
-            />
-            <button type="submit" mix={table.searchBtn}>
-              <Glyph name="search" width={14} height={14} /> Suchen
-            </button>
-            {filter ? (
-              <a
-                href={routes.admin.uploads.index.href()}
-                data-rmx-target={getSelfFrameTarget()}
-                mix={table.clearLink}
-              >
-                Zurücksetzen
-              </a>
-            ) : null}
-          </form>
-        </div>
-
-        <div mix={[panelCss, tablePanelCss]}>
-          <ConfirmDelete />
-          <UploadBulkDelete />
-          {uploads.length > 0 ? (
-            <>
+          <div mix={toolsRowCss}>
+            <form
+              method="GET"
+              action={routes.admin.uploads.index.href()}
+              data-rmx-target={getSelfFrameTarget()}
+              mix={filterBarCss}
+            >
+              <input type="hidden" name="page" value="1" />
+              <input type="hidden" name="sort" value={sortColumn} />
+              <input type="hidden" name="order" value={sortDirection} />
+              <input
+                type="text"
+                name="filter"
+                placeholder="durchsuchen"
+                defaultValue={filter ?? ''}
+                aria-label="Dateien durchsuchen"
+                mix={table.filterInput}
+              />
+              <button type="submit" mix={table.searchBtn}>
+                <Glyph name="search" width={14} height={14} /> Suchen
+              </button>
+              {filter ? (
+                <a
+                  href={routes.admin.uploads.index.href()}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={table.clearLink}
+                >
+                  Zurücksetzen
+                </a>
+              ) : null}
+            </form>
+            {uploads.length > 0 ? (
               <form
                 id="bulk-delete-form"
                 method="POST"
@@ -407,8 +402,16 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   </button>
                 </div>
               </form>
-              <div mix={tableScrollCss}>
-                <table mix={tableCss} data-uploads-table="true">
+            ) : null}
+          </div>
+        </div>
+
+        <div mix={[panelCss, tablePanelCss]}>
+          <ConfirmDelete />
+          <UploadBulkDelete />
+          {uploads.length > 0 ? (
+            <div mix={tableScrollCss}>
+              <table mix={tableCss} data-uploads-table="true">
                 <thead>
                   <tr>
                     <th mix={thCheckboxCss}>
@@ -540,8 +543,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   ))}
                 </tbody>
               </table>
-              </div>
-            </>
+            </div>
           ) : (
             <p mix={bodyTextCss}>
               {filter
@@ -704,12 +706,24 @@ const sortLinkCss = css({
   '&:hover': { color: theme.colors.text.primary },
 })
 
+// Wrapper for the search filter + bulk-delete actions. Keeping them in one
+// horizontal row (instead of the bulk toolbar occupying its own full-width row
+// above the table) frees vertical space so the table shows more rows. The
+// filter form grows to fill the row while the compact bulk form hugs the right.
+const toolsRowCss = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: theme.space.sm,
+})
+
 const filterBarCss = css({
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
   gap: theme.space.sm,
-  flexShrink: 0,
+  flex: '1 1 auto',
+  minWidth: 0,
 })
 
 const sortArrowCss = css({
@@ -784,10 +798,11 @@ const tdCheckboxCss = css({
   textAlign: 'center',
 })
 
-// The bulk form is a sibling of the scrollable table (so the per-row delete
-// forms inside the table are not nested inside another <form>, which is invalid
-// HTML). Row checkboxes associate to it via the HTML `form` attribute. As a flex
-// column child of the table panel, it should not grow.
+// The bulk form is a sibling of the search filter form and the scrollable table
+// (so the per-row delete forms inside the table are not nested inside another
+// <form>, which is invalid HTML). Row checkboxes associate to it via the HTML
+// `form` attribute. `flex: none` keeps it a compact right-aligned item in the
+// tools row so it neither grows nor wraps onto its own full-width line.
 const bulkFormCss = css({
   flex: 'none',
 })
@@ -795,9 +810,8 @@ const bulkFormCss = css({
 const bulkToolbarCss = css({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: theme.space.md,
-  flexShrink: 0,
+  gap: theme.space.sm,
+  whiteSpace: 'nowrap',
 })
 
 const selectedCountCss = css({
@@ -817,6 +831,7 @@ const bulkDeleteBtnCss = css({
   border: 'none',
   borderRadius: theme.radius.md,
   cursor: 'pointer',
+  whiteSpace: 'nowrap',
   '&:disabled': {
     opacity: 0.5,
     cursor: 'not-allowed',
