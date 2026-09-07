@@ -112,13 +112,15 @@ const navScrollStyle = css({
 })
 
 /**
- * The content column is a flex column; centering its single child (the content-
- * sized editor card) vertically puts the free space above and below the card —
- * never inside it. When the card is taller than the column it is capped by
- * `max-height` on the card and the element list scrolls internally.
+ * The content column is a flex column; aligning its single child (the content-
+ * sized editor card) to the top matches the top-anchored sidebar so both
+ * columns start on the same horizontal band. The free space stays below the
+ * card (never inside it), and the card's position is stable as the list grows.
+ * When the card is taller than the column it is capped by `max-height` on the
+ * card and the element list scrolls internally.
  */
-const contentVerticalCenterStyle = css({
-  justifyContent: 'center',
+const contentTopAlignStyle = css({
+  justifyContent: 'flex-start',
 })
 
 function isFrameRequest(): boolean {
@@ -456,7 +458,7 @@ function ListsLayout(
             )}
           </nav>
         </aside>
-        <section mix={[contentStyle, contentVerticalCenterStyle]}>{children}</section>
+        <section mix={[contentStyle, contentTopAlignStyle]}>{children}</section>
       </div>
     )
   }

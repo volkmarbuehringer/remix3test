@@ -167,7 +167,11 @@ export const ListsClient = clientEntry(
     // ── Editor surface: a single centered card with a header + body ──────────
     let cardStyle = css({
       fontFamily: theme.fontFamily.sans,
-      maxWidth: '600px',
+      // Fill the content column (up to a cap) so the card uses the available
+      // width instead of leaving a large gap on either side. `margin: 0 auto`
+      // still centers it; the `calc(100% - 2rem)` keeps a small 1rem gutter on
+      // each edge while the card never exceeds the cap.
+      maxWidth: 'min(1000px, calc(100% - 2rem))',
       width: '100%',
       margin: '0 auto',
       backgroundColor: theme.surface.lvl1,
@@ -1104,7 +1108,7 @@ export const ListsClient = clientEntry(
           <div
             mix={css({
               fontFamily: theme.fontFamily.sans,
-              maxWidth: '600px',
+              maxWidth: 'min(1000px, calc(100% - 2rem))',
               width: '100%',
               margin: '0 auto',
               padding: theme.space.xxl,
@@ -1124,7 +1128,7 @@ export const ListsClient = clientEntry(
           <div
             mix={css({
               fontFamily: theme.fontFamily.sans,
-              maxWidth: '600px',
+              maxWidth: 'min(1000px, calc(100% - 2rem))',
               width: '100%',
               margin: '0 auto',
               padding: theme.space.xxl,
