@@ -9,6 +9,7 @@ import {
   claimUpload,
   claimUploads,
   getUploadDownload,
+  getUploadsByIds,
   insertUpload,
   deleteUploads,
 } from './uploads.ts'
@@ -381,6 +382,82 @@ describe('uploads', () => {
     await claimUpload(db, Number(id), uploadUserId)
     let file = await getUploadDownload(db, Number(id), -1)
     assert.equal(file, undefined)
+  })
+
+  it('getUploadsByIds returns several rows with payloads for an admin (no userId)', async () => {
+    let ids: number[] = []
+    for (let i = 1; i <= 3; i++) {
+      let id = await insertUpload(db, {
+        filename: `test-dlmany-${i}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`payload-${i}`),
+        size: 8,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let rows = await getUploadsByIds(db, ids)
+    assert.equal(rows.length, 3)
+    assert.deepEqual(
+      rows.map((r) => r.filename),
+      ['test-dlmany-1.txt', 'test-dlmany-2.txt', 'test-dlmany-3.txt'],
+    )
+    assert.equal(rows[0]!.data.toString('utf8'), 'payload-1')
+    assert.equal(rows[2]!.data.toString('utf8'), 'payload-3')
+  })
+
+  it('getUploadsByIds returns only rows owned by a non-admin caller', async () => {
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other-dl-data@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    let owned = Number(
+      await insertUpload(db, {
+        filename: 'test-dlmany-owned.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('owned'),
+        size: 5,
+        now: Date.now(),
+      }),
+    )
+    await claimUpload(db, owned, uploadUserId)
+
+    let other = Number(
+      await insertUpload(db, {
+        filename: 'test-dlmany-other.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('secret'),
+        size: 6,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, other])
+
+    let rows = await getUploadsByIds(db, [owned, other], uploadUserId)
+    assert.equal(rows.length, 1, 'only the owned row should be returned')
+    assert.equal(rows[0]!.filename, 'test-dlmany-owned.txt')
+  })
+
+  it('getUploadsByIds deduplicates ids and returns [] for an empty array', async () => {
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-dlmany-nodup.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('d'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let rows = await getUploadsByIds(db, [id, id])
+    assert.equal(rows.length, 1)
+    assert.equal(rows[0]!.id, id)
+
+    let empty = await getUploadsByIds(db, [])
+    assert.deepEqual(empty, [])
   })
 
   it('deleteUploads deletes several rows for an admin (no userId)', async () => {

@@ -68,8 +68,15 @@ describe('admin uploads: multirow delete banner', () => {
     let table = page.locator('[data-uploads-table]')
     await table.waitFor({ timeout: 15_000 })
 
+    // Other uploads e2e files (e.g. the multirow download test) may be writing
+    // rows into the shared grid in parallel, so only require our three rows to
+    // be present and scope every assertion to our own filenames (see the
+    // remix-test-parallel-interference pattern).
     let rowCheckboxes = page.locator('[data-uploads-table] input[name="ids"]')
-    assert.equal(await rowCheckboxes.count(), 3, 'grid should render one checkbox per row')
+    assert.ok(
+      (await rowCheckboxes.count()) >= 3,
+      'grid should render a checkbox for each of our rows',
+    )
 
     // Accept the native confirm() dialog the clientEntry shows on submit.
     let confirmMessage = ''
@@ -80,9 +87,10 @@ describe('admin uploads: multirow delete banner', () => {
 
     let bulkButton = page.locator('[data-bulk-delete-form] button[type="submit"]')
     // The bulk button starts disabled; checking rows enables it (the clientEntry
-    // updates the count). Click the first two rows after waiting for the count.
-    await rowCheckboxes.nth(0).check()
-    await rowCheckboxes.nth(1).check()
+    // updates the count). Select two specific rows by filename — the grid sorts
+    // newest-first, so row order is not insertion order.
+    await page.locator('[data-upload-filename="test-e2e-1.txt"] input[name="ids"]').check()
+    await page.locator('[data-upload-filename="test-e2e-2.txt"] input[name="ids"]').check()
     await page.locator('[data-selected-count]').filter({ hasText: '2 ausgewählt' }).waitFor({
       timeout: 10_000,
     })
@@ -95,8 +103,22 @@ describe('admin uploads: multirow delete banner', () => {
     assert.equal(await banner.textContent(), '2 Dateien gelöscht.')
     assert.ok(confirmMessage.includes('2 Dateien wirklich löschen?'), `got: ${confirmMessage}`)
 
-    // Both selected rows are gone; the third remains. The grid still renders.
-    let remainingRows = await page.locator('[data-uploads-table] tbody tr').count()
-    assert.equal(remainingRows, 1, 'one of three uploads should remain')
+    // Both selected rows are gone; the third remains. Assert by filename so
+    // parallel rows from other uploads tests do not affect the outcome.
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-1.txt"]').count(),
+      0,
+      'the first selected upload should be gone',
+    )
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-2.txt"]').count(),
+      0,
+      'the second selected upload should be gone',
+    )
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-3.txt"]').count(),
+      1,
+      'the unselected upload should remain',
+    )
   })
 })

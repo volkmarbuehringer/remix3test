@@ -529,16 +529,23 @@ describe('Admin Uploads controller', () => {
     })
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(
-      html.includes(`name="ids" value="${id}"`),
-      'row should expose a named ids checkbox',
-    )
+    assert.ok(html.includes(`name="ids" value="${id}"`), 'row should expose a named ids checkbox')
     assert.ok(html.includes('data-select-all'), 'header should expose a select-all toggle')
     assert.ok(html.includes('Ausgewählte löschen'), 'page should render the bulk delete button')
     assert.ok(html.includes('data-bulk-delete-form'), 'bulk form should carry its marker')
     assert.ok(
       html.includes(routes.admin.uploads.destroyMany.href()),
       'bulk form should target the destroy-many action',
+    )
+    assert.ok(
+      html.includes('Ausgewählte herunterladen'),
+      'page should render the bulk download button',
+    )
+    assert.ok(html.includes('data-bulk-download-form'), 'download form should carry its marker')
+    assert.ok(html.includes('data-rmx-document'), 'download form should submit natively')
+    assert.ok(
+      html.includes(routes.admin.uploads.downloadMany.href()),
+      'download form should target the download-many action',
     )
   })
 
@@ -690,12 +697,9 @@ describe('Admin Uploads controller', () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')
 
-    let response = await router.fetch(
-      `${BASE}${routes.admin.uploads.destroyManyResolve.href()}`,
-      {
-        headers: { Cookie: session.cookie },
-      },
-    )
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroyManyResolve.href()}`, {
+      headers: { Cookie: session.cookie },
+    })
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('Datei-Upload'), 'resolver should render the uploads page')
@@ -705,14 +709,139 @@ describe('Admin Uploads controller', () => {
     let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
     if (!session) throw new Error('Could not create auth session')
 
-    let response = await router.fetch(
-      `${BASE}${routes.admin.uploads.index.href()}?deleted=3`,
-      {
-        headers: { Cookie: session.cookie },
-      },
-    )
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?deleted=3`, {
+      headers: { Cookie: session.cookie },
+    })
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('3 Dateien gelöscht.'), 'should render the deleted banner')
+  })
+
+  it('POST /admin/uploads/download-many returns a zip attachment of the selected rows', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let ids: number[] = []
+    for (let i = 1; i <= 2; i++) {
+      let id = Number(
+        await insertUpload(db, {
+          filename: `test-bulk-dl-${i}.txt`,
+          mimeType: 'text/plain',
+          buffer: Buffer.from(`content-${i}`),
+          size: 9,
+          now: Date.now(),
+        }),
+      )
+      ids.push(id)
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    for (let id of ids) formData.append('ids', String(id))
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.downloadMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('Content-Type'), 'application/zip')
+    let disposition = response.headers.get('Content-Disposition') ?? ''
+    assert.ok(disposition.includes('attachment'), 'should be an attachment')
+    assert.ok(disposition.includes('uploads.zip'), 'should carry the zip filename')
+
+    let buffer = Buffer.from(await response.arrayBuffer())
+    assert.equal(buffer.readUInt32LE(buffer.length - 22), 0x06054b50, 'should be a zip archive')
+  })
+
+  it("POST /admin/uploads/download-many leaves another user's upload out of the zip", async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let otherRow = await db.exec(
+      `INSERT INTO users (email, password_hash, name, role, email_verified, token_version, created_at, updated_at)
+       VALUES ('other-dl-ctrl@newapp.com', 'x', 'Other', 'customer', 1, 1, $1, $1)
+       ON CONFLICT (email) DO UPDATE SET name = 'Other' RETURNING id`,
+      [Date.now()],
+    )
+    let otherId = Number((otherRow.rows?.[0] as { id: number } | undefined)?.id)
+
+    let owned = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-dl-own.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('own'),
+        size: 3,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [owned], userId, Number.MAX_SAFE_INTEGER)
+
+    let other = Number(
+      await insertUpload(db, {
+        filename: 'test-bulk-dl-other.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('secret'),
+        size: 6,
+        now: Date.now(),
+      }),
+    )
+    await pool.query('UPDATE uploads SET uploaded_by = $1 WHERE id = $2', [otherId, other])
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.append('ids', String(owned))
+    formData.append('ids', String(other))
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.downloadMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 200)
+    let buffer = Buffer.from(await response.arrayBuffer())
+    let text = buffer.toString('utf8')
+    assert.ok(text.includes('test-bulk-dl-own.txt'), 'zip should contain the owned file')
+    assert.ok(
+      !text.includes('test-bulk-dl-other.txt'),
+      "another user's file must not be in the zip",
+    )
+  })
+
+  it('POST /admin/uploads/download-many with no valid ids returns 400', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.downloadMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 400)
+  })
+
+  it('POST /admin/uploads/download-many returns 404 when no row matches the submitted ids', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.append('ids', '999999999')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.downloadMany.href()}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 404)
   })
 })

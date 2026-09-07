@@ -249,6 +249,13 @@ const uploadDownloadRowSchema = z.object({
   data: z.custom<Buffer>(),
 })
 
+const uploadDownloadBatchRowSchema = z.object({
+  id: z.number(),
+  filename: z.string(),
+  mime_type: z.string(),
+  data: z.custom<Buffer>(),
+})
+
 /**
  * Delete a single upload. Admins may delete any row; a non-admin caller must
  * pass `userId` so the row is only deleted when it belongs to them (an upload
@@ -301,6 +308,35 @@ export async function getUploadDownload(
   )
   if (!row) return undefined
   return { filename: row.filename, mime_type: row.mime_type, data: row.data as BodyInit }
+}
+
+/**
+ * Fetch several uploads (filenames and full BYTEA payloads) for a multirow
+ * download. Admins may fetch any row; a non-admin caller must pass `userId` so
+ * each row is only returned when it belongs to them — mirroring the ownership
+ * split used by {@link getUploadDownload} and the uploads grid. Ids are
+ * deduplicated before the query so the `ANY` array parameter stays unambiguous.
+ */
+export async function getUploadsByIds(
+  db: Database,
+  ids: number[],
+  userId?: number,
+): Promise<{ id: number; filename: string; mime_type: string; data: Buffer }[]> {
+  let uniqueIds = [...new Set(ids)]
+  if (uniqueIds.length === 0) return []
+  let rows = await queryRows(
+    db,
+    userId !== undefined
+      ? sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${uniqueIds}::int[]) AND uploaded_by = ${userId}`
+      : sql`SELECT id, filename, mime_type, data FROM uploads WHERE id = ANY(${uniqueIds}::int[])`,
+    uploadDownloadBatchRowSchema,
+  )
+  return rows.map((row) => ({
+    id: row.id,
+    filename: row.filename,
+    mime_type: row.mime_type,
+    data: row.data as Buffer,
+  }))
 }
 
 export async function insertUpload(

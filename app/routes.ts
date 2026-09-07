@@ -149,6 +149,11 @@ export const routes = route({
       // `/:id/delete` (two segments).
       destroyMany: post('/delete-many'),
       destroyManyResolve: get('/delete-many'),
+      // Multirow download: the grid POSTs the selected ids and receives a ZIP
+      // attachment. The form submits with `data-rmx-document`, so the frame
+      // runtime does not intercept it and the action path is never committed as
+      // the frame src — no GET resolver is needed.
+      downloadMany: post('/download-many'),
     }),
 
     fragments: route('fragments', {

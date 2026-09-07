@@ -12,11 +12,13 @@ import {
   uploadErrorMessages,
   claimUploads,
   getUploadDownload,
+  getUploadsByIds,
   deleteUpload,
   deleteUploads,
   UPLOAD_SORT_FIELDS,
   type UploadRow,
 } from '../../../data/uploads.ts'
+import { buildZipArchive } from '../../../utils/zip.ts'
 import { PageSection, panelCss } from '../../../ui/page-primitives.tsx'
 import { CsrfTokenInput } from '../../../ui/csrf-token-input.tsx'
 import { getCurrentUser } from '../../../utils/context.ts'
@@ -31,6 +33,7 @@ import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
+import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
 import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
@@ -222,6 +225,55 @@ export default createController(routes.admin.uploads, {
       return new Response(data, { status: 200, headers: downloadHeaders })
     },
 
+    // Multirow download: zip the selected rows into a single attachment. The
+    // grid form submits with `data-rmx-document`, so the frame runtime leaves
+    // the submission to the browser and the ZIP is downloaded natively.
+    async downloadMany(context) {
+      let user = getCurrentUser()
+
+      // Checkboxes named `ids` submit only the checked rows; map to numbers and
+      // drop any non-numeric (or empty) values. Ownership is enforced inside
+      // getUploadsByIds, so a non-admin cannot download another user's rows even
+      // if their ids are submitted.
+      let ids = context.formData
+        .getAll('ids')
+        .map((value) => Number(value))
+        .filter((id) => !Number.isNaN(id))
+      if (ids.length === 0) {
+        return new Response('Keine Dateien ausgew\u00e4hlt', { status: 400 })
+      }
+
+      let uploads = await getUploadsByIds(
+        context.db,
+        ids,
+        user.role === 'admin' ? undefined : user.id,
+      )
+      if (uploads.length === 0) {
+        return new Response('Dateien nicht gefunden', { status: 404 })
+      }
+
+      // Deduplicate entry names so a ZIP with two same-named uploads stays
+      // unambiguous (a name already used is prefixed with its row id).
+      let usedNames = new Set<string>()
+      let entries = uploads.map((u) => {
+        let name = u.filename
+        if (usedNames.has(name)) name = `${u.id}-${name}`
+        usedNames.add(name)
+        return { filename: name, data: u.data }
+      })
+
+      let archive = buildZipArchive(entries)
+
+      let zipHeaders = new SuperHeaders()
+      zipHeaders.contentType = 'application/zip'
+      zipHeaders.contentDisposition = {
+        type: 'attachment',
+        filename: 'uploads.zip',
+      }
+      zipHeaders.contentLength = archive.length
+      return new Response(new Uint8Array(archive), { status: 200, headers: zipHeaders })
+    },
+
     async destroy(context) {
       let user = getCurrentUser()
       let id = parseId(context.params.id)
@@ -378,30 +430,47 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               ) : null}
             </form>
             {uploads.length > 0 ? (
-              <form
-                id="bulk-delete-form"
-                method="POST"
-                action={routes.admin.uploads.destroyMany.href()}
-                data-rmx-target={getSelfFrameTarget()}
-                data-bulk-delete-form
-                mix={bulkFormCss}
-              >
-                <CsrfTokenInput />
-                <UploadsGridStateHiddenInputs
-                  page={page}
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  filter={filter}
-                />
-                <div mix={bulkToolbarCss}>
-                  <span mix={selectedCountCss} data-selected-count>
-                    0 ausgewählt
-                  </span>
-                  <button type="submit" disabled mix={bulkDeleteBtnCss}>
-                    <Glyph name="trash" width={14} height={14} /> Ausgewählte löschen
-                  </button>
-                </div>
-              </form>
+              <div mix={bulkGroupCss}>
+                <form
+                  id="bulk-delete-form"
+                  method="POST"
+                  action={routes.admin.uploads.destroyMany.href()}
+                  data-rmx-target={getSelfFrameTarget()}
+                  data-bulk-delete-form
+                  mix={bulkFormCss}
+                >
+                  <CsrfTokenInput />
+                  <UploadsGridStateHiddenInputs
+                    page={page}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    filter={filter}
+                  />
+                  <div mix={bulkToolbarCss}>
+                    <span mix={selectedCountCss} data-selected-count>
+                      0 ausgewählt
+                    </span>
+                    <button type="submit" disabled mix={bulkDeleteBtnCss}>
+                      <Glyph name="trash" width={14} height={14} /> Ausgewählte löschen
+                    </button>
+                  </div>
+                </form>
+                <form
+                  id="bulk-download-form"
+                  method="POST"
+                  action={routes.admin.uploads.downloadMany.href()}
+                  data-rmx-document
+                  data-bulk-download-form
+                  mix={bulkFormCss}
+                >
+                  <CsrfTokenInput />
+                  <div mix={bulkToolbarCss}>
+                    <button type="submit" disabled mix={bulkDownloadBtnCss}>
+                      <Glyph name="download" width={14} height={14} /> Ausgewählte herunterladen
+                    </button>
+                  </div>
+                </form>
+              </div>
             ) : null}
           </div>
         </div>
@@ -409,6 +478,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
         <div mix={[panelCss, tablePanelCss]}>
           <ConfirmDelete />
           <UploadBulkDelete />
+          <UploadBulkDownload />
           {uploads.length > 0 ? (
             <div mix={tableScrollCss}>
               <table mix={tableCss} data-uploads-table="true">
@@ -798,12 +868,22 @@ const tdCheckboxCss = css({
   textAlign: 'center',
 })
 
-// The bulk form is a sibling of the search filter form and the scrollable table
+// The bulk forms are siblings of the search filter form and the scrollable table
 // (so the per-row delete forms inside the table are not nested inside another
-// <form>, which is invalid HTML). Row checkboxes associate to it via the HTML
-// `form` attribute. `flex: none` keeps it a compact right-aligned item in the
-// tools row so it neither grows nor wraps onto its own full-width line.
+// <form>, which is invalid HTML). Row checkboxes associate to the delete form via
+// the HTML `form` attribute. `flex: none` keeps each a compact item that neither
+// grows nor wraps onto its own full-width line.
 const bulkFormCss = css({
+  flex: 'none',
+})
+
+// Visually joins the bulk delete and bulk download forms into one button group.
+// The two buttons must stay in separate forms (the delete form is intercepted by
+// the frame runtime, the download form submits natively via `data-rmx-document`),
+// so the group is a presentational wrapper around both.
+const bulkGroupCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
   flex: 'none',
 })
 
@@ -829,7 +909,30 @@ const bulkDeleteBtnCss = css({
   color: theme.colors.action.danger.foreground,
   background: theme.colors.action.danger.background,
   border: 'none',
-  borderRadius: theme.radius.md,
+  // Left edge of the joined group: round the outer corners, square the inner.
+  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  },
+})
+
+const bulkDownloadBtnCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  padding: '0.4rem 0.9rem',
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.action.primary.foreground,
+  background: theme.colors.action.primary.background,
+  border: 'none',
+  // Right edge of the joined group: round the outer corners, square the inner,
+  // and separate from the delete button with a subtle divider.
+  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+  borderLeft: '1px solid rgba(255, 255, 255, 0.3)',
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   '&:disabled': {
@@ -847,7 +950,7 @@ const rowActionsCss = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'flex-end',
-  gap: theme.space.xs,
+  gap: 0,
 })
 
 const iconActionCss = css({
@@ -859,7 +962,9 @@ const iconActionCss = css({
   minWidth: '28px',
   padding: 0,
   border: `1px solid ${theme.colors.border}`,
-  borderRadius: theme.radius.md,
+  // Left edge of the per-row action group (download is always first): round the
+  // outer corners, square the inner.
+  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
   cursor: 'pointer',
@@ -870,6 +975,10 @@ const iconActionCss = css({
 const iconActionDangerCss = css({
   color: theme.colors.action.danger.background,
   borderColor: 'transparent',
+  // Right edge of the per-row action group (delete is always second): square the
+  // inner corners, round the outer. The download link's right border acts as the
+  // divider between the two.
+  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
   '&:hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,

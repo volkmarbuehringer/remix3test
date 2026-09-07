@@ -56,8 +56,7 @@ export const UploadBulkDelete = clientEntry(
 
             function onRowChange() {
               if (selectAll) {
-                let all =
-                  rows.length > 0 && Array.from(rows).every((cb) => cb.checked)
+                let all = rows.length > 0 && Array.from(rows).every((cb) => cb.checked)
                 selectAll.checked = all
               }
               update()
@@ -78,6 +77,10 @@ export const UploadBulkDelete = clientEntry(
             rows.forEach((cb) => cb.addEventListener('change', onRowChange))
             form.addEventListener('submit', onSubmit)
             update()
+            // Hydration signal for e2e: the clientEntry attaches listeners
+            // asynchronously after the table renders, so tests wait for this
+            // attribute before interacting to avoid a hydration race.
+            form.dataset.bulkDeleteReady = 'true'
 
             handle.signal.addEventListener('abort', () => {
               selectAll?.removeEventListener('change', onSelectAllChange)
