@@ -750,8 +750,11 @@ const bodyTextCss = css({
 const tableCss = css({
   width: '100%',
   borderCollapse: 'collapse',
+  // Denser rows: 2px vertical padding (down from space.xs/4px) lets the grid
+  // show more rows in the fixed viewport height. Horizontal padding stays at
+  // 4px so column text is not clipped.
   '& th, & td': {
-    padding: theme.space.xs,
+    padding: '2px 4px',
     textAlign: 'left',
     borderBottom: `1px solid ${theme.colors.border}`,
   },
@@ -812,11 +815,12 @@ const sortArrowActiveCss = css({
 // Viewport-bounded page: let the page section fill the remaining content height
 // so the table region can absorb it and scroll internally (see the
 // remix3-bounded-scroll-flexchain pattern). The reduced `gap` here also tightens
-// vertical spacing between the section header and the two panels.
+// vertical spacing between the section header and the two panels, returning that
+// space to the scrollable table so more rows are visible.
 const pageSectionCss = css({
   flex: 1,
   minHeight: 0,
-  gap: theme.space.sm,
+  gap: theme.space.xs,
 })
 
 // Compact the upload/search panel so it takes less vertical space on screen
@@ -830,7 +834,11 @@ const tablePanelCss = css({
   flex: 1,
   minHeight: 0,
   overflow: 'hidden',
-  padding: theme.space.md,
+  // Slightly wider grid: tightening horizontal padding lets the table span more
+  // of the panel width. Reduced vertical padding + a smaller internal gap give
+  // that space back to the scrollable table so more rows are visible.
+  padding: theme.space.sm,
+  gap: theme.space.sm,
 })
 
 const tableScrollCss = css({
@@ -844,7 +852,9 @@ const paginationCss = css({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: theme.space.md,
-  marginTop: theme.space.md,
+  // Reduced top margin keeps the pagination bar close to the table, returning
+  // the leftover vertical space to the scrollable grid above it.
+  marginTop: theme.space.sm,
   flexShrink: 0,
 })
 
