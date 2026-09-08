@@ -127,3 +127,18 @@ el.addEventListener('mouseleave', () => {
 ```
 
 Force-visibly reveal an actively-editing row by adding a conditional style (`opacity: 1; pointer-events: auto`) when that row is in edit mode, so its Save/Cancel actions are always visible instead of waiting for hover.
+
+## Touch devices: hover-only reveals are unreachable
+
+The `clientEntry` reveal above is driven by `mouseenter`/`mouseleave`/`focusin`/`focusout`. On a touch device there is no hover, and the hidden cluster is styled `opacity: 0; pointerEvents: none` — so a tap passes through to the row's link and the action buttons can never be reached. Add a `@media (hover: none)` override to the cluster so it is always visible and interactive on touch, while keeping the hover reveal on pointer devices:
+
+```ts
+let cluster = css({
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 0.12s ease',
+  '@media (hover: none)': { opacity: 1, pointerEvents: 'auto' },
+})
+```
+
+Apply the same override to the sidebar row action cluster (`rowActionsStyle`, `deleteFormStyle`, and `renameBtnStyle` in `lists-layout.tsx`); the container also needs `pointerEvents: 'auto'` inside the media block, since a `pointer-events: none` parent would otherwise block its children. Prefer `@media (hover: none)` over a width-based or touch-capability sniff, and keep the hover-only behavior pointer-driven so it degrades correctly across hybrid devices.
