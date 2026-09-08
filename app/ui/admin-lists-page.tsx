@@ -67,8 +67,7 @@ const fieldErrorStyle = css({
 
 const rowActionsStyle = css({
   display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
+  alignItems: 'stretch',
 })
 
 const iconActionStyle = css({
@@ -79,7 +78,8 @@ const iconActionStyle = css({
   height: '30px',
   padding: 0,
   border: '1px solid ' + theme.colors.border.default,
-  borderRadius: theme.radius.md,
+  borderRight: 'none',
+  borderRadius: theme.radius.md + ' 0 0 ' + theme.radius.md,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
   cursor: 'pointer',
@@ -88,8 +88,9 @@ const iconActionStyle = css({
 })
 
 const iconActionDangerStyle = css({
+  borderRight: '1px solid ' + theme.colors.border.default,
+  borderRadius: '0 ' + theme.radius.md + ' ' + theme.radius.md + ' 0',
   color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
   '&:hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
