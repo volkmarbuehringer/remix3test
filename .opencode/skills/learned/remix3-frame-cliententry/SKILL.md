@@ -29,6 +29,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
 - [Post-Navigation Data Loading in clientEntry](#post-navigation-data-loading-in-cliententry)
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
+- [Joining a Button Group with 3+ Buttons (per-button styles)](#joining-a-button-group-with-3-buttons-per-button-styles)
 - [Inline-Edit Server-Rendered Table Cells](#inline-edit-server-rendered-table-cells)
 - [on Mixin Requires clientEntry](#on-mixin-requires-cliententry)
 - [data-rmx-document: Binary Downloads & Cross-Section Links](#data-rmx-document-binary-downloads--cross-section-links)
@@ -792,6 +793,60 @@ The CSS targets the known DOM structure:
 - Any pattern where you'd normally pass a CSS mixin as a prop but the child is a `clientEntry`
 
 (Consolidated from `remix3-cliententry-css-child-selectors`)
+
+---
+
+## Joining a Button Group with 3+ Buttons (per-button styles)
+
+**Context:** Building a joined flat button group (edit | delete | move-up | move-down) on a direct child of a row in a `remix/ui` app, mirroring the `/admin/lists` row-action group.
+
+### Problem
+
+The container child-selector approach (previous section) works for a **two**-button group (first = left radius, last = right radius). For a group with **3+ direct buttons**, styling via a container rule is unreliable in this `css()` runtime — the `button()` mixin's pill styles (`borderRadius: 999px`) can win, leaving egg-shaped buttons with no shared vertical border.
+
+### Solution
+
+Apply the flat square styles **per-button** instead of via a container `> button` rule — exactly how `/admin/lists` does it with its own `iconActionStyle`:
+
+```tsx
+let iconActionStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '30px',
+  height: '30px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRight: 'none', // shared border — every button drops its right border
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+})
+// First button gets the left radius; last button restores right border + radius.
+let iconActionFirstStyle = css({ borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}` })
+let iconActionLastStyle = css({
+  borderRight: `1px solid ${theme.colors.border.default}`,
+  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+})
+// Danger (delete) button hover treatment.
+let iconActionDangerStyle = css({
+  color: theme.colors.action.danger.background,
+  '&:hover': {
+    background: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+})
+```
+
+Per-button mix arrays (order: base, then first/last/danger):
+
+- First button: `[iconActionStyle, iconActionFirstStyle]`
+- Middle buttons: `[iconActionStyle]` (square, no radius)
+- Last button: `[iconActionStyle, iconActionLastStyle]`
+- Delete: `[iconActionStyle, iconActionDangerStyle]`
+
+### Radius pitfall (double-rounded corners)
+
+Only the **first** button gets the left radius and only the **last** gets the right radius; middle buttons must stay perfectly square (no radius). If you bake the left radius into every button (as a 2-button group would), a 3+ button group shows a rounded corner between each adjacent pair — "2 rounded borders between buttons".
 
 ---
 

@@ -263,13 +263,64 @@ export const ListsClient = clientEntry(
       marginBottom: theme.space.lg,
     })
 
-    // Item row action cluster is hidden until the row is hovered/focused.
+    // Item row action cluster is hidden until the row is hovered/focused. It is
+    // absolutely positioned over the right edge of the row so the row content
+    // (the label) can span the full row width — the actions never consume layout
+    // space, letting rows be longer. The buttons are joined into a flat button
+    // group (matching /admin/lists): square, shared border, rounded only on the
+    // outer corners. Each button carries its own style (the remix-ui css()
+    // runtime won't emit descendant `> button` group selectors, so we apply the
+    // styles per-button instead of via a container rule).
     let itemActionsStyle = css({
-      display: 'flex',
-      gap: theme.space.xs,
+      position: 'absolute',
+      top: '50%',
+      right: theme.space.sm,
+      transform: 'translateY(-50%)',
+      display: 'inline-flex',
+      alignItems: 'stretch',
       opacity: 0,
       pointerEvents: 'none',
       transition: 'opacity 0.12s ease',
+    })
+
+    // Flat square button-group member — mirrors /admin/lists' iconActionStyle.
+    // Every button drops its right border so adjacent buttons share one. Radius
+    // is applied separately (first = left, last = right) so middle buttons stay
+    // perfectly square.
+    let iconActionStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '30px',
+      height: '30px',
+      padding: 0,
+      border: `1px solid ${theme.colors.border.default}`,
+      borderRight: 'none',
+      background: theme.surface.lvl2,
+      color: theme.colors.text.secondary,
+      cursor: 'pointer',
+      '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+      '&:disabled': { opacity: 0.4, cursor: 'not-allowed' },
+    })
+
+    // First button in the group gets the left radius.
+    let iconActionFirstStyle = css({
+      borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
+    })
+
+    // Last button in the group restores its right border + right radius.
+    let iconActionLastStyle = css({
+      borderRight: `1px solid ${theme.colors.border.default}`,
+      borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
+    })
+
+    // Danger (delete) button — mirrors /admin/lists' iconActionDangerStyle.
+    let iconActionDangerStyle = css({
+      color: theme.colors.action.danger.background,
+      '&:hover': {
+        background: theme.colors.action.danger.background,
+        color: theme.colors.action.danger.foreground,
+      },
     })
 
     let scrollToBottom = () => {
@@ -1659,10 +1710,15 @@ export const ListsClient = clientEntry(
                       key={item.id}
                       mix={[
                         css({
+                          position: 'relative',
                           display: 'flex',
                           gap: theme.space.md,
                           alignItems: 'center',
                           padding: `${theme.space.md} ${theme.space.md}`,
+                          // Keep a right gutter so the label doesn't run under the
+                          // overlay action cluster; the cluster itself is absolute
+                          // and takes no layout space.
+                          paddingRight: '6.5rem',
                           borderBottom:
                             index < items.length - 1
                               ? `1px solid ${theme.colors.border.subtle}`
@@ -1805,13 +1861,13 @@ export const ListsClient = clientEntry(
                         {editingIndex === index ? (
                           <>
                             <button
-                              mix={[button({ tone: 'primary' }), on('click', saveEdit)]}
+                              mix={[iconActionStyle, iconActionFirstStyle, on('click', saveEdit)]}
                               title="Speichern"
                             >
                               <Glyph name="check" width={16} height={16} />
                             </button>
                             <button
-                              mix={[button({ tone: 'secondary' }), on('click', cancelEdit)]}
+                              mix={[iconActionStyle, iconActionLastStyle, on('click', cancelEdit)]}
                               title="Abbrechen"
                             >
                               <Glyph name="close" width={16} height={16} />
@@ -1821,7 +1877,8 @@ export const ListsClient = clientEntry(
                           <>
                             <button
                               mix={[
-                                button({ tone: 'secondary' }),
+                                iconActionStyle,
+                                iconActionFirstStyle,
                                 on('click', () => startEditing(index)),
                               ]}
                               title="Bearbeiten"
@@ -1830,7 +1887,8 @@ export const ListsClient = clientEntry(
                             </button>
                             <button
                               mix={[
-                                button({ tone: 'danger' }),
+                                iconActionStyle,
+                                iconActionDangerStyle,
                                 on('click', () => deleteItem(index)),
                               ]}
                               title="Löschen"
@@ -1838,10 +1896,7 @@ export const ListsClient = clientEntry(
                               <Glyph name="close" width={16} height={16} />
                             </button>
                             <button
-                              mix={[
-                                button({ tone: 'secondary' }),
-                                on('click', () => moveUp(index)),
-                              ]}
+                              mix={[iconActionStyle, on('click', () => moveUp(index))]}
                               disabled={index === 0}
                               title="Nach oben"
                             >
@@ -1849,7 +1904,8 @@ export const ListsClient = clientEntry(
                             </button>
                             <button
                               mix={[
-                                button({ tone: 'secondary' }),
+                                iconActionStyle,
+                                iconActionLastStyle,
                                 on('click', () => moveDown(index)),
                               ]}
                               disabled={index === items.length - 1}
