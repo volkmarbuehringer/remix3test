@@ -62,10 +62,48 @@ export const AdminUploadsContextMenu = clientEntry(
                 )
               }
 
+              // Make the per-row "⋯" trigger open the same context menu. Reuses the
+              // right-click path by positioning the hidden trigger under the button
+              // and dispatching a synthetic contextmenu at its coordinates.
+              function onMenuTriggerClick(clickEvent: Event) {
+                let btn = clickEvent.currentTarget as HTMLElement
+                let row = btn.closest('[data-row-id]') as HTMLElement | null
+                if (!row) return
+
+                rightClickedRowId = row.dataset.rowId ?? null
+                rightClickedFilename = row.getAttribute('data-upload-filename') ?? null
+
+                let rect = btn.getBoundingClientRect()
+                let x = rect.left
+                let y = rect.bottom + 2
+
+                el.style.left = x + 'px'
+                el.style.top = y + 'px'
+
+                el.dispatchEvent(
+                  new MouseEvent('contextmenu', {
+                    clientX: x,
+                    clientY: y,
+                    bubbles: true,
+                    cancelable: true,
+                  }),
+                )
+              }
+
+              function onMenuTriggerInit() {
+                document
+                  .querySelectorAll('[data-row-menu-trigger]')
+                  .forEach((btn) => btn.addEventListener('click', onMenuTriggerClick))
+              }
+
               table.addEventListener('contextmenu', onContextMenu)
+              onMenuTriggerInit()
 
               handle.signal.addEventListener('abort', () => {
                 table.removeEventListener('contextmenu', onContextMenu)
+                document
+                  .querySelectorAll('[data-row-menu-trigger]')
+                  .forEach((btn) => btn.removeEventListener('click', onMenuTriggerClick))
               })
             }),
             css({ position: 'fixed', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }),

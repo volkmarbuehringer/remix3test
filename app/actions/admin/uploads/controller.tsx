@@ -2,13 +2,65 @@ import { createController } from 'remix/router'
 import { css, type Handle } from 'remix/ui'
 import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
-import { theme } from '../../../ui/theme/theme.ts'
+import {
+  formCss,
+  fileInputCss,
+  submitCss,
+  successBanner,
+  errorBanner,
+  bodyTextCss,
+  tableCss,
+  sortLinkCss,
+  toolsRowCss,
+  filterBarCss,
+  sortArrowCss,
+  sortArrowActiveCss,
+  pageSectionCss,
+  uploadPanelCss,
+  tablePanelCss,
+  tableScrollCss,
+  paginationCss,
+  paginationButtonsCss,
+  thActionsCss,
+  thCheckboxCss,
+  tdCheckboxCss,
+  bulkFormCss,
+  bulkGroupCss,
+  bulkToolbarCss,
+  selectedCountCss,
+  bulkDeleteBtnCss,
+  bulkDownloadBtnCss,
+  tdActionsCss,
+  rowActionsCss,
+  iconActionCss,
+  iconActionDangerCss,
+  rowMenuCss,
+  idCellCss,
+  filenameCellCss,
+  sizeCellCss,
+  mimeBadgeCss,
+  emptyStateCss,
+  emptyStateGlyph,
+  dropzoneCss,
+  dropzoneLabelCss,
+  dropzoneHintCss,
+  pendingListCss,
+  validationErrorCss,
+  quotaRowCss,
+  quotaTextCss,
+  quotaTrackCss,
+  quotaTrackNearCss,
+  quotaFillCss,
+  quotaFillNearCss,
+  clearSelectionBtnCss,
+} from './uploads-grid-css.ts'
 import { routes } from '../../../routes.ts'
 import { parseId } from '../../../utils/ids.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
 import {
   getUploadsPage,
+  getUploadsQuotaUsage,
   uploadErrorMessages,
   claimUploads,
   getUploadDownload,
@@ -28,12 +80,15 @@ import { table } from '../../../ui/mixins/admin-table.ts'
 import { sortArrow } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
+import { formatRelativeTimeDE } from '../../../utils/date-utils.ts'
+import { formatUploadType, formatBytes } from '../../../utils/upload-validation.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
 import { RestfulForm } from '../../../ui/restful-form.tsx'
 import { ConfirmDelete } from '../../../ui/confirm-delete.browser.tsx'
 import { AdminUploadsContextMenu } from '../public/admin-uploads-context-menu.tsx'
 import { UploadBulkDelete } from '../public/admin-uploads-bulk-delete.tsx'
 import { UploadBulkDownload } from '../public/admin-uploads-bulk-download.tsx'
+import { UploadDropzone } from '../public/admin-uploads-dropzone.tsx'
 import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
@@ -121,6 +176,7 @@ async function renderUploadsPage(
   let sortDirection = opts.sortDirection ?? direction
   let {
     rows,
+    total,
     totalPages,
     page: effectivePage,
   } = await getUploadsPage(
@@ -132,12 +188,14 @@ async function renderUploadsPage(
     sortDirection,
     filter,
   )
+  let quota = await getUploadsQuotaUsage(context.db, user.role === 'admin' ? undefined : user.id)
   return renderAdminPage(
     context.render,
     'uploads',
     <UploadsContent
       uploads={rows}
       page={effectivePage}
+      total={total}
       totalPages={totalPages}
       uploadedIds={opts.uploadedIds ?? []}
       uploadError={uploadError}
@@ -145,6 +203,7 @@ async function renderUploadsPage(
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       filter={filter}
+      quota={quota}
     />,
   )
 }
@@ -339,6 +398,7 @@ export default createController(routes.admin.uploads, {
 type UploadsContentProps = {
   uploads: UploadRow[]
   page: number
+  total: number
   totalPages: number
   uploadedIds: number[]
   uploadError: string | null
@@ -346,6 +406,12 @@ type UploadsContentProps = {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  quota: {
+    userUsedBytes: number
+    userQuotaBytes: number | null
+    totalUsedBytes: number
+    totalQuotaBytes: number
+  }
 }
 
 function UploadsContent(handle: { props: UploadsContentProps }) {
@@ -353,6 +419,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
     let {
       uploads,
       page,
+      total,
       totalPages,
       uploadedIds,
       uploadError,
@@ -360,6 +427,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
       sortColumn,
       sortDirection,
       filter,
+      quota,
     } = handle.props
 
     return (
@@ -390,14 +458,53 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             action={routes.admin.uploads.action.href()}
             method="POST"
             encType="multipart/form-data"
+            data-upload-form
             mix={formCss}
           >
             <CsrfTokenInput />
-            <input type="file" name="file" multiple required mix={fileInputCss} />
-            <button type="submit" mix={submitCss}>
-              Hochladen
+            <div mix={dropzoneCss} data-dropzone>
+              {uploadIcon()}
+              <label htmlFor="upload-file-input" mix={dropzoneLabelCss}>
+                Dateien auswählen
+              </label>
+              <span mix={dropzoneHintCss} data-drop-hint>
+                oder hierher ziehen
+              </span>
+              <input
+                id="upload-file-input"
+                type="file"
+                name="file"
+                multiple
+                aria-label="Dateien zum Hochladen auswählen"
+                mix={fileInputCss}
+                data-file-input
+              />
+            </div>
+            <ul mix={pendingListCss} data-pending-list hidden aria-live="polite"></ul>
+            <p role="alert" mix={validationErrorCss} data-upload-validation hidden></p>
+            <button type="submit" mix={submitCss} data-upload-submit>
+              <span data-upload-idle>
+                <Glyph name="send" width={14} height={14} /> Hochladen
+              </span>
+              <span data-upload-busy hidden aria-hidden="true">
+                <Glyph name="spinner" width={14} height={14} /> Hochladen …
+              </span>
             </button>
+            <UploadDropzone />
           </form>
+          <div mix={quotaRowCss}>
+            {quota.userQuotaBytes != null ? (
+              <span mix={quotaTextCss} data-user-quota>
+                <Glyph name="info" width={14} height={14} /> {formatBytes(quota.userUsedBytes)} von{' '}
+                {formatBytes(quota.userQuotaBytes)} belegt
+              </span>
+            ) : null}
+            <span mix={quotaTextCss} data-total-quota>
+              <Glyph name="zap" width={14} height={14} /> Gesamt:{' '}
+              {formatBytes(quota.totalUsedBytes)} von {formatBytes(quota.totalQuotaBytes)}
+            </span>
+            {quotaBar(quota)}
+          </div>
           <div mix={toolsRowCss}>
             <form
               method="GET"
@@ -450,6 +557,14 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     <span mix={selectedCountCss} data-selected-count>
                       0 ausgewählt
                     </span>
+                    <button
+                      type="button"
+                      data-clear-selection
+                      mix={clearSelectionBtnCss}
+                      aria-label="Auswahl aufheben"
+                    >
+                      Auswahl aufheben
+                    </button>
                     <button type="submit" disabled mix={bulkDeleteBtnCss}>
                       <Glyph name="trash" width={14} height={14} /> Ausgewählte löschen
                     </button>
@@ -481,7 +596,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
           <UploadBulkDownload />
           {uploads.length > 0 ? (
             <div mix={tableScrollCss}>
-              <table mix={tableCss} data-uploads-table="true">
+              <table mix={tableCss} data-uploads-table="true" data-selection-scope={filter ?? ''}>
                 <thead>
                   <tr>
                     <th mix={thCheckboxCss}>
@@ -563,16 +678,34 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                           form="bulk-delete-form"
                           name="ids"
                           value={u.id}
+                          data-select-id
                           aria-label={`Datei ${u.filename} auswählen`}
                         />
                       </td>
-                      <td>{u.id}</td>
-                      <td>{u.filename}</td>
-                      <td>{u.mime_type}</td>
-                      <td>{formatSize(u.size)}</td>
-                      <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td mix={idCellCss}>{u.id}</td>
+                      <td mix={filenameCellCss}>{u.filename}</td>
+                      <td>
+                        <span mix={mimeBadgeCss} data-mime={u.mime_type}>
+                          {formatUploadType(u.mime_type)}
+                        </span>
+                      </td>
+                      <td mix={sizeCellCss}>{formatSize(u.size)}</td>
+                      <td>
+                        <span title={new Date(u.created_at).toLocaleString('de-DE')}>
+                          {formatRelativeTimeDE(u.created_at)}
+                        </span>
+                      </td>
                       <td mix={tdActionsCss}>
                         <div mix={rowActionsCss}>
+                          <button
+                            type="button"
+                            data-row-menu-trigger
+                            mix={rowMenuCss}
+                            aria-label={`Mehr Optionen für ${u.filename}`}
+                            title="Mehr Optionen"
+                          >
+                            {ellipsisIcon()}
+                          </button>
                           <a
                             href={routes.admin.uploads.download.href({ id: u.id })}
                             download
@@ -615,16 +748,19 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               </table>
             </div>
           ) : (
-            <p mix={bodyTextCss}>
-              {filter
-                ? 'Keine Dateien gefunden für diese Suche.'
-                : 'Noch keine Dateien hochgeladen.'}
-            </p>
+            <div mix={emptyStateCss}>
+              <div mix={emptyStateGlyph}>{uploadIcon()}</div>
+              <p mix={bodyTextCss}>
+                {filter
+                  ? 'Keine Dateien gefunden für diese Suche.'
+                  : 'Noch keine Dateien hochgeladen. Ziehen Sie eine Datei hierher oder wählen Sie eine aus.'}
+              </p>
+            </div>
           )}
 
           <div mix={paginationCss}>
-            <span mix={table.paginationInfo}>
-              Seite {page} von {totalPages}
+            <span mix={table.paginationInfo} aria-current="page">
+              {total} Dateien · Seite {page} von {totalPages}
             </span>
             <div mix={paginationButtonsCss}>
               {page > 1 ? (
@@ -632,6 +768,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
+                  aria-label={`Seite ${page - 1}`}
                 >
                   Zurück
                 </a>
@@ -643,6 +780,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                   href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
+                  aria-label={`Seite ${page + 1}`}
                 >
                   Vor
                 </a>
@@ -699,298 +837,67 @@ function sortRule(
   return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
-const formCss = css({
-  display: 'flex',
-  gap: theme.space.md,
-  alignItems: 'flex-end',
-})
+/** Upward-arrow upload glyph for the dropzone and empty state. */
+function uploadIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
 
-const fileInputCss = css({
-  flex: 1,
-})
+/** Horizontal ellipsis "more options" glyph for the per-row menu trigger. */
+function ellipsisIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  )
+}
 
-const submitCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '0.5rem 1.5rem',
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: 'white',
-  background: theme.colors.action.primary.background,
-  border: 'none',
-  borderRadius: theme.radius.md,
-  cursor: 'pointer',
-})
-
-const successBanner = css({
-  backgroundColor: '#d1fae5',
-  border: '1px solid #6ee7b7',
-  borderRadius: theme.radius.md,
-  color: '#065f46',
-  marginBottom: theme.space.md,
-  padding: theme.space.md,
-})
-
-const errorBanner = css({
-  backgroundColor: theme.colors.action.danger.background,
-  border: `1px solid ${theme.colors.action.danger.border}`,
-  borderRadius: theme.radius.md,
-  color: theme.colors.action.danger.foreground,
-  marginBottom: theme.space.md,
-  padding: theme.space.md,
-})
-
-const bodyTextCss = css({
-  margin: 0,
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-})
-
-const tableCss = css({
-  width: '100%',
-  borderCollapse: 'collapse',
-  // Denser rows: 2px vertical padding (down from space.xs/4px) lets the grid
-  // show more rows in the fixed viewport height. Horizontal padding stays at
-  // 4px so column text is not clipped.
-  '& th, & td': {
-    padding: '2px 4px',
-    textAlign: 'left',
-    borderBottom: `1px solid ${theme.colors.border}`,
-  },
-  '& th': {
-    fontWeight: theme.fontWeight.semibold,
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.text.muted,
-    position: 'sticky',
-    top: 0,
-    background: theme.surface.lvl1,
-    zIndex: 1,
-  },
-})
-
-const sortLinkCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '0.25rem',
-  textDecoration: 'none',
-  color: 'inherit',
-  cursor: 'pointer',
-  '&:hover': { color: theme.colors.text.primary },
-})
-
-// Wrapper for the search filter + bulk-delete actions. Keeping them in one
-// horizontal row (instead of the bulk toolbar occupying its own full-width row
-// above the table) frees vertical space so the table shows more rows. The
-// filter form grows to fill the row while the compact bulk form hugs the right.
-const toolsRowCss = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: theme.space.sm,
-})
-
-const filterBarCss = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  flex: '1 1 auto',
-  minWidth: 0,
-})
-
-const sortArrowCss = css({
-  fontSize: theme.fontSize.xs,
-  lineHeight: 1,
-  color: theme.colors.text.muted,
-})
-
-const sortArrowActiveCss = css({
-  fontSize: theme.fontSize.xs,
-  lineHeight: 1,
-  color: theme.colors.text.primary,
-  fontWeight: theme.fontWeight.bold,
-})
-
-// Viewport-bounded page: let the page section fill the remaining content height
-// so the table region can absorb it and scroll internally (see the
-// remix3-bounded-scroll-flexchain pattern). The reduced `gap` here also tightens
-// vertical spacing between the section header and the two panels, returning that
-// space to the scrollable table so more rows are visible.
-const pageSectionCss = css({
-  flex: 1,
-  minHeight: 0,
-  gap: theme.space.xs,
-})
-
-// Compact the upload/search panel so it takes less vertical space on screen
-// (smaller padding and internal gap than the shared `panelCss` defaults).
-const uploadPanelCss = css({
-  padding: theme.space.xs,
-  gap: theme.space.xs,
-})
-
-const tablePanelCss = css({
-  flex: 1,
-  minHeight: 0,
-  overflow: 'hidden',
-  // Slightly wider grid: tightening horizontal padding lets the table span more
-  // of the panel width. Reduced vertical padding + a smaller internal gap give
-  // that space back to the scrollable table so more rows are visible.
-  padding: theme.space.sm,
-  gap: theme.space.sm,
-})
-
-const tableScrollCss = css({
-  flex: 1,
-  minHeight: 0,
-  overflow: 'auto',
-})
-
-const paginationCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: theme.space.md,
-  // Reduced top margin keeps the pagination bar close to the table, returning
-  // the leftover vertical space to the scrollable grid above it.
-  marginTop: theme.space.sm,
-  flexShrink: 0,
-})
-
-const paginationButtonsCss = css({
-  display: 'flex',
-  gap: theme.space.sm,
-})
-
-const thActionsCss = css({
-  textAlign: 'right',
-  width: '170px',
-})
-
-const thCheckboxCss = css({
-  width: '36px',
-  textAlign: 'center',
-})
-
-const tdCheckboxCss = css({
-  width: '36px',
-  textAlign: 'center',
-})
-
-// The bulk forms are siblings of the search filter form and the scrollable table
-// (so the per-row delete forms inside the table are not nested inside another
-// <form>, which is invalid HTML). Row checkboxes associate to the delete form via
-// the HTML `form` attribute. `flex: none` keeps each a compact item that neither
-// grows nor wraps onto its own full-width line.
-const bulkFormCss = css({
-  flex: 'none',
-})
-
-// Visually joins the bulk delete and bulk download forms into one button group.
-// The two buttons must stay in separate forms (the delete form is intercepted by
-// the frame runtime, the download form submits natively via `data-rmx-document`),
-// so the group is a presentational wrapper around both.
-const bulkGroupCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  flex: 'none',
-})
-
-const bulkToolbarCss = css({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.space.sm,
-  whiteSpace: 'nowrap',
-})
-
-const selectedCountCss = css({
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.muted,
-})
-
-const bulkDeleteBtnCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: theme.space.xs,
-  padding: '0.4rem 0.9rem',
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.action.danger.foreground,
-  background: theme.colors.action.danger.background,
-  border: 'none',
-  // Left edge of the joined group: round the outer corners, square the inner.
-  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  '&:disabled': {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-})
-
-const bulkDownloadBtnCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: theme.space.xs,
-  padding: '0.4rem 0.9rem',
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.action.primary.foreground,
-  background: theme.colors.action.primary.background,
-  border: 'none',
-  // Right edge of the joined group: round the outer corners, square the inner,
-  // and separate from the delete button with a subtle divider.
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  borderLeft: '1px solid rgba(255, 255, 255, 0.3)',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-  '&:disabled': {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-})
-
-const tdActionsCss = css({
-  textAlign: 'right',
-  whiteSpace: 'nowrap',
-})
-
-const rowActionsCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  gap: 0,
-})
-
-const iconActionCss = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '28px',
-  height: '28px',
-  minWidth: '28px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border}`,
-  // Left edge of the per-row action group (download is always first): round the
-  // outer corners, square the inner.
-  borderRadius: `${theme.radius.md} 0 0 ${theme.radius.md}`,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-const iconActionDangerCss = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  // Right edge of the per-row action group (delete is always second): square the
-  // inner corners, round the outer. The download link's right border acts as the
-  // divider between the two.
-  borderRadius: `0 ${theme.radius.md} ${theme.radius.md} 0`,
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
+/**
+ * Storage-usage progress bar. Shows the narrower of the two quotas (per-user for
+ * a non-admin, the global quota for an admin) so the bar never claims more
+ * headroom than the user actually has, and turns warning-coloured near the limit.
+ */
+function quotaBar(quota: {
+  userUsedBytes: number
+  userQuotaBytes: number | null
+  totalUsedBytes: number
+  totalQuotaBytes: number
+}) {
+  let used = quota.userQuotaBytes != null ? quota.userUsedBytes : quota.totalUsedBytes
+  let cap = quota.userQuotaBytes ?? quota.totalQuotaBytes
+  let pct = cap > 0 ? Math.max(0, Math.min(1, used / cap)) : 0
+  let near = pct >= 0.85
+  return (
+    <span
+      role="progressbar"
+      aria-label="Speicherkontingent"
+      aria-valuemin={0}
+      aria-valuemax={cap}
+      aria-valuenow={Math.round(used)}
+      mix={[quotaTrackCss, ...(near ? [quotaTrackNearCss] : [])]}
+      data-quota-near={near ? 'true' : undefined}
+    >
+      <span
+        mix={[quotaFillCss, ...(near ? [quotaFillNearCss] : [])]}
+        style={{ width: `${pct * 100}%` }}
+      />
+    </span>
+  )
+}

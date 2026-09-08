@@ -12,7 +12,7 @@ function envBytes(name: string, fallback: number): number {
 export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 * 1024 * 1024)
 
 /** Hard cap on total BYTEA storage a single user may claim. */
-const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
+export const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
 
 /** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
 export const uploadErrorMessages: Record<string, string> = {
@@ -155,6 +155,42 @@ export async function getUploadsPage(
     filter,
   })
   return { rows, total, totalPages, page: safePage }
+}
+
+/**
+ * Storage quota usage for the uploads grid header. Returns the calling user's
+ * used and quota bytes plus the global totals. `userId === undefined` (admin
+ * viewing everything) reports global used/total with a null per-user quota.
+ */
+export async function getUploadsQuotaUsage(
+  db: Database,
+  userId?: number,
+): Promise<{
+  userUsedBytes: number
+  userQuotaBytes: number | null
+  totalUsedBytes: number
+  totalQuotaBytes: number
+}> {
+  let userUsedBytes = 0
+  if (userId !== undefined) {
+    let row = await queryRow(
+      db,
+      sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId}`,
+      z.object({ total: int8Aggregate }),
+    )
+    userUsedBytes = row?.total ?? 0
+  }
+  let totalRow = await queryRow(
+    db,
+    sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads`,
+    z.object({ total: int8Aggregate }),
+  )
+  return {
+    userUsedBytes,
+    userQuotaBytes: userId !== undefined ? uploadsPerUserQuotaBytes : null,
+    totalUsedBytes: totalRow?.total ?? 0,
+    totalQuotaBytes: uploadsTotalQuotaBytes,
+  }
 }
 
 export async function claimUpload(

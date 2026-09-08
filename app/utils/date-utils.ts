@@ -1,5 +1,28 @@
 export const MS_PER_DAY = 86_400_000
 
+const MS_PER_MINUTE = 60_000
+const MS_PER_HOUR = 3_600_000
+
+/**
+ * Format a timestamp as a short German relative time, e.g. "gerade eben",
+ * "vor 3 Min.", "vor 2 Std." or "vor 5 Tagen". Falls back to the absolute date
+ * once the value is more than a week old so old uploads stay unambiguous.
+ * Returns an em dash for null/invalid input.
+ */
+export function formatRelativeTimeDE(epochMs: number | null | undefined, nowMs?: number): string {
+  if (epochMs == null) return '\u2014'
+  let t = Number(epochMs)
+  if (!Number.isFinite(t)) return '\u2014'
+  let now = nowMs ?? Date.now()
+  let diff = now - t
+  if (diff < 0) diff = 0
+  if (diff < MS_PER_MINUTE) return 'gerade eben'
+  if (diff < MS_PER_HOUR) return `vor ${Math.floor(diff / MS_PER_MINUTE)} Min.`
+  if (diff < MS_PER_DAY) return `vor ${Math.floor(diff / MS_PER_HOUR)} Std.`
+  if (diff < 7 * MS_PER_DAY) return `vor ${Math.floor(diff / MS_PER_DAY)} Tagen`
+  return formatDateDE(t)
+}
+
 /**
  * Check whether a UTC-midnight epoch ms value is strictly in the past
  * (before the start of today in UTC).

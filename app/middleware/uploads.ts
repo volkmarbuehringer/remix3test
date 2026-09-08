@@ -13,34 +13,11 @@ import { db } from '../db.ts'
 import { insertUpload, uploadsTotalQuotaBytes } from '../data/uploads.ts'
 import { addUploadedId, setUploadError } from './upload-claim.ts'
 import { routes } from '../routes.ts'
-
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
-
-const ALLOWED_EXTENSIONS = new Set([
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.gif',
-  '.webp',
-  '.pdf',
-  '.txt',
-  '.csv',
-  '.json',
-  '.xml',
-])
-
-const ALLOWED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'application/pdf',
-  'text/plain',
-  'text/csv',
-  'application/json',
-  'application/xml',
-  'text/xml',
-])
+import {
+  ALLOWED_EXTENSIONS,
+  ALLOWED_MIME_TYPES,
+  MAX_UPLOAD_BYTES,
+} from '../utils/upload-validation.ts'
 
 /**
  * Validate a single upload without throwing. Returns a German rejection message

@@ -1,0 +1,273 @@
+import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { validateUploadFiles, formatBytes } from '../../../utils/upload-validation.ts'
+import { theme } from '../../../ui/theme/theme.ts'
+
+// Inline-style objects. remix/ui `css()` mixins cannot be applied to elements
+// created at runtime (no frame render handle), so the dynamically-rendered
+// pending-file chips use plain styles instead. Token names come from the typed
+// `theme` object and are wrapped in `var()` here (same contract the `css()`
+// mixin uses) so the chips follow the active theme, including dark mode.
+const chipStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '0.2rem 0.5rem',
+  fontSize: '0.75rem',
+  background: `var(${theme.surface.lvl3})`,
+  border: `1px solid var(${theme.colors.border.default})`,
+  borderRadius: '999px',
+  whiteSpace: 'nowrap',
+} as const
+
+const chipNameStyle = {
+  maxWidth: '220px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+} as const
+
+const chipSizeStyle = {
+  color: `var(${theme.colors.text.muted})`,
+} as const
+
+const chipRemoveStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '16px',
+  height: '16px',
+  padding: 0,
+  border: 'none',
+  borderRadius: '999px',
+  background: 'transparent',
+  color: `var(${theme.colors.text.muted})`,
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  lineHeight: 1,
+} as const
+
+/**
+ * ClientEntry that enhances the uploads upload form (`[data-upload-form]`):
+ *
+ * - turns the dropzone into a drag-and-drop target that adds dropped files to the
+ *   hidden file input,
+ * - renders a pending-file chip list (name, size, remove) below the dropzone,
+ * - validates the batch client-side (type, count, per-file size) so invalid files
+ *   fail fast instead of after a full multipart round-trip,
+ * - blocks the submit until a valid file is selected and shows an in-flight
+ *   "Hochladen…" state with a double-submit guard.
+ *
+ * The real `<input type="file" name="file" multiple>` stays server-rendered, so
+ * the native/Frame submission path, CSRF and server-side validation are
+ * unchanged — this entry only adds the UI layer on top. `required` is left off
+ * the input and the empty-selection case is handled here (and, as a no-JS
+ * fallback, by the server's "Upload fehlgeschlagen" banner).
+ */
+export const UploadDropzone = clientEntry(
+  import.meta.url + '#UploadDropzone',
+  function UploadDropzone(handle: Handle) {
+    return () => (
+      <div
+        mix={[
+          css({ display: 'none' }),
+          ref((_el) => {
+            let formNode = document.querySelector<HTMLFormElement>('[data-upload-form]')
+            if (!formNode) return
+            let form = formNode
+            let input = form.querySelector<HTMLInputElement>('[data-file-input]')!
+            let dropzone = form.querySelector<HTMLElement>('[data-dropzone]')!
+            let list = form.querySelector<HTMLUListElement>('[data-pending-list]')!
+            let validation = form.querySelector<HTMLElement>('[data-upload-validation]')!
+            let submit = form.querySelector<HTMLButtonElement>('[data-upload-submit]')!
+
+            let uploading = false
+
+            function selectedFiles(): File[] {
+              return Array.from(input.files ?? [])
+            }
+
+            function fileKey(file: File): string {
+              return `${file.name}:${file.size}:${file.lastModified}`
+            }
+
+            function setBusy(busy: boolean) {
+              uploading = busy
+              if (busy) form.dataset.uploading = 'true'
+              else delete form.dataset.uploading
+              dropzone.toggleAttribute('data-disabled', busy)
+              submit.setAttribute('aria-busy', String(busy))
+              let idle = submit.querySelector('[data-upload-idle]')
+              let busyEl = submit.querySelector('[data-upload-busy]')
+              if (idle) idle.toggleAttribute('hidden', busy)
+              if (busyEl) busyEl.toggleAttribute('hidden', !busy)
+              if (busy) {
+                // Defer the disable until after the submit event has fully
+                // propagated, so the Frame runtime reads the submitter while it is
+                // still enabled (independent of listener registration order). The
+                // button stays disabled until the frame re-renders the form.
+                setTimeout(() => {
+                  submit.disabled = true
+                }, 0)
+              } else {
+                submit.disabled = false
+              }
+            }
+
+            function syncSubmitState(files: File[]) {
+              let error = validateUploadFiles(
+                files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+              )
+              if (error) {
+                validation.textContent = error
+                validation.removeAttribute('hidden')
+              } else {
+                validation.textContent = ''
+                validation.setAttribute('hidden', '')
+              }
+              // Enable the submit button only when a valid batch is selected and an
+              // upload is not already in flight.
+              return files.length > 0 && error == null && !uploading
+            }
+
+            function renderPending() {
+              let files = selectedFiles()
+              list.innerHTML = ''
+              if (files.length === 0) {
+                list.setAttribute('hidden', '')
+              } else {
+                list.removeAttribute('hidden')
+              }
+
+              for (let [i, file] of files.entries()) {
+                let li = document.createElement('li')
+                Object.assign(li.style, chipStyle)
+                li.setAttribute('data-pending-file', String(file.size))
+
+                let name = document.createElement('span')
+                Object.assign(name.style, chipNameStyle)
+                name.textContent = file.name
+                li.appendChild(name)
+
+                let size = document.createElement('span')
+                Object.assign(size.style, chipSizeStyle)
+                size.textContent = formatBytes(file.size)
+                li.appendChild(size)
+
+                let remove = document.createElement('button')
+                remove.type = 'button'
+                Object.assign(remove.style, chipRemoveStyle)
+                remove.setAttribute('aria-label', `${file.name} entfernen`)
+                remove.textContent = '×'
+                remove.addEventListener('click', () => removeFile(i))
+                li.appendChild(remove)
+
+                list.appendChild(li)
+              }
+
+              submit.disabled = !syncSubmitState(files)
+            }
+
+            function setInputFiles(files: File[]) {
+              let dt = new DataTransfer()
+              for (let file of files) dt.items.add(file)
+              input.files = dt.files
+            }
+
+            function removeFile(index: number) {
+              let files = selectedFiles()
+              if (index >= files.length) return
+              files.splice(index, 1)
+              setInputFiles(files)
+              renderPending()
+            }
+
+            function addFiles(incoming: FileList) {
+              let current = Array.from(selectedFiles())
+              let keys = new Set(current.map(fileKey))
+              for (let file of Array.from(incoming)) {
+                if (!keys.has(fileKey(file))) {
+                  current.push(file)
+                  keys.add(fileKey(file))
+                }
+              }
+              setInputFiles(current)
+              renderPending()
+            }
+
+            function onChange() {
+              renderPending()
+            }
+
+            function onSubmit(event: Event) {
+              let files = selectedFiles()
+
+              if (files.length === 0) {
+                validation.textContent = 'Keine Dateien ausgewählt.'
+                validation.removeAttribute('hidden')
+                event.preventDefault()
+                return
+              }
+
+              let error = validateUploadFiles(
+                files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+              )
+              if (error) {
+                validation.textContent = error
+                validation.removeAttribute('hidden')
+                event.preventDefault()
+                return
+              }
+
+              // Double-submit guard: the Frame runtime handles the first valid
+              // submission; any further submit while it is in flight is blocked.
+              if (uploading) {
+                event.preventDefault()
+                return
+              }
+              setBusy(true)
+            }
+
+            function onDragOver(event: Event) {
+              event.preventDefault()
+              dropzone.dataset.dragover = 'true'
+            }
+
+            function onDragLeave(event: Event) {
+              event.preventDefault()
+              delete dropzone.dataset.dragover
+            }
+
+            function onDrop(event: Event) {
+              event.preventDefault()
+              delete dropzone.dataset.dragover
+              let data = (event as DragEvent).dataTransfer
+              if (data && data.files.length > 0) addFiles(data.files)
+            }
+
+            input.addEventListener('change', onChange)
+            dropzone.addEventListener('dragover', onDragOver)
+            dropzone.addEventListener('dragenter', onDragOver)
+            dropzone.addEventListener('dragleave', onDragLeave)
+            dropzone.addEventListener('drop', onDrop)
+            form.addEventListener('submit', onSubmit)
+
+            renderPending()
+
+            // Hydration signal for e2e: the clientEntry attaches listeners
+            // asynchronously after the form renders, so tests wait for this
+            // attribute before interacting to avoid a hydration race.
+            form.dataset.dropzoneReady = 'true'
+
+            handle.signal.addEventListener('abort', () => {
+              input.removeEventListener('change', onChange)
+              dropzone.removeEventListener('dragover', onDragOver)
+              dropzone.removeEventListener('dragenter', onDragOver)
+              dropzone.removeEventListener('dragleave', onDragLeave)
+              dropzone.removeEventListener('drop', onDrop)
+              form.removeEventListener('submit', onSubmit)
+            })
+          }),
+        ]}
+      />
+    )
+  },
+)
