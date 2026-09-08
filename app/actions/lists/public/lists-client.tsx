@@ -71,7 +71,7 @@ export const ListsClient = clientEntry(
     // Undo + inline-confirm state
     let undoSnapshot: ListItem[] | null = null
     let undoTimer: ReturnType<typeof setTimeout> | null = null
-    let undoKind: 'delete' | 'clear' | null = null
+    let undoKind: 'delete' | 'clear' | 'reorder' | null = null
     let clearArmed = false
     let clearArmTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -83,7 +83,7 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    let showUndo = (kind: 'delete' | 'clear', snapshot: ListItem[]) => {
+    let showUndo = (kind: 'delete' | 'clear' | 'reorder', snapshot: ListItem[]) => {
       if (undoTimer) clearTimeout(undoTimer)
       undoSnapshot = snapshot
       undoKind = kind
@@ -101,6 +101,7 @@ export const ListsClient = clientEntry(
       items = undoSnapshot.map((item) => ({ ...item }))
       clearUndo()
       setDirty()
+      announce('Rückgängig gemacht')
       handle.update()
       scheduleAutosave(true)
     }
@@ -128,13 +129,85 @@ export const ListsClient = clientEntry(
       description !== cleanDescription ||
       JSON.stringify(items) !== cleanItemsJSON
 
+    // ── Unsaved new-list draft ───────────────────────────────────────────────
+    // A brand-new list (loadedListId === null) has no id, so the unload beacon
+    // cannot flush it — navigating to another list silently discarded the draft.
+    // Persist a session-scoped draft as we type and restore it when a fresh "new
+    // list" is opened, so nothing typed is ever lost. It is cleared the moment
+    // the list is saved (an id exists) or the user discards it.
+    let DRAFT_KEY = 'lists:draft:new'
+    let draftRestored = false
+
+    let loadDraft = (): ListInitialState | null => {
+      if (typeof sessionStorage === 'undefined') return null
+      try {
+        let raw = sessionStorage.getItem(DRAFT_KEY)
+        if (!raw) return null
+        let data = JSON.parse(raw)
+        if (data && typeof data === 'object') {
+          return {
+            id: 0,
+            title: typeof data.title === 'string' ? data.title : '',
+            description: typeof data.description === 'string' ? data.description : '',
+            items: Array.isArray(data.items) ? data.items : [],
+            updated_at: 0,
+          }
+        }
+      } catch {
+        /* ignore a corrupt draft */
+      }
+      return null
+    }
+
+    let clearDraft = () => {
+      if (typeof sessionStorage === 'undefined') return
+      try {
+        sessionStorage.removeItem(DRAFT_KEY)
+      } catch {
+        /* ignore */
+      }
+      draftRestored = false
+    }
+
+    let saveDraft = () => {
+      if (loadedListId !== null) return
+      if (typeof sessionStorage === 'undefined') return
+      if (!isDirty()) {
+        clearDraft()
+        return
+      }
+      try {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ title, description, items }))
+      } catch {
+        /* storage full / unavailable — ignore */
+      }
+    }
+
     let setDirty = () => {
+      // Runs before the dirty early-return so that reverting a new-list draft
+      // back to clean clears the stored draft rather than leaving it stale.
+      saveDraft()
       if (!isDirty()) return
       if (saveStatus === 'saved' || saveStatus === 'error') {
         saveStatus = 'dirty'
         handle.update()
       }
       scheduleAutosave()
+    }
+
+    // Discard a restored unsaved draft completely and reset to a clean new list.
+    let discardDraft = () => {
+      clearDraft()
+      items = []
+      title = ''
+      description = ''
+      loadedListId = null
+      loadedUpdatedAt = null
+      saveStatus = 'saved'
+      loadError = ''
+      conflictState = { show: false, serverState: null }
+      snapshotClean()
+      handle.update()
     }
 
     let multilineDisplayStyle = css({
@@ -281,6 +354,12 @@ export const ListsClient = clientEntry(
       opacity: 0,
       pointerEvents: 'none',
       transition: 'opacity 0.12s ease',
+      // On touch devices there is no hover, so the reveal-on-hover cluster would
+      // be unreachable — keep the row actions visible and interactive instead.
+      '@media (hover: none)': {
+        opacity: 1,
+        pointerEvents: 'auto',
+      },
     })
 
     // Flat square button-group member — mirrors /admin/lists' iconActionStyle.
@@ -354,8 +433,9 @@ export const ListsClient = clientEntry(
         if (!manual) {
           return false
         }
-        // Don't create without a description and at least one item.
-        if (!description.trim() || items.length === 0) {
+        // Don't create a nameless list: require a title or a description.
+        // Items are optional — a list may be created empty and filled in later.
+        if (!title.trim() && !description.trim()) {
           return false
         }
         // Create new list
@@ -387,6 +467,7 @@ export const ListsClient = clientEntry(
         saving = false
         if (ok && newId !== null) {
           snapshotClean()
+          clearDraft()
           saveStatus = 'saved'
           handle.update()
           navigateFrame(`/lists?load=${newId}`)
@@ -518,6 +599,27 @@ export const ListsClient = clientEntry(
       return await saveNow()
     }
 
+    // Revert unsaved edits back to the last saved snapshot.
+    let discardChanges = () => {
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer)
+        autosaveTimer = null
+      }
+      if (undoTimer) {
+        clearTimeout(undoTimer)
+        undoTimer = null
+      }
+      undoSnapshot = null
+      undoKind = null
+      items = JSON.parse(cleanItemsJSON)
+      title = cleanTitle
+      description = cleanDescription
+      saveStatus = 'saved'
+      conflictState = { show: false, serverState: null }
+      clearDraft()
+      handle.update()
+    }
+
     // Hydrate from server-injected initial state
     let hydrateFromInitialState = (state: ListInitialState) => {
       items = state.items.map((item) => ({ ...item }))
@@ -560,6 +662,23 @@ export const ListsClient = clientEntry(
         }
       }
       // No initial state: start new
+      // Restore an unsaved new-list draft if one exists, so a dismissed or
+      // navigated-away draft is recovered instead of silently lost.
+      let draft = loadDraft()
+      if (draft) {
+        items = draft.items.map((item) => ({ ...item }))
+        title = draft.title ?? ''
+        description = draft.description ?? ''
+        loadedListId = null
+        loadedUpdatedAt = null
+        saveStatus = 'dirty'
+        loadError = ''
+        loadingList = false
+        conflictState = { show: false, serverState: null }
+        draftRestored = true
+        handle.update()
+        return
+      }
       items = []
       title = ''
       description = ''
@@ -673,6 +792,19 @@ export const ListsClient = clientEntry(
       e.dataTransfer!.dropEffect = isNoop ? 'none' : 'move'
       if (newDropIndex === dropIndex) return
       showIndicator(newDropIndex)
+    }
+
+    // Scroll the element list toward a pointer near its top/bottom edge during a
+    // drag, so an item can be reordered to a position far below the fold.
+    let autoScrollList = (clientY: number) => {
+      if (!listRef) return
+      let rect = listRef.getBoundingClientRect()
+      let edge = 48
+      if (clientY < rect.top + edge) {
+        listRef.scrollTop -= 14
+      } else if (clientY > rect.bottom - edge) {
+        listRef.scrollTop += 14
+      }
     }
 
     let handleDrop = (e: DragEvent) => {
@@ -913,13 +1045,22 @@ export const ListsClient = clientEntry(
 
     let reverse = () => {
       disarmClear()
+      showUndo(
+        'reorder',
+        items.map((item) => ({ ...item })),
+      )
       items = [...items].reverse()
       setDirty()
+      announce('Reihenfolge umgekehrt')
       handle.update()
     }
 
     let shuffle = () => {
       disarmClear()
+      showUndo(
+        'reorder',
+        items.map((item) => ({ ...item })),
+      )
       let newItems = [...items]
       for (let i = newItems.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1))
@@ -927,6 +1068,7 @@ export const ListsClient = clientEntry(
       }
       items = newItems
       setDirty()
+      announce('Reihenfolge gemischt')
       handle.update()
     }
 
@@ -1238,17 +1380,28 @@ export const ListsClient = clientEntry(
                   + Liste hinzufügen
                 </button>
               ) : (
-                <button
-                  mix={[
-                    button({ tone: 'primary' }),
-                    on('click', () => {
-                      void flushNow()
-                    }),
-                  ]}
-                  disabled={!isDirty() || saving}
-                >
-                  Speichern
-                </button>
+                <>
+                  {isDirty() && (
+                    <button
+                      mix={[button({ tone: 'secondary' }), on('click', discardChanges)]}
+                      disabled={saving}
+                      title="Ungespeicherte Änderungen verwerfen"
+                    >
+                      ↶ Verwerfen
+                    </button>
+                  )}
+                  <button
+                    mix={[
+                      button({ tone: 'primary' }),
+                      on('click', () => {
+                        void flushNow()
+                      }),
+                    ]}
+                    disabled={!isDirty() || saving}
+                  >
+                    Speichern
+                  </button>
+                </>
               )}
               <span
                 mix={css({
@@ -1304,6 +1457,37 @@ export const ListsClient = clientEntry(
               </div>
             )}
 
+            {/* Restored unsaved draft for a brand-new list */}
+            {draftRestored && loadedListId === null && (
+              <div
+                mix={css({
+                  marginBottom: theme.space.md,
+                  padding: theme.space.md,
+                  borderRadius: theme.radius.md,
+                  backgroundColor: theme.surface.lvl2,
+                  border: `1px solid ${theme.colors.border.default}`,
+                  fontSize: theme.fontSize.sm,
+                  display: 'flex',
+                  gap: theme.space.sm,
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                })}
+              >
+                <span mix={css({ flex: 1 })}>
+                  Ein ungespeicherter Entwurf wurde wiederhergestellt.
+                </span>
+                <button
+                  mix={[
+                    button({ tone: 'secondary' }),
+                    css({ fontSize: theme.fontSize.xs }),
+                    on('click', discardDraft),
+                  ]}
+                >
+                  Entwurf verwerfen
+                </button>
+              </div>
+            )}
+
             {/* Undo chip */}
             {undoSnapshot !== null && (
               <div
@@ -1320,7 +1504,11 @@ export const ListsClient = clientEntry(
                 })}
               >
                 <span mix={css({ flex: 1 })}>
-                  {undoKind === 'clear' ? 'Alle Elemente gelöscht.' : 'Element gelöscht.'}
+                  {undoKind === 'clear'
+                    ? 'Alle Elemente gelöscht.'
+                    : undoKind === 'reorder'
+                      ? 'Reihenfolge geändert.'
+                      : 'Element gelöscht.'}
                 </span>
                 <button
                   mix={[
@@ -1358,13 +1546,9 @@ export const ListsClient = clientEntry(
                   color: theme.colors.text.muted,
                 })}
               >
-                {!description.trim() && items.length === 0
-                  ? 'Für eine neue Liste fehlen noch eine Beschreibung und ein Element.'
-                  : !description.trim()
-                    ? 'Für eine neue Liste fehlt noch eine Beschreibung.'
-                    : items.length === 0
-                      ? 'Für eine neue Liste fehlt noch ein Element.'
-                      : 'Bereit — klicke auf „+ Liste hinzufügen“, um die Liste zu speichern.'}
+                {!title.trim() && !description.trim()
+                  ? 'Gib deiner Liste einen Titel oder eine Beschreibung.'
+                  : 'Bereit — klicke auf „+ Liste hinzufügen“, um die Liste zu speichern.'}
               </p>
             )}
 
@@ -1642,6 +1826,13 @@ export const ListsClient = clientEntry(
                         'dragover',
                         (e) => handleContainerDragOver(e as DragEvent),
                         { signal: ac.signal },
+                      )
+                      // Capture-phase so it fires even while over a row (rows
+                      // stop the bubble-phase dragover), enabling edge auto-scroll.
+                      el.addEventListener(
+                        'dragover',
+                        (e) => autoScrollList((e as DragEvent).clientY),
+                        { capture: true, signal: ac.signal },
                       )
                       el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
                         signal: ac.signal,

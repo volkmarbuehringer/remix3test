@@ -40,7 +40,25 @@ export const ListsSearch = clientEntry(
                 timer = setTimeout(() => {
                   timer = null
                   doSearch(input!.value)
-                }, 250)
+                }, 400)
+              },
+              { signal: handle.signal },
+            )
+
+            // Escape clears the filter and restores the full list immediately.
+            input.addEventListener(
+              'keydown',
+              (e) => {
+                if (e.key === 'Escape' && input!.value) {
+                  e.preventDefault()
+                  if (timer) {
+                    clearTimeout(timer)
+                    timer = null
+                  }
+                  input!.value = ''
+                  doSearch('')
+                  input!.focus()
+                }
               },
               { signal: handle.signal },
             )

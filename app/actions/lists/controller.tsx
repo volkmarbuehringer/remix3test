@@ -36,8 +36,8 @@ const listItemSchema = s.object({
 
 const listsCreateSchema = s.object({
   title: s.optional(s.string().pipe(maxLength(200))),
-  description: s.string().pipe(minLength(1), maxLength(500)),
-  items: s.array(listItemSchema),
+  description: s.optional(s.string().pipe(maxLength(500))),
+  items: s.optional(s.array(listItemSchema)),
 })
 
 const listsPatchSchema = s.object({
@@ -150,21 +150,24 @@ export default createController(routes.lists, {
         let message =
           parseResult.issues.length > 0
             ? parseResult.issues[0]!.message
-            : 'Description and non-empty items array are required'
+            : 'A title or description is required'
         return context.json({ error: message }, { status: 400 })
       }
 
       let { title, description, items } = parseResult.value
+      let descriptionValue = description ?? ''
 
-      if (!description.trim()) {
-        return context.json({ error: 'Description is required' }, { status: 400 })
+      // A list needs a name to be worth saving: either a title or a description.
+      // Items are optional — a list may be created empty and filled in later.
+      if (!title?.trim() && !descriptionValue.trim()) {
+        return context.json({ error: 'A title or description is required' }, { status: 400 })
       }
 
-      if (items.length === 0) {
-        return context.json({ error: 'Items array must not be empty' }, { status: 400 })
-      }
-
-      let row = await createList(context.db, { title, description, items }, user.id)
+      let row = await createList(
+        context.db,
+        { title, description: descriptionValue, items: items ?? [] },
+        user.id,
+      )
       return context.json({
         id: row.id,
         title: row.title,

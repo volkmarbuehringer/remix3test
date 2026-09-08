@@ -167,19 +167,19 @@ export async function createList(
   db: Database,
   input: {
     title?: string | undefined
-    description: string
-    items: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
+    description?: string | undefined
+    items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
   },
   userId?: number,
 ): Promise<ListRow> {
   let now = Date.now()
-  let stableItems = assignStableIds(input.items)
+  let stableItems = assignStableIds(input.items ?? [])
   let row = await db.create(
     lists,
     {
       list: stableItems,
       title: input.title ?? '',
-      description: input.description,
+      description: input.description ?? '',
       created_at: now,
       updated_at: now,
       ...(userId != null ? { user_id: userId } : {}),

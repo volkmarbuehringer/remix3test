@@ -291,7 +291,7 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('POST /lists without items returns 400', async () => {
+  it('POST /lists without items succeeds with an empty items array', async () => {
     let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -304,12 +304,15 @@ describe('Lists controller', () => {
       }),
     })
 
-    assert.equal(response.status, 400)
+    assert.equal(response.status, 200)
     let body = await response.json()
-    assert.ok(body.error, 'response should include an error message')
+    assert.ok(typeof body.id === 'number', 'response should include a numeric id')
+    assert.equal(body.description, 'My list', 'response should include the description')
+    assert.ok(Array.isArray(body.items), 'response should include items array')
+    assert.equal(body.items.length, 0, 'items should default to an empty array')
   })
 
-  it('POST /lists with empty items array returns 400', async () => {
+  it('POST /lists with empty items array succeeds', async () => {
     let response = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -323,9 +326,33 @@ describe('Lists controller', () => {
       }),
     })
 
-    assert.equal(response.status, 400)
+    assert.equal(response.status, 200)
     let body = await response.json()
-    assert.ok(body.error, 'response should include an error message')
+    assert.equal(body.description, 'My list')
+    assert.ok(Array.isArray(body.items))
+    assert.equal(body.items.length, 0)
+  })
+
+  it('POST /lists with a title but no description succeeds', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: 'Einkauf',
+      }),
+    })
+
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.ok(typeof body.id === 'number', 'response should include a numeric id')
+    assert.equal(body.title, 'Einkauf')
+    assert.equal(body.description, '', 'description should default to empty')
+    assert.ok(Array.isArray(body.items))
+    assert.equal(body.items.length, 0)
   })
 
   it('POST /lists with invalid JSON returns 400', async () => {

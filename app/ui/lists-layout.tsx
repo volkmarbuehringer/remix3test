@@ -426,7 +426,13 @@ function ListsLayout(
             <ListsSidebarKeyboard />
             <ListsRowActions />
             <ConfirmDelete />
-            {sidebarEntries.length === 0 && <p mix={emptyHintStyle}>Keine gespeicherten Listen</p>}
+            {sidebarEntries.length === 0 && (
+              <p mix={emptyHintStyle}>
+                {new URL(getContext().request.url).searchParams.get('filter')
+                  ? 'Keine Treffer'
+                  : 'Keine gespeicherten Listen'}
+              </p>
+            )}
             {pagination && sidebarEntries.length > 0 && (
               <div mix={paginationStyle}>
                 {pagination.offset > 0 ? (
@@ -511,6 +517,10 @@ const rowActionsStyle = css({
   gap: '2px',
   zIndex: 2,
   pointerEvents: 'none',
+  // Touch devices have no hover, so the reveal-on-hover actions are unreachable.
+  '@media (hover: none)': {
+    pointerEvents: 'auto',
+  },
 })
 
 const deleteFormStyle = css({
@@ -521,6 +531,10 @@ const deleteFormStyle = css({
   opacity: 0,
   pointerEvents: 'none',
   transition: 'opacity 0.12s ease',
+  '@media (hover: none)': {
+    opacity: 1,
+    pointerEvents: 'auto',
+  },
 })
 
 const deleteBtnStyle = css({
@@ -559,6 +573,10 @@ const renameBtnStyle = css({
   ':hover': {
     background: theme.surface.lvl2,
     color: theme.colors.text.primary,
+  },
+  '@media (hover: none)': {
+    opacity: 1,
+    pointerEvents: 'auto',
   },
 })
 
