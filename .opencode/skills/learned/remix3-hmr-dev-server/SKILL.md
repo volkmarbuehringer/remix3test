@@ -14,6 +14,8 @@ origin: auto-extracted
 
 **Re-validated:** 2026-08-29 against installed build `f597ce701` (installable dist of `fc87ca9`, includes #11607/#11751/#11665; version string still `3.0.0-beta.10`). All five claims hold: `run(entry, { env, nodeArgs, browserHmrChannel })` still at `index.d.ts:126` (`RunOptions` gained `cwd`/`entryArgs`/`watch` — superset, no break); `createHmrReadyFetch(runner, fetch, { shouldRetry })` at `index.js:16` with default `shouldRetrySafeUnavailableRequest` at `index.js:81-87` retrying GET/HEAD on `502/503/504` **and now also on thrown errors** (`response === undefined`); `createBrowserHmrChannel`/`emitServerReady` unchanged in `runtime.d.ts`; `REMIX_NODE_HMR` injection unchanged (`lib/runner.js:16,878`); the `fingerprint cannot be used with watch mode` guard moved to `@remix-run/assets/dist/lib/asset-server.js:715` (was 695).
 
+**Post-bump (2026-09-08):** After upgrading the pinned `remix` to the build installed as `63aa4cc02af8c4194c` (asset server now imports `./virtual-store.js`), the `fingerprint cannot be used with watch mode` guard shifted again to `@remix-run/assets/dist/lib/asset-server.js:717` (was 715). Dist line refs in this skill are build-specific — re-grep the installed `node_modules/.pnpm/@remix-run+node-hmr*` / `@remix-run+assets*` after any bump rather than trusting these line numbers.
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:

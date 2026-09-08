@@ -125,7 +125,7 @@ Pre-#11668 root cause: the Navigation API's `navigate` event has `event.canInter
 A new `createFormNavigationResolver` (`packages/ui/src/runtime/form-navigation.ts`) tracks native `submit` events and resolves the matching `navigate` event into a `FormNavigation` (submission metadata). `navigation.ts` `getSourceElementNavigation` then treats forms identically to links:
 
 ```ts
-let formNavigation = resolveFormNavigation(event)                    // navigation.ts:303
+let formNavigation = resolveFormNavigation(event)                    // navigation.ts:504 (getSourceElementNavigation at :479)
 if (!formNavigation || formNavigation.hasAttribute('data-rmx-document')) return
 state = {
   target: formNavigation.getAttribute('data-rmx-target') ?? undefined,    // targets a named frame
@@ -408,6 +408,8 @@ A per-form clientEntry (one per form inside the frame) duplicates interception l
 
 A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
 
+> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `~/remix/packages/ui/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`~/remix/packages/ui/src/runtime/scheduler.ts:129`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
+
 **Root cause chain:**
 
 1. All `clientEntry` hydrations within a single Frame share that Frame's scheduler (`scheduler.ts`)
@@ -671,7 +673,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:761`, dispatched by `completeReload`; an inherited reload variant dispatches at `:796`). At this point `handle.frame.src` contains the just-rendered URL. This is more reliable than reading `location.search` (which may not match the frame's actual URL after frame-only navigation).
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:844`, dispatched by `completeReload` at `:839`; an inherited reload variant dispatches at `:879`). At this point `handle.frame.src` contains the just-rendered URL. This is more reliable than reading `location.search` (which may not match the frame's actual URL after frame-only navigation).
 
 ### Frame-Only Navigation (replace `window.location.href`)
 

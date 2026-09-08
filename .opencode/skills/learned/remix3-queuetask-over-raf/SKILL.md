@@ -60,13 +60,15 @@ This is NOT the same as the rAF anti-pattern and should not be "fixed" into `que
 
 ## Authority
 
-- Vendor: `~/remix/packages/ui/AGENTS.md` — "Focus and Scroll Management" section (~L1644-1745):
+- Vendor: `~/remix/packages/ui/AGENTS.md` — "Focus and Scroll Management" section (~L1649-1745):
   *"Use `handle.queueTask()` in event handlers for DOM operations that need to happen after the DOM
   has changed from the next update. This is the pattern for operations like focusing elements,
   scrolling, or measuring dimensions after conditional rendering."* The modal and scroll examples
   there are the canonical forms.
-- Vendor `queueTask` reference: same file ~L198-277 (event-handler usage) and ~L1899-1950 (reactive
-  data loading in the render function).
+- Vendor `queueTask` reference: same file `### handle.queueTask` ~L198-277 (event-handler usage) and
+  `#### Using queueTask for Reactive Data Loading` ~L1904-1955 (reactive data loading in the render function).
+  Since #11795, `handle.update()`'s own docs say to call it from an event handler or `handle.queueTask()`
+  — this skill is now the vendor-blessed remedy for the phase-guard throws (see `remix3-frame-cliententry`).
 
 ## First application
 
