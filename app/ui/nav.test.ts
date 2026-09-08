@@ -57,8 +57,8 @@ describe('NAV_SECTIONS', () => {
 })
 
 describe('MOBILE_ITEMS', () => {
-  it('has two items', () => {
-    assert.equal(MOBILE_ITEMS.length, 2)
+  it('has three items', () => {
+    assert.equal(MOBILE_ITEMS.length, 3)
   })
 
   it('has Neuer Termin as CTA', () => {
@@ -67,6 +67,14 @@ describe('MOBILE_ITEMS', () => {
     assert.equal(termin!.requireAuth, true)
     assert.equal(termin!.cta, true)
     assert.equal(termin!.href, '/appointments/new')
+  })
+
+  it('has Benachrichtigungen as plain link', () => {
+    let inbox = MOBILE_ITEMS.find((i) => i.label === 'Benachrichtigungen')
+    assert.ok(inbox, 'should have Benachrichtigungen')
+    assert.equal(inbox!.requireAuth, true)
+    assert.equal(inbox!.cta, undefined)
+    assert.equal(inbox!.href, '/notifications')
   })
 
   it('has Einstellungen as plain link', () => {
