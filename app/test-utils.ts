@@ -137,3 +137,13 @@ export function extractCookie(response: Response): string {
   if (!parsed.name) return ''
   return `${parsed.name}=${parsed.value ?? ''}`
 }
+
+/**
+ * Detect whether an e2e Playwright page is running in Firefox. Used to scope
+ * e2e assertions that are known to be broken by a remix-ui Firefox bug but
+ * still keep the page-load smoke coverage in Firefox (Chromium runs the full
+ * flow). Accepts the page returned by `t.serve()`.
+ */
+export function isFirefox(page: { context: () => { browser: () => { browserType: () => { name: () => string } } | null } }): boolean {
+  return page.context().browser()?.browserType().name() === 'firefox'
+}

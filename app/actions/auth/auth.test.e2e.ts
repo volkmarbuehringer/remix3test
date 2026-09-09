@@ -1,4 +1,4 @@
-import { describe, it } from 'remix/test'
+import { describe, it, before } from 'remix/test'
 import * as assert from 'remix/assert'
 import { SetCookie } from 'remix/headers'
 
@@ -6,6 +6,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { createCsrfSession } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
+import { __resetAuthRateLimits } from './controller.tsx'
 
 // ---------------------------------------------------------------------------
 // Auth End-to-End tests
@@ -36,6 +37,16 @@ function extractSessionCookie(response: Response): string | null {
 }
 
 describe('auth e2e', () => {
+  // These server-side login tests log in as shared seed users. The login rate
+  // limiter is in-process and per-email, so parallel e2e workers in the same
+  // fork (this file runs once per browser project) can exhaust it and flake the
+  // seed-user login assertions. Reset the per-email state so the tests are
+  // deterministic regardless of what else runs alongside them.
+  before(async () => {
+    __resetAuthRateLimits('admin@newapp.com')
+    __resetAuthRateLimits('user@newapp.com')
+  })
+
   // -----------------------------------------------------------------------
   // Full user journey: register → logout → login with same credentials
   // -----------------------------------------------------------------------

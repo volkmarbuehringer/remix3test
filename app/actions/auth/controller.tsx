@@ -95,6 +95,17 @@ function resetFailedAttempts(email: string): void {
   longLimiter.reset(email)
 }
 
+/**
+ * Test-only helper: clear the per-email login rate-limit state so e2e tests
+ * that log in as seed users are not flaked by parallel workers sharing the
+ * in-process limiter. Not used in production request paths.
+ */
+export function __resetAuthRateLimits(email: string): void {
+  shortLimiter.reset(email)
+  mediumLimiter.reset(email)
+  longLimiter.reset(email)
+}
+
 export const authLogin = createController(routes.auth.login, {
   middleware: [],
   actions: {
