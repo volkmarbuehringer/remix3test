@@ -1,5 +1,6 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
+import { ImportMap } from 'remix/ui/server'
 import { getContext } from 'remix/middleware/async-context'
 import { createCookie } from 'remix/cookie'
 import { Cookie } from 'remix/headers/cookie'
@@ -70,6 +71,18 @@ export function Document(handle: Handle<DocumentProps>) {
               } catch(e) {}
             })();
           `}</script>
+          {(() => {
+            let entry = getAssetEntry()
+            if (!entry) return null
+            return (
+              <>
+                <ImportMap value={entry.importMap} nonce={getCspNonce()} />
+                {entry.preloads.map((href) => (
+                  <link key={href} rel="modulepreload" href={href} />
+                ))}
+              </>
+            )
+          })()}
         </head>
         <body
           mix={css({
@@ -88,7 +101,7 @@ export function Document(handle: Handle<DocumentProps>) {
           <ThemeToggle />
           {(() => {
             let entry = getAssetEntry()
-            let src = entry?.scriptSrc ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
+            let src = entry?.href ?? routes.assets.href({ path: 'app/assets/entry.tsx' })
             return <script type="module" src={src} nonce={getCspNonce()} />
           })()}
         </body>

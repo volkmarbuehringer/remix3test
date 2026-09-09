@@ -31,18 +31,6 @@ app = run({
   },
 })
 
-if (import.meta.hot) {
-  import.meta.hot.on('server:update', async () => {
-    try {
-      await app.ready()
-      await app.frames.top.reload()
-    } catch (error) {
-      console.error('Error reloading top frame on server update', error)
-      window.location.reload()
-    }
-  })
-}
-
 app.addEventListener('error', async (event) => {
   app.dispose()
   let errorCard = import('./error-card.browser.tsx')

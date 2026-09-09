@@ -75,7 +75,7 @@ export function frameRedirects(): Middleware {
     // redirect returns a 200 fragment, so the runtime cannot infer the
     // destination from response.redirected. Without this the frame's `src` is
     // left at the POST action URL (e.g. /admin/users/2/toggle-disabled) and a
-    // later frame reload GETs that URL → 404. The client stub (entry.tsx)
+    // later frame reload GETs that URL → 405. The client stub (entry.tsx)
     // reads this header and reconciles the frame's src.
     try {
       frameResponse.headers.set('X-Remix-Redirect-To', destination.href)

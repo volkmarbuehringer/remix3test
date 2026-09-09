@@ -38,7 +38,7 @@ const FAKE_CLASSIFY_AGENT = {
 // Emulate the workflow run so the panel both navigates to /admin/users AND
 // renders a confirm gate. The initial run suspends (the confirm gate appears); a
 // confirm resume emits workflow-finish success, which is exactly what triggers
-// the frame reload that used to GET the stale POST action URL → 404.
+// the frame reload that used to GET the stale POST action URL → 405.
 const streamOf = (...chunks: unknown[]): AsyncIterable<unknown> =>
   (async function* () {
     for (let c of chunks) yield c
@@ -104,11 +104,11 @@ describe('admin agent-events panel: in-frame user toggle', () => {
     await page.locator('[data-toggle-form] >> button[type="submit"]').first().click()
 
     // Confirm in the agent dialog → resume → workflow-finish → frame reload.
-    // The frame must reload the GRID (not the stale POST action URL → 404).
+    // The frame must reload the GRID (not the stale POST action URL → 405).
     await page.locator('#ae-confirm-gate button').first().click()
 
     // The host /admin/agent-events page is still mounted, not replaced, and the
-    // frame reloaded the grid instead of a Not Found for the POST action URL.
+    // frame reloaded the grid instead of a 405 for the POST action URL.
     await page.locator('#agent-events-input').waitFor({ timeout: 10_000 })
     await page.locator('#ae-status-bar').waitFor()
     await page.locator('#agent-events-frame-container').waitFor()

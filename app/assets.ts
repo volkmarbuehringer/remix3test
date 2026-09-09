@@ -14,7 +14,7 @@ export const assetServer = createAssetServer({
   ...config.assets,
   watch: isDevelopment,
   ...(isHmr ? { hmr: async () => (await import('remix/node-hmr/runtime')).createBrowserHmrChannel() } : {}),
-  ...(isDevelopment ? {} : { fingerprint: { buildId: process.env.BUILD_ID ?? `dev-${process.pid}-${Date.now()}` } }),
+  ...(isDevelopment ? {} : { fingerprint: true }),
   target: { es: '2022', chrome: '109', safari: '16.4' },
   ...(isDevelopment ? { sourceMaps: 'external' } : {}),
   scripts: {
