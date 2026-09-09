@@ -1,17 +1,27 @@
 import { run } from 'remix/ui'
 import { spring } from 'remix/ui/animation'
+import {
+  detectMultipleImportMapSupport,
+  importModule,
+  preloadShim,
+} from 'remix/multiple-import-maps-polyfill'
 
 import { resolveFrameResponse } from './frame-response.browser.tsx'
 
 let app: ReturnType<typeof run>
 app = run({
   async loadModule(moduleUrl, exportName) {
-    let mod = await import(moduleUrl)
+    let mod = await importModule(moduleUrl)
     let exp = (mod as Record<string, unknown>)[exportName]
     if (typeof exp !== 'function') {
       throw new Error(`Export "${exportName}" from "${moduleUrl}" is not a function`)
     }
     return exp
+  },
+  async processClientEntryPreloads(preloads) {
+    if (await detectMultipleImportMapSupport()) return preloads
+    preloadShim(preloads)
+    return []
   },
   async resolveFrame(src, options) {
     let result = await resolveFrameResponse(new URL(src, window.location.href), options)
