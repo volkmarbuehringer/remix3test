@@ -4,16 +4,32 @@ import { z } from 'zod/v4'
 import { lists } from './schema.ts'
 import { queryRows } from './rows.ts'
 
+export type ItemPriority = 'low' | 'medium' | 'high'
+
 interface ListItem {
   id: string
   label: string
   done?: boolean
+  priority?: ItemPriority
+  due?: string
+  tags?: string[]
+  updatedAt?: number
 }
+
+const listItemWireSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  done: z.boolean().optional(),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  due: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  updatedAt: z.number().optional(),
+})
 
 const listWireSchema = z.object({
   id: z.number(),
   user_id: z.number().nullable(),
-  list: z.array(z.object({ id: z.string(), label: z.string(), done: z.boolean().optional() })),
+  list: z.array(listItemWireSchema),
   title: z.string(),
   description: z.string(),
   created_at: z.string(),
@@ -97,14 +113,30 @@ function parseRow(row: Record<string, unknown>): ListRow {
   }
 }
 
-function assignStableIds(
-  items: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>,
-): ListItem[] {
+export interface ListItemInput {
+  id?: string | undefined
+  label: string
+  done?: boolean | undefined
+  priority?: ItemPriority | undefined
+  due?: string | undefined
+  tags?: string[] | undefined
+  updatedAt?: number | undefined
+}
+
+function assignStableIds(items: ListItemInput[]): ListItem[] {
   return items.map((item) => ({
     id:
       item.id && typeof item.id === 'string' && item.id.length > 0 ? item.id : crypto.randomUUID(),
     label: item.label,
     ...(typeof item.done === 'boolean' ? { done: item.done } : {}),
+    // Preserve per-item metadata, dropping empty/unset values so the stored
+    // JSONB stays clean and deterministic (no empty strings or arrays).
+    ...(item.priority != null ? { priority: item.priority } : {}),
+    ...(typeof item.due === 'string' && item.due.length > 0 ? { due: item.due } : {}),
+    ...(Array.isArray(item.tags) && item.tags.length > 0 ? { tags: item.tags } : {}),
+    ...(typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt)
+      ? { updatedAt: item.updatedAt }
+      : {}),
   }))
 }
 
@@ -304,7 +336,7 @@ export async function createList(
   input: {
     title?: string | undefined
     description?: string | undefined
-    items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
+    items?: ListItemInput[]
   },
   userId?: number,
 ): Promise<ListRow> {
@@ -331,7 +363,7 @@ export async function patchList(
   partial: {
     title?: string
     description?: string
-    items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
+    items?: ListItemInput[]
   },
   userId?: number,
   options?: { expectedUpdatedAt?: number | undefined },
@@ -391,6 +423,37 @@ export async function deleteList(db: Database, id: number, userId?: number): Pro
 
     await tx.delete(lists, where)
     return true
+  })
+}
+
+/**
+ * Duplicate a list: copy its title (with a " (Kopie)" suffix), description and
+ * items into a freshly created list owned by the same user. Every copied item
+ * gets a new id so the copy is an independent record. Returns null when the
+ * source list does not exist (or is owned by another user).
+ */
+export async function copyList(db: Database, id: number, userId?: number): Promise<ListRow | null> {
+  return await db.transaction(async (tx) => {
+    let where = userId != null ? { id, user_id: userId } : { id }
+    let existing = await tx.findOne(lists, { where })
+    if (!existing) return null
+    let parsed = parseRow(existing)
+
+    let baseTitle = parsed.title.trim() || parsed.description.trim() || 'Liste'
+    let now = Date.now()
+    let next = await tx.create(
+      lists,
+      {
+        list: parsed.list.map((item) => ({ ...item, id: crypto.randomUUID() })),
+        title: `${baseTitle} (Kopie)`,
+        description: parsed.description,
+        created_at: now,
+        updated_at: now,
+        ...(userId != null ? { user_id: userId } : {}),
+      },
+      { returnRow: true },
+    )
+    return parseRow(next)
   })
 }
 

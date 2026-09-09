@@ -2,22 +2,30 @@ import { clientEntry, type Handle, on, css, ref } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
 import { Glyph } from '../../../ui/theme/glyph/glyph.tsx'
+import { frames } from '../../../routes.ts'
 
 import button from '../../../ui/theme/button.ts'
 import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.ts'
 import { syncSidebarRow } from './sidebar-sync.ts'
 
+type ItemPriority = 'low' | 'medium' | 'high'
+type SortMode = 'manual' | 'az' | 'done' | 'updated'
+
 type ListItem = {
   id: string
   label: string
   done?: boolean
+  priority?: ItemPriority
+  due?: string
+  tags?: string[]
+  updatedAt?: number
 }
 
 type ListInitialState = {
   id: number
   title: string
   description: string
-  items: Array<{ id: string; label: string; done?: boolean }>
+  items: ListItem[]
   updated_at: number
 }
 
@@ -39,9 +47,14 @@ export const ListsClient = clientEntry(
     let loadError = ''
     let editingIndex: number | null = null
     let editText = ''
+    let editPriority: '' | ItemPriority = ''
+    let editDue = ''
+    let editTags = ''
     let newItemRef: HTMLTextAreaElement | null = null
     let filterInputRef: HTMLInputElement | null = null
     let listRef: HTMLDivElement | null = null
+    let copyFormRef: HTMLFormElement | null = null
+    let copyCsrfRef: HTMLInputElement | null = null
     let initialized = false
 
     // Drag state
@@ -73,7 +86,7 @@ export const ListsClient = clientEntry(
     // Undo + inline-confirm state
     let undoSnapshot: ListItem[] | null = null
     let undoTimer: ReturnType<typeof setTimeout> | null = null
-    let undoKind: 'delete' | 'clear' | 'reorder' | null = null
+    let undoKind: 'delete' | 'clear' | 'clearDone' | 'reorder' | null = null
     let clearArmed = false
     let clearArmTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -85,7 +98,7 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    let showUndo = (kind: 'delete' | 'clear' | 'reorder', snapshot: ListItem[]) => {
+    let showUndo = (kind: 'delete' | 'clear' | 'clearDone' | 'reorder', snapshot: ListItem[]) => {
       if (undoTimer) clearTimeout(undoTimer)
       undoSnapshot = snapshot
       undoKind = kind
@@ -233,7 +246,10 @@ export const ListsClient = clientEntry(
     }
 
     let multilineDisplayStyle = css({
-      flex: 1,
+      // The label is a child of the column `itemMainStyle` now, so it must not
+      // flex-grow: with flex-basis: 0% and overflow: hidden it collapses to 0px
+      // and hides the text. It sizes to its content, clamped to three lines,
+      // and fills the column width via the default align-self: stretch.
       fontSize: theme.fontSize.lg,
       color: theme.colors.text.primary,
       display: '-webkit-box',
@@ -258,6 +274,106 @@ export const ListsClient = clientEntry(
         color: theme.colors.text.primary,
       },
     })
+
+    // Per-item metadata layout. The label + metadata line live in a flex column
+    // so the badges wrap under the label instead of squeezing it sideways.
+    let itemMainStyle = css({
+      flex: 1,
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+    })
+
+    let metaRowStyle = css({
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: theme.space.xs,
+      marginTop: '0.25rem',
+    })
+
+    let metaBadgeStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '1px 7px',
+      borderRadius: theme.radius.full,
+      border: '1px solid transparent',
+      fontSize: theme.fontSize.xs,
+      lineHeight: 1.5,
+      whiteSpace: 'nowrap',
+    })
+
+    let dueBadgeStyle = css({
+      color: theme.colors.text.secondary,
+      borderColor: theme.colors.border.default,
+      backgroundColor: theme.surface.lvl2,
+    })
+
+    let tagChipStyle = css({
+      color: theme.colors.text.primary,
+      borderColor: theme.colors.border.default,
+      backgroundColor: theme.surface.lvl2,
+    })
+
+    // Editing surface: the label textarea plus a metadata editor row
+    // (priority / due date / tags), all inside the column that takes flex: 1.
+    let editTextareaStyle = css({
+      padding: `${theme.space.sm} ${theme.space.md}`,
+      borderRadius: theme.radius.md,
+      border: `1px solid ${theme.colors.focus.ring}`,
+      width: '100%',
+      boxSizing: 'border-box',
+      fontSize: theme.fontSize.lg,
+      outline: 'none',
+      fontFamily: theme.fontFamily.sans,
+      minHeight: '60px',
+      resize: 'vertical',
+      backgroundColor: theme.surface.lvl0,
+      color: theme.colors.text.primary,
+    })
+
+    let metaEditorStyle = css({
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: theme.space.sm,
+      marginTop: theme.space.sm,
+    })
+
+    let metaFieldStyle = css({
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderRadius: theme.radius.sm,
+      border: `1px solid ${theme.colors.border.strong}`,
+      fontSize: theme.fontSize.xs,
+      fontFamily: theme.fontFamily.sans,
+      backgroundColor: theme.surface.lvl1,
+      color: theme.colors.text.primary,
+      outline: 'none',
+      '&:focus': {
+        borderColor: theme.colors.focus.ring,
+        boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+      },
+    })
+
+    let priorityBadge = (p: ItemPriority) => {
+      switch (p) {
+        case 'high':
+          return css({
+            color: theme.colors.action.danger.background,
+            borderColor: theme.colors.action.danger.border,
+            backgroundColor: theme.colors.action.danger.background + '0f',
+          })
+        case 'medium':
+          return css({ color: '#d69e2e', borderColor: '#d69e2e', backgroundColor: '#d69e2e14' })
+        case 'low':
+          return css({
+            color: theme.colors.text.secondary,
+            borderColor: theme.colors.border.strong,
+            backgroundColor: theme.surface.lvl0,
+          })
+      }
+    }
+    let priorityLabel = (p: ItemPriority) =>
+      p === 'high' ? 'Hoch' : p === 'medium' ? 'Mittel' : 'Niedrig'
 
     // ── Editor surface: a single centered card with a header + body ──────────
     let cardStyle = css({
@@ -356,6 +472,22 @@ export const ListsClient = clientEntry(
       gap: theme.space.sm,
       alignItems: 'center',
       marginBottom: theme.space.lg,
+    })
+
+    let sortSelectStyle = css({
+      padding: `${theme.space.xs} ${theme.space.md}`,
+      borderRadius: theme.radius.md,
+      border: `1px solid ${theme.colors.border.strong}`,
+      fontSize: theme.fontSize.xs,
+      backgroundColor: theme.surface.lvl2,
+      color: theme.colors.text.primary,
+      cursor: 'pointer',
+      fontFamily: theme.fontFamily.sans,
+      '&:focus': {
+        outline: 'none',
+        borderColor: theme.colors.focus.ring,
+        boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+      },
     })
 
     // In-list search: a compact filter box and a clear button that sits inline
@@ -1069,6 +1201,72 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
+    // "Nur Erledigte löschen": remove every completed item in one action, with
+    // the same undo banner as the other deletions. It is only enabled while at
+    // least one item is completed.
+    let clearDone = () => {
+      disarmClear()
+      let doneItems = items.filter((item) => item.done === true)
+      if (doneItems.length === 0) return
+      showUndo(
+        'clearDone',
+        items.map((item) => ({ ...item })),
+      )
+      items = items.filter((item) => item.done !== true)
+      setDirty()
+      announce('Erledigte Elemente gelöscht')
+      handle.update()
+    }
+
+    // One-shot sort control. Choosing an order reorders the real `items` array
+    // (so it autosaves) and offers undo, exactly like Umkehren/Mischen. "manual"
+    // is the neutral drag state and does nothing.
+    let applySort = (mode: SortMode) => {
+      disarmClear()
+      if (mode === 'manual') return
+      showUndo(
+        'reorder',
+        items.map((item) => ({ ...item })),
+      )
+      let newItems = [...items]
+      switch (mode) {
+        case 'az':
+          newItems.sort((a, b) => a.label.localeCompare(b.label, 'de'))
+          announce('A–Z sortiert')
+          break
+        case 'done':
+          newItems.sort((a, b) => (a.done === true ? 1 : 0) - (b.done === true ? 1 : 0))
+          announce('Nach Erledigt sortiert')
+          break
+        case 'updated':
+          newItems.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+          announce('Nach Änderung sortiert')
+          break
+      }
+      items = newItems
+      setDirty()
+      handle.update()
+    }
+
+    // Duplicate the currently open list by submitting the hidden copy form. The
+    // frame runtime intercepts the POST (data-rmx-target) and follows the
+    // server redirect straight to the new list's load URL, refreshing both the
+    // editor and the sidebar. Any unsaved edits are flushed first so the copy
+    // reflects what the user is currently looking at (otherwise the server would
+    // copy the last persisted version).
+    let copyCurrentList = async () => {
+      if (loadedListId === null) return
+      // Abort if there is an unresolved conflict the user must resolve first.
+      let flushed = await flushNow()
+      if (!flushed) return
+      let token =
+        typeof document !== 'undefined'
+          ? document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+          : undefined
+      if (token && copyCsrfRef) copyCsrfRef.value = token
+      copyFormRef?.requestSubmit()
+    }
+
     let addItem = () => {
       disarmClear()
       if (!newItemLabel.trim()) return
@@ -1076,6 +1274,7 @@ export const ListsClient = clientEntry(
       let newItem: ListItem = {
         id: crypto.randomUUID(),
         label: newItemLabel.trim(),
+        updatedAt: Date.now(),
       }
       items = [...items, newItem]
       newItemLabel = ''
@@ -1102,7 +1301,7 @@ export const ListsClient = clientEntry(
     let toggleDone = (index: number) => {
       disarmClear()
       items = items.map((item, i) =>
-        i === index ? { ...item, done: !(item.done === true) } : item,
+        i === index ? { ...item, done: !(item.done === true), updatedAt: Date.now() } : item,
       )
       setDirty()
       handle.update()
@@ -1156,25 +1355,52 @@ export const ListsClient = clientEntry(
 
     let startEditing = (index: number) => {
       editingIndex = index
-      editText = items[index]!.label
+      let item = items[index]!
+      editText = item.label
+      editPriority = item.priority ?? ''
+      editDue = item.due ?? ''
+      editTags = (item.tags ?? []).join(', ')
       handle.update()
     }
 
     let saveEdit = () => {
       if (editingIndex !== null && editText.trim()) {
-        items = items.map((item, i) =>
-          i === editingIndex ? { ...item, label: editText.trim() } : item,
-        )
+        items = items.map((item, i) => {
+          if (i !== editingIndex) return item
+          let next: ListItem = { ...item, label: editText.trim(), updatedAt: Date.now() }
+          if (editPriority) next.priority = editPriority
+          else delete next.priority
+          if (editDue.trim()) next.due = editDue.trim()
+          else delete next.due
+          // Dedupe tags so a repeated value can't produce duplicate keys later.
+          let tags = [
+            ...new Set(
+              editTags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean),
+            ),
+          ]
+          if (tags.length > 0) next.tags = tags
+          else delete next.tags
+          return next
+        })
         setDirty()
       }
       editingIndex = null
       editText = ''
+      editPriority = ''
+      editDue = ''
+      editTags = ''
       handle.update()
     }
 
     let cancelEdit = () => {
       editingIndex = null
       editText = ''
+      editPriority = ''
+      editDue = ''
+      editTags = ''
       handle.update()
     }
 
@@ -1506,6 +1732,18 @@ export const ListsClient = clientEntry(
                 </button>
               ) : (
                 <>
+                  <button
+                    mix={[
+                      button({ tone: 'secondary' }),
+                      on('click', () => {
+                        void copyCurrentList()
+                      }),
+                    ]}
+                    disabled={saving}
+                    title="Diese Liste duplizieren"
+                  >
+                    ⧉ Duplizieren
+                  </button>
                   {isDirty() && (
                     <button
                       mix={[button({ tone: 'secondary' }), on('click', discardChanges)]}
@@ -1526,6 +1764,31 @@ export const ListsClient = clientEntry(
                   >
                     Speichern
                   </button>
+                  {/* Hidden form used by Duplizieren — the frame runtime
+                      intercepts the POST (data-rmx-target) and follows the
+                      server redirect to the new list. */}
+                  <form
+                    method="POST"
+                    action={`/lists/${loadedListId}/copy`}
+                    data-rmx-target={frames.listsContent}
+                    hidden
+                    mix={[
+                      ref((el) => {
+                        copyFormRef = el
+                      }),
+                    ]}
+                  >
+                    <input
+                      type="hidden"
+                      name="_csrf"
+                      value=""
+                      mix={[
+                        ref((el) => {
+                          copyCsrfRef = el
+                        }),
+                      ]}
+                    />
+                  </form>
                 </>
               )}
               <span
@@ -1631,9 +1894,11 @@ export const ListsClient = clientEntry(
                 <span mix={css({ flex: 1 })}>
                   {undoKind === 'clear'
                     ? 'Alle Elemente gelöscht.'
-                    : undoKind === 'reorder'
-                      ? 'Reihenfolge geändert.'
-                      : 'Element gelöscht.'}
+                    : undoKind === 'clearDone'
+                      ? 'Erledigte Elemente gelöscht.'
+                      : undoKind === 'reorder'
+                        ? 'Reihenfolge geändert.'
+                        : 'Element gelöscht.'}
                 </span>
                 <button
                   mix={[
@@ -1649,10 +1914,33 @@ export const ListsClient = clientEntry(
 
             {/* Secondary actions toolbar */}
             <div mix={toolbarStyle}>
+              <select
+                mix={[
+                  sortSelectStyle,
+                  on('change', (e) => {
+                    applySort((e.currentTarget.value as SortMode) || 'manual')
+                    e.currentTarget.value = 'manual'
+                  }),
+                ]}
+                aria-label="Sortieren"
+                value="manual"
+              >
+                <option value="manual">Sortieren…</option>
+                <option value="az">A–Z</option>
+                <option value="done">Nach Erledigt</option>
+                <option value="updated">Nach Änderung</option>
+              </select>
               <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>
                 ↺ Umkehren
               </button>
               <button mix={[button({ tone: 'secondary' }), on('click', shuffle)]}>⇄ Mischen</button>
+              <button
+                mix={[button({ tone: 'secondary' }), on('click', clearDone)]}
+                disabled={items.filter((item) => item.done === true).length === 0}
+                title="Alle erledigten Elemente aus der Liste entfernen"
+              >
+                ✔ Nur Erledigte löschen
+              </button>
               <button
                 mix={[button({ tone: 'danger' }), on('click', clearAll)]}
                 disabled={items.length === 0}
@@ -2180,49 +2468,101 @@ export const ListsClient = clientEntry(
                           ]}
                         />
                         {editingIndex === realIndex ? (
-                          <textarea
-                            mix={[
-                              css({
-                                padding: `${theme.space.sm} ${theme.space.md}`,
-                                borderRadius: theme.radius.md,
-                                border: `1px solid ${theme.colors.focus.ring}`,
-                                flex: 1,
-                                fontSize: theme.fontSize.lg,
-                                outline: 'none',
-                                fontFamily: theme.fontFamily.sans,
-                                width: '300px',
-                                minHeight: '60px',
-                                resize: 'vertical',
-                                backgroundColor: theme.surface.lvl0,
-                                color: theme.colors.text.primary,
-                              }),
-                              on('input', (e) => {
-                                editText = e.currentTarget.value
-                                handle.update()
-                              }),
-                              on('keydown', (e) => {
-                                if (e.key === 'Escape') cancelEdit()
-                              }),
-                            ]}
-                            autoFocus
-                            rows={3}
-                            wrap="soft"
-                          >
-                            {editText as never}
-                          </textarea>
-                        ) : (
-                          <span
-                            mix={[
-                              multilineDisplayStyle,
-                              item.done === true &&
-                                css({
-                                  textDecoration: 'line-through',
-                                  color: theme.colors.text.muted,
+                          <div mix={itemMainStyle}>
+                            <textarea
+                              mix={[
+                                editTextareaStyle,
+                                on('input', (e) => {
+                                  editText = e.currentTarget.value
+                                  handle.update()
                                 }),
-                            ].filter(Boolean)}
-                          >
-                            {item.label}
-                          </span>
+                                on('keydown', (e) => {
+                                  if (e.key === 'Escape') cancelEdit()
+                                }),
+                              ]}
+                              autoFocus
+                              rows={3}
+                              wrap="soft"
+                            >
+                              {editText as never}
+                            </textarea>
+                            <div mix={metaEditorStyle}>
+                              <select
+                                mix={[
+                                  metaFieldStyle,
+                                  on('change', (e) => {
+                                    editPriority = (e.currentTarget.value || '') as
+                                      | ''
+                                      | ItemPriority
+                                  }),
+                                ]}
+                                aria-label="Priorität"
+                                value={editPriority}
+                              >
+                                <option value="">Priorität…</option>
+                                <option value="low">Niedrig</option>
+                                <option value="medium">Mittel</option>
+                                <option value="high">Hoch</option>
+                              </select>
+                              <input
+                                type="date"
+                                mix={[
+                                  metaFieldStyle,
+                                  on('change', (e) => {
+                                    editDue = e.currentTarget.value
+                                  }),
+                                ]}
+                                aria-label="Fällig am"
+                                value={editDue}
+                              />
+                              <input
+                                type="text"
+                                mix={[
+                                  metaFieldStyle,
+                                  on('input', (e) => {
+                                    editTags = e.currentTarget.value
+                                  }),
+                                ]}
+                                placeholder="Tags, kommagetrennt"
+                                aria-label="Tags"
+                                value={editTags}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div mix={itemMainStyle}>
+                            <span
+                              mix={[
+                                multilineDisplayStyle,
+                                item.done === true &&
+                                  css({
+                                    textDecoration: 'line-through',
+                                    color: theme.colors.text.muted,
+                                  }),
+                              ].filter(Boolean)}
+                            >
+                              {item.label}
+                            </span>
+                            {(item.priority != null ||
+                              item.due != null ||
+                              (item.tags != null && item.tags.length > 0)) && (
+                              <div mix={metaRowStyle}>
+                                {item.priority != null && (
+                                  <span mix={[metaBadgeStyle, priorityBadge(item.priority)]}>
+                                    {priorityLabel(item.priority)}
+                                  </span>
+                                )}
+                                {item.due != null && (
+                                  <span mix={[metaBadgeStyle, dueBadgeStyle]}>📅 {item.due}</span>
+                                )}
+                                {Array.from(new Set(item.tags ?? [])).map((tag) => (
+                                  <span key={tag} mix={[metaBadgeStyle, tagChipStyle]}>
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         <div

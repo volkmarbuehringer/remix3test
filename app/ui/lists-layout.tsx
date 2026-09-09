@@ -396,6 +396,37 @@ function ListsLayout(
                       </button>
                       <form
                         method="POST"
+                        action={routes.lists.copy.href({ id: listId })}
+                        data-rmx-target={frameTarget}
+                        data-list-row-action
+                        mix={deleteFormStyle}
+                      >
+                        <CsrfTokenInput />
+                        <button
+                          type="submit"
+                          data-list-copy-btn
+                          data-list-row-action
+                          mix={copyBtnStyle}
+                          aria-label={`Liste "${displayName}" duplizieren`}
+                          title="Duplizieren"
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <rect x="9" y="9" width="13" height="13" rx="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        </button>
+                      </form>
+                      <form
+                        method="POST"
                         action={routes.lists.destroy.href({ id: listId })}
                         data-rmx-target={frameTarget}
                         data-confirm={`"${displayName}" löschen?`}
@@ -564,6 +595,33 @@ const deleteBtnStyle = css({
 })
 
 const renameBtnStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '24px',
+  height: '24px',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  borderRadius: theme.radius.sm,
+  opacity: 0,
+  pointerEvents: 'none',
+  transition: 'opacity 0.12s ease',
+  ':hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+  '@media (hover: none)': {
+    opacity: 1,
+    pointerEvents: 'auto',
+  },
+})
+
+// Duplicate (copy) is a neutral, non-destructive action so it shares the
+// rename button's quiet styling rather than the delete button's red hover.
+const copyBtnStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',

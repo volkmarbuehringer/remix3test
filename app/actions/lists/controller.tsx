@@ -17,7 +17,9 @@ import {
   patchList,
   deleteList,
   moveItemBetweenLists,
+  copyList,
   type ListSummary,
+  type ListItemInput,
 } from '../../data/lists.ts'
 import {
   renderListsPage,
@@ -33,6 +35,10 @@ const listItemSchema = s.object({
   id: s.optional(s.string()),
   label: s.string(),
   done: s.optional(s.boolean()),
+  priority: s.optional(s.enum_(['low', 'medium', 'high'])),
+  due: s.optional(s.string()),
+  tags: s.optional(s.array(s.string())),
+  updatedAt: s.optional(s.number()),
 })
 
 function toSidebarEntry(row: ListSummary): ListSidebarEntry {
@@ -220,7 +226,7 @@ export default createController(routes.lists, {
       let partial: {
         title?: string
         description?: string
-        items?: Array<{ id?: string | undefined; label: string; done?: boolean | undefined }>
+        items?: ListItemInput[]
       } = {}
       if (title !== undefined) partial.title = title
       if (description !== undefined) partial.description = description
@@ -378,6 +384,38 @@ export default createController(routes.lists, {
       let offset = context.url.searchParams.get('offset')
       if (offset) {
         redirectUrl += '?offset=' + encodeURIComponent(offset)
+      }
+      return redirect(redirectUrl)
+    },
+
+    async copy(context) {
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
+
+      let listId: number
+      try {
+        listId = s.parse(s.number(), Number(context.params.id))
+      } catch (error) {
+        context.logger?.('Invalid list ID in lists/copy: ' + String(error))
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      if (listId < 1) {
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      let row = await copyList(context.db, listId, listUserId)
+      if (!row) {
+        return context.json({ error: 'List not found' }, { status: 404 })
+      }
+
+      // Redirect straight to the duplicated list so both the sidebar (which
+      // reloads on this frame navigation) and the editor pick up the new copy.
+      // Preserve the current sidebar page like the destroy route does.
+      let redirectUrl = `${routes.lists.index.href()}?load=${row.id}`
+      let offset = context.url.searchParams.get('offset')
+      if (offset) {
+        redirectUrl += '&offset=' + encodeURIComponent(offset)
       }
       return redirect(redirectUrl)
     },

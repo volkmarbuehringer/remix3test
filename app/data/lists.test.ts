@@ -11,6 +11,7 @@ import {
   patchList,
   deleteList,
   moveItemBetweenLists,
+  copyList,
 } from './lists.ts'
 
 describe('lists-api lib', () => {
@@ -690,5 +691,163 @@ describe('lists-api lib', () => {
 
     await db.delete(lists, { id: a.id })
     await db.delete(lists, { id: b.id })
+  })
+
+  // -----------------------------------------------------------------------
+  // Per-item metadata
+  // -----------------------------------------------------------------------
+
+  it('createList preserves per-item metadata (priority, due, tags, updatedAt)', async () => {
+    let row = await createList(db, {
+      description: 'Metadata round-trip',
+      items: [
+        {
+          id: '1',
+          label: 'Urgent',
+          priority: 'high',
+          due: '2025-12-31',
+          tags: ['work', 'soon'],
+          updatedAt: 123,
+        },
+        { id: '2', label: 'Plain' },
+        { id: '3', label: 'Low', priority: 'low' },
+      ],
+    })
+    assert.equal(row.list.length, 3)
+    assert.equal(row.list[0]!.priority, 'high')
+    assert.equal(row.list[0]!.due, '2025-12-31')
+    assert.deepEqual(row.list[0]!.tags, ['work', 'soon'])
+    assert.equal(row.list[0]!.updatedAt, 123)
+    assert.equal(row.list[1]!.priority, undefined)
+    assert.equal(row.list[1]!.due, undefined)
+    assert.equal(row.list[2]!.priority, 'low')
+
+    // Round-trip through a fresh read keeps the metadata intact.
+    let fetched = await getListById(db, row.id)
+    assert.ok(fetched)
+    if (fetched) {
+      assert.equal(fetched.list[0]!.priority, 'high')
+      assert.equal(fetched.list[0]!.due, '2025-12-31')
+      assert.deepEqual(fetched.list[0]!.tags, ['work', 'soon'])
+      assert.equal(fetched.list[0]!.updatedAt, 123)
+    }
+
+    await db.delete(lists, { id: row.id })
+  })
+
+  it('createList drops empty metadata (empty tags array / blank due)', async () => {
+    let row = await createList(db, {
+      description: 'Empty metadata',
+      items: [{ id: '1', label: 'A', due: '', tags: [] }],
+    })
+    assert.equal(row.list[0]!.due, undefined, 'blank due should be dropped')
+    assert.equal(row.list[0]!.tags, undefined, 'empty tags should be dropped')
+
+    await db.delete(lists, { id: row.id })
+  })
+
+  it('patchList updates and clears per-item metadata', async () => {
+    let created = await createList(db, {
+      description: 'Patch metadata',
+      items: [{ id: '1', label: 'A' }],
+    })
+    let set = await patchList(
+      db,
+      created.id,
+      { items: [{ id: '1', label: 'A', priority: 'medium', due: '2026-01-01', tags: ['x'] }] },
+      undefined,
+      { expectedUpdatedAt: created.updated_at },
+    )
+    assert.ok(set.ok)
+    if (set.ok) {
+      assert.equal(set.row.list[0]!.priority, 'medium')
+      assert.equal(set.row.list[0]!.due, '2026-01-01')
+      assert.deepEqual(set.row.list[0]!.tags, ['x'])
+    }
+
+    // Clearing metadata: sending a blank label-only item drops the fields.
+    let cleared = await patchList(db, created.id, { items: [{ id: '1', label: 'A' }] }, undefined, {
+      expectedUpdatedAt: set.ok ? set.row.updated_at : created.updated_at,
+    })
+    assert.ok(cleared.ok)
+    if (cleared.ok) {
+      assert.equal(cleared.row.list[0]!.priority, undefined)
+      assert.equal(cleared.row.list[0]!.due, undefined)
+      assert.equal(cleared.row.list[0]!.tags, undefined)
+    }
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  // -----------------------------------------------------------------------
+  // Duplicate / copy list
+  // -----------------------------------------------------------------------
+
+  it('copyList duplicates a list with fresh item ids and a title suffix', async () => {
+    let source = await createList(db, {
+      title: 'Einkauf',
+      description: 'Wöchentlich',
+      items: [
+        { id: 'a', label: 'Milch', priority: 'high', due: '2025-12-31', done: true },
+        { id: 'b', label: 'Brot' },
+      ],
+    })
+
+    let copy = await copyList(db, source.id)
+    assert.ok(copy, 'copy should succeed')
+    assert.ok(copy)
+    if (copy) {
+      assert.ok(copy.id !== source.id, 'copy is a new row')
+      assert.equal(copy.title, 'Einkauf (Kopie)')
+      assert.equal(copy.description, 'Wöchentlich')
+      assert.equal(copy.list.length, 2)
+      assert.notEqual(copy.list[0]!.id, 'a', 'copied item gets a fresh id')
+      assert.notEqual(copy.list[1]!.id, 'b', 'second copied item gets a fresh id')
+      assert.equal(copy.list[0]!.label, 'Milch')
+      assert.equal(copy.list[0]!.priority, 'high', 'metadata is copied')
+      assert.equal(copy.list[0]!.due, '2025-12-31')
+      assert.equal(copy.list[0]!.done, true)
+      assert.equal(copy.list[1]!.label, 'Brot')
+    }
+
+    // The source is unchanged.
+    let unchanged = await getListById(db, source.id)
+    assert.equal(unchanged!.list.length, 2)
+    assert.equal(unchanged!.list.find((i) => i.id === 'a')!.label, 'Milch')
+
+    await db.delete(lists, { id: source.id })
+    if (copy) await db.delete(lists, { id: copy.id })
+  })
+
+  it('copyList returns null for a non-existent list', async () => {
+    let copy = await copyList(db, 999_999_999)
+    assert.equal(copy, null)
+  })
+
+  it('copyList is scoped by owner', async () => {
+    let source = await createList(
+      db,
+      { description: 'Owned by 1', items: [{ id: 'a', label: 'A' }] },
+      1,
+    )
+    let copy = await copyList(db, source.id, 999)
+    assert.equal(copy, null, 'foreign-owner copy should be rejected')
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('copyList applies the owner to the copied row', async () => {
+    let source = await createList(
+      db,
+      { description: 'Owned by 1', items: [{ id: 'a', label: 'A' }] },
+      1,
+    )
+    let copy = await copyList(db, source.id, 1)
+    assert.ok(copy)
+    if (copy) {
+      assert.equal(copy.user_id, 1)
+      await db.delete(lists, { id: copy.id })
+    }
+    await db.delete(lists, { id: source.id })
   })
 })

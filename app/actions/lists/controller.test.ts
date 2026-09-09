@@ -1256,4 +1256,232 @@ describe('Lists controller', () => {
     assert.equal(body.title, '', 'stored title should be empty')
     assert.equal(body.description, 'Keeps desc', 'description should be preserved')
   })
+
+  // -----------------------------------------------------------------------
+  // Per-item metadata (priority / due / tags)
+  // -----------------------------------------------------------------------
+
+  it('POST /lists accepts per-item metadata and returns it', async () => {
+    let response = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        description: 'Metadata list',
+        items: [
+          { label: 'Urgent', priority: 'high', due: '2025-12-31', tags: ['work', 'soon'] },
+          { label: 'Plain' },
+        ],
+      }),
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.items.length, 2)
+    assert.equal(body.items[0]!.priority, 'high')
+    assert.equal(body.items[0]!.due, '2025-12-31')
+    assert.deepEqual(body.items[0]!.tags, ['work', 'soon'])
+    assert.equal(body.items[1]!.priority, undefined)
+  })
+
+  it('PUT /lists/:id (patch) rejects an invalid priority', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Bad prio', items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
+
+    let patchResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
+      },
+      body: JSON.stringify({ items: [{ label: 'A', priority: 'nope' }] }),
+    })
+    assert.equal(patchResponse.status, 400)
+    let body = await patchResponse.json()
+    assert.ok(body.error, 'invalid priority should be rejected')
+  })
+
+  it('PUT /lists/:id (patch) persists and clears per-item metadata', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Patch meta', items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id, updated_at } = await saveResponse.json()
+
+    let setResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(updated_at),
+      },
+      body: JSON.stringify({
+        items: [{ label: 'A', priority: 'medium', due: '2026-01-01', tags: ['x'] }],
+      }),
+    })
+    assert.equal(setResponse.status, 200)
+    let setBody = await setResponse.json()
+    assert.equal(setBody.items[0]!.priority, 'medium')
+
+    let clearResponse = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(setBody.updated_at),
+      },
+      body: JSON.stringify({ items: [{ label: 'A' }] }),
+    })
+    assert.equal(clearResponse.status, 200)
+    let clearBody = await clearResponse.json()
+    assert.equal(clearBody.items[0]!.priority, undefined)
+    assert.equal(clearBody.items[0]!.due, undefined)
+    assert.equal(clearBody.items[0]!.tags, undefined)
+  })
+
+  // -----------------------------------------------------------------------
+  // Duplicate / copy list
+  // -----------------------------------------------------------------------
+
+  it('POST /lists/:id/copy duplicates the list and redirects to its load URL', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({
+        title: 'To copy',
+        description: 'Original desc',
+        items: [{ label: 'Item A', priority: 'high' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let body = await saveResponse.json()
+    let { id } = body
+    let sourceItemId = body.items[0]!.id as string
+
+    let copyResponse = await router.fetch(`${LISTS_URL}/${id}/copy`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(copyResponse.status, 302)
+    let location = copyResponse.headers.get('Location')
+    assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
+
+    let copyId = Number(new URL(location!, 'https://remix.run').searchParams.get('load'))
+    assert.ok(Number.isFinite(copyId) && copyId > 0, 'redirect should carry the new id')
+    assert.ok(copyId !== id, 'copy id must differ from the source')
+
+    let copyRow = await db.findOne(lists, { where: { id: copyId } })
+    assert.ok(copyRow, 'copied row should exist')
+    if (copyRow) {
+      let copy = copyRow.list as unknown as Array<Record<string, unknown>>
+      assert.equal(copy[0]!.label, 'Item A')
+      assert.equal(copy[0]!.priority, 'high', 'metadata carried to the copy')
+      assert.notEqual(copy[0]!.id, sourceItemId, 'copied item should get a fresh id')
+    }
+
+    // Cleanup both rows.
+    await db.delete(lists, { id })
+    await db.delete(lists, { id: copyId })
+  })
+
+  it('POST /lists/:id/copy returns 404 for another users list', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': adminCsrfToken,
+        Cookie: adminCookie,
+      },
+      body: JSON.stringify({
+        description: 'Admin owned copy me',
+        items: [{ label: 'Admin item' }],
+      }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/copy`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 404)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+
+    await db.delete(lists, { id })
+  })
+
+  it('POST /lists/invalid/copy returns 400 for invalid list ID', async () => {
+    let response = await router.fetch(`${LISTS_URL}/invalid/copy`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+  })
+
+  it('POST /lists/:id/copy preserves the sidebar offset in the redirect', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Offset copy', items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(`${LISTS_URL}/${id}/copy?offset=15`, {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
+    assert.ok(location?.includes('&offset=15'), 'should preserve the sidebar page offset')
+
+    let copyId = Number(new URL(location!, 'https://remix.run').searchParams.get('load'))
+    await db.delete(lists, { id })
+    await db.delete(lists, { id: copyId })
+  })
 })
