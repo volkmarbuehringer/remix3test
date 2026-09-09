@@ -36,7 +36,7 @@
       "echo": false,
       "open": false,
       "configFile": "./playwright.config.ts",
-      "projects": ["chromium"]
+      "projects": ["chromium", "firefox"]
     },
     "reporter": "spec",
     "setup": "./test/setup.ts",
