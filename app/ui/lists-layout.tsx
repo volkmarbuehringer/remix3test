@@ -4,6 +4,7 @@ import { theme } from '../ui/theme/theme.ts'
 
 import { Layout, tooltipAnchorStyle } from './layout.tsx'
 import { NavLink } from './nav-link.tsx'
+import { formatRelativeTimeDE } from '../utils/date-utils.ts'
 import { routes, frames } from '../routes.ts'
 import { CsrfTokenInput } from './csrf-token-input.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
@@ -343,13 +344,20 @@ function ListsLayout(
                         <line x1="9" y1="16" x2="13" y2="16" />
                       </svg>
                     </span>
-                    <span
-                      mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(
-                        Boolean,
+                    <span mix={nameColumnStyle}>
+                      <span
+                        mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(
+                          Boolean,
+                        )}
+                        data-list-name
+                      >
+                        {displayName}
+                      </span>
+                      {entry.updatedAt != null && (
+                        <span mix={updatedAtStyle} data-list-updated-at>
+                          {formatRelativeTimeDE(entry.updatedAt)}
+                        </span>
                       )}
-                      data-list-name
-                    >
-                      {displayName}
                     </span>
                     <span
                       mix={countBadgeStyle}
@@ -583,6 +591,19 @@ const renameBtnStyle = css({
 const entryNavLinkStyle = css({
   flex: 1,
   minWidth: 0,
+})
+
+const nameColumnStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  minWidth: 0,
+  flex: 1,
+})
+
+const updatedAtStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  lineHeight: 1.3,
 })
 
 const truncateStyle = css({

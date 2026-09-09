@@ -32,6 +32,7 @@ export const ListsClient = clientEntry(
     let title = ''
     let description = ''
     let newItemLabel = ''
+    let listFilter = ''
     let loadedListId: number | null = null
     let loadedUpdatedAt: number | null = null
     let saving = false
@@ -39,6 +40,7 @@ export const ListsClient = clientEntry(
     let editingIndex: number | null = null
     let editText = ''
     let newItemRef: HTMLTextAreaElement | null = null
+    let filterInputRef: HTMLInputElement | null = null
     let listRef: HTMLDivElement | null = null
     let initialized = false
 
@@ -129,6 +131,25 @@ export const ListsClient = clientEntry(
       description !== cleanDescription ||
       JSON.stringify(items) !== cleanItemsJSON
 
+    // ── In-list search (view-only filter) ───────────────────────────────────
+    // The filter narrows only what is rendered. Mutations always target the
+    // real `items` array through the visible→real index mapping, so toggling,
+    // editing and deleting hit the correct item. Position-based reordering
+    // (drag + keyboard grab + up/down buttons) is disabled while a filter is
+    // active, because moving "up/down" inside a filtered subset is ambiguous.
+    let filterActive = (): boolean => listFilter.trim() !== ''
+    let visibleItems = (): ListItem[] => {
+      let q = listFilter.trim().toLowerCase()
+      return q ? items.filter((item) => item.label.toLowerCase().includes(q)) : items
+    }
+    // Reset the in-list filter. Called on every reload/hydrate because the
+    // client entry is not remounted on frame navigation, so the filter would
+    // otherwise persist across switching to a different list.
+    let clearFilter = () => {
+      listFilter = ''
+      if (filterInputRef) filterInputRef.value = ''
+    }
+
     // ── Unsaved new-list draft ───────────────────────────────────────────────
     // A brand-new list (loadedListId === null) has no id, so the unload beacon
     // cannot flush it — navigating to another list silently discarded the draft.
@@ -207,6 +228,7 @@ export const ListsClient = clientEntry(
       loadError = ''
       conflictState = { show: false, serverState: null }
       snapshotClean()
+      clearFilter()
       handle.update()
     }
 
@@ -334,6 +356,59 @@ export const ListsClient = clientEntry(
       gap: theme.space.sm,
       alignItems: 'center',
       marginBottom: theme.space.lg,
+    })
+
+    // In-list search: a compact filter box and a clear button that sits inline
+    // under the ELEMENTE header. The clear button only appears once a filter is
+    // typed; Escape clears it (and refocuses the input stays with the browser).
+    let filterRowStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.space.xs,
+      padding: `${theme.space.sm} ${theme.space.md}`,
+      borderBottom: `1px solid ${theme.colors.border.default}`,
+      backgroundColor: theme.surface.lvl0,
+    })
+
+    let filterInputStyle = css({
+      flex: 1,
+      minWidth: 0,
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderRadius: theme.radius.sm,
+      border: `1px solid ${theme.colors.border.strong}`,
+      fontSize: theme.fontSize.xs,
+      outline: 'none',
+      fontFamily: theme.fontFamily.sans,
+      boxSizing: 'border-box',
+      backgroundColor: theme.surface.lvl1,
+      color: theme.colors.text.primary,
+      '&:focus': {
+        borderColor: theme.colors.focus.ring,
+        boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+      },
+      '&::placeholder': {
+        color: theme.colors.text.muted,
+      },
+    })
+
+    let clearFilterBtnStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '22px',
+      height: '22px',
+      padding: 0,
+      flexShrink: 0,
+      border: 'none',
+      background: 'transparent',
+      color: theme.colors.text.muted,
+      cursor: 'pointer',
+      borderRadius: theme.radius.sm,
+      fontSize: theme.fontSize.xs,
+      ':hover': {
+        background: theme.surface.lvl2,
+        color: theme.colors.text.primary,
+      },
     })
 
     // Item row action cluster is hidden until the row is hovered/focused. It is
@@ -632,6 +707,7 @@ export const ListsClient = clientEntry(
       loadError = ''
       loadingList = false
       conflictState = { show: false, serverState: null }
+      clearFilter()
     }
 
     // Initialize from initial state
@@ -676,6 +752,7 @@ export const ListsClient = clientEntry(
         loadingList = false
         conflictState = { show: false, serverState: null }
         draftRestored = true
+        clearFilter()
         handle.update()
         return
       }
@@ -689,6 +766,7 @@ export const ListsClient = clientEntry(
       loadingList = false
       conflictState = { show: false, serverState: null }
       snapshotClean()
+      clearFilter()
       handle.update()
     }
 
@@ -718,6 +796,10 @@ export const ListsClient = clientEntry(
     let handleDragStart = (e: DragEvent, index: number) => {
       let target = e.target as HTMLElement
       if (target.closest('button, input, textarea, [contenteditable]')) {
+        e.preventDefault()
+        return
+      }
+      if (filterActive()) {
         e.preventDefault()
         return
       }
@@ -1182,18 +1264,23 @@ export const ListsClient = clientEntry(
     }
 
     let moveFocus = (targetIndex: number) => {
-      if (targetIndex < 0 || targetIndex >= items.length) return
-      focusedId = items[targetIndex]!.id
+      let vis = visibleItems()
+      if (targetIndex < 0 || targetIndex >= vis.length) return
+      focusedId = vis[targetIndex]!.id
       handle.update()
-      focusItem(items[targetIndex]!.id)
+      focusItem(vis[targetIndex]!.id)
     }
 
     // The active roving-tabindex id. Falls back to the first item when no item
     // is focused, or when `focusedId` references a row that no longer exists
     // (deleted / cleared / reloaded) — otherwise the whole list would end up
-    // with tabindex="-1" and become unreachable by keyboard.
+    // with tabindex="-1" and become unreachable by keyboard. While a filter is
+    // active the fallback is the first *visible* item, so a filtered view still
+    // has a tabbable row.
     let activeItemId = (): string | null =>
-      focusedId && items.some((i) => i.id === focusedId) ? focusedId : (items[0]?.id ?? null)
+      focusedId && items.some((i) => i.id === focusedId)
+        ? focusedId
+        : (visibleItems()[0]?.id ?? null)
 
     let grabbedMove = (from: number, to: number) => {
       if (to < 0 || to >= items.length) return
@@ -1209,6 +1296,42 @@ export const ListsClient = clientEntry(
       // from nested controls (checkbox, edit textarea, action buttons) must
       // keep their own semantics.
       if (e.target !== e.currentTarget) return
+
+      // While filtering, reordering is view-only: arrow keys / Home / End /
+      // typeahead only move focus among the visible subset, and grab-reorder /
+      // Ctrl+Cmd+Arrow quick-move are skipped so the item's real position never
+      // changes under a filter.
+      if (filterActive()) {
+        let vis = visibleItems()
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault()
+            moveFocus(index + 1)
+            return
+          case 'ArrowUp':
+            e.preventDefault()
+            moveFocus(index - 1)
+            return
+          case 'Home':
+            e.preventDefault()
+            moveFocus(0)
+            return
+          case 'End':
+            e.preventDefault()
+            moveFocus(vis.length - 1)
+            return
+          default:
+            if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+              let target = findTypeaheadTarget(vis, index, e.key)
+              if (target !== -1) {
+                e.preventDefault()
+                moveFocus(target)
+              }
+            }
+            return
+        }
+      }
+
       let id = items[index]!.id
 
       // Quick-move: Ctrl/Cmd + Arrow moves the focused item directly
@@ -1335,7 +1458,9 @@ export const ListsClient = clientEntry(
         )
       }
 
-      let doneCount = items.filter((item) => item.done === true).length
+      let vis = visibleItems()
+      let doneCount = vis.filter((item) => item.done === true).length
+      let totalCount = vis.length
 
       return (
         <div mix={cardStyle}>
@@ -1742,13 +1867,13 @@ export const ListsClient = clientEntry(
                     gap: theme.space.md,
                   })}
                 >
-                  {items.length > 0 && (
+                  {totalCount > 0 && (
                     <div
                       role="progressbar"
                       aria-valuemin={0}
-                      aria-valuemax={items.length}
+                      aria-valuemax={totalCount}
                       aria-valuenow={doneCount}
-                      aria-label={`${doneCount} von ${items.length} erledigt`}
+                      aria-label={`${doneCount} von ${totalCount} erledigt`}
                       mix={css({
                         width: '80px',
                         height: '6px',
@@ -1760,7 +1885,7 @@ export const ListsClient = clientEntry(
                       <div
                         mix={css({
                           height: '100%',
-                          width: `${(doneCount / items.length) * 100}%`,
+                          width: `${(doneCount / totalCount) * 100}%`,
                           backgroundColor: theme.colors.success.background,
                           borderRadius: theme.radius.full,
                           transition: 'width 0.2s ease',
@@ -1774,12 +1899,59 @@ export const ListsClient = clientEntry(
                       color: theme.colors.text.secondary,
                     })}
                   >
-                    {items.length > 0
-                      ? `${doneCount} von ${items.length} erledigt`
-                      : `${items.length} Einträge`}
+                    {totalCount > 0
+                      ? `${doneCount} von ${totalCount} erledigt`
+                      : `${totalCount} Einträge`}
                   </span>
                 </div>
               </div>
+
+              {items.length > 0 && (
+                <div mix={filterRowStyle}>
+                  <input
+                    id="lists-inner-filter"
+                    type="search"
+                    placeholder="Elemente durchsuchen…"
+                    maxLength={200}
+                    mix={[
+                      filterInputStyle,
+                      ref((el: HTMLInputElement) => {
+                        filterInputRef = el
+                      }),
+                      on('input', (e) => {
+                        listFilter = e.currentTarget.value
+                        handle.update()
+                      }),
+                      on('keydown', (e) => {
+                        if (e.key === 'Escape' && listFilter) {
+                          e.preventDefault()
+                          listFilter = ''
+                          if (filterInputRef) filterInputRef.value = ''
+                          handle.update()
+                        }
+                      }),
+                    ]}
+                    defaultValue={listFilter}
+                  />
+                  {listFilter.trim() && (
+                    <button
+                      type="button"
+                      mix={[
+                        clearFilterBtnStyle,
+                        on('click', () => {
+                          listFilter = ''
+                          if (filterInputRef) filterInputRef.value = ''
+                          handle.update()
+                        }),
+                      ]}
+                      aria-label="Suche zurücksetzen"
+                      title="Suche zurücksetzen"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
 
               {items.length === 0 ? (
                 <div
@@ -1790,6 +1962,16 @@ export const ListsClient = clientEntry(
                   })}
                 >
                   Noch keine Elemente. Füge oben eines hinzu.
+                </div>
+              ) : totalCount === 0 ? (
+                <div
+                  mix={css({
+                    padding: `${theme.space.xxl} ${theme.space.lg}`,
+                    textAlign: 'center',
+                    color: theme.colors.text.muted,
+                  })}
+                >
+                  Keine Treffer für „{listFilter.trim()}“.
                 </div>
               ) : (
                 <div
@@ -1896,219 +2078,231 @@ export const ListsClient = clientEntry(
                     }),
                   ]}
                 >
-                  {items.map((item, index) => (
-                    <div
-                      key={item.id}
-                      mix={[
-                        css({
-                          position: 'relative',
-                          display: 'flex',
-                          gap: theme.space.md,
-                          alignItems: 'center',
-                          padding: `${theme.space.md} ${theme.space.md}`,
-                          // Keep a right gutter so the label doesn't run under the
-                          // overlay action cluster; the cluster itself is absolute
-                          // and takes no layout space.
-                          paddingRight: '6.5rem',
-                          borderBottom:
-                            index < items.length - 1
-                              ? `1px solid ${theme.colors.border.subtle}`
-                              : 'none',
-                          backgroundColor:
-                            index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
-                          '&:focus-visible': {
-                            outline: `2px solid ${theme.colors.focus.ring}`,
-                            outlineOffset: '-2px',
-                          },
-                        }),
-                        ...(item.id === grabbedId
-                          ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
-                          : []),
-                        ref((el) => {
-                          let ac = new AbortController()
-                          el.addEventListener(
-                            'dragstart',
-                            (e) => {
-                              let idx = parseInt(
-                                (e.currentTarget as HTMLElement).dataset.index || '0',
-                                10,
-                              )
-                              handleDragStart(e as DragEvent, idx)
-                            },
-                            { signal: ac.signal },
-                          )
-                          el.addEventListener(
-                            'dragover',
-                            (e) => {
-                              let idx = parseInt(
-                                (e.currentTarget as HTMLElement).dataset.index || '0',
-                                10,
-                              )
-                              handleDragOver(e as DragEvent, idx)
-                            },
-                            { signal: ac.signal },
-                          )
-                          el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
-                            signal: ac.signal,
-                          })
-                          el.addEventListener('dragend', () => handleDragEnd(), {
-                            signal: ac.signal,
-                          })
-                          return () => ac.abort()
-                        }),
-                        on('keydown', (e) => handleRowKeyDown(e, index)),
-                        on('click', () => {
-                          focusedId = item.id
-                          handle.update()
-                        }),
-                      ]}
-                      role="listitem"
-                      draggable="true"
-                      data-index={index}
-                      data-item-id={item.id}
-                      tabIndex={item.id === activeItemId() ? 0 : -1}
-                    >
-                      <span mix={gripStyle} data-grip="" aria-hidden="true">
-                        ⠿
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={item.done === true}
-                        aria-label={
-                          item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
-                        }
+                  {vis.map((item, index) => {
+                    let realIndex = items.findIndex((i) => i.id === item.id)
+                    return (
+                      <div
+                        key={item.id}
                         mix={[
                           css({
-                            width: '18px',
-                            height: '18px',
-                            flexShrink: 0,
-                            cursor: 'pointer',
-                            accentColor: theme.colors.focus.ring,
+                            position: 'relative',
+                            display: 'flex',
+                            gap: theme.space.md,
+                            alignItems: 'center',
+                            padding: `${theme.space.md} ${theme.space.md}`,
+                            // Keep a right gutter so the label doesn't run under the
+                            // overlay action cluster; the cluster itself is absolute
+                            // and takes no layout space.
+                            paddingRight: '6.5rem',
+                            borderBottom:
+                              index < vis.length - 1
+                                ? `1px solid ${theme.colors.border.subtle}`
+                                : 'none',
+                            backgroundColor:
+                              index % 2 === 0 ? theme.surface.lvl0 : theme.surface.lvl1,
+                            '&:focus-visible': {
+                              outline: `2px solid ${theme.colors.focus.ring}`,
+                              outlineOffset: '-2px',
+                            },
                           }),
-                          on('change', (e) => {
-                            let idx = parseInt(
-                              (e.currentTarget.closest('[data-index]') as HTMLElement | null)
-                                ?.dataset.index || '0',
-                              10,
+                          ...(item.id === grabbedId
+                            ? [css({ boxShadow: `inset 0 0 0 2px ${theme.colors.focus.ring}` })]
+                            : []),
+                          ref((el) => {
+                            let ac = new AbortController()
+                            el.addEventListener(
+                              'dragstart',
+                              (e) => {
+                                let idx = parseInt(
+                                  (e.currentTarget as HTMLElement).dataset.index || '0',
+                                  10,
+                                )
+                                handleDragStart(e as DragEvent, idx)
+                              },
+                              { signal: ac.signal },
                             )
-                            toggleDone(idx)
+                            el.addEventListener(
+                              'dragover',
+                              (e) => {
+                                let idx = parseInt(
+                                  (e.currentTarget as HTMLElement).dataset.index || '0',
+                                  10,
+                                )
+                                handleDragOver(e as DragEvent, idx)
+                              },
+                              { signal: ac.signal },
+                            )
+                            el.addEventListener('drop', (e) => handleDrop(e as DragEvent), {
+                              signal: ac.signal,
+                            })
+                            el.addEventListener('dragend', () => handleDragEnd(), {
+                              signal: ac.signal,
+                            })
+                            return () => ac.abort()
+                          }),
+                          on('keydown', (e) => handleRowKeyDown(e, index)),
+                          on('click', () => {
+                            focusedId = item.id
+                            handle.update()
                           }),
                         ]}
-                      />
-                      {editingIndex === index ? (
-                        <textarea
+                        role="listitem"
+                        draggable={!filterActive()}
+                        data-index={realIndex}
+                        data-item-id={item.id}
+                        tabIndex={item.id === activeItemId() ? 0 : -1}
+                      >
+                        <span mix={gripStyle} data-grip="" aria-hidden="true">
+                          ⠿
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={item.done === true}
+                          aria-label={
+                            item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
+                          }
                           mix={[
                             css({
-                              padding: `${theme.space.sm} ${theme.space.md}`,
-                              borderRadius: theme.radius.md,
-                              border: `1px solid ${theme.colors.focus.ring}`,
-                              flex: 1,
-                              fontSize: theme.fontSize.lg,
-                              outline: 'none',
-                              fontFamily: theme.fontFamily.sans,
-                              width: '300px',
-                              minHeight: '60px',
-                              resize: 'vertical',
-                              backgroundColor: theme.surface.lvl0,
-                              color: theme.colors.text.primary,
+                              width: '18px',
+                              height: '18px',
+                              flexShrink: 0,
+                              cursor: 'pointer',
+                              accentColor: theme.colors.focus.ring,
                             }),
-                            on('input', (e) => {
-                              editText = e.currentTarget.value
-                              handle.update()
-                            }),
-                            on('keydown', (e) => {
-                              if (e.key === 'Escape') cancelEdit()
+                            on('change', (e) => {
+                              let idx = parseInt(
+                                (e.currentTarget.closest('[data-index]') as HTMLElement | null)
+                                  ?.dataset.index || '0',
+                                10,
+                              )
+                              toggleDone(idx)
                             }),
                           ]}
-                          autoFocus
-                          rows={3}
-                          wrap="soft"
-                        >
-                          {editText as never}
-                        </textarea>
-                      ) : (
-                        <span
-                          mix={[
-                            multilineDisplayStyle,
-                            item.done === true &&
+                        />
+                        {editingIndex === realIndex ? (
+                          <textarea
+                            mix={[
                               css({
-                                textDecoration: 'line-through',
-                                color: theme.colors.text.muted,
+                                padding: `${theme.space.sm} ${theme.space.md}`,
+                                borderRadius: theme.radius.md,
+                                border: `1px solid ${theme.colors.focus.ring}`,
+                                flex: 1,
+                                fontSize: theme.fontSize.lg,
+                                outline: 'none',
+                                fontFamily: theme.fontFamily.sans,
+                                width: '300px',
+                                minHeight: '60px',
+                                resize: 'vertical',
+                                backgroundColor: theme.surface.lvl0,
+                                color: theme.colors.text.primary,
                               }),
+                              on('input', (e) => {
+                                editText = e.currentTarget.value
+                                handle.update()
+                              }),
+                              on('keydown', (e) => {
+                                if (e.key === 'Escape') cancelEdit()
+                              }),
+                            ]}
+                            autoFocus
+                            rows={3}
+                            wrap="soft"
+                          >
+                            {editText as never}
+                          </textarea>
+                        ) : (
+                          <span
+                            mix={[
+                              multilineDisplayStyle,
+                              item.done === true &&
+                                css({
+                                  textDecoration: 'line-through',
+                                  color: theme.colors.text.muted,
+                                }),
+                            ].filter(Boolean)}
+                          >
+                            {item.label}
+                          </span>
+                        )}
+
+                        <div
+                          draggable="false"
+                          data-item-actions
+                          mix={[
+                            itemActionsStyle,
+                            editingIndex === realIndex &&
+                              css({ opacity: 1, pointerEvents: 'auto' }),
                           ].filter(Boolean)}
                         >
-                          {item.label}
-                        </span>
-                      )}
-
-                      <div
-                        draggable="false"
-                        data-item-actions
-                        mix={[
-                          itemActionsStyle,
-                          editingIndex === index && css({ opacity: 1, pointerEvents: 'auto' }),
-                        ].filter(Boolean)}
-                      >
-                        {editingIndex === index ? (
-                          <>
-                            <button
-                              mix={[iconActionStyle, iconActionFirstStyle, on('click', saveEdit)]}
-                              title="Speichern"
-                            >
-                              <Glyph name="check" width={16} height={16} />
-                            </button>
-                            <button
-                              mix={[iconActionStyle, iconActionLastStyle, on('click', cancelEdit)]}
-                              title="Abbrechen"
-                            >
-                              <Glyph name="close" width={16} height={16} />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              mix={[
-                                iconActionStyle,
-                                iconActionFirstStyle,
-                                on('click', () => startEditing(index)),
-                              ]}
-                              title="Bearbeiten"
-                            >
-                              <Glyph name="edit" width={16} height={16} />
-                            </button>
-                            <button
-                              mix={[
-                                iconActionStyle,
-                                iconActionDangerStyle,
-                                on('click', () => deleteItem(index)),
-                              ]}
-                              title="Löschen"
-                            >
-                              <Glyph name="close" width={16} height={16} />
-                            </button>
-                            <button
-                              mix={[iconActionStyle, on('click', () => moveUp(index))]}
-                              disabled={index === 0}
-                              title="Nach oben"
-                            >
-                              ↑
-                            </button>
-                            <button
-                              mix={[
-                                iconActionStyle,
-                                iconActionLastStyle,
-                                on('click', () => moveDown(index)),
-                              ]}
-                              disabled={index === items.length - 1}
-                              title="Nach unten"
-                            >
-                              ↓
-                            </button>
-                          </>
-                        )}
+                          {editingIndex === realIndex ? (
+                            <>
+                              <button
+                                mix={[iconActionStyle, iconActionFirstStyle, on('click', saveEdit)]}
+                                title="Speichern"
+                              >
+                                <Glyph name="check" width={16} height={16} />
+                              </button>
+                              <button
+                                mix={[
+                                  iconActionStyle,
+                                  iconActionLastStyle,
+                                  on('click', cancelEdit),
+                                ]}
+                                title="Abbrechen"
+                              >
+                                <Glyph name="close" width={16} height={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                mix={[
+                                  iconActionStyle,
+                                  iconActionFirstStyle,
+                                  on('click', () => startEditing(realIndex)),
+                                ]}
+                                title="Bearbeiten"
+                              >
+                                <Glyph name="edit" width={16} height={16} />
+                              </button>
+                              <button
+                                mix={[
+                                  iconActionStyle,
+                                  iconActionDangerStyle,
+                                  on('click', () => deleteItem(realIndex)),
+                                ]}
+                                title="Löschen"
+                              >
+                                <Glyph name="close" width={16} height={16} />
+                              </button>
+                              {!filterActive() && (
+                                <>
+                                  <button
+                                    mix={[iconActionStyle, on('click', () => moveUp(realIndex))]}
+                                    disabled={realIndex === 0}
+                                    title="Nach oben"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    mix={[
+                                      iconActionStyle,
+                                      iconActionLastStyle,
+                                      on('click', () => moveDown(realIndex)),
+                                    ]}
+                                    disabled={realIndex === items.length - 1}
+                                    title="Nach unten"
+                                  >
+                                    ↓
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

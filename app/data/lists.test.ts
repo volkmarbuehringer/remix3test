@@ -3,7 +3,15 @@ import * as assert from 'remix/assert'
 
 import { db, initializeAppDatabase } from '../db.ts'
 import { lists } from '../data/schema.ts'
-import { getListById, createList, patchList, deleteList, moveItemBetweenLists } from './lists.ts'
+import {
+  getListById,
+  getListSummaries,
+  getListSummariesByIds,
+  createList,
+  patchList,
+  deleteList,
+  moveItemBetweenLists,
+} from './lists.ts'
 
 describe('lists-api lib', () => {
   before(async () => {
@@ -601,5 +609,86 @@ describe('lists-api lib', () => {
     }
 
     await db.delete(lists, { id: created.id })
+  })
+
+  // ── Lean sidebar summaries ──────────────────────────────────────────────
+
+  it('getListSummaries computes item_count and done_count in SQL', async () => {
+    let created = await createList(db, {
+      description: 'Summary counts',
+      items: [
+        { id: '1', label: 'Done A', done: true },
+        { id: '2', label: 'Open B' },
+        { id: '3', label: 'Done C', done: true },
+      ],
+    })
+    let empty = await createList(db, { description: 'Empty list', items: [] })
+
+    let result = await getListSummaries(db, { limit: 100, offset: 0 })
+    let summary = result.data.find((s) => s.id === created.id)
+    assert.ok(summary, 'should include the created list')
+    if (summary) {
+      assert.equal(summary.count, 3, 'count should be item_count')
+      assert.equal(summary.doneCount, 2, 'doneCount should be count of done items')
+      assert.equal(summary.description, 'Summary counts')
+      assert.ok(typeof summary.updated_at === 'number', 'updated_at should be a number')
+    }
+    let emptySummary = result.data.find((s) => s.id === empty.id)
+    assert.ok(emptySummary, 'should include the empty list')
+    if (emptySummary) {
+      assert.equal(emptySummary.count, 0)
+      assert.equal(emptySummary.doneCount, 0)
+    }
+
+    await db.delete(lists, { id: created.id })
+    await db.delete(lists, { id: empty.id })
+  })
+
+  it('getListSummaries matches an item label via the filter', async () => {
+    let created = await createList(db, {
+      description: 'Filter by label',
+      items: [
+        { id: '1', label: 'Needle Item' },
+        { id: '2', label: 'Needle Again' },
+      ],
+    })
+
+    let result = await getListSummaries(db, { limit: 100, offset: 0, filter: 'Needle' })
+    assert.ok(
+      result.data.some((s) => s.id === created.id),
+      'filter should match a list whose items contain the term',
+    )
+
+    await db.delete(lists, { id: created.id })
+  })
+
+  it('getListSummariesByIds preserves id order, scopes by owner, drops missing ids', async () => {
+    let a = await createList(db, { description: 'Order A', items: [{ id: '1', label: 'a' }] })
+    let b = await createList(db, {
+      description: 'Order B',
+      items: [
+        { id: '1', label: 'b', done: true },
+        { id: '2', label: 'b2' },
+      ],
+    })
+
+    // Request out of order; result must follow the requested id order.
+    let rows = await getListSummariesByIds(db, [b.id, a.id, 9_999_999])
+    assert.equal(rows.length, 2, 'missing ids should be dropped')
+    assert.equal(rows[0]!.id, b.id, 'first requested id should come first')
+    assert.equal(rows[1]!.id, a.id)
+    let bRow = rows.find((r) => r.id === b.id)
+    assert.ok(bRow)
+    if (bRow) {
+      assert.equal(bRow.count, 2, 'B should have two items')
+      assert.equal(bRow.doneCount, 1, 'B should have one done item')
+    }
+
+    // Owner scoping: a non-admin user sees only their own lists.
+    let scoped = await getListSummariesByIds(db, [b.id, a.id], 999_999_999)
+    assert.equal(scoped.length, 0, 'other-user lists should be omitted')
+
+    await db.delete(lists, { id: a.id })
+    await db.delete(lists, { id: b.id })
   })
 })

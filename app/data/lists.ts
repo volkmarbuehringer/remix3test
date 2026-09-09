@@ -41,6 +41,42 @@ export type PatchResult =
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'conflict'; current: ListRow }
 
+// ── Lean sidebar summaries ────────────────────────────────────────────────
+// The user-facing /lists sidebar only needs id/title/description/updated_at
+// plus the item counts, so we compute the counts in SQL (jsonb_array_length +
+// a filtered jsonb_array_elements subquery) instead of loading and parsing the
+// whole `list` JSON array into JS for every list on the page. This keeps the
+// count columns honest about their wire types: `jsonb_array_length` is int4
+// (number), `count(*)` is int8 (string) — both coerced at the decode boundary.
+const listSummaryWireSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  description: z.string(),
+  updated_at: z.string(),
+  item_count: z.coerce.number(),
+  done_count: z.coerce.number(),
+})
+
+export interface ListSummary {
+  id: number
+  title: string
+  description: string
+  updated_at: number
+  count: number
+  doneCount: number
+}
+
+function toSummary(row: z.output<typeof listSummaryWireSchema>): ListSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    updated_at: Number(row.updated_at),
+    count: row.item_count,
+    doneCount: row.done_count,
+  }
+}
+
 function parseRow(row: Record<string, unknown>): ListRow {
   let list = row.list
   if (typeof list === 'string') {
@@ -149,6 +185,106 @@ export async function getListsByIds(
     listWireSchema,
   )
   return rows.map((row) => parseRow(row as Record<string, unknown>))
+}
+
+// Shared SELECT prefix for the lean sidebar summaries. We intentionally select
+// only the columns the sidebar displays plus the two computed counts — never
+// the whole `list` JSON array — so a page of lists costs one row per list with
+// scalar columns instead of deserializing every item into JS.
+const summaryColumns = `SELECT id, title, description, updated_at,
+       COALESCE(jsonb_array_length(list), 0) AS item_count,
+       COALESCE((SELECT count(*) FROM jsonb_array_elements(list) e WHERE e->>'done' = 'true'), 0) AS done_count
+    FROM lists`
+
+export async function getListSummaries(
+  db: Database,
+  options: { offset?: number; limit?: number; filter?: string | undefined },
+  userId?: number,
+): Promise<ListResult<ListSummary[]>> {
+  let offset = Math.max(0, options.offset ?? 0)
+  let limit = Math.max(1, Math.min(options.limit ?? 20, 100))
+  let rawFilter = options.filter
+
+  let rows: ListSummary[]
+  let hasMore: boolean
+
+  if (rawFilter) {
+    let filter = rawFilter.length > 200 ? rawFilter.slice(0, 200) : rawFilter
+    let esc = filter.replace(/[%_\\]/g, '\\$&')
+    let searchPattern = `%${esc}%`
+    let args: unknown[] = [searchPattern, limit + 1, offset]
+    let ownerClause = ''
+    if (userId != null) {
+      args.push(userId)
+      ownerClause = ' AND user_id = $4'
+    }
+    rows = (
+      await queryRows(
+        db,
+        rawSql(
+          `${summaryColumns}
+       WHERE (title ILIKE $1
+          OR description ILIKE $1
+          OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements(list) item
+            WHERE item->>'label' ILIKE $1
+          )) ${ownerClause}
+       ORDER BY created_at DESC, id DESC
+       LIMIT $2 OFFSET $3`,
+          args,
+        ),
+        listSummaryWireSchema,
+      )
+    ).map(toSummary)
+    hasMore = rows.length > limit
+    if (hasMore) rows.pop()
+  } else {
+    let args: unknown[] = [limit + 1, offset]
+    let ownerClause = ''
+    if (userId != null) {
+      args.push(userId)
+      ownerClause = 'WHERE user_id = $3'
+    }
+    rows = (
+      await queryRows(
+        db,
+        rawSql(
+          `${summaryColumns} ${ownerClause}
+       ORDER BY created_at DESC, id DESC
+       LIMIT $1 OFFSET $2`,
+          args,
+        ),
+        listSummaryWireSchema,
+      )
+    ).map(toSummary)
+    hasMore = rows.length > limit
+    if (hasMore) rows.pop()
+  }
+
+  return { data: rows, hasMore, offset }
+}
+
+export async function getListSummariesByIds(
+  db: Database,
+  ids: number[],
+  userId?: number,
+): Promise<ListSummary[]> {
+  if (ids.length === 0) return []
+  let ownerClause = userId != null ? ' AND user_id = $2' : ''
+  let params: unknown[] = userId != null ? [ids, userId] : [ids]
+  let rows = await queryRows(
+    db,
+    rawSql(
+      `SELECT id, title, description, updated_at,
+         COALESCE(jsonb_array_length(list), 0) AS item_count,
+         COALESCE((SELECT count(*) FROM jsonb_array_elements(list) e WHERE e->>'done' = 'true'), 0) AS done_count
+       FROM lists WHERE id = ANY($1::integer[]) ${ownerClause}
+       ORDER BY array_position($1::integer[], id)`,
+      params,
+    ),
+    listSummaryWireSchema,
+  )
+  return rows.map(toSummary)
 }
 
 export async function getListById(

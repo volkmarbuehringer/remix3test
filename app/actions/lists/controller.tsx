@@ -11,12 +11,13 @@ import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import {
   getListById,
-  getAllLists,
-  getListsByIds,
+  getListSummaries,
+  getListSummariesByIds,
   createList,
   patchList,
   deleteList,
   moveItemBetweenLists,
+  type ListSummary,
 } from '../../data/lists.ts'
 import {
   renderListsPage,
@@ -33,6 +34,16 @@ const listItemSchema = s.object({
   label: s.string(),
   done: s.optional(s.boolean()),
 })
+
+function toSidebarEntry(row: ListSummary): ListSidebarEntry {
+  return {
+    id: `list:${row.id}` as ListsNavItem,
+    label: row.title || row.description,
+    count: row.count,
+    doneCount: row.doneCount,
+    updatedAt: row.updated_at,
+  }
+}
 
 const listsCreateSchema = s.object({
   title: s.optional(s.string().pipe(maxLength(200))),
@@ -72,32 +83,20 @@ export default createController(routes.lists, {
               .filter((n) => Number.isFinite(n) && n >= 1),
           ),
         ]
-        let rows = await getListsByIds(context.db, ids, listUserId)
-        sidebarEntries = rows.map((row) => ({
-          id: `list:${row.id}` as ListsNavItem,
-          label: row.title || row.description,
-          count: Array.isArray(row.list) ? row.list.length : 0,
-          doneCount: Array.isArray(row.list)
-            ? row.list.filter((item) => item.done === true).length
-            : 0,
-          updatedAt: row.updated_at,
-        }))
+        let entries = await getListSummariesByIds(context.db, ids, listUserId)
+        sidebarEntries = entries.map(toSidebarEntry)
       } else {
         let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
         let pageSize = getPageSize(context.session, 15)
         let filter = context.url.searchParams.get('filter') || undefined
 
-        let result = await getAllLists(context.db, { limit: pageSize, offset, filter }, listUserId)
+        let result = await getListSummaries(
+          context.db,
+          { limit: pageSize, offset, filter },
+          listUserId,
+        )
 
-        sidebarEntries = result.data.map((row) => ({
-          id: `list:${row.id}` as ListsNavItem,
-          label: row.title || row.description,
-          count: Array.isArray(row.list) ? row.list.length : 0,
-          doneCount: Array.isArray(row.list)
-            ? row.list.filter((item) => item.done === true).length
-            : 0,
-          updatedAt: row.updated_at,
-        }))
+        sidebarEntries = result.data.map(toSidebarEntry)
         listResult = { offset: result.offset, hasMore: result.hasMore, limit: pageSize }
       }
 
