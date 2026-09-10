@@ -851,6 +851,23 @@ Per-button mix arrays (order: base, then first/last/danger):
 
 Only the **first** button gets the left radius and only the **last** gets the right radius; middle buttons must stay perfectly square (no radius). If you bake the left radius into every button (as a 2-button group would), a 3+ button group shows a rounded corner between each adjacent pair — "2 rounded borders between buttons".
 
+### Cascade pitfall: per-button styles can still lose on one button
+
+"Per-button" is necessary but not always sufficient. Every `css()` rule lives in
+its own `@layer rmx.<class>` sub-layer, and inside `rmx` the sub-layer registered
+last wins **regardless of specificity** — so when a button also carries the vendor
+`button()` mixin, the mixin's `border` shorthand can win on whichever button
+happens to be registered first. The visible symptom is one segment (usually the
+**active, primary-tone** one, whose own border is `0`) keeping a full border while
+its siblings are flattened, i.e. a doubled divider in the mixin's translucent
+colour.
+
+The period/status switchers were fixed by marking the two contested declarations
+`!important` in the per-button class (`app/ui/mixins/segmented.ts`) — the same
+escape hatch `main-nav.tsx` uses for vendor styles. Full mechanism, alternatives
+(re-render the markup with app styles, declare a later layer) and the CDP recipe
+for inspecting these rules: `remix3-css-override-cascade-layer`.
+
 ---
 
 ## Inline-Edit Server-Rendered Table Cells
@@ -1896,5 +1913,15 @@ if (e.dataTransfer) {
   e.dataTransfer.setData('text/x-list-id', String(sourceId))
 }
 ```
+
+**Scope of that caveat (re-checked on Firefox 155, 2026-09-10):** it is a
+`dragstart` limitation, not a general one. `dragover` and `drop` events built with
+`new DragEvent(type, { dataTransfer })` **do** carry `dataTransfer.types`, so a
+test can assert on the payload kind there — the uploads drop-guard tests read
+`types.includes('Files')` from a synthetic `dragover`/`drop` pair and pass in the
+Firefox project (`app/actions/admin/uploads/uploads-dropzone.test.e2e.ts`). Keep
+the defensive `if (e.dataTransfer)` guard in handlers regardless, and do not
+assume a `dataTransfer` set in a synthetic `dragstart` survives to the later
+events of the same gesture.
 
 (Extracted from the lists-merge-drag session; mechanism re-validated against `remix` preview/main at the `ref-mixin` / `reconcile` references above.)
