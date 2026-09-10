@@ -27,6 +27,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [Generic Form Interception for Frames](#generic-form-interception-for-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
+- [Registering Global Document Listeners — ref() Only Fires on SSR for Stable Roots](#registering-global-document-listeners--ref-only-fires-on-ssr-for-stable-roots)
 - [Post-Navigation Data Loading in clientEntry](#post-navigation-data-loading-in-cliententry)
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
 - [Joining a Button Group with 3+ Buttons (per-button styles)](#joining-a-button-group-with-3-buttons-per-button-styles)
@@ -1826,3 +1827,55 @@ redirect bail are remix/ui runtime behavior — re-check against the pinned vend
 before relying on it.)
 
 (Consolidated from the admin-frame-redirect-follow session)
+
+---
+
+## Registering Global Document Listeners — ref() Only Fires on SSR for Stable Roots
+
+**Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX).
+
+### Problem
+
+Putting `document.addEventListener` inside a `ref()` on a stable root element (e.g., the editor card) silently never registers on the client. The `ref()` mixin fires on DOM *insertion*; for an element already present in the SSR HTML, client hydration **reuses the node without re-inserting it**, so the callback runs only on the server — where `document` is undefined and the guard bails. The `setTimeout(0)` alternative also races: deferred client entries hydrate late (see the Firefox single import map skill), so the timer can fire before the entry hydrates, and an e2e test that dispatches synthetic events right after the SSR-rendered content appears misses the listener.
+
+(Note: this refines the `ref()` claim in the mounted-guard section above — `ref()` fires on server insertion and on *new* client insertions (Frame replacement creates fresh nodes), but **not** on hydration of elements already in the SSR HTML. It is reliable for per-node listeners on freshly created elements, not for one-time global setup on stable roots.)
+
+### Solution
+
+Register delegated listeners synchronously at the **end** of the `clientEntry` body — after every handler is defined — guarded by `typeof document !== 'undefined'` and a one-shot `installed` flag:
+
+```typescript
+let docDragInstalled = false
+// ... all handlers defined above ...
+if (typeof document !== 'undefined' && !docDragInstalled) {
+  docDragInstalled = true
+  document.addEventListener('dragstart', onDocumentDragStart, { signal: handle.signal })
+  document.addEventListener('dragend', onDocumentDragEnd, { signal: handle.signal })
+}
+```
+
+The body runs on both server and client; the `document` guard makes it a no-op during SSR, and on the client it runs during hydration — before any user interaction.
+
+### Testing a clientEntry drag gesture (e2e)
+
+Because hydration is deferred and slow (notably Firefox), an e2e test that dispatches synthetic `DragEvent`s must not assume the listener is live when the SSR-rendered elements appear. Retry the action until it lands (pre-hydration attempts are no-ops):
+
+```typescript
+let merged = false
+for (let attempt = 0; attempt < 20 && !merged; attempt++) {
+  await dragList(page, sourceId, targetId)
+  await page.waitForTimeout(750)
+  merged = /* check DB/result */
+}
+```
+
+Also guard `e.dataTransfer` before touching it in drag handlers — Firefox ignores the `dataTransfer` init-dict in `new DragEvent('dragstart', { dataTransfer })`, so it is `null` in synthetic events:
+
+```typescript
+if (e.dataTransfer) {
+  e.dataTransfer.effectAllowed = 'copy'
+  e.dataTransfer.setData('text/x-list-id', String(sourceId))
+}
+```
+
+(Extracted from the lists-merge-drag session)

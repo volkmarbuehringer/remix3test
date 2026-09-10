@@ -850,6 +850,178 @@ describe('Lists controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // POST /lists/:id/merge — copy a list's items into another list
+  // -----------------------------------------------------------------------
+
+  it('POST /lists/:id/merge copies all source items into the target with fresh ids', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Merge source', ['Alpha', 'Beta'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Merge target', ['Existing'])
+
+    let sourceIds: string[] = source.items.map((item: { id: string }) => item.id)
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id }),
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.id, target.id, 'responds with the target row')
+    assert.equal(body.items.length, 3)
+    assert.equal(body.items[0].label, 'Existing', 'existing target items stay first')
+    assert.equal(body.items[1].label, 'Alpha')
+    assert.equal(body.items[2].label, 'Beta')
+    assert.ok(body.updated_at >= target.updated_at, 'target updated_at bumped')
+
+    let copiedIds: string[] = body.items.slice(1).map((item: { id: string }) => item.id)
+    for (let id of copiedIds) {
+      assert.ok(!sourceIds.includes(id), 'copied item id must differ from the source id')
+    }
+
+    // Source is untouched.
+    let sourceRow = await db.findOne(lists, { where: { id: source.id } })
+    assert.ok(sourceRow, 'source row still exists')
+    if (sourceRow) {
+      let sourceList = sourceRow.list as unknown as Array<Record<string, unknown>>
+      assert.equal(sourceList.length, 2)
+      assert.equal(
+        JSON.stringify(sourceList.map((item) => item.id)),
+        JSON.stringify(sourceIds),
+        'source item ids unchanged',
+      )
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/merge rejects merging a list into itself with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Self merge', ['A', 'B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: source.id }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('POST /lists/:id/merge rejects an empty source with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Empty source', [])
+    let target = await createListFor(userCookie, userCsrfToken, 'Keep target', ['Existing'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/merge without If-Match returns 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'No precondition', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'No precondition target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ targetId: target.id }),
+    })
+    assert.equal(response.status, 400)
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it("POST /lists/:id/merge returns 404 for another user's target list", async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'User merge source', ['A'])
+    let adminTarget = await createListFor(adminCookie, adminCsrfToken, 'Admin merge target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: adminTarget.id }),
+    })
+    assert.equal(response.status, 404)
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: adminTarget.id })
+  })
+
+  it('POST /lists/:id/merge returns 404 for a non-existent target list', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Unknown target source', ['A'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: 9999999 }),
+    })
+    assert.equal(response.status, 404)
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('POST /lists/:id/merge with stale If-Match returns 409 with the current source row', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Stale merge source', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Stale merge target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/merge`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at - 1),
+      },
+      body: JSON.stringify({ targetId: target.id }),
+    })
+    assert.equal(response.status, 409)
+    let body = await response.json()
+    assert.equal(body.id, source.id, 'body carries the current source row')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  // -----------------------------------------------------------------------
   // POST /lists/:id/delete — destroy a list
   // -----------------------------------------------------------------------
 

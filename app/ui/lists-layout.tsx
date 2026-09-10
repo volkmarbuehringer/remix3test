@@ -274,6 +274,7 @@ function ListsLayout(
                 <div
                   key={entry.id}
                   mix={entryRowStyle}
+                  draggable="true"
                   data-list-id={listId ?? undefined}
                   data-updated-at={entry.updatedAt ?? undefined}
                 >

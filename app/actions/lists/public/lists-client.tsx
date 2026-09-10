@@ -69,6 +69,12 @@ export const ListsClient = clientEntry(
     let sidebarRows: SidebarRowRect[] = []
     let sidebarDragCleanup: (() => void) | null = null
 
+    // List-to-list drag state (sidebar rows as draggable sources)
+    let dragKind: 'item' | 'list' | null = null
+    let draggedListId: number | null = null
+    let listDragCleanup: (() => void) | null = null
+    let docDragInstalled = false
+
     // Keyboard navigation state
     let focusedId: string | null = null
     let grabbedId: string | null = null
@@ -935,6 +941,7 @@ export const ListsClient = clientEntry(
         e.preventDefault()
         return
       }
+      dragKind = 'item'
       dragIndex = index
       dropIndex = null
       e.dataTransfer!.effectAllowed = 'move'
@@ -1173,6 +1180,192 @@ export const ListsClient = clientEntry(
       }
     }
 
+    // ── List-to-list drag (sidebar rows as draggable sources) ────────────────
+    // Dropping list A on list B copies A's items into B (fresh ids), leaving A
+    // intact. Distinct from the item drag above: it uses a dedicated
+    // dataTransfer type and never assigns `dragIndex`, so the editor's item
+    // drop handlers (which bail on `dragIndex === null`) ignore it.
+    let stopListDragWiring = () => {
+      if (listDragCleanup) {
+        listDragCleanup()
+        listDragCleanup = null
+      }
+    }
+
+    let cleanupListDrag = () => {
+      clearSidebarHighlight()
+      stopListDragWiring()
+      draggedListId = null
+      if (dragKind === 'list') dragKind = null
+    }
+
+    let parseListCount = (row: HTMLElement | null | undefined): number | null => {
+      if (!row) return null
+      let text = row.querySelector('[data-list-count]')?.textContent?.trim() ?? ''
+      let match = text.match(/(\d+)\s*$/)
+      return match ? Number(match[1]) : null
+    }
+
+    let handleListDragOver = (e: DragEvent, row: HTMLElement) => {
+      if (dragKind !== 'list' || draggedListId === null) return
+      let targetId = Number(row.dataset.listId)
+      if (!Number.isFinite(targetId) || targetId === draggedListId) {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'none'
+        clearSidebarHighlight()
+        return
+      }
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+      showSidebarHighlight(targetId)
+    }
+
+    let startListDragWiring = () => {
+      stopListDragWiring()
+      let ac = new AbortController()
+      // Clear the highlight when the pointer leaves every sidebar row (e.g. over
+      // the editor or empty space) so a stale target is never shown.
+      window.addEventListener(
+        'dragover',
+        (e) => {
+          if (dragKind !== 'list') return
+          let target = e.target as HTMLElement | null
+          if (!target?.closest?.('[data-list-id]')) clearSidebarHighlight()
+        },
+        { capture: true, signal: ac.signal },
+      )
+      for (let row of Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]'))) {
+        row.addEventListener('dragover', (e) => handleListDragOver(e as DragEvent, row), {
+          signal: ac.signal,
+        })
+        row.addEventListener('drop', (e) => handleListDrop(e as DragEvent, row), {
+          signal: ac.signal,
+        })
+      }
+      listDragCleanup = () => ac.abort()
+    }
+
+    let handleListDragStart = (e: DragEvent, row: HTMLElement) => {
+      let target = e.target as HTMLElement
+      if (target.closest('button, input, textarea, [contenteditable]')) {
+        e.preventDefault()
+        return
+      }
+      let sourceId = Number(row.dataset.listId)
+      if (!Number.isFinite(sourceId)) return
+      dragKind = 'list'
+      draggedListId = sourceId
+      dragIndex = null
+      dropIndex = null
+      clearDragOver()
+      clearSidebarHighlight()
+      // Synthetic drag events in some browsers (Firefox) carry a null
+      // dataTransfer; the wiring must proceed regardless.
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'copy'
+        e.dataTransfer.setData('text/x-list-id', String(sourceId))
+        e.dataTransfer.setData('text/plain', `list:${sourceId}`)
+      }
+      startListDragWiring()
+    }
+
+    let handleListDrop = async (e: DragEvent, row: HTMLElement) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (dragKind !== 'list' || draggedListId === null) return
+      let sourceId = draggedListId
+      let targetId = Number(row.dataset.listId)
+      let sourceRow = document.querySelector<HTMLElement>(`[data-list-id="${sourceId}"]`)
+      let sourceName =
+        sourceRow?.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${sourceId}`
+      let targetName =
+        row.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${targetId}`
+      let sourceUpdatedAt = Number(sourceRow?.dataset.updatedAt)
+      let count = parseListCount(sourceRow)
+      cleanupListDrag()
+      if (!Number.isFinite(targetId) || targetId === sourceId) {
+        handle.update()
+        return
+      }
+
+      let message =
+        count !== null
+          ? `Alle ${count} Einträge von "${sourceName}" in "${targetName}" kopieren?`
+          : `Alle Einträge von "${sourceName}" in "${targetName}" kopieren?`
+      if (typeof window !== 'undefined' && !window.confirm(message)) {
+        handle.update()
+        return
+      }
+
+      // Flush pending edits when the loaded list is either side of the merge,
+      // otherwise the frame reload would discard them.
+      if (loadedListId !== null && (loadedListId === sourceId || loadedListId === targetId)) {
+        let flushed = await flushNow()
+        if (!flushed) {
+          handle.update()
+          return
+        }
+      }
+
+      let headers = getCsrfHeaders()
+      if (Number.isFinite(sourceUpdatedAt)) headers['If-Match'] = String(sourceUpdatedAt)
+      else delete headers['If-Match']
+
+      try {
+        let response = await fetch(`/lists/${sourceId}/merge`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ targetId }),
+        })
+        if (response.ok) {
+          handle.frame.reload().catch(() => {})
+        } else if (response.status === 409) {
+          let server = await response.json()
+          conflictState = {
+            show: true,
+            serverState: {
+              id: server.id,
+              title: server.title,
+              description: server.description,
+              items: server.items,
+              updated_at: server.updated_at,
+            },
+          }
+          handle.update()
+        } else {
+          let body = await response.json().catch(() => null)
+          loadError = body?.error || 'Zusammenführen fehlgeschlagen'
+          handle.update()
+        }
+      } catch {
+        loadError = 'Zusammenführen fehlgeschlagen (Netzwerkfehler)'
+        handle.update()
+      }
+    }
+
+    let handleListDragEnd = () => {
+      if (dragKind !== 'list') return
+      cleanupListDrag()
+      handle.update()
+    }
+
+    // Delegated listener: catches dragstart on any sidebar row regardless of
+    // when the rows enter the DOM (the frame content is spliced in after this
+    // client entry mounts). The event bubbles from the row to the document.
+    let onDocumentDragStart = (e: DragEvent) => {
+      if (dragKind === 'list') return
+      let target = e.target as HTMLElement | null
+      let row = target?.closest?.('[data-list-id]') as HTMLElement | null
+      if (!row) return
+      handleListDragStart(e, row)
+    }
+
+    let onDocumentDragEnd = () => {
+      if (dragKind !== 'list') return
+      cleanupListDrag()
+      handle.update()
+    }
+
     let handleDragEnd = () => {
       let dirty = draggedEl !== null || indicatorEl !== null || dragIndex !== null
       clearDragOver()
@@ -1180,7 +1373,18 @@ export const ListsClient = clientEntry(
       stopSidebarDragWiring()
       dragIndex = null
       dropIndex = null
+      dragKind = null
       if (dirty) handle.update()
+    }
+
+    // Register the delegated list-drag listeners synchronously at the end of the
+    // client body (after every handler is defined). The card root's ref only
+    // fires on SSR (document undefined), and frame reload events do not fire for
+    // the initial load — this runs during client hydration, before any drag.
+    if (typeof document !== 'undefined' && !docDragInstalled) {
+      docDragInstalled = true
+      document.addEventListener('dragstart', onDocumentDragStart, { signal: handle.signal })
+      document.addEventListener('dragend', onDocumentDragEnd, { signal: handle.signal })
     }
 
     let clearAll = () => {

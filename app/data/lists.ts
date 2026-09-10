@@ -438,6 +438,118 @@ export async function copyList(db: Database, id: number, userId?: number): Promi
   })
 }
 
+export type MergeResult =
+  | { ok: true; target: ListRow }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'conflict'; current: ListRow }
+  | { ok: false; reason: 'same_list' }
+  | { ok: false; reason: 'empty_source' }
+
+type MergeFailure = 'not_found' | 'conflict' | 'same_list' | 'empty_source'
+
+function throwMergeError(reason: MergeFailure, current?: ListRow): never {
+  let error = new Error(reason) as Error & {
+    mergeReason: MergeFailure
+    mergeCurrent?: ListRow | undefined
+  }
+  error.mergeReason = reason
+  error.mergeCurrent = current
+  throw error
+}
+
+/**
+ * Copy every item of the source list into the target list, appended after the
+ * target's existing items. Unlike `moveItemBetweenLists`, the source is left
+ * untouched and each copied item gets a fresh id (the source keeps its own
+ * items, so reusing ids would create duplicates). `If-Match` semantics mirror
+ * `move`: the source's last-known `updated_at` must still match.
+ */
+export async function mergeListIntoList(
+  db: Database,
+  sourceId: number,
+  targetId: number,
+  userId?: number,
+  options?: { expectedUpdatedAt?: number },
+): Promise<MergeResult> {
+  if (sourceId === targetId) return { ok: false, reason: 'same_list' }
+
+  try {
+    return await db.transaction(async (tx) => {
+      // Lock both rows up front (in id order to avoid deadlocks) so a concurrent
+      // delete or merge cannot corrupt data. FOR UPDATE requires a transaction.
+      for (let lockId of [sourceId, targetId].sort((a, b) => a - b)) {
+        let args: unknown[] = [lockId]
+        let ownerClause = ''
+        if (userId != null) {
+          args.push(userId)
+          ownerClause = ' AND user_id = $2'
+        }
+        let locked = await tx.exec(
+          `SELECT id FROM lists WHERE id = $1${ownerClause} FOR UPDATE`,
+          args,
+        )
+        if ((locked.rows ?? []).length === 0) {
+          throwMergeError('not_found')
+        }
+      }
+
+      let sourceWhere = userId != null ? { id: sourceId, user_id: userId } : { id: sourceId }
+      let targetWhere = userId != null ? { id: targetId, user_id: userId } : { id: targetId }
+
+      let sourceRow = await tx.findOne(lists, { where: sourceWhere })
+      let targetRow = await tx.findOne(lists, { where: targetWhere })
+      if (!sourceRow || !targetRow) throwMergeError('not_found')
+
+      let parsedSource = parseRow(sourceRow)
+      let parsedTarget = parseRow(targetRow)
+
+      let expectedUpdatedAt = options?.expectedUpdatedAt
+      if (expectedUpdatedAt != null && parsedSource.updated_at !== expectedUpdatedAt) {
+        throwMergeError('conflict', parsedSource)
+      }
+
+      if (parsedSource.list.length === 0) throwMergeError('empty_source')
+
+      let now = Date.now()
+      let copied = parsedSource.list.map((item) => ({ ...item, id: crypto.randomUUID() }))
+      let nextTarget = [...parsedTarget.list, ...copied]
+
+      let targetWrite = await tx.updateMany(
+        lists,
+        { list: nextTarget, updated_at: now },
+        { where: targetWhere },
+      )
+      if ((targetWrite.affectedRows ?? 0) === 0) throwMergeError('not_found')
+
+      let updatedTarget = (await tx.findOne(lists, {
+        where: targetWhere,
+      })) as Record<string, unknown> | null
+      if (!updatedTarget) throwMergeError('not_found')
+      return { ok: true, target: parseRow(updatedTarget) }
+    })
+  } catch (error) {
+    if (error instanceof Error && 'mergeReason' in error) {
+      let typed = error as Error & {
+        mergeReason: MergeFailure
+        mergeCurrent?: ListRow
+      }
+      switch (typed.mergeReason) {
+        case 'not_found':
+          return { ok: false, reason: 'not_found' }
+        case 'conflict':
+          return typed.mergeCurrent
+            ? { ok: false, reason: 'conflict', current: typed.mergeCurrent }
+            : { ok: false, reason: 'not_found' }
+        case 'same_list':
+          return { ok: false, reason: 'same_list' }
+        case 'empty_source':
+          return { ok: false, reason: 'empty_source' }
+      }
+    }
+    throw error
+  }
+}
+
 export type MoveResult =
   | { ok: true; source: ListRow; target: ListRow }
   | { ok: false; reason: 'not_found' }

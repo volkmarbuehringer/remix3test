@@ -84,3 +84,153 @@ describe('lists list-level operations', () => {
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// /lists merge via sidebar drag (client entry e2e).
+//
+// Exercises the list-to-list drag gesture: dragging sidebar list A onto sidebar
+// list B copies A's items into B after a confirmation prompt. We dispatch
+// synthetic DragEvents (rather than Playwright's mouse-based dragAndDrop) so the
+// test is deterministic across Chromium and Firefox — Firefox synthetic pointer
+// events are unreliable for these rows.
+// ---------------------------------------------------------------------------
+
+describe('lists merge via sidebar drag', () => {
+  let adminCookie: string
+  let adminUserId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+    adminCookie = auth!.cookie
+
+    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows as { id: number }[]
+    assert.ok(userRows.length > 0, 'admin user must exist')
+    adminUserId = Number(userRows[0]!.id)
+  })
+
+  // Seed a fresh source (two items) + target (one item) per test so a merged
+  // target from one test never leaks into the next.
+  async function seedLists() {
+    let now = Date.now()
+    let sourceItems = JSON.stringify([
+      { id: 'merge-src-1', label: 'Quell Eintrag 1' },
+      { id: 'merge-src-2', label: 'Quell Eintrag 2' },
+    ])
+    let targetItems = JSON.stringify([{ id: 'merge-tgt-1', label: 'Ziel Eintrag' }])
+
+    let sourceResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'merge source', 'seeded source for merge drag e2e', sourceItems, now],
+    )
+    let sourceId = Number(sourceResult.rows[0]!.id as number)
+
+    let targetResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'merge target', 'seeded target for merge drag e2e', targetItems, now],
+    )
+    let targetId = Number(targetResult.rows[0]!.id as number)
+
+    return { sourceId, targetId }
+  }
+
+  function dragList(page: { evaluate: Function }, fromId: number, toId: number) {
+    return page.evaluate(
+      ({ sourceSel, targetSel }: { sourceSel: string; targetSel: string }) => {
+        let source = document.querySelector(sourceSel) as HTMLElement
+        let target = document.querySelector(targetSel) as HTMLElement
+        if (!source || !target) throw new Error('drag source or target row missing')
+        let dt = new DataTransfer()
+        source.dispatchEvent(
+          new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+        target.dispatchEvent(
+          new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+        target.dispatchEvent(
+          new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+      },
+      { sourceSel: `[data-list-id="${fromId}"]`, targetSel: `[data-list-id="${toId}"]` },
+    )
+  }
+
+  it('merges a dragged list into another after confirming and reloads the editor', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto(`/lists?load=${targetId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+      await page.locator(`[data-list-id="${sourceId}"]`).waitFor({ timeout: 15_000 })
+
+      // Accept the confirmation gate. Overriding window.confirm keeps the test
+      // deterministic across browsers — a real modal dialog opened from inside
+      // page.evaluate is not reliably accepted by Playwright. Must run after the
+      // navigation, which resets the top document.
+      await page.evaluate(() => {
+        window.confirm = () => true
+      })
+
+      // The client entry hydrates lazily (deferred import map, notably slow in
+      // Firefox), and only then registers its drag listeners. Retry the drag
+      // until the merge lands so the test does not race hydration. A retry
+      // before hydration is a no-op (no listeners), and we stop at the first
+      // successful merge, so the target is never merged twice.
+      let merged = false
+      for (let attempt = 0; attempt < 20 && !merged; attempt++) {
+        await dragList(page, sourceId, targetId)
+        await page.waitForTimeout(750)
+        let targetRow = await pool.query('SELECT list FROM lists WHERE id = $1', [targetId])
+        merged = (targetRow.rows[0]!.list as Array<Record<string, unknown>>).length === 3
+      }
+      assert.ok(merged, 'the merge should land once the client hydrates')
+
+      // The frame reloads after the merge — the editor must now render three items.
+      await page.waitForFunction(
+        (expected) => document.querySelectorAll('[data-item-id]').length === expected,
+        3,
+        { timeout: 15_000 },
+      )
+      assert.equal(await page.locator('[data-item-id]').count(), 3)
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+
+  it('does not merge when the confirmation is declined', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto(`/lists?load=${targetId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+      await page.locator(`[data-list-id="${sourceId}"]`).waitFor({ timeout: 15_000 })
+
+      await page.evaluate(() => {
+        window.confirm = () => false
+      })
+
+      await dragList(page, sourceId, targetId)
+
+      // Give a (wrong) merge a moment to land, then assert nothing changed.
+      await page.waitForTimeout(1000)
+      assert.equal(await page.locator('[data-item-id]').count(), 1)
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+})
