@@ -23,6 +23,10 @@ import {
   paginationButtonsCss,
   thActionsCss,
   thCheckboxCss,
+  thIdCss,
+  thTypeCss,
+  thSizeCss,
+  thDateCss,
   tdCheckboxCss,
   bulkFormCss,
   bulkGroupCss,
@@ -34,7 +38,6 @@ import {
   rowActionsCss,
   iconActionCss,
   iconActionDangerCss,
-  rowMenuCss,
   idCellCss,
   filenameCellCss,
   sizeCellCss,
@@ -44,6 +47,7 @@ import {
   dropzoneCss,
   dropzoneLabelCss,
   dropzoneHintCss,
+  formRowCss,
   pendingListCss,
   validationErrorCss,
   quotaRowCss,
@@ -462,34 +466,36 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             mix={formCss}
           >
             <CsrfTokenInput />
-            <div mix={dropzoneCss} data-dropzone>
-              {uploadIcon()}
-              <label htmlFor="upload-file-input" mix={dropzoneLabelCss}>
-                Dateien auswählen
-              </label>
-              <span mix={dropzoneHintCss} data-drop-hint>
-                oder hierher ziehen
-              </span>
-              <input
-                id="upload-file-input"
-                type="file"
-                name="file"
-                multiple
-                aria-label="Dateien zum Hochladen auswählen"
-                mix={fileInputCss}
-                data-file-input
-              />
+            <div mix={formRowCss}>
+              <div mix={dropzoneCss} data-dropzone>
+                {uploadIcon()}
+                <label htmlFor="upload-file-input" mix={dropzoneLabelCss}>
+                  Dateien auswählen
+                </label>
+                <span mix={dropzoneHintCss} data-drop-hint>
+                  oder hierher ziehen
+                </span>
+                <input
+                  id="upload-file-input"
+                  type="file"
+                  name="file"
+                  multiple
+                  aria-label="Dateien zum Hochladen auswählen"
+                  mix={fileInputCss}
+                  data-file-input
+                />
+              </div>
+              <button type="submit" mix={submitCss} data-upload-submit>
+                <span data-upload-idle>
+                  <Glyph name="send" width={14} height={14} /> Hochladen
+                </span>
+                <span data-upload-busy hidden aria-hidden="true">
+                  <Glyph name="spinner" width={14} height={14} /> Hochladen …
+                </span>
+              </button>
             </div>
             <ul mix={pendingListCss} data-pending-list hidden aria-live="polite"></ul>
             <p role="alert" mix={validationErrorCss} data-upload-validation hidden></p>
-            <button type="submit" mix={submitCss} data-upload-submit>
-              <span data-upload-idle>
-                <Glyph name="send" width={14} height={14} /> Hochladen
-              </span>
-              <span data-upload-busy hidden aria-hidden="true">
-                <Glyph name="spinner" width={14} height={14} /> Hochladen …
-              </span>
-            </button>
             <UploadDropzone />
           </form>
           <div mix={quotaRowCss}>
@@ -606,7 +612,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         aria-label="Alle Dateien auf dieser Seite auswählen"
                       />
                     </th>
-                    <th aria-sort={sortRule('id', sortColumn, sortDirection)}>
+                    <th aria-sort={sortRule('id', sortColumn, sortDirection)} mix={thIdCss}>
                       <a
                         href={uploadsSortHref('id', sortColumn, sortDirection, filter)}
                         data-rmx-target={getSelfFrameTarget()}
@@ -630,7 +636,10 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </a>
                     </th>
-                    <th aria-sort={sortRule('mime_type', sortColumn, sortDirection)}>
+                    <th
+                      aria-sort={sortRule('mime_type', sortColumn, sortDirection)}
+                      mix={thTypeCss}
+                    >
                       <a
                         href={uploadsSortHref('mime_type', sortColumn, sortDirection, filter)}
                         data-rmx-target={getSelfFrameTarget()}
@@ -642,7 +651,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </a>
                     </th>
-                    <th aria-sort={sortRule('size', sortColumn, sortDirection)}>
+                    <th aria-sort={sortRule('size', sortColumn, sortDirection)} mix={thSizeCss}>
                       <a
                         href={uploadsSortHref('size', sortColumn, sortDirection, filter)}
                         data-rmx-target={getSelfFrameTarget()}
@@ -654,7 +663,10 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </a>
                     </th>
-                    <th aria-sort={sortRule('created_at', sortColumn, sortDirection)}>
+                    <th
+                      aria-sort={sortRule('created_at', sortColumn, sortDirection)}
+                      mix={thDateCss}
+                    >
                       <a
                         href={uploadsSortHref('created_at', sortColumn, sortDirection, filter)}
                         data-rmx-target={getSelfFrameTarget()}
@@ -683,9 +695,11 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         />
                       </td>
                       <td mix={idCellCss}>{u.id}</td>
-                      <td mix={filenameCellCss}>{u.filename}</td>
+                      <td mix={filenameCellCss} title={u.filename}>
+                        {u.filename}
+                      </td>
                       <td>
-                        <span mix={mimeBadgeCss} data-mime={u.mime_type}>
+                        <span mix={mimeBadgeCss} data-mime={u.mime_type} title={u.mime_type}>
                           {formatUploadType(u.mime_type)}
                         </span>
                       </td>
@@ -697,15 +711,6 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       </td>
                       <td mix={tdActionsCss}>
                         <div mix={rowActionsCss}>
-                          <button
-                            type="button"
-                            data-row-menu-trigger
-                            mix={rowMenuCss}
-                            aria-label={`Mehr Optionen für ${u.filename}`}
-                            title="Mehr Optionen"
-                          >
-                            {ellipsisIcon()}
-                          </button>
                           <a
                             href={routes.admin.uploads.download.href({ id: u.id })}
                             download
@@ -854,17 +859,6 @@ function uploadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
-
-/** Horizontal ellipsis "more options" glyph for the per-row menu trigger. */
-function ellipsisIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <circle cx="5" cy="12" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="19" cy="12" r="2" />
     </svg>
   )
 }

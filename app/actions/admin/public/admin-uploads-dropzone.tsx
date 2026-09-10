@@ -50,6 +50,10 @@ const chipRemoveStyle = {
  *
  * - turns the dropzone into a drag-and-drop target that adds dropped files to the
  *   hidden file input,
+ * - makes the whole dashed box open the file picker (it already renders with
+ *   `cursor: pointer`), not just the label,
+ * - swallows drops landing anywhere else on the page, so the browser does not
+ *   navigate away to open the dropped file,
  * - renders a pending-file chip list (name, size, remove) below the dropzone,
  * - validates the batch client-side (type, count, per-file size) so invalid files
  *   fail fast instead of after a full multipart round-trip,
@@ -243,11 +247,40 @@ export const UploadDropzone = clientEntry(
               if (data && data.files.length > 0) addFiles(data.files)
             }
 
+            // The dashed box already shows `cursor: pointer`, so clicking anywhere
+            // in it should open the picker like the label does. Clicks routed
+            // through the label (or the input itself) are left to the native
+            // behaviour, otherwise the picker would open twice.
+            function onDropzoneClick(event: Event) {
+              let target = event.target as HTMLElement | null
+              if (target && (target.closest('label') || target === input)) return
+              event.preventDefault()
+              input.click()
+            }
+
+            // Drops outside the dropzone fall through to the browser, which would
+            // navigate away and open the file. Swallow them and say where the file
+            // should go instead.
+            function onDocumentDragOver(event: Event) {
+              event.preventDefault()
+            }
+
+            function onDocumentDrop(event: Event) {
+              event.preventDefault()
+              let target = event.target as Node | null
+              if (target && dropzone.contains(target)) return
+              validation.textContent = 'Bitte Dateien in das Feld oben ziehen.'
+              validation.removeAttribute('hidden')
+            }
+
             input.addEventListener('change', onChange)
             dropzone.addEventListener('dragover', onDragOver)
             dropzone.addEventListener('dragenter', onDragOver)
             dropzone.addEventListener('dragleave', onDragLeave)
             dropzone.addEventListener('drop', onDrop)
+            dropzone.addEventListener('click', onDropzoneClick)
+            document.addEventListener('dragover', onDocumentDragOver)
+            document.addEventListener('drop', onDocumentDrop)
             form.addEventListener('submit', onSubmit)
 
             renderPending()
@@ -263,6 +296,9 @@ export const UploadDropzone = clientEntry(
               dropzone.removeEventListener('dragenter', onDragOver)
               dropzone.removeEventListener('dragleave', onDragLeave)
               dropzone.removeEventListener('drop', onDrop)
+              dropzone.removeEventListener('click', onDropzoneClick)
+              document.removeEventListener('dragover', onDocumentDragOver)
+              document.removeEventListener('drop', onDocumentDrop)
               form.removeEventListener('submit', onSubmit)
             })
           }),
