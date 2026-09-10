@@ -2,6 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
+import { segmentedButton } from './mixins/segmented.ts'
 import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { getContext } from 'remix/middleware/async-context'
@@ -304,22 +305,13 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                   ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
                   : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
                 return (
-                  <a
-                    href={href}
-                    data-rmx-target={getSelfFrameTarget()}
-                    mix={css({
-                      '& button': {
-                        paddingLeft: theme.space.sm,
-                        paddingRight: theme.space.sm,
-                        borderTopLeftRadius: isFirst ? undefined : '0',
-                        borderBottomLeftRadius: isFirst ? undefined : '0',
-                        borderTopRightRadius: isLast ? undefined : '0',
-                        borderBottomRightRadius: isLast ? undefined : '0',
-                        borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                      },
-                    })}
-                  >
-                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                  <a href={href} data-rmx-target={getSelfFrameTarget()}>
+                    <button
+                      mix={[
+                        button({ tone: active ? 'primary' : 'secondary' }),
+                        segmentedButton({ isFirst, isLast, paddingX: theme.space.sm }),
+                      ]}
+                    >
                       {label}
                     </button>
                   </a>
@@ -357,22 +349,13 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               }
               let href = routes.verwaltung.offerings.index.href() + '?' + params.toString()
               return (
-                <a
-                  href={href}
-                  data-rmx-target={getSelfFrameTarget()}
-                  mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                    },
-                  })}
-                >
-                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                <a href={href} data-rmx-target={getSelfFrameTarget()}>
+                  <button
+                    mix={[
+                      button({ tone: active ? 'primary' : 'secondary' }),
+                      segmentedButton({ isFirst, isLast }),
+                    ]}
+                  >
                     {label}
                   </button>
                 </a>

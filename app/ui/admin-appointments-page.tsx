@@ -2,6 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
+import { segmentedButton } from './mixins/segmented.ts'
 import button from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
@@ -251,45 +252,27 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
                   : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
                 if (status === 'expired') {
                   return (
-                    <span
-                      mix={css({
-                        '& button': {
-                          paddingLeft: theme.space.xs,
-                          paddingRight: theme.space.xs,
-                          borderTopLeftRadius: isFirst ? undefined : '0',
-                          borderBottomLeftRadius: isFirst ? undefined : '0',
-                          borderTopRightRadius: isLast ? undefined : '0',
-                          borderBottomRightRadius: isLast ? undefined : '0',
-                          borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                          opacity: 0.4,
-                          cursor: 'not-allowed',
-                          pointerEvents: 'none',
-                        },
-                      })}
-                    >
-                      <button disabled mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                    <span>
+                      <button
+                        disabled
+                        mix={[
+                          button({ tone: active ? 'primary' : 'secondary' }),
+                          segmentedButton({ isFirst, isLast, disabled: true }),
+                        ]}
+                      >
                         {label}
                       </button>
                     </span>
                   )
                 }
                 return (
-                  <a
-                    href={href}
-                    data-rmx-target={getSelfFrameTarget()}
-                    mix={css({
-                      '& button': {
-                        paddingLeft: theme.space.xs,
-                        paddingRight: theme.space.xs,
-                        borderTopLeftRadius: isFirst ? undefined : '0',
-                        borderBottomLeftRadius: isFirst ? undefined : '0',
-                        borderTopRightRadius: isLast ? undefined : '0',
-                        borderBottomRightRadius: isLast ? undefined : '0',
-                        borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                      },
-                    })}
-                  >
-                    <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                  <a href={href} data-rmx-target={getSelfFrameTarget()}>
+                    <button
+                      mix={[
+                        button({ tone: active ? 'primary' : 'secondary' }),
+                        segmentedButton({ isFirst, isLast }),
+                      ]}
+                    >
                       {label}
                     </button>
                   </a>
@@ -327,22 +310,13 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               }
               let href = ADMIN_BASE + '?' + params.toString()
               return (
-                <a
-                  href={href}
-                  data-rmx-target={getSelfFrameTarget()}
-                  mix={css({
-                    '& button': {
-                      paddingLeft: theme.space.xs,
-                      paddingRight: theme.space.xs,
-                      borderTopLeftRadius: isFirst ? undefined : '0',
-                      borderBottomLeftRadius: isFirst ? undefined : '0',
-                      borderTopRightRadius: isLast ? undefined : '0',
-                      borderBottomRightRadius: isLast ? undefined : '0',
-                      borderRight: isLast ? '0' : `1px solid ${theme.colors.border}`,
-                    },
-                  })}
-                >
-                  <button mix={[button({ tone: active ? 'primary' : 'secondary' })]}>
+                <a href={href} data-rmx-target={getSelfFrameTarget()}>
+                  <button
+                    mix={[
+                      button({ tone: active ? 'primary' : 'secondary' }),
+                      segmentedButton({ isFirst, isLast }),
+                    ]}
+                  >
                     {label}
                   </button>
                 </a>
