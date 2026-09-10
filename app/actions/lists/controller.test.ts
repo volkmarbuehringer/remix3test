@@ -71,13 +71,13 @@ describe('Lists controller', () => {
     )
   })
 
-  it('GET /lists renders the sidebar layout with Listen header and Neue Liste entry', async () => {
+  it('GET /lists renders the sidebar layout with the Neue Liste entry', async () => {
     let response = await router.fetch(LISTS_URL, {
       headers: { Cookie: userCookie },
     })
     let text = await response.text()
-    assert.ok(text.includes('Listen'), 'should render sidebar header "Listen"')
     assert.ok(text.includes('Neue Liste'), 'should render "Neue Liste" sidebar entry')
+    assert.ok(text.includes('Suchen'), 'should render the sidebar search input')
   })
 
   it('GET /lists sidebar scopes lists to current non-admin user', async () => {

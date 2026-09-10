@@ -13,8 +13,8 @@ export function syncSidebarRow(
   let nameSpan = row.querySelector<HTMLElement>('[data-list-name]')
   if (nameSpan) nameSpan.textContent = opts.label
 
-  let link = row.querySelector<HTMLElement>('[data-tooltip]')
-  if (link) link.setAttribute('data-tooltip', opts.label)
+  let link = row.querySelector<HTMLElement>('a[href]')
+  if (link) link.setAttribute('title', opts.label)
 
   let deleteForm = row.querySelector<HTMLFormElement>('form[data-confirm]')
   if (deleteForm) {

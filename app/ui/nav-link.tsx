@@ -10,6 +10,7 @@ type NavLinkProps = {
   mix?: MixValue<HTMLAnchorElement, ElementProps>
   style?: Record<string, string>
   dataTooltip?: string
+  title?: string
   children?: RemixNode
 }
 
@@ -25,6 +26,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       mix,
       style,
       dataTooltip,
+      title,
       children,
     } = handle.props
     let resolvedHref = href ?? route?.href() ?? '#'
@@ -37,6 +39,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       extra['target'] = '_top'
     }
     if (dataTooltip) extra['data-tooltip'] = dataTooltip
+    if (title) extra['title'] = title
 
     return (
       <a

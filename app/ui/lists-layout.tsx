@@ -2,7 +2,7 @@ import { type RemixNode, type Handle, css, Frame } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
 import { theme } from '../ui/theme/theme.ts'
 
-import { Layout, tooltipAnchorStyle } from './layout.tsx'
+import { Layout } from './layout.tsx'
 import { NavLink } from './nav-link.tsx'
 import { formatRelativeTimeDE } from '../utils/date-utils.ts'
 import { routes, frames } from '../routes.ts'
@@ -15,14 +15,9 @@ import { ListsRowActions } from '../actions/lists/public/lists-row-actions.tsx'
 import {
   shellStyle,
   sidebarStyle,
-  sidebarHeaderStyle,
-  headerIconWrapStyle,
-  headerDividerStyle,
   navStyle,
   navLinkStyle,
-  navIconStyle,
   navActiveStyle,
-  groupLabelStyle,
   contentStyle,
 } from './sidebar-layout.tsx'
 
@@ -225,30 +220,8 @@ function ListsLayout(
     let { activeItem, sidebarEntries, pagination, children } = handle.props
     return (
       <div mix={[shellStyle, shellAlignStretchStyle, shellFullHeightStyle]}>
-        <aside mix={[sidebarStyle, sidebarScrollContainerStyle]}>
-          <div mix={sidebarHeaderStyle}>
-            <span mix={headerIconWrapStyle}>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                <rect x="9" y="3" width="6" height="4" rx="1" />
-                <line x1="9" y1="12" x2="15" y2="12" />
-                <line x1="9" y1="16" x2="13" y2="16" />
-              </svg>
-            </span>
-            <span>Listen</span>
-          </div>
-          <div mix={headerDividerStyle} />
+        <aside mix={[sidebarStyle, compactSidebarStyle, sidebarScrollContainerStyle]}>
           <nav mix={[navStyle, navScrollStyle]}>
-            <p mix={groupLabelStyle}>Meine Listen</p>
             <input
               id="lists-sidebar-search"
               type="search"
@@ -257,7 +230,7 @@ function ListsLayout(
               mix={css({
                 width: '100%',
                 padding: `${theme.space.xs} ${theme.space.sm}`,
-                marginBottom: theme.space.sm,
+                marginBottom: theme.space.xs,
                 borderRadius: theme.radius.sm,
                 border: `1px solid ${theme.colors.border.default}`,
                 fontSize: theme.fontSize.xs,
@@ -280,23 +253,12 @@ function ListsLayout(
               href={routes.lists.index.href()}
               target={frameTarget}
               active={activeItem === 'new'}
-              mix={[navLinkStyle, activeItem === 'new' && navActiveStyle].filter(Boolean)}
+              mix={[
+                navLinkStyle,
+                compactNavLinkStyle,
+                activeItem === 'new' && navActiveStyle,
+              ].filter(Boolean)}
             >
-              <span mix={navIconStyle}>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-              </span>
               Neue Liste
             </NavLink>
             {sidebarEntries.map((entry) => {
@@ -321,29 +283,12 @@ function ListsLayout(
                     active={activeItem === entry.id}
                     mix={[
                       navLinkStyle,
+                      compactNavLinkStyle,
                       entryNavLinkStyle,
-                      tooltipAnchorStyle,
                       activeItem === entry.id && navActiveStyle,
                     ].filter(Boolean)}
-                    dataTooltip={displayName}
+                    title={displayName}
                   >
-                    <span mix={navIconStyle}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-                        <rect x="9" y="3" width="6" height="4" rx="1" />
-                        <line x1="9" y1="12" x2="15" y2="12" />
-                        <line x1="9" y1="16" x2="13" y2="16" />
-                      </svg>
-                    </span>
                     <span mix={nameColumnStyle}>
                       <span
                         mix={[noDescription ? descEmptyStyle : undefined, truncateStyle].filter(
@@ -646,6 +591,26 @@ const copyBtnStyle = css({
   },
 })
 
+/**
+ * Reclaims the sidebar's horizontal padding so the saved-list rows (name +
+ * count badge) get the width instead of empty gutters.
+ */
+const compactSidebarStyle = css({
+  paddingLeft: theme.space.xs,
+  paddingRight: theme.space.xs,
+})
+
+/**
+ * Tighter rhythm than the shared `navLinkStyle` so more saved lists fit in the
+ * sidebar before it scrolls and each row has more horizontal room.
+ */
+const compactNavLinkStyle = css({
+  paddingTop: theme.space.xs,
+  paddingBottom: theme.space.xs,
+  paddingLeft: theme.space.xs,
+  paddingRight: theme.space.xs,
+})
+
 const entryNavLinkStyle = css({
   flex: 1,
   minWidth: 0,
@@ -673,8 +638,9 @@ const truncateStyle = css({
 const paginationStyle = css({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: `${theme.space.sm} ${theme.space.md}`,
+  justifyContent: 'flex-start',
+  gap: theme.space.sm,
+  padding: `${theme.space.sm} calc(${theme.space.xs} + 3px)`,
   borderTop: `1px solid ${theme.colors.border.default}`,
   // Pin the pagination to the bottom of the full-height sidebar so there is no
   // empty space below it; a short list leaves the free space above it instead.
