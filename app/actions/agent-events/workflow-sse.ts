@@ -1,4 +1,4 @@
-import { sseEncoder } from '../../utils/agent-sse.ts'
+import { sseEncoder, safeClose } from '../../utils/agent-sse.ts'
 
 export function writeEvent(
   controller: ReadableStreamDefaultController,
@@ -204,12 +204,4 @@ export async function pipeWorkflowStream(
   }
 
   return null
-}
-
-function safeClose(controller: ReadableStreamDefaultController) {
-  try {
-    controller.close()
-  } catch {
-    /* already closed */
-  }
 }

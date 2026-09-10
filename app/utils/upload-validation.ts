@@ -11,7 +11,7 @@
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 /** Maximum number of files accepted in one upload request. */
-export const MAX_UPLOAD_FILES = 20
+const MAX_UPLOAD_FILES = 20
 
 export const ALLOWED_EXTENSIONS = new Set([
   '.jpg',

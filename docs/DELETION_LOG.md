@@ -1,5 +1,65 @@
 # Code Deletion Log
 
+## [2026-09-10] Dead-Code & Duplicate Cleanup (post-Sep-4 drift)
+
+Fresh knip + ts-prune + depcheck + tsc + oxlint pass. The repo remains largely
+clean (knip's 134 "unused files" are all tests / browser assets / test utilities
+/ manually-run scripts; the only "unused deps" are the `openspec` CLI tools).
+Two genuinely-dead symbols and one byte-identical duplicate were found, plus a
+drift correction for an export that a later feature commit re-introduced.
+
+### Unused Exports Removed
+
+- `app/data/lists.ts` — `getListsByIds()` (18 lines). Zero references in
+  production or test. Orphan of the retired `routeAgent` list-selection UI
+  (route removed 2026-08-28); the only remaining mentions are archived OpenSpec
+  docs and the `remix3-data-table-array-in-clause` learned skill's illustrative
+  example.
+- `app/data/uploads.ts` — `UploadSortField` type. Added with `UPLOAD_SORT_FIELDS`
+  (5787202) but never referenced; the grid consumes `UPLOAD_SORT_FIELDS` directly.
+
+### Duplicate Code Consolidated
+
+- `app/actions/agent-events/workflow-sse.ts` — removed local `safeClose()`,
+  byte-identical to `app/utils/agent-sse.ts`; the module already imported
+  `sseEncoder` from that file, so `safeClose` now comes from the shared module.
+
+### Unused Exports Privatized (removed `export` keyword)
+
+- `app/data/uploads.ts` — `uploadsPerUserQuotaBytes`. **Drift correction:** the
+  2026-09-04 hygiene pass removed this export, but feature commit `203de41`
+  re-added it; the only references are internal (`claimUpload` / `claimUploads`).
+- `app/data/lists.ts` — `ItemPriority` (internal to the `ListItem` shape). The
+  `lists-client.tsx` browser asset keeps its own local copy because
+  `app/data/**` is not in the asset `allowFiles`.
+- `app/middleware/uploads.ts` — `uploadHandler` (passed to `formData()` inside
+  the same module).
+- `app/utils/upload-validation.ts` — `MAX_UPLOAD_FILES` (used only by
+  `validateUploadFiles` in the same module).
+
+### Impact
+
+- Files touched: 5
+- Lines removed: ~27
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
+  `--max-warnings=0` + theme conformance OK), `npm test` (1567 pass / 0 fail /
+  2 skipped / 1 todo)
+
+### Remaining (manual review — not removed)
+
+- Grid-param helpers duplicated across `app/actions/client/controller.tsx`,
+  `app/actions/admin/users/controller.tsx`, `app/actions/admin/lists/controller.tsx`:
+  `gridOffset`, `gridSortDirection`, `gridFilter` are byte-identical and
+  `gridSortColumn` differs only by its default fallback (`id` / `name` /
+  `created_at`). Candidate for a parameterized `app/utils/grid-params.ts`.
+- `MAX_MESSAGE_LENGTH = 5000` is defined three times
+  (`app/actions/mastra/shared-agent.ts`, `app/actions/agent-events/event-bus.ts`,
+  `app/ui/customer-chat-page.tsx`) with per-module re-exports. Candidate for a
+  single shared constant.
+- `bodyTextCss` name collision between `app/ui/page-primitives.tsx` and
+  `app/actions/admin/uploads/uploads-grid-css.ts` — **not** duplicates
+  (different color token and `lineHeight`), left as-is.
+
 ## [2026-09-04] API-Hygiene Pass (privatize internal-only exports)
 
 Follow-up to the 2026-08-31 audit, which had deferred "low-value `export`-keyword
@@ -114,7 +174,6 @@ Narrow consolidation of the `/verwaltung/users-export` and `/verwaltung/users-pd
 - Lint: oxlint `--max-warnings=0` + theme conformance pass
 - Tests: 1317 pass / 0 fail / 1 todo / 1 skipped
 - Files deleted: 0 (consolidation only); net ~150 duplicate lines removed
-
 
 ## [2026-08-28] Retire routeAgent and testAgent
 

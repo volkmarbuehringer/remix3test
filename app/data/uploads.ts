@@ -12,7 +12,7 @@ function envBytes(name: string, fallback: number): number {
 export const uploadsTotalQuotaBytes = envBytes('UPLOADS_TOTAL_QUOTA_BYTES', 500 * 1024 * 1024)
 
 /** Hard cap on total BYTEA storage a single user may claim. */
-export const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
+const uploadsPerUserQuotaBytes = envBytes('UPLOADS_PER_USER_QUOTA_BYTES', 100 * 1024 * 1024)
 
 /** Uploader-facing rejection reasons, keyed by a stable code carried in the URL. */
 export const uploadErrorMessages: Record<string, string> = {
@@ -32,7 +32,6 @@ export interface UploadRow {
 
 /** Columns the uploads grid may be sorted by (whitelist for the ORDER BY clause). */
 export const UPLOAD_SORT_FIELDS = ['id', 'filename', 'mime_type', 'size', 'created_at'] as const
-export type UploadSortField = (typeof UPLOAD_SORT_FIELDS)[number]
 
 /**
  * Build a safe ORDER BY SqlStatement for the uploads grid. A column that is not

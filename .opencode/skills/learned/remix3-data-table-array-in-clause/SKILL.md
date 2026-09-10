@@ -58,6 +58,10 @@ export async function getListsByIds(
 }
 ```
 
+> Note: this `getListsByIds` helper was removed from the app as dead code on
+> 2026-09-10 (its route-agent consumer was retired); it is kept here only as the
+> reference implementation of the order-preserving pattern.
+
 Key points:
 
 - `= ANY($1::integer[])` replaces dynamic `IN ($1, $2, ..., $N)` — one parameter for the whole array

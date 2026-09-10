@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 import { lists } from './schema.ts'
 import { queryRows } from './rows.ts'
 
-export type ItemPriority = 'low' | 'medium' | 'high'
+type ItemPriority = 'low' | 'medium' | 'high'
 
 interface ListItem {
   id: string
@@ -198,25 +198,6 @@ export async function getAllLists(
   }
 
   return { data: rows, hasMore, offset }
-}
-
-export async function getListsByIds(
-  db: Database,
-  ids: number[],
-  userId?: number,
-): Promise<ListRow[]> {
-  if (ids.length === 0) return []
-  let ownerClause = userId != null ? 'AND user_id = $2' : ''
-  let params: unknown[] = userId != null ? [ids, userId] : [ids]
-  let rows = await queryRows(
-    db,
-    rawSql(
-      `SELECT * FROM lists WHERE id = ANY($1::integer[]) ${ownerClause} ORDER BY array_position($1::integer[], id)`,
-      params,
-    ),
-    listWireSchema,
-  )
-  return rows.map((row) => parseRow(row as Record<string, unknown>))
 }
 
 // Shared SELECT prefix for the lean sidebar summaries. We intentionally select

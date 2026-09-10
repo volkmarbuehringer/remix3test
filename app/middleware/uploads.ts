@@ -37,7 +37,7 @@ function fileUploadErrorMessage(file: FileUpload): string | null {
   return null
 }
 
-export async function uploadHandler(file: FileUpload): Promise<string | void> {
+async function uploadHandler(file: FileUpload): Promise<string | void> {
   if (file.fieldName !== 'file') return
 
   let validationError = fileUploadErrorMessage(file)
