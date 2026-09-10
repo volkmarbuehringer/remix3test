@@ -41,6 +41,11 @@ export const ListsClient = clientEntry(
     let description = ''
     let newItemLabel = ''
     let listFilter = ''
+    // Description visibility. 'auto' shows the field only when the list has a
+    // description, 'open' forces it visible, 'closed' hides it even when filled.
+    // Resets to 'auto' on every list load so switching lists always reflects the
+    // new list's own content.
+    let descriptionMode: 'auto' | 'open' | 'closed' = 'auto'
     let loadedListId: number | null = null
     let loadedUpdatedAt: number | null = null
     let saving = false
@@ -55,6 +60,14 @@ export const ListsClient = clientEntry(
     let listRef: HTMLDivElement | null = null
     let copyFormRef: HTMLFormElement | null = null
     let copyCsrfRef: HTMLInputElement | null = null
+    // The title/description fields are uncontrolled (the user's typing owns the
+    // DOM value), so `defaultValue` no longer applies once they have been
+    // edited. Without these refs, switching to another list kept showing the
+    // previous list's title/description — a stale header that could be written
+    // into the newly opened list on the next keystroke. `syncFieldInputs()`
+    // pushes the newly hydrated state back into the DOM on every list load.
+    let titleInputRef: HTMLInputElement | null = null
+    let descriptionInputRef: HTMLTextAreaElement | null = null
     let initialized = false
 
     // Drag state
@@ -168,6 +181,21 @@ export const ListsClient = clientEntry(
       if (filterInputRef) filterInputRef.value = ''
     }
 
+    // Push the current `title`/`description` state into the uncontrolled
+    // title/description DOM nodes. Must run after every hydration/discard so the
+    // header always reflects the list that is actually open.
+    let syncFieldInputs = () => {
+      if (titleInputRef && titleInputRef.value !== title) titleInputRef.value = title
+      if (descriptionInputRef && descriptionInputRef.value !== description) {
+        descriptionInputRef.value = description
+      }
+    }
+
+    // The description field is collapsed for lists without one so the editor
+    // spends its vertical space on the element rows instead.
+    let showDescription = (): boolean =>
+      descriptionMode === 'open' || (descriptionMode === 'auto' && description.trim() !== '')
+
     // ── Unsaved new-list draft ───────────────────────────────────────────────
     // A brand-new list (loadedListId === null) has no id, so the unload beacon
     // cannot flush it — navigating to another list silently discarded the draft.
@@ -240,6 +268,7 @@ export const ListsClient = clientEntry(
       items = []
       title = ''
       description = ''
+      descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
       saveStatus = 'saved'
@@ -247,18 +276,24 @@ export const ListsClient = clientEntry(
       conflictState = { show: false, serverState: null }
       snapshotClean()
       clearFilter()
+      syncFieldInputs()
       handle.update()
     }
 
     let multilineDisplayStyle = css({
       // The label is a child of the column `itemMainStyle` now, so it must not
       // flex-grow: with flex-basis: 0% and overflow: hidden it collapses to 0px
-      // and hides the text. It sizes to its content, clamped to three lines,
-      // and fills the column width via the default align-self: stretch.
+      // and hides the text. It sizes to its content, clamped to two lines so one
+      // long item can't eat three rows of height, and fills the column width via
+      // the default align-self: stretch.
       fontSize: theme.fontSize.lg,
       color: theme.colors.text.primary,
       display: '-webkit-box',
-      WebkitLineClamp: 3,
+      // Must be a *string*: the css() runtime appends `px` to numeric values for
+      // every property outside its unitless allowlist, and `-webkit-line-clamp:
+      // 2px` is invalid CSS that the browser silently drops — which is why the
+      // clamp never took effect and long labels grew to five lines.
+      WebkitLineClamp: '2',
       WebkitBoxOrient: 'vertical',
       overflow: 'hidden',
       wordBreak: 'break-word',
@@ -389,7 +424,13 @@ export const ListsClient = clientEntry(
       // each edge while the card never exceeds the cap.
       maxWidth: 'min(1000px, calc(100% - 2rem))',
       width: '100%',
-      margin: '0 auto',
+      // Content-sized card: it hugs the editor's actual content so a short list
+      // shows no dead space. `maxHeight: 100%` + the `lg` bottom margin caps it
+      // at the sidebar's height (the flex column shrinks the card to fit), and
+      // the `min-height: 0` chain below lets a long element list scroll
+      // internally instead of overflowing the card.
+      maxHeight: '100%',
+      margin: `0 auto ${theme.space.lg}`,
       backgroundColor: theme.surface.lvl1,
       border: `1px solid ${theme.colors.border.default}`,
       borderRadius: theme.radius.xl,
@@ -397,11 +438,6 @@ export const ListsClient = clientEntry(
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
-      // Content-sized card: cap it below the content column and let the section
-      // center it, so the free space sits above/below the card (and never inside
-      // it) for every list size. The list scrolls internally once it reaches the
-      // cap instead of growing the card to fill the whole column.
-      maxHeight: 'calc(100% - 6rem)',
       minHeight: 0,
     })
 
@@ -410,12 +446,28 @@ export const ListsClient = clientEntry(
       alignItems: 'flex-end',
       gap: theme.space.md,
       flexWrap: 'wrap',
-      padding: `${theme.space.lg} ${theme.space.lg}`,
+      // Tighter vertical padding: the header's own 16px bottom padding stacked
+      // on the body's 16px top padding left a flat ~33px band between the title
+      // and the first body row.
+      padding: `${theme.space.sm} ${theme.space.lg}`,
       borderBottom: `1px solid ${theme.colors.border.subtle}`,
       backgroundColor: theme.surface.lvl2,
     })
 
     let cardTitleWrapStyle = css({ flex: 1, minWidth: 0 })
+
+    // Small eyebrow above the title so the editor always states which list is
+    // open — the title field itself may be empty, and the sidebar selection is
+    // easy to miss.
+    let listContextStyle = css({
+      display: 'block',
+      marginBottom: theme.space.xs,
+      fontSize: theme.fontSize.xs,
+      fontWeight: theme.fontWeight.semibold,
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase',
+      color: theme.colors.text.muted,
+    })
 
     let titleHeadingStyle = css({ margin: 0, lineHeight: 1.2 })
 
@@ -468,26 +520,140 @@ export const ListsClient = clientEntry(
       flexGrow: 1,
       flexShrink: 1,
       flexBasis: 'auto',
-      padding: theme.space.lg,
+      // Tighter top padding so the first body row (the description or the
+      // add-element field) sits close under the header instead of leaving a
+      // band of empty card between the title and "Beschreibung".
+      padding: theme.space.md,
+      paddingTop: theme.space.sm,
     })
 
-    let toolbarStyle = css({
+    // ── ELEMENTE panel toolbar ───────────────────────────────────────────────
+    // A single compact row carrying the element filter, the reorder controls and
+    // the item counter. These controls previously occupied a separate list
+    // toolbar above the description plus a dedicated filter row, costing ~120px
+    // of vertical space that now goes to element rows instead.
+    let panelHeaderStyle = css({
       display: 'flex',
-      flexWrap: 'wrap',
-      gap: theme.space.sm,
       alignItems: 'center',
-      marginBottom: theme.space.lg,
+      gap: theme.space.sm,
+      flexWrap: 'wrap',
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      backgroundColor: theme.surface.lvl2,
+      borderBottom: `1px solid ${theme.colors.border.default}`,
+    })
+
+    let panelLeftStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.space.xs,
+      flex: 1,
+      minWidth: '160px',
+    })
+
+    let panelRightStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.space.xs,
+      marginLeft: 'auto',
+    })
+
+    let panelFilterInputStyle = css({
+      maxWidth: '260px',
+    })
+
+    // Compact square buttons for Umkehren / Mischen / Tastatur-Hilfe.
+    let iconToolbarBtnStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '26px',
+      height: '26px',
+      padding: 0,
+      border: `1px solid ${theme.colors.border.strong}`,
+      borderRadius: theme.radius.sm,
+      background: theme.surface.lvl1,
+      color: theme.colors.text.secondary,
+      cursor: 'pointer',
+      fontFamily: theme.fontFamily.sans,
+      fontSize: theme.fontSize.sm,
+      lineHeight: 1,
+      ':hover': {
+        background: theme.surface.lvl3,
+        color: theme.colors.text.primary,
+      },
+    })
+
+    // "…" overflow menu that holds the destructive list actions so they stay out
+    // of the everyday toolbar and out of the way.
+    let menuDetailsStyle = css({
+      position: 'relative',
+    })
+
+    let menuSummaryStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '26px',
+      height: '26px',
+      border: `1px solid ${theme.colors.border.strong}`,
+      borderRadius: theme.radius.sm,
+      background: theme.surface.lvl1,
+      color: theme.colors.text.secondary,
+      cursor: 'pointer',
+      listStyle: 'none',
+      fontSize: theme.fontSize.sm,
+      userSelect: 'none',
+      ':hover': {
+        background: theme.surface.lvl3,
+        color: theme.colors.text.primary,
+      },
+    })
+
+    let menuPanelStyle = css({
+      position: 'absolute',
+      top: 'calc(100% + 4px)',
+      right: 0,
+      zIndex: 20,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: theme.space.xs,
+      padding: theme.space.sm,
+      minWidth: '230px',
+      borderRadius: theme.radius.md,
+      border: `1px solid ${theme.colors.border.default}`,
+      backgroundColor: theme.surface.lvl1,
+      boxShadow: theme.shadow.md,
+    })
+
+    let countTextStyle = css({
+      fontSize: theme.fontSize.xs,
+      color: theme.colors.text.secondary,
+      whiteSpace: 'nowrap',
+    })
+
+    // "Alle löschen" is quiet (danger-coloured text on a neutral button) until
+    // the first click arms it, at which point it turns into a solid danger
+    // button so the confirmation is impossible to miss.
+    let dangerTextStyle = css({
+      color: theme.colors.action.danger.background,
+    })
+
+    let dangerArmedStyle = css({
+      backgroundColor: theme.colors.action.danger.background,
+      borderColor: theme.colors.action.danger.background,
+      color: theme.colors.action.danger.foreground,
     })
 
     let sortSelectStyle = css({
-      padding: `${theme.space.xs} ${theme.space.md}`,
-      borderRadius: theme.radius.md,
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderRadius: theme.radius.sm,
       border: `1px solid ${theme.colors.border.strong}`,
       fontSize: theme.fontSize.xs,
-      backgroundColor: theme.surface.lvl2,
+      backgroundColor: theme.surface.lvl1,
       color: theme.colors.text.primary,
       cursor: 'pointer',
       fontFamily: theme.fontFamily.sans,
+      maxWidth: '150px',
       '&:focus': {
         outline: 'none',
         borderColor: theme.colors.focus.ring,
@@ -495,20 +661,9 @@ export const ListsClient = clientEntry(
       },
     })
 
-    // In-list search: a compact filter box and a clear button that sits inline
-    // under the ELEMENTE header. The clear button only appears once a filter is
-    // typed; Escape clears it (and refocuses the input stays with the browser).
-    let filterRowStyle = css({
-      display: 'flex',
-      alignItems: 'center',
-      gap: theme.space.xs,
-      padding: `${theme.space.sm} ${theme.space.md}`,
-      borderBottom: `1px solid ${theme.colors.border.default}`,
-      backgroundColor: theme.surface.lvl0,
-    })
-
+    // In-list search lives inline in the ELEMENTE toolbar; Escape clears it.
     let filterInputStyle = css({
-      flex: 1,
+      width: '100%',
       minWidth: 0,
       padding: `${theme.space.xs} ${theme.space.sm}`,
       borderRadius: theme.radius.sm,
@@ -525,6 +680,81 @@ export const ListsClient = clientEntry(
       },
       '&::placeholder': {
         color: theme.colors.text.muted,
+      },
+    })
+
+    // ── Collapsible description ──────────────────────────────────────────────
+    // Hidden for lists without a description so the space goes to element rows.
+    let descriptionHeadStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: theme.space.sm,
+      marginBottom: theme.space.xs,
+    })
+
+    let descriptionLabelStyle = css({
+      fontSize: theme.fontSize.xs,
+      fontWeight: theme.fontWeight.semibold,
+      color: theme.colors.text.muted,
+    })
+
+    let collapseBtnStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '20px',
+      height: '20px',
+      padding: 0,
+      border: 'none',
+      background: 'transparent',
+      color: theme.colors.text.muted,
+      cursor: 'pointer',
+      borderRadius: theme.radius.sm,
+      fontSize: theme.fontSize.xs,
+      ':hover': {
+        background: theme.surface.lvl2,
+        color: theme.colors.text.primary,
+      },
+    })
+
+    let descriptionTextareaStyle = css({
+      width: '100%',
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderRadius: theme.radius.md,
+      border: `1px solid ${theme.colors.border.strong}`,
+      fontSize: theme.fontSize.sm,
+      outline: 'none',
+      fontFamily: theme.fontFamily.sans,
+      boxSizing: 'border-box',
+      backgroundColor: theme.surface.lvl0,
+      color: theme.colors.text.primary,
+      minHeight: '38px',
+      resize: 'vertical',
+      '&:focus': {
+        borderColor: theme.colors.focus.ring,
+        boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
+      },
+      '&::placeholder': {
+        color: theme.colors.text.muted,
+      },
+    })
+
+    let showDescriptionBtnStyle = css({
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: theme.space.xs,
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      border: 'none',
+      background: 'transparent',
+      color: theme.colors.text.muted,
+      cursor: 'pointer',
+      borderRadius: theme.radius.sm,
+      fontSize: theme.fontSize.xs,
+      fontFamily: theme.fontFamily.sans,
+      ':hover': {
+        background: theme.surface.lvl2,
+        color: theme.colors.text.primary,
       },
     })
 
@@ -826,9 +1056,11 @@ export const ListsClient = clientEntry(
       items = JSON.parse(cleanItemsJSON)
       title = cleanTitle
       description = cleanDescription
+      descriptionMode = 'auto'
       saveStatus = 'saved'
       conflictState = { show: false, serverState: null }
       clearDraft()
+      syncFieldInputs()
       handle.update()
     }
 
@@ -837,6 +1069,7 @@ export const ListsClient = clientEntry(
       items = state.items.map((item) => ({ ...item }))
       title = state.title ?? ''
       description = state.description
+      descriptionMode = 'auto'
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
       snapshotClean()
@@ -845,6 +1078,7 @@ export const ListsClient = clientEntry(
       loadingList = false
       conflictState = { show: false, serverState: null }
       clearFilter()
+      syncFieldInputs()
     }
 
     // Initialize from initial state
@@ -882,6 +1116,7 @@ export const ListsClient = clientEntry(
         items = draft.items.map((item) => ({ ...item }))
         title = draft.title ?? ''
         description = draft.description ?? ''
+        descriptionMode = 'auto'
         loadedListId = null
         loadedUpdatedAt = null
         saveStatus = 'dirty'
@@ -890,12 +1125,14 @@ export const ListsClient = clientEntry(
         conflictState = { show: false, serverState: null }
         draftRestored = true
         clearFilter()
+        syncFieldInputs()
         handle.update()
         return
       }
       items = []
       title = ''
       description = ''
+      descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
       saveStatus = 'saved'
@@ -904,11 +1141,27 @@ export const ListsClient = clientEntry(
       conflictState = { show: false, serverState: null }
       snapshotClean()
       clearFilter()
+      syncFieldInputs()
       handle.update()
     }
 
     // Listen for frame reloads
     handle.frame.addEventListener('reloadComplete', reloadFromFrame, { signal: handle.signal })
+
+    // Flush pending edits *before* the frame swaps in the next list.
+    //
+    // `beforeunload` never fires for a frame navigation (the document is not
+    // unloaded), so switching list / searching / paginating used to silently
+    // discard anything typed within the 1.5s autosave debounce. `reloadStart`
+    // fires synchronously before the new content is fetched, while
+    // `loadedListId`/`clean*` still describe the outgoing list — the only point
+    // where the edit can still be attributed to the right row.
+    function flushBeforeFrameReload() {
+      flushWithKeepalive()
+    }
+    handle.frame.addEventListener('reloadStart', flushBeforeFrameReload, {
+      signal: handle.signal,
+    })
 
     // On init, if no initial state was already provided, wait for frame load
     if (!initialized) {
@@ -1311,9 +1564,7 @@ export const ListsClient = clientEntry(
       // fail the server's If-Match with a spurious 409. The loaded list's live
       // timestamp is authoritative; every other row keeps its server snapshot.
       let sourcePrecondition =
-        loadedListId === sourceId && loadedUpdatedAt !== null
-          ? loadedUpdatedAt
-          : sourceUpdatedAt
+        loadedListId === sourceId && loadedUpdatedAt !== null ? loadedUpdatedAt : sourceUpdatedAt
 
       let headers = getCsrfHeaders()
       if (Number.isFinite(sourcePrecondition)) headers['If-Match'] = String(sourcePrecondition)
@@ -1653,11 +1904,20 @@ export const ListsClient = clientEntry(
       setTimeout(() => saveNow(), 0)
     }
 
-    // Navigate-away flush. The update route is PUT, which navigator.sendBeacon
-    // cannot send (it is always POST), so use fetch with keepalive: true
-    // instead. keepalive lets custom headers ride along (CSRF + If-Match), so we
-    // no longer need the query-param CSRF or the _if_match body fallback.
-    function flushOnUnload() {
+    // Best-effort keepalive flush of any pending edit to the currently loaded
+    // list. The update route is PUT, which navigator.sendBeacon cannot send (it
+    // is always POST), so use fetch with keepalive: true instead. keepalive lets
+    // custom headers ride along (CSRF + If-Match), so we no longer need the
+    // query-param CSRF or the _if_match body fallback.
+    //
+    // Shared by `beforeunload` (full page unload) and the frame's `reloadStart`
+    // (list switch / search / pagination), which would otherwise discard edits
+    // that are still inside the autosave debounce window.
+    function flushWithKeepalive() {
+      if (autosaveTimer) {
+        clearTimeout(autosaveTimer)
+        autosaveTimer = null
+      }
       if (!isDirty()) return
       if (loadedListId === null) return
       let partial: Record<string, unknown> = {}
@@ -1677,7 +1937,7 @@ export const ListsClient = clientEntry(
       }
     }
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', flushOnUnload, { signal: handle.signal })
+      window.addEventListener('beforeunload', flushWithKeepalive, { signal: handle.signal })
     }
 
     // Status pill display
@@ -1923,6 +2183,9 @@ export const ListsClient = clientEntry(
           {/* Card header: editable title + primary action + save status */}
           <div mix={cardHeaderStyle}>
             <div mix={cardTitleWrapStyle}>
+              <span mix={listContextStyle} data-list-context>
+                {loadedListId === null ? 'Neue Liste' : `Liste #${loadedListId}`}
+              </span>
               <h1 mix={titleHeadingStyle}>
                 <label mix={visuallyHiddenStyle} htmlFor="lists-title">
                   Titel der Liste
@@ -1931,6 +2194,9 @@ export const ListsClient = clientEntry(
                   id="lists-title"
                   mix={[
                     titleInputStyle,
+                    ref((el: HTMLInputElement) => {
+                      titleInputRef = el
+                    }),
                     on('input', (e) => {
                       title = e.currentTarget.value
                       setDirty()
@@ -1941,7 +2207,9 @@ export const ListsClient = clientEntry(
                     }),
                   ]}
                   type="text"
-                  placeholder="Kurzer Titel für diese Liste…"
+                  placeholder={
+                    loadedListId === null ? 'Kurzer Titel für diese Liste…' : 'Titel der Liste…'
+                  }
                   maxLength={200}
                   defaultValue={title}
                 />
@@ -2022,6 +2290,9 @@ export const ListsClient = clientEntry(
                 </>
               )}
               <span
+                role="status"
+                aria-live="polite"
+                title="Speicherstatus dieser Liste"
                 mix={css({
                   fontSize: theme.fontSize.xs,
                   fontWeight: theme.fontWeight.semibold,
@@ -2142,49 +2413,11 @@ export const ListsClient = clientEntry(
               </div>
             )}
 
-            {/* Secondary actions toolbar */}
-            <div mix={toolbarStyle}>
-              <select
-                mix={[
-                  sortSelectStyle,
-                  on('change', (e) => {
-                    applySort((e.currentTarget.value as SortMode) || 'manual')
-                    e.currentTarget.value = 'manual'
-                  }),
-                ]}
-                aria-label="Sortieren"
-                value="manual"
-              >
-                <option value="manual">Sortieren…</option>
-                <option value="az">A–Z</option>
-                <option value="done">Nach Erledigt</option>
-                <option value="updated">Nach Änderung</option>
-              </select>
-              <button mix={[button({ tone: 'secondary' }), on('click', reverse)]}>
-                ↺ Umkehren
-              </button>
-              <button mix={[button({ tone: 'secondary' }), on('click', shuffle)]}>⇄ Mischen</button>
-              <button
-                mix={[button({ tone: 'secondary' }), on('click', clearDone)]}
-                disabled={items.filter((item) => item.done === true).length === 0}
-                title="Alle erledigten Elemente aus der Liste entfernen"
-              >
-                ✔ Nur Erledigte löschen
-              </button>
-              <button
-                mix={[button({ tone: 'danger' }), on('click', clearAll)]}
-                disabled={items.length === 0}
-              >
-                {clearArmed ? 'Wirklich alle löschen?' : '✕ Alle löschen'}
-              </button>
-            </div>
-
             {/* New-list helper hint */}
             {loadedListId === null && (
               <p
                 mix={css({
-                  marginBottom: theme.space.lg,
-                  marginTop: '-0.5rem',
+                  marginBottom: theme.space.md,
                   fontSize: theme.fontSize.xs,
                   color: theme.colors.text.muted,
                 })}
@@ -2195,115 +2428,89 @@ export const ListsClient = clientEntry(
               </p>
             )}
 
-            {/* Keyboard hint + live region */}
-            <p
-              mix={css({
-                marginBottom: theme.space.lg,
-                fontSize: theme.fontSize.xs,
-                color: theme.colors.text.muted,
-              })}
-            >
-              Tipp: Enter zum Aufnehmen, Pfeile zum Verschieben, Enter zum Ablegen. Strg+Pfeile für
-              Direktverschieben.
-            </p>
-            <div
-              aria-live="polite"
-              mix={[
-                css({
-                  position: 'absolute',
-                  width: '1px',
-                  height: '1px',
-                  overflow: 'hidden',
-                  clip: 'rect(0 0 0 0)',
-                  whiteSpace: 'nowrap',
-                }),
-                ref((el: HTMLElement) => {
-                  liveRegion = el
-                }),
-              ]}
-            />
-
-            {/* Description input */}
-            <div
-              mix={css({
-                marginBottom: theme.space.lg,
-              })}
-            >
-              <label
-                mix={css({
-                  display: 'block',
-                  fontSize: theme.fontSize.xs,
-                  fontWeight: theme.fontWeight.semibold,
-                  color: theme.colors.text.muted,
-                  marginBottom: theme.space.xs,
-                })}
-                htmlFor="lists-description"
-              >
-                Beschreibung
-              </label>
-              <textarea
-                id="lists-description"
-                mix={[
-                  css({
-                    width: '100%',
-                    padding: `${theme.space.sm} ${theme.space.md}`,
-                    borderRadius: theme.radius.md,
-                    border: `1px solid ${theme.colors.border.strong}`,
-                    fontSize: theme.fontSize.md,
-                    outline: 'none',
-                    fontFamily: theme.fontFamily.sans,
-                    boxSizing: 'border-box',
-                    backgroundColor: theme.surface.lvl0,
-                    color: theme.colors.text.primary,
-                    minHeight: '72px',
-                    resize: 'vertical',
-                    '&:focus': {
-                      borderColor: theme.colors.focus.ring,
-                      boxShadow: `0 0 0 3px ${theme.colors.focus.ring}33`,
-                    },
-                    '&::placeholder': {
-                      color: theme.colors.text.muted,
-                    },
-                  }),
-                  on('input', (e) => {
-                    description = e.currentTarget.value
-                    setDirty()
-                    handle.update()
-                  }),
-                  on('blur', () => {
-                    scheduleAutosave(true)
-                  }),
-                ]}
-                placeholder="Beschreibung für diese Liste eingeben…"
-                maxLength={500}
-                rows={3}
-                wrap="soft"
-              >
-                {description as never}
-              </textarea>
+            {/* Description — collapsed unless the list has one (or the user opens it) */}
+            <div mix={css({ marginBottom: theme.space.md })}>
+              {showDescription() ? (
+                <>
+                  <div mix={descriptionHeadStyle}>
+                    <label mix={descriptionLabelStyle} htmlFor="lists-description">
+                      Beschreibung
+                    </label>
+                    <button
+                      type="button"
+                      mix={[
+                        collapseBtnStyle,
+                        on('click', () => {
+                          descriptionMode = 'closed'
+                          handle.update()
+                        }),
+                      ]}
+                      aria-label="Beschreibung ausblenden"
+                      title="Beschreibung ausblenden"
+                    >
+                      −
+                    </button>
+                  </div>
+                  <textarea
+                    id="lists-description"
+                    mix={[
+                      descriptionTextareaStyle,
+                      on('input', (e) => {
+                        description = e.currentTarget.value
+                        setDirty()
+                        handle.update()
+                      }),
+                      on('blur', () => {
+                        scheduleAutosave(true)
+                      }),
+                      ref((el: HTMLTextAreaElement) => {
+                        descriptionInputRef = el
+                      }),
+                    ]}
+                    placeholder="Beschreibung für diese Liste eingeben…"
+                    maxLength={500}
+                    rows={2}
+                    wrap="soft"
+                  >
+                    {description as never}
+                  </textarea>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  mix={[
+                    showDescriptionBtnStyle,
+                    on('click', () => {
+                      descriptionMode = 'open'
+                      handle.update()
+                    }),
+                  ]}
+                >
+                  + Beschreibung hinzufügen
+                </button>
+              )}
             </div>
 
-            {/* Add item */}
+            {/* Add item — one-line field; Enter adds, Shift+Enter inserts a newline */}
             <div
               mix={css({
                 display: 'flex',
-                gap: theme.space.md,
-                marginBottom: theme.space.lg,
-                alignItems: 'flex-start',
+                gap: theme.space.sm,
+                marginBottom: theme.space.md,
+                alignItems: 'center',
               })}
             >
               <textarea
                 mix={[
                   css({
-                    padding: `${theme.space.sm} ${theme.space.md}`,
+                    padding: `${theme.space.xs} ${theme.space.sm}`,
                     borderRadius: theme.radius.md,
                     border: `1px solid ${theme.colors.border.strong}`,
                     flex: 1,
                     fontSize: theme.fontSize.md,
                     outline: 'none',
                     fontFamily: theme.fontFamily.sans,
-                    width: '300px',
-                    minHeight: '60px',
+                    minHeight: '38px',
                     resize: 'vertical',
                     backgroundColor: theme.surface.lvl0,
                     color: theme.colors.text.primary,
@@ -2327,7 +2534,7 @@ export const ListsClient = clientEntry(
                   }),
                 ]}
                 placeholder="Neues Element eingeben…"
-                rows={3}
+                rows={1}
                 wrap="soft"
               >
                 {newItemLabel as never}
@@ -2336,6 +2543,24 @@ export const ListsClient = clientEntry(
                 + Element hinzufügen
               </button>
             </div>
+
+            {/* Screen-reader live region for reorder/undo announcements */}
+            <div
+              aria-live="polite"
+              mix={[
+                css({
+                  position: 'absolute',
+                  width: '1px',
+                  height: '1px',
+                  overflow: 'hidden',
+                  clip: 'rect(0 0 0 0)',
+                  whiteSpace: 'nowrap',
+                }),
+                ref((el: HTMLElement) => {
+                  liveRegion = el
+                }),
+              ]}
+            />
 
             {/* Items list */}
             <div
@@ -2357,34 +2582,106 @@ export const ListsClient = clientEntry(
                 minHeight: 0,
               })}
             >
-              <div
-                mix={css({
-                  backgroundColor: theme.surface.lvl2,
-                  padding: `${theme.space.sm} ${theme.space.md}`,
-                  borderBottom: `1px solid ${theme.colors.border.default}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                })}
-              >
-                <h2
-                  mix={css({
-                    margin: 0,
-                    fontSize: theme.fontSize.xs,
-                    fontWeight: theme.fontWeight.semibold,
-                    color: theme.colors.text.muted,
-                    letterSpacing: '0.06em',
-                  })}
-                >
-                  ELEMENTE
-                </h2>
-                <div
-                  mix={css({
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.space.md,
-                  })}
-                >
+              <div mix={panelHeaderStyle}>
+                <div mix={panelLeftStyle}>
+                  <h2 mix={visuallyHiddenStyle}>Elemente</h2>
+                  {items.length > 0 && (
+                    <>
+                      <input
+                        id="lists-inner-filter"
+                        type="search"
+                        placeholder="Elemente durchsuchen…"
+                        maxLength={200}
+                        aria-label="Elemente durchsuchen"
+                        mix={[
+                          filterInputStyle,
+                          panelFilterInputStyle,
+                          ref((el: HTMLInputElement) => {
+                            filterInputRef = el
+                          }),
+                          on('input', (e) => {
+                            listFilter = e.currentTarget.value
+                            handle.update()
+                          }),
+                          on('keydown', (e) => {
+                            if (e.key === 'Escape' && listFilter) {
+                              e.preventDefault()
+                              listFilter = ''
+                              if (filterInputRef) filterInputRef.value = ''
+                              handle.update()
+                            }
+                          }),
+                        ]}
+                        defaultValue={listFilter}
+                      />
+                      {listFilter.trim() && (
+                        <button
+                          type="button"
+                          mix={[
+                            clearFilterBtnStyle,
+                            on('click', () => {
+                              listFilter = ''
+                              if (filterInputRef) filterInputRef.value = ''
+                              handle.update()
+                            }),
+                          ]}
+                          aria-label="Suche zurücksetzen"
+                          title="Suche zurücksetzen"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div mix={panelRightStyle}>
+                  <select
+                    mix={[
+                      sortSelectStyle,
+                      on('change', (e) => {
+                        applySort((e.currentTarget.value as SortMode) || 'manual')
+                        e.currentTarget.value = 'manual'
+                      }),
+                    ]}
+                    aria-label="Sortieren"
+                    value="manual"
+                  >
+                    <option value="manual">Sortieren…</option>
+                    <option value="az">A–Z</option>
+                    <option value="done">Nach Erledigt</option>
+                    <option value="updated">Nach Änderung</option>
+                  </select>
+                  <button
+                    type="button"
+                    mix={[iconToolbarBtnStyle, on('click', reverse)]}
+                    title="Reihenfolge umkehren"
+                    aria-label="Reihenfolge umkehren"
+                  >
+                    ↺
+                  </button>
+                  <button
+                    type="button"
+                    mix={[iconToolbarBtnStyle, on('click', shuffle)]}
+                    title="Reihenfolge mischen"
+                    aria-label="Reihenfolge mischen"
+                  >
+                    ⇄
+                  </button>
+                  <button
+                    type="button"
+                    mix={[
+                      iconToolbarBtnStyle,
+                      on('click', () =>
+                        announce(
+                          'Tastatur: Enter nimmt ein Element auf, Pfeile verschieben es, Enter legt es ab. Strg+Pfeile verschieben direkt.',
+                        ),
+                      ),
+                    ]}
+                    title="Tastatur: Enter aufnehmen, Pfeile verschieben, Enter ablegen. Strg+Pfeile für Direktverschieben."
+                    aria-label="Tastatur-Hinweise"
+                  >
+                    ?
+                  </button>
                   {totalCount > 0 && (
                     <div
                       role="progressbar"
@@ -2393,7 +2690,7 @@ export const ListsClient = clientEntry(
                       aria-valuenow={doneCount}
                       aria-label={`${doneCount} von ${totalCount} erledigt`}
                       mix={css({
-                        width: '80px',
+                        width: '60px',
                         height: '6px',
                         borderRadius: theme.radius.full,
                         backgroundColor: theme.surface.lvl0,
@@ -2411,65 +2708,43 @@ export const ListsClient = clientEntry(
                       />
                     </div>
                   )}
-                  <span
-                    mix={css({
-                      fontSize: theme.fontSize.sm,
-                      color: theme.colors.text.secondary,
-                    })}
-                  >
+                  <span mix={countTextStyle}>
                     {totalCount > 0
                       ? `${doneCount} von ${totalCount} erledigt`
                       : `${totalCount} Einträge`}
                   </span>
+                  <details mix={menuDetailsStyle}>
+                    <summary
+                      mix={menuSummaryStyle}
+                      aria-label="Weitere Aktionen"
+                      title="Weitere Aktionen"
+                    >
+                      ⋯
+                    </summary>
+                    <div mix={menuPanelStyle}>
+                      <button
+                        mix={[button({ tone: 'secondary' }), on('click', clearDone)]}
+                        disabled={items.filter((item) => item.done === true).length === 0}
+                        title="Alle erledigten Elemente aus der Liste entfernen"
+                      >
+                        ✔ Nur Erledigte löschen
+                      </button>
+                      <button
+                        mix={[
+                          button({ tone: 'secondary' }),
+                          dangerTextStyle,
+                          ...(clearArmed ? [dangerArmedStyle] : []),
+                          on('click', clearAll),
+                        ]}
+                        disabled={items.length === 0}
+                        title="Alle Elemente dieser Liste löschen"
+                      >
+                        {clearArmed ? 'Wirklich alle löschen?' : '✕ Alle löschen'}
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
-
-              {items.length > 0 && (
-                <div mix={filterRowStyle}>
-                  <input
-                    id="lists-inner-filter"
-                    type="search"
-                    placeholder="Elemente durchsuchen…"
-                    maxLength={200}
-                    mix={[
-                      filterInputStyle,
-                      ref((el: HTMLInputElement) => {
-                        filterInputRef = el
-                      }),
-                      on('input', (e) => {
-                        listFilter = e.currentTarget.value
-                        handle.update()
-                      }),
-                      on('keydown', (e) => {
-                        if (e.key === 'Escape' && listFilter) {
-                          e.preventDefault()
-                          listFilter = ''
-                          if (filterInputRef) filterInputRef.value = ''
-                          handle.update()
-                        }
-                      }),
-                    ]}
-                    defaultValue={listFilter}
-                  />
-                  {listFilter.trim() && (
-                    <button
-                      type="button"
-                      mix={[
-                        clearFilterBtnStyle,
-                        on('click', () => {
-                          listFilter = ''
-                          if (filterInputRef) filterInputRef.value = ''
-                          handle.update()
-                        }),
-                      ]}
-                      aria-label="Suche zurücksetzen"
-                      title="Suche zurücksetzen"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              )}
 
               {items.length === 0 ? (
                 <div
@@ -2607,7 +2882,10 @@ export const ListsClient = clientEntry(
                             display: 'flex',
                             gap: theme.space.md,
                             alignItems: 'center',
-                            padding: `${theme.space.md} ${theme.space.md}`,
+                            // Dense rows: the comfortable `md` padding cost 49px
+                            // per row, so more of the card's height goes to rows
+                            // instead of whitespace.
+                            padding: `${theme.space.sm} ${theme.space.md}`,
                             // Keep a right gutter so the label doesn't run under the
                             // overlay action cluster; the cluster itself is absolute
                             // and takes no layout space.

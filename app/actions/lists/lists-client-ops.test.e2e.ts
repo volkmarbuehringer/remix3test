@@ -82,6 +82,16 @@ describe('lists list-level operations', () => {
       labelBox != null && labelBox.height > 10,
       'item label should be visible (not collapsed)',
     )
+
+    // The two-line clamp was silently dead: the css() runtime serialises a
+    // *numeric* `WebkitLineClamp` as `2px`, which is invalid CSS, so long labels
+    // wrapped unbounded and one item could eat three rows of height. Assert the
+    // declaration actually reaches the element.
+    let lineClamp = await page.evaluate(() => {
+      let label = document.querySelector('[data-item-id="op-open"] > div > span')
+      return label ? getComputedStyle(label).getPropertyValue('-webkit-line-clamp').trim() : ''
+    })
+    assert.equal(lineClamp, '2', 'item labels must be clamped to two lines')
   })
 })
 

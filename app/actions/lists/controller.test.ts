@@ -77,7 +77,10 @@ describe('Lists controller', () => {
     })
     let text = await response.text()
     assert.ok(text.includes('Neue Liste'), 'should render "Neue Liste" sidebar entry')
-    assert.ok(text.includes('Suchen'), 'should render the sidebar search input')
+    assert.ok(
+      text.includes('aria-label="Listen suchen"'),
+      'should render the sidebar search input (labeled "Listen suchen")',
+    )
   })
 
   it('GET /lists sidebar scopes lists to current non-admin user', async () => {

@@ -107,18 +107,6 @@ const navScrollStyle = css({
   overflowY: 'auto',
 })
 
-/**
- * The content column is a flex column; aligning its single child (the content-
- * sized editor card) to the top matches the top-anchored sidebar so both
- * columns start on the same horizontal band. The free space stays below the
- * card (never inside it), and the card's position is stable as the list grows.
- * When the card is taller than the column it is capped by `max-height` on the
- * card and the element list scrolls internally.
- */
-const contentTopAlignStyle = css({
-  justifyContent: 'flex-start',
-})
-
 function isFrameRequest(): boolean {
   return getContext().request.headers.get('X-Remix-Target') === frameTarget
 }
@@ -226,7 +214,8 @@ function ListsLayout(
               id="lists-sidebar-search"
               type="search"
               defaultValue={new URL(getContext().request.url).searchParams.get('filter') ?? ''}
-              placeholder="Suchen…"
+              placeholder="Listen suchen…"
+              aria-label="Listen suchen"
               mix={css({
                 width: '100%',
                 padding: `${theme.space.xs} ${theme.space.sm}`,
@@ -256,9 +245,13 @@ function ListsLayout(
               mix={[
                 navLinkStyle,
                 compactNavLinkStyle,
+                newListEntryStyle,
                 activeItem === 'new' && navActiveStyle,
               ].filter(Boolean)}
             >
+              <span mix={newListPlusStyle} aria-hidden="true">
+                +
+              </span>
               Neue Liste
             </NavLink>
             {sidebarEntries.map((entry) => {
@@ -308,6 +301,11 @@ function ListsLayout(
                     <span
                       mix={countBadgeStyle}
                       data-list-count
+                      title={
+                        entry.doneCount != null
+                          ? `${entry.doneCount} von ${entry.count} erledigt`
+                          : `${entry.count} Eintr${entry.count !== 1 ? 'äge' : 'ag'}`
+                      }
                       aria-label={
                         entry.doneCount != null
                           ? `${entry.doneCount} von ${entry.count} erledigt`
@@ -449,7 +447,7 @@ function ListsLayout(
             )}
           </nav>
         </aside>
-        <section mix={[contentStyle, contentTopAlignStyle]}>{children}</section>
+        <section mix={contentStyle}>{children}</section>
       </div>
     )
   }
@@ -615,6 +613,26 @@ const compactNavLinkStyle = css({
 const entryNavLinkStyle = css({
   flex: 1,
   minWidth: 0,
+})
+
+/**
+ * The "Neue Liste" entry is an action, not a saved row: a dashed outline, a
+ * leading plus and an accent label separate it from the list rows below so it
+ * can't be mistaken for one of them.
+ */
+const newListEntryStyle = css({
+  gap: theme.space.xs,
+  marginBottom: theme.space.xs,
+  border: `1px dashed ${theme.colors.border.strong}`,
+  borderRadius: theme.radius.md,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.focus.ring,
+})
+
+const newListPlusStyle = css({
+  fontSize: theme.fontSize.md,
+  lineHeight: 1,
+  fontWeight: theme.fontWeight.bold,
 })
 
 const nameColumnStyle = css({
