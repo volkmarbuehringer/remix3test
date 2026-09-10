@@ -73,7 +73,6 @@ export const ListsClient = clientEntry(
     let dragKind: 'item' | 'list' | null = null
     let draggedListId: number | null = null
     let listDragCleanup: (() => void) | null = null
-    let docDragInstalled = false
 
     // Keyboard navigation state
     let focusedId: string | null = null
@@ -1307,8 +1306,17 @@ export const ListsClient = clientEntry(
         }
       }
 
+      // Resolve the precondition *after* the flush: saving the open list bumps
+      // its `updated_at`, so the sidebar snapshot taken before the flush would
+      // fail the server's If-Match with a spurious 409. The loaded list's live
+      // timestamp is authoritative; every other row keeps its server snapshot.
+      let sourcePrecondition =
+        loadedListId === sourceId && loadedUpdatedAt !== null
+          ? loadedUpdatedAt
+          : sourceUpdatedAt
+
       let headers = getCsrfHeaders()
-      if (Number.isFinite(sourceUpdatedAt)) headers['If-Match'] = String(sourceUpdatedAt)
+      if (Number.isFinite(sourcePrecondition)) headers['If-Match'] = String(sourcePrecondition)
       else delete headers['If-Match']
 
       try {
@@ -1321,20 +1329,38 @@ export const ListsClient = clientEntry(
           handle.frame.reload().catch(() => {})
         } else if (response.status === 409) {
           let server = await response.json()
-          conflictState = {
-            show: true,
-            serverState: {
-              id: server.id,
-              title: server.title,
-              description: server.description,
-              items: server.items,
-              updated_at: server.updated_at,
-            },
+          if (server.id === loadedListId) {
+            // The open list is the one that moved on, so the conflict banner's
+            // actions (reload / overwrite) target the right row.
+            conflictState = {
+              show: true,
+              serverState: {
+                id: server.id,
+                title: server.title,
+                description: server.description,
+                items: server.items,
+                updated_at: server.updated_at,
+              },
+            }
+          } else {
+            // A *different* list's source row changed since this page rendered.
+            // The conflict banner hydrates and saves the loaded list, so using
+            // it here would silently switch the editor to another list. Refresh
+            // the stale sidebar snapshot and ask the user to drag again.
+            if (sourceRow && Number.isFinite(server.updated_at)) {
+              sourceRow.setAttribute('data-updated-at', String(server.updated_at))
+            }
+            loadError = `Die Liste "${sourceName}" wurde zwischenzeitlich geändert. Bitte erneut ziehen.`
           }
           handle.update()
+        } else if (response.status === 404) {
+          loadError = 'Liste nicht gefunden'
+          handle.update()
+        } else if (response.status === 400) {
+          loadError = count === 0 ? 'Die Quellliste ist leer' : 'Zusammenführen nicht möglich'
+          handle.update()
         } else {
-          let body = await response.json().catch(() => null)
-          loadError = body?.error || 'Zusammenführen fehlgeschlagen'
+          loadError = 'Zusammenführen fehlgeschlagen'
           handle.update()
         }
       } catch {
@@ -1377,12 +1403,12 @@ export const ListsClient = clientEntry(
       if (dirty) handle.update()
     }
 
-    // Register the delegated list-drag listeners synchronously at the end of the
-    // client body (after every handler is defined). The card root's ref only
-    // fires on SSR (document undefined), and frame reload events do not fire for
-    // the initial load — this runs during client hydration, before any drag.
-    if (typeof document !== 'undefined' && !docDragInstalled) {
-      docDragInstalled = true
+    // Register the delegated list-drag listeners synchronously in the factory
+    // body (after every handler is defined). The body runs once per mount —
+    // only the render function re-runs on handle.update() — so this lands on the
+    // client before the first render and before any drag; the `document` guard
+    // keeps SSR a no-op. Delegation means rows may appear later (frame content).
+    if (typeof document !== 'undefined') {
       document.addEventListener('dragstart', onDocumentDragStart, { signal: handle.signal })
       document.addEventListener('dragend', onDocumentDragEnd, { signal: handle.signal })
     }

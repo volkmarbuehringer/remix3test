@@ -93,6 +93,11 @@ describe('lists list-level operations', () => {
 // synthetic DragEvents (rather than Playwright's mouse-based dragAndDrop) so the
 // test is deterministic across Chromium and Firefox — Firefox synthetic pointer
 // events are unreliable for these rows.
+//
+// The drag handlers only exist after the client entry hydrates (deferred import
+// map, notably slow in some browsers) and the SSR markup looks identical before
+// and after, so these tests drive the gesture until the confirmation prompt is
+// observed — that is the signal that the handler ran. See `dragUntilPrompted`.
 // ---------------------------------------------------------------------------
 
 describe('lists merge via sidebar drag', () => {
@@ -137,11 +142,62 @@ describe('lists merge via sidebar drag', () => {
     return { sourceId, targetId }
   }
 
-  function dragList(page: { evaluate: Function }, fromId: number, toId: number) {
+  // Override window.confirm and count its invocations in a DOM data attribute.
+  // The count is how these tests observe that the client entry's drag handlers
+  // actually ran: the listeners are registered by the entry's factory body, which
+  // only executes once the deferred client module loads, and a synthetic drag
+  // before that is a silent no-op. The toolbar is *server* rendered, so waiting
+  // for it proves nothing about hydration.
+  function installConfirm(page: { evaluate: Function }, accept: boolean) {
+    return page.evaluate((result: boolean) => {
+      let root = document.documentElement
+      root.dataset.confirmCalls = '0'
+      window.confirm = () => {
+        root.dataset.confirmCalls = String(Number(root.dataset.confirmCalls ?? '0') + 1)
+        return result
+      }
+    }, accept)
+  }
+
+  async function readConfirmCalls(page: { evaluate: Function }) {
+    return (await page.evaluate(
+      () => Number(document.documentElement.dataset.confirmCalls ?? '0'),
+    )) as number
+  }
+
+  async function targetItemCount(listId: number) {
+    let row = await pool.query('SELECT list FROM lists WHERE id = $1', [listId])
+    return (row.rows[0]!.list as Array<Record<string, unknown>>).length
+  }
+
+  function dragList(
+    page: { evaluate: Function },
+    fromId: number,
+    toId: number,
+    options?: { dirtyTitle?: string },
+  ) {
     return page.evaluate(
-      ({ sourceSel, targetSel }: { sourceSel: string; targetSel: string }) => {
-        let source = document.querySelector(sourceSel) as HTMLElement
-        let target = document.querySelector(targetSel) as HTMLElement
+      ({
+        sourceSel,
+        targetSel,
+        dirtyTitle,
+      }: {
+        sourceSel: string
+        targetSel: string
+        dirtyTitle: string | null
+      }) => {
+        // Optionally dirty the open list in the SAME synchronous task as the
+        // drag, so the 1500ms autosave cannot save it first and the drop
+        // handler's flushNow() is what bumps the source's updated_at.
+        if (dirtyTitle !== null) {
+          let input = document.querySelector('#lists-title') as HTMLInputElement | null
+          if (!input) throw new Error('title input missing')
+          input.value = dirtyTitle
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+
+        let source = document.querySelector(sourceSel) as HTMLElement | null
+        let target = document.querySelector(targetSel) as HTMLElement | null
         if (!source || !target) throw new Error('drag source or target row missing')
         let dt = new DataTransfer()
         source.dispatchEvent(
@@ -154,8 +210,34 @@ describe('lists merge via sidebar drag', () => {
           new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }),
         )
       },
-      { sourceSel: `[data-list-id="${fromId}"]`, targetSel: `[data-list-id="${toId}"]` },
+      {
+        sourceSel: `[data-list-id="${fromId}"]`,
+        targetSel: `[data-list-id="${toId}"]`,
+        dirtyTitle: options?.dirtyTitle ?? null,
+      },
     )
+  }
+
+  // Retry the gesture until the drop handler runs, which is observable as the
+  // confirmation prompt. Pre-hydration attempts are no-ops, so the loop exits on
+  // its first live dispatch; the merge tests stop there, so a merge is issued
+  // exactly once and can never be double-applied by a retry. The declined test
+  // relies on the returned count to prove the handler ran rather than passing
+  // vacuously.
+  async function dragUntilPrompted(
+    page: { evaluate: Function; waitForTimeout: Function },
+    fromId: number,
+    toId: number,
+    options?: { dirtyTitle?: string },
+  ) {
+    let calls = 0
+    for (let attempt = 0; attempt < 60 && calls === 0; attempt++) {
+      await dragList(page, fromId, toId, options)
+      await page.waitForTimeout(250)
+      calls = await readConfirmCalls(page)
+    }
+    assert.ok(calls > 0, 'the drag must be handled once the client entry hydrates')
+    return calls
   }
 
   it('merges a dragged list into another after confirming and reloads the editor', async (t) => {
@@ -175,23 +257,8 @@ describe('lists merge via sidebar drag', () => {
       // deterministic across browsers — a real modal dialog opened from inside
       // page.evaluate is not reliably accepted by Playwright. Must run after the
       // navigation, which resets the top document.
-      await page.evaluate(() => {
-        window.confirm = () => true
-      })
-
-      // The client entry hydrates lazily (deferred import map, notably slow in
-      // Firefox), and only then registers its drag listeners. Retry the drag
-      // until the merge lands so the test does not race hydration. A retry
-      // before hydration is a no-op (no listeners), and we stop at the first
-      // successful merge, so the target is never merged twice.
-      let merged = false
-      for (let attempt = 0; attempt < 20 && !merged; attempt++) {
-        await dragList(page, sourceId, targetId)
-        await page.waitForTimeout(750)
-        let targetRow = await pool.query('SELECT list FROM lists WHERE id = $1', [targetId])
-        merged = (targetRow.rows[0]!.list as Array<Record<string, unknown>>).length === 3
-      }
-      assert.ok(merged, 'the merge should land once the client hydrates')
+      await installConfirm(page, true)
+      await dragUntilPrompted(page, sourceId, targetId)
 
       // The frame reloads after the merge — the editor must now render three items.
       await page.waitForFunction(
@@ -200,6 +267,49 @@ describe('lists merge via sidebar drag', () => {
         { timeout: 15_000 },
       )
       assert.equal(await page.locator('[data-item-id]').count(), 3)
+      assert.equal(
+        await targetItemCount(targetId),
+        3,
+        'the source items must be appended exactly once',
+      )
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+
+  it('merges the open list even while it has pending unsaved edits', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      // Load the SOURCE list, so the drag source is also the open (loaded) list.
+      await page.goto(`/lists?load=${sourceId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+      await page.locator(`[data-list-id="${targetId}"]`).waitFor({ timeout: 15_000 })
+      await installConfirm(page, true)
+
+      // Every attempt dirties the open list and drags in one synchronous task, so
+      // the 1500ms autosave can never win the race: the drop handler's flushNow()
+      // is what saves, and that save bumps the source's updated_at. The merge's
+      // If-Match must therefore be resolved *after* the flush — reading the
+      // pre-flush sidebar snapshot makes the server answer 409 and no items move.
+      await dragUntilPrompted(page, sourceId, targetId, {
+        dirtyTitle: 'Quelle mit ungespeicherten Änderungen',
+      })
+
+      // The frame reloads onto the SOURCE list, so assert on the target's row:
+      // one seeded target item plus both seeded source items, exactly once.
+      let targetItems = await targetItemCount(targetId)
+      for (let attempt = 0; attempt < 40 && targetItems !== 3; attempt++) {
+        await page.waitForTimeout(250)
+        targetItems = await targetItemCount(targetId)
+      }
+      assert.equal(targetItems, 3, 'a merge from a dirty open list must still append its items')
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
       await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
@@ -218,16 +328,22 @@ describe('lists merge via sidebar drag', () => {
       await page.goto(`/lists?load=${targetId}`)
       await page.locator('#lists-title').waitFor({ timeout: 15_000 })
       await page.locator(`[data-list-id="${sourceId}"]`).waitFor({ timeout: 15_000 })
+      await installConfirm(page, false)
 
-      await page.evaluate(() => {
-        window.confirm = () => false
-      })
+      // The returned count proves the drop handler actually ran — a drag sent
+      // before the client entry hydrates would otherwise be a no-op and the
+      // "nothing changed" assertions below would pass vacuously.
+      let calls = await dragUntilPrompted(page, sourceId, targetId)
+      assert.equal(calls, 1, 'the confirmation must be asked exactly once')
 
-      await dragList(page, sourceId, targetId)
-
-      // Give a (wrong) merge a moment to land, then assert nothing changed.
-      await page.waitForTimeout(1000)
+      // Nothing may have been written, in the rendered editor or in the database.
+      await page.waitForTimeout(500)
       assert.equal(await page.locator('[data-item-id]').count(), 1)
+      assert.equal(
+        await targetItemCount(targetId),
+        1,
+        'a declined confirmation must not merge',
+      )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
       await pool.query('DELETE FROM lists WHERE id = $1', [targetId])

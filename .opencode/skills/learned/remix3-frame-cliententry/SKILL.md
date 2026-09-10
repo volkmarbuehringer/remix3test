@@ -27,7 +27,7 @@ Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly c
 - [Generic Form Interception for Frames](#generic-form-interception-for-frames)
 - [clientEntry Cascade Limit](#cliententry-cascade-limit)
 - [mounted Guard After Frame Reload](#mounted-guard-after-frame-reload)
-- [Registering Global Document Listeners — ref() Only Fires on SSR for Stable Roots](#registering-global-document-listeners--ref-only-fires-on-ssr-for-stable-roots)
+- [Registering Global Document Listeners from a clientEntry](#registering-global-document-listeners-from-a-cliententry)
 - [Post-Navigation Data Loading in clientEntry](#post-navigation-data-loading-in-cliententry)
 - [CSS Child Selectors for clientEntry](#css-child-selectors-for-cliententry)
 - [Joining a Button Group with 3+ Buttons (per-button styles)](#joining-a-button-group-with-3-buttons-per-button-styles)
@@ -1830,44 +1830,63 @@ before relying on it.)
 
 ---
 
-## Registering Global Document Listeners — ref() Only Fires on SSR for Stable Roots
+## Registering Global Document Listeners from a clientEntry
 
-**Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX).
+**Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This section records the *timing* trap; the `ref()` guidance above (Pattern A) is unchanged.
 
-### Problem
+### `ref()` does fire on hydration — the real trap is deferred hydration
 
-Putting `document.addEventListener` inside a `ref()` on a stable root element (e.g., the editor card) silently never registers on the client. The `ref()` mixin fires on DOM *insertion*; for an element already present in the SSR HTML, client hydration **reuses the node without re-inserting it**, so the callback runs only on the server — where `document` is undefined and the guard bails. The `setTimeout(0)` alternative also races: deferred client entries hydrate late (see the Firefox single import map skill), so the timer can fire before the entry hydrates, and an e2e test that dispatches synthetic events right after the SSR-rendered content appears misses the listener.
+A `document.addEventListener` inside a `ref()` on a stable root (e.g., the editor card) can *appear* never to register on the client, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
-(Note: this refines the `ref()` claim in the mounted-guard section above — `ref()` fires on server insertion and on *new* client insertions (Frame replacement creates fresh nodes), but **not** on hydration of elements already in the SSR HTML. It is reliable for per-node listeners on freshly created elements, not for one-time global setup on stable roots.)
+- `ref()` is driven by the mixin `insert` event (`packages/ui/src/runtime/mixins/ref-mixin.ts:16`).
+- During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/ui/src/runtime/reconcile.ts:921`, `:944`), so `insert` is dispatched on the client and `ref()` fires at hydration — exactly as Pattern A above states.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:914`, `:2146`) for mixin-persisted nodes — not for plain hydration.
+
+What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see the Firefox single import map skill), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 
 ### Solution
 
-Register delegated listeners synchronously at the **end** of the `clientEntry` body — after every handler is defined — guarded by `typeof document !== 'undefined'` and a one-shot `installed` flag:
+For one-time global setup, register the delegated listener once in the `clientEntry` factory body, guarded by `typeof document !== 'undefined'`:
 
 ```typescript
-let docDragInstalled = false
 // ... all handlers defined above ...
-if (typeof document !== 'undefined' && !docDragInstalled) {
-  docDragInstalled = true
+if (typeof document !== 'undefined') {
   document.addEventListener('dragstart', onDocumentDragStart, { signal: handle.signal })
   document.addEventListener('dragend', onDocumentDragEnd, { signal: handle.signal })
 }
 ```
 
-The body runs on both server and client; the `document` guard makes it a no-op during SSR, and on the client it runs during hydration — before any user interaction.
+The factory body runs **once per mount** — only the returned render function re-runs on `handle.update()` (see the "clientEntry Cascade Limit" section above) — so a separate `installed` flag is not load-bearing. The `document` guard makes it a no-op during SSR, and on the client it runs before the first render. `ref()` on a stable root is equally valid; pick whichever owns the element.
 
 ### Testing a clientEntry drag gesture (e2e)
 
-Because hydration is deferred and slow (notably Firefox), an e2e test that dispatches synthetic `DragEvent`s must not assume the listener is live when the SSR-rendered elements appear. Retry the action until it lands (pre-hydration attempts are no-ops):
+**SSR markup looks the same before and after hydration, so waiting for a control the entry renders proves nothing.** A `clientEntry` is server-rendered too, so its toolbar/controls are already in the initial HTML; hydration happens later, when the deferred module loads. Asserting on that markup, or dispatching events as soon as it appears, silently tests nothing.
+
+Observe a side effect of the handler instead. For a confirm-gated gesture, override `window.confirm` so it records that it was called, then drive the gesture until the count increases — that proves the listener is live:
 
 ```typescript
-let merged = false
-for (let attempt = 0; attempt < 20 && !merged; attempt++) {
-  await dragList(page, sourceId, targetId)
-  await page.waitForTimeout(750)
-  merged = /* check DB/result */
+await page.evaluate(() => {
+  let root = document.documentElement
+  root.dataset.confirmCalls = '0'
+  window.confirm = () => {
+    root.dataset.confirmCalls = String(Number(root.dataset.confirmCalls ?? '0') + 1)
+    return false // decline: applies nothing, so retries are harmless
+  }
+})
+
+let calls = 0
+for (let attempt = 0; attempt < 60 && calls === 0; attempt++) {
+  await dragList(page, sourceId, targetId) // one synthetic dragstart/dragover/drop
+  await page.waitForTimeout(250)
+  calls = Number(await page.evaluate(() => document.documentElement.dataset.confirmCalls))
 }
+assert.ok(calls > 0, 'the drag must be handled once the client entry hydrates')
 ```
+
+Two rules keep this honest:
+
+- **Stop dispatching as soon as the handler runs** when the gesture applies something. Retrying *after* a merge/mutation was issued can apply it twice; retrying only *before* the handler has run cannot.
+- **Assert on a side effect, not on absence.** "Nothing changed" also passes when the drag was never handled — the prompt count is what distinguishes a declined gesture from an unhandled one.
 
 Also guard `e.dataTransfer` before touching it in drag handlers — Firefox ignores the `dataTransfer` init-dict in `new DragEvent('dragstart', { dataTransfer })`, so it is `null` in synthetic events:
 
@@ -1878,4 +1897,4 @@ if (e.dataTransfer) {
 }
 ```
 
-(Extracted from the lists-merge-drag session)
+(Extracted from the lists-merge-drag session; mechanism re-validated against `remix` preview/main at the `ref-mixin` / `reconcile` references above.)

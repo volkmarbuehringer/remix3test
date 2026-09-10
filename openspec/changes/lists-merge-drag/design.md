@@ -53,7 +53,7 @@ A standalone sidebar entry could not flush the editor's pending edits, so it cou
 
 ### Flush before merge when source or target is loaded
 
-If either list is the currently-loaded (and dirty) list, the handler awaits `flushNow()` before the merge so the subsequent frame reload does not discard unsaved edits. When neither is loaded, the server rows are authoritative and no flush is needed.
+If either list is the currently-loaded (and dirty) list, the handler awaits `flushNow()` before the merge so the subsequent frame reload does not discard unsaved edits. When neither is loaded, the server rows are authoritative and no flush is needed. The `If-Match` precondition is resolved **after** the flush: saving the open list bumps its `updated_at`, so a snapshot taken before the flush would be rejected as stale. For the open list the live `loadedUpdatedAt` is used; for any other source, its server-rendered sidebar snapshot.
 
 ### Rows are draggable in server markup; inner controls are guarded
 
@@ -64,7 +64,7 @@ If either list is the currently-loaded (and dirty) list, the handler awaits `flu
 - **Native `<a>` drag hijacks the gesture** → Set an explicit `text/x-list-id` payload and `effectAllowed = 'copy'`; all handlers key on the custom type, and interactive children are guarded from starting a drag.
 - **Sidebar DOM is replaced on frame reload while a drag is in flight** → Re-init wiring on `reloadComplete` and abort prior listeners via `AbortController`; `dragend` always clears highlight, `dragKind`, and wiring.
 - **Repeated merges duplicate items** → By design (no dedupe); the confirmation names both lists and the item count so the user sees what will be appended.
-- **Stale source view** → Source `If-Match` yields `409` with the current source row, surfaced through the existing conflict banner path used by `move`.
+- **Stale source view** → Source `If-Match` yields `409` with the current source row. If the stale row *is* the open list, the existing conflict banner handles it (its reload/overwrite actions are bound to the loaded list). Otherwise the client must not reuse that banner — hydrating it would silently switch the editor to another list — so it refreshes the sidebar row's `data-updated-at` and asks the user to drag again.
 - **Two lists, one transaction** → Lock both rows in id order (as `moveItemBetweenLists` does) to avoid deadlocks; only the target is written.
 
 ## Migration Plan
