@@ -90,9 +90,9 @@ describe('admin agent-events panel: in-frame user toggle', () => {
   let originalDisabledAt: string | null = null
 
   before(async () => {
-    let rows = (await pool.query('SELECT disabled_at FROM users WHERE email = $1', [
-      'user@newapp.com',
-    ])).rows as { disabled_at: string | null }[]
+    let rows = (
+      await pool.query('SELECT disabled_at FROM users WHERE email = $1', ['user@newapp.com'])
+    ).rows as { disabled_at: string | null }[]
     originalDisabledAt = rows[0]?.disabled_at ?? null
   })
 
@@ -141,9 +141,13 @@ describe('admin agent-events panel: in-frame user toggle', () => {
 
     // The SSE pipeline navigates the panel frame to /admin/users?filter=...;
     // wait for the confirm gate (workflow suspended) and at least one toggle form.
-    await page.locator('#ae-confirm-gate').waitFor({ timeout: 20_000 })
+    // The suspended workflow resumes on the shared event loop, so this hop is the
+    // most contention-sensitive wait in the run: the suite now schedules enough
+    // parallel browser work (see the newer uploads/appointments e2e files) that
+    // 20s is marginal, and the assertion is about frame routing, not latency.
+    await page.locator('#ae-confirm-gate').waitFor({ timeout: 30_000 })
     let toggleForm = page.locator('[data-toggle-form]').first()
-    await toggleForm.waitFor({ timeout: 20_000 })
+    await toggleForm.waitFor({ timeout: 30_000 })
 
     // Activate/deactivate the user (PRG). With frameRedirects the redirect is
     // followed in-frame, so the host agent page must survive.
