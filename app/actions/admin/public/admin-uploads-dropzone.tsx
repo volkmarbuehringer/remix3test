@@ -4,17 +4,18 @@ import { theme } from '../../../ui/theme/theme.ts'
 
 // Inline-style objects. remix/ui `css()` mixins cannot be applied to elements
 // created at runtime (no frame render handle), so the dynamically-rendered
-// pending-file chips use plain styles instead. Token names come from the typed
-// `theme` object and are wrapped in `var()` here (same contract the `css()`
-// mixin uses) so the chips follow the active theme, including dark mode.
+// pending-file chips use plain styles instead. The typed `theme` tokens already
+// carry their `var()` wrapper, so assign them directly: wrapping them again
+// yields a doubly-wrapped reference, which the CSS parser drops and leaves the
+// chips unstyled.
 const chipStyle = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '6px',
   padding: '0.2rem 0.5rem',
   fontSize: '0.75rem',
-  background: `var(${theme.surface.lvl3})`,
-  border: `1px solid var(${theme.colors.border.default})`,
+  background: theme.surface.lvl3,
+  border: `1px solid ${theme.colors.border.default}`,
   borderRadius: '999px',
   whiteSpace: 'nowrap',
 } as const
@@ -26,7 +27,7 @@ const chipNameStyle = {
 } as const
 
 const chipSizeStyle = {
-  color: `var(${theme.colors.text.muted})`,
+  color: theme.colors.text.muted,
 } as const
 
 const chipRemoveStyle = {
@@ -39,7 +40,7 @@ const chipRemoveStyle = {
   border: 'none',
   borderRadius: '999px',
   background: 'transparent',
-  color: `var(${theme.colors.text.muted})`,
+  color: theme.colors.text.muted,
   cursor: 'pointer',
   fontWeight: 'bold',
   lineHeight: 1,
@@ -259,13 +260,23 @@ export const UploadDropzone = clientEntry(
             }
 
             // Drops outside the dropzone fall through to the browser, which would
-            // navigate away and open the file. Swallow them and say where the file
+            // navigate away and open the file. Cancel those and say where the file
             // should go instead.
-            function onDocumentDragOver(event: Event) {
-              event.preventDefault()
+            //
+            // Only drags that actually carry files are cancelled: cancelling
+            // `dragover` is what marks an element as a valid drop target, so
+            // doing it for every drag would also swallow unrelated native drops
+            // (e.g. dragging selected text into the search field).
+            function carriesFiles(event: DragEvent): boolean {
+              return Array.from(event.dataTransfer?.types ?? []).includes('Files')
             }
 
-            function onDocumentDrop(event: Event) {
+            function onDocumentDragOver(event: DragEvent) {
+              if (carriesFiles(event)) event.preventDefault()
+            }
+
+            function onDocumentDrop(event: DragEvent) {
+              if (!carriesFiles(event)) return
               event.preventDefault()
               let target = event.target as Node | null
               if (target && dropzone.contains(target)) return
