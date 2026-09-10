@@ -2,11 +2,13 @@ import type { RemixNode, Handle } from 'remix/ui'
 import { css, Frame } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
 import { theme } from '../ui/theme/theme.ts'
+import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { Layout } from './layout.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 import { NavLink } from './nav-link.tsx'
 import type { BaseNavItem } from './nav.ts'
+import { SidebarToggle } from './layout/sidebar-toggle.browser.tsx'
 
 // ── Flash banner styles (rendered in the sidebar shell for PRG messages) ─────
 
@@ -175,8 +177,12 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
       }
 
       return (
-        <div mix={[shellStyle, fullHeight && shellFullHeightStyle].filter(Boolean)}>
-          <aside mix={sidebarStyle}>
+        <div
+          mix={[shellStyle, shellResponsiveStyle, fullHeight && shellFullHeightStyle].filter(
+            Boolean,
+          )}
+        >
+          <aside id="sidebar-shell-nav" mix={[sidebarStyle, sidebarResponsiveStyle]}>
             <div mix={sidebarHeaderStyle}>
               <span mix={headerIconWrapStyle}>{headerIcon}</span>
               <span>{headerLabel}</span>
@@ -210,11 +216,21 @@ export function createSidebarLayout<ID extends string>(config: SidebarLayoutConf
             )}
           </aside>
           <section mix={[contentStyle, fullHeight && contentFullHeightStyle].filter(Boolean)}>
+            <button
+              id="sidebar-shell-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="sidebar-shell-nav"
+              mix={sidebarToggleStyle}
+            >
+              <Glyph name="menu" width={16} height={16} /> Bereiche
+            </button>
             {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
             {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
             <Breadcrumbs items={getBreadcrumbs(new URL(getContext().request.url).pathname)} />
             {children}
           </section>
+          <SidebarToggle />
         </div>
       )
     }
@@ -344,4 +360,44 @@ const shellFullHeightStyle = css({
  *  the available height (e.g. chat pages with `flex: 1; min-height: 0`). */
 const contentFullHeightStyle = css({
   height: '100%',
+})
+
+/** Collapses the shell to a single column on phones so the page content is not
+ *  squeezed into the sliver left over by the fixed 220px sidebar column. */
+const shellResponsiveStyle = css({
+  '@media (max-width: 768px)': {
+    gridTemplateColumns: 'minmax(0, 1fr)',
+    gap: theme.space.md,
+  },
+})
+
+/** On phones the sidebar is a drawer: hidden until the toggle opens it. */
+const sidebarResponsiveStyle = css({
+  '@media (max-width: 768px)': {
+    display: 'none',
+    position: 'static',
+    '&.is-open': {
+      display: 'block',
+    },
+  },
+})
+
+/** Phone-only button that opens the sidebar drawer. */
+const sidebarToggleStyle = css({
+  display: 'none',
+  '@media (max-width: 768px)': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.space.xs,
+    alignSelf: 'flex-start',
+    marginBottom: theme.space.sm,
+    padding: `${theme.space.xs} ${theme.space.sm}`,
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.md,
+    background: theme.surface.lvl2,
+    color: theme.colors.text.secondary,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    cursor: 'pointer',
+  },
 })

@@ -5,6 +5,7 @@ import { createSession } from 'remix/session'
 import { createSidebarLayout } from './sidebar-layout.tsx'
 import { renderAdminPage, AdminLayout } from './admin-layout.tsx'
 import { router } from '../test-router.ts'
+import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
 import { sessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase } from '../db.ts'
 import { pool } from '../data/test-pool.ts'
@@ -176,5 +177,39 @@ describe('Admin sidebar shell — flash messages', () => {
       html.includes('Shell success banner message'),
       'success flash should render in the admin sidebar shell',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Admin sidebar shell — phone layout
+// The shell collapses to a single column at <=768px and exposes a drawer toggle
+// instead of letting the fixed sidebar squeeze the page content.
+// ---------------------------------------------------------------------------
+
+describe('Admin sidebar shell — responsive layout', () => {
+  let cookie: string
+
+  before(async () => {
+    await initializeAppDatabase()
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    if (!auth?.cookie) throw new Error('Failed to create admin session')
+    cookie = auth.cookie
+  })
+
+  it('renders a phone-only sidebar toggle that controls the sidebar', async () => {
+    let response = await router.fetch(ADMIN_USERS_URL, {
+      headers: { Cookie: cookie, 'X-Remix-Target': 'admin-content' },
+    })
+
+    assert.equal(response.status, 200, 'should render the admin fragment')
+    let html = await response.text()
+    assert.ok(html.includes('id="sidebar-shell-nav"'), 'sidebar should have a stable id')
+    assert.ok(html.includes('id="sidebar-shell-toggle"'), 'phone toggle should render')
+    assert.ok(
+      html.includes('aria-controls="sidebar-shell-nav"'),
+      'toggle should control the sidebar',
+    )
+    assert.ok(html.includes('Bereiche'), 'toggle should be labelled')
+    assert.ok(html.includes('is-open'), 'sidebar drawer open rule should be in the stylesheet')
   })
 })

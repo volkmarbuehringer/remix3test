@@ -63,7 +63,7 @@ function gridOffset(raw: Record<string, string>): number {
 
 function gridSortColumn(raw: Record<string, string>): string {
   let col = raw._sort
-  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'created_at'
+  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'updated_at'
 }
 
 function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
@@ -101,14 +101,16 @@ async function loadGridData(
     if (hasMore) rows.pop()
     return { rows, hasMore }
   }
-  let rows = (await db.findMany(lists, {
-    limit,
-    offset: opts.offset,
-    orderBy: [
-      [opts.column as ListSortColumn, opts.direction],
-      ['id', 'desc'],
-    ] as const,
-  })).map(toListRow)
+  let rows = (
+    await db.findMany(lists, {
+      limit,
+      offset: opts.offset,
+      orderBy: [
+        [opts.column as ListSortColumn, opts.direction],
+        ['id', 'desc'],
+      ] as const,
+    })
+  ).map(toListRow)
   let hasMore = rows.length > opts.pageSize
   if (hasMore) rows.pop()
   return { rows, hasMore }
@@ -186,9 +188,11 @@ export default createController(routes.admin.lists, {
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
 
+      // Default to `updated_at DESC`: unlike `created_at` it is a visible
+      // column, so the active-sort arrow on first load matches the row order.
       let { column, direction } = parseSort(context.url, {
         allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'created_at',
+        defaultColumn: 'updated_at',
         defaultDirection: 'desc',
       })
 
@@ -273,6 +277,8 @@ export default createController(routes.admin.lists, {
         })
       }
 
+      context.session.flash('success', 'Liste erstellt.')
+
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       params.set('editing', String(row.id))
@@ -331,6 +337,8 @@ export default createController(routes.admin.lists, {
         })
       }
 
+      context.session.flash('success', 'Liste gespeichert.')
+
       let redirectState = gridStateFromForm(rawValues)
       let params = gridStateToParams(redirectState)
       let qs = params.toString()
@@ -373,6 +381,8 @@ export default createController(routes.admin.lists, {
           target_id: id,
         })
       }
+
+      context.session.flash('success', 'Liste gelöscht.')
 
       let params = gridStateToParams(gridStateFromFormData(formData))
       let qs = params.toString()

@@ -66,6 +66,12 @@ describe('Admin Lists Controller', () => {
     return session.get('error') as string | undefined
   }
 
+  async function readSuccessFlash(): Promise<string | undefined> {
+    let rawSid = (await sessionCookie.parse(adminCookie)) as string
+    let session = await sessionStorage.read(rawSid)
+    return session.get('success') as string | undefined
+  }
+
   describe('index (GET /admin/lists)', () => {
     it('returns 200 for admin users', async () => {
       let response = await router.fetch(LISTS_URL, {
@@ -113,6 +119,31 @@ describe('Admin Lists Controller', () => {
       assert.equal(response.status, 200)
       let text = await response.text()
       assert.ok(text.includes('Liste bearbeiten'))
+      assert.ok(
+        text.includes('data-dirty-form-guard'),
+        'edit panel should include the unsaved-changes guard',
+      )
+    })
+
+    it('defaults to updated_at descending so the active sort matches a visible column', async () => {
+      await insertList('Sort Row', 'test-admin-sort')
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(
+        text.includes('aria-sort="descending"'),
+        'default sort column should report aria-sort=descending',
+      )
+      assert.ok(
+        text.includes('sort=updated_at'),
+        'the visible Aktualisiert column should carry the default sort link',
+      )
+    })
+
+    it('gives the grid a min width so phones scroll full columns', async () => {
+      await insertList('Min Width Row', 'test-admin-minwidth')
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(text.includes('min-width: 840px'), 'table min-width style should be present')
     })
   })
 
@@ -160,6 +191,7 @@ describe('Admin Lists Controller', () => {
       assert.ok(location.includes('filter=garten'), 'grid state filter preserved')
       let row = await pool.query("SELECT id FROM lists WHERE title = 'Test List'")
       assert.ok(row.rows.length >= 1, 'list row should exist')
+      assert.equal(await readSuccessFlash(), 'Liste erstellt.', 'create should flash success')
     })
   })
 
@@ -205,6 +237,7 @@ describe('Admin Lists Controller', () => {
       let listVal: unknown = row.rows[0].list
       let items = typeof listVal === 'string' ? JSON.parse(listVal) : listVal
       assert.deepEqual(items, [{ id: 'a', label: 'Widget' }], 'items array must be preserved')
+      assert.equal(await readSuccessFlash(), 'Liste gespeichert.', 'update should flash success')
     })
 
     it('redirects with a flash error when updating a not-found row', async () => {
@@ -244,6 +277,7 @@ describe('Admin Lists Controller', () => {
       assert.ok(location.startsWith('/admin/lists'), 'delete should redirect to the grid')
       let row = await pool.query('SELECT id FROM lists WHERE id = $1', [id])
       assert.equal(row.rows.length, 0, 'list row should be deleted')
+      assert.equal(await readSuccessFlash(), 'Liste gelöscht.', 'delete should flash success')
     })
 
     it('redirects with a flash error for a non-existent list', async () => {

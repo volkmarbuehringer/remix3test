@@ -12,6 +12,7 @@ import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
+import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import type { ListRow } from '../data/admin-lists.ts'
 import {
@@ -150,6 +151,11 @@ const colDescWidth = css({ width: '200px' })
 const colUpdatedWidth = css({ width: '155px' })
 const colActionsWidth = css({ width: '120px' })
 
+// The wrap around the table scrolls horizontally (`table.wrap` sets
+// overflowX: auto). Without a min-width the fixed layout shrinks every column to
+// a few characters on a phone instead of letting the user scroll full columns.
+const listsTableMinWidthStyle = css({ minWidth: '840px' })
+
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
@@ -259,7 +265,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               )}
             </div>
           ) : (
-            <table mix={table.table}>
+            <table mix={[table.table, listsTableMinWidthStyle]}>
               <colgroup>
                 <col mix={css({ width: '60px' })} />
                 <col />
@@ -615,6 +621,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <DirtyFormGuard />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
@@ -716,6 +723,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
           novalidate
         >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <DirtyFormGuard />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
