@@ -1,6 +1,6 @@
 ---
 name: remix3-data-table-raw-sql-sort-filter
-description: "Use when a remix/data-table raw-SQL grid (sql/rawSql/db.exec — not db.findMany) needs sortable or filterable columns — whitelist column identifiers, build ORDER BY/WHERE from rawSql fragments, add an id tiebreaker, and widen pass-through optionals for exactOptionalPropertyTypes"
+description: "Use when a remix/data-table raw-SQL grid (`sql`/`rawSql`/`db.exec`, not `db.findMany`) needs sortable/filterable columns — whitelist identifiers, build ORDER BY/WHERE, add an id tiebreaker."
 metadata:
   origin: auto-extracted
 ---

@@ -1,6 +1,6 @@
 ---
 name: remix-headers
-description: Use typed HTTP header manipulation with `remix/headers`. Activate when parsing, modifying, or constructing HTTP headers with type safety — Cache-Control, Content-Type, Set-Cookie, Accept, Range, and more.
+description: "Use when parsing, modifying, or constructing HTTP headers in Remix — typed header manipulation with `remix/headers` (Cache-Control, Content-Type, Set-Cookie, Accept, Range)."
 ---
 
 # Remix HTTP Headers

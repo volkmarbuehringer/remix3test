@@ -1,6 +1,6 @@
 ---
 name: remix3-firefox-single-import-map
-description: 'Use when client entries (add item, hover reveal, drag, textarea hydration) break in Firefox but work in Chromium, or when Firefox logs "Multiple import maps are not allowed" — Firefox honors only the first import map, so the remix/ui runtime must load late client entries through remix/multiple-import-maps-polyfill'
+description: 'Use when client entries (add item, hover reveal, drag, textarea hydration) break in Firefox but work in Chromium, or Firefox logs "Multiple import maps are not allowed".'
 user-invocable: false
 origin: auto-extracted
 ---

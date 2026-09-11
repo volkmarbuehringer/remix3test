@@ -1,6 +1,6 @@
 ---
 name: remix-upstream-dependency-analysis
-description: "Check whether upstream changes to a branch-pinned GitHub dependency affect your project"
+description: "Use when a branch-pinned GitHub dependency may have upstream changes — check whether those changes affect your project."
 user-invocable: false
 origin: auto-extracted
 ---

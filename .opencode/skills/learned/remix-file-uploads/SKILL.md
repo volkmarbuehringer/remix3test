@@ -1,6 +1,6 @@
 ---
 name: remix-file-uploads
-description: Handle file uploads with streaming multipart parsing and pluggable storage backends. Activate when building upload endpoints, parsing multipart forms, or storing uploaded files locally, on S3, or in PostgreSQL bytea.
+description: Use when building upload endpoints or bulk downloads in Remix 3 — multipart parsing, fs/S3/bytea storage, the bytea upload-handler delta, and ZIP archives via node:zlib.
 ---
 
 # Remix File Uploads — PostgreSQL bytea Backend
@@ -180,6 +180,126 @@ export function uploadFormData(): Middleware<{ key: typeof FormData; value: Form
 
 Keep `maxFileSize` on `formData()`: it is your per-part **memory bound** (removing it lets the parser buffer an unbounded file → OOM). Enforce the product limit in the handler (return `void`); files over the `maxFileSize` cap surface through the wrapper's redirect.
 
+### 8. Bulk ZIP download without a dependency (`node:zlib`)
+
+Zipping usually means adding `archiver`/`jszip`. When you only need a simple archive (a handful of entries, deflate), `node:zlib`'s `deflateRawSync` is exactly what a ZIP entry stores — build the container by hand. The format is three concatenated regions:
+
+1. **Per entry**: a 30-byte local file header + filename + deflated data
+2. **Central directory**: one 46-byte header per entry (repeats filename/metadata + the local header offset)
+3. **End-of-central-directory record**: 22 bytes with entry count, CD size, and CD offset
+
+```ts
+import { deflateRawSync } from 'node:zlib'
+
+const UTF8_FLAG = 0x0800 // general-purpose bit 11: filename is UTF-8
+const DEFLATE_METHOD = 8
+const DOS_TIME = 0
+const DOS_DATE = 0x0021 // 1980-01-01, earliest representable DOS date
+
+const CRC_TABLE = (() => {
+  let table = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  return table
+})()
+
+// Reflected CRC-32: poly 0xedb88320, initial 0xffffffff, final XOR 0xffffffff.
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff
+  for (let i = 0; i < buffer.length; i++) crc = CRC_TABLE[(crc ^ buffer[i]!) & 0xff]! ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+export function buildZipArchive(entries: { filename: string; data: Buffer }[]): Buffer {
+  let localParts: Buffer[] = []
+  let centralParts: Buffer[] = []
+  let offset = 0
+
+  for (let entry of entries) {
+    let filename = Buffer.from(entry.filename, 'utf8')
+    let compressed = deflateRawSync(entry.data)
+    let crc = crc32(entry.data)
+
+    let localHeader = Buffer.alloc(30)
+    localHeader.writeUInt32LE(0x04034b50, 0) // local file header signature
+    localHeader.writeUInt16LE(20, 4)         // version needed
+    localHeader.writeUInt16LE(UTF8_FLAG, 6)
+    localHeader.writeUInt16LE(DEFLATE_METHOD, 8)
+    localHeader.writeUInt16LE(DOS_TIME, 10)
+    localHeader.writeUInt16LE(DOS_DATE, 12)
+    localHeader.writeUInt32LE(crc, 14)
+    localHeader.writeUInt32LE(compressed.length, 18)
+    localHeader.writeUInt32LE(entry.data.length, 22)
+    localHeader.writeUInt16LE(filename.length, 26)
+    localHeader.writeUInt16LE(0, 28) // extra field length
+    localParts.push(localHeader, filename, compressed)
+
+    let centralHeader = Buffer.alloc(46)
+    centralHeader.writeUInt32LE(0x02014b50, 0) // central directory signature
+    centralHeader.writeUInt16LE(0x031e, 4)     // version made by (Unix, 3.0)
+    centralHeader.writeUInt16LE(20, 6)         // version needed
+    centralHeader.writeUInt16LE(UTF8_FLAG, 8)
+    centralHeader.writeUInt16LE(DEFLATE_METHOD, 10)
+    centralHeader.writeUInt16LE(DOS_TIME, 12)
+    centralHeader.writeUInt16LE(DOS_DATE, 14)
+    centralHeader.writeUInt32LE(crc, 16)
+    centralHeader.writeUInt32LE(compressed.length, 20)
+    centralHeader.writeUInt32LE(entry.data.length, 24)
+    centralHeader.writeUInt16LE(filename.length, 28)
+    centralHeader.writeUInt16LE(0, 30) // extra field length
+    centralHeader.writeUInt16LE(0, 32) // file comment length
+    centralHeader.writeUInt16LE(0, 34) // disk number start
+    centralHeader.writeUInt16LE(0, 36) // internal attributes
+    centralHeader.writeUInt32LE(0, 38) // external attributes
+    centralHeader.writeUInt32LE(offset, 42) // local header offset
+    centralParts.push(centralHeader, filename)
+
+    offset += localHeader.length + filename.length + compressed.length
+  }
+
+  let centralDirectory = Buffer.concat(centralParts)
+  let centralOffset = offset
+
+  let endRecord = Buffer.alloc(22)
+  endRecord.writeUInt32LE(0x06054b50, 0) // end-of-central-directory signature
+  endRecord.writeUInt16LE(0, 4)          // disk number
+  endRecord.writeUInt16LE(0, 6)          // disk with central directory
+  endRecord.writeUInt16LE(entries.length, 8)  // entries on this disk
+  endRecord.writeUInt16LE(entries.length, 10) // total entries
+  endRecord.writeUInt32LE(centralDirectory.length, 12)
+  endRecord.writeUInt32LE(centralOffset, 16)
+  endRecord.writeUInt16LE(0, 20) // comment length
+
+  return Buffer.concat([...localParts, centralDirectory, endRecord])
+}
+```
+
+Serve it as an attachment response:
+
+```ts
+let headers = new SuperHeaders()
+headers.contentType = 'application/zip'
+headers.contentDisposition = { type: 'attachment', filename: 'uploads.zip' }
+headers.contentLength = archive.length
+return new Response(new Uint8Array(archive), { headers })
+```
+
+Verify against the real `unzip` tool (not just your own parser) before relying on it:
+
+```sh
+unzip -t out.zip   # "No errors detected in compressed data"
+```
+
+Gotchas:
+
+- **Duplicate entry names** are legal but confusing — when two files share a name, prefix the later one (e.g. `${id}-${filename}`).
+- **Non-ASCII filenames** need the UTF-8 flag (bit 11) set, or extractors mangle them.
+- **Sync `deflateRawSync` blocks the event loop** — fine for a handful of entries, but a size guard is prudent for many large files.
+- **Empty archive** is valid: just the 22-byte EOCD with `entries.length = 0`.
+
 ## References
 
 - `~/remix/packages/multipart-parser/README.md` — streaming parser, limits, low-level API
@@ -188,4 +308,5 @@ Keep `maxFileSize` on `formData()`: it is your per-part **memory bound** (removi
 - `~/remix/packages/file-storage-s3/README.md` — S3 backend
 - `~/remix/packages/form-data-middleware/README.md` — middleware that exposes `get(FormData)` in request context
 - `~/remix/demos/` — demo apps with upload examples
-- `remix-frame-binary-download` — serving binary downloads through Frame navigation
+- `remix3-frame-cliententry` (`references/frame-navigation.md`) — serving binary downloads through Frame navigation
+- `app/utils/zip.ts` (+ `app/utils/zip.test.ts`) — working `buildZipArchive` implementation in this repo

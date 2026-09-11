@@ -1,6 +1,6 @@
 ---
 name: native-select-flex-contain
-description: 'Contain native HTML select elements in flex layouts to prevent overflow from long option text'
+description: "Use when a native HTML `<select>` overflows a flex layout because of long option text — contain it so the flex item can shrink."
 user-invocable: false
 origin: auto-extracted
 ---

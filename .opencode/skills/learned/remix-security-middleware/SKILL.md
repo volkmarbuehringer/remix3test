@@ -1,6 +1,6 @@
 ---
 name: remix-security-middleware
-description: Protect Remix apps with CSRF tokens, CORS policies, and cross-origin protection. Activate when adding security middleware to your router stack.
+description: "Use when adding security middleware to a Remix router stack — CSRF tokens, CORS policies, and cross-origin protection."
 ---
 
 # Remix Security Middleware

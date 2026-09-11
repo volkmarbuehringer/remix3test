@@ -1,6 +1,6 @@
 ---
 name: ts7-order-sensitive-type-relations
-description: "TS7 recursive assignability flips on module ordering — verify identical inputs, then fix with exact-type (as unknown as) casts"
+description: "Use when TS7 recursive assignability flips with module ordering — verify identical inputs, then fix with exact-type (`as unknown as`) casts."
 user-invocable: false
 origin: auto-extracted
 ---

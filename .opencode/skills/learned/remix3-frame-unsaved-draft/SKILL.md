@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-unsaved-draft
-description: "Use when a Remix 3 frame-based editor has a 'create new' mode with no server id yet and navigating away would silently lose the typed content — beforeunload can't flush it (no id) and doesn't reliably prompt for frame navigations; persist a sessionStorage draft and restore it on the next new-record render."
+description: "Use when a Remix 3 frame-based editor's 'create new' mode has no server id and navigating away would silently lose typed content (beforeunload can't flush it) — persist a sessionStorage draft."
 metadata:
   origin: auto-extracted
 ---

@@ -1,6 +1,6 @@
 ---
 name: llm-classification-json-parsing
-description: "Robustly parse LLM intent/classification JSON: numeric coercion, tolerant extraction, safe fallback"
+description: "Use when parsing LLM intent/classification JSON — numeric coercion, tolerant extraction, and a safe fallback when the model emits malformed output."
 user-invocable: false
 origin: auto-extracted
 ---

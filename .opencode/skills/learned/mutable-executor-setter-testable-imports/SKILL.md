@@ -1,6 +1,6 @@
 ---
 name: mutable-executor-setter-testable-imports
-description: "Make ES module imports testable by storing references in a mutable variable with a setter function"
+description: "Use when making ES module imports testable — store the reference in a mutable variable with a setter so tests can substitute it."
 user-invocable: false
 origin: auto-extracted
 ---

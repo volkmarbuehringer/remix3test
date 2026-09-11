@@ -1,6 +1,6 @@
 ---
 name: remix3-hmr-dev-server
-description: "Wire and debug the Remix 3 node-hmr dev server — fingerprint/watch conflict, IPv6 loopback, ready-gate wedge, orphan guard"
+description: "Use when wiring or debugging the Remix 3 `node-hmr` dev server — fingerprint/watch conflict, IPv6 loopback, ready-gate wedge, orphan guard."
 user-invocable: false
 origin: auto-extracted
 ---

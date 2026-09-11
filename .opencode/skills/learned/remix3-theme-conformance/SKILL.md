@@ -1,6 +1,6 @@
 ---
 name: remix3-theme-conformance
-description: 'Style through the typed theme object (theme.<group>.<token>), not raw var(--rmx-...) strings or hardcoded hex — bare variable names and missing tokens silently break dark mode'
+description: "Use when styling a remix3 app — go through the typed theme object (`theme.<group>.<token>`); raw `var(--rmx-...)` strings and bare variable names silently break dark mode."
 origin: consolidated
 ---
 

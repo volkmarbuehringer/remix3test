@@ -1,6 +1,6 @@
 ---
 name: remix3-session-flash-frames
-description: "Use when a session.flash PRG message never appears inside a Remix 3 frame fragment (sidebar shell or an isFrame/X-Remix-Target fragment branch), or when a test asserting a session.flash value reads an empty session — flash is rendered only by the top-level Layout (fragments need their own banner), and reading it in tests requires parsing the signed session cookie."
+description: "Use when a `session.flash` PRG message never appears inside a Remix 3 frame fragment, or a test reading `session.flash` sees an empty session — flash renders only in the top-level Layout."
 metadata:
   origin: auto-extracted
 ---

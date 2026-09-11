@@ -1,6 +1,6 @@
 ---
 name: agent-guidance
-description: 'Agent interaction guidance — render ask_user/confirm options as inline action buttons, and specify exact output format templates in agent instructions'
+description: "Use when writing agent instructions or ask_user/confirm UI — render confirm options as inline action buttons and specify exact output-format templates."
 origin: consolidated
 ---
 
@@ -151,4 +151,4 @@ Apply this pattern to:
 
 - `mastra-agent` — SSE streaming transport that delivers `question` events to the chat UI
 - `mastra-tools` — tool design patterns (param self-lookup, single-job separation) that feed data into agent responses
-- `agent-instruction-output-formatting` covered in Part 2 above
+- Output-format instruction templates — covered in Part 2 above.

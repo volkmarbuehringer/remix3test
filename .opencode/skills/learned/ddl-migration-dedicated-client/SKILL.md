@@ -1,6 +1,6 @@
 ---
 name: ddl-migration-dedicated-client
-description: "Run DDL migrations on a dedicated pg.Client, not the shared pool, to avoid timeout and lock-contention issues"
+description: "Use when running DDL migrations on the shared pg pool (timeouts, lock contention) — run them on a dedicated pg.Client instead."
 user-invocable: false
 origin: auto-extracted
 ---

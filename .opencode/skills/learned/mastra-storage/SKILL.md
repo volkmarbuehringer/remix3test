@@ -1,6 +1,6 @@
 ---
 name: mastra-storage
-description: 'Mastra storage and observability — PostgresStore-backed observability without DuckDB, and using the storage API instead of raw SQL for side-effect cleanup'
+description: "Use when wiring Mastra storage/observability — PostgresStore-backed observability without DuckDB, and using the storage API instead of raw SQL for side-effect cleanup."
 origin: consolidated
 ---
 

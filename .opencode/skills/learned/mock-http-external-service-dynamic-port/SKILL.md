@@ -1,6 +1,6 @@
 ---
 name: mock-http-external-service-dynamic-port
-description: 'Mock external HTTP services in Remix 3 tests using node:http on port 0 with function-wrapped env vars'
+description: "Use when mocking an external HTTP service in Remix 3 tests — node:http on port 0 with function-wrapped env vars for the dynamic URL."
 user-invocable: false
 origin: auto-extracted
 ---

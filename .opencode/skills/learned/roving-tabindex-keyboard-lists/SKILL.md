@@ -1,6 +1,6 @@
 ---
 name: roving-tabindex-keyboard-lists
-description: "Keyboard-navigable lists: roving tabindex with bubbled-event guard, focus-by-id reorder, and safe listener re-init"
+description: "Use when building keyboard-navigable lists — roving tabindex with a bubbled-event guard, focus-by-id reorder, and safe listener re-init."
 user-invocable: false
 origin: auto-extracted
 ---

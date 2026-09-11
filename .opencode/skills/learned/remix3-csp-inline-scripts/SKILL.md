@@ -1,6 +1,6 @@
 ---
 name: remix3-csp-inline-scripts
-description: 'Use CSP nonces for inline scripts in Remix 3 to avoid blocking and escapeTextContent escaping'
+description: "Use when inline scripts are blocked by CSP in Remix 3, or `escapeTextContent` mangles the nonce — use CSP nonces for inline scripts."
 user-invocable: false
 origin: auto-extracted
 ---

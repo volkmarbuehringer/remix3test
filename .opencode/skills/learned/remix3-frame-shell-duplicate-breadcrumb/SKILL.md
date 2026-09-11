@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-shell-duplicate-breadcrumb
-description: "Use when a Remix 3 frame-shell page (a route with its own sidebar/custom layout) shows the breadcrumb twice on a full GET, or when adding a new frame-shell route the page name appears as two headings — the top-level Layout wraps every non-/admin//ai path in a breadcrumb while the shell renders its own, so register the new route there."
+description: "Use when a Remix 3 frame-shell page shows the breadcrumb (or page name) twice on a full GET, or a new frame-shell route appears as two headings — the top-level Layout also renders one."
 metadata:
   origin: auto-extracted
 ---

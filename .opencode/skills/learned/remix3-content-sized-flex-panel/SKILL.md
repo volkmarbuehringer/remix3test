@@ -1,6 +1,6 @@
 ---
 name: remix3-content-sized-flex-panel
-description: "Use when a Remix 3 flex-column panel/card collapses to just its header after you make it content-sized (remove flex:1, or cap with max-height to center it) in a bounded full-height shell, or when flex:1 (flex-basis:0) children stop contributing to a container's natural height — switch them to flex:1 1 auto so content sizes the panel while the inner list still shrinks/scrolls"
+description: "Use when a content-sized Remix 3 flex-column panel/card collapses to its header, or a bounded full-height shell under-sizes — `flex:1` (basis 0) children stop contributing height."
 metadata:
   origin: auto-extracted
 ---

@@ -1,6 +1,6 @@
 ---
 name: remix3-raw-sql-wire-honest-rows
-description: "Decode remix/data-table db.exec results with wire-honest zod schemas (int4→number, int8→string, aggregates coerced) instead of force-casting to drifting row interfaces"
+description: "Use when decoding `db.exec` results in remix/data-table — use wire-honest zod schemas (int4→number, int8→string, aggregates coerced), not force-casts to row interfaces."
 user-invocable: false
 origin: auto-extracted
 ---

@@ -1,12 +1,13 @@
 ---
 name: remix3-data-table-array-in-clause
-description: 'Query by multiple IDs with db.findMany({ where: inList("id", ids) }) — the vendor array operator — falling back to db.exec = ANY($1) only for order-preserving results'
+description: "Use when querying by multiple IDs in remix/data-table — prefer `db.findMany({ where: inList('id', ids) })`; fall back to `db.exec = ANY($1)` only to preserve order."
 origin: auto-extracted
 ---
 
 # Remix Data-Table: Array `IN` Clauses
 
 **Extracted:** 2026-07-13
+**Revalidated:** 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/data-table` d7eb6b18).
 **Context:** Querying rows by multiple IDs using `@remix-run/data-table`'s `db.findMany`
 
 ## Problem
@@ -16,6 +17,8 @@ Passing an array of IDs to `db.findMany({ where: { id: [1, 2, 3] } })` produces 
 ```
 error: ungültige Eingabesyntax für Typ integer: »{"1","2","3"}«
 ```
+
+**Root cause (still true on rc.2):** `normalizeWhereInput` (`@remix-run/data-table/src/lib/operators.ts:358`) expands a `WhereObject` by calling `eq(column, value)` for each key, so `{ id: [1, 2, 3] }` becomes `eq('id', [1, 2, 3])` — a single `=` comparison whose value happens to be an array. Use the `inList()` predicate instead.
 
 ## Solution (primary): `inList()` operator — now vendor-covered
 

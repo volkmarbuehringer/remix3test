@@ -1,6 +1,6 @@
 ---
 name: remix3-full-height-page-in-sidebar-shell
-description: 'Fill available height in a Remix 3 admin sidebar shell with config-gated shell styles, not height: 100vh'
+description: "Use when filling the available height in a Remix 3 admin sidebar shell — use config-gated shell styles, not `height: 100vh`."
 origin: auto-extracted
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: remix3-typesafe-url-audit
-description: "Find and convert hardcoded URL strings to the typed routes tree — grep patterns, form/param route hrefs, and test-fixture exclusions"
+description: "Use when converting hardcoded URL strings to the typed Remix 3 routes tree — grep patterns, form/param route hrefs, test-fixture exclusions."
 origin: auto-extracted
 ---
 

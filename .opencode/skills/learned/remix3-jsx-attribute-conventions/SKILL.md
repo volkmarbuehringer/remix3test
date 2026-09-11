@@ -1,6 +1,6 @@
 ---
 name: remix3-jsx-attribute-conventions
-description: 'Remix 3 remix/ui JSX passes attributes through verbatim — use kebab-case for SVG, and verify runtime attribute renames (rmx-* → data-rmx-*) at the runtime layer, not tsc/render tests'
+description: "Use when writing Remix 3 `remix/ui` JSX — attributes pass through verbatim (use kebab-case for SVG), and runtime renames (`rmx-*` → `data-rmx-*`) must be verified at runtime, not tsc."
 origin: consolidated
 ---
 

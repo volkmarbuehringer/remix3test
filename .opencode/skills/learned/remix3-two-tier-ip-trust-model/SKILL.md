@@ -1,6 +1,6 @@
 ---
 name: remix3-two-tier-ip-trust-model
-description: 'Two-tier IP source model for Remix 3: trusted TCP socket IP for auth, header fallback chain for logging; trustProxy must stay false without a stripping reverse proxy'
+description: "Use when handling client IPs in Remix 3 — use the trusted TCP socket IP for auth and a header fallback chain for logging; keep `trustProxy: false` without a stripping proxy."
 user-invocable: false
 origin: auto-extracted
 ---
@@ -8,6 +8,7 @@ origin: auto-extracted
 # Remix 3 Two-Tier IP Trust Model
 
 **Extracted:** 2026-06-26
+**Revalidated:** 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/node-fetch-server` d7eb6b18, `src/lib/request-listener.ts:440`).
 **Context:** Remix 3 apps where client IP is used for both security-critical checks (localhost guards, rate limiting) and audit logging.
 
 ## Problem
@@ -21,7 +22,7 @@ Use **two tiers** of IP resolution with separate functions:
 ### Tier 1: Trusted (security-critical)
 
 ```ts
-// lib/request-ip.ts
+// app/utils/request-ip.ts
 export function connectionIp(request: Request): string {
   return request.headers.get('X-Client-Ip') ?? ''
 }
@@ -31,18 +32,17 @@ export function isLocalhost(ip: string): boolean {
 }
 ```
 
-The `X-Client-Ip` header is set by `server.ts` from the actual TCP socket — it **cannot** be spoofed:
+The `X-Client-Ip` header is set by `server.ts` from the TCP socket — it is unspoofable **only while `trustProxy: false`** (see the CRITICAL section below — with `trustProxy: true` the framework derives `client.address` from the spoofable `Forwarded`/`X-Forwarded-For` headers instead):
 
 ```ts
 // server.ts
 const handler = createRequestListener(
   async (request, client) => {
-    if (client?.address) {
-      request.headers.set('X-Client-Ip', client.address)
-    }
+    // Always set() so a client-supplied X-Client-Ip is overwritten.
+    request.headers.set('X-Client-Ip', client?.address ?? '')
     return await router.fetch(request)
   },
-  { trustProxy: true },
+  { trustProxy: false },
 )
 ```
 
@@ -55,7 +55,7 @@ Use `connectionIp()` for security decisions:
 ### Tier 2: Untrusted (informational)
 
 ```ts
-// lib/request-ip.ts
+// app/utils/request-ip.ts
 export function sourceIp(request: Request): string {
   return (
     request.headers.get('X-Client-Ip') ??
@@ -75,12 +75,12 @@ Use `sourceIp()` for non-security purposes:
 
 ### Why Not `X-Forwarded-For`?
 
-| Source                           | Spoofable | Use Case           |
-| -------------------------------- | --------- | ------------------ |
-| `client.address` (TCP socket)    | No        | Security decisions |
-| `X-Client-Ip` (set by server.ts) | No        | Security decisions |
-| `X-Forwarded-For`                | Yes       | Audit logging only |
-| `X-Real-Ip`                      | Yes       | Audit logging only |
+| Source                                            | Spoofable              | Use Case           |
+| ------------------------------------------------- | ---------------------- | ------------------ |
+| `client.address` (TCP socket, `trustProxy: false`) | No                     | Security decisions |
+| `X-Client-Ip` (`trustProxy: false`, always `set`)  | No                     | Security decisions |
+| `client.address` (`trustProxy: true`)              | Yes — from forwarded headers | Never for auth |
+| `X-Forwarded-For` / `X-Real-Ip`                   | Yes                    | Audit logging only |
 
 ## CRITICAL: `trustProxy` Determines Whether `X-Client-Ip` Is Spoofable
 

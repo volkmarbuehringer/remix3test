@@ -1,6 +1,6 @@
 ---
 name: typescript-eventbus-bfs-async-generator
-description: "Typed event bus using TypeScript discriminated unions, async generator BFS, and depth-limit cycle detection"
+description: "Use when building a typed event bus with breadth-first traversal — TypeScript discriminated unions, async generator BFS, and depth-limit cycle detection."
 user-invocable: false
 origin: auto-extracted
 ---

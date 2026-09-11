@@ -1,6 +1,6 @@
 ---
 name: remix-database-errors
-description: PostgreSQL constraint violation handling for Remix 3 admin controllers. Activate when catching DB errors in try/catch blocks, handling foreign key or restrict violations, or converting JSON error responses to page re-renders.
+description: Use when catching PostgreSQL constraint violations (foreign key, restrict) in Remix 3 admin controllers, or converting DB error responses into page re-renders.
 ---
 
 # Remix Database Errors — Constraint Violations

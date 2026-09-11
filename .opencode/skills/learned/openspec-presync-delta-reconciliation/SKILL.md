@@ -1,6 +1,6 @@
 ---
 name: openspec-presync-delta-reconciliation
-description: 'Reconcile delta specs with actual implementation before syncing to main specs to prevent stale documentation'
+description: "Use when syncing OpenSpec delta specs to main specs — reconcile the delta with the actual implementation first, or the docs land stale."
 user-invocable: false
 origin: auto-extracted
 ---

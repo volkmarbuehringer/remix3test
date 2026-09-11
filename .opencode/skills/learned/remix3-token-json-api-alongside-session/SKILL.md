@@ -1,6 +1,6 @@
 ---
 name: remix3-token-json-api-alongside-session
-description: 'Add Bearer-token JSON API endpoints alongside session-authenticated routes in Remix 3, reusing backend logic.'
+description: "Use when adding a Bearer-token JSON API alongside session-authenticated Remix 3 routes — reuse the backend logic instead of duplicating it."
 user-invocable: false
 origin: auto-extracted
 ---

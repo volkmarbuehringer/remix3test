@@ -1,6 +1,6 @@
 ---
 name: remix3-bounded-scroll-flexchain
-description: "Use when a viewport-bounded Remix 3 page's inner list/sidebar won't scroll, or when a flex:1 child is clipped by an overflow:hidden wrapper that is display:block, or a full-height page shows fewer items than the configured page size — the flex chain needs min-height:0 at every level"
+description: "Use when a viewport-bounded Remix 3 page's inner list/sidebar won't scroll, a `flex:1` child is clipped by `overflow:hidden`+`display:block`, or a full-height page shows fewer items than the page size."
 metadata:
   origin: auto-extracted
 ---

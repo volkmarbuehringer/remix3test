@@ -1,6 +1,6 @@
 ---
 name: postgres-gotchas
-description: 'PostgreSQL gotchas — idempotent FK constraint alterations, LIMIT without ORDER BY, locale-dependent error message matching in JS libraries, and node-postgres returning BIGINT/int8 columns as strings'
+description: "Use when hitting PostgreSQL quirks — idempotent FK alterations, `LIMIT` without `ORDER BY`, locale-dependent error matching in JS, and node-postgres returning int8 as strings."
 user-invocable: false
 origin: consolidated
 ---

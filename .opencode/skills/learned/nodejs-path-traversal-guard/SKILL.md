@@ -1,6 +1,6 @@
 ---
 name: nodejs-path-traversal-guard
-description: "Correct path traversal guard using path.relative instead of startsWith"
+description: "Use when implementing a path traversal guard — use `path.relative`, not `startsWith`, or sibling-prefix paths bypass it."
 user-invocable: false
 origin: auto-extracted
 ---

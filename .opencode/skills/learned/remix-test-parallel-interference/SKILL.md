@@ -1,6 +1,6 @@
 ---
 name: remix-test-parallel-interference
-description: "Ephemeral test DBs don't eliminate within-run parallel pagination interference"
+description: "Use when parallel Remix tests interfere with each other despite ephemeral test DBs — ephemeral DBs don't fix within-run pagination interference."
 user-invocable: false
 origin: auto-extracted
 ---

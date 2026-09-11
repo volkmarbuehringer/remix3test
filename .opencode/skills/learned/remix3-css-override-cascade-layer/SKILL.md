@@ -1,6 +1,6 @@
 ---
 name: remix3-css-override-cascade-layer
-description: "Use when a `css()` override in a remix/remix-ui app silently does nothing — a nested `& button`/`& > *` rule that restyles a vendor or app component keeps losing (double borders, wrong divider colour, missing square corners) while sibling rules in the same block do apply. Remix UI emits every `css()` rule in its own `@layer rmx.<class>` sub-layer, where the last-registered sub-layer wins regardless of specificity; put the override on the target element itself after the mixin and mark contested properties `!important`, or re-render the markup with app styles instead of restyling."
+description: "Use when a remix/remix-ui `css()` override silently loses (double borders, wrong divider colour, `& > *` rules ignored) while siblings apply — rules live in per-class `@layer rmx.*` sub-layers."
 metadata:
   origin: auto-extracted
 ---

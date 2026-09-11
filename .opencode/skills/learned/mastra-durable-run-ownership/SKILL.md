@@ -1,6 +1,6 @@
 ---
 name: mastra-durable-run-ownership
-description: "Use when an agent-run feature gates approve/decline/answer by who owns the run, when a Mastra suspend/resume flow breaks after a server restart or scale-out, or when a follow-up approve/answer on a re-suspended run returns 403 — persist a durable run→owner pointer instead of an in-memory Map."
+description: "Use when approve/decline/answer gating breaks after a Mastra suspend/resume across a server restart or scale-out, or a follow-up on a re-suspended run returns 403 — persist a durable run→owner pointer."
 metadata:
   origin: auto-extracted
 ---

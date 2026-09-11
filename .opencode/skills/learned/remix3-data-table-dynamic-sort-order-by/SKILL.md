@@ -1,6 +1,6 @@
 ---
 name: remix3-data-table-dynamic-sort-order-by
-description: 'db.findMany({ orderBy }) rejects a dynamic sort column typed as string with TS2322 OrderByTuple — narrow the column to a SORTABLE_FIELDS union and cast it in the orderBy tuple'
+description: "Use when `db.findMany({ orderBy })` rejects a dynamic sort column with TS2322 OrderByTuple — narrow the column to a `SORTABLE_FIELDS` union and cast it."
 origin: auto-extracted
 ---
 

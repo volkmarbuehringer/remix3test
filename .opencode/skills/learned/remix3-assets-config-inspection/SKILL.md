@@ -1,6 +1,6 @@
 ---
 name: remix3-assets-config-inspection
-description: "Make remix.json the single source of truth for the asset server: loadConfig(import.meta.dirname) + spread config.assets, then add runtime-only options in code. Debug with `remix assets` / `remix assets inspect`. Version-pinned gotcha: the assets parser is strict and accepts `mounts` (fileMap removed — the README and parser agree); `mounts` recurses under each root, defaults to `{ app: 'app', npm: 'node_modules' }`, and denyFiles stays scoped to app/** so package-internal test files remain reachable."
+description: "Use when making `remix.json` the asset-server source of truth (`loadConfig` + spread `config.assets`) or debugging with `remix assets`/`remix assets inspect` — plus the `mounts`/`denyFiles` parser gotchas."
 user-invocable: false
 origin: auto-extracted
 ---

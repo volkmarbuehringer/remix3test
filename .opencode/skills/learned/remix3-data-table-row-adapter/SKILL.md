@@ -1,6 +1,6 @@
 ---
 name: remix3-data-table-row-adapter
-description: "Use when remix/data-table typed queries (db.findMany/db.findOne/db.create returnRow) won't assign to a concrete UI row type because json/bigint columns are typed unknown, or when a data-module row type and a UI row type for one entity drift apart — consolidate to one canonical row interface and narrow unknown columns at a single toXxxRow adapter instead of as-unknown-as casts"
+description: "Use when remix/data-table query results (`db.findMany`/`findOne`/`create`) won't assign to a UI row type because json/bigint columns are `unknown`, or a data row type and UI row type drift apart."
 metadata:
   origin: auto-extracted
 ---

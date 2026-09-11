@@ -1,6 +1,6 @@
 ---
 name: js-array-spread-argument-limit
-description: "Spreading arrays >~65k elements throws 'Maximum call stack size exceeded' — use a loop or concat"
+description: "Use when spreading a large array (>~65k elements) throws 'Maximum call stack size exceeded' — use a loop or concat instead."
 user-invocable: false
 origin: auto-extracted
 ---

@@ -1,6 +1,6 @@
 ---
 name: remix3-textarea-bulk-clear-wipe
-description: "Remix 3 textarea with unchanged defaultValue/value loses its content on re-diff — diffChildren's bulk-clear fast path wipes prop-owned text content; render textarea content as children (as never) to keep it tracked"
+description: "Use when a Remix 3 textarea with an unchanged `defaultValue`/`value` loses its content on re-diff — render the text content as children (`as never`) so it stays tracked."
 origin: manual
 ---
 

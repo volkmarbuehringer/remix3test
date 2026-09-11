@@ -1,6 +1,6 @@
 ---
 name: remix-cli-devops
-description: Use the `remix` CLI for project scaffolding, testing, diagnostics, and TypeScript/JSX loading with `node-tsx`. Activate when running CLI commands, setting up Node.js module loaders, or debugging project health.
+description: "Use when running the `remix` CLI (scaffold, test, doctor, routes) or setting up Node.js module loaders/TypeScript-JSX loading with `node-tsx`."
 ---
 
 # Remix CLI and DevOps

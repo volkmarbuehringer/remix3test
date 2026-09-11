@@ -1,6 +1,6 @@
 ---
 name: data-table-migration-drift-recovery
-description: "Recover from data-table migration checksum drift and orphaned journal entries that break app startup"
+description: "Use when app startup breaks on data-table migration checksum drift or orphaned journal entries — recover the migration state."
 user-invocable: false
 origin: auto-extracted
 ---

@@ -1,6 +1,6 @@
 ---
 name: remix3-theme-glyph-add
-description: "Use when a remix3 screen needs an icon that isn't in the theme glyph set, or when adding a Glyph name<...> trips a TS2339/TS2741 'GlyphValues' missing-property error — the glyph contract (glyphNames) and the rmx-01 preset (glyphValues) must be edited in sync, and each name's symbol id is auto-derived as rmx-glyph-<name>"
+description: "Use when a remix3 screen needs an icon missing from the theme glyph set, or adding `Glyph name<...>` trips a TS2339/TS2741 'GlyphValues' error — the contract and preset must be edited in sync."
 metadata:
   origin: auto-extracted
 ---

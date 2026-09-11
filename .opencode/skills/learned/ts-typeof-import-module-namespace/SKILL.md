@@ -1,6 +1,6 @@
 ---
 name: ts-typeof-import-module-namespace
-description: "oxlint consistent-type-imports forbids typeof import(); use import type * as M + typeof M, and don't annotate with the namespace"
+description: "Use when oxlint `consistent-type-imports` rejects `typeof import()` — use `import type * as M` + `typeof M` and don't annotate with the namespace."
 user-invocable: false
 origin: auto-extracted
 ---

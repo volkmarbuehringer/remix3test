@@ -1,6 +1,6 @@
 ---
 name: remix3-browser-source-public-colocation
-description: "Colocate Remix 3 browser source in <route>/public/ — and the two traps: git mv breaks internal ./ and ../ sibling imports, and allowFiles must keep app/ui/** broad when public/ components import shared ui/ helpers."
+description: "Use when colocating Remix 3 browser source in `<route>/public/` — `git mv` breaks sibling `./`/`../` imports and `allowFiles` must keep `app/ui/**` broad."
 user-invocable: false
 origin: auto-extracted
 ---

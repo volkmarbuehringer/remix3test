@@ -1,6 +1,6 @@
 ---
 name: remix3-css-hover-reveal
-description: "Use when a hover-reveal (row action buttons, delete, tooltip) isn't appearing in a remix/remix-ui app, or when `&:hover > *` / `&:hover [attr]` in `css()` silently does nothing — the remix-ui css() runtime won't generate parent→child reveal selectors under `:hover`; toggle inline opacity from a small clientEntry instead."
+description: "Use when a hover-reveal (row actions, delete, tooltip) isn't appearing in remix/remix-ui, or `&:hover > *`/`&:hover [attr]` in `css()` does nothing — the runtime won't emit parent→child reveal selectors."
 metadata:
   origin: auto-extracted
 ---

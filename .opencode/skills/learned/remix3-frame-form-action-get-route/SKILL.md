@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-form-action-get-route
-description: "When a frame-targeted form posts to /resource/:id and the frame then GETs /resource/:id (404, no GET :id route), add a get('/:id') that renders the edit page. On standalone pages a racing SSE invalidate-reload of the committed action path crashes with Node.insertBefore instead — same fix: make the action path a valid GET."
+description: "Use when a frame-targeted form POSTs to a URL with no GET handler (frame then GETs it → 404), or a racing SSE invalidate-reload crashes with `Node.insertBefore` — make the action path a valid GET."
 metadata:
   origin: auto-extracted
 ---

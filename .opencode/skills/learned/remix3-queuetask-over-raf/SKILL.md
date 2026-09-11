@@ -1,6 +1,6 @@
 ---
 name: remix3-queuetask-over-raf
-description: "In Remix 3 Frames, prefer handle.queueTask() over requestAnimationFrame for DOM ops that must run after a re-render (focus, scroll, measure); keep ref callbacks for self-focus-on-mount"
+description: "Use when a Remix 3 Frame DOM op must run after a re-render (focus, scroll, measure) — prefer `handle.queueTask()` over `requestAnimationFrame`; keep ref callbacks for self-focus."
 origin: manual
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: remix3-standalone-route-admin-sidebar
-description: 'Add standalone routes to Remix 3 admin sidebar with SSE auth (401, not redirect) and iframeNav: false'
+description: "Use when adding a standalone route to the Remix 3 admin sidebar — SSE auth returns 401 (not a redirect) and set `iframeNav: false`."
 origin: auto-extracted
 ---
 

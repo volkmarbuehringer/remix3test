@@ -1,6 +1,6 @@
 ---
 name: remix-route-relocation
-description: Relocate Remix 3 routes between route trees — moving from admin frame-sidebar to top-level, frame to full-page, upgrading form validation from error-redirect to parseSafe + context.render, or deleting a route with a full frame-reference sweep. Use when moving a route out of a frame layout, upgrading form error handling, or removing a route entirely.
+description: Use when moving a Remix 3 route between route trees (admin frame-sidebar ↔ top-level, frame ↔ full-page), upgrading form validation to parseSafe + context.render, or deleting a route.
 ---
 
 # Remix 3 Route Relocation & Form Validation Upgrade

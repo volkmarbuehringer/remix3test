@@ -1,6 +1,6 @@
 ---
 name: rate-limiter-pitfalls
-description: 'Two rate limiter gotchas: default maxAttempts=1 blocks multi-step flows, and windowMs=0 silently blocks same-ms requests'
+description: "Use when a rate limiter blocks unexpectedly — default `maxAttempts=1` breaks multi-step flows and `windowMs=0` silently blocks same-ms requests."
 origin: consolidated
 ---
 

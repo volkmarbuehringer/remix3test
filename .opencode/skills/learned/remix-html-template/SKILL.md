@@ -1,6 +1,6 @@
 ---
 name: remix-html-template
-description: Use `remix/html-template` for safe HTML template literals with automatic XSS escaping. Activate when generating HTML strings outside the component system — RSS feeds, email bodies, error pages, or inline HTML fragments.
+description: "Use when generating HTML strings outside the component system (RSS, email, error pages) — `remix/html-template` gives safe literals with automatic XSS escaping."
 ---
 
 # Remix HTML Template
