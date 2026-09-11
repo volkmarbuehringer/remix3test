@@ -18,7 +18,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | Form interception in frames (post-#11668), `resolveFrame`, frame direct render, `data-rmx-document`/`data-rmx-history`, nested-frame PRG redirects | `references/frame-navigation.md` |
 | `clientEntry` cascade limits, `mounted` guards after reload, reload-driven data loading, global document listeners, SSR-safety/authoring constraints | `references/cliententry-lifecycle.md` |
 | Styling clientEntry children, joined button groups, inline-edit table cells, `on` mixin hydration, drag-and-drop, fragment scrolling | `references/cliententry-dom-and-styling.md` |
-| Frame target registration/content-only panels, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests | `references/frame-layout-and-testing.md` |
+| Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests | `references/frame-layout-and-testing.md` |
 
 - `references/frame-navigation.md` — the frame navigation/forms contract and escape hatches.
 - `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps.

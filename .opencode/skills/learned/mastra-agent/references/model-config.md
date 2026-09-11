@@ -27,7 +27,7 @@ Use Mastra's inline model config object instead of a model instance. Mastra reso
 export const agent = new Agent({
   model: {
     providerId: 'opencode-go',
-    modelId: 'deepseek-v4-flash',
+    modelId: 'deepseek-v4.1-flash',
     url: 'https://opencode.ai/zen/go/v1',
     apiKey: process.env.OPENCODE_API_KEY, // undefined is fine at import time
   },
@@ -38,7 +38,7 @@ export const agent = new Agent({
 The inline config works with any OpenAI-compatible provider. Supported fields:
 
 - `providerId` — Provider identifier (matches the `name` in `createOpenAICompatible`)
-- `modelId` — Model name (e.g. `deepseek-v4-flash`, `gpt-4o`)
+- `modelId` — Model name (e.g. `deepseek-v4.1-flash`, `gpt-4o`). OpenCode Go publishes several DeepSeek ids (`deepseek-v4.1-flash`, `deepseek-v4-flash`, `deepseek-v4-pro`) as *separate* models with separate monthly usage limits — changing the id here also means changing the `provider.opencode-go.models` key in `opencode.json`.
 - `url` — Base URL for the API endpoint
 - `apiKey` — API key (can be `undefined`; only fails when the agent is actually used)
 - `headers` — Additional HTTP headers merged into every outbound request (e.g. `{ 'X-Opencode-Session': '<stable-id>' }`, canonical PascalCase per the `remix-headers` lint rule; HTTP header names are case-insensitive on the wire); Mastra merges them with its own `User-Agent: mastra/<version>` and per-run memory headers (`x-thread-id`, `x-resource-id`)

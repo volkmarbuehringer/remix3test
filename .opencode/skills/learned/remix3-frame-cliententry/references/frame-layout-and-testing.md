@@ -81,6 +81,43 @@ If an action navigates the panel AND then continues streaming a workflow result 
 
 Use when embedding a nested `<Frame>` (panel) inside a page that already renders a sidebar layout, after changing a frame's `name`/`data-active-frame`/SSE navigate `target`, seeing a second navbar or second sidebar inside a frame, or sidebar navigation jumping into the wrong (inner) frame.
 
+### A nested `<Frame>` inside a fragment-hydrated frame never registers
+
+**Context:** Building a master–detail view — a list page inside the `admin-content` frame that embeds a second `<Frame name="admin-chatlog-detail">` pane, with row links carrying `data-rmx-target="admin-chatlog-detail"`.
+
+**Symptom:** clicking a row ignores the target and replaces the WHOLE document. The network entry carries `X-Remix-Target: undefined` (not the pane name), and the outer page's DOM — list and all — is gone.
+
+**Cause (verified against the pinned `remix` build in this repo):**
+
+- `admin-content` renders with a `fallback`, so it is a **non-blocking** frame: the root document ships only `<!-- rmx:f:id -->` plus a template, and the frame's real content arrives from a second fetch and hydrates through `frame.ts`'s `resolveAndRenderReload` → fragment render path.
+- That path builds a `responseContext` from the fragment's own `rmx-data` (the one naming the nested frame) and calls `createSubFrames`, but the nested marker never ends up registered in the runtime's `namedFrames` map. `handle.frames.get('<nested-name>')` returns `undefined` in a `clientEntry`'s `queueTask` — and still does seconds later.
+- `getNamedFrame(name)` in `navigation.ts` resolves against that map and falls back to `topFrame` (`let frame = namedFrame ?? topFrame`), so the row link navigates the top document. That is the `X-Remix-Target: undefined` you see — the header is only set when the lookup succeeded.
+
+**Rule:** a nested `<Frame>` must be present in the **server-rendered** response of the frame that hosts it. Never mount it conditionally from client state, and never rely on one appearing in a fragment a parent frame fetches afterwards — if the pane's `<Frame>` only renders once a selection exists, the selection can never be made.
+
+**Working shape** (`app/ui/admin-chatlog-page.tsx` + `app/ui/admin-chatlog-detail.browser.tsx`):
+
+```tsx
+// Always rendered, even with nothing selected: the frame source points at an
+// invalid id so the endpoint answers with its empty state and loads no messages.
+<Frame
+  name="admin-chatlog-detail"
+  src={routes.admin.chatlog.fragments.detail.href({ id: 'none' })}
+  fallback={<div>Konversation wird geladen…</div>}
+/>
+```
+
+Then drive that frame directly from the entry — `frame.src = href; frame.reload()` on click — rather than through `data-rmx-target` on the row links, and keep the `href` on the link for the no-JS fallback.
+
+**Two follow-on traps this exposes:**
+
+1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
+2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
+
+**Validated:** 2026-09-11 in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse).
+
+Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
+
 ## Frame Input Value Preservation
 
 **Context:** When a Remix Frame reloads with new server-rendered HTML containing `<input value="...">`, the `defaultValue` is silently ignored. The input keeps its previous value (or stays empty).
