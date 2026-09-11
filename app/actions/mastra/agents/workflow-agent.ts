@@ -1,5 +1,5 @@
 import { Agent } from '@mastra/core/agent'
-import { createModel, createMemory } from '../agent-config.ts'
+import { agentModelSettings, createModel, createMemory } from '../agent-config.ts'
 
 export const workflowAgent = new Agent({
   id: 'workflow-agent',
@@ -28,6 +28,7 @@ The "action" field must ALWAYS be one of the English values cancel|lock|unlock|l
 
 If the admin is asking about something else or the intent is unclear, ask one clarifying question. Keep it brief. Do NOT add any text before or after the JSON.`,
   model: createModel(),
+  defaultOptions: { modelSettings: agentModelSettings },
   tools: {},
   memory: createMemory({ lastMessages: 10 }),
 })

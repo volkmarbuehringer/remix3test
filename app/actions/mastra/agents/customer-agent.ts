@@ -6,7 +6,7 @@ import {
   CostGuardProcessor,
 } from '@mastra/core/processors'
 import { customerTools } from '../tools/customer-tools.ts'
-import { createModel, createMemory, withUserTools } from '../agent-config.ts'
+import { agentModelSettings, createModel, createMemory, withUserTools } from '../agent-config.ts'
 
 export const customerAgent = new Agent({
   id: 'customer-agent',
@@ -58,6 +58,7 @@ Regeln:
     }),
   ],
   model: createModel(),
+  defaultOptions: { modelSettings: agentModelSettings },
   tools: withUserTools(customerTools),
   memory: createMemory(),
 })

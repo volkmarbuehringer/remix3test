@@ -65,6 +65,17 @@ const messageSchema = f.object({
 export const MAX_MESSAGE_LENGTH = 5000
 export const AGENT_TIMEOUT_MS = 60_000
 
+/**
+ * Stall budget for streaming model calls. Bounds only the wait for the first
+ * content-bearing chunk — metadata and stream-start chunks do not satisfy it,
+ * and once content begins only `stepMs`/`totalMs` remain active.
+ *
+ * Must stay below `AGENT_TIMEOUT_MS`, which bounds the whole run: the whole-run
+ * abort cannot tell a provider that opened a stream and then stalled from one
+ * that is simply answering at length.
+ */
+export const AGENT_FIRST_CHUNK_TIMEOUT_MS = 30_000
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 export function sanitizeLog(s: string): string {
@@ -77,7 +88,9 @@ export type ValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
 
 export function validateMessage(
   formData: FormData,
-): { ok: true; message: string; threadId?: string | undefined } | { ok: false; error: ValidationError } {
+):
+  | { ok: true; message: string; threadId?: string | undefined }
+  | { ok: false; error: ValidationError } {
   let parsed = s.parseSafe(messageSchema, formData)
   if (!parsed.success) return { ok: false, error: 'missing' }
 
