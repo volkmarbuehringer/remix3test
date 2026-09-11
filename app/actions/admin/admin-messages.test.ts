@@ -84,20 +84,64 @@ describe('Admin Messages controller', () => {
     assert.ok(text.includes('Noch keine Nachrichten'), 'response should show empty state')
   })
 
-  it('POST /admin/messages rejects empty content', async () => {
-    // Get admin session with CSRF token
+  it('POST /admin/messages re-renders an inline error for empty content (200, not 400)', async () => {
     let session = await createAuthCookieWithCsrf()
     if (!session) throw new Error('Failed to create auth session')
 
     let formData = new FormData()
-    formData.set('content', '')
+    formData.set('content', '   ')
     formData.set('_csrf', session.csrfToken)
     let response = await router.fetch(ADMIN_MESSAGES_URL, {
       method: 'POST',
       headers: { Cookie: session.cookie },
       body: formData,
     })
-    assert.equal(response.status, 400)
+
+    // A non-OK response becomes an unrecoverable error card inside the frame,
+    // so validation failures must re-render the page at 200 with inline errors.
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('Nachricht darf nicht leer sein.'), 'inline field error should render')
+    assert.ok(text.includes('data-compose-counter'), 'the compose box should still be present')
+  })
+
+  it('POST /admin/messages with only strippable characters re-renders an inline error', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let formData = new FormData()
+    formData.set('content', '<>')
+    formData.set('_csrf', session.csrfToken)
+    let response = await router.fetch(ADMIN_MESSAGES_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('Nachricht darf nicht leer sein.'), 'inline field error should render')
+  })
+
+  it('POST /admin/messages re-render preserves the submitted grid state', async () => {
+    let session = await createAuthCookieWithCsrf()
+    if (!session) throw new Error('Failed to create auth session')
+
+    let formData = new FormData()
+    formData.set('content', '')
+    formData.set('_offset', '10')
+    formData.set('_filter', 'abc')
+    formData.set('_csrf', session.csrfToken)
+    let response = await router.fetch(ADMIN_MESSAGES_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+    })
+
+    assert.equal(response.status, 200)
+    let text = await response.text()
+    assert.ok(text.includes('value="10"'), 'the submitted offset should be preserved')
+    assert.ok(text.includes('value="abc"'), 'the submitted filter should be preserved')
   })
 
   it('POST /admin/messages creates a new message', async () => {
@@ -257,13 +301,18 @@ describe('Admin Messages controller', () => {
     assert.ok(text.includes('name="content"'), 'compose textarea should be present')
     assert.ok(text.includes('for="messages-content"'), 'compose label should be present')
     assert.ok(text.includes('Nachricht senden'), 'submit button should render')
+    assert.ok(text.includes('id="messages-compose-form"'), 'compose form should be id-targetable')
     assert.ok(
-      text.includes('id="messages-compose-form"'),
-      'compose form should be id-targetable for the external submit button',
+      text.includes('data-compose-submit'),
+      'the submit button should live inside the compose form',
     )
     assert.ok(
-      text.includes('form="messages-compose-form"'),
-      'the toolbar submit button should target the compose form via its form attribute',
+      !text.includes('form="messages-compose-form"'),
+      'the send button must not be detached from the compose box',
+    )
+    assert.ok(
+      text.includes('data-compose-counter') && text.includes('data-compose-warning'),
+      'the compose box should render a character counter and a strip warning slot',
     )
   })
 

@@ -21,6 +21,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { MessageExpand } from './message-expand.browser.tsx'
+import { MessageCompose } from './message-compose.browser.tsx'
 
 const ADMIN_BASE = routes.admin.messages.index.href()
 
@@ -42,6 +43,9 @@ interface AdminMessagesPageProps {
   filter?: string | undefined
   sortColumn: string
   sortDirection: 'asc' | 'desc'
+  formValues?: Record<string, string> | undefined
+  fieldErrors?: Record<string, string> | undefined
+  formError?: string | undefined
 }
 
 // ── Styles ──
@@ -135,6 +139,59 @@ const textareaStyle = css({
   maxHeight: '240px',
 })
 
+/** Live character counter + strip warning sit under the textarea. */
+const composeMetaStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: theme.space.sm,
+  flexWrap: 'wrap',
+  marginTop: theme.space.xs,
+})
+
+const composeCounterStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  fontVariantNumeric: 'tabular-nums',
+  '&[data-over-limit="true"]': {
+    color: theme.colors.action.danger.background,
+    fontWeight: theme.fontWeight.semibold,
+  },
+})
+
+const composeWarningStyle = css({
+  padding: '2px ' + theme.space.sm,
+  borderRadius: theme.radius.full,
+  background: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
+  fontSize: theme.fontSize.xs,
+})
+
+const fieldErrorStyle = css({
+  marginTop: theme.space.xs,
+  color: theme.colors.action.danger.background,
+  fontSize: theme.fontSize.xs,
+})
+
+const formErrorStyle = css({
+  marginTop: theme.space.sm,
+  padding: theme.space.xs + ' ' + theme.space.sm,
+  borderRadius: theme.radius.md,
+  background: theme.colors.warning.background,
+  color: theme.colors.warning.foreground,
+  fontSize: theme.fontSize.sm,
+})
+
+/** Right-aligned action row inside the compose panel. */
+const composeFooterStyle = css({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: theme.space.sm,
+  marginTop: theme.space.md,
+  paddingTop: theme.space.md,
+  borderTop: '1px solid ' + theme.colors.border.default,
+})
+
 /** Single row that holds the (GET) filter controls and the (POST) compose
  *  submit button. The submit button targets the compose form via its `form`
  *  attribute so the two forms stay valid and separate. */
@@ -180,7 +237,11 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       filter,
       sortColumn,
       sortDirection,
+      formValues,
+      fieldErrors,
+      formError,
     } = handle.props
+    let contentValue = formValues?.content ?? ''
     let pageStart = messages.length > 0 ? offset + 1 : 0
     let pageEnd = offset + messages.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
@@ -192,6 +253,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       <div mix={table.page}>
         <ConfirmDelete />
         <MessageExpand />
+        <MessageCompose />
         <div mix={headerRowStyle}>
           <h2 mix={table.title}>Nachrichten</h2>
           <ConnectionIndicator url={routes.admin.messages.subscribe.href()} />
@@ -209,6 +271,14 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
           mix={css({ marginBottom: theme.space.sm })}
         >
           <CsrfTokenInput />
+          <GridStateHiddenInputs
+            state={{
+              offset: String(offset),
+              sort: sortColumn,
+              order: sortDirection,
+              filter: filter ?? '',
+            }}
+          />
           <div mix={table.panel}>
             <div mix={table.panelBody}>
               <div mix={table.fieldGroup}>
@@ -221,14 +291,47 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                   required
                   maxLength={1000}
                   placeholder="Nachricht schreiben…"
-                  mix={[input.base, input.focus, textareaStyle]}
+                  defaultValue={contentValue}
+                  aria-invalid={fieldErrors?.content ? true : undefined}
+                  aria-describedby="messages-content-meta"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    textareaStyle,
+                    ...(fieldErrors?.content ? [input.error] : []),
+                  ]}
                 />
+                {fieldErrors?.content ? (
+                  <div mix={fieldErrorStyle}>{fieldErrors.content}</div>
+                ) : null}
+                {formError ? (
+                  <div role="alert" mix={formErrorStyle}>
+                    {formError}
+                  </div>
+                ) : null}
+                <div id="messages-content-meta" mix={composeMetaStyle}>
+                  <span
+                    data-compose-counter
+                    data-over-limit={contentValue.length >= 1000 ? 'true' : 'false'}
+                    mix={composeCounterStyle}
+                  >
+                    {contentValue.length + '/1000'}
+                  </span>
+                  <span data-compose-warning hidden mix={composeWarningStyle}>
+                    Zeichen wie &lt; &gt; &amp; &apos; &quot; werden beim Senden entfernt.
+                  </span>
+                </div>
+              </div>
+              <div mix={composeFooterStyle}>
+                <button type="submit" data-compose-submit="true" mix={button({ tone: 'primary' })}>
+                  <Glyph name="send" width={14} height={14} /> Nachricht senden
+                </button>
               </div>
             </div>
           </div>
         </form>
 
-        {/* Toolbar: filter (GET) + compose submit (POST, via form attribute) */}
+        {/* Toolbar: filter (GET) */}
         <div mix={toolbarRowStyle}>
           <form
             method="GET"
@@ -256,9 +359,6 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               </a>
             )}
           </form>
-          <button type="submit" form="messages-compose-form" mix={button({ tone: 'primary' })}>
-            <Glyph name="send" width={14} height={14} /> Nachricht senden
-          </button>
         </div>
 
         {/* Messages grid */}
