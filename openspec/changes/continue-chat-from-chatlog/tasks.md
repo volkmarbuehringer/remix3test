@@ -35,3 +35,9 @@
 - [x] 6.3 Run the relevant suites and then `npm test`; verify all pass
 - [x] 6.4 Manually verify the flow in a browser on a spare port: open `/admin/chatlog`, open an own support transcript, activate "Im Chat fortsetzen", and confirm `/admin/support-agent?threadId=<id>` renders the transcript and the next mocked turn would post the id; delete any probe script and stop the server
 - [x] 6.5 Commit in conventional-commit steps and `git status` shows a clean tree with no files left in `tmp/` from this work
+
+## 7. Review fix — enforce ownership on the write path
+
+- [x] 7.1 Remove the client's `?threadId=` URL fallback so an id the server did not adopt is never posted; verify the browser regression test fails before the change
+- [x] 7.2 Re-check thread ownership in the support-agent message action and start a new conversation for an unknown/foreign id; verify the server regression tests fail before the change
+- [x] 7.3 Return a generic `agent-error` instead of the raw vendor message; update `design.md` and the `support-agent-conversation` spec

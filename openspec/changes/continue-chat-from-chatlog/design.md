@@ -39,9 +39,13 @@ When a thread is adopted, the index recalls its turns and renders them in the ch
 
 ### Client thread selection: the live page outranks captured state
 
-The support-agent stream adopts the server-rendered `data-thread-id` at setup, but at submit time it resolves the thread from the page on screen, in order: the `data-thread-id` attribute, a format-valid `?threadId=` in the URL, then a value this entry captured only if the stream that produced it ran on the same `pathname + search`. Without the last guard, an in-app navigation to a fresh support page would reuse the entry and post the previous page's thread id; without reusing a page-created thread, every message would start a new conversation. The same reasoning fixes a pre-existing gap: the support-agent `complete` handler currently clears the active thread, which would break multi-turn continuation — it now keeps the thread until the page changes.
+The support-agent stream resolves the thread at submit time from the page on screen: the server-rendered `data-thread-id` first, then an id this entry captured itself only while the stream that produced it ran on the same `pathname + search` and the same chat element still exists. The server renders `data-thread-id` exactly when it validated and opened the requested thread, so the attribute is the only adoption signal. Without the captured-state guard, an in-app navigation to a fresh support page would reuse the entry and post the previous page's thread id; without reusing a page-created thread, every message would start a new conversation. The same reasoning fixes a pre-existing gap: the support-agent `complete` handler cleared the active thread, which would break multi-turn continuation — it now keeps the thread until the page changes.
 
-Alternative considered: trust the closure, as the code did before f2c59a5. Rejected: the task requires the URL/live page to be authoritative, and captured state is precisely what caused the earlier bug.
+Alternative considered: fall back to a format-valid `?threadId=` in the address bar (the first cut did). Rejected after review: the server only leaves a URL id without a `data-thread-id` when it did not adopt it, so the fallback fires exactly when it must not — it re-posts an unknown or foreign thread, the opposite of the ownership boundary. The server-rendered attribute is the only adoption signal, and the fallback was removed.
+
+### The write path re-checks ownership
+
+The index validates ownership before opening a transcript, but the message action is a separate path: a direct POST can supply any well-formed `threadId`. The action therefore re-checks ownership with the same rule (the thread's resource id equals the admin's user id) before the id reaches memory, and ignores an unknown, foreign, or unowned id by starting a new conversation. This keeps the read-only boundary in the application rather than relying on the memory store to reject a foreign resource at write time. The action also reports a generic `agent-error` instead of the raw vendor message, which could echo storage details for a rejected id.
 
 ### Continue link crosses frames with `data-rmx-document`
 

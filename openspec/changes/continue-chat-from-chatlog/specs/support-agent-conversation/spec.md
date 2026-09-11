@@ -71,9 +71,30 @@ The streaming client SHALL send the selected thread id with the next submitted m
 - **WHEN** an admin submits the first message on a page with no selected conversation
 - **THEN** the system SHALL create a new thread for that turn
 
+### Requirement: The write path enforces thread ownership
+
+The message action SHALL accept a supplied thread id only when that thread exists and is owned by the authenticated admin. A malformed, unknown, or foreign thread id SHALL be ignored and the turn SHALL start a new conversation rather than writing to the supplied thread, so an admin cannot write into a customer's conversation through a direct request.
+
+#### Scenario: A foreign thread id is not written to
+
+- **WHEN** a message is submitted with a well-formed thread id whose resource is not the admin's user id
+- **THEN** the system SHALL NOT write the turn to that thread
+- **AND** the system SHALL create a new thread for the turn
+
+#### Scenario: An unknown thread id is ignored
+
+- **WHEN** a message is submitted with a well-formed thread id that does not exist
+- **THEN** the system SHALL start a new conversation instead of failing the turn
+
 ### Requirement: The live page outranks captured client state
 
-Thread selection SHALL be resolved from the page currently on screen — its server-rendered thread id and its URL — at submission time, not from a value captured by the client entry on a previously displayed page. A page displayed without a selected conversation SHALL NOT continue a conversation from a previously displayed page.
+Thread selection SHALL be resolved from the page currently on screen — its server-rendered thread id — at submission time, not from a value captured by the client entry on a previously displayed page. A thread id that appears only in the URL SHALL NOT be treated as selected, because the server renders the page's thread id exactly when it adopts the requested thread; a URL id without that server-rendered id was unknown or foreign and SHALL be ignored. A page displayed without a selected conversation SHALL NOT continue a conversation from a previously displayed page or from an unadopted URL id.
+
+#### Scenario: A URL id the server did not adopt is not posted
+
+- **WHEN** the page URL carries a thread id the server did not adopt, so the chat area exposes no thread id
+- **AND** the admin submits a message
+- **THEN** the submitted turn SHALL NOT carry that thread id
 
 #### Scenario: In-app navigation to a fresh page does not continue the old thread
 
