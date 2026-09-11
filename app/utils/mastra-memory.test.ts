@@ -1,7 +1,13 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { fetchChatThreadPreviews, listLatestCustomerThread } from './mastra-memory.ts'
+import {
+  fetchChatThreadPreviews,
+  getChatThread,
+  listAllChatThreads,
+  listChatThreads,
+  listLatestCustomerThread,
+} from './mastra-memory.ts'
 
 // ---------------------------------------------------------------------------
 // Conversation preview building
@@ -11,7 +17,12 @@ import { fetchChatThreadPreviews, listLatestCustomerThread } from './mastra-memo
 // ---------------------------------------------------------------------------
 
 /** Build a fake agent whose memory.recall returns the given messages. */
-function makeAgent(recall: (opts: { threadId: string; perPage?: number | false }) => Promise<{ messages?: unknown[] }>) {
+function makeAgent(
+  recall: (opts: {
+    threadId: string
+    perPage?: number | false
+  }) => Promise<{ messages?: unknown[] }>,
+) {
   return {
     getMemory: async () => ({ recall }),
   }
@@ -165,5 +176,100 @@ describe('listLatestCustomerThread', () => {
       threw = true
     }
     assert.equal(threw, true, 'should throw when memory is unavailable')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Thread summaries for chatlog source classification and the chat entry contract
+// listChatThreads/getChatThread/listAllChatThreads feed the derived source label,
+// ownership check, and bounded sweep. They all normalise a stored thread to a
+// numeric-timestamp summary carrying its owning resourceId.
+// ---------------------------------------------------------------------------
+
+interface RawThread {
+  id: string
+  resourceId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+function makeThreads(count: number, resourceId = '1'): RawThread[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `thread-${i}`,
+    resourceId,
+    createdAt: new Date(1_000 + i),
+    updatedAt: new Date(2_000 + i),
+  }))
+}
+
+function makeThreadMemory(threads: RawThread[]) {
+  return {
+    recall: async () => ({ messages: [], total: 0 }),
+    listThreads: async ({ page, perPage }: { page: number; perPage: number }) => ({
+      threads: threads.slice(page * perPage, page * perPage + perPage),
+    }),
+    getThreadById: async ({ threadId }: { threadId: string }) =>
+      threads.find((thread) => thread.id === threadId) ?? null,
+    deleteThread: async () => {},
+  }
+}
+
+function makeThreadAgent(memory: unknown) {
+  return { getMemory: async () => memory }
+}
+
+describe('mastra-memory thread summaries', () => {
+  it('listChatThreads carries the owning resource and pagination', async () => {
+    let memory = makeThreadMemory(makeThreads(3))
+    let result = await listChatThreads(makeThreadAgent(memory), { page: 0, perPage: 2 })
+
+    assert.equal(result.threads.length, 2)
+    assert.equal(result.hasMore, true)
+    assert.equal(result.threads[0]!.id, 'thread-0')
+    assert.equal(result.threads[0]!.resourceId, '1')
+    assert.equal(typeof result.threads[0]!.createdAt, 'number')
+  })
+
+  it('listAllChatThreads sweeps pages until a short page ends the sweep', async () => {
+    let all = await listAllChatThreads(makeThreadAgent(makeThreadMemory(makeThreads(250))))
+
+    assert.equal(all.length, 250)
+    assert.equal(all[249]!.id, 'thread-249')
+  })
+
+  it('listAllChatThreads stops at the configured bound', async () => {
+    let all = await listAllChatThreads(makeThreadAgent(makeThreadMemory(makeThreads(250))), {
+      maxThreads: 120,
+    })
+    assert.equal(all.length, 120)
+  })
+
+  it('getChatThread normalises a stored thread and returns null when missing', async () => {
+    let memory = makeThreadMemory(makeThreads(2, '77'))
+
+    let found = await getChatThread(makeThreadAgent(memory), 'thread-1')
+    assert.ok(found)
+    assert.equal(found!.id, 'thread-1')
+    assert.equal(found!.resourceId, '77')
+    assert.equal(found!.createdAt, new Date(1_001).getTime())
+
+    let missing = await getChatThread(makeThreadAgent(memory), 'nope')
+    assert.equal(missing, null)
+  })
+
+  it('messageCount comes from the same bounded recall as the preview', async () => {
+    let recallCalls = 0
+    let agent = {
+      getMemory: async () => ({
+        recall: async () => {
+          recallCalls++
+          return { messages: [{ role: 'user', content: 'Hallo' }], total: 7 }
+        },
+      }),
+    }
+    let previews = await fetchChatThreadPreviews(agent, ['a', 'b'])
+    assert.equal(recallCalls, 2, 'one recall per thread')
+    assert.equal(previews.get('a')?.messageCount, 7)
+    assert.equal(previews.get('b')?.messageCount, 7)
   })
 })
