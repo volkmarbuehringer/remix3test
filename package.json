@@ -24,14 +24,14 @@
     "@mastra/observability": "^1.17.6",
     "@mastra/pg": "^1.23.0",
     "date-holidays": "^3.36.1",
-    "nodemailer": "^10.0.1",
+    "nodemailer": "^10.0.3",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
-    "zod": "^4.5.4"
+    "zod": "^4.6.1"
   },
   "devDependencies": {
-    "@fission-ai/openspec": "^1.12.0",
+    "@fission-ai/openspec": "^1.13.0",
     "@oxlint/plugins": "^1.82.0",
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.1",
