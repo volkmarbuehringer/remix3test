@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/ui'
-import { css } from 'remix/ui'
+import { css, Frame } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { rotatedGlyphCss } from './mixins/icon.ts'
@@ -12,8 +12,32 @@ import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
+import { AdminChatlogDetail } from './admin-chatlog-detail.browser.tsx'
 
 const ADMIN_BASE = routes.admin.chatlog.index.href()
+
+/**
+ * Name of the nested frame that holds the conversation transcript.
+ *
+ * Row links target this frame instead of the outer `admin-content` frame, so
+ * the list keeps rendering while only the transcript pane swaps.
+ */
+const DETAIL_FRAME = 'admin-chatlog-detail'
+
+/**
+ * Frame source used when no transcript is selected.
+ *
+ * The nested frame must exist in the server-rendered markup — a nested frame
+ * inside a frame that hydrated from a fetched fragment never registers with the
+ * runtime, so a client-only mount cannot drive it. This id is not a valid thread
+ * id, so the endpoint answers with its empty state without touching memory.
+ */
+const NO_DETAIL_ID = 'none'
+
+/** Preserves the current page when a transcript link is opened or dismissed. */
+function pageQueryFor(offset: number): string {
+  return offset > 0 ? `?offset=${offset}` : ''
+}
 
 interface ChatLogPageProps {
   conversations: Array<{
@@ -28,6 +52,8 @@ interface ChatLogPageProps {
   pageSize: number
   prevOffset: number
   nextOffset: number
+  /** Thread whose transcript is open in the detail pane, if any. */
+  selectedId?: string | undefined
 }
 
 // ── Styles ──
@@ -100,109 +126,189 @@ const pageBadgeStyle = css({
   whiteSpace: 'nowrap',
 })
 
+/** Loading / "nothing selected" hint shown inside the detail pane. */
+const detailPlaceholderStyle = css({
+  padding: theme.space.lg,
+  border: `1px dashed ${theme.colors.border.default}`,
+  borderRadius: theme.radius.lg,
+  color: theme.colors.text.muted,
+  fontSize: theme.fontSize.sm,
+  textAlign: 'center',
+})
+
 const colActionsWidth = css({ width: '120px' })
+
+// The master–detail grid leaves the list roughly half the page. Without a floor
+// the fixed table layout shaves the timestamp columns down to wrapped dates, so
+// the table keeps a readable minimum and the list column scrolls instead.
+const listTableMinWidthStyle = css({ minWidth: '520px' })
+
+// ── Master–detail layout ──
+//
+// The list always stays rendered: clicking a row navigates the nested
+// `admin-chatlog-detail` frame, never the whole `admin-content` frame (which
+// used to replace the list with the transcript).
+//
+// The two-column arrangement is driven by a `data-chatlog-detail-open`
+// attribute on the page wrapper, set by the client entry. That keeps the
+// responsive layout in CSS (where media queries belong) instead of duplicated
+// in the component, and it is progressive enhancement: the transcript is
+// reached by a normal link without JS, just one-thread-at-a-time.
+const masterDetailWrapStyle = css({
+  '&[data-chatlog-detail-open="true"]': {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(360px, 1fr) 380px',
+    gap: '1.25rem',
+    alignItems: 'start',
+    '@media (max-width: 1024px)': { gridTemplateColumns: 'minmax(0, 1fr)' },
+  },
+})
+
+const detailPanelStyle = css({
+  display: 'none',
+  position: 'sticky',
+  top: theme.space.lg,
+  '&[data-chatlog-detail-open="true"]': { display: 'block' },
+})
 
 // ── Component ──
 
 export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
   return () => {
-    let { conversations, offset, hasMore, pageSize, prevOffset, nextOffset } = handle.props
+    let { conversations, offset, hasMore, pageSize, prevOffset, nextOffset, selectedId } =
+      handle.props
     let pageStart = conversations.length > 0 ? offset + 1 : 0
     let pageEnd = offset + conversations.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
+    let detailOpen = selectedId !== undefined
+    let pageQuery = pageQueryFor(offset)
 
     return (
-      <div mix={table.page}>
+      <div mix={table.page} data-chatlog-page="true">
         <ConfirmDelete />
+        <AdminChatlogDetail />
         <h2 mix={table.title}>Chat-Konversationen</h2>
         <p mix={descriptionStyle}>Gespeicherte Support-Konversationen einsehen und verwalten.</p>
 
-        <div mix={table.wrap} data-chatlog-table="true">
-          {conversations.length === 0 ? (
-            <div mix={emptyStateStyle}>Noch keine Konversationen gespeichert.</div>
-          ) : (
-            <table mix={table.table}>
-              <colgroup>
-                <col />
-                <col mix={css({ width: '155px' })} />
-                <col mix={css({ width: '155px' })} />
-                <col mix={colActionsWidth} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th mix={table.th}>Konversation</th>
-                  <th mix={table.th}>Erstellt</th>
-                  <th mix={table.th}>Aktualisiert</th>
-                  <th mix={table.th}>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conversations.map((conv) => {
-                  let detailHref = routes.admin.chatlog.fragments.detail.href({ id: conv.id })
-                  return (
-                    <tr key={conv.id} mix={table.row}>
-                      <td mix={table.td}>
-                        <a
-                          href={detailHref}
-                          data-rmx-target={getSelfFrameTarget()}
-                          mix={conversationLinkStyle}
-                          title={
-                            decodeHtml(conv.previewFull || conv.preview) || 'Konversation öffnen'
-                          }
-                        >
-                          {conv.preview ? (
-                            decodeHtml(conv.preview)
-                          ) : (
-                            <span mix={previewPlaceholderStyle}>Keine Nachrichten</span>
-                          )}
-                        </a>
-                      </td>
-                      <td mix={table.td} title={formatTimestamp(conv.created_at)}>
-                        {formatTimestamp(conv.created_at)}
-                      </td>
-                      <td mix={table.td} title={formatTimestamp(conv.updated_at)}>
-                        {formatTimestamp(conv.updated_at)}
-                      </td>
-                      <td mix={table.actionCell}>
-                        <div mix={rowActionsStyle}>
+        <div
+          mix={masterDetailWrapStyle}
+          data-chatlog-master-detail="true"
+          data-chatlog-detail-open={detailOpen ? 'true' : 'false'}
+        >
+          <div mix={table.wrap} data-chatlog-table="true">
+            {conversations.length === 0 ? (
+              <div mix={emptyStateStyle}>Noch keine Konversationen gespeichert.</div>
+            ) : (
+              <table mix={[table.table, listTableMinWidthStyle]}>
+                <colgroup>
+                  <col />
+                  <col mix={css({ width: '155px' })} />
+                  <col mix={css({ width: '155px' })} />
+                  <col mix={colActionsWidth} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th mix={table.th}>Konversation</th>
+                    <th mix={table.th}>Erstellt</th>
+                    <th mix={table.th}>Aktualisiert</th>
+                    <th mix={table.th}>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conversations.map((conv) => {
+                    let href =
+                      routes.admin.chatlog.fragments.detail.href({ id: conv.id }) + pageQuery
+                    return (
+                      <tr
+                        key={conv.id}
+                        mix={table.row}
+                        data-chatlog-row={conv.id}
+                        {...(selectedId === conv.id ? { 'data-chatlog-row-active': 'true' } : {})}
+                      >
+                        <td mix={table.td}>
+                          {/*
+                            No `data-rmx-target`: the detail client entry loads this
+                            link into the nested detail frame. The href stays real so
+                            the transcript still opens without JavaScript.
+                          */}
                           <a
-                            href={detailHref}
-                            data-rmx-target={getSelfFrameTarget()}
-                            mix={iconActionStyle}
-                            aria-label="Detail anzeigen"
-                            title="Detail anzeigen"
+                            href={href}
+                            data-chatlog-open={conv.id}
+                            mix={conversationLinkStyle}
+                            title={
+                              decodeHtml(conv.previewFull || conv.preview) || 'Konversation öffnen'
+                            }
                           >
-                            <Glyph name="eye" width={14} height={14} />
+                            {conv.preview ? (
+                              decodeHtml(conv.preview)
+                            ) : (
+                              <span mix={previewPlaceholderStyle}>Keine Nachrichten</span>
+                            )}
                           </a>
-
-                          <RestfulForm
-                            method="POST"
-                            action={routes.admin.chatlog.destroy.href({ id: conv.id })}
-                            data-delete-form={conv.id}
-                            data-confirm="Diese Konversation wirklich löschen?"
-                            data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
-                          >
-                            <GridStateHiddenInputs
-                              state={{ offset: String(offset), sort: '', order: '', filter: '' }}
-                            />
-                            <button
-                              type="submit"
-                              mix={[iconActionStyle, iconActionDangerStyle]}
-                              aria-label="Löschen"
-                              title="Löschen"
+                        </td>
+                        <td mix={table.td} title={formatTimestamp(conv.created_at)}>
+                          {formatTimestamp(conv.created_at)}
+                        </td>
+                        <td mix={table.td} title={formatTimestamp(conv.updated_at)}>
+                          {formatTimestamp(conv.updated_at)}
+                        </td>
+                        <td mix={table.actionCell}>
+                          <div mix={rowActionsStyle}>
+                            <a
+                              href={href}
+                              data-chatlog-open={conv.id}
+                              mix={iconActionStyle}
+                              aria-label="Detail anzeigen"
+                              title="Detail anzeigen"
                             >
-                              <Glyph name="trash" width={14} height={14} />
-                            </button>
-                          </RestfulForm>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
+                              <Glyph name="eye" width={14} height={14} />
+                            </a>
+
+                            <RestfulForm
+                              method="POST"
+                              action={routes.admin.chatlog.destroy.href({ id: conv.id })}
+                              data-delete-form={conv.id}
+                              data-confirm="Diese Konversation wirklich löschen?"
+                              data-rmx-target={getSelfFrameTarget()}
+                              mix={css({ margin: 0, padding: 0 })}
+                            >
+                              <GridStateHiddenInputs
+                                state={{ offset: String(offset), sort: '', order: '', filter: '' }}
+                              />
+                              <button
+                                type="submit"
+                                mix={[iconActionStyle, iconActionDangerStyle]}
+                                aria-label="Löschen"
+                                title="Löschen"
+                              >
+                                <Glyph name="trash" width={14} height={14} />
+                              </button>
+                            </RestfulForm>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div
+            mix={detailPanelStyle}
+            data-chatlog-detail-panel="true"
+            data-chatlog-detail-open={detailOpen ? 'true' : 'false'}
+            tabindex={-1}
+          >
+            <Frame
+              name={DETAIL_FRAME}
+              src={
+                routes.admin.chatlog.fragments.detail.href({ id: selectedId ?? NO_DETAIL_ID }) +
+                pageQuery
+              }
+              fallback={<div mix={detailPlaceholderStyle}>Konversation wird geladen…</div>}
+            />
+          </div>
         </div>
 
         {(offset > 0 || hasMore) && (

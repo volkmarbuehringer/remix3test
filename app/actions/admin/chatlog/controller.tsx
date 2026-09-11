@@ -30,7 +30,20 @@ function parseOffset(raw: string | null | undefined): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
-async function renderChatLogPage(context: Pick<AppContext, 'render' | 'session'>, offset: number): Promise<Response> {
+/**
+ * Parses the `detail` query parameter — the thread whose transcript the master
+ * view should open on the right. Invalid or missing ids simply leave the pane
+ * collapsed instead of failing the page.
+ */
+function parseSelectedId(raw: string | null | undefined): string | undefined {
+  return raw && validateThreadId(raw) ? raw : undefined
+}
+
+async function renderChatLogPage(
+  context: Pick<AppContext, 'render' | 'session'>,
+  offset: number,
+  selectedId: string | undefined,
+): Promise<Response> {
   let effectivePageSize = getPageSize(context.session, CHATLOG_PAGE_SIZE)
 
   try {
@@ -79,6 +92,7 @@ async function renderChatLogPage(context: Pick<AppContext, 'render' | 'session'>
         pageSize={effectivePageSize}
         prevOffset={Math.max(0, offset - effectivePageSize)}
         nextOffset={offset + effectivePageSize}
+        selectedId={selectedId}
       />,
     )
   } catch (error) {
@@ -94,6 +108,7 @@ async function renderChatLogPage(context: Pick<AppContext, 'render' | 'session'>
         pageSize={effectivePageSize}
         prevOffset={0}
         nextOffset={effectivePageSize}
+        selectedId={selectedId}
       />,
     )
   }
@@ -104,7 +119,8 @@ export const adminChatlog = createController(routes.admin.chatlog, {
   actions: {
     async index(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
-      return renderChatLogPage(context, offset)
+      let selectedId = parseSelectedId(context.url.searchParams.get('detail'))
+      return renderChatLogPage(context, offset, selectedId)
     },
 
     // The frame commits the POST delete form action path as its src after
@@ -112,7 +128,8 @@ export const adminChatlog = createController(routes.admin.chatlog, {
     // 404ing on the POST-only delete route.
     async destroyResolve(context) {
       let offset = parseOffset(context.url.searchParams.get('offset'))
-      return renderChatLogPage(context, offset)
+      let selectedId = parseSelectedId(context.url.searchParams.get('detail'))
+      return renderChatLogPage(context, offset, selectedId)
     },
 
     async destroy(context) {
@@ -158,13 +175,19 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
   actions: {
     async detail(context) {
       let conversationId = context.params.id
+      // The transcript is rendered in a nested detail frame on the list page.
+      // `offset`/`returnId` let the dismiss control (and its no-JS fallback
+      // link) come back to the same list page and row.
+      let offset = parseOffset(context.url.searchParams.get('offset'))
+      let closeHref = routes.admin.chatlog.index.href() + (offset > 0 ? `?offset=${offset}` : '')
 
       if (!conversationId || !validateThreadId(conversationId)) {
         return context.render(
           <ChatlogDetailFragment
             conversationId=""
             messages={[]}
-            error="No conversation ID provided"
+            error="Keine Konversation ausgewählt."
+            closeHref={closeHref}
           />,
           fragmentResponseInit(),
         )
@@ -175,7 +198,12 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
         let chatMessages = await recallChatMessages(agent, conversationId)
 
         return context.render(
-          <ChatlogDetailFragment conversationId={conversationId} messages={chatMessages} />,
+          <ChatlogDetailFragment
+            conversationId={conversationId}
+            messages={chatMessages}
+            closeHref={closeHref}
+            returnId={conversationId}
+          />,
           fragmentResponseInit(),
         )
       } catch (error) {
@@ -188,7 +216,9 @@ export const adminChatlogFragments = createController(routes.admin.chatlog.fragm
           <ChatlogDetailFragment
             conversationId={conversationId}
             messages={[]}
-            error="Conversation not found"
+            error="Konversation konnte nicht geladen werden."
+            closeHref={closeHref}
+            returnId={conversationId}
           />,
           fragmentResponseInit(),
         )

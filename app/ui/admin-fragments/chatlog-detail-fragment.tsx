@@ -1,15 +1,18 @@
 import type { Handle } from 'remix/ui'
-import { css } from 'remix/ui'
+import { css, Fragment } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { decodeHtml } from '../../utils/decode-html-entities.ts'
 import { routes } from '../../routes.ts'
-import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 
 interface ChatlogDetailFragmentProps {
   conversationId: string
   messages: ChatMessage[]
   error?: string
+  /** Where the dismiss control points when JS is unavailable. */
+  closeHref?: string
+  /** Id of the list row to return focus to when the pane is dismissed. */
+  returnId?: string
 }
 
 const detailStyle = css({
@@ -48,8 +51,38 @@ const messageListStyle = css({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.space.sm,
-  maxHeight: '400px',
+  maxHeight: '60vh',
   overflowY: 'auto',
+})
+
+const dayHeaderStyle = css({
+  alignSelf: 'stretch',
+  textAlign: 'center',
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.text.muted,
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  margin: '4px 0',
+})
+
+const closeLinkStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  alignSelf: 'flex-start',
+  marginBottom: theme.space.xs,
+  padding: 0,
+  border: 'none',
+  background: 'none',
+  color: theme.colors.text.secondary,
+  font: 'inherit',
+  fontSize: theme.fontSize.xs,
+  textDecoration: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    color: theme.colors.action.primary.background,
+    textDecoration: 'underline',
+  },
 })
 
 const messageItemStyle = css({
@@ -95,20 +128,6 @@ const emptyStyle = css({
   padding: theme.space.xl,
 })
 
-const backLinkStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '4px',
-  marginBottom: theme.space.sm,
-  fontSize: theme.fontSize.sm,
-  color: theme.colors.text.secondary,
-  textDecoration: 'none',
-  '&:hover': {
-    color: theme.colors.action.primary.background,
-    textDecoration: 'underline',
-  },
-})
-
 /** Derives a human-readable title from the conversation's opening question. */
 function conversationTitle(messages: ChatMessage[]): string {
   let firstUser = messages.find((m) => m.role === 'user')
@@ -118,53 +137,95 @@ function conversationTitle(messages: ChatMessage[]): string {
   return text.length > 64 ? text.slice(0, 64) + '…' : text
 }
 
+/** `11.09.2026` — used for the per-day separators in the transcript. */
+function formatDay(timestamp: number): string {
+  return new Date(timestamp).toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+/** `14:32` — the time shown under every message. */
+function formatTime(timestamp: number): string {
+  return new Date(timestamp).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function isSameDay(a: number, b: number): boolean {
+  let first = new Date(a)
+  let second = new Date(b)
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  )
+}
+
 export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>) {
   return () => {
-    let { messages, error } = handle.props
+    let { messages, error, closeHref, returnId } = handle.props
     let displayTitle = conversationTitle(messages)
+    let hasError = Boolean(error)
+    // The pane renders the transcript oldest-first, so a conversation reads the
+    // way it happened. Messages arrive in that order already; a day separator is
+    // inserted whenever the calendar day changes.
+    let showEmpty = !hasError && messages.length === 0
 
     return (
-      <div mix={detailStyle}>
+      <div
+        mix={detailStyle}
+        data-chatlog-detail="true"
+        data-chatlog-missing={hasError || showEmpty ? 'true' : 'false'}
+      >
         <a
-          href={routes.admin.chatlog.index.href()}
-          data-rmx-target={getSelfFrameTarget()}
-          mix={backLinkStyle}
+          href={closeHref ?? routes.admin.chatlog.index.href()}
+          data-chatlog-close="true"
+          data-chatlog-return={returnId ?? ''}
+          mix={closeLinkStyle}
         >
-          ← Zurück zur Übersicht
+          ← Schließen
         </a>
         <div mix={headerStyle}>
           <h3 mix={titleStyle}>{displayTitle}</h3>
           <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>
-            {messages.length} message{messages.length !== 1 ? 's' : ''}
+            {messages.length === 1 ? '1 Nachricht' : `${messages.length} Nachrichten`}
           </span>
         </div>
 
-        {error ? (
+        {hasError ? (
           <div mix={errorStyle}>{error}</div>
-        ) : messages.length === 0 ? (
-          <div mix={emptyStyle}>No messages in this conversation.</div>
+        ) : showEmpty ? (
+          <div mix={emptyStyle}>Diese Konversation enthält keine Nachrichten.</div>
         ) : (
           <div mix={messageListStyle}>
-            {[...messages].reverse().map((msg, idx) => (
-              <div
-                key={idx}
-                mix={[
-                  messageItemStyle,
-                  msg.role === 'user' ? userMessageStyle : assistantMessageStyle,
-                ]}
-              >
-                <div mix={messageLabelStyle}>{msg.role === 'user' ? 'User' : 'Assistant'}</div>
-                <p mix={messageContentStyle}>{decodeHtml(msg.content)}</p>
-                <div mix={messageMetaStyle}>
-                  {msg.timestamp
-                    ? new Date(msg.timestamp).toLocaleTimeString('de-DE', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : ''}
-                </div>
-              </div>
-            ))}
+            {messages.map((msg, idx) => {
+              let previous = idx > 0 ? messages[idx - 1] : undefined
+              let showDay =
+                msg.timestamp > 0 &&
+                (previous === undefined || !isSameDay(previous.timestamp, msg.timestamp))
+              return (
+                <Fragment key={idx}>
+                  {showDay ? <div mix={dayHeaderStyle}>{formatDay(msg.timestamp)}</div> : null}
+                  <div
+                    mix={[
+                      messageItemStyle,
+                      msg.role === 'user' ? userMessageStyle : assistantMessageStyle,
+                    ]}
+                  >
+                    <div mix={messageLabelStyle}>
+                      {msg.role === 'user' ? 'Nutzer' : 'Assistent'}
+                    </div>
+                    <p mix={messageContentStyle}>{decodeHtml(msg.content)}</p>
+                    <div mix={messageMetaStyle}>
+                      {msg.timestamp ? formatTime(msg.timestamp) : ''}
+                    </div>
+                  </div>
+                </Fragment>
+              )
+            })}
           </div>
         )}
       </div>

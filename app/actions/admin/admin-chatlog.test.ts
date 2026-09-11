@@ -182,6 +182,95 @@ describe('Admin Chatlog controller', () => {
   })
 
   // -----------------------------------------------------------------------
+  // Master–detail — the list must survive opening a transcript
+  // -----------------------------------------------------------------------
+
+  it('renders the list and the detail pane as siblings', async () => {
+    let response = await adminChatlogGet()
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(html.includes('data-chatlog-master-detail'), 'should render the master–detail grid')
+    assert.ok(html.includes('data-chatlog-table'), 'should render the conversation list wrapper')
+    assert.ok(
+      html.includes('data-chatlog-detail-panel'),
+      'should render the transcript pane container',
+    )
+    assert.ok(
+      html.includes('data-chatlog-detail-open="false"'),
+      'the pane should start collapsed without a selection',
+    )
+    assert.ok(
+      html.includes('name="admin-chatlog-detail"') ||
+        html.includes('/admin/chatlog/fragments/detail/'),
+      'the collapsed pane should still host the nested detail frame',
+    )
+  })
+
+  // Regression guard: the transcript used to be loaded into the OUTER
+  // admin-content frame, replacing the list entirely. The row links are now
+  // driven into the nested detail frame by the client entry, so they must not
+  // carry a target that navigates the list away.
+  it('row links do not navigate the list frame', async () => {
+    let response = await adminChatlogGet()
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(
+      html.includes('data-chatlog-detail-panel'),
+      'the transcript pane should host the nested detail frame',
+    )
+
+    let detailLinks = html.match(/<a\b[^>]*fragments\/detail\/[^>]*>/g) ?? []
+    for (let link of detailLinks) {
+      assert.ok(
+        !link.includes('data-rmx-target="admin-content"'),
+        'detail link must not replace the list: ' + link,
+      )
+      assert.ok(
+        !link.includes('data-rmx-target="admin-chatlog-detail"'),
+        'detail link is driven by the client entry, not the frame runtime: ' + link,
+      )
+      assert.ok(
+        link.includes('data-chatlog-open='),
+        'detail link should carry the id the entry loads: ' + link,
+      )
+    }
+  })
+
+  it('GET /admin/chatlog?detail=<id> keeps the list and opens the pane', async () => {
+    let response = await adminChatlogGet('detail=some-thread-id')
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(html.includes('data-chatlog-table'), 'the list should still render')
+    assert.ok(
+      html.includes('data-chatlog-detail-open="true"'),
+      'the pane should be open for the requested thread',
+    )
+    assert.ok(
+      html.includes('/admin/chatlog/fragments/detail/some-thread-id'),
+      'the detail frame should load the requested transcript',
+    )
+  })
+
+  it('GET /admin/chatlog?detail=<invalid> falls back to the collapsed pane', async () => {
+    let response = await adminChatlogGet('detail=%00bad%00')
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(html.includes('data-chatlog-table'), 'the list should still render')
+    assert.ok(
+      html.includes('data-chatlog-detail-open="false"'),
+      'an invalid id should not open the pane',
+    )
+  })
+
+  // -----------------------------------------------------------------------
   // GET /admin/chatlog/:id/delete — frame action-path resolver
   // -----------------------------------------------------------------------
 

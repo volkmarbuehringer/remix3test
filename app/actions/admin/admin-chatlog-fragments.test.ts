@@ -58,7 +58,8 @@ describe('Admin Chatlog Fragments Controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(
-      html.includes('No conversation ID provided') || html.includes('Conversation not found'),
+      html.includes('Keine Konversation ausgewählt') ||
+        html.includes('Konversation konnte nicht geladen werden'),
       'should show error for invalid thread ID',
     )
   })
@@ -70,5 +71,53 @@ describe('Admin Chatlog Fragments Controller', () => {
     })
 
     assert.equal(response.status, 200)
+  })
+
+  // -----------------------------------------------------------------------
+  // Nested detail frame contract
+  // -----------------------------------------------------------------------
+
+  it('resolves as a fragment for the nested admin-chatlog-detail frame', async () => {
+    let response = await router.fetch(`${ADMIN_CHATLOG_DETAIL_URL}/nonexistent-test-id-12345`, {
+      headers: { Cookie: adminCookie, 'X-Remix-Target': 'admin-chatlog-detail' },
+    })
+
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    assert.ok(html.includes('data-chatlog-detail="true"'), 'should render the transcript panel')
+    assert.ok(
+      !html.includes('data-chatlog-table'),
+      'the fragment must not carry the conversation list (that lives on the page)',
+    )
+  })
+
+  it('marks an unreadable conversation so the client can drop a stale selection', async () => {
+    // A thread that was deleted resolves to the error state rather than a
+    // failed request; the marker is what tells the master–detail client entry
+    // to collapse the pane instead of re-opening it on the next reload.
+    let response = await router.fetch(`${ADMIN_CHATLOG_DETAIL_URL}/nonexistent-test-id-12345`, {
+      headers: { Cookie: adminCookie, 'X-Remix-Target': 'admin-chatlog-detail' },
+    })
+    let html = await response.text()
+
+    assert.ok(
+      html.includes('data-chatlog-missing="true"'),
+      'an unreadable conversation should be marked missing',
+    )
+    assert.ok(html.includes('data-chatlog-close'), 'should offer a way back to the list')
+  })
+
+  it('dismiss control keeps the list page offset', async () => {
+    let response = await router.fetch(
+      `${ADMIN_CHATLOG_DETAIL_URL}/nonexistent-test-id-12345?offset=10`,
+      { headers: { Cookie: adminCookie, 'X-Remix-Target': 'admin-chatlog-detail' } },
+    )
+    let html = await response.text()
+
+    assert.ok(
+      html.includes('href="/admin/chatlog?offset=10"'),
+      'the dismiss link should return to the same page',
+    )
   })
 })
