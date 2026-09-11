@@ -674,6 +674,25 @@ describe('Admin Users Controller', () => {
       let result = await pool.query('SELECT disabled_at FROM users WHERE id = $1', [id])
       assert.ok(result.rows[0]?.disabled_at != null, 'disabled_at should be set')
     })
+
+    it('resolves a stale GET of the toggle action path to the grid (no 405)', async () => {
+      // The frame commits the POST action path as its src; a later reload (the
+      // agent-events workflow-finish) GETs that path. It must render the grid
+      // fragment instead of a 405 so the host panel keeps the users grid.
+      let id = await createTestUser(`test-toggle-resolve-${Date.now()}@example.com`)
+      assert.ok(id, 'test user must be created')
+
+      let response = await router.fetch(`${BASE}/admin/users/${id}/toggle-disabled`, {
+        headers: {
+          Cookie: adminCookie,
+          'X-Remix-Frame': 'true',
+          'X-Remix-Target': 'agent-events-panel',
+        },
+      })
+      assert.equal(response.status, 200, 'stale GET should render the grid, not 405')
+      let text = await response.text()
+      assert.ok(text.includes('data-toggle-form'), 'should render the users grid with toggle forms')
+    })
   })
 
   describe('destroy (DELETE /admin/users/:id)', () => {

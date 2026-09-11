@@ -1,4 +1,12 @@
-import { ilike, isNull, notNull, or, type Database, type TableRow, type WhereInput } from 'remix/data-table'
+import {
+  ilike,
+  isNull,
+  notNull,
+  or,
+  type Database,
+  type TableRow,
+  type WhereInput,
+} from 'remix/data-table'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { email, minLength } from 'remix/data-schema/checks'
@@ -12,6 +20,7 @@ import type { User } from '../../../data/schema.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
+import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import {
   gridStateFromForm,
@@ -143,7 +152,12 @@ function gridFilter(raw: Record<string, string>): string | undefined {
 /** Strips sensitive/private fields before passing form values to the UI. Password
  *  is never echoed back into the DOM; grid-state keys are passed as separate props. */
 function userFormValues(raw: Record<string, string>): Record<string, string> {
-  return { name: raw.name ?? '', email: raw.email ?? '', role: raw.role ?? '', disabled: raw.disabled ?? '' }
+  return {
+    name: raw.name ?? '',
+    email: raw.email ?? '',
+    role: raw.role ?? '',
+    disabled: raw.disabled ?? '',
+  }
 }
 
 function buildEditRowFromRaw(id: number, raw: Record<string, string>): SafeUser {
@@ -253,56 +267,76 @@ async function renderUsersError(
   })
 }
 
+/**
+ * Shared renderer for the users grid. Reads the grid state (offset, sort,
+ * order, filter) from the request URL. Used by the index action and by the
+ * frame action-path resolver, which re-renders the grid when a stale frame
+ * reload GETs the POST toggle path.
+ */
+async function renderUsersIndex(
+  context: Pick<AppContext, 'db' | 'render' | 'session' | 'url'>,
+): Promise<Response> {
+  let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
+  let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+  let filter = context.url.searchParams.get('filter') || undefined
+
+  let { column, direction } = parseSort(context.url, {
+    allowedColumns: SORTABLE_FIELDS,
+    defaultColumn: 'name',
+    defaultDirection: 'asc',
+  })
+
+  let { rows, hasMore } = await loadGridData(context.db, {
+    offset,
+    column,
+    direction,
+    filter,
+    pageSize: effectivePageSize,
+  })
+
+  let editingParam = context.url.searchParams.get('editing')
+  let editingRowId = editingParam ? Number(editingParam) : null
+  let editRow: SafeUser | null = null
+  if (editingRowId && Number.isFinite(editingRowId)) {
+    let found = await context.db.findOne(users, { where: { id: editingRowId } })
+    if (found) editRow = toSafeUser(found as User)
+  }
+
+  let creating = context.url.searchParams.get('creating') === 'true'
+
+  return renderAdminPage(
+    context.render,
+    'users',
+    <AdminUsersPage
+      rows={rows}
+      offset={offset}
+      hasMore={hasMore}
+      prevOffset={Math.max(0, offset - effectivePageSize)}
+      nextOffset={offset + effectivePageSize}
+      sortColumn={column}
+      sortDirection={direction}
+      filter={filter}
+      editRow={editRow}
+      creating={creating}
+      pageSize={effectivePageSize}
+    />,
+  )
+}
+
 export default createController(routes.admin.users, {
   middleware: [requireAuth(), requireAdmin()],
 
   actions: {
     async index(context) {
-      let effectivePageSize = getPageSize(context.session, USERS_PAGE_SIZE)
-      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-      let filter = context.url.searchParams.get('filter') || undefined
+      return renderUsersIndex(context)
+    },
 
-      let { column, direction } = parseSort(context.url, {
-        allowedColumns: SORTABLE_FIELDS,
-        defaultColumn: 'name',
-        defaultDirection: 'asc',
-      })
-
-      let { rows, hasMore } = await loadGridData(context.db, {
-        offset,
-        column,
-        direction,
-        filter,
-        pageSize: effectivePageSize,
-      })
-
-      let editingParam = context.url.searchParams.get('editing')
-      let editingRowId = editingParam ? Number(editingParam) : null
-      let editRow: SafeUser | null = null
-      if (editingRowId && Number.isFinite(editingRowId)) {
-        let found = await context.db.findOne(users, { where: { id: editingRowId } })
-        if (found) editRow = toSafeUser(found as User)
-      }
-
-      let creating = context.url.searchParams.get('creating') === 'true'
-
-      return renderAdminPage(
-        context.render,
-        'users',
-        <AdminUsersPage
-          rows={rows}
-          offset={offset}
-          hasMore={hasMore}
-          prevOffset={Math.max(0, offset - effectivePageSize)}
-          nextOffset={offset + effectivePageSize}
-          sortColumn={column}
-          sortDirection={direction}
-          filter={filter}
-          editRow={editRow}
-          creating={creating}
-          pageSize={effectivePageSize}
-        />,
-      )
+    // The frame commits the POST toggle action path as its src after a
+    // submission, and a later reload (e.g. the agent-events workflow-finish
+    // reload) GETs that path. Render the users grid so a stale GET resolves
+    // instead of a 405 (see admin chatlog/messages destroyResolve).
+    async toggleDisabledResolve(context) {
+      return renderUsersIndex(context)
     },
 
     async create(context) {

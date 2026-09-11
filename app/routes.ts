@@ -132,6 +132,11 @@ export const routes = route({
       update: put('/:id'),
       destroy: del('/:id'),
       toggleDisabled: post('/:id/toggle-disabled'),
+      // The frame commits the POST toggle action path as its src after a
+      // submission, and a later reload (e.g. the agent-events workflow-finish
+      // reload) GETs that path. Render the users grid so a stale GET resolves
+      // instead of a 405 (see admin chatlog/messages destroyResolve).
+      toggleDisabledResolve: get('/:id/toggle-disabled'),
     }),
 
     uploads: route('uploads', {
