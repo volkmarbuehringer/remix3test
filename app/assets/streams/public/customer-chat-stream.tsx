@@ -159,8 +159,7 @@ export const CustomerChatStream = clientEntry(
         if (result && typeof result === 'object') {
           let r = result as Record<string, unknown>
           if (r.slots && Array.isArray(r.slots)) {
-            div.innerHTML =
-              `<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>`
+            div.innerHTML = `<div style="font-size:0.8125rem;color:${theme.colors.text.secondary}">Verfügbare Termine werden unten angezeigt.</div>`
             appendSlotPicker(r)
           } else {
             div.textContent =
@@ -403,6 +402,21 @@ export const CustomerChatStream = clientEntry(
     // the one-shot fresh-state marker is no longer wanted: otherwise a page
     // refresh keeps serving an empty conversation for /chat?new=1. Drop the
     // query param so the resumed conversation wins on the next load.
+    /**
+     * Whether the page on screen is in fresh-conversation mode.
+     *
+     * `/chat?new=1` is the server's instruction to skip the resume, so it must
+     * outrank any thread id this entry captured from an earlier page — an in-app
+     * navigation reuses this entry's listener while swapping the page under it.
+     */
+    function isStartingFresh(): boolean {
+      try {
+        return new URL(window.location.href).searchParams.has('new')
+      } catch {
+        return false
+      }
+    }
+
     function clearFreshParam() {
       try {
         let url = new URL(window.location.href)
@@ -660,13 +674,19 @@ export const CustomerChatStream = clientEntry(
 
     async function submitAndStream(url: string, formData: FormData) {
       abortStream()
-      clearFreshParam()
       let requestAbort = new AbortController()
       currentAbort = requestAbort
       if (lifecycleSignal) {
         lifecycleSignal.addEventListener('abort', () => requestAbort.abort(), { once: true })
       }
 
+      // The `?new=1` marker is what keeps a refresh on the fresh conversation
+      // instead of resuming the previous one, so it may only be dropped once a
+      // turn has actually been accepted by the server. Dropping it up front
+      // meant a failed first turn — or one still in flight when the customer hit
+      // refresh — silently resumed the old thread, so a "new" conversation
+      // looked like it was continuing the previous one.
+      let turnAccepted = false
       setFormEnabled(false)
       setBusy(true)
       try {
@@ -685,6 +705,10 @@ export const CustomerChatStream = clientEntry(
           return
         }
 
+        // Anything past this point has persisted the turn: the conversation
+        // exists even if the stream then breaks, so the marker is spent.
+        turnAccepted = true
+
         if (isSse) {
           await readEventStream(res, handleEvent)
         } else {
@@ -694,6 +718,7 @@ export const CustomerChatStream = clientEntry(
         if (err instanceof Error && err.name === 'AbortError') return
         appendMessage('Fehler: ' + String(err), 'error')
       } finally {
+        if (turnAccepted) clearFreshParam()
         currentAbort = null
         setBusy(false)
         if (!suspended) {
@@ -715,7 +740,21 @@ export const CustomerChatStream = clientEntry(
       let message = formData.get('message')?.toString().trim()
       if (!message) return
 
-      if (currentThreadId) formData.set('threadId', currentThreadId)
+      // Which conversation a turn belongs to is decided by the page that is on
+      // screen, not by this entry's captured state. "Neue Unterhaltung" is an
+      // in-app navigation: the runtime reconciles the page and REUSES the form
+      // element, so this listener — with the previous page's `currentThreadId`
+      // still in its closure — can serve the fresh page. Posting that id
+      // continued the old conversation even though the URL said `?new=1`.
+      //
+      // The URL wins over the closure: `?new=1` always starts a new thread, and
+      // otherwise the rendered chat area is the source of truth.
+      let startingFresh = isStartingFresh()
+      if (!startingFresh && !currentThreadId) {
+        currentThreadId = getChatArea()?.getAttribute('data-thread-id') ?? null
+      }
+      if (currentThreadId && !startingFresh) formData.set('threadId', currentThreadId)
+
       appendMessage(message, 'user')
       ;(document.getElementById('msg') as HTMLTextAreaElement)!.value = ''
       beginStream()

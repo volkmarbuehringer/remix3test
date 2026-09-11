@@ -978,4 +978,135 @@ describe('Customer chat resume + theme + busy state', () => {
     window.history.replaceState({}, '', '/')
     window.fetch = originalFetch
   })
+
+  it('starts a new thread when the page says ?new=1, even with a reused form', async () => {
+    // "Neue Unterhaltung" is an in-app navigation: the runtime reconciles the
+    // page and reuses the form element, so a submit listener created for the
+    // previous page can serve this one. That listener must not post the previous
+    // conversation's thread id.
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/chat?new=1')
+
+    // The entry starts on the RESUMED page, so it captures that thread id.
+    let container = document.createElement('div')
+    container.innerHTML = `
+      <form id="chat-form">
+        <textarea id="msg" name="message"></textarea>
+        <button id="chat-submit" type="submit">Send</button>
+      </form>
+      <div id="chat-messages" data-thread-id="previous-thread"></div>
+    `
+    document.body.appendChild(container)
+
+    let capturedBody = ''
+    let originalFetch = window.fetch
+    window.fetch = async (_url, init) => {
+      capturedBody =
+        init?.body instanceof FormData
+          ? Array.from(init.body.entries())
+              .map(([k, v]) => `${k}=${String(v)}`)
+              .join('&')
+          : String(init?.body ?? '')
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r2', threadId: 'server-made-new' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Hallo!' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    // Now simulate the in-app navigation to /chat?new=1: the runtime swaps the
+    // page (no thread id, marker in the URL) but REUSES this form, so the
+    // listener serving the submit still holds `previous-thread`.
+    let area = document.getElementById('chat-messages') as HTMLElement
+    area.removeAttribute('data-thread-id')
+    window.history.replaceState({}, '', '/chat?new=1')
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Neue Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      !capturedBody.includes('threadId='),
+      'a ?new=1 page must not post a thread, got: ' + capturedBody,
+    )
+
+    window.history.replaceState({}, '', '/')
+    window.fetch = originalFetch
+  })
+
+  it('keeps the ?new=1 fresh marker while the first message is still streaming', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/chat?new=1')
+
+    let streamState: { controller?: ReadableStreamDefaultController } = {}
+    let originalFetch = window.fetch
+    window.fetch = async () => {
+      let body = new ReadableStream({
+        start(c) {
+          streamState.controller = c as ReadableStreamDefaultController
+        },
+        pull() {},
+        cancel() {},
+      })
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Hallo'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 20))
+
+    assert.ok(
+      window.location.href.includes('new=1'),
+      'fresh marker must survive an in-flight first turn, or a refresh resumes the previous conversation',
+    )
+
+    streamState.controller?.close()
+    await new Promise((r) => setTimeout(r, 20))
+
+    window.history.replaceState({}, '', '/')
+    window.fetch = originalFetch
+  })
+
+  it('keeps the ?new=1 fresh marker when the first message fails', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/chat?new=1')
+
+    let originalFetch = window.fetch
+    window.fetch = async () => new Response('boom', { status: 500 })
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Hallo'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 30))
+
+    assert.ok(
+      window.location.href.includes('new=1'),
+      'a failed turn created no conversation, so the fresh marker must stay',
+    )
+
+    window.history.replaceState({}, '', '/')
+    window.fetch = originalFetch
+  })
 })
