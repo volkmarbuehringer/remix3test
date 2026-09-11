@@ -2,12 +2,19 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 
+/** The same thread-id contract the server validates (`validateThreadId`). */
+const THREAD_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/
+
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
   function SupportAgentStream(handle: Handle) {
     let abortController: AbortController | null = null
     let currentRunId: string | null = null
     let currentThreadId: string | null = null
+    // The page key and chat element that produced `currentThreadId`, so a value
+    // the entry captured itself is only reused while that same page is on screen.
+    let startedOnPage: string = ''
+    let startedChatEl: HTMLElement | null = null
     let didNavigate: boolean = false
     let autoGrowReset: (() => void) | null = null
 
@@ -25,6 +32,54 @@ export const SupportAgentStream = clientEntry(
 
     function getChat() {
       return document.getElementById('chat-messages')
+    }
+
+    function currentPageKey(): string {
+      try {
+        let url = new URL(window.location.href)
+        return url.pathname + url.search
+      } catch {
+        return ''
+      }
+    }
+
+    function urlThreadId(): string {
+      try {
+        return new URL(window.location.href).searchParams.get('threadId') ?? ''
+      } catch {
+        return ''
+      }
+    }
+
+    /**
+     * Which conversation the next turn belongs to, decided by the page on
+     * screen rather than by this entry's closure.
+     *
+     * The server-rendered `data-thread-id` is authoritative (it is the id the
+     * server validated and opened), then a well-formed `?threadId=` in the
+     * address bar. The id this entry captured is reused only while the page and
+     * chat element that produced it are still on screen — an in-app navigation
+     * or a frame reload can otherwise leave a stale thread in the closure and
+     * silently continue a conversation the admin has left.
+     */
+    function resolveThreadId(): string | null {
+      let fromDom = getChat()?.getAttribute('data-thread-id') ?? ''
+      if (fromDom) return fromDom
+
+      let fromUrl = urlThreadId()
+      if (fromUrl && THREAD_ID_PATTERN.test(fromUrl)) return fromUrl
+
+      if (
+        currentThreadId &&
+        startedOnPage !== '' &&
+        startedOnPage === currentPageKey() &&
+        startedChatEl !== null &&
+        getChat() === startedChatEl
+      ) {
+        return currentThreadId
+      }
+
+      return null
     }
 
     function scrollToBottom(force?: boolean) {
@@ -510,6 +565,10 @@ export const SupportAgentStream = clientEntry(
 
         currentRunId = data.runId
         currentThreadId = data.threadId
+        if (data.threadId) {
+          startedOnPage = currentPageKey()
+          startedChatEl = getChat()
+        }
         currentAgentMessageEl = null
         appendAgentMessage()
         // Disable the message input until the re-surfaced gate is resolved, so
@@ -603,7 +662,11 @@ export const SupportAgentStream = clientEntry(
               if (eventType === 'start') {
                 didNavigate = false
                 if (parsed.runId) currentRunId = parsed.runId
-                if (parsed.threadId) currentThreadId = parsed.threadId
+                if (parsed.threadId) {
+                  currentThreadId = parsed.threadId
+                  startedOnPage = currentPageKey()
+                  startedChatEl = getChat()
+                }
                 appendAgentMessage()
                 streamingText = ''
               } else if (eventType === 'message') {
@@ -630,7 +693,8 @@ export const SupportAgentStream = clientEntry(
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
                 currentRunId = null
-                currentThreadId = null
+                // Keep the active thread so the next message continues it; only
+                // remove it once the page itself changes (see resolveThreadId).
                 currentAgentMessageEl = null
                 if (!didNavigate) {
                   let container = document.getElementById('support-agent-frame-container')
@@ -724,7 +788,8 @@ export const SupportAgentStream = clientEntry(
       let message = formData.get('message')?.toString().trim()
       if (!message) return
 
-      if (currentThreadId) formData.set('threadId', currentThreadId)
+      let threadId = resolveThreadId()
+      if (threadId) formData.set('threadId', threadId)
 
       appendUserMessage(message)
 

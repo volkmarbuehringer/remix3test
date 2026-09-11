@@ -1110,3 +1110,177 @@ describe('Customer chat resume + theme + busy state', () => {
     window.fetch = originalFetch
   })
 })
+
+// -----------------------------------------------------------------------
+// 8. Support-agent thread continuation (resume from the chatlog)
+// -----------------------------------------------------------------------
+
+function setupSupportDom(threadId?: string): HTMLElement {
+  let container = document.createElement('div')
+  container.innerHTML = `
+    <div id="support-agent-frame-container" data-active-frame="support-agent-panel"></div>
+    <div id="chat-messages"${threadId ? ` data-thread-id="${threadId}"` : ''}></div>
+    <form id="support-agent-form">
+      <textarea id="support-agent-input" name="message"></textarea>
+      <button id="support-agent-submit" type="submit">Senden</button>
+    </form>
+  `
+  document.body.appendChild(container)
+  return container
+}
+
+describe('Support agent thread continuation', () => {
+  let cleanup: (() => void) | undefined
+  let dom: HTMLElement | undefined
+
+  afterEach(() => {
+    uninstallSseMock()
+    cleanup?.()
+    dom?.remove()
+    dom = undefined
+    window.history.replaceState({}, '', '/')
+  })
+
+  function sse(events: Array<{ type: string; data: string }>): Response {
+    let encoder = new TextEncoder()
+    let body = new ReadableStream({
+      start(controller) {
+        for (let { type, data } of events) {
+          controller.enqueue(encoder.encode(`event: ${type}\ndata: ${data}\n\n`))
+        }
+        controller.close()
+      },
+    })
+    return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  function captureBody(init?: RequestInit): string {
+    return init?.body instanceof FormData
+      ? Array.from(init.body.entries())
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join('&')
+      : String(init?.body ?? '')
+  }
+
+  function submitSupportMessage(text: string): void {
+    let textarea = document.getElementById('support-agent-input') as HTMLTextAreaElement
+    textarea.value = text
+    let form = document.getElementById('support-agent-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  }
+
+  it('adopts the resumed data-thread-id and posts it with the next message', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent?threadId=resumed-thread-1')
+    dom = setupSupportDom('resumed-thread-1')
+
+    let capturedBody = ''
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) === '/admin/support-agent') capturedBody = captureBody(init)
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 'resumed-thread-1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Antwort' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Hallo')
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      capturedBody.includes('threadId=resumed-thread-1'),
+      'should continue the resumed thread, got: ' + capturedBody,
+    )
+    assert.ok(
+      (document.getElementById('chat-messages') as HTMLElement).textContent?.includes('Antwort'),
+      'should render the streamed reply',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('does not continue the previous thread after an in-app navigation to a fresh page', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent?threadId=previous-thread')
+    dom = setupSupportDom('previous-thread')
+
+    let bodies: string[] = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) === '/admin/support-agent') bodies.push(captureBody(init))
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r2', threadId: 'previous-thread' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    // The resumed page continues its own thread first...
+    submitSupportMessage('Erste Frage')
+    await new Promise((r) => setTimeout(r, 50))
+    assert.ok(
+      bodies[0]?.includes('threadId=previous-thread'),
+      'the resumed page should continue the resumed thread, got: ' + bodies[0],
+    )
+
+    // ...then the runtime reuses the entry while swapping in a fresh page: the
+    // chat area loses its data-thread-id and the URL no longer names a thread.
+    let area = document.getElementById('chat-messages') as HTMLElement
+    area.removeAttribute('data-thread-id')
+    window.history.replaceState({}, '', '/admin/support-agent')
+
+    submitSupportMessage('Neue Frage')
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.equal(bodies.length, 2, 'two turns should be submitted')
+    assert.ok(
+      !bodies[1]!.includes('threadId='),
+      'a fresh page must not post the previous thread, got: ' + bodies[1],
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('reuses the thread created on the current page for the next message', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let bodies: string[] = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) === '/admin/support-agent') bodies.push(captureBody(init))
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r3', threadId: 'page-thread-1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Ok' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Erste Frage')
+    await new Promise((r) => setTimeout(r, 50))
+    submitSupportMessage('Zweite Frage')
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.equal(bodies.length, 2, 'two turns should be submitted')
+    assert.ok(!bodies[0]!.includes('threadId='), 'the first turn creates the thread')
+    assert.ok(
+      bodies[1]!.includes('threadId=page-thread-1'),
+      'the second turn continues the page-created thread, got: ' + bodies[1],
+    )
+
+    window.fetch = originalFetch
+  })
+})

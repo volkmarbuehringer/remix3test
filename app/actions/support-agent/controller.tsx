@@ -10,7 +10,11 @@ import {
   resolvePendingGate,
 } from './run-store.ts'
 import { getCurrentUser, getAdminIdentity } from '../../utils/context.ts'
+import { validateThreadId } from '../../utils/thread-id.ts'
+import { recallChatMessages, getChatThread, type AgentHandle } from '../../utils/mastra-memory.ts'
+import { classifyThreadSourceFor } from '../../data/chatlog-sources.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
+import type { ChatMessage } from '../../types/chatlog.ts'
 import {
   sseEncoder,
   sseHeaders,
@@ -81,6 +85,67 @@ export function __setRunStatusResolver(fn: RunStatusResolver | undefined) {
   _runStatusResolver = fn ?? defaultRunStatusResolver
 }
 
+// ── Thread selection (?threadId=) ───────────────────────────────
+//
+// The index route can resume a specific saved support conversation. A test-only
+// resolver seam mirrors __setTestResumeResolver in the customer chat controller:
+// the mock agent has no real memory, so tests inject the selection outcome.
+export type SupportThreadResume = { threadId: string; messages: ChatMessage[] }
+
+/** Raw memory read used by the index; the ownership check is applied after it. */
+export type SupportThreadLookup = { resourceId: string; messages: ChatMessage[] }
+
+type SupportThreadResolver = (threadId: string) => Promise<SupportThreadLookup | null>
+
+let _testThreadResolver: SupportThreadResolver | undefined
+export function __setTestThreadResolver(fn: SupportThreadResolver | undefined) {
+  if (process.env.NODE_ENV === 'test') _testThreadResolver = fn
+}
+
+/**
+ * Resolves a requested thread for the support agent, or null when it must not
+ * be opened. The id is validated for format and then for ownership: only a
+ * thread whose resource is this admin's own user id can be continued. Every
+ * failure (malformed, unknown, foreign, or a memory error) degrades to an empty
+ * conversation rather than an error page.
+ */
+async function resolveSupportThread(
+  userId: number,
+  requested: string | null | undefined,
+): Promise<SupportThreadResume | null> {
+  if (!requested || !validateThreadId(requested)) return null
+
+  try {
+    let lookup: SupportThreadLookup | null
+    if (process.env.NODE_ENV === 'test' && _testThreadResolver) {
+      lookup = await _testThreadResolver(requested)
+    } else {
+      let agent = resolveAgent() as unknown as AgentHandle
+      let thread = await getChatThread(agent, requested)
+      lookup = thread
+        ? {
+            resourceId: thread.resourceId,
+            messages: await recallChatMessages(agent, requested, String(userId)),
+          }
+        : null
+    }
+
+    if (!lookup) return null
+    // Ownership: only the admin's own support conversations may be resumed.
+    if (classifyThreadSourceFor(lookup.resourceId, userId) !== 'support') return null
+
+    return { threadId: requested, messages: lookup.messages }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error(
+        '[SupportAgentChat] thread selection failed: ' +
+          sanitizeLog(err instanceof Error ? err.message : String(err)),
+      )
+    }
+    return null
+  }
+}
+
 export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
@@ -102,7 +167,22 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
     },
 
     async index(context) {
-      return renderAdminPage(context.render, 'support', <SupportAgentPage />)
+      let user = getCurrentUser()
+
+      // A full-document GET renders the admin shell, whose admin-content frame
+      // then re-fetches this same URL for the page content. Only that frame
+      // request renders SupportAgentPage, so only it needs the transcript
+      // recall; loading it on the shell pass would read memory twice.
+      let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
+      let resume = isFrameRequest
+        ? await resolveSupportThread(user.id, context.url.searchParams.get('threadId'))
+        : null
+
+      return renderAdminPage(
+        context.render,
+        'support',
+        <SupportAgentPage threadId={resume?.threadId} messages={resume?.messages ?? []} />,
+      )
     },
 
     async action(context) {

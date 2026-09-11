@@ -10,7 +10,12 @@ import {
   createTestUser,
 } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestAgent, chatRateLimiter, __setRunStatusResolver } from './controller.tsx'
+import {
+  __setTestAgent,
+  chatRateLimiter,
+  __setRunStatusResolver,
+  __setTestThreadResolver,
+} from './controller.tsx'
 import {
   upsertPendingGate,
   markGateSuspended,
@@ -333,7 +338,10 @@ describe('Mastra Chat controller', () => {
 
     let mockAgent = {
       generate: async () => ({ text: '' }),
-      stream: async (_message: string, opts?: { memory?: { thread?: string; resource?: string } }) => {
+      stream: async (
+        _message: string,
+        opts?: { memory?: { thread?: string; resource?: string } },
+      ) => {
         assert.equal(opts?.memory?.thread, existingThreadId, 'threadId should be passed to memory')
         assert.equal(opts?.memory?.resource, String(adminId), 'resource should be scoped to user')
         return createMockStreamOutput('Continuing conversation.')
@@ -1304,5 +1312,99 @@ describe('support agent read-only boundary', () => {
       /agent-events/i.test(instructions),
       'instructions must direct account mutations to the agent-events pipeline',
     )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Thread selection via ?threadId= (resume a saved conversation from the chatlog)
+// The index resolves the requested thread, validates ownership server-side, and
+// server-renders the transcript. The resolver seam stubs Mastra memory; the
+// ownership classification still runs against the returned resourceId.
+// ---------------------------------------------------------------------------
+
+describe('support-agent thread selection', () => {
+  let adminUserId: number
+  let adminCookie: string
+
+  before(async () => {
+    await initializeAppDatabase()
+    let row = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com'])
+    adminUserId = row.rows[0]?.id as number
+    let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    adminCookie = session?.cookie ?? ''
+  })
+
+  after(() => {
+    __setTestThreadResolver(undefined)
+  })
+
+  function getWithThread(query: string): Promise<Response> {
+    return router.fetch(`${CHAT_INDEX_URL}${query}`, {
+      headers: { Cookie: adminCookie, 'X-Remix-Target': 'admin-content' },
+    })
+  }
+
+  it('resumes an owned thread and server-renders its transcript', async () => {
+    let threadId = 'owned-support-thread-1'
+    __setTestThreadResolver(async (id) =>
+      id === threadId
+        ? {
+            resourceId: String(adminUserId),
+            messages: [
+              { role: 'user', content: 'Wie viele Nutzer gibt es?', timestamp: 1000 },
+              { role: 'assistant', content: 'Es gibt 42 Nutzer.', timestamp: 2000 },
+            ],
+          }
+        : null,
+    )
+
+    let response = await getWithThread(`?threadId=${threadId}`)
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes(`data-thread-id="${threadId}"`), 'should expose the selected thread id')
+    assert.ok(html.includes('Wie viele Nutzer gibt es?'), 'should render the prior user turn')
+    assert.ok(html.includes('Es gibt 42 Nutzer.'), 'should render the prior assistant turn')
+  })
+
+  it('ignores a malformed thread id without consulting memory', async () => {
+    let consulted = false
+    __setTestThreadResolver(async () => {
+      consulted = true
+      return null
+    })
+
+    let response = await getWithThread('?threadId=%00bad%00')
+    let html = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(!html.includes('data-thread-id'), 'malformed id must not open a thread')
+    assert.equal(consulted, false, 'malformed id must be rejected before the memory lookup')
+  })
+
+  it('ignores an unknown thread id', async () => {
+    __setTestThreadResolver(async () => null)
+    let response = await getWithThread('?threadId=does-not-exist')
+    let html = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(!html.includes('data-thread-id'))
+  })
+
+  it('ignores a thread owned by another resource', async () => {
+    __setTestThreadResolver(async () => ({
+      resourceId: '987654',
+      messages: [{ role: 'user', content: 'Kundenfrage', timestamp: 1000 }],
+    }))
+
+    let response = await getWithThread('?threadId=customer-thread-1')
+    let html = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(!html.includes('data-thread-id'), 'a foreign thread must not be opened')
+    assert.ok(!html.includes('Kundenfrage'), 'a foreign conversation must not be disclosed')
+  })
+
+  it('renders an empty conversation without a thread id when none is requested', async () => {
+    let response = await getWithThread('')
+    let html = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(!html.includes('data-thread-id'))
   })
 })

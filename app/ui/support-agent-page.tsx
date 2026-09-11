@@ -3,6 +3,7 @@ import { css, Frame } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes, frames } from '../routes.ts'
 import { SupportAgentStream } from '../assets/streams/public/support-agent-stream.tsx'
+import type { ChatMessage } from '../types/chatlog.ts'
 
 const pageStyle = css({
   display: 'flex',
@@ -82,46 +83,84 @@ const hintStyle = css({
   lineHeight: '1.4',
 })
 
-export function SupportAgentPage(handle: Handle) {
-  return () => (
-    <div mix={pageStyle}>
-      <div
-        id="support-agent-frame-container"
-        data-active-frame={frames.supportAgentPanel}
-        mix={frameContainerStyle}
-      >
-        <Frame
-          name={frames.supportAgentPanel}
-          src={routes.admin.supportAgent.panel.href()}
-          fallback={
-            <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
-              Frage zu Benutzern, Terminen und Systemdaten...
+interface SupportAgentPageProps {
+  /** Thread whose transcript is open, when resumed from the chatlog. */
+  threadId?: string | undefined
+  /** Server-rendered transcript of the resumed thread. */
+  messages?: ChatMessage[]
+}
+
+/** Bubbles for the server-rendered transcript, matching the streamed ones. */
+function bubbleCss(role: 'user' | 'assistant'): Record<string, string | number | undefined> {
+  let isUser = role === 'user'
+  return {
+    padding: '0.5rem 0.75rem',
+    borderRadius: '8px',
+    maxWidth: '75%',
+    lineHeight: '1.4',
+    fontSize: '0.875rem',
+    background: isUser ? theme.colors.action.primary.background : theme.surface.lvl1,
+    color: isUser ? theme.colors.action.primary.foreground : theme.colors.text.primary,
+    alignSelf: isUser ? 'flex-end' : 'flex-start',
+    border: isUser ? undefined : `1px solid ${theme.colors.border.subtle}`,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  }
+}
+
+export function SupportAgentPage(handle: Handle<SupportAgentPageProps>) {
+  return () => {
+    let { threadId, messages = [] } = handle.props
+    return (
+      <div mix={pageStyle}>
+        <div
+          id="support-agent-frame-container"
+          data-active-frame={frames.supportAgentPanel}
+          mix={frameContainerStyle}
+        >
+          <Frame
+            name={frames.supportAgentPanel}
+            src={routes.admin.supportAgent.panel.href()}
+            fallback={
+              <div mix={css({ padding: '2rem', color: theme.colors.text.muted })}>
+                Frage zu Benutzern, Terminen und Systemdaten...
+              </div>
+            }
+          />
+        </div>
+
+        <div
+          id="chat-messages"
+          {...(threadId ? { 'data-thread-id': threadId } : {})}
+          mix={chatMessagesStyle}
+        >
+          {messages.map((message, index) => (
+            <div key={index} style={bubbleCss(message.role)}>
+              {message.content}
             </div>
-          }
-        />
+          ))}
+        </div>
+
+        <div mix={hintStyle}>
+          Beantwortet Fragen zu Benutzern, Terminen, Ressourcen, Angeboten, Wetter und Statistiken —
+          nur Lesen, keine Kontoänderungen.
+        </div>
+
+        <form id="support-agent-form" mix={inputBarStyle}>
+          <textarea
+            id="support-agent-input"
+            name="message"
+            rows={3}
+            placeholder="Frage zu Benutzern, Terminen und Systemdaten..."
+            mix={textareaStyle}
+          />
+          <button id="support-agent-submit" type="submit" mix={btnStyle}>
+            Senden
+          </button>
+        </form>
+
+        <SupportAgentStream />
       </div>
-
-      <div id="chat-messages" mix={chatMessagesStyle} />
-
-      <div mix={hintStyle}>
-        Beantwortet Fragen zu Benutzern, Terminen, Ressourcen, Angeboten, Wetter und Statistiken —
-        nur Lesen, keine Kontoänderungen.
-      </div>
-
-      <form id="support-agent-form" mix={inputBarStyle}>
-        <textarea
-          id="support-agent-input"
-          name="message"
-          rows={3}
-          placeholder="Frage zu Benutzern, Terminen und Systemdaten..."
-          mix={textareaStyle}
-        />
-        <button id="support-agent-submit" type="submit" mix={btnStyle}>
-          Senden
-        </button>
-      </form>
-
-      <SupportAgentStream />
-    </div>
-  )
+    )
+  }
 }
