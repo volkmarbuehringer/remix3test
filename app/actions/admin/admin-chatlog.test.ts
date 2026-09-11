@@ -167,6 +167,27 @@ describe('Admin Chatlog controller', () => {
     assert.equal(response.status, 403)
   })
 
+  it('POST /admin/chatlog/:id/delete preserves offset and source filter', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch('https://remix.run/admin/chatlog/test-thread-123/delete', {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: new URLSearchParams({
+        _csrf: session.csrfToken,
+        _offset: '10',
+        _source: 'support',
+      }),
+      redirect: 'manual',
+    })
+
+    assert.ok(response.status === 302 || response.status === 303, 'should redirect after destroy')
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.includes('offset=10'), 'should keep the page offset')
+    assert.ok(location.includes('source=support'), 'should keep the source filter')
+  })
+
   // -----------------------------------------------------------------------
   // hasMore — hidden when page is empty
   // -----------------------------------------------------------------------

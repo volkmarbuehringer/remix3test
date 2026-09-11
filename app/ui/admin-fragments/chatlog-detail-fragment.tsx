@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css, Fragment } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
+import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { decodeHtml } from '../../utils/decode-html-entities.ts'
 import { routes } from '../../routes.ts'
@@ -13,6 +14,12 @@ interface ChatlogDetailFragmentProps {
   closeHref?: string
   /** Id of the list row to return focus to when the pane is dismissed. */
   returnId?: string
+  /**
+   * Entry URL that resumes this conversation in the support-agent chat. Only
+   * present for conversations owned by the current admin; customer and legacy
+   * conversations stay read-only.
+   */
+  continueHref?: string | undefined
 }
 
 const detailStyle = css({
@@ -37,6 +44,27 @@ const titleStyle = css({
   fontWeight: theme.fontWeight.semibold,
   color: theme.colors.text.primary,
   margin: 0,
+})
+
+const headerMetaStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.space.sm,
+  flexShrink: 0,
+})
+
+const continueLinkStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: `3px ${theme.space.sm}`,
+  borderRadius: theme.radius.md,
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  textDecoration: 'none',
+  '&:hover': { opacity: 0.9 },
 })
 
 const errorStyle = css({
@@ -166,7 +194,7 @@ function isSameDay(a: number, b: number): boolean {
 
 export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>) {
   return () => {
-    let { messages, error, closeHref, returnId } = handle.props
+    let { messages, error, closeHref, returnId, continueHref } = handle.props
     let displayTitle = conversationTitle(messages)
     let hasError = Boolean(error)
     // The pane renders the transcript oldest-first, so a conversation reads the
@@ -190,9 +218,21 @@ export function ChatlogDetailFragment(handle: Handle<ChatlogDetailFragmentProps>
         </a>
         <div mix={headerStyle}>
           <h3 mix={titleStyle}>{displayTitle}</h3>
-          <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>
-            {messages.length === 1 ? '1 Nachricht' : `${messages.length} Nachrichten`}
-          </span>
+          <div mix={headerMetaStyle}>
+            <span mix={css({ fontSize: theme.fontSize.xxs, color: theme.colors.text.muted })}>
+              {messages.length === 1 ? '1 Nachricht' : `${messages.length} Nachrichten`}
+            </span>
+            {continueHref ? (
+              <a
+                href={continueHref}
+                data-rmx-document
+                data-chatlog-continue="true"
+                mix={continueLinkStyle}
+              >
+                <Glyph name="chat" width={13} height={13} /> Im Chat fortsetzen
+              </a>
+            ) : null}
+          </div>
         </div>
 
         {hasError ? (

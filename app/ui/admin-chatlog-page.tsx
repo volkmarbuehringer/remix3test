@@ -6,6 +6,13 @@ import { rotatedGlyphCss } from './mixins/icon.ts'
 import { table } from './mixins/admin-table.ts'
 import { formatTimestamp } from './mixins/admin-urls.ts'
 import { decodeHtml } from '../utils/decode-html-entities.ts'
+import {
+  CHATLOG_SOURCE_FILTERS,
+  CHATLOG_SOURCE_LABELS,
+  type ChatlogSource,
+  type ChatlogSourceFilter,
+} from '../data/chatlog-sources.ts'
+import { chatlogQuery } from '../utils/chatlog-query.ts'
 
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -34,19 +41,20 @@ const DETAIL_FRAME = 'admin-chatlog-detail'
  */
 const NO_DETAIL_ID = 'none'
 
-/** Preserves the current page when a transcript link is opened or dismissed. */
-function pageQueryFor(offset: number): string {
-  return offset > 0 ? `?offset=${offset}` : ''
+interface ChatLogConversation {
+  id: string
+  created_at: number
+  updated_at: number
+  preview: string
+  previewFull: string
+  /** Stored-message count, shown as a metadata signal in the list. */
+  messageCount: number
+  /** Derived owner/source, used for the badge and the continue action. */
+  source: ChatlogSource
 }
 
 interface ChatLogPageProps {
-  conversations: Array<{
-    id: string
-    created_at: number
-    updated_at: number
-    preview: string
-    previewFull: string
-  }>
+  conversations: ChatLogConversation[]
   offset: number
   hasMore: boolean
   pageSize: number
@@ -54,6 +62,10 @@ interface ChatLogPageProps {
   nextOffset: number
   /** Thread whose transcript is open in the detail pane, if any. */
   selectedId?: string | undefined
+  /** Active source filter (Alle keeps every thread). */
+  source: ChatlogSourceFilter
+  /** Thread count per filter value, for the filter bar labels. */
+  sourceCounts: Record<ChatlogSourceFilter, number>
 }
 
 // ── Styles ──
@@ -126,6 +138,22 @@ const pageBadgeStyle = css({
   whiteSpace: 'nowrap',
 })
 
+const sourceBadgeStyle = css({
+  display: 'inline-block',
+  padding: `2px ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+const sourceBadgeSupportStyle = css({
+  background: theme.colors.action.primary.background,
+  color: theme.colors.action.primary.foreground,
+})
+
 /** Loading / "nothing selected" hint shown inside the detail pane. */
 const detailPlaceholderStyle = css({
   padding: theme.space.lg,
@@ -138,10 +166,12 @@ const detailPlaceholderStyle = css({
 
 const colActionsWidth = css({ width: '120px' })
 
+const filterBarStyle = css({ marginTop: theme.space.sm })
+
 // The master–detail grid leaves the list roughly half the page. Without a floor
 // the fixed table layout shaves the timestamp columns down to wrapped dates, so
 // the table keeps a readable minimum and the list column scrolls instead.
-const listTableMinWidthStyle = css({ minWidth: '520px' })
+const listTableMinWidthStyle = css({ minWidth: '760px' })
 
 // ── Master–detail layout ──
 //
@@ -175,13 +205,22 @@ const detailPanelStyle = css({
 
 export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
   return () => {
-    let { conversations, offset, hasMore, pageSize, prevOffset, nextOffset, selectedId } =
-      handle.props
+    let {
+      conversations,
+      offset,
+      hasMore,
+      pageSize,
+      prevOffset,
+      nextOffset,
+      selectedId,
+      source,
+      sourceCounts,
+    } = handle.props
     let pageStart = conversations.length > 0 ? offset + 1 : 0
     let pageEnd = offset + conversations.length
     let currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 0
     let detailOpen = selectedId !== undefined
-    let pageQuery = pageQueryFor(offset)
+    let pageQuery = chatlogQuery(offset, source)
 
     return (
       <div mix={table.page} data-chatlog-page="true">
@@ -189,6 +228,22 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
         <AdminChatlogDetail />
         <h2 mix={table.title}>Chat-Konversationen</h2>
         <p mix={descriptionStyle}>Gespeicherte Support-Konversationen einsehen und verwalten.</p>
+
+        <div mix={[table.filterBar, filterBarStyle]} data-chatlog-source-filter="true">
+          <div mix={table.filterGroup}>
+            {CHATLOG_SOURCE_FILTERS.map((filter) => (
+              <a
+                key={filter}
+                href={ADMIN_BASE + chatlogQuery(0, filter)}
+                data-rmx-target={getSelfFrameTarget()}
+                data-chatlog-source={filter}
+                mix={[table.filterTab, source === filter ? table.filterTabActive : undefined]}
+              >
+                {CHATLOG_SOURCE_LABELS[filter]} ({sourceCounts[filter]})
+              </a>
+            ))}
+          </div>
+        </div>
 
         <div
           mix={masterDetailWrapStyle}
@@ -202,15 +257,19 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
               <table mix={[table.table, listTableMinWidthStyle]}>
                 <colgroup>
                   <col />
-                  <col mix={css({ width: '155px' })} />
-                  <col mix={css({ width: '155px' })} />
+                  <col mix={css({ width: '110px' })} />
+                  <col mix={css({ width: '110px' })} />
+                  <col mix={css({ width: '145px' })} />
+                  <col mix={css({ width: '145px' })} />
                   <col mix={colActionsWidth} />
                 </colgroup>
                 <thead>
                   <tr>
                     <th mix={table.th}>Konversation</th>
+                    <th mix={table.th}>Quelle</th>
+                    <th mix={table.th}>Nachrichten</th>
                     <th mix={table.th}>Erstellt</th>
-                    <th mix={table.th}>Aktualisiert</th>
+                    <th mix={table.th}>Letzte Nachricht</th>
                     <th mix={table.th}>Aktionen</th>
                   </tr>
                 </thead>
@@ -246,6 +305,18 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                             )}
                           </a>
                         </td>
+                        <td mix={table.td}>
+                          <span
+                            mix={[
+                              sourceBadgeStyle,
+                              conv.source === 'support' ? sourceBadgeSupportStyle : undefined,
+                            ]}
+                            data-chatlog-source-badge={conv.source}
+                          >
+                            {CHATLOG_SOURCE_LABELS[conv.source]}
+                          </span>
+                        </td>
+                        <td mix={table.td}>{conv.messageCount}</td>
                         <td mix={table.td} title={formatTimestamp(conv.created_at)}>
                           {formatTimestamp(conv.created_at)}
                         </td>
@@ -275,6 +346,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                               <GridStateHiddenInputs
                                 state={{ offset: String(offset), sort: '', order: '', filter: '' }}
                               />
+                              <input type="hidden" name="_source" value={source} />
                               <button
                                 type="submit"
                                 mix={[iconActionStyle, iconActionDangerStyle]}
@@ -328,7 +400,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a
-                  href={`${ADMIN_BASE}?offset=${prevOffset}`}
+                  href={ADMIN_BASE + chatlogQuery(prevOffset, source)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
@@ -337,7 +409,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
               ) : null}
               {hasMore ? (
                 <a
-                  href={`${ADMIN_BASE}?offset=${nextOffset}`}
+                  href={ADMIN_BASE + chatlogQuery(nextOffset, source)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
