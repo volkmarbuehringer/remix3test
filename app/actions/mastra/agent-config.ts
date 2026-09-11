@@ -18,7 +18,10 @@ function requireApiKey(): string {
 export function createModel() {
   return {
     providerId: 'opencode-go',
-    modelId: 'deepseek-v4-flash',
+    // DeepSeek V4.1 Flash. OpenCode Go also still serves `deepseek-v4-flash`
+    // as a separate model id with separate monthly usage limits, so this id is
+    // what selects the quota, not a cosmetic rename.
+    modelId: 'deepseek-v4.1-flash',
     url: OPENCODE_API_URL,
     headers: {
       'X-Opencode-Session': getOpenCodeSessionId(),
