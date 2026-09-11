@@ -349,6 +349,9 @@ describe('Mastra Chat controller', () => {
       resumeStream: async () => createMockStreamOutput(''),
     }
     __setTestAgent(mockAgent)
+    // The action verifies ownership before streaming; stub the lookup so the
+    // supplied id resolves as this admin's own thread.
+    __setTestThreadResolver(async () => ({ resourceId: String(adminId), messages: [] }))
 
     let response = await router.fetch(CHAT_ACTION_URL, {
       method: 'POST',
@@ -367,6 +370,105 @@ describe('Mastra Chat controller', () => {
     assert.equal(text, 'Continuing conversation.')
 
     __setTestAgent(undefined)
+    __setTestThreadResolver(undefined)
+  })
+
+  it('POST /admin/support-agent does not write to a thread this admin does not own', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let seenThreadId: string | undefined
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async (_message: string, opts?: { memory?: { thread?: string } }) => {
+        seenThreadId = opts?.memory?.thread
+        return createMockStreamOutput('Neue Konversation.')
+      },
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
+    __setTestThreadResolver(async () => ({ resourceId: '999999', messages: [] }))
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({
+        message: 'fremd',
+        _csrf: session.csrfToken,
+        threadId: 'customer-thread-1',
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events, text } = await parseSSEResponse(response)
+    let start = events.find((event) => event.type === 'start')
+    assert.ok(start, 'should start a stream')
+    let startThreadId = JSON.parse(start!.data).threadId as string
+    assert.ok(
+      startThreadId !== 'customer-thread-1',
+      'must not continue the foreign thread, got: ' + startThreadId,
+    )
+    assert.ok(
+      seenThreadId && seenThreadId !== 'customer-thread-1',
+      'agent memory must use a new thread, got: ' + seenThreadId,
+    )
+    assert.equal(text, 'Neue Konversation.')
+
+    __setTestAgent(undefined)
+    __setTestThreadResolver(undefined)
+  })
+
+  it('POST /admin/support-agent ignores an unknown thread id', async () => {
+    let adminId = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows[0]?.id as number
+    chatRateLimiter.reset(adminId)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let seenThreadId: string | undefined
+    let mockAgent = {
+      generate: async () => ({ text: '' }),
+      stream: async (_message: string, opts?: { memory?: { thread?: string } }) => {
+        seenThreadId = opts?.memory?.thread
+        return createMockStreamOutput('Neu.')
+      },
+      resumeStream: async () => createMockStreamOutput(''),
+    }
+    __setTestAgent(mockAgent)
+    __setTestThreadResolver(async () => null)
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...JSON_HEADERS },
+      body: new URLSearchParams({
+        message: 'unbekannt',
+        _csrf: session.csrfToken,
+        threadId: 'does-not-exist',
+      }),
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let start = events.find((event) => event.type === 'start')
+    assert.ok(start, 'should start a stream')
+    assert.ok(
+      JSON.parse(start!.data).threadId !== 'does-not-exist',
+      'an unknown thread must be replaced by a new conversation',
+    )
+    assert.ok(
+      seenThreadId && seenThreadId !== 'does-not-exist',
+      'agent memory must use a new thread',
+    )
+
+    __setTestAgent(undefined)
+    __setTestThreadResolver(undefined)
   })
 
   it('POST /admin/support-agent forwards routeNavigate results to the support-agent-panel target', async () => {

@@ -146,6 +146,37 @@ async function resolveSupportThread(
   }
 }
 
+/**
+ * Whether a supplied thread id exists and is owned by this admin.
+ *
+ * The index validates ownership before it opens a transcript, but the message
+ * action is a separate write path: a direct POST (or a client re-sending a URL
+ * id) can supply one. Checking here too keeps the boundary in the application
+ * instead of relying on the memory store to reject a foreign resource at write
+ * time.
+ */
+async function isOwnedSupportThread(
+  userId: number,
+  threadId: string,
+  log: (...args: unknown[]) => void,
+): Promise<boolean> {
+  try {
+    let resourceId: string | null
+    if (process.env.NODE_ENV === 'test' && _testThreadResolver) {
+      let lookup = await _testThreadResolver(threadId)
+      resourceId = lookup?.resourceId ?? null
+    } else {
+      let agent = resolveAgent() as unknown as AgentHandle
+      let thread = await getChatThread(agent, threadId)
+      resourceId = thread?.resourceId ?? null
+    }
+    return resourceId !== null && classifyThreadSourceFor(resourceId, userId) === 'support'
+  } catch (err) {
+    log('ownership check failed: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
+    return false
+  }
+}
+
 export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
@@ -220,6 +251,15 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
           'Bitte warte einen Moment, bevor du eine weitere Nachricht sendest.',
           429,
         )
+      }
+
+      // The index only opens a thread the admin owns, but this action is a
+      // separate path. Enforce the same ownership before the id reaches memory
+      // so a direct POST (or a client re-sending a URL id) can never write into
+      // a conversation the admin does not own.
+      if (threadId && !(await isOwnedSupportThread(user.id, threadId, log))) {
+        log('ignoring thread not owned by this admin: ' + sanitizeLog(threadId))
+        threadId = undefined
       }
 
       if (!threadId) {
@@ -307,7 +347,10 @@ export const supportAgentChat = createController(routes.admin.supportAgent, {
             let msg = sanitizeLog(err instanceof Error ? err.message : String(err))
             log('error: ' + msg)
             try {
-              controller.enqueue(sseEvent('agent-error', { error: msg }))
+              // Keep the internal detail in the log; the browser gets a generic
+              // message so a rejected thread id cannot echo vendor storage
+              // details back to the client.
+              controller.enqueue(sseEvent('agent-error', { error: 'Fehler bei der Verarbeitung.' }))
             } catch {
               /* controller already errored */
             }

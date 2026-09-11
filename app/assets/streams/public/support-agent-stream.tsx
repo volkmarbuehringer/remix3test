@@ -2,9 +2,6 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 
-/** The same thread-id contract the server validates (`validateThreadId`). */
-const THREAD_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/
-
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
   function SupportAgentStream(handle: Handle) {
@@ -43,31 +40,23 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
-    function urlThreadId(): string {
-      try {
-        return new URL(window.location.href).searchParams.get('threadId') ?? ''
-      } catch {
-        return ''
-      }
-    }
-
     /**
      * Which conversation the next turn belongs to, decided by the page on
      * screen rather than by this entry's closure.
      *
-     * The server-rendered `data-thread-id` is authoritative (it is the id the
-     * server validated and opened), then a well-formed `?threadId=` in the
-     * address bar. The id this entry captured is reused only while the page and
-     * chat element that produced it are still on screen — an in-app navigation
-     * or a frame reload can otherwise leave a stale thread in the closure and
-     * silently continue a conversation the admin has left.
+     * The server-rendered `data-thread-id` is the only adoption signal: the
+     * server renders it exactly when it validated and opened the requested
+     * thread. A `?threadId=` that appears only in the URL was therefore not
+     * adopted (unknown, foreign, or rejected) and must not be posted — doing so
+     * would target a conversation the page never opened. The id this entry
+     * captured is reused only while the page and chat element that produced it
+     * are still on screen — an in-app navigation or a frame reload can otherwise
+     * leave a stale thread in the closure and silently continue a conversation
+     * the admin has left.
      */
     function resolveThreadId(): string | null {
       let fromDom = getChat()?.getAttribute('data-thread-id') ?? ''
       if (fromDom) return fromDom
-
-      let fromUrl = urlThreadId()
-      if (fromUrl && THREAD_ID_PATTERN.test(fromUrl)) return fromUrl
 
       if (
         currentThreadId &&

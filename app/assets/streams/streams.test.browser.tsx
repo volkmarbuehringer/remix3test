@@ -1249,6 +1249,39 @@ describe('Support agent thread continuation', () => {
     window.fetch = originalFetch
   })
 
+  it('does not post a URL thread id the server did not adopt', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    // The index rejected this id (unknown/foreign), so it rendered no
+    // data-thread-id — but the address bar still names it.
+    window.history.replaceState({}, '', '/admin/support-agent?threadId=foreign-thread')
+    dom = setupSupportDom()
+
+    let bodies: string[] = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) === '/admin/support-agent') bodies.push(captureBody(init))
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r4', threadId: 'server-made-new' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Erste Frage')
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.equal(bodies.length, 1, 'one turn should be submitted')
+    assert.ok(
+      !bodies[0]!.includes('threadId='),
+      'a URL id the server did not adopt must not be posted, got: ' + bodies[0],
+    )
+
+    window.fetch = originalFetch
+  })
+
   it('reuses the thread created on the current page for the next message', async () => {
     installSseMock()
     resetCreatedEventSources()
