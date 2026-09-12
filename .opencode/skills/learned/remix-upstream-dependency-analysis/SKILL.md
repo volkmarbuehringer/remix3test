@@ -49,6 +49,7 @@ Trace the chain from upstream changes to project impact:
 Key focus areas when reviewing diffs:
 - **New opaque types** — classes hiding previously public internals (e.g. `RoutePattern` making `.pathname` opaque)
 - **Changed default behavior** — cookie codecs, encoding, serialization
+- **New runtime validation** — a helper that now throws on invalid input can turn an existing unchecked `as` cast at a boundary into a 500; audit the cast adapters that feed it before updating (see `vendor-validator-cast-audit`)
 - **New features** — generally safe but may need opt-in adoption
 - **Renamed exports** — look for `renamed|moved|deleted` in changelogs
 

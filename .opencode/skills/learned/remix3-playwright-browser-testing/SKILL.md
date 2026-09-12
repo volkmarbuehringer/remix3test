@@ -1,6 +1,6 @@
 ---
 name: remix3-playwright-browser-testing
-description: "Use when a Playwright / `remix test` browser run hangs or times out, or a Remix 3 crash card hides the real exception — `networkidle` on SSE pages, unforgeable `window.location.reload()`, swallowed stacks."
+description: "Use when a Playwright / `remix test` browser run hangs or times out, or a Remix 3 crash card hides the real exception — `networkidle` on SSE pages, unforgeable `window.location` navigation (`reload`/`assign`), swallowed stacks."
 metadata:
   origin: consolidated
 ---
@@ -8,6 +8,7 @@ metadata:
 # Playwright / Browser-Test Debugging for Remix 3
 
 **Consolidated:** 2026-09-11
+**Updated:** 2026-09-12 — generalized from `window.location.reload()` to any `Location` navigation (`assign`/`replace`/`href`).
 **Sources:** `remix3-playwright-sse-networkidle-hang` (2026-08-28), `chromium-window-location-reload-unforgeable` (2026-08-27), `playwright-capture-swallowed-exception-stack` (2026-08-30)
 
 Three unrelated-looking symptoms of driving a Remix 3 page with a real browser: a navigation that never settles, a browser test that hangs forever, and a crash whose stack is invisible. Each has a distinct root cause and fix.
@@ -61,7 +62,9 @@ Object.defineProperty(window, 'location', { value: fake })            // same
 
 So a test that renders a component calling `window.location.reload()` (e.g. on an SSE `invalidate`/`navigate` event), then emits that event, **actually reloads the page**. The reload navigates the test context away while an `await` is pending, so the test never resolves and the runner hangs until timeout. It even works in jsdom-like harnesses where `window.EventSource` or other props are assignable — only the `Location` object is hardened.
 
-Treat the window-mode reload as **not assertable in a real browser** and choose one of:
+The same applies to **every** `Location` navigation — `window.location.assign(url)`, `location.replace(...)`, `location.href = ...` — and to any helper that calls one on the caller's behalf (e.g. a frame resolver that bails to document navigation when it rejects a source). Triggering one while an `await` is pending navigates the test page away, so the runner reports no progress for the whole file.
+
+Treat the window-mode navigation as **not assertable in a real browser** and choose one of:
 
 1. **Skip it** (fastest, no production change):
    ```js
@@ -76,6 +79,7 @@ Treat the window-mode reload as **not assertable in a real browser** and choose 
    // test:     render with a spy reload, assert spy called once
    ```
 3. **Assert a pre-reload side-effect** (skip-params early-return, a status flag set just before `reload()`), which is observable without navigation.
+4. **Extract a pure predicate.** When the branch's only observable is the navigation, export the decision as a pure function and assert that — plus that `fetch` was never called. This is the tested shape of the app's same-origin frame-resolver guard (`isSameOriginFrameSource(url)`, 2026-09-12): the cross-origin branch calls `window.location.assign`, so the test asserts the predicate instead of driving the resolver.
 
 Note: **frame reload** (`frame.reload()`) is NOT a problem — only window-mode `window.location.reload()` navigates the top page. Keep frame-mode tests intact.
 
@@ -129,6 +133,7 @@ In the source case, **Chromium silently tolerated the malformed diff** (only a 4
 
 - A Playwright/e2e navigation or submit times out on a page that mounts an SSE/EventSource channel, or `networkidle` never settles.
 - A browser test (`*.test.browser.tsx`) hangs ("Timed out waiting ... for browser test progress") after dispatching an event that triggers `window.location.reload()`; stubbing `window.location` throws "Cannot assign to read only property 'reload'".
+- A browser test reports no progress at all (`0/N files completed`) after the code under test calls `window.location.assign(...)`, `location.replace(...)`, or `location.href = ...`.
 - A browser app shows a generic "Unexpected Error / Something went wrong" card and `pageerror`/console capture yields only the message, never a stack.
 - A crash report mentions a DOM API by name (`insertBefore`, `appendChild`, …) — wrap that prototype method and rerun.
 - Deciding which browser to reproduce in: match the DOMException message style (Firefox vs Chromium wording) to the report.
