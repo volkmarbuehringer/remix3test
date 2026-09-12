@@ -94,3 +94,33 @@ export function gridStatePeriod(state: GridState): string | undefined {
 export function gridStateStatus(state: GridState): string | undefined {
   return state.status || undefined
 }
+
+/** The loader overrides derived from submitted grid-state form fields. */
+export interface GridStateOverrides {
+  offset: number | undefined
+  sortColumn: string | undefined
+  sortDirection: 'asc' | 'desc' | undefined
+  filter: string | undefined
+  period: string | undefined
+  status: string | undefined
+}
+
+/**
+ * Build the `offset`/`sortColumn`/`sortDirection`/`filter`/`period`/`status` overrides that
+ * grid page-data loaders accept from submitted grid-state form fields.
+ *
+ * Controllers re-render a page after a validation or constraint error, and every branch needs
+ * the same six values; building them once keeps those branches to a single spread and routes
+ * the direction through the one whitelist in {@link gridStateDirection}. Values are
+ * `| undefined`-friendly for `exactOptionalPropertyTypes`.
+ */
+export function gridStateOverrides(state: GridState): GridStateOverrides {
+  return {
+    offset: gridStateOffset(state),
+    sortColumn: gridStateSort(state),
+    sortDirection: gridStateDirection(state),
+    filter: gridStateFilter(state),
+    period: gridStatePeriod(state),
+    status: gridStateStatus(state),
+  }
+}

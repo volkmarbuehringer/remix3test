@@ -23,10 +23,7 @@ import { getPageSize } from '../../../utils/get-page-size.ts'
 import {
   gridStateFromFormData,
   gridStateToParams,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
+  gridStateOverrides,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { readAgentPrefill } from '../../../utils/agent-prefill.ts'
@@ -261,10 +258,7 @@ export default createController(routes.verwaltung.resources, {
           creating: true,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderResourcePage(context, data)
       }
@@ -324,10 +318,7 @@ export default createController(routes.verwaltung.resources, {
           editRow,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderResourcePage(context, data)
       }

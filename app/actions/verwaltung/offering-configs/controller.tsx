@@ -19,10 +19,7 @@ import {
   gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
+  gridStateOverrides,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
@@ -440,10 +437,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           formValues: validation.formValues,
           fieldErrors: validation.fieldErrors,
           formError: validation.formError,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -471,10 +465,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             creating: true,
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
             formError: 'Ressource wurde gelöscht',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderOfferingConfigPage(context, data)
         }
@@ -526,10 +517,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -543,10 +531,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
           formValues,
           fieldErrors: { resource_id: 'Ressource ist erforderlich' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -558,10 +543,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
           formValues,
           formError: 'Ressource nicht gefunden',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -573,10 +555,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
           formValues,
           formError: 'Diese Ressource hat bereits eine Konfiguration',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -588,10 +567,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
           editRow: toOfferingConfigRow(target as Record<string, unknown>),
           formValues,
           formError: 'Mindestens ein Tag muss einen Zeitraum haben',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingConfigPage(context, data)
       }
@@ -613,10 +589,7 @@ export default createController(routes.verwaltung.offeringConfigs, {
             editRow: toOfferingConfigRow(target as Record<string, unknown>),
             formValues: readFormFieldValues(OFFERING_CONFIG_FORM_KEYS_LIST, formData),
             formError: 'Ressource wurde gelöscht',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderOfferingConfigPage(context, data)
         }

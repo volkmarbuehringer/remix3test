@@ -20,12 +20,7 @@ import { parseSort } from '../../utils/sort-params.ts'
 import {
   gridStateToParams,
   gridStateFromFormData,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
-  gridStatePeriod,
-  gridStateStatus,
+  gridStateOverrides,
 } from '../../utils/grid-state.ts'
 import { appointmentChannel } from '../../utils/appointments-sse.ts'
 import {
@@ -420,12 +415,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -439,12 +429,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             fieldErrors: { day_start: 'Bitte wählen Sie eine Uhrzeit aus.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -459,12 +444,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             fieldErrors: { day_start: 'Ungültiges Format.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -478,12 +458,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             fieldErrors: { day_start: 'Ungültiges Format.' },
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -508,12 +483,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             fieldErrors,
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -530,12 +500,7 @@ export default createController(routes.appointmentsNew, {
             weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
             formValues,
             formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsNewPage(context, data, { status: 400 })
         }
@@ -562,12 +527,7 @@ export default createController(routes.appointmentsNew, {
               weekStart: weekStartRaw ? parseInt(weekStartRaw, 10) : undefined,
               formValues,
               formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-              offset: gridStateOffset(gridValues),
-              sortColumn: gridStateSort(gridValues),
-              sortDirection: gridStateDirection(gridValues),
-              filter: gridStateFilter(gridValues),
-              period: gridStatePeriod(gridValues),
-              status: gridStateStatus(gridValues),
+              ...gridStateOverrides(gridValues),
             })
             return renderAppointmentsNewPage(context, data, { status: 400 })
           }

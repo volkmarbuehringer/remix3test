@@ -25,12 +25,7 @@ import {
   gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
-  gridStatePeriod,
-  gridStateStatus,
+  gridStateOverrides,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
@@ -325,12 +320,7 @@ export default createController(routes.verwaltung.appointments, {
             creating: true,
             formValues,
             formError: 'Bitte warten Sie, bevor Sie einen weiteren Termin anlegen.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsPage(context, data)
         }
@@ -342,12 +332,7 @@ export default createController(routes.verwaltung.appointments, {
           creating: true,
           formValues,
           fieldErrors: { resource_id: 'ist erforderlich.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -357,12 +342,7 @@ export default createController(routes.verwaltung.appointments, {
           creating: true,
           formValues,
           fieldErrors: { user_id: 'ist erforderlich.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -375,12 +355,7 @@ export default createController(routes.verwaltung.appointments, {
           creating: true,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -393,12 +368,7 @@ export default createController(routes.verwaltung.appointments, {
           formValues,
           formError: 'muss nach der Startzeit liegen.',
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -411,12 +381,7 @@ export default createController(routes.verwaltung.appointments, {
           creating: true,
           formValues,
           formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -427,12 +392,7 @@ export default createController(routes.verwaltung.appointments, {
           creating: true,
           formValues,
           formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -466,12 +426,7 @@ export default createController(routes.verwaltung.appointments, {
             creating: true,
             formValues,
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsPage(context, data)
         }
@@ -500,12 +455,7 @@ export default createController(routes.verwaltung.appointments, {
             editRow: updateId ? await fetchAppointmentEditRow(context.db, updateId) : undefined,
             formValues,
             formError: 'Bitte warten Sie, bevor Sie einen Termin bearbeiten.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsPage(context, data)
         }
@@ -525,12 +475,7 @@ export default createController(routes.verwaltung.appointments, {
           editRow,
           formValues,
           fieldErrors: { resource_id: 'ist erforderlich.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -541,12 +486,7 @@ export default createController(routes.verwaltung.appointments, {
           editRow,
           formValues,
           fieldErrors: { user_id: 'ist erforderlich.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -560,12 +500,7 @@ export default createController(routes.verwaltung.appointments, {
           editRow,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -579,12 +514,7 @@ export default createController(routes.verwaltung.appointments, {
           formValues,
           formError: 'muss nach der Startzeit liegen.',
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -598,12 +528,7 @@ export default createController(routes.verwaltung.appointments, {
           editRow,
           formValues,
           formError: 'Termine in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -615,12 +540,7 @@ export default createController(routes.verwaltung.appointments, {
           editRow,
           formValues,
           formError: 'Der gewünschte Zeitraum liegt außerhalb der Buchungszeiten.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderAppointmentsPage(context, data)
       }
@@ -659,12 +579,7 @@ export default createController(routes.verwaltung.appointments, {
             editRow,
             formValues,
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Termin.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
-            status: gridStateStatus(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderAppointmentsPage(context, data)
         }

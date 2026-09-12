@@ -19,12 +19,7 @@ import {
   gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
-  gridStateOffset,
-  gridStateSort,
-  gridStateDirection,
-  gridStateFilter,
-  gridStatePeriod,
-  gridStateStatus,
+  gridStateOverrides,
 } from '../../../utils/grid-state.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 
@@ -260,12 +255,7 @@ export default createController(routes.verwaltung.offerings, {
           creating: true,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -278,12 +268,7 @@ export default createController(routes.verwaltung.offerings, {
           formValues,
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
           formError: 'muss nach der Startzeit liegen.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -293,12 +278,7 @@ export default createController(routes.verwaltung.offerings, {
           creating: true,
           formValues,
           formError: 'Dieses Datum ist ein Feiertag.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -310,12 +290,7 @@ export default createController(routes.verwaltung.offerings, {
           creating: true,
           formValues,
           formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -343,11 +318,7 @@ export default createController(routes.verwaltung.offerings, {
             creating: true,
             formValues,
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderOfferingsPage(context, data)
         }
@@ -380,12 +351,7 @@ export default createController(routes.verwaltung.offerings, {
           editRow,
           formValues,
           fieldErrors,
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -399,12 +365,7 @@ export default createController(routes.verwaltung.offerings, {
           formValues,
           fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
           formError: 'muss nach der Startzeit liegen.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -415,12 +376,7 @@ export default createController(routes.verwaltung.offerings, {
           editRow,
           formValues,
           formError: 'Dieses Datum ist ein Feiertag.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -433,12 +389,7 @@ export default createController(routes.verwaltung.offerings, {
           editRow,
           formValues,
           formError: 'Angebote in der Vergangenheit können nicht erstellt oder bearbeitet werden.',
-          offset: gridStateOffset(gridValues),
-          sortColumn: gridStateSort(gridValues),
-          sortDirection: gridStateDirection(gridValues),
-          filter: gridStateFilter(gridValues),
-          period: gridStatePeriod(gridValues),
-          status: gridStateStatus(gridValues),
+          ...gridStateOverrides(gridValues),
         })
         return renderOfferingsPage(context, data)
       }
@@ -475,11 +426,7 @@ export default createController(routes.verwaltung.offerings, {
             editRow,
             formValues,
             formError: 'Dieser Zeitraum überschneidet sich mit einem bestehenden Angebot.',
-            offset: gridStateOffset(gridValues),
-            sortColumn: gridStateSort(gridValues),
-            sortDirection: gridStateDirection(gridValues),
-            filter: gridStateFilter(gridValues),
-            period: gridStatePeriod(gridValues),
+            ...gridStateOverrides(gridValues),
           })
           return renderOfferingsPage(context, data)
         }
