@@ -1,7 +1,8 @@
 import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
+import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import { routes } from '../../routes.ts'
+import { LazyFrame } from '../lazy-frame.browser.tsx'
 
 interface Activity {
   id: number
@@ -83,6 +84,14 @@ const nestedFrameContainer = css({
   marginTop: theme.space.sm,
   paddingLeft: theme.space.lg,
   borderLeft: `3px solid ${theme.colors.border.subtle}`,
+  // LazyFrame's placeholder crosses the client-entry boundary by serialization,
+  // so it cannot carry a css() mixin (the descriptor loses its type and
+  // hydration fails with "Invalid mix prop"). Its presentation is styled here,
+  // from the server-rendered shell instead.
+  '& > div': {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.text.muted,
+  },
 })
 
 function timeAgo(date: Date): string {
@@ -123,23 +132,33 @@ export function RecentActivityFragment(handle: Handle<RecentActivityFragmentProp
                   toggles frame visibility, requires zero JS. An <a> would
                   trigger the navigation intercept and reload the top-level
                   Document frame with fragment HTML, causing
-                  Node.insertBefore DOMException. */}
+                  Node.insertBefore DOMException. The user-detail frame is lazy:
+                  the disclosure ships collapsed, so resolving it up front
+                  fetched content nobody had asked to see. The frame mounts as
+                  soon as the open disclosure becomes visible. */}
                 <details>
                   <summary mix={detailBtnStyle}>Details anzeigen</summary>
                   <div mix={nestedFrameContainer}>
-                    <Frame
-                      name={`user-detail-${activity.userId}`}
+                    <LazyFrame
+                      // `name` is load-bearing, not bookkeeping: it makes the
+                      // request carry X-Remix-Target, which routes an expired
+                      // session through requireAuth's sub-frame 401 and the
+                      // client's full-page login redirect. Without it the 302
+                      // falls through and injects the login document into the
+                      // disclosure (see app/middleware/auth.ts).
+                      // The row id, not the user id: two activities can share a
+                      // user, and duplicate frame names overwrite each other in
+                      // the runtime's named-frame registry.
+                      name={`user-detail-${activity.id}`}
                       src={routes.admin.fragments.userDetail.href({
                         userId: String(activity.userId),
                       })}
-                      fallback={
-                        <div
-                          mix={css({ fontSize: theme.fontSize.xs, color: theme.colors.text.muted })}
-                        >
-                          Benutzerdetails werden geladen…
-                        </div>
-                      }
-                    />
+                      // Plain strings: anything carrying a css() mixin would be
+                      // destroyed by serialization across the client boundary.
+                      fallback="Benutzerdetails werden geladen…"
+                    >
+                      Benutzerdetails werden geladen…
+                    </LazyFrame>
                   </div>
                 </details>
               </div>

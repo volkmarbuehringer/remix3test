@@ -236,7 +236,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:877`, dispatched by `completeReload` defined at `:872`; the inherited-reload variant dispatches at `:912`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:883`, dispatched by `completeReload` defined at `:878`; the inherited-reload variant dispatches at `:918`). At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
@@ -361,12 +361,13 @@ if (e.dataTransfer) {
 
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 
-**Context:** Three distinct failures when authoring a new remix/ui `clientEntry`: `ReferenceError: document is not defined` during server render, TS/JSX parse errors from misplaced mixins, and `AssetServerCompilationError: IMPORT_NOT_ALLOWED`.
+**Context:** Distinct failures when authoring a new remix/ui `clientEntry`: `ReferenceError: document is not defined` during server render, TS/JSX parse errors from misplaced mixins, `AssetServerCompilationError: IMPORT_NOT_ALLOWED`, and a hydrated entry that replaces the whole document with the error card.
 
 1. **SSR `document is not defined`** — calling `document.*` in the clientEntry function body (outside a `ref` callback / event handler) executes during server-side render, where `document` doesn't exist. The request still returns 200 but the server logs a stack trace pointing at the component body.
 2. **`ref` and `on` are mixins, not JSX attributes** — they must live inside `mix={[...]}`, not as standalone `ref={...}` / `on('click', ...)` attributes. Standalone usage throws TS1003/TS1382 parser errors.
 3. **`.filter(Boolean)` breaks `on` type inference** — a mix array containing a `false` literal (from `cond && css({...})`) widens the element type to include `boolean`, so `on('keydown', ...)` falls back to `EventType<Element>` and rejects `keydown`/`click`. Use a spread conditional instead.
 4. **Asset server import boundary** — client entries are compiled by the asset server whose `allowFiles` (in `app/assets.ts`) only permits `app/**/*.browser.*`, `app/assets/entry.tsx`, `app/routes.ts`, `app/ui/**`, `app/utils/**`. A pure helper imported from outside those (e.g. `app/actions/lists/lists-keyboard.ts`) fails with `IMPORT_NOT_ALLOWED`.
+5. **`css()` mixins inside serialized props are destroyed** — a `clientEntry`'s props cross the client boundary by JSON serialization (`createHydrationPropsReplacer`/`transformProps`). A mix descriptor is passed through as-is, and its `type` is a function, so `JSON.stringify` drops it. The client revives `{ args: [...] }` with `type: undefined` and hydration throws `Framework invariant: Invalid mix prop`; because the app's error boundary then swaps the document for the error card, the symptom reads as "the whole page becomes Unexpected Error the moment the entry hydrates". Verified 2026-09-12 in `/home/lucky/remix3test` on the pinned build: the serialized entry props contain `"mix":[{"args":[…minHeight…]}]` with no `type` key, the failing element was a `<div mix={css({...})}>` passed as a `LazyFrame` fallback/children prop, and replacing it with a plain string fixed it (Chromium + Firefox e2e). This is exactly why the upstream `lazy-frames` demo styles `LazyFrame` placeholders from the server-rendered shell — its README notes placeholder mixins cannot cross the boundary. An entry's **own** render output is safe: `css()` on the element the entry returns is composed during SSR and re-created with a live `type` on the client, so the mixin may live there.
 
 **Solution:**
 
@@ -374,5 +375,6 @@ if (e.dataTransfer) {
 2. Put `ref`/`on` mixins inside `mix={[...]}`.
 3. For conditional mix entries next to `on`/`ref`, use the spread form: `...(cond ? [css({...})] : [])` — never `cond && css(...)` + `.filter(Boolean)`.
 4. Put shared pure logic used by client entries in `app/utils/` (with the `.test.ts` colocated), and import it via `../../utils/...`.
+5. Keep `css()` off every element passed as a `clientEntry` **prop** (`children`, `fallback`, …): pass plain text/markup and style it from the server-rendered parent's `css()`, or render the styled wrapper inside the entry's own render function. Grep the entry's props for `mix=` before shipping.
 
-Use for any new `clientEntry` in a Remix 3 app, `ReferenceError: document is not defined` logged during a `.browser.tsx` request, `AssetServerCompilationError: IMPORT_NOT_ALLOWED` on a client-entry import, or TS parse errors on `ref={...}`/`on(...)` used as standalone attributes.
+Use for any new `clientEntry` in a Remix 3 app, `ReferenceError: document is not defined` logged during a `.browser.tsx` request, `AssetServerCompilationError: IMPORT_NOT_ALLOWED` on a client-entry import, TS parse errors on `ref={...}`/`on(...)` used as standalone attributes, or a document-wide "Unexpected Error / Invalid mix prop" error card appearing as soon as a client entry hydrates.

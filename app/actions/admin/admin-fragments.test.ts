@@ -79,16 +79,26 @@ describe('Admin Fragments Controller', () => {
     assert.ok(html.includes('Created'), 'should show an activity item')
   })
 
-  it('GET /admin/fragments/recent-activity shows multiple activity entries', async () => {
+  it('GET /admin/fragments/recent-activity defers its user-detail frames', async () => {
     let response = await router.fetch(ADMIN_ACTIVITY_URL, {
       headers: { Cookie: adminCookie },
     })
 
     let html = await response.text()
 
-    // Should have multiple items (the controller generates 6)
-    let matches = html.match(/user-detail-/g)
-    assert.ok(matches && matches.length >= 3, 'should render at least 3 user-detail frame names')
+    // The controller generates 6 activities; each renders its disclosure and a
+    // placeholder for the not-yet-requested user detail.
+    let placeholders = html.match(/Benutzerdetails werden geladen/g)
+    assert.ok(placeholders && placeholders.length >= 3, 'should render a placeholder per activity')
+
+    // The nested user-detail frames are lazy now: they ship as client-entry
+    // props (so the browser can mount them) but must not be resolved into this
+    // response. A regression here silently restores six eager frame resolutions
+    // per render. Asserted by the controller's own payload, not by frame-marker
+    // internals, so the guard cannot pass vacuously if the runtime renames them.
+    for (let name of ['Alice Johnson', 'Bob Smith', 'Carol Williams', 'David Brown']) {
+      assert.equal(html.includes(name), false, `should not inline the ${name} user detail`)
+    }
   })
 
   // -----------------------------------------------------------------------

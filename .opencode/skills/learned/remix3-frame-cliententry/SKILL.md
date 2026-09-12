@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-cliententry
-description: 'Use when working on Remix 3 `<Frame>` navigation or `clientEntry` hydration — forms, frame targets, `data-rmx-*` escapes, cascade/mounted-guard traps, DOM/styling, frame-render tests.'
+description: 'Use when working on Remix 3 `<Frame>` navigation, `clientEntry` hydration, or deferring frames until they are visible (LazyFrame/IntersectionObserver) — forms, frame targets, `data-rmx-*` escapes, cascade/mounted-guard traps, DOM/styling, frame-render tests.'
 user-invocable: false
 origin: consolidated
 ---
@@ -19,15 +19,18 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | `clientEntry` cascade limits, `mounted` guards after reload, reload-driven data loading, global document listeners, SSR-safety/authoring constraints | `references/cliententry-lifecycle.md` |
 | Styling clientEntry children, joined button groups, inline-edit table cells, `on` mixin hydration, drag-and-drop, fragment scrolling | `references/cliententry-dom-and-styling.md` |
 | Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests | `references/frame-layout-and-testing.md` |
+| Deferring frames until visible (LazyFrame/IntersectionObserver), collapsed or offscreen frame content, measuring frame fan-out | `references/lazy-frames.md` |
 
 - `references/frame-navigation.md` — the frame navigation/forms contract and escape hatches.
 - `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps.
 - `references/cliententry-dom-and-styling.md` — DOM mutation and CSS patterns inside entries.
 - `references/frame-layout-and-testing.md` — layout wiring and verification.
+- `references/lazy-frames.md` — the eager/lazy decision rule, the `name`/auth trap, and how to measure and verify frame fan-out.
 
 ## Core Invariants
 
 - `app/assets/entry.tsx` (`run({ resolveFrame })`) is the always-loaded client runtime, not per-page user code. Removing it does not make a page "more SSR" — it removes enhancement and falls back to full-document navigation.
+- A frame that has not mounted cannot be addressed — defer only frames that nothing points at, or navigation to them silently becomes a full frame reload.
 - Make the server route correct before layering `clientEntry`/frame interactivity on top.
 - `handle.update()` only from an event handler or `handle.queueTask()` — never from setup, render, or a `dragover`/resize/scroll handler.
 - The factory closure of a `clientEntry` persists across frame DOM replacement; only the render function re-runs. State a "did I mount?" fact in the closure only if the render function cannot observe the new DOM.
