@@ -304,6 +304,44 @@ describe('Admin Appointments Controller', () => {
       assert.ok(text.includes('value="2026-06-15"'), 'should preserve the submitted date value')
     })
 
+    it('re-renders instead of erroring when the grid-state _order is invalid', async () => {
+      // Arrange — `_order` is a hidden, client-supplied grid-state field. The empty title
+      // forces the field-error re-render path, which is where the raw-SQL appointment list
+      // (and its compiled ORDER BY direction) runs. An invalid direction must fall back to
+      // the caller's default, not throw a TypeError out of the action.
+      let body = new URLSearchParams({
+        resource_id: String(resourceId),
+        user_id: String(userId),
+        title: '',
+        date: '2026-06-15',
+        start_min: '480',
+        end_min: '540',
+        _sort: 'a.title',
+        _order: 'bogus', // not 'asc' | 'desc'
+      })
+
+      // Act
+      let response = await router.fetch(ADMIN_APPT_URL, {
+        method: 'POST',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+        redirect: 'manual',
+      })
+
+      // Assert
+      assert.equal(
+        response.status,
+        200,
+        'an invalid _order must fall back to a default direction, not fail the request',
+      )
+      let text = await response.text()
+      assert.ok(text.includes('Neuer Termin'), 'should re-render the create panel')
+    })
+
     it('returns error redirect for missing resource_id', async () => {
       // Arrange
       let body = new URLSearchParams({

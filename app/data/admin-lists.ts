@@ -1,4 +1,5 @@
 import { rawSql, type Database, type TableRow } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import type { lists } from './schema.ts'
@@ -77,7 +78,7 @@ export async function searchLists(
           : sortColumn === 'updated_at'
             ? 'updated_at'
             : 'created_at'
-  let orderDir = direction === 'asc' ? 'ASC' : 'DESC'
+  let orderDir = compileOrderByDirection(direction ?? 'desc')
   let rows = await queryRows(
     db,
     rawSql(

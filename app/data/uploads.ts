@@ -1,4 +1,5 @@
 import { sql, rawSql, type SqlStatement, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { queryRows, queryRow, int8Aggregate } from './rows.ts'
@@ -43,7 +44,7 @@ function orderByStatement(sortColumn: string, sortDirection: 'asc' | 'desc'): Sq
   if (!(UPLOAD_SORT_FIELDS as readonly string[]).includes(sortColumn)) {
     return rawSql('ORDER BY created_at DESC, id DESC')
   }
-  let dir = sortDirection === 'asc' ? 'ASC' : 'DESC'
+  let dir = compileOrderByDirection(sortDirection)
   return rawSql(`ORDER BY ${sortColumn} ${dir}, id ${dir}`)
 }
 

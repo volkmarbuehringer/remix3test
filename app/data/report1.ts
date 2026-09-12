@@ -1,4 +1,5 @@
 import { rawSql, sql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { queryRows, int8Aggregate } from './rows.ts'
@@ -115,7 +116,8 @@ export async function runReport1(
   }
 
   paramIndex++
-  query += ` ORDER BY ${sortExpr} ${direction === 'desc' ? 'DESC' : 'ASC'}, u.id DESC`
+  let orderDir = compileOrderByDirection(direction)
+  query += ` ORDER BY ${sortExpr} ${orderDir}, u.id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(effectivePageSize + 1)
 

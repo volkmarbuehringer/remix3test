@@ -56,4 +56,5 @@ Key points:
 ## Related
 
 - `remix3-data-table-array-in-clause` — vendor `inList()` operator and the `db.exec`/`= ANY($1)` fallback
+- `remix3-data-table-raw-sql-sort-filter` — the raw-SQL counterpart; compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`)
 - `parseSafe` / `grid-state.ts` grid-state round-trip used by the admin page handlers

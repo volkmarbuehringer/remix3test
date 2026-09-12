@@ -15,12 +15,28 @@ import {
 
 describe('offerings-queries', () => {
   let testResourceId: number
+  let testResourceName: string
   let offeringDate: number
 
   before(async () => {
     await initializeAppDatabase()
-    let resourceResult = await pool.query('SELECT id FROM resources LIMIT 1')
-    testResourceId = resourceResult.rows[0].id
+    // Pick deterministically and require a config: a bare `LIMIT 1` with no ORDER BY can
+    // return any resource in the shared test DB, and `listResourceIdsWithConfigs` below
+    // needs one that actually has a config. The name is kept so the filter test can search
+    // by a term that matches the resource its offering belongs to.
+    let resourceResult = await pool.query<{ id: number; name: string }>(
+      `SELECT r.id, r.name
+         FROM resources r
+         JOIN offering_configs oc ON oc.resource_id = r.id
+        ORDER BY r.id
+        LIMIT 1`,
+    )
+    let resource = resourceResult.rows[0]
+    if (!resource) {
+      throw new Error('test database has no resource with an offering config')
+    }
+    testResourceId = resource.id
+    testResourceName = resource.name
     offeringDate = Date.now() + 365 * 86_400_000
   })
 
@@ -121,14 +137,28 @@ describe('offerings-queries', () => {
   })
 
   it('listOfferings respects filter', async () => {
+    // Own the fixture: the seeded weekday offerings fall outside the default "pending"
+    // window (day >= today) on weekends, so this test creates the offering it filters for
+    // instead of depending on seed data or on a previous test's row.
+    await createOffering(db, {
+      dayMs: offeringDate,
+      resourceId: testResourceId,
+      during: '[480,1080)',
+    })
+
     let result = await listOfferings(db, {
       offset: 0,
       pageSize: 10,
       column: 'ao.id',
       direction: 'asc',
-      filter: 'Raum',
+      filter: testResourceName,
     })
-    assert.ok(result.rows.length >= 1)
+
+    let resourceIds = result.rows.map((row) => row.resource_id)
+    assert.ok(
+      resourceIds.includes(testResourceId),
+      'filtering by the resource name must return the offering created for it',
+    )
   })
 
   it('listOfferings returns empty for nonexistent filter', async () => {

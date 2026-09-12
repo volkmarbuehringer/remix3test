@@ -1,4 +1,5 @@
 import { rawSql, sql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { queryRows, queryRow } from './rows.ts'
@@ -53,7 +54,8 @@ export async function listWebhookRequests(
   paramIndex++
   let orderCol = WEBHOOK_REQUESTS_ORDER_BY_COLUMNS[column]
   if (!orderCol) throw new Error(`Invalid sort column: ${column}`)
-  query += ` ORDER BY ${orderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, id DESC`
+  let orderDir = compileOrderByDirection(direction)
+  query += ` ORDER BY ${orderCol} ${orderDir}, id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 

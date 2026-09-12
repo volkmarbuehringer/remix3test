@@ -77,7 +77,10 @@ export function gridStateSort(state: GridState): string | undefined {
 }
 
 export function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined {
-  return (state.order as 'asc' | 'desc') || undefined
+  // Whitelist instead of casting: hidden grid-state fields are client-supplied, and an
+  // invalid value must fall back to the caller's default rather than reach a raw-SQL
+  // ORDER BY compiler (which throws on anything that is not asc/desc).
+  return state.order === 'asc' || state.order === 'desc' ? state.order : undefined
 }
 
 export function gridStateFilter(state: GridState): string | undefined {

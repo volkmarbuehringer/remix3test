@@ -1,4 +1,5 @@
 import { rawSql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { queryRows } from './rows.ts'
@@ -38,7 +39,7 @@ export async function listMessages(
   direction?: 'asc' | 'desc',
 ): Promise<AdminMessageRow[]> {
   let orderCol = SORT_EXPRS[sortColumn ?? 'created_at'] ?? SORT_EXPRS.created_at
-  let orderDir = direction === 'asc' ? 'ASC' : 'DESC'
+  let orderDir = compileOrderByDirection(direction ?? 'desc')
   let where = ''
   let params: unknown[] = [limit, offset]
   if (filter) {

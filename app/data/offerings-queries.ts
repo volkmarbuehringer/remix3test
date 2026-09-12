@@ -1,4 +1,5 @@
 import { rawSql, sql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 import { getPeriodRange, getTodayUtcMidnight } from '../utils/date-utils.ts'
 import { queryRows, queryRow, int8Aggregate } from './rows.ts'
@@ -113,7 +114,8 @@ export async function listOfferings(
   paramIndex++
   let orderCol = OFFERINGS_ORDER_BY_COLUMNS[column]
   if (!orderCol) throw new Error(`Invalid sort column: ${column}`)
-  query += ` ORDER BY ${orderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, id DESC`
+  let orderDir = compileOrderByDirection(direction)
+  query += ` ORDER BY ${orderCol} ${orderDir}, id DESC`
   query += ` LIMIT $${paramIndex}`
   queryParams.push(pageSize + 1)
 

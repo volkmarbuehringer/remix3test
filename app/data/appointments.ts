@@ -1,4 +1,5 @@
 import { gte, lt, rawSql, sql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { appointments, type Appointment } from './schema.ts'
@@ -398,8 +399,9 @@ export async function listAppointments(
 
   let adminOrderCol = ADMIN_ORDER_BY_COLUMNS[column]
   if (!adminOrderCol) throw new Error(`Invalid sort column: ${column}`)
+  let orderDir = compileOrderByDirection(direction)
   paramIndex++
-  query += ` ORDER BY ${adminOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.id DESC`
+  query += ` ORDER BY ${adminOrderCol} ${orderDir}, a.id DESC`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 
@@ -585,8 +587,9 @@ export async function listAppointmentsNew(
 
   let newOrderCol = APPOINTMENTS_NEW_ORDER_BY_COLUMNS[column]
   if (!newOrderCol) throw new Error(`Invalid sort column: ${column}`)
+  let orderDir = compileOrderByDirection(direction)
   paramIndex++
-  query += ` ORDER BY ${newOrderCol} ${direction === 'desc' ? 'DESC' : 'ASC'}, a.start_min ${direction === 'desc' ? 'DESC' : 'ASC'}`
+  query += ` ORDER BY ${newOrderCol} ${orderDir}, a.start_min ${orderDir}`
   query += ` LIMIT $${paramIndex}`
   params.push(pageSize + 1)
 

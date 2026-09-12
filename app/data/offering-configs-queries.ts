@@ -1,4 +1,5 @@
 import { rawSql, sql, type Database } from 'remix/data-table'
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
 import { z } from 'zod/v4'
 
 import { queryRows, queryRow, int8Aggregate } from './rows.ts'
@@ -117,7 +118,7 @@ export async function listOfferingConfigs(
   }
 
   let orderCol = orderByColumns[column] || 'oc.id'
-  let orderDir = direction === 'desc' ? 'DESC' : 'ASC'
+  let orderDir = compileOrderByDirection(direction)
   query += ` ORDER BY ${orderCol} ${orderDir}`
   query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`
   params.push(pageSize, offset)

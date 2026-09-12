@@ -8,6 +8,7 @@ metadata:
 # Remix Data-Table: Safe Raw-SQL Sort + Filter
 
 **Extracted:** 2026-09-05
+**Revalidated:** 2026-09-12 against the pinned `remix` 3.0.0-rc.2 (build `c2afabc`) — direction compilation is now vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838).
 **Context:** Adding URL-driven sort and search-filter columns to the `/admin/uploads` grid, which queries the DB through raw `sql`/`rawSql` statements (`app/data/uploads.ts`) rather than the typed `db.findMany` API.
 
 ## Problem
@@ -20,14 +21,18 @@ A raw-SQL grid (`db.exec` + `queryRows`/`queryRow` + the `sql` tag) has no typed
 ### 1. Whitelist columns and build ORDER BY as a `rawSql` fragment
 `rawSql` returns a `SqlStatement`; interpolating it into the `sql` tag appends its text and values verbatim. Validate the column before emitting it, fall back to the store default on anything invalid, and add an `id` tiebreaker in the same direction so pagination is stable across ties.
 
+Compile the direction with the vendor `compileOrderByDirection()` from `remix/data-table/sql-helpers` — do not hand-roll `x === 'asc' ? 'ASC' : 'DESC'`. It normalizes `asc`/`desc` case-insensitively and throws a `TypeError` on anything else, so an invalid runtime value fails loudly instead of silently coercing to the fallback branch. When the direction parameter is optional, pass the previous default explicitly (`compileOrderByDirection(direction ?? 'desc')`) so an omitted value keeps its old behavior while a bogus value still throws.
+
 ```ts
+import { compileOrderByDirection } from 'remix/data-table/sql-helpers'
+
 export const UPLOAD_SORT_FIELDS = ['id', 'filename', 'mime_type', 'size', 'created_at'] as const
 
 function orderByStatement(sortColumn: string, sortDirection: 'asc' | 'desc'): SqlStatement {
   if (!(UPLOAD_SORT_FIELDS as readonly string[]).includes(sortColumn)) {
     return rawSql('ORDER BY created_at DESC, id DESC') // invalid column → safe default
   }
-  let dir = sortDirection === 'asc' ? 'ASC' : 'DESC'
+  let dir = compileOrderByDirection(sortDirection)
   return rawSql(`ORDER BY ${sortColumn} ${dir}, id ${dir}`)
 }
 ```
@@ -80,6 +85,7 @@ let total = await countUploads(db, userId, filter) // uses whereStatement(userId
 ## When to Use
 - A raw-SQL grid (`sql`/`rawSql`/`db.exec`, not `db.findMany`) needs URL-driven sort and/or search-filter columns.
 - You want safe dynamic `ORDER BY`/`WHERE` with whitelisted column identifiers and parameterized values.
+- You're about to write an `ORDER BY … ${direction}` ternary — use the vendor `compileOrderByDirection()` from `remix/data-table/sql-helpers` instead of a hand-rolled `'ASC' : 'DESC'`.
 - You're passing optional sort/filter params through layered functions and `tsc` complains under `exactOptionalPropertyTypes`.
 
 ## Related
