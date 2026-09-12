@@ -1,7 +1,7 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { resolveFrameResponse } from './frame-response.browser.tsx'
+import { resolveFrameResponse, isSameOriginFrameSource } from './frame-response.browser.tsx'
 
 // ---------------------------------------------------------------------------
 // resolveFrameResponse — redirect handling on frame reload
@@ -14,6 +14,9 @@ import { resolveFrameResponse } from './frame-response.browser.tsx'
 //     navigation is handled by the caller via `window.location.assign`)
 //   - redirect, no target → the response is returned unchanged (subframe flow)
 //   - plain 200           → the response is returned unchanged
+//   - cross-origin source → rejected by `isSameOriginFrameSource` (asserted directly:
+//     the branch itself calls `window.location.assign`, which cannot be exercised in a
+//     real browser test without navigating the test page away)
 //
 // `window.location.assign` itself is a non-configurable own property of the
 // Location object, so it cannot be stubbed in the harness; the never-settling
@@ -52,7 +55,7 @@ describe('resolveFrameResponse redirect handling', () => {
   it('never settles when a frame reload response redirects with a target', async () => {
     stubFetch({ redirected: true, ok: true, url: 'https://remix.run/login', status: 200 })
 
-    let result = resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+    let result = resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
     })
 
@@ -68,7 +71,7 @@ describe('resolveFrameResponse redirect handling', () => {
       text: async () => '<html><body>Login page</body></html>',
     })
 
-    let result = resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+    let result = resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
     })
 
@@ -84,7 +87,7 @@ describe('resolveFrameResponse redirect handling', () => {
     } as Response
     stubFetch(response)
 
-    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'))
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin))
 
     assert.equal(result, response, 'should return the response unchanged (subframe flow)')
   })
@@ -99,7 +102,7 @@ describe('resolveFrameResponse redirect handling', () => {
     } as Response
     stubFetch(response)
 
-    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
     })
 
@@ -116,7 +119,7 @@ describe('resolveFrameResponse redirect handling', () => {
     } as Response
     stubFetch(response)
 
-    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
     })
 
@@ -135,11 +138,22 @@ describe('resolveFrameResponse redirect handling', () => {
     } as Response
     stubFetch(response)
 
-    let result = await resolveFrameResponse(new URL('https://remix.run/admin/client'), {
+    let result = await resolveFrameResponse(new URL('/admin/client', window.location.origin), {
       target: 'admin-content',
     })
 
     // 5xx is a genuine server error — discard the body and surface the reload card.
     assert.ok(result !== response, 'should not return the crash body for a 5xx')
+  })
+
+  it('only resolves same-origin frame sources', () => {
+    // Frame HTML is trusted content (it can select client-entry modules and contribute
+    // import maps), so the custom resolver refuses cross-origin sources the way the
+    // runtime's default `resolveFrame` does (remix #11849). Asserted on the predicate
+    // rather than through resolveFrameResponse: the cross-origin branch calls
+    // `window.location.assign`, which navigates a real browser test page away and hangs
+    // the runner (see the playbook on unforgeable window.location).
+    assert.ok(isSameOriginFrameSource(new URL('/admin/client', window.location.origin)))
+    assert.equal(isSameOriginFrameSource(new URL('https://evil.example/admin/client')), false)
   })
 })

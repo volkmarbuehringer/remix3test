@@ -5,10 +5,30 @@ import { routes } from '../routes.ts'
 import { agentPrefillMap } from '../ui/agent-prefill-store.browser.ts'
 import { ErrorCard, actionLinkCss } from './error-card.browser.tsx'
 
+/**
+ * Whether a frame source may be resolved into this document.
+ *
+ * Frame HTML is trusted application content: it can select client-entry modules and
+ * contribute import maps, styles, and nested frames to this document. Only same-origin
+ * sources are resolved — mirroring the runtime's default `resolveFrame`, which fetches with
+ * `mode: 'same-origin'` (remix #11849). Without this check a cross-origin source would be
+ * fetched with same-origin credentials and injected as frame content.
+ */
+export function isSameOriginFrameSource(url: URL): boolean {
+  return url.origin === window.location.origin
+}
+
 export async function resolveFrameResponse(
   url: URL,
   options?: ResolveFrameOptions,
 ): Promise<FrameContent | Response> {
+  if (!isSameOriginFrameSource(url)) {
+    // Cross-origin sources fall back to document navigation, matching the runtime's
+    // behavior for invalid/cross-origin frame navigation sources. Never fetched.
+    window.location.assign(url.href)
+    return new Promise<never>(() => {})
+  }
+
   let headers = new SuperHeaders()
   headers.accept = new Accept('text/html')
   headers.set('X-Remix-Frame', 'true')
