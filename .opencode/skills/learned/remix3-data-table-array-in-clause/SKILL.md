@@ -18,7 +18,7 @@ Passing an array of IDs to `db.findMany({ where: { id: [1, 2, 3] } })` produces 
 error: ungültige Eingabesyntax für Typ integer: »{"1","2","3"}«
 ```
 
-**Root cause (still true on rc.2):** `normalizeWhereInput` (`@remix-run/data-table/src/lib/operators.ts:358`) expands a `WhereObject` by calling `eq(column, value)` for each key, so `{ id: [1, 2, 3] }` becomes `eq('id', [1, 2, 3])` — a single `=` comparison whose value happens to be an array. Use the `inList()` predicate instead.
+**Root cause (still true on rc.2):** `normalizeWhereInput` (`@remix-run/data-table/src/lib/operators.ts:340`) expands a `WhereObject` by calling `eq(column, value)` for each key, so `{ id: [1, 2, 3] }` becomes `eq('id', [1, 2, 3])` — a single `=` comparison whose value happens to be an array. Use the `inList()` predicate instead.
 
 ## Solution (primary): `inList()` operator — now vendor-covered
 
