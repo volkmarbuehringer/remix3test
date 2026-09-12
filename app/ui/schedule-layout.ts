@@ -11,10 +11,10 @@ export interface AppointmentLayoutBlock {
   user_email?: string
 }
 
-export type ResizeEdge = 'start' | 'end'
+type ResizeEdge = 'start' | 'end'
 type ReflowDirection = 'down' | 'up'
 
-export interface LayoutPolicy {
+interface LayoutPolicy {
   dayMinutes: number
   minimumMinute: number
   minimumDuration: number

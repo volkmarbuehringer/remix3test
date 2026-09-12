@@ -9,7 +9,6 @@ type NavLinkProps = {
   document?: boolean
   mix?: MixValue<HTMLAnchorElement, ElementProps>
   style?: Record<string, string>
-  dataTooltip?: string
   title?: string
   children?: RemixNode
 }
@@ -25,7 +24,6 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       document: isDocument,
       mix,
       style,
-      dataTooltip,
       title,
       children,
     } = handle.props
@@ -38,7 +36,6 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       extra['data-rmx-document'] = ''
       extra['target'] = '_top'
     }
-    if (dataTooltip) extra['data-tooltip'] = dataTooltip
     if (title) extra['title'] = title
 
     return (

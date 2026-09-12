@@ -67,12 +67,12 @@ export function editingRedirect(
   return redirect(url)
 }
 
-export function gridStateOffset(state: GridState): number | undefined {
+function gridStateOffset(state: GridState): number | undefined {
   let n = Number(state.offset)
   return n > 0 ? n : undefined
 }
 
-export function gridStateSort(state: GridState): string | undefined {
+function gridStateSort(state: GridState): string | undefined {
   return state.sort || undefined
 }
 
@@ -83,20 +83,20 @@ export function gridStateDirection(state: GridState): 'asc' | 'desc' | undefined
   return state.order === 'asc' || state.order === 'desc' ? state.order : undefined
 }
 
-export function gridStateFilter(state: GridState): string | undefined {
+function gridStateFilter(state: GridState): string | undefined {
   return state.filter || undefined
 }
 
-export function gridStatePeriod(state: GridState): string | undefined {
+function gridStatePeriod(state: GridState): string | undefined {
   return state.period || undefined
 }
 
-export function gridStateStatus(state: GridState): string | undefined {
+function gridStateStatus(state: GridState): string | undefined {
   return state.status || undefined
 }
 
 /** The loader overrides derived from submitted grid-state form fields. */
-export interface GridStateOverrides {
+interface GridStateOverrides {
   offset: number | undefined
   sortColumn: string | undefined
   sortDirection: 'asc' | 'desc' | undefined

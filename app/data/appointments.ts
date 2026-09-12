@@ -312,7 +312,7 @@ export async function fetchAppointmentEditRow(
   )
 }
 
-export interface ListAppointmentsOpts {
+interface ListAppointmentsOpts {
   offset: number
   pageSize: number
   column: string
@@ -537,7 +537,7 @@ export const APPOINTMENTS_NEW_ORDER_BY_COLUMNS: Record<string, string> = {
   'a.during': 'a.during',
 }
 
-export interface ListAppointmentsNewOpts {
+interface ListAppointmentsNewOpts {
   userId: number
   offset: number
   pageSize: number

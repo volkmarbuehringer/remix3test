@@ -2,7 +2,7 @@ import type { Handle, Props } from 'remix/ui'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 
-export interface RestfulFormProps extends Props<'form'> {
+interface RestfulFormProps extends Props<'form'> {
   /**
    * The name of the hidden <input> field that contains the method override value.
    * Default is `_method`.

@@ -2,7 +2,7 @@ import type { Handle, RemixNode } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
-export interface ForbiddenPageProps {
+interface ForbiddenPageProps {
   /** Optional message to display below the title. Defaults to a generic message. */
   message?: string
 }

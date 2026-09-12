@@ -14,7 +14,7 @@ export type GlyphSheetComponent = GlyphSheetRenderer & {
   values: GlyphValues
 }
 
-export type GlyphProps = Omit<Props<'svg'>, 'children'> & {
+type GlyphProps = Omit<Props<'svg'>, 'children'> & {
   name: GlyphName
 }
 

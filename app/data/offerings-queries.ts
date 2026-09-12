@@ -25,7 +25,7 @@ const offeringsResourceOptionSchema = z.object({
 
 export type OfferingsResourceOption = z.output<typeof offeringsResourceOptionSchema>
 
-export interface ListOfferingsOpts {
+interface ListOfferingsOpts {
   offset: number
   pageSize: number
   column: string

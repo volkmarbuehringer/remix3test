@@ -1,4 +1,4 @@
-export interface RateLimiterOptions {
+interface RateLimiterOptions {
   /** Time window in milliseconds */
   windowMs: number
   /** Track per-user (by ID) vs global */

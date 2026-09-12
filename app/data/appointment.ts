@@ -8,7 +8,7 @@ const userEmailRowSchema = z.object({
   email: z.string(),
 })
 
-export type UserEmailRow = z.output<typeof userEmailRowSchema>
+type UserEmailRow = z.output<typeof userEmailRowSchema>
 
 export async function listUserEmails(db: Database, userIds: number[]): Promise<UserEmailRow[]> {
   return await queryRows(

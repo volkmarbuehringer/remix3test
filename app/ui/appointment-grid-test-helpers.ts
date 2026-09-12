@@ -76,7 +76,7 @@ export function removeFixtureData() {
 
 // ── Pointer event helpers ──────────────────────────────────────────────
 
-export function createPointerEvent(
+function createPointerEvent(
   type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
   opts: {
     clientX?: number
@@ -149,7 +149,7 @@ export function dispatchDragWithThreshold(
 
 // ── Fetch capture ──────────────────────────────────────────────────────
 
-export type CapturedMutation = {
+type CapturedMutation = {
   method: string
   url: string
   body: FormData | string

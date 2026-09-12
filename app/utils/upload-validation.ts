@@ -39,7 +39,7 @@ export const ALLOWED_MIME_TYPES = new Set([
   'text/xml',
 ])
 
-export type ClientFile = {
+type ClientFile = {
   name: string
   type: string
   size: number

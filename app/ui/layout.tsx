@@ -7,7 +7,7 @@ import { Document } from './document.tsx'
 import { MainNav } from './main-nav.tsx'
 import { Breadcrumbs, getBreadcrumbs } from './breadcrumbs.tsx'
 
-export interface LayoutProps {
+interface LayoutProps {
   children?: RemixNode
   title?: string
 }
@@ -104,40 +104,6 @@ const footerTextCss = css({
   color: theme.colors.text.muted,
 })
 
-const tooltipAnchorStyle = css({
-  position: 'relative',
-  '&::after': {
-    content: 'attr(data-tooltip)',
-    position: 'absolute',
-    top: '100%',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    marginTop: theme.space.xs,
-    padding: `${theme.space.xs} ${theme.space.sm}`,
-    background: theme.surface.lvl4,
-    color: theme.colors.text.primary,
-    fontSize: theme.fontSize.xxs,
-    borderRadius: theme.radius.sm,
-    whiteSpace: 'nowrap',
-    opacity: 0,
-    visibility: 'hidden',
-    transition: 'opacity 0.15s ease, visibility 0.15s ease',
-    transitionDelay: '0.3s',
-    pointerEvents: 'none',
-    zIndex: 10,
-  },
-  '&:hover::after': {
-    opacity: 1,
-    visibility: 'visible',
-    transitionDelay: '0s',
-  },
-  '&:focus-visible::after': {
-    opacity: 1,
-    visibility: 'visible',
-    transitionDelay: '0s',
-  },
-})
-
 const flashBase = {
   padding: `${theme.space.sm} ${theme.space.lg}`,
   fontSize: theme.fontSize.sm,
@@ -145,8 +111,6 @@ const flashBase = {
 }
 
 const surface = theme.surface as Record<string, string>
-
-export { tooltipAnchorStyle }
 
 const flashErrorStyle = css({
   ...flashBase,

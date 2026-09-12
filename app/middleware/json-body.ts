@@ -1,6 +1,6 @@
 import { createContextKey, type Middleware } from 'remix/router'
 
-export const JsonBody = createContextKey<unknown>()
+const JsonBody = createContextKey<unknown>()
 
 async function readBodyWithLimit(request: Request, maxSize: number): Promise<string | null> {
   let reader = request.body?.getReader()

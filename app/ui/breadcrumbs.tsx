@@ -89,7 +89,7 @@ const separator = (
   </svg>
 )
 
-export interface BreadcrumbsProps {
+interface BreadcrumbsProps {
   items: BreadcrumbItem[]
   ariaLabel?: string
 }

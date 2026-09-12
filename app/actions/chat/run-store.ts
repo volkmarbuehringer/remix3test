@@ -1,6 +1,6 @@
 import { db } from '../../db.ts'
 
-export type ChatRunRow = {
+type ChatRunRow = {
   runId: string
   userId: number
   threadId: string

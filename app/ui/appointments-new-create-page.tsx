@@ -13,7 +13,7 @@ const titleStyle = css({
   marginBottom: theme.space.md,
 })
 
-export interface AppointmentsNewCreatePageProps {
+interface AppointmentsNewCreatePageProps {
   resources: ResourceOption[]
   offset?: string | undefined
   sort?: string | undefined

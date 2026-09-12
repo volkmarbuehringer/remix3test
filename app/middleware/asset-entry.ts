@@ -6,7 +6,7 @@ import type { ScriptEntry } from 'remix/assets'
 
 import { assetServer } from '../assets.ts'
 
-export type AssetEntry = ScriptEntry
+type AssetEntry = ScriptEntry
 
 const assetsEntryKey = createContextKey<AssetEntry>()
 const defaultScriptEntry = path.resolve(import.meta.dirname, '../assets/entry.tsx')

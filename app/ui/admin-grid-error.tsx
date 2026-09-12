@@ -18,7 +18,7 @@ export interface AdminGridErrorState {
   pageSize: number
 }
 
-export interface AdminGridErrorPage<Row> extends AdminGridErrorState {
+interface AdminGridErrorPage<Row> extends AdminGridErrorState {
   rows: Row[]
   hasMore: boolean
   formValues?: Record<string, string> | undefined

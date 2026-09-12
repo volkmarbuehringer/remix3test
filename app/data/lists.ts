@@ -46,13 +46,13 @@ export interface ListRow {
   updated_at: number
 }
 
-export interface ListResult<T> {
+interface ListResult<T> {
   data: T
   hasMore: boolean
   offset: number
 }
 
-export type PatchResult =
+type PatchResult =
   | { ok: true; row: ListRow }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'conflict'; current: ListRow }
@@ -438,7 +438,7 @@ export async function copyList(db: Database, id: number, userId?: number): Promi
   })
 }
 
-export type MergeResult =
+type MergeResult =
   | { ok: true; target: ListRow }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'conflict'; current: ListRow }
@@ -550,7 +550,7 @@ export async function mergeListIntoList(
   }
 }
 
-export type MoveResult =
+type MoveResult =
   | { ok: true; source: ListRow; target: ListRow }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'conflict'; current: ListRow }

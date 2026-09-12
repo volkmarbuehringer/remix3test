@@ -53,7 +53,7 @@ function resolveCustomerAgent(): TestAgent {
 }
 
 // ── Conversation resume ────────────────────────────────────────
-export type CustomerResume = { threadId?: string; messages: ChatMessage[] }
+type CustomerResume = { threadId?: string; messages: ChatMessage[] }
 
 // Test-only override for the index route's resume lookup (the mock agent has no
 // real memory). Outside test env this is unused.

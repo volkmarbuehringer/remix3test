@@ -41,7 +41,7 @@ export type GlyphValues = {
   readonly [key in GlyphName]: GlyphSymbol
 }
 
-export type GlyphContract = Readonly<Record<GlyphName, { id: string }>>
+type GlyphContract = Readonly<Record<GlyphName, { id: string }>>
 
 const DEFAULT_GLYPH_ID_PREFIX = 'rmx-glyph'
 

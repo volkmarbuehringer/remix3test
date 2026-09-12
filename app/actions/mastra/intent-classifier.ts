@@ -5,7 +5,7 @@ export type ClassifyAgent = {
   generate: (message: string, opts?: { abortSignal?: AbortSignal }) => Promise<{ text?: string }>
 }
 
-export type ClassifyResult =
+type ClassifyResult =
   | {
       intent: string
       targetQuery: string

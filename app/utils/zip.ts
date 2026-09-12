@@ -1,6 +1,6 @@
 import { deflateRawSync } from 'node:zlib'
 
-export interface ZipEntry {
+interface ZipEntry {
   filename: string
   data: Buffer
 }

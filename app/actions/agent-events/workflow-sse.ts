@@ -8,7 +8,7 @@ export function writeEvent(
   controller.enqueue(sseEncoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
 }
 
-export type WorkflowResult = {
+type WorkflowResult = {
   success: boolean
   action: string
   targetUserId: number
@@ -19,7 +19,7 @@ export type WorkflowResult = {
   error?: string | undefined
 }
 
-export type RunStateEvent =
+type RunStateEvent =
   | { phase: 'started'; runId: string; workflowId: string }
   | {
       phase: 'suspended'

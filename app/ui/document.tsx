@@ -13,7 +13,7 @@ import { getAssetEntry } from '../middleware/asset-entry.ts'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { ThemeToggle } from '../ui/theme-toggle.browser.tsx'
 
-export interface DocumentProps {
+interface DocumentProps {
   children?: RemixNode
   title?: string | undefined
 }

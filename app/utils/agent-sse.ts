@@ -42,7 +42,7 @@ type SuspensionInfo = {
   suspendPayload?: Record<string, unknown> | undefined
 }
 
-export type PipeHooks = {
+type PipeHooks = {
   /** Called when the run suspends on a tool decision or an ask_user question. */
   onSuspension?: (info: SuspensionInfo) => void
   /** Called exactly once when the stream settles, with the terminal reason. */

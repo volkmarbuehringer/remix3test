@@ -1,7 +1,4 @@
-export type DropZoneResult =
-  | { zone: 'editor' }
-  | { zone: 'sidebar'; listId: number }
-  | { zone: 'none' }
+type DropZoneResult = { zone: 'editor' } | { zone: 'sidebar'; listId: number } | { zone: 'none' }
 
 export interface RectLike {
   top: number

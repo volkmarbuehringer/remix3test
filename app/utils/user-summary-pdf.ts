@@ -6,7 +6,7 @@ import type { UserSummaryRow } from '../data/user-summary-rows.ts'
 
 const TRUNCATED_NOTE = ' \u2014 Hinweis: Ergebnis auf 10.000 Eintr\u00e4ge begrenzt.'
 
-export interface BuildUserSummaryPdfOptions {
+interface BuildUserSummaryPdfOptions {
   /** Main title, e.g. "Benutzer-Export". */
   title: string
   /** Optional extra subheader, e.g. a period or "Erstellt am" line. */

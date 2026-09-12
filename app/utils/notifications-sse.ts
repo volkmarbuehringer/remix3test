@@ -2,7 +2,7 @@ import { createChannel } from './sse.ts'
 import type { NotificationType } from '../data/notifications.ts'
 
 /** Payload pushed to a user's live notification subscription when a new row lands. */
-export interface NotificationStreamEvent {
+interface NotificationStreamEvent {
   id: number
   type: NotificationType
   title: string

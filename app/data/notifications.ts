@@ -7,7 +7,7 @@ import { queryRows, queryRow, int8Aggregate } from './rows.ts'
 const NOTIFICATION_TYPES = ['confirmation', 'reminder', 'cancellation'] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 
-export interface CreateNotificationInput {
+interface CreateNotificationInput {
   userId: number
   type: NotificationType
   title?: string | undefined
@@ -55,7 +55,7 @@ export async function createNotification(
   return await findNotification(db, row.id, input.userId)
 }
 
-export interface ListNotificationsOptions {
+interface ListNotificationsOptions {
   pageSize?: number
   offset?: number
 }

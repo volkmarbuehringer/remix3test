@@ -16,7 +16,7 @@ type NavSection = {
   items: NavItem[]
 }
 
-export type MobileNavItem = {
+type MobileNavItem = {
   label: string
   href: string
   requireAuth: boolean

@@ -26,7 +26,7 @@ import { SuperHeaders } from 'remix/headers'
 
 // ── Types ──
 
-export interface ChannelOptions {
+interface ChannelOptions {
   /**
    * Heartbeat interval in milliseconds.
    * Set to `0` or `null` to disable heartbeats entirely.
@@ -35,7 +35,7 @@ export interface ChannelOptions {
   heartbeatMs?: number | null
 }
 
-export interface Channel<EventMap extends Record<string, unknown>> {
+interface Channel<EventMap extends Record<string, unknown>> {
   /**
    * Creates a complete SSE `Response` for the given request.
    *

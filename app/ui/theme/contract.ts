@@ -175,7 +175,7 @@ type MapLeaves<source, leaf> = source extends string
     }
 
 type ThemeValue = string | number
-export type ThemeContract = MapLeaves<ThemeVariableNames, string>
+type ThemeContract = MapLeaves<ThemeVariableNames, string>
 export type ThemeValues = MapLeaves<typeof themeVariableNames, ThemeValue>
 export type ThemeVars = Readonly<Record<string, string>>
 export type CreateThemeOptions = {

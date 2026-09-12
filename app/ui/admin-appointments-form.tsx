@@ -58,7 +58,7 @@ const rowIdBadgeStyle = css({
 
 // ── Types ────────────────────────────────────────────────────────
 
-export interface AdminAppointmentsFormProps {
+interface AdminAppointmentsFormProps {
   /** 'create' for new appointment form, 'edit' for editing an existing one. */
   mode: 'create' | 'edit'
   resources: AppointmentResourceOption[]

@@ -84,7 +84,7 @@ export function sanitizeLog(s: string): string {
 
 // ── Message validation ───────────────────────────────────────────────
 
-export type ValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
+type ValidationError = 'missing' | 'empty' | 'too_long' | 'bad_thread_id'
 
 export function validateMessage(
   formData: FormData,

@@ -1,7 +1,7 @@
 import { clientEntry, css, type Handle, type SerializableProps } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 
-export interface NotificationBellProps extends SerializableProps {
+interface NotificationBellProps extends SerializableProps {
   /** Per-user SSE endpoint that pushes a `new` event when a notification lands. */
   eventsUrl: string
   /** JSON endpoint returning `{ count }` for the current user's unread notifications. */

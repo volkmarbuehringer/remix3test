@@ -8,7 +8,7 @@ import {
   type Renderable,
 } from 'remix/ui'
 
-export type LazyFrameProps = {
+type LazyFrameProps = {
   src: string
   /** Forwarded to `<Frame>` so the mounted frame stays addressable by name. */
   name?: string

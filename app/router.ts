@@ -45,7 +45,7 @@ declare module 'remix/router' {
   }
 }
 
-export interface NewappRouterOptions {
+interface NewappRouterOptions {
   sessionCookie?: Cookie
   sessionStorage?: SessionStorage
 }

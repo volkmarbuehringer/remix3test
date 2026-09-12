@@ -26,7 +26,7 @@ const WEBHOOK_REQUESTS_ORDER_BY_COLUMNS: Record<string, string> = {
   callback_received_at: 'callback_received_at',
 }
 
-export interface ListWebhookRequestsOpts {
+interface ListWebhookRequestsOpts {
   offset: number
   column: string
   direction: 'asc' | 'desc'

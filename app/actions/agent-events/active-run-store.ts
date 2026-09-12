@@ -1,8 +1,8 @@
 import { db } from '../../db.ts'
 
-export type ActiveRunStatus = 'running' | 'suspended'
+type ActiveRunStatus = 'running' | 'suspended'
 
-export type ActiveRunRow = {
+type ActiveRunRow = {
   adminUserId: number
   runId: string
   workflowId: string

@@ -4,7 +4,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { routes, frames, system } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 
-export type AdminNavItem =
+type AdminNavItem =
   | 'dashboard'
   | 'chatlog'
   | 'messages'

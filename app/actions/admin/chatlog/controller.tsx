@@ -69,7 +69,7 @@ function supportAgentThreadHref(threadId: string): string {
 // summaries, previews, and a single-thread lookup so classification, filtering,
 // pagination, and the continue link can be exercised deterministically. Outside
 // test env the setter is a no-op (mirrors __setTestAgent / __setTestResumeResolver).
-export interface ChatlogTestFixtures {
+interface ChatlogTestFixtures {
   threads?: ChatThreadSummary[]
   previews?: Map<string, ChatThreadPreview>
   threadLookup?: (

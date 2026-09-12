@@ -10,7 +10,7 @@ import { getSafeReturnTo } from '../utils/redirect.ts'
 import { renderForbiddenPage } from '../ui/forbidden-page.tsx'
 import { routes } from '../routes.ts'
 
-export interface RequireAdminOptions {
+interface RequireAdminOptions {
   redirectTo?: string
   forbiddenPage?: RemixNode | Response
 }

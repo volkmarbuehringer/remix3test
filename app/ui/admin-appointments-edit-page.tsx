@@ -6,7 +6,7 @@ import type {
 } from '../data/appointments.ts'
 import { AdminAppointmentsForm } from './admin-appointments-form.tsx'
 
-export interface AdminAppointmentsEditPageProps {
+interface AdminAppointmentsEditPageProps {
   row: AppointmentRow
   resources: AppointmentResourceOption[]
   users: AppointmentUserOption[]

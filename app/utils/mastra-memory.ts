@@ -8,7 +8,7 @@ interface ChatThreadRow {
   updatedAt: number
 }
 
-export interface ThreadListResult {
+interface ThreadListResult {
   threads: ChatThreadRow[]
   hasMore: boolean
 }
@@ -142,9 +142,9 @@ export interface ChatThreadSummary {
 }
 
 /** Upper bound on a full chatlog sweep so a runaway store cannot hang a request. */
-export const CHATLOG_SWEEP_MAX_THREADS = 5000
+const CHATLOG_SWEEP_MAX_THREADS = 5000
 /** Page size used while sweeping the thread store. */
-export const CHATLOG_SWEEP_PAGE_SIZE = 100
+const CHATLOG_SWEEP_PAGE_SIZE = 100
 
 /**
  * Reads one stored thread by id, or null when it does not exist.

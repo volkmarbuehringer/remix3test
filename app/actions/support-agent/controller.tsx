@@ -90,10 +90,10 @@ export function __setRunStatusResolver(fn: RunStatusResolver | undefined) {
 // The index route can resume a specific saved support conversation. A test-only
 // resolver seam mirrors __setTestResumeResolver in the customer chat controller:
 // the mock agent has no real memory, so tests inject the selection outcome.
-export type SupportThreadResume = { threadId: string; messages: ChatMessage[] }
+type SupportThreadResume = { threadId: string; messages: ChatMessage[] }
 
 /** Raw memory read used by the index; the ownership check is applied after it. */
-export type SupportThreadLookup = { resourceId: string; messages: ChatMessage[] }
+type SupportThreadLookup = { resourceId: string; messages: ChatMessage[] }
 
 type SupportThreadResolver = (threadId: string) => Promise<SupportThreadLookup | null>
 

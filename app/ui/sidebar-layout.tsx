@@ -65,7 +65,7 @@ export type NavGroup<ID extends string> = {
   items: NavItem<ID>[]
 }
 
-export type SidebarLayoutConfig<ID extends string> = {
+type SidebarLayoutConfig<ID extends string> = {
   /** The frame target name used for X-Remix-Target header matching. */
   frameTarget: string
   /** Additional frame targets that also trigger frame-only rendering. */
@@ -279,7 +279,7 @@ export const sidebarHeaderStyle = css({
   fontWeight: theme.fontWeight.semibold,
 })
 
-export const headerIconWrapStyle = css({
+const headerIconWrapStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -287,7 +287,7 @@ export const headerIconWrapStyle = css({
   opacity: 0.65,
 })
 
-export const headerDividerStyle = css({
+const headerDividerStyle = css({
   margin: '0.625rem 0 0.75rem',
   height: '1px',
   background: theme.colors.border.subtle,
@@ -317,7 +317,7 @@ export const navLinkStyle = css({
   },
 })
 
-export const navIconStyle = css({
+const navIconStyle = css({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -331,7 +331,7 @@ export const navActiveStyle = css({
   borderLeftColor: theme.colors.action.primary.background,
 })
 
-export const groupLabelStyle = css({
+const groupLabelStyle = css({
   margin: '1rem 0 0.25rem',
   padding: `0 ${theme.space.md}`,
   color: theme.colors.text.muted,

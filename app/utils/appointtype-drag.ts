@@ -1,4 +1,4 @@
-export interface TypeDragState {
+interface TypeDragState {
   active: boolean
   typeId: number
   title: string
