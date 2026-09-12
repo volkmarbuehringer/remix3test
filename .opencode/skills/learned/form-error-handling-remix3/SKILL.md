@@ -38,7 +38,7 @@ The URL-param roundtrip pattern (`fv_`/`fe_` encoding) is **deprecated** — `fo
 
 - `app/utils/schema-utils.ts` — shared `issuesToFieldErrors()` and `readFormFieldValues()`
 - `app/utils/offering-schema.ts` — declarative `f.object()` + `coerce.number()` + `.refine()`
-- `app/utils/grid-state.ts` — `gridStateFromFormData`, extractors, `gridStateToParams`
+- `app/utils/grid-state.ts` — `gridStateFromFormData`, `gridStateOverrides`, `gridStateToParams`
 - `app/actions/client/controller.tsx` + `controller.test.ts` — Pattern 1 reference and tests
 - `app/ui/admin-grid-error.tsx` — `renderGridFormError` (status 200)
 

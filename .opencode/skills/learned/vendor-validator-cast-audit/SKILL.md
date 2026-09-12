@@ -44,3 +44,18 @@ When a caller's argument type comes from an unchecked cast (`as 'asc' | 'desc'`)
 - A dependency update introduces runtime validation where the old code coerced silently.
 - Reviewing a diff that replaces `x === 'a' ? A : B` with a vendor `compile*` / `parse*` / `assert*` call.
 - Auditing which callers feed a newly-validating function from an `as` cast rather than a parse.
+
+## What the swap does and doesn't save
+
+Adopting a vendor helper **relocates** code, it does not delete it: N inline expressions become N calls
+plus one import per file, so a "replace the ternary with the vendor helper" diff is usually *net
+positive* in lines. In the source case the swap was +13 lines across 8 files (8 imports + 6 hoists
+into `let orderDir` + 8 calls, minus 9 ternaries) while the implementation count went 9 → 1.
+
+- Measure **implementations deduplicated**, not lines: 9 copies of a rule → 1 upstream rule.
+- If fewer lines is the actual goal, the win is app-level pass-through duplication, not the vendor
+  call. After the swap, 43 repeated six-line override blocks collapsed into one
+  `gridStateOverrides()` composite (≈ −184 lines) — a separate refactor
+  (see `repeated-block-collapse-refactor`).
+- Nothing shrinks at runtime either: type-level casts (`as 'asc' | 'desc'`) cost zero bytes, so
+  removing one is not a size change.

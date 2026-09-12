@@ -85,10 +85,7 @@ Hidden inputs carry sort/filter/pagination state across POST. Use `app/utils/gri
 import {
   gridStateFromFormData, // from FormData
   gridStateToParams, // to URLSearchParams
-  gridStateOffset, // to number | undefined
-  gridStateSort, // to string | undefined
-  gridStateDirection, // to 'asc' | 'desc' | undefined
-  gridStateFilter, // to string | undefined
+  gridStateOverrides, // every loader override in one object
   type GridState,
 } from '../utils/grid-state.ts'
 
@@ -97,13 +94,17 @@ let data = await loadPageData(context, {
   creating: true,
   formValues,
   fieldErrors,
-  offset: gridStateOffset(gridValues),
-  sortColumn: gridStateSort(gridValues),
-  sortDirection: gridStateDirection(gridValues),
-  filter: gridStateFilter(gridValues),
+  ...gridStateOverrides(gridValues),
 })
 return renderPage(context, data, { status: 400 })
 ```
+
+`gridStateOverrides()` (typed `GridStateOverrides`) is the single place the six loader overrides are
+built — one spread replaces the per-branch getter block that used to be copy-pasted into every
+re-render branch, and the sort direction flows through `gridStateDirection()`'s whitelist, so an
+invalid `_order` falls back to the caller's default instead of reaching a raw-SQL `ORDER BY`
+compiler (which throws). Adding a new grid field means adding it inside `gridStateOverrides()` once;
+existing branches need no change.
 
 ### Admin Grid Error Path: `renderGridFormError` returns 200, not 400
 

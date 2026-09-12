@@ -13,7 +13,8 @@ Adding a new URL-query-param filter that drives a SQL `WHERE` clause requires to
 - Add field to `GridState` interface
 - Add reader in `gridStateFromURL`, `gridStateFromForm`, `gridStateFromFormData`
 - Add writer in `gridStateToParams`
-- Add accessor helper (`gridStateStatus()` pattern)
+- Add accessor helper (`gridStateStatus()` pattern); `gridStateOverrides()` picks the new field up
+  automatically, so existing re-render branches need no change
 
 ### 2. Controller — data layer (`app/actions/<route>/controller.tsx`)
 

@@ -137,10 +137,7 @@ async destroy(context) {
       let gridValues = gridStateFromFormData(formData)
       let data = await loadPageData(context, {
         formError: 'Ressource wird noch verwendet und kann nicht gelöscht werden',
-        offset: gridStateOffset(gridValues),
-        sortColumn: gridStateSort(gridValues),
-        sortDirection: gridStateDirection(gridValues),
-        filter: gridStateFilter(gridValues),
+        ...gridStateOverrides(gridValues),
       })
       return renderPage(context, data, { status: 400 })
     }

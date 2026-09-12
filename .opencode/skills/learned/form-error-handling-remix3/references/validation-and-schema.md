@@ -263,10 +263,7 @@ if (result.value.end_min <= result.value.start_min) {
     formValues,
     formError: 'muss nach der Startzeit liegen.',
     fieldErrors: { end_min: 'muss nach der Startzeit liegen.' },
-    offset: gridStateOffset(gridValues),
-    sortColumn: gridStateSort(gridValues),
-    sortDirection: gridStateDirection(gridValues),
-    filter: gridStateFilter(gridValues),
+    ...gridStateOverrides(gridValues),
   })
   return renderPage(context, data, { status: 400 })
 }
