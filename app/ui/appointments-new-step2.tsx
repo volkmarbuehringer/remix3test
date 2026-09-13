@@ -17,6 +17,7 @@ import type { DayWithSlots } from '../data/appointments.ts'
 import { routes } from '../routes.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
 import { AppointmentsNewStep2Live } from './appointments-new-step2.browser.tsx'
+import { WizardSteps } from './appointments-new-steps.tsx'
 
 const inlineErrorStyle = css({
   color: theme.colors.action.danger.background,
@@ -83,11 +84,15 @@ const dayCard = css({
   '&:last-child': { borderBottom: 'none' },
 })
 
+const daySummary = css({
+  cursor: 'pointer',
+  padding: 0,
+})
+
 const dayHeader = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
-  cursor: 'pointer',
   marginBottom: theme.space.xs,
 })
 
@@ -159,10 +164,18 @@ const timeGroupLegend = css({
 })
 
 const emptyStyle = css({
-  padding: `${theme.space.md} ${theme.space.sm}`,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.space.md,
+  padding: `${theme.space.lg} ${theme.space.sm}`,
   textAlign: 'center',
   color: theme.colors.text.secondary,
   fontSize: theme.fontSize.sm,
+})
+
+const emptyTextStyle = css({
+  margin: 0,
 })
 
 const weekNavBtnCss = css({
@@ -271,9 +284,10 @@ export function Step2(handle: Handle<Step2Props>) {
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
-              <span mix={table.panelTitle}>Neuer Termin – Schritt 2 von 2: Tag und Zeit</span>
+              <span mix={table.panelTitle}>Neuer Termin</span>
             </div>
             <div mix={table.panelBody}>
+              <WizardSteps current={2} backHref={buildBackUrl(weekStart)} />
               {resourceName ? (
                 <div mix={resourceSummary}>
                   <span mix={resourceSummaryLabel}>Gewählte Ressource</span>
@@ -284,8 +298,8 @@ export function Step2(handle: Handle<Step2Props>) {
                 </div>
               ) : null}
 
-              <div mix={confirmLine} data-wizard-confirm>
-                {selectedConfirm || 'Noch keine Uhrzeit gewählt.'}
+              <div mix={confirmLine} data-wizard-confirm aria-live="polite" aria-atomic="true">
+                {selectedConfirm || 'Bitte wählen Sie eine Uhrzeit.'}
               </div>
 
               {formError ? <div mix={formErrorBanner}>{formError}</div> : null}
@@ -342,8 +356,15 @@ export function Step2(handle: Handle<Step2Props>) {
 
               {daysWithSlots.length === 0 ? (
                 <div mix={emptyStyle}>
-                  Für diese Ressource sind derzeit keine freien Termine verfügbar. Wechseln Sie die
-                  Woche (◀ / ▶) oder wählen Sie eine andere Ressource.
+                  <p mix={emptyTextStyle}>
+                    Für diese Ressource sind derzeit keine freien Termine verfügbar. Wechseln Sie
+                    die Woche (◀ / ▶) oder wählen Sie eine andere Ressource.
+                  </p>
+                  <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
+                    <button type="button" mix={button({ tone: 'secondary' })}>
+                      Andere Ressource wählen
+                    </button>
+                  </a>
                 </div>
               ) : (
                 <fieldset mix={timeGroup}>
@@ -360,29 +381,33 @@ export function Step2(handle: Handle<Step2Props>) {
                   >
                     {daysWithSlots.map((dws) => (
                       <li key={dws.day} mix={dayCard}>
-                        <div mix={dayHeader}>
-                          <span mix={dayDateLabel}>{formatDateDE(dws.day)}</span>
-                          <span mix={dayRangeLabel}>{formatRangeLabel(dws.ranges)}</span>
-                        </div>
-                        <div mix={timeChips}>
-                          {dws.slots.map((min) => {
-                            let combinedValue = `${dws.day}:${min}`
-                            let inputId = `wiz-time-${dws.day}-${min}`
-                            return (
-                              <label key={min} mix={timeChip} htmlFor={inputId}>
-                                <input
-                                  id={inputId}
-                                  type="radio"
-                                  name="day_start"
-                                  value={combinedValue}
-                                  mix={hiddenRadio}
-                                  defaultChecked={formValues?.day_start === combinedValue}
-                                />
-                                {formatMinOption(min)}
-                              </label>
-                            )
-                          })}
-                        </div>
+                        <details open>
+                          <summary mix={daySummary}>
+                            <span mix={dayHeader}>
+                              <span mix={dayDateLabel}>{formatDateDE(dws.day)}</span>
+                              <span mix={dayRangeLabel}>{formatRangeLabel(dws.ranges)}</span>
+                            </span>
+                          </summary>
+                          <div mix={timeChips}>
+                            {dws.slots.map((min) => {
+                              let combinedValue = `${dws.day}:${min}`
+                              let inputId = `wiz-time-${dws.day}-${min}`
+                              return (
+                                <label key={min} mix={timeChip} htmlFor={inputId}>
+                                  <input
+                                    id={inputId}
+                                    type="radio"
+                                    name="day_start"
+                                    value={combinedValue}
+                                    mix={hiddenRadio}
+                                    defaultChecked={formValues?.day_start === combinedValue}
+                                  />
+                                  {formatMinOption(min)}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </details>
                       </li>
                     ))}
                   </ul>
@@ -416,7 +441,7 @@ export function Step2(handle: Handle<Step2Props>) {
                   data-wizard-submit
                   mix={[button({ tone: 'primary' }), table.spacer]}
                 >
-                  Anlegen
+                  Termin anlegen
                 </button>
                 <a href={buildBackUrl(weekStart)} mix={table.linkPlain}>
                   <button

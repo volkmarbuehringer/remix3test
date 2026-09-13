@@ -164,6 +164,32 @@ describe('Appointments New Controller', () => {
     }
   })
 
+  it('GET /appointments/new step 1 renders the resource search and step indicator', async () => {
+    let response = await router.fetch(`${APPT_URL}?creating=true&step=1`, {
+      headers: { Cookie: userCookie },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Schritt 1 von 2'))
+    assert.ok(html.includes('Ressource suchen'))
+    assert.ok(html.includes('data-resource-search'))
+    assert.ok(html.includes('data-resource-card'))
+  })
+
+  it('GET /appointments/new step 2 renders the step indicator and a live selection summary', async () => {
+    let response = await router.fetch(
+      `${APPT_URL}?creating=true&step=2&resource_id=${firstResourceId}`,
+      { headers: { Cookie: userCookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('Schritt 2 von 2'))
+    assert.ok(html.includes('data-wizard-confirm'))
+    assert.ok(html.includes('aria-live="polite"'))
+    assert.ok(html.includes('Termin anlegen'))
+    assert.ok(html.includes('Zurück'))
+  })
+
   // ── Create (2-step flow) ──
 
   it('POST /appointments/new without step redirects to step 1', async () => {

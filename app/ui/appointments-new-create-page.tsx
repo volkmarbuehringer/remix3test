@@ -2,15 +2,20 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 
+import button from '../ui/theme/button.ts'
 import type { ResourceOption, DayWithSlots } from '../data/appointments.ts'
+import { routes } from '../routes.ts'
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
 import { Step2 } from './appointments-new-step2.tsx'
+import { WizardSteps } from './appointments-new-steps.tsx'
+import { table } from './mixins/admin-table.ts'
+import { buildCancelUrl } from './mixins/admin-urls.ts'
 
-const titleStyle = css({
-  fontSize: theme.fontSize.lg,
-  fontWeight: theme.fontWeight.semibold,
-  color: theme.colors.text.primary,
+const introStyle = css({
+  margin: 0,
   marginBottom: theme.space.md,
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
 })
 
 interface AppointmentsNewCreatePageProps {
@@ -54,6 +59,7 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
     } = handle.props
 
     let gridState = { offset, sort, order, filter: filter ?? '', period: period ?? '', status }
+    let base = routes.appointmentsNew.index.href()
 
     // Step 2: combined day + time + title selection
     if (step === 2 && wizardResourceId && weekStart && daysWithSlots) {
@@ -74,9 +80,27 @@ export function AppointmentsNewCreatePage(handle: Handle<AppointmentsNewCreatePa
 
     // Step 1 (or fallback): resource selection cards
     return (
-      <div>
-        <div mix={titleStyle}>Neuer Termin – Schritt 1 von 2: Ressource wählen</div>
-        <ResourceCards resources={resources} gridState={gridState} />
+      <div mix={table.panel}>
+        <div mix={table.panelHeader}>
+          <span mix={table.panelTitle}>Neuer Termin</span>
+        </div>
+        <div mix={table.panelBody}>
+          <WizardSteps current={1} />
+          <p mix={introStyle}>
+            Wählen Sie eine Ressource aus, um verfügbare Tage und Uhrzeiten zu sehen.
+          </p>
+          <ResourceCards resources={resources} gridState={gridState} />
+          <div mix={table.actions}>
+            <a
+              href={buildCancelUrl(base, offset, sort, order, filter, period, status)}
+              mix={table.linkPlain}
+            >
+              <button type="button" mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}>
+                Abbrechen
+              </button>
+            </a>
+          </div>
+        </div>
       </div>
     )
   }

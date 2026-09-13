@@ -14,10 +14,10 @@ function syncSelection(form: HTMLFormElement): void {
       if (Number.isFinite(dayMs) && Number.isFinite(min)) {
         confirm.textContent = `${formatDateDE(dayMs)} – ${formatMinOption(min)} Uhr`
       } else {
-        confirm.textContent = 'Noch keine Uhrzeit gewählt.'
+        confirm.textContent = 'Bitte wählen Sie eine Uhrzeit.'
       }
     } else {
-      confirm.textContent = 'Noch keine Uhrzeit gewählt.'
+      confirm.textContent = 'Bitte wählen Sie eine Uhrzeit.'
     }
   }
 }

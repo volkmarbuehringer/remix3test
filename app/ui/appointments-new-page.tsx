@@ -158,6 +158,13 @@ const delBtnStyle = css({
   },
 })
 
+const emptyStateStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: theme.space.md,
+})
+
 const apptTableCard = css({
   '@media (max-width: 768px)': {
     // Stacked cards, not horizontal scroll: cancel the shared grid min-width.
@@ -352,7 +359,29 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
         <div mix={[table.wrap, apptTableCard]} data-appointments-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
-              {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
+              {filter ? (
+                'Keine Termine gefunden für diese Suche.'
+              ) : (
+                <div mix={emptyStateStyle}>
+                  <span>Keine Termine vorhanden.</span>
+                  <a
+                    href={buildCreateUrl(
+                      BASE,
+                      offset,
+                      sortColumn,
+                      sortDirection,
+                      filter,
+                      period,
+                      status,
+                    )}
+                    mix={table.linkPlain}
+                  >
+                    <button mix={[button({ tone: 'primary' })]}>
+                      <Glyph name="add" width={14} height={14} /> Ersten Termin anlegen
+                    </button>
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <table mix={table.table}>
@@ -574,7 +603,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           </div>
           <div mix={table.twoColumn}>
             {gridSection}
-            <div mix={table.stickyPanel} data-create-panel="true">
+            <div
+              mix={table.stickyPanel}
+              data-create-panel="true"
+              data-panel-step={deletingRow ? `delete:${deletingRow.id}` : `create:${step ?? 1}`}
+            >
               {deletingRow ? (
                 <div mix={table.panel}>
                   <div mix={table.panelHeader}>
