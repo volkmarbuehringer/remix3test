@@ -105,6 +105,13 @@ export const table = {
   }),
   table: css({
     width: '100%',
+    // Floor for the fixed layout. table.wrap sets overflowX: auto, but a
+    // width:100% fixed table never exceeds the wrap, so on phones and in the
+    // 1fr column beside the edit panel every column was shredded to a few
+    // characters instead of scrolling full-width columns into view. Keep this in
+    // sync with the widest colgroup; pages that switch to a stacked card layout
+    // on phones (e.g. appointments-new) must reset it in their override.
+    minWidth: '840px',
     tableLayout: 'fixed',
     borderCollapse: 'collapse',
     fontSize: theme.fontSize.sm,

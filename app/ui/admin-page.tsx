@@ -116,7 +116,10 @@ const kpiValueDangerStyle = css({
 })
 
 const kpiValueSuccessStyle = css({
-  color: theme.colors.success.background,
+  // success.background is the pale tile fill (#f0fdf4); using it as text made
+  // the value ~1.05:1 on the card in light mode (and just as unreadable in dark).
+  // success.foreground is the token intended for text: dark green / light green.
+  color: theme.colors.success.foreground,
 })
 
 // ── Navigation cards ────────────────────────────────────────────

@@ -151,11 +151,6 @@ const colDescWidth = css({ width: '200px' })
 const colUpdatedWidth = css({ width: '155px' })
 const colActionsWidth = css({ width: '120px' })
 
-// The wrap around the table scrolls horizontally (`table.wrap` sets
-// overflowX: auto). Without a min-width the fixed layout shrinks every column to
-// a few characters on a phone instead of letting the user scroll full columns.
-const listsTableMinWidthStyle = css({ minWidth: '840px' })
-
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
@@ -265,7 +260,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               )}
             </div>
           ) : (
-            <table mix={[table.table, listsTableMinWidthStyle]}>
+            <table mix={table.table}>
               <colgroup>
                 <col mix={css({ width: '60px' })} />
                 <col />

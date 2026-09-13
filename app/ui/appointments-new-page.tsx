@@ -160,7 +160,11 @@ const delBtnStyle = css({
 
 const apptTableCard = css({
   '@media (max-width: 768px)': {
-    '& table': { display: 'block', tableLayout: 'auto' },
+    // Stacked cards, not horizontal scroll: cancel the shared grid min-width.
+    // !important is required — the shared table mixin's min-width lives in a
+    // later rmx.* sub-layer, and layer order beats specificity for the nested
+    // selector (see the cascade-layer override pattern).
+    '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
     '& thead': { display: 'none' },
     '& tbody': { display: 'block' },
     '& tbody tr': {
