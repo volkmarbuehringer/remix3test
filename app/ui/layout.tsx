@@ -50,7 +50,8 @@ export function Layout(handle: Handle<LayoutProps>) {
             <div mix={pageStyle}>
               {currentPath.startsWith('/admin') ||
               currentPath.startsWith('/ai') ||
-              currentPath.startsWith('/lists') ? null : (
+              currentPath.startsWith('/lists') ||
+              currentPath.startsWith('/verwaltung') ? null : (
                 <Breadcrumbs items={getBreadcrumbs(currentPath)} />
               )}
               {children}

@@ -5,6 +5,7 @@ import { theme } from './theme/theme.ts'
 
 import { Layout } from './layout.tsx'
 import { frames } from '../routes.ts'
+import { VerwaltungNav } from './verwaltung-nav.tsx'
 
 const FRAME_TARGETS = new Set([
   'admin-content',
@@ -75,5 +76,11 @@ export function renderVerwaltungPage(
       init,
     )
   }
-  return render(<Layout>{content}</Layout>, init)
+  return render(
+    <Layout>
+      <VerwaltungNav />
+      {content}
+    </Layout>,
+    init,
+  )
 }

@@ -117,7 +117,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
           <input
             type="text"
             name="filter"
-            placeholder="Suche"
+            placeholder="Suche nach Name oder Beschreibung..."
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />

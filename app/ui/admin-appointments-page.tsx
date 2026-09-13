@@ -227,12 +227,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
             </a>
           )}
           <span mix={table.spacer} />
-          <span
-            mix={css({
-              display: 'inline-flex',
-              alignItems: 'center',
-            })}
-          >
+          <span mix={table.filterCluster}>
+            <span mix={table.filterClusterLabel}>Zeitraum</span>
             {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map(
               (value, i, arr) => {
                 let isFirst = i === 0
@@ -280,12 +276,8 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               },
             )}
           </span>
-          <span
-            mix={css({
-              display: 'inline-flex',
-              alignItems: 'center',
-            })}
-          >
+          <span mix={table.filterCluster}>
+            <span mix={table.filterClusterLabel}>Status</span>
             {(['all', 'pending', 'expired'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1
@@ -347,6 +339,17 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? 'Keine Termine gefunden für diese Suche.' : 'Keine Termine vorhanden.'}
+              {!filter && status !== 'all' ? (
+                <div mix={css({ marginTop: theme.space.sm })}>
+                  <a
+                    href={ADMIN_BASE + '?status=all'}
+                    data-rmx-target={getSelfFrameTarget()}
+                    mix={table.clearLink}
+                  >
+                    Alle Termine anzeigen
+                  </a>
+                </div>
+              ) : null}
               {!hasFormPanel && (
                 <div mix={css({ marginTop: theme.space.md })}>
                   <a

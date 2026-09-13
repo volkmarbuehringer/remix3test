@@ -61,6 +61,25 @@ export const table = {
     borderRadius: theme.radius.md,
     overflow: 'hidden',
   }),
+
+  /** Segmented filter cluster (Zeitraum/Status chips). Wraps on narrow
+   *  viewports so every chip stays reachable instead of clipping off-screen. */
+  filterCluster: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    maxWidth: '100%',
+  }),
+  /** Small uppercase caption that distinguishes adjacent filter clusters. */
+  filterClusterLabel: css({
+    fontSize: theme.fontSize.xxs,
+    fontWeight: theme.fontWeight.semibold,
+    letterSpacing: theme.letterSpacing.meta,
+    textTransform: 'uppercase',
+    color: theme.colors.text.muted,
+    marginRight: theme.space.xs,
+    whiteSpace: 'nowrap',
+  }),
   filterTab: css({
     display: 'inline-flex',
     alignItems: 'center',

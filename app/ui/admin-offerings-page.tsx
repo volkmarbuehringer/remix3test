@@ -281,12 +281,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             </a>
           )}
           <span mix={table.spacer} />
-          <span
-            mix={css({
-              display: 'inline-flex',
-              alignItems: 'center',
-            })}
-          >
+          <span mix={table.filterCluster}>
+            <span mix={table.filterClusterLabel}>Zeitraum</span>
             {(['', 'this-week', 'next-week', 'this-month', 'next-month'] as const).map(
               (value, i, arr) => {
                 let isFirst = i === 0
@@ -319,12 +315,8 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               },
             )}
           </span>
-          <span
-            mix={css({
-              display: 'inline-flex',
-              alignItems: 'center',
-            })}
-          >
+          <span mix={table.filterCluster}>
+            <span mix={table.filterClusterLabel}>Status</span>
             {(['all', 'pending', 'expired'] as const).map((value, i, arr) => {
               let isFirst = i === 0
               let isLast = i === arr.length - 1

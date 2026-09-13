@@ -91,7 +91,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
           data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
-          <select name="year" mix={table.select}>
+          <select name="year" aria-label="Jahr" mix={table.select}>
             {Array.from({ length: 5 }, (_, i) => {
               let y = curYear - 2 + i
               return (
@@ -102,7 +102,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
             })}
           </select>
 
-          <select name="month" mix={table.select}>
+          <select name="month" aria-label="Monat" mix={table.select}>
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i} value={i + 1} selected={i + 1 === curMonth}>
                 {String(i + 1).padStart(2, '0')}
@@ -110,7 +110,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
             ))}
           </select>
 
-          <select name="user_id" mix={table.select}>
+          <select name="user_id" aria-label="Benutzer" mix={table.select}>
             <option value="" selected={curUserId === undefined}>
               Alle Benutzer
             </option>
@@ -125,6 +125,7 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
             type="text"
             name="filter"
             placeholder="Filter (Name)"
+            aria-label="Nach Name filtern"
             value={curFilter}
             mix={table.filterInput}
           />
