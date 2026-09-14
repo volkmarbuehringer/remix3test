@@ -13,6 +13,7 @@ import {
   chatRateLimiter,
 } from './controller.tsx'
 import { recordChatRun, findChatRunOwner } from './run-store.ts'
+import { resolvePendingGate } from './gate-store.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
 const BASE = 'https://remix.run'
@@ -21,6 +22,7 @@ const CHAT_ACTION_URL = `${BASE}${routes.chat.action.href()}`
 const CHAT_APPROVE_URL = `${BASE}${routes.chat.approve.href()}`
 const CHAT_DECLINE_URL = `${BASE}${routes.chat.decline.href()}`
 const CHAT_ANSWER_URL = `${BASE}${routes.chat.answer.href()}`
+const CHAT_RECONNECT_URL = `${BASE}${routes.chat.reconnect.href()}`
 
 const SSE_HEADERS = { Accept: 'text/event-stream', 'X-Sse-Request': '1' }
 
@@ -126,13 +128,21 @@ type MockAgent = {
   generate: (message: string, opts?: Record<string, unknown>) => Promise<{ text: string }>
   stream: (message: string, opts?: Record<string, unknown>) => Promise<AgentStreamOutput>
   resumeStream: (data: unknown, opts?: Record<string, unknown>) => Promise<AgentStreamOutput>
-  approveToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
+  approveToolCallGenerate?: (opts: {
+    runId: string
+    toolCallId?: string
+    abortSignal?: AbortSignal
+  }) => Promise<{
     text: string
     finishReason: string
     runId: string
     fullStream?: unknown
   }>
-  declineToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
+  declineToolCallGenerate?: (opts: {
+    runId: string
+    toolCallId?: string
+    abortSignal?: AbortSignal
+  }) => Promise<{
     text: string
     finishReason: string
     runId: string
@@ -175,6 +185,7 @@ describe('Customer Chat controller', () => {
 
   afterEach(async () => {
     await pool.query('DELETE FROM chat_runs')
+    await pool.query('DELETE FROM chat_pending_gates')
     __setTestAgent(undefined)
     __setTestResumeResolver(undefined)
     __setTestThreadLookup(undefined)
@@ -357,6 +368,33 @@ describe('Customer Chat controller', () => {
     )
   })
 
+  it('POST /chat links a request-linked abort signal to the agent run', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let seen: AbortSignal | undefined
+    mockAgent = makeMockAgent({
+      stream: async (_message, opts) => {
+        seen = opts?.abortSignal as AbortSignal | undefined
+        return createMockStreamOutput('Ok')
+      },
+    })
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'Hallo' }),
+    })
+    await parseSSEResponse(response)
+
+    assert.ok(seen instanceof AbortSignal, 'the agent run must receive an abort signal')
+    assert.equal(seen!.aborted, false, 'a live run must not be pre-aborted')
+  })
+
   it('POST /chat passes threadId and continues the same thread', async () => {
     let adminId = await getUserId('admin@newapp.com')
     chatRateLimiter.reset(adminId)
@@ -472,6 +510,125 @@ describe('Customer Chat controller', () => {
     let owner = await findChatRunOwner(runId)
     assert.ok(owner, 'a suspended run must keep its ownership row')
     assert.equal(owner!.userId, adminId)
+  })
+
+  it('POST /chat forwards a question event when the agent suspends on ask_user', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      stream: async () => ({
+        runId,
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: 'tool-call-suspended',
+              payload: {
+                toolCallId: 'call-q',
+                toolName: 'ask_user',
+                suspendPayload: { question: 'Welcher Termin?', selectionMode: 'single_select' },
+                args: { question: 'Welcher Termin?' },
+              },
+            })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => ({ text: '', finishReason: 'suspended' }),
+      }),
+    })
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'wann?' }),
+    })
+    assert.equal(response.status, 200)
+
+    let { events } = await parseSSEResponse(response)
+    let questionEvent = events.find((e) => e.type === 'question')
+    assert.ok(questionEvent, 'should emit a question event')
+    let payload = JSON.parse(questionEvent!.data) as { question?: string; runId?: string }
+    assert.equal(payload.question, 'Welcher Termin?')
+    assert.equal(payload.runId, runId)
+
+    let owner = await findChatRunOwner(runId)
+    assert.ok(owner, 'a suspended question run should keep its ownership row')
+    assert.equal(owner!.userId, adminId)
+  })
+
+  it('GET /chat/reconnect re-surfaces a suspended ask_user question', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      stream: async () => ({
+        runId,
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: 'tool-call-suspended',
+              payload: {
+                toolCallId: 'call-q',
+                toolName: 'ask_user',
+                suspendPayload: { question: 'Welcher Termin?', selectionMode: 'single_select' },
+                args: { question: 'Welcher Termin?' },
+              },
+            })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => ({ text: '', finishReason: 'suspended' }),
+      }),
+    })
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'wann?' }),
+    })
+    await parseSSEResponse(response)
+
+    // The gate write is fire-and-forget off the stream, so wait for it.
+    await waitFor(async () => (await resolvePendingGate(adminId)) !== null)
+
+    let reconnect = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(reconnect.status, 200)
+    let body = (await reconnect.json()) as {
+      status?: string
+      runId?: string
+      gateType?: string
+      toolCallId?: string
+      suspendPayload?: { question?: string }
+    }
+    assert.equal(body.status, 'suspended')
+    assert.equal(body.runId, runId)
+    assert.equal(body.gateType, 'question')
+    assert.equal(body.toolCallId, 'call-q')
+    assert.equal(body.suspendPayload?.question, 'Welcher Termin?')
+  })
+
+  it('GET /chat/reconnect returns none when nothing is pending', async () => {
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let body = (await response.json()) as { status?: string }
+    assert.equal(body.status, 'none')
   })
 
   it('POST /chat forwards tool lifecycle and reasoning events', async () => {
@@ -604,6 +761,36 @@ describe('Customer Chat controller', () => {
       events.find((e) => e.type === 'complete'),
       'should have a complete event',
     )
+  })
+
+  it('POST /chat/approve links an abort signal to the agent run', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let seen: AbortSignal | undefined
+    mockAgent = makeMockAgent({
+      approveToolCallGenerate: async (opts) => {
+        seen = opts.abortSignal
+        return { text: 'Bestätigt.', finishReason: 'stop', runId: crypto.randomUUID() }
+      },
+    })
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    await parseSSEResponse(response)
+
+    assert.ok(seen instanceof AbortSignal, 'approve must pass the run abort signal')
+    assert.equal(seen!.aborted, false, 'a live run must not be pre-aborted')
   })
 
   it('POST /chat/approve records ownership for a re-suspended continuation run', async () => {
@@ -792,6 +979,36 @@ describe('Customer Chat controller', () => {
     assert.equal(response.status, 200)
     let { text } = await parseSSEResponse(response)
     assert.equal(text, 'Fortsetzung.')
+  })
+
+  it('POST /chat/answer links an abort signal to the agent run', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let seen: AbortSignal | undefined
+    mockAgent = makeMockAgent({
+      resumeStream: async (_data, opts) => {
+        seen = opts?.abortSignal as AbortSignal | undefined
+        return createMockStreamOutput('Fortsetzung.')
+      },
+    })
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
+    })
+    await parseSSEResponse(response)
+
+    assert.ok(seen instanceof AbortSignal, 'answer must pass the run abort signal')
+    assert.equal(seen!.aborted, false, 'a live run must not be pre-aborted')
   })
 
   it('POST /chat/answer preserves ownership when the same run re-suspends', async () => {

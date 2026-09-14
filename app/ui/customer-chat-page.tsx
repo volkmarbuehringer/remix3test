@@ -3,9 +3,8 @@ import { css } from 'remix/ui'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CustomerChatStream } from '../assets/streams/public/customer-chat-stream.tsx'
+import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
 import type { ChatMessage } from '../types/chatlog.ts'
-
-const MAX_MESSAGE_LENGTH = 5000
 
 const containerStyle = css({
   maxWidth: '800px',
@@ -75,6 +74,26 @@ const buttonStyle = css({
   borderRadius: theme.radius.md,
   fontSize: '1rem',
   cursor: 'pointer',
+})
+
+const composerActionsStyle = css({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '0.75rem',
+  marginTop: '0.75rem',
+})
+
+const counterStyle = css({
+  fontSize: '0.75rem',
+  color: theme.colors.text.muted,
+  fontVariantNumeric: 'tabular-nums',
+})
+
+const hintStyle = css({
+  marginTop: '0.5rem',
+  fontSize: '0.75rem',
+  color: theme.colors.text.muted,
 })
 
 const newButtonStyle = css({
@@ -159,13 +178,18 @@ export function CustomerChatPage(handle: Handle<CustomerChatPageProps>) {
             rows={3}
             required
             maxLength={MAX_MESSAGE_LENGTH}
+            aria-describedby="chat-counter"
             mix={textareaStyle}
           />
-          <div style={{ marginTop: '0.75rem' }}>
+          <div mix={composerActionsStyle}>
+            <span id="chat-counter" mix={counterStyle}>
+              0 / {MAX_MESSAGE_LENGTH}
+            </span>
             <button id="chat-submit" type="submit" mix={buttonStyle}>
               Senden
             </button>
           </div>
+          <p mix={hintStyle}>Enter sendet · Shift+Enter fügt eine neue Zeile ein.</p>
         </form>
 
         <CustomerChatStream />

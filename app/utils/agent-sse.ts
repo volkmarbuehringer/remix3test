@@ -33,6 +33,61 @@ export function safeClose(controller: ReadableStreamDefaultController) {
   }
 }
 
+/**
+ * Normalizes an agent/tool error payload to a display string.
+ *
+ * Mastra may surface an `Error`, a plain object, or a string. Forwarding the raw
+ * value let the browser stringify an object as "[object Object]", so everything
+ * crossing the SSE boundary is converted to text here.
+ */
+export function errorToText(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message || error.name || 'Unbekannter Fehler'
+  if (error == null) return 'Unbekannter Fehler'
+  try {
+    let json = JSON.stringify(error)
+    if (typeof json === 'string') return json
+  } catch {
+    /* circular / non-serializable */
+  }
+  return String(error)
+}
+
+/**
+ * Builds the abort signal for a single agent run.
+ *
+ * Links the request signal (a browser Cancel or disconnect aborts the fetch, and
+ * that must abort the server-side model run too) with a whole-run timeout, and
+ * returns a `cleanup` that clears both. Centralizing this keeps every SSE path
+ * — message, approve/decline, answer — from drifting into "timeout but no
+ * disconnect" or "disconnect but no timeout".
+ *
+ * The signal must be handed to the agent call (as `abortSignal`) *and* to
+ * `pipeStream`, and `cleanup` must run once the run settles.
+ */
+export function createRunSignal(
+  requestSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal; cleanup: () => void } {
+  let controller = new AbortController()
+  let timeout = setTimeout(() => controller.abort(), timeoutMs)
+  let onRequestAbort = () => controller.abort()
+
+  if (requestSignal?.aborted) {
+    controller.abort()
+  } else {
+    requestSignal?.addEventListener('abort', onRequestAbort, { once: true })
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup() {
+      clearTimeout(timeout)
+      requestSignal?.removeEventListener('abort', onRequestAbort)
+    },
+  }
+}
+
 type SuspensionInfo = {
   runId?: string | undefined
   toolCallId?: string | undefined
@@ -189,10 +244,10 @@ async function filterAndForward(
       toolCallId: p?.toolCallId,
       toolName: p?.toolName,
       args: p?.args,
-      error: p?.error,
+      error: errorToText(p?.error),
     })
   } else if (type === 'error') {
-    fwd('agent-error', { error: p?.error })
+    fwd('agent-error', { error: errorToText(p?.error) })
   }
 }
 
@@ -270,7 +325,7 @@ export function pipeStream(
         try {
           controller.enqueue(
             sseEncoder.encode(
-              `event: stream-error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`,
+              `event: stream-error\ndata: ${JSON.stringify({ error: errorToText(err) })}\n\n`,
             ),
           )
         } catch {

@@ -64,6 +64,7 @@ export const routes = route({
     approve: post('/approve'),
     decline: post('/decline'),
     answer: post('/answer'),
+    reconnect: get('/reconnect'),
   }),
 
   appointment: route('appointment', {

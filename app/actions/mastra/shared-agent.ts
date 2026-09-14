@@ -1,6 +1,7 @@
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { validateThreadId } from '../../utils/thread-id.ts'
+import { MAX_MESSAGE_LENGTH } from '../../utils/message-limits.ts'
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -36,10 +37,12 @@ export interface TestAgent {
   approveToolCallGenerate?: (opts: {
     runId: string
     toolCallId?: string
+    abortSignal?: AbortSignal
   }) => Promise<MastraSuspendableResult>
   declineToolCallGenerate?: (opts: {
     runId: string
     toolCallId?: string
+    abortSignal?: AbortSignal
   }) => Promise<MastraSuspendableResult>
 }
 
@@ -62,7 +65,7 @@ const messageSchema = f.object({
 
 // ── Constants ────────────────────────────────────────────────────────
 
-export const MAX_MESSAGE_LENGTH = 5000
+export { MAX_MESSAGE_LENGTH }
 export const AGENT_TIMEOUT_MS = 60_000
 
 /**

@@ -7,6 +7,7 @@ import {
   listAllChatThreads,
   listChatThreads,
   listLatestCustomerThread,
+  recallChatMessages,
 } from './mastra-memory.ts'
 
 // ---------------------------------------------------------------------------
@@ -271,5 +272,68 @@ describe('mastra-memory thread summaries', () => {
     assert.equal(recallCalls, 2, 'one recall per thread')
     assert.equal(previews.get('a')?.messageCount, 7)
     assert.equal(previews.get('b')?.messageCount, 7)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Transcript recall (the /chat resume path)
+// A bounded recall keeps a long thread from bloating the SSR page: the caller
+// asks for the newest N messages, storage returns them newest-first, and the
+// helper flips them back to chronological order.
+// ---------------------------------------------------------------------------
+
+interface RecallOpts {
+  threadId: string
+  resource?: string
+  perPage?: number | false
+  orderBy?: { field: string; direction: string }
+}
+
+function makeRecallAgent(onRecall: (opts: RecallOpts) => unknown) {
+  return { getMemory: async () => ({ recall: async (opts: RecallOpts) => onRecall(opts) }) }
+}
+
+describe('recallChatMessages', () => {
+  it('reads the whole thread when no limit is given', async () => {
+    let calls: RecallOpts[] = []
+    let agent = makeRecallAgent((opts) => {
+      calls.push(opts)
+      return { messages: [{ role: 'user', content: 'Hallo', createdAt: 1 }] }
+    })
+
+    let messages = await recallChatMessages(agent, 't1', 'user-1')
+
+    assert.deepEqual(calls[0], { threadId: 't1', resource: 'user-1', perPage: false })
+    assert.deepEqual(
+      messages.map((m) => m.content),
+      ['Hallo'],
+    )
+  })
+
+  it('caps the read to the newest slice and restores chronological order', async () => {
+    let calls: RecallOpts[] = []
+    let agent = makeRecallAgent((opts) => {
+      calls.push(opts)
+      // A DESC-bounded storage read returns newest-first.
+      return {
+        messages: [
+          { role: 'assistant', content: 'Zweite', createdAt: 2 },
+          { role: 'user', content: 'Erste', createdAt: 1 },
+        ],
+      }
+    })
+
+    let messages = await recallChatMessages(agent, 't1', 'user-1', { limit: 2 })
+
+    assert.deepEqual(calls[0], {
+      threadId: 't1',
+      resource: 'user-1',
+      perPage: 2,
+      orderBy: { field: 'createdAt', direction: 'DESC' },
+    })
+    assert.deepEqual(
+      messages.map((m) => m.content),
+      ['Erste', 'Zweite'],
+    )
   })
 })

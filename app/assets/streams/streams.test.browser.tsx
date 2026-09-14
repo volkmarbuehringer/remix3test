@@ -1161,6 +1161,301 @@ describe('Customer chat resume + theme + busy state', () => {
     window.history.replaceState({}, '', '/')
     window.fetch = originalFetch
   })
+
+  it('renders an agent error as a role="alert" bubble, not an assistant reply', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let originalFetch = window.fetch
+    window.fetch = async () =>
+      sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-err' }) },
+        { type: 'agent-error', data: JSON.stringify({ error: 'Fehler bei der Verarbeitung.' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    let alert = msgs.querySelector('[role="alert"]') as HTMLElement | null
+    assert.ok(alert, 'the error should be announced as an alert')
+    assert.ok(alert!.textContent?.includes('Fehler'), 'the alert should carry the error text')
+    let tokenPrefix = 'var(--' + 'rmx-'
+    assert.ok(
+      msgs.innerHTML.includes(tokenPrefix),
+      'the error bubble should use danger theme tokens',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('sends on Enter and leaves Shift+Enter as a newline', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let sentMessages: string[] = []
+    let originalFetch = window.fetch
+    window.fetch = async (_url, init) => {
+      if (init?.body instanceof FormData) sentMessages.push(String(init.body.get('message')))
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-enter' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Hallo'
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+    await new Promise((r) => setTimeout(r, 10))
+    assert.equal(sentMessages.length, 0, 'Shift+Enter must not submit')
+
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    await new Promise((r) => setTimeout(r, 50))
+    assert.deepEqual(sentMessages, ['Hallo'], 'plain Enter should submit the message')
+
+    window.fetch = originalFetch
+  })
+
+  it('renders the question card for a question event and submits the typed answer', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let answerBody = ''
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) === '/chat/answer' && init?.body instanceof FormData) {
+        answerBody = Array.from(init.body.entries())
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join('&')
+      }
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-q' }) },
+        {
+          type: 'question',
+          data: JSON.stringify({
+            runId: 'r-q',
+            question: 'Welchen Termin möchten Sie buchen?',
+            options: null,
+            selectionMode: 'single_select',
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await new Promise((r) => setTimeout(r, 50))
+
+    let card = document.getElementById('chat-question')
+    assert.ok(card, 'the question card should render for a question event')
+    let free = document.getElementById('q-free-text') as HTMLInputElement
+    assert.ok(free, 'a no-options question should render a free-text input')
+
+    free.value = 'Mittwoch, 16.09. um 10:00'
+    let answerBtn = document.querySelector('.q-answer-btn') as HTMLButtonElement
+    answerBtn.click()
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      answerBody.includes('answer=Mittwoch'),
+      'the typed answer should be submitted to /chat/answer, got: ' + answerBody,
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('does not render the raw ask_user args card, only the question card', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let originalFetch = window.fetch
+    window.fetch = async () =>
+      sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-q' }) },
+        {
+          type: 'tool-call-input-streaming-start',
+          data: JSON.stringify({ toolCallId: 'c1', toolName: 'ask_user' }),
+        },
+        {
+          type: 'tool-call',
+          data: JSON.stringify({
+            toolCallId: 'c1',
+            toolName: 'ask_user',
+            args: { question: 'Welcher Termin?' },
+          }),
+        },
+        {
+          type: 'question',
+          data: JSON.stringify({
+            runId: 'r-q',
+            toolCallId: 'c1',
+            question: 'Welcher Termin?',
+            options: null,
+            selectionMode: 'single_select',
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await new Promise((r) => setTimeout(r, 50))
+
+    let msgs = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(
+      !msgs.textContent?.includes('"question"'),
+      'the raw ask_user args JSON must not be rendered',
+    )
+    assert.ok(document.getElementById('chat-question'), 'the question card should still render')
+
+    window.fetch = originalFetch
+  })
+
+  it('re-surfaces a pending question via /chat/reconnect after a reload', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url) => {
+      if (String(url) === '/chat/reconnect') {
+        return new Response(
+          JSON.stringify({
+            status: 'suspended',
+            runId: 'r-pending',
+            threadId: 't1',
+            gateType: 'question',
+            toolCallId: 'c1',
+            toolName: 'ask_user',
+            suspendPayload: {
+              question: 'Welcher Termin?',
+              options: [{ label: 'Di. 15.09. 10:00' }],
+              selectionMode: 'single_select',
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+    await new Promise((r) => setTimeout(r, 40))
+
+    let card = document.getElementById('chat-question')
+    assert.ok(card, 'reconnect should re-render the pending question card')
+    assert.ok(card!.textContent?.includes('Welcher Termin?'), 'card should show the question')
+    assert.ok(card!.querySelector('.q-option'), 'question options should render as choices')
+    // The composer stays disabled until the gate is resolved.
+    assert.ok(
+      (document.getElementById('msg') as HTMLTextAreaElement).disabled,
+      'the composer should be disabled while a gate is pending',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('keeps the transcript parked when the reader is not near the bottom', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+
+    let container = document.createElement('div')
+    container.innerHTML = `
+      <form id="chat-form">
+        <textarea id="msg" name="message"></textarea>
+        <button id="chat-submit" type="submit">Send</button>
+      </form>
+      <div id="chat-messages" style="height:80px;overflow-y:auto"></div>
+    `
+    document.body.appendChild(container)
+
+    let area = document.getElementById('chat-messages') as HTMLElement
+    for (let i = 0; i < 40; i++) {
+      let line = document.createElement('div')
+      line.style.height = '20px'
+      line.textContent = 'Alt ' + i
+      area.appendChild(line)
+    }
+    area.scrollTop = 0
+
+    let stream: { controller?: ReadableStreamDefaultController } = {}
+    let encoder = new TextEncoder()
+    let originalFetch = window.fetch
+    window.fetch = async () => {
+      let body = new ReadableStream({
+        start(c) {
+          stream.controller = c as ReadableStreamDefaultController
+        },
+      })
+      return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+    }
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Frage'
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await new Promise((r) => setTimeout(r, 0))
+
+    // Park at the top after the user's own message force-scrolled to the bottom.
+    area.scrollTop = 0
+    stream.controller?.enqueue(encoder.encode('event: start\ndata: {"runId":"r"}\n\n'))
+    stream.controller?.enqueue(encoder.encode('event: message\ndata: {"text":"Antwort"}\n\n'))
+    await new Promise((r) => setTimeout(r, 30))
+
+    assert.equal(area.scrollTop, 0, 'a reader parked above the fold must not be yanked down')
+
+    // Back at the bottom, new content should follow.
+    area.scrollTop = area.scrollHeight
+    stream.controller?.enqueue(encoder.encode('event: message\ndata: {"text":"Noch"}\n\n'))
+    await new Promise((r) => setTimeout(r, 30))
+    assert.ok(area.scrollTop > 0, 'a reader at the bottom should keep following the stream')
+
+    stream.controller?.close()
+    window.fetch = originalFetch
+  })
 })
 
 // -----------------------------------------------------------------------

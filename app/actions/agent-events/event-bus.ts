@@ -1,4 +1,6 @@
-export const MAX_MESSAGE_LENGTH = 5000
+import { MAX_MESSAGE_LENGTH } from '../../utils/message-limits.ts'
+
+export { MAX_MESSAGE_LENGTH }
 
 export type BaseEvent =
   | { type: 'request.received'; message: string; adminUserId: number; adminEmail: string }

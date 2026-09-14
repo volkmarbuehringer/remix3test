@@ -11,8 +11,15 @@ import {
   sseEvent,
   pipeStream,
   safeClose,
+  createRunSignal,
 } from '../../utils/agent-sse.ts'
 import { recordChatRun, findChatRunOwner, clearChatRun } from './run-store.ts'
+import {
+  upsertPendingGate,
+  markGateSuspended,
+  clearPendingGate,
+  resolvePendingGate,
+} from './gate-store.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
 import { createLogger } from '../../utils/logger.ts'
@@ -41,6 +48,11 @@ export const chatRateLimiter = createRateLimiter({
   maxAttempts: 10,
 })
 const chatLog = createLogger('[CustomerChat]')
+
+// Cap the transcript rehydrated by the index route: a long thread would
+// otherwise SSR (and hydrate into the DOM) every stored message. The most
+// recent turns are the ones worth resuming.
+const CHAT_RESUME_MESSAGE_LIMIT = 50
 
 // Test-only agent injection point — setter is a no-op outside test env.
 let _testAgent: TestAgent | undefined
@@ -81,7 +93,9 @@ async function resolveCustomerResume(userId: number): Promise<CustomerResume> {
     let agent = resolveCustomerAgent() as unknown as AgentHandle
     let threadId = await listLatestCustomerThread(agent, String(userId))
     if (!threadId) return { messages: [] }
-    let messages = await recallChatMessages(agent, threadId, String(userId))
+    let messages = await recallChatMessages(agent, threadId, String(userId), {
+      limit: CHAT_RESUME_MESSAGE_LIMIT,
+    })
     return { threadId, messages }
   } catch (err) {
     chatLog.error('resume error:', sanitizeLog(String(err)))
@@ -144,9 +158,47 @@ type StreamEndReason = 'complete' | 'suspended' | 'error' | 'aborted'
  * terminal for this stream. `onEnd` reports whether the run actually settled or
  * suspended, so the caller can keep the ownership row for a suspended run and
  * clear it only once the run is truly done.
+ *
+ * The same hooks mirror the suspension into the durable `chat_pending_gates`
+ * pointer (so a reload can re-surface the card) and clear it on a terminal
+ * reason. Both writes are fire-and-forget: the SSE stream must not wait on a
+ * pointer table to settle.
  */
-function terminalHooks(onEnd: (reason: StreamEndReason) => void) {
-  return { onSuspension: () => {}, onEnd }
+function gateHooks(options: {
+  userId: number
+  threadId: string
+  runId: string
+  onEnd: (reason: StreamEndReason) => void
+}) {
+  let { userId, threadId, runId, onEnd } = options
+  return {
+    onSuspension: (info: {
+      runId?: string | undefined
+      toolCallId?: string | undefined
+      toolName?: string | undefined
+      args?: Record<string, unknown> | undefined
+      gateType: 'tool_decision' | 'question'
+      suspendPayload?: Record<string, unknown> | undefined
+    }) => {
+      markGateSuspended(userId, {
+        runId: info.runId ?? runId,
+        threadId,
+        gateType: info.gateType,
+        toolCallId: info.toolCallId,
+        toolName: info.toolName,
+        args: info.args,
+        suspendPayload: info.suspendPayload,
+      }).catch((e) => chatLog.error('markGateSuspended error:', sanitizeLog(String(e))))
+    },
+    onEnd: (reason: StreamEndReason) => {
+      onEnd(reason)
+      if (reason !== 'suspended') {
+        clearPendingGate(userId, runId).catch((e) =>
+          chatLog.error('clearPendingGate error:', sanitizeLog(String(e))),
+        )
+      }
+    },
+  }
 }
 
 /**
@@ -170,12 +222,13 @@ function toolDecisionStream(options: {
   threadId: string
   decision: 'approve' | 'decline'
   toolCallId?: string | undefined
-  signal: AbortSignal
+  requestSignal: AbortSignal | undefined
 }): Response {
-  let { runId, userId, threadId, decision, toolCallId, signal } = options
+  let { runId, userId, threadId, decision, toolCallId, requestSignal } = options
 
   let body = new ReadableStream({
     start: async (controller) => {
+      let run = createRunSignal(requestSignal, AGENT_TIMEOUT_MS)
       try {
         controller.enqueue(sseEvent('start', { runId }))
 
@@ -187,10 +240,12 @@ function toolDecisionStream(options: {
           decision === 'approve'
             ? agent.approveToolCallGenerate({
                 runId,
+                abortSignal: run.signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
               })
             : agent.declineToolCallGenerate({
                 runId,
+                abortSignal: run.signal,
                 ...(toolCallId !== undefined ? { toolCallId } : {}),
               }),
         )) as ResumeResult
@@ -208,13 +263,28 @@ function toolDecisionStream(options: {
             | undefined
           // A re-suspension produces a continuation run; record its ownership
           // so the follow-up approve/decline/answer resolves correctly.
-          if (result.runId && result.runId !== runId) {
-            await recordChatRun({ runId: result.runId, userId, threadId })
+          let contRunId = result.runId || runId
+          if (contRunId !== runId) {
+            await recordChatRun({ runId: contRunId, userId, threadId })
           }
+          await upsertPendingGate(userId, { runId: contRunId, threadId })
           if (sp?.question) {
+            // Persist the gate before closing so a reload can re-surface it.
+            await markGateSuspended(userId, {
+              runId: contRunId,
+              threadId,
+              gateType: 'question',
+              toolCallId: sp.toolCallId,
+              toolName: sp.toolName,
+              suspendPayload: {
+                question: sp.question,
+                options: sp.options ?? null,
+                selectionMode: sp.selectionMode ?? 'single_select',
+              },
+            })
             controller.enqueue(
               sseEvent('question', {
-                runId: result.runId || runId,
+                runId: contRunId,
                 toolCallId: sp.toolCallId,
                 question: sp.question,
                 options: sp.options ?? null,
@@ -226,9 +296,17 @@ function toolDecisionStream(options: {
             return
           }
           if (sp?.toolCallId || sp?.toolName) {
+            await markGateSuspended(userId, {
+              runId: contRunId,
+              threadId,
+              gateType: 'tool_decision',
+              toolCallId: sp.toolCallId,
+              toolName: sp.toolName,
+              args: sp.args,
+            })
             controller.enqueue(
               sseEvent('suspension', {
-                runId: result.runId || runId,
+                runId: contRunId,
                 toolCallId: sp.toolCallId,
                 toolName: sp.toolName,
                 args: sp.args,
@@ -246,14 +324,20 @@ function toolDecisionStream(options: {
           if (contRunId !== runId) {
             await recordChatRun({ runId: contRunId, userId, threadId })
           }
+          await upsertPendingGate(userId, { runId: contRunId, threadId })
           await pipeStream(
             result.fullStream as ReadableStream,
             controller,
-            signal,
+            run.signal,
             contRunId,
             undefined,
-            terminalHooks((reason) => {
-              endReason = reason
+            gateHooks({
+              userId,
+              threadId,
+              runId: contRunId,
+              onEnd: (reason) => {
+                endReason = reason
+              },
             }),
           )
         } else {
@@ -282,6 +366,8 @@ function toolDecisionStream(options: {
           /* already closed */
         }
         safeClose(controller)
+      } finally {
+        run.cleanup()
       }
     },
   })
@@ -354,15 +440,14 @@ export const customerChat = createController(routes.chat, {
       let body = new ReadableStream({
         start: async (controller) => {
           let agent = resolveCustomerAgent()
-          let abortController = new AbortController()
-          let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
+          let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
           let endReason: StreamEndReason = 'complete'
 
           try {
             let output = await runWithUserId(user.id, () =>
               agent.stream(message, {
                 maxSteps: 10,
-                abortSignal: abortController.signal,
+                abortSignal: run.signal,
                 memory: {
                   thread: threadId!,
                   resource: String(user.id),
@@ -371,20 +456,25 @@ export const customerChat = createController(routes.chat, {
             )
 
             await recordChatRun({ runId: output.runId, userId: user.id, threadId: threadId! })
+            await upsertPendingGate(user.id, { runId: output.runId, threadId: threadId! })
 
             controller.enqueue(sseEvent('start', { runId: output.runId, threadId }))
 
             await pipeStream(
               output.fullStream as ReadableStream,
               controller,
-              abortController.signal,
+              run.signal,
               output.runId,
               undefined,
-              terminalHooks((reason) => {
-                endReason = reason
+              gateHooks({
+                userId: user.id,
+                threadId: threadId!,
+                runId: output.runId,
+                onEnd: (reason) => {
+                  endReason = reason
+                },
               }),
             )
-            clearTimeout(timeout)
 
             // A settled run no longer needs an ownership pointer; a suspended
             // one must keep it or the next approve/decline/answer is a false
@@ -393,7 +483,6 @@ export const customerChat = createController(routes.chat, {
               await clearChatRun(output.runId)
             }
           } catch (err) {
-            clearTimeout(timeout)
             let msg = sanitizeLog(err instanceof Error ? err.message : String(err))
             chatLog.error('action error:', msg)
             try {
@@ -402,6 +491,8 @@ export const customerChat = createController(routes.chat, {
               /* already closed */
             }
             safeClose(controller)
+          } finally {
+            run.cleanup()
           }
         },
       })
@@ -429,7 +520,7 @@ export const customerChat = createController(routes.chat, {
         threadId: owner.threadId,
         decision: 'approve',
         toolCallId,
-        signal: context.request.signal,
+        requestSignal: context.request.signal,
       })
     },
 
@@ -453,7 +544,7 @@ export const customerChat = createController(routes.chat, {
         threadId: owner.threadId,
         decision: 'decline',
         toolCallId,
-        signal: context.request.signal,
+        requestSignal: context.request.signal,
       })
     },
 
@@ -489,11 +580,12 @@ export const customerChat = createController(routes.chat, {
 
       let body = new ReadableStream({
         start: async (controller) => {
+          let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
           let endReason: StreamEndReason = 'complete'
           try {
             let agent = resolveCustomerAgent()
             let output = await runWithUserId(user.id, () =>
-              agent.resumeStream(resumeData, { runId, toolCallId }),
+              agent.resumeStream(resumeData, { runId, toolCallId, abortSignal: run.signal }),
             )
 
             controller.enqueue(
@@ -511,15 +603,23 @@ export const customerChat = createController(routes.chat, {
               })
               await clearChatRun(runId)
             }
+            // Resuming consumes the current gate; re-arm it for the (possibly
+            // new) run so a re-suspension is tracked and a settle clears it.
+            await upsertPendingGate(user.id, { runId: output.runId, threadId: owner.threadId })
 
             await pipeStream(
               output.fullStream as ReadableStream,
               controller,
-              context.request.signal,
+              run.signal,
               output.runId,
               undefined,
-              terminalHooks((reason) => {
-                endReason = reason
+              gateHooks({
+                userId: user.id,
+                threadId: owner.threadId,
+                runId: output.runId,
+                onEnd: (reason) => {
+                  endReason = reason
+                },
               }),
             )
 
@@ -544,11 +644,37 @@ export const customerChat = createController(routes.chat, {
               /* already closed */
             }
             safeClose(controller)
+          } finally {
+            run.cleanup()
           }
         },
       })
 
       return new Response(body, { headers: sseHeaders() })
+    },
+
+    /**
+     * Re-surfaces a gate that is still suspended after a reload / reconnect.
+     *
+     * The transcript rehydration only restores text, so without this a customer
+     * who reloads while an ask_user question or tool approval is pending has no
+     * way to resume the run — the page would show only the model's prose and
+     * the normal composer would start a new turn instead.
+     */
+    async reconnect(context) {
+      let user = getCurrentUser()
+      let gate = await resolvePendingGate(user.id)
+      if (!gate) return context.json({ status: 'none' })
+      return context.json({
+        status: 'suspended',
+        runId: gate.runId,
+        threadId: gate.threadId,
+        gateType: gate.gateType,
+        toolCallId: gate.toolCallId,
+        toolName: gate.toolName,
+        args: gate.args,
+        suspendPayload: gate.suspendPayload,
+      })
     },
   },
 })

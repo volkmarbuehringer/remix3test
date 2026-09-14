@@ -66,15 +66,28 @@ export async function recallChatMessages(
   agent: AgentHandle,
   threadId: string,
   resource?: string,
+  options?: { limit?: number },
 ): Promise<ChatMessage[]> {
   let memory = await getMemory(agent)
-  let { messages } = await memory.recall({ threadId, resource, perPage: false })
+  let limit = options?.limit
+  // With a limit, read only the newest slice (DESC) and restore chronological
+  // order below, so a long thread can't bloat the page that resumes it. Without
+  // one, read the whole thread for callers that need the full transcript.
+  let { messages } =
+    limit !== undefined
+      ? await memory.recall({
+          threadId,
+          resource,
+          perPage: limit,
+          orderBy: { field: 'createdAt', direction: 'DESC' },
+        })
+      : await memory.recall({ threadId, resource, perPage: false })
   let rawMessages = (messages ?? []) as Array<{
     role: string
     content: unknown
     createdAt: string | number
   }>
-  return rawMessages
+  let chatMessages = rawMessages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({
       role: m.role as 'user' | 'assistant',
@@ -83,6 +96,7 @@ export async function recallChatMessages(
         typeof m.createdAt === 'string' ? new Date(m.createdAt).getTime() : Number(m.createdAt),
     }))
     .filter((m) => m.content.length > 0)
+  return limit !== undefined ? chatMessages.reverse() : chatMessages
 }
 
 export async function listChatThreads(

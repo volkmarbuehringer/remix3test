@@ -1,6 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 
 import { theme } from '../../../ui/theme/theme.ts'
+import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { readEventStream } from './read-sse.ts'
 
 export const CustomerChatStream = clientEntry(
@@ -17,6 +18,7 @@ export const CustomerChatStream = clientEntry(
     let currentAbort: AbortController | null = null
     let streamingAssistant: HTMLDivElement | null = null
     let suspended = false
+    let autoGrowReset: (() => void) | null = null
 
     let toolCards: Record<string, HTMLDivElement> = {}
     let toolArgsAcc: Record<string, string> = {}
@@ -43,6 +45,22 @@ export const CustomerChatStream = clientEntry(
       return document.getElementById('chat-messages')
     }
 
+    /**
+     * Scrolls the transcript to the newest content, but only when the reader is
+     * already near the bottom. Forcing `scrollTop = scrollHeight` on every chunk
+     * yanked a customer who had scrolled up to re-read back down mid-turn.
+     */
+    function scrollToBottom(force?: boolean) {
+      let chat = getChatArea()
+      if (!chat) return
+      if (!force) {
+        let threshold = 50
+        let atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < threshold
+        if (!atBottom) return
+      }
+      chat.scrollTop = chat.scrollHeight
+    }
+
     function appendMessage(text: string, role: string, accumulate?: boolean) {
       let container = getChatArea()
       if (!container) return
@@ -50,25 +68,47 @@ export const CustomerChatStream = clientEntry(
         streamingAssistant.textContent += text
       } else {
         let isUser = role === 'user'
+        let isError = role === 'error'
+        let background = isError
+          ? theme.colors.action.danger.background
+          : isUser
+            ? theme.colors.action.primary.background
+            : theme.surface.lvl1
+        let color = isError
+          ? theme.colors.action.danger.foreground
+          : isUser
+            ? theme.colors.action.primary.foreground
+            : theme.colors.text.primary
         let bubble = document.createElement('div')
         bubble.style.cssText =
           `padding:0.75rem;border-radius:12px;max-width:75%;` +
           `line-height:1.5;font-size:0.9375rem;` +
-          `background:${isUser ? theme.colors.action.primary.background : theme.surface.lvl1};` +
-          `color:${isUser ? theme.colors.action.primary.foreground : theme.colors.text.primary};` +
+          `background:${background};color:${color};` +
           `align-self:${isUser ? 'flex-end' : 'flex-start'};` +
           `border-bottom-${isUser ? 'right' : 'left'}-radius:4px;` +
+          (isError ? `border:1px solid ${theme.colors.action.danger.border};` : '') +
           `white-space:pre-wrap;word-break:break-word;`
+        // An error is announced as an alert instead of masquerading as a reply.
+        if (isError) bubble.setAttribute('role', 'alert')
         bubble.textContent = text
         container.appendChild(bubble)
-        if (!isUser) streamingAssistant = bubble
+        // Only assistant bubbles accumulate; otherwise a streamed reply would
+        // be appended into a preceding error/other bubble.
+        if (role === 'assistant') streamingAssistant = bubble
       }
-      container.scrollTop = container.scrollHeight
+      scrollToBottom(role === 'user')
     }
+
+    // `ask_user` renders its own question card (showQuestion); the raw
+    // tool-call args JSON above it is noise, so its tool card is suppressed.
+    let SILENT_TOOL_NAMES = new Set(['ask_user', 'askUserTool'])
 
     function appendToolCard(toolName: string, toolCallId: string) {
       let container = getChatArea()
       if (!container || !toolCallId || toolCards[toolCallId]) return
+      // Returning before registering the id also suppresses the later
+      // tool-call-delta / tool-call / tool-result for the same call.
+      if (SILENT_TOOL_NAMES.has(toolName)) return
 
       let card = document.createElement('div')
       card.style.cssText = `border:1px solid ${theme.colors.border.default};border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
@@ -102,7 +142,7 @@ export const CustomerChatStream = clientEntry(
       toolCards[toolCallId] = card
       toolArgsAcc[toolCallId] = ''
 
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
     }
 
     function updateToolArgs(toolCallId: string, argsTextDelta: string) {
@@ -184,8 +224,7 @@ export const CustomerChatStream = clientEntry(
         }
       }
       card.appendChild(div)
-      let tl = getChatArea()
-      if (tl) tl.scrollTop = tl.scrollHeight
+      scrollToBottom()
     }
 
     function appendSlotPicker(result: Record<string, unknown>) {
@@ -256,7 +295,7 @@ export const CustomerChatStream = clientEntry(
         `background:${theme.surface.lvl0};align-self:stretch;width:100%;margin-top:0.5rem;`
       picker.innerHTML = html
       container.appendChild(picker)
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
 
       if (pages.length <= 1) return
 
@@ -316,7 +355,7 @@ export const CustomerChatStream = clientEntry(
       if (reason) parts.push(`Grund: ${reason}`)
       div.textContent = parts.join(' · ') || 'Schritt beendet'
       container.appendChild(div)
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
     }
 
     function startReasoning() {
@@ -343,14 +382,13 @@ export const CustomerChatStream = clientEntry(
       container.appendChild(details)
       reasoningBlock = details
       reasoningBody = body
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
     }
 
     function appendReasoning(text: string) {
       if (!reasoningBody) return
       reasoningBody.textContent += text
-      let tl = getChatArea()
-      if (tl) tl.scrollTop = tl.scrollHeight
+      scrollToBottom()
     }
 
     function endReasoning() {
@@ -376,6 +414,23 @@ export const CustomerChatStream = clientEntry(
       if (textarea) textarea.focus()
     }
 
+    /** Keeps the visible counter in sync with the textarea's own maxLength. */
+    function updateCounter() {
+      let counter = document.getElementById('chat-counter')
+      let textarea = document.getElementById('msg') as HTMLTextAreaElement | null
+      if (counter && textarea) {
+        counter.textContent = `${textarea.value.length} / ${textarea.maxLength}`
+      }
+    }
+
+    function handleTextareaKeydown(e: KeyboardEvent) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        let form = document.getElementById('chat-form') as HTMLFormElement | null
+        form?.requestSubmit()
+      }
+    }
+
     // ── Busy / thinking indicator + Cancel ────────────────────
     let BUSY_ID = 'chat-busy'
 
@@ -397,7 +452,7 @@ export const CustomerChatStream = clientEntry(
           container.appendChild(el)
         }
         el.style.display = 'flex'
-        container.scrollTop = container.scrollHeight
+        scrollToBottom()
       } else {
         if (el) el.remove()
       }
@@ -485,7 +540,7 @@ export const CustomerChatStream = clientEntry(
         `</div>`
 
       container.appendChild(card)
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
     }
 
     function hideApproval() {
@@ -567,7 +622,7 @@ export const CustomerChatStream = clientEntry(
 
       card.innerHTML = html
       container.appendChild(card)
-      container.scrollTop = container.scrollHeight
+      scrollToBottom()
     }
 
     function hideQuestion() {
@@ -747,6 +802,63 @@ export const CustomerChatStream = clientEntry(
       }
     }
 
+    // ── Reconnect: re-surface a pending gate after a reload ───
+
+    /**
+     * Restores a still-suspended `ask_user` question or tool approval after a
+     * reload. The transcript rehydration only restores text, so without this
+     * the card would be lost and the composer would start a new turn instead of
+     * resuming the run.
+     */
+    async function checkReconnect() {
+      try {
+        let res = await fetch('/chat/reconnect', { headers: { 'X-Sse-Request': '1' } })
+        if (!res.ok) return
+        let data = (await res.json()) as {
+          status?: string
+          runId?: string
+          threadId?: string
+          gateType?: string
+          toolCallId?: string
+          toolName?: string
+          args?: Record<string, unknown>
+          suspendPayload?: Record<string, unknown>
+        }
+        if (!data || data.status !== 'suspended' || !data.runId) return
+
+        currentRunId = data.runId
+        if (data.threadId) currentThreadId = data.threadId
+        suspended = true
+        // Block the composer until the re-surfaced gate is resolved, so a new
+        // turn can't be started on top of a pending decision.
+        setFormEnabled(false)
+
+        if (data.gateType === 'question') {
+          let sp = (data.suspendPayload ?? {}) as {
+            question?: string
+            options?: { label: string; description?: string }[]
+            selectionMode?: string
+          }
+          showQuestion({
+            runId: data.runId,
+            toolCallId: data.toolCallId,
+            question: sp.question ?? 'Bitte beantworten Sie die Frage.',
+            options: sp.options ?? null,
+            selectionMode: sp.selectionMode ?? 'single_select',
+          })
+        } else {
+          showApproval({
+            runId: data.runId,
+            toolCallId: data.toolCallId,
+            toolName: data.toolName,
+            args: data.args,
+          })
+        }
+      } catch {
+        /* reconnect is best-effort */
+      }
+    }
+
     // ── Event handlers ────────────────────────────────────────
 
     async function handleFormSubmit(e: Event) {
@@ -774,7 +886,10 @@ export const CustomerChatStream = clientEntry(
       if (currentThreadId && !startingFresh) formData.set('threadId', currentThreadId)
 
       appendMessage(message, 'user')
-      ;(document.getElementById('msg') as HTMLTextAreaElement)!.value = ''
+      let textarea = document.getElementById('msg') as HTMLTextAreaElement | null
+      if (textarea) textarea.value = ''
+      autoGrowReset?.()
+      updateCounter()
       beginStream()
       await submitAndStream('/chat', formData)
     }
@@ -890,6 +1005,16 @@ export const CustomerChatStream = clientEntry(
               form.addEventListener('submit', handleFormSubmit, { signal: lifecycleSignal })
             }
 
+            let textarea = document.getElementById('msg') as HTMLTextAreaElement | null
+            if (textarea) {
+              textarea.addEventListener('keydown', handleTextareaKeydown, {
+                signal: lifecycleSignal,
+              })
+              textarea.addEventListener('input', updateCounter, { signal: lifecycleSignal })
+              autoGrowReset = setupAutoGrowTextarea(textarea, { signal: lifecycleSignal }).reset
+              updateCounter()
+            }
+
             let chatArea = document.getElementById('chat-messages')
             // Adopt the resumed thread id that the server rendered (see
             // customer-chat-page.tsx data-thread-id), or null for a fresh thread.
@@ -918,6 +1043,9 @@ export const CustomerChatStream = clientEntry(
                 { signal: lifecycleSignal },
               )
             }
+
+            // Re-surface a gate that survived a reload / dropped stream.
+            void checkReconnect()
           }),
         ]}
       />
