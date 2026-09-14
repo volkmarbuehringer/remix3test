@@ -157,7 +157,7 @@ export function WizardSteps(handle: Handle<WizardStepsProps>) {
             )
             return (
               <li mix={itemStyle} aria-current={isActive ? 'step' : undefined}>
-                {canGoBack ? (
+                {isDone && backHref != null ? (
                   <a
                     href={backHref}
                     mix={linkStyle}
