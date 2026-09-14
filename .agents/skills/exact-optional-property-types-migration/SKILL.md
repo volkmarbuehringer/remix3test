@@ -55,6 +55,21 @@ The compiler's own text suggests this: "Consider adding 'undefined' to the types
 - An object literal or return value passes `X | undefined` into a target whose prop is `X?`.
 - A grid/query "filter" (`URLSearchParams.get(...)` → `string | null`) flows into an optional `filter?: string`.
 
+## Pitfall: a derived boolean does not narrow
+
+Guarding a branch with a separately-declared boolean does **not** narrow the source variable, so a correct runtime guard can still fail TS2375:
+
+```tsx
+// ✗ canGoBack is a `let` boolean; backHref stays string | undefined at the href
+let canGoBack = isDone && backHref != null
+{canGoBack ? <a href={backHref}>…</a> : <span>…</span>}
+
+// ✓ inline the guard: the true branch narrows backHref to string
+{isDone && backHref != null ? <a href={backHref}>…</a> : <span>…</span>}
+```
+
+Widening the target is not the fix here: an accessible-anchor union such as `{ href: string } | { href?: never }` genuinely requires `href` whenever the element renders, so narrow (or restructure) instead of widening.
+
 ## Pitfall: vendor-assignability boundaries
 
 If the target you'd widen is actually the app-typed parameter of a method a vendor object must be assignable to (e.g. an adapter interface the real Mastra `Agent` implements), do NOT change a method's `opts?: any` to `opts?: Record<string, unknown>` or `unknown`. Function params are contravariant: a vendor method accepting a narrower options type stops being assignable to `(opts?: Record<string, unknown>)`. Only `any` (or the exact vendor type) survives — keep `any` with a justified `// eslint-disable-next-line @typescript-eslint/no-explicit-any`.

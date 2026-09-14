@@ -15,7 +15,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 | Task involves... | Start with |
 | --- | --- |
 | Constructing an `Agent` without eager model resolution; registering lazily with `mastra.addAgent()` | `references/model-config.md` |
-| Streaming `agent.stream()` over SSE in one POST; `pipeStream`; SSE event types; `askUserTool` question/resume; `requireToolApproval` snapshot loss | `references/sse-streaming.md` |
+| Streaming `agent.stream()` over SSE in one POST; `pipeStream`; SSE event types; client/server event-contract drift; `askUserTool` question/resume; `requireToolApproval` snapshot loss | `references/sse-streaming.md` |
 | Extracting tool output from `agent.generate()` when the shape is chunk vs flat, or when `toolName` is the property key | `references/tool-results.md` |
 | Normalizing Mastra's polymorphic `content` (string / v2 parts / `.text` / array) to plain text | `references/message-content.md` |
 

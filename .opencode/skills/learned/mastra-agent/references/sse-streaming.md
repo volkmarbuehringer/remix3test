@@ -162,6 +162,41 @@ async function startStream(url: string, init: RequestInit) {
 | `agent-error`  | `{ error }`                                               | Show error                                              |
 | `stream-error` | `{ error }`                                               | Show error                                              |
 
+### Keep the client's handlers and `filterAndForward` in sync
+
+The shared filter forwards only a subset of Mastra's chunk types. A client entry
+that moves from its own inline pipe to the shared `pipeStream` keeps its
+`handleEvent` branches, but branches for unforwarded types become dead code — and
+any DOM branch that depends on them silently no-ops.
+
+Real regression (`/chat`): tool cards and the booking slot picker stopped
+rendering because `appendToolCard` was reachable only from
+`tool-call-input-streaming-start`, which the shared filter did not forward.
+`appendToolResult` then found no card and returned early, so a `tool-result`
+carrying `slots` produced nothing. No error, no log.
+
+Rules:
+
+1. **Diff the contracts when a client switches to the shared pipe.** Compare the
+   types in the client's `handleEvent` with the `type ===` branches in
+   `filterAndForward`, and forward every type the client still handles using the
+   payload shape the old inline filter used:
+   - `tool-call-input-streaming-start` → `{ toolCallId, toolName }`
+   - `tool-call-delta` → `{ toolCallId, toolName, argsTextDelta }`
+   - `tool-call` → `{ toolCallId, toolName, args }`
+   - `step-finish` → `{ reason: payload.stepResult?.reason, usage: payload.output?.usage }`
+   - `reasoning-start` / `reasoning-delta` / `reasoning-end`
+2. **Never gate a required DOM branch on an optional event.** `tool-result` can
+   arrive without a preceding streaming-start chunk; create the container lazily
+   so the result (and any nested UI, like the slot picker) still renders.
+3. **Test through the real client entry** — feed a `tool-result` frame with no
+   preceding start chunk and assert the downstream node exists. A re-simulated
+   DOM copy cannot catch this.
+
+Note: the shared filter gates suspension on an `onSuspension` hook — without one,
+`tool-call-approval` is forwarded but the read loop does not stop. See
+`mastra-durable-run-ownership` for the durable-gate side.
+
 ## askUserTool Integration
 
 Mastra's `askUserTool` uses a different suspension mechanism than `requireApproval`:
