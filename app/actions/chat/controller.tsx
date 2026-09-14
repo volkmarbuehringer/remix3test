@@ -23,7 +23,11 @@ import {
   sanitizeLog,
 } from '../mastra/shared-agent.ts'
 import type { TestAgent } from '../mastra/shared-agent.ts'
-import { recallChatMessages, listLatestCustomerThread } from '../../utils/mastra-memory.ts'
+import {
+  recallChatMessages,
+  listLatestCustomerThread,
+  getChatThread,
+} from '../../utils/mastra-memory.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import type { AgentHandle } from '../../utils/mastra-memory.ts'
 
@@ -85,12 +89,73 @@ async function resolveCustomerResume(userId: number): Promise<CustomerResume> {
   }
 }
 
+// ── Thread ownership (write path) ──────────────────────────────
+type CustomerThreadLookup = { resourceId: string }
+
+// Test-only lookup so the mock agent (no getMemory) can report a thread's
+// owning resource. Outside test env this is unused.
+let _testThreadLookup: ((threadId: string) => Promise<CustomerThreadLookup | null>) | undefined
+export function __setTestThreadLookup(fn: typeof _testThreadLookup) {
+  if (process.env.NODE_ENV === 'test') {
+    _testThreadLookup = fn
+  }
+}
+
+/**
+ * Whether a supplied thread id exists and belongs to this customer.
+ *
+ * The index route only opens a thread the customer owns, but the message action
+ * is a separate write path: a direct POST can name any thread. Checking here
+ * keeps the boundary in the application instead of relying on the memory store
+ * to reject a foreign resource at write time (mirrors the support agent's
+ * isOwnedSupportThread).
+ */
+async function isOwnedCustomerThread(userId: number, threadId: string): Promise<boolean> {
+  try {
+    let resourceId: string | null
+    if (process.env.NODE_ENV === 'test' && _testThreadLookup) {
+      resourceId = (await _testThreadLookup(threadId))?.resourceId ?? null
+    } else {
+      let agent = resolveCustomerAgent() as unknown as AgentHandle
+      resourceId = (await getChatThread(agent, threadId))?.resourceId ?? null
+    }
+    return resourceId === String(userId)
+  } catch (err) {
+    chatLog.error('thread ownership check failed:', sanitizeLog(String(err)))
+    return false
+  }
+}
+
 type ResumeResult = {
   text?: string
   finishReason?: string
   runId?: string
   suspendPayload?: Record<string, unknown>
   fullStream?: unknown
+}
+
+type StreamEndReason = 'complete' | 'suspended' | 'error' | 'aborted'
+
+/**
+ * pipeStream hooks for a durable-index flow.
+ *
+ * The shared filter only stops its read loop at a tool-approval suspension when
+ * an `onSuspension` hook is supplied, so passing one makes the approval gate
+ * terminal for this stream. `onEnd` reports whether the run actually settled or
+ * suspended, so the caller can keep the ownership row for a suspended run and
+ * clear it only once the run is truly done.
+ */
+function terminalHooks(onEnd: (reason: StreamEndReason) => void) {
+  return { onSuspension: () => {}, onEnd }
+}
+
+/**
+ * Whether a settled reason means the ownership row can be dropped. Passed
+ * through a function so TypeScript does not narrow the caller's variable to its
+ * initial literal across the pipeStream callback.
+ */
+function isSettledRun(reason: StreamEndReason): boolean {
+  return reason !== 'suspended'
 }
 
 /**
@@ -175,12 +240,22 @@ function toolDecisionStream(options: {
           }
         }
 
+        let endReason: StreamEndReason = 'complete'
         if (result.fullStream) {
           let contRunId = result.runId || runId
           if (contRunId !== runId) {
             await recordChatRun({ runId: contRunId, userId, threadId })
           }
-          await pipeStream(result.fullStream as ReadableStream, controller, signal, contRunId)
+          await pipeStream(
+            result.fullStream as ReadableStream,
+            controller,
+            signal,
+            contRunId,
+            undefined,
+            terminalHooks((reason) => {
+              endReason = reason
+            }),
+          )
         } else {
           let text = (
             result.text || (decision === 'approve' ? '' : 'Die Aktion wurde abgelehnt.')
@@ -190,9 +265,13 @@ function toolDecisionStream(options: {
           controller.close()
         }
 
-        // Terminal resolution — the run no longer needs an ownership pointer.
-        await clearChatRun(runId)
-        if (result.runId && result.runId !== runId) await clearChatRun(result.runId)
+        // Terminal resolution — a settled run no longer needs an ownership
+        // pointer, but a re-suspended one must keep it or the next decision is a
+        // false 403 (see mastra-durable-run-ownership).
+        if (isSettledRun(endReason)) {
+          await clearChatRun(runId)
+          if (result.runId && result.runId !== runId) await clearChatRun(result.runId)
+        }
       } catch (err) {
         chatLog.error('decision failed:', sanitizeLog(String(err)))
         try {
@@ -258,6 +337,16 @@ export const customerChat = createController(routes.chat, {
         )
       }
 
+      // The index route only resumes a thread the customer owns, but this
+      // action is a separate write path: a direct POST (or a client re-sending
+      // a stale id) can supply any thread. Enforce ownership before the id
+      // reaches memory so it can never write into another customer's
+      // conversation, then fall back to a fresh thread.
+      if (threadId && !(await isOwnedCustomerThread(user.id, threadId))) {
+        chatLog('ignoring thread not owned by this customer:', sanitizeLog(threadId))
+        threadId = undefined
+      }
+
       if (!threadId) {
         threadId = crypto.randomUUID()
       }
@@ -267,6 +356,7 @@ export const customerChat = createController(routes.chat, {
           let agent = resolveCustomerAgent()
           let abortController = new AbortController()
           let timeout = setTimeout(() => abortController.abort(), AGENT_TIMEOUT_MS)
+          let endReason: StreamEndReason = 'complete'
 
           try {
             let output = await runWithUserId(user.id, () =>
@@ -289,8 +379,19 @@ export const customerChat = createController(routes.chat, {
               controller,
               abortController.signal,
               output.runId,
+              undefined,
+              terminalHooks((reason) => {
+                endReason = reason
+              }),
             )
             clearTimeout(timeout)
+
+            // A settled run no longer needs an ownership pointer; a suspended
+            // one must keep it or the next approve/decline/answer is a false
+            // 403 (see mastra-durable-run-ownership).
+            if (isSettledRun(endReason)) {
+              await clearChatRun(output.runId)
+            }
           } catch (err) {
             clearTimeout(timeout)
             let msg = sanitizeLog(err instanceof Error ? err.message : String(err))
@@ -388,6 +489,7 @@ export const customerChat = createController(routes.chat, {
 
       let body = new ReadableStream({
         start: async (controller) => {
+          let endReason: StreamEndReason = 'complete'
           try {
             let agent = resolveCustomerAgent()
             let output = await runWithUserId(user.id, () =>
@@ -415,7 +517,18 @@ export const customerChat = createController(routes.chat, {
               controller,
               context.request.signal,
               output.runId,
+              undefined,
+              terminalHooks((reason) => {
+                endReason = reason
+              }),
             )
+
+            // A settled continuation can drop its pointer; a re-suspended one
+            // must keep it (see mastra-durable-run-ownership).
+            if (isSettledRun(endReason)) {
+              await clearChatRun(output.runId)
+            }
+
             try {
               controller.enqueue(sseEvent('complete', {}))
             } catch {

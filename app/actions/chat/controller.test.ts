@@ -6,7 +6,12 @@ import { pool } from '../../data/test-pool.ts'
 import { router } from '../../test-router.ts'
 import { createAuthCookieWithCsrf, createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { routes } from '../../routes.ts'
-import { __setTestAgent, __setTestResumeResolver, chatRateLimiter } from './controller.tsx'
+import {
+  __setTestAgent,
+  __setTestResumeResolver,
+  __setTestThreadLookup,
+  chatRateLimiter,
+} from './controller.tsx'
 import { recordChatRun, findChatRunOwner } from './run-store.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
 
@@ -81,6 +86,42 @@ function createMockStreamOutput(text: string, runId?: string): AgentStreamOutput
   }
 }
 
+function createMockSuspensionOutput(opts: {
+  runId?: string
+  toolCallId?: string
+  toolName?: string
+  args?: Record<string, unknown>
+}): AgentStreamOutput {
+  let id = opts.runId || crypto.randomUUID()
+  return {
+    runId: id,
+    fullStream: new ReadableStream({
+      start(controller) {
+        controller.enqueue({
+          type: 'tool-call-approval',
+          payload: {
+            toolCallId: opts.toolCallId ?? 'tc-reapprove',
+            toolName: opts.toolName ?? 'book',
+            args: opts.args ?? {},
+          },
+        })
+        controller.close()
+      },
+    }),
+    getFullOutput: async () => ({ text: '', finishReason: 'suspended' }),
+  }
+}
+
+/** Polls until the predicate holds, so fire-and-forget cleanup is observable. */
+async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 2000): Promise<void> {
+  let start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (await predicate()) return
+    await new Promise((r) => setTimeout(r, 10))
+  }
+  throw new Error('waitFor timed out')
+}
+
 type MockAgent = {
   generate: (message: string, opts?: Record<string, unknown>) => Promise<{ text: string }>
   stream: (message: string, opts?: Record<string, unknown>) => Promise<AgentStreamOutput>
@@ -89,11 +130,13 @@ type MockAgent = {
     text: string
     finishReason: string
     runId: string
+    fullStream?: unknown
   }>
   declineToolCallGenerate?: (opts: { runId: string; toolCallId?: string }) => Promise<{
     text: string
     finishReason: string
     runId: string
+    fullStream?: unknown
   }>
 }
 
@@ -134,11 +177,13 @@ describe('Customer Chat controller', () => {
     await pool.query('DELETE FROM chat_runs')
     __setTestAgent(undefined)
     __setTestResumeResolver(undefined)
+    __setTestThreadLookup(undefined)
   })
 
   after(async () => {
     __setTestAgent(undefined)
     __setTestResumeResolver(undefined)
+    __setTestThreadLookup(undefined)
   })
 
   // ── Index (GET) ─────────────────────────────────────────
@@ -320,6 +365,9 @@ describe('Customer Chat controller', () => {
     __setTestAgent(mockAgent)
 
     let existingThreadId = crypto.randomUUID()
+    __setTestThreadLookup(async (id) =>
+      id === existingThreadId ? { resourceId: String(adminId) } : null,
+    )
     let session = await createAuthCookieWithCsrf()
     assert.ok(session?.cookie, 'Failed to create auth session')
 
@@ -338,6 +386,158 @@ describe('Customer Chat controller', () => {
       existingThreadId,
       'should echo provided threadId',
     )
+  })
+
+  it('POST /chat ignores a thread id the customer does not own', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let foreignThreadId = crypto.randomUUID()
+    // The thread exists, but its resource is not this customer's user id.
+    __setTestThreadLookup(async () => ({ resourceId: String(adminId + 999) }))
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'hallo', threadId: foreignThreadId }),
+    })
+
+    assert.equal(response.status, 200)
+    let { events } = await parseSSEResponse(response)
+    let startEvent = events.find((e) => e.type === 'start')
+    assert.ok(startEvent, 'should emit start')
+    let emitted = (JSON.parse(startEvent!.data) as { threadId?: string }).threadId
+    assert.ok(emitted, 'should emit a thread id')
+    assert.ok(
+      emitted !== foreignThreadId,
+      'a thread the customer does not own must not be continued',
+    )
+  })
+
+  it('POST /chat clears the run ownership row after a settled turn', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    mockAgent = makeMockAgent()
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'hallo' }),
+    })
+    let { events } = await parseSSEResponse(response)
+    let startEvent = events.find((e) => e.type === 'start')
+    assert.ok(startEvent, 'should emit start')
+    let runId = (JSON.parse(startEvent!.data) as { runId: string }).runId
+
+    await waitFor(async () => (await findChatRunOwner(runId)) === null)
+    assert.equal(await findChatRunOwner(runId), null, 'settled run should be cleared')
+  })
+
+  it('POST /chat keeps the run ownership row when the run suspends', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      stream: async () => createMockSuspensionOutput({ runId }),
+    })
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'storniere meinen Termin' }),
+    })
+    let { events } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.ok(
+      events.find((e) => e.type === 'suspension'),
+      'should emit a suspension event',
+    )
+
+    let owner = await findChatRunOwner(runId)
+    assert.ok(owner, 'a suspended run must keep its ownership row')
+    assert.equal(owner!.userId, adminId)
+  })
+
+  it('POST /chat forwards tool lifecycle and reasoning events', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      stream: async () => ({
+        runId,
+        fullStream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({
+              type: 'tool-call-input-streaming-start',
+              payload: { toolCallId: 'c1', toolName: 'find_next_available_slots' },
+            })
+            controller.enqueue({
+              type: 'tool-call-delta',
+              payload: { toolCallId: 'c1', argsTextDelta: '{"resourceId":' },
+            })
+            controller.enqueue({
+              type: 'tool-call',
+              payload: { toolCallId: 'c1', args: { resourceId: 3 } },
+            })
+            controller.enqueue({
+              type: 'tool-result',
+              payload: { toolCallId: 'c1', result: { slots: [] }, isError: false },
+            })
+            controller.enqueue({ type: 'step-finish', payload: {} })
+            controller.enqueue({ type: 'reasoning-start', payload: { id: 'r1' } })
+            controller.enqueue({ type: 'reasoning-delta', payload: { text: 'denke' } })
+            controller.enqueue({ type: 'reasoning-end', payload: {} })
+            controller.enqueue({ type: 'finish', payload: {} })
+            controller.close()
+          },
+        }),
+        getFullOutput: async () => ({ text: '', finishReason: 'stop' }),
+      }),
+    })
+    __setTestAgent(mockAgent)
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'hallo' }),
+    })
+    let { events } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+
+    let types = events.map((e) => e.type)
+    for (let expected of [
+      'tool-call-input-streaming-start',
+      'tool-call-delta',
+      'tool-call',
+      'tool-result',
+      'step-finish',
+      'reasoning-start',
+      'reasoning-delta',
+      'reasoning-end',
+      'complete',
+    ]) {
+      assert.ok(types.includes(expected), `should forward ${expected}`)
+    }
   })
 
   // ── Approve (POST) ──────────────────────────────────────
@@ -449,6 +649,47 @@ describe('Customer Chat controller', () => {
     assert.equal(owner!.userId, adminId)
   })
 
+  it('POST /chat/approve keeps ownership when the continuation stream re-suspends', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let contRunId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      approveToolCallGenerate: async () => ({
+        text: '',
+        finishReason: 'stop',
+        runId: contRunId,
+        fullStream: createMockSuspensionOutput({ runId: contRunId }).fullStream,
+      }),
+    })
+    __setTestAgent(mockAgent)
+
+    let runId = crypto.randomUUID()
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+
+    let { events } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.ok(
+      events.find((e) => e.type === 'suspension'),
+      'should emit a suspension event',
+    )
+
+    // The continuation stream re-suspended: its ownership row must survive, or
+    // the follow-up decision on contRunId would be a false 403.
+    let owner = await findChatRunOwner(contRunId)
+    assert.ok(owner, 're-suspended continuation should keep its ownership row')
+    assert.equal(owner!.userId, adminId)
+  })
+
   // ── Decline (POST) ──────────────────────────────────────
 
   it('POST /chat/decline with missing runId returns 400 SSE agent-error', async () => {
@@ -553,13 +794,13 @@ describe('Customer Chat controller', () => {
     assert.equal(text, 'Fortsetzung.')
   })
 
-  it('POST /chat/answer preserves ownership for a same-run continuation', async () => {
+  it('POST /chat/answer preserves ownership when the same run re-suspends', async () => {
     let adminId = await getUserId('admin@newapp.com')
     chatRateLimiter.reset(adminId)
 
     let runId = crypto.randomUUID()
     mockAgent = makeMockAgent({
-      resumeStream: async () => createMockStreamOutput('Fortsetzung.', runId),
+      resumeStream: async () => createMockSuspensionOutput({ runId }),
     })
     __setTestAgent(mockAgent)
     await recordChatRun({ runId, userId: adminId, threadId: 't' })
@@ -572,25 +813,28 @@ describe('Customer Chat controller', () => {
       headers: { Cookie: session.cookie, ...SSE_HEADERS },
       body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
     })
-    let { text } = await parseSSEResponse(response)
+    let { events } = await parseSSEResponse(response)
     assert.equal(response.status, 200)
-    assert.equal(text, 'Fortsetzung.')
+    assert.ok(
+      events.find((e) => e.type === 'suspension'),
+      'should emit a suspension event',
+    )
 
-    // The same run continued, so its ownership row must remain, or a follow-up
-    // approve/decline/answer on it would be rejected (403).
+    // The same run re-suspended, so its ownership row must remain, or the
+    // follow-up answer would be rejected (403).
     let owner = await findChatRunOwner(runId)
     assert.ok(owner, 'same-run continuation should keep its ownership row')
     assert.equal(owner!.userId, adminId)
   })
 
-  it('POST /chat/answer moves ownership to a new continuation run', async () => {
+  it('POST /chat/answer moves ownership to a new re-suspended continuation run', async () => {
     let adminId = await getUserId('admin@newapp.com')
     chatRateLimiter.reset(adminId)
 
     let runId = crypto.randomUUID()
     let contRunId = crypto.randomUUID()
     mockAgent = makeMockAgent({
-      resumeStream: async () => createMockStreamOutput('weiter', contRunId),
+      resumeStream: async () => createMockSuspensionOutput({ runId: contRunId }),
     })
     __setTestAgent(mockAgent)
     await recordChatRun({ runId, userId: adminId, threadId: 't' })
@@ -603,18 +847,48 @@ describe('Customer Chat controller', () => {
       headers: { Cookie: session.cookie, ...SSE_HEADERS },
       body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
     })
+    let { events } = await parseSSEResponse(response)
     assert.equal(response.status, 200)
-    let { text } = await parseSSEResponse(response)
-    assert.equal(text, 'weiter')
+    assert.ok(
+      events.find((e) => e.type === 'suspension'),
+      'should emit a suspension event',
+    )
 
     assert.equal(
       await findChatRunOwner(runId),
       null,
-      'incoming run cleared when a new run continues',
+      'incoming run cleared when a new run re-suspends',
     )
     let newOwner = await findChatRunOwner(contRunId)
-    assert.ok(newOwner, 'continuation run should be recorded')
+    assert.ok(newOwner, 're-suspended continuation run should be recorded')
     assert.equal(newOwner!.userId, adminId)
+  })
+
+  it('POST /chat/answer clears ownership after a settled continuation', async () => {
+    let adminId = await getUserId('admin@newapp.com')
+    chatRateLimiter.reset(adminId)
+
+    let runId = crypto.randomUUID()
+    mockAgent = makeMockAgent({
+      resumeStream: async () => createMockStreamOutput('fertig', runId),
+    })
+    __setTestAgent(mockAgent)
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, answer: 'ja', selectionMode: 'single_select' }),
+    })
+    let { text } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.equal(text, 'fertig')
+
+    await waitFor(async () => (await findChatRunOwner(runId)) === null)
+    assert.equal(await findChatRunOwner(runId), null, 'settled run should be cleared')
   })
 
   // ── Rate limiting ───────────────────────────────────────
