@@ -856,6 +856,58 @@ describe('Customer chat resume + theme + busy state', () => {
     window.fetch = originalFetch
   })
 
+  it('renders the slot picker for a tool result with no preceding start chunk', async () => {
+    installSseMock()
+    setupChatDom()
+    resetCreatedEventSources()
+
+    let originalFetch = window.fetch
+    window.fetch = async () =>
+      sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r-slots' }) },
+        {
+          type: 'tool-result',
+          data: JSON.stringify({
+            toolCallId: 'call_slots',
+            toolName: 'find_next_available_slots',
+            result: {
+              resource_id: 3,
+              resource_name: 'Ruhiger Raum',
+              slots: [
+                {
+                  date_display: 'Montag, 15.09.',
+                  date_epoch_ms: 1757952000000,
+                  start_min: 540,
+                  end_min: 600,
+                },
+              ],
+            },
+          }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+
+    let result = render(<CustomerChatStream />)
+    cleanup = result.cleanup
+
+    let textarea = document.getElementById('msg') as HTMLTextAreaElement
+    textarea.value = 'Termin bitte'
+    let form = document.getElementById('chat-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    await new Promise((r) => setTimeout(r, 50))
+
+    let picker = document.getElementById('chat-slot-picker')
+    assert.ok(picker, 'slot picker should render for a slot result')
+    assert.ok(picker!.textContent?.includes('Ruhiger Raum'), 'slot picker should name the resource')
+    assert.ok(
+      picker!.querySelector('.slot-btn'),
+      'slot picker should expose a selectable slot button',
+    )
+
+    window.fetch = originalFetch
+  })
+
   it('shows a busy/thinking indicator with Cancel and clears it after the stream', async () => {
     installSseMock()
     setupChatDom()

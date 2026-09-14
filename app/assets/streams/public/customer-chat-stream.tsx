@@ -68,7 +68,7 @@ export const CustomerChatStream = clientEntry(
 
     function appendToolCard(toolName: string, toolCallId: string) {
       let container = getChatArea()
-      if (!container || toolCards[toolCallId]) return
+      if (!container || !toolCallId || toolCards[toolCallId]) return
 
       let card = document.createElement('div')
       card.style.cssText = `border:1px solid ${theme.colors.border.default};border-radius:8px;overflow:hidden;align-self:flex-start;width:100%;`
@@ -138,9 +138,21 @@ export const CustomerChatStream = clientEntry(
       for (let el of toRemove) el.remove()
     }
 
-    function appendToolResult(toolCallId: string, result: unknown, isError?: boolean) {
+    function appendToolResult(
+      toolCallId: string,
+      result: unknown,
+      isError?: boolean,
+      toolName?: string,
+    ) {
+      // A result can arrive without a preceding streaming-start chunk (Mastra
+      // emits that chunk separately). Create the card here too, otherwise the
+      // result — including the booking slot picker — would be dropped.
       let card = toolCards[toolCallId]
-      if (!card) return
+      if (!card) {
+        appendToolCard(toolName || 'Werkzeug', toolCallId)
+        card = toolCards[toolCallId]
+        if (!card) return
+      }
       removeResultOrError(card)
 
       let div = document.createElement('div')
@@ -652,9 +664,15 @@ export const CustomerChatStream = clientEntry(
         }
       } else if (type === 'tool-result') {
         if (d.toolCallId != null)
-          appendToolResult(String(d.toolCallId), d.result, d.isError as boolean)
+          appendToolResult(
+            String(d.toolCallId),
+            d.result,
+            d.isError as boolean,
+            d.toolName as string | undefined,
+          )
       } else if (type === 'tool-error') {
-        if (d.toolCallId != null) appendToolResult(String(d.toolCallId), d.error, true)
+        if (d.toolCallId != null)
+          appendToolResult(String(d.toolCallId), d.error, true, d.toolName as string | undefined)
       } else if (type === 'step-finish') {
         if (d.usage != null || d.reason != null) {
           appendStepStats(

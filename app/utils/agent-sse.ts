@@ -52,7 +52,11 @@ type PipeHooks = {
 async function filterAndForward(
   chunk: Record<string, unknown>,
   controller: ReadableStreamDefaultController,
-  options?: { runId?: string | undefined; getTarget?: ((path: string) => string) | undefined; hooks?: PipeHooks | undefined },
+  options?: {
+    runId?: string | undefined
+    getTarget?: ((path: string) => string) | undefined
+    hooks?: PipeHooks | undefined
+  },
 ): Promise<'suspended' | undefined> {
   let { runId, getTarget, hooks } = options ?? {}
   let p = chunk.payload as Record<string, unknown> | undefined
@@ -132,6 +136,35 @@ async function filterAndForward(
       })
     }
     return 'suspended'
+  } else if (type === 'tool-call-input-streaming-start') {
+    fwd('tool-call-input-streaming-start', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+    })
+  } else if (type === 'tool-call-delta') {
+    fwd('tool-call-delta', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+      argsTextDelta: p?.argsTextDelta,
+    })
+  } else if (type === 'tool-call') {
+    fwd('tool-call', {
+      toolCallId: p?.toolCallId,
+      toolName: p?.toolName,
+      args: p?.args,
+    })
+  } else if (type === 'step-finish') {
+    let output = p?.output as Record<string, unknown> | undefined
+    fwd('step-finish', {
+      reason: (p?.stepResult as Record<string, unknown> | undefined)?.reason,
+      usage: output?.usage,
+    })
+  } else if (type === 'reasoning-start') {
+    fwd('reasoning-start', { id: p?.id })
+  } else if (type === 'reasoning-delta') {
+    fwd('reasoning-delta', { text: p?.text })
+  } else if (type === 'reasoning-end') {
+    fwd('reasoning-end', {})
   } else if (type === 'finish') {
     fwd('complete', {})
   } else if (type === 'tool-result') {
