@@ -168,6 +168,93 @@ describe('Admin Users Controller', () => {
       )
     })
 
+    it('renders the row actions as a visible buttongroup', async () => {
+      let response = await router.fetch(USERS_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('data-toggle-form') && text.includes('data-delete-form'),
+        'edit/toggle/delete forms must all be rendered in the row',
+      )
+      assert.ok(
+        !text.includes('data-row-menu-trigger'),
+        'no hidden "..." overflow trigger should be used',
+      )
+      assert.ok(
+        text.includes('aria-label="Löschen"'),
+        'delete button should be visible with an accessible label',
+      )
+    })
+
+    it('renders email verification status per row', async () => {
+      let verifiedEmail = `test-verified-${Date.now()}@example.com`
+      let verifiedId = await createTestUser(verifiedEmail)
+      assert.ok(verifiedId, 'verified test user must be created')
+      await pool.query(`UPDATE users SET email_verified = 1 WHERE id = $1`, [verifiedId])
+
+      let unverifiedEmail = `test-unverified-${Date.now()}@example.com`
+      let unverifiedId = await createTestUser(unverifiedEmail)
+      assert.ok(unverifiedId, 'unverified test user must be created')
+      // createTestUser seeds email_verified=1; force it back to 0 for this case.
+      await pool.query(`UPDATE users SET email_verified = 0 WHERE id = $1`, [unverifiedId])
+
+      let verifiedResponse = await router.fetch(`${USERS_URL}?filter=${verifiedId}`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(verifiedResponse.status, 200)
+      let verifiedText = await verifiedResponse.text()
+      assert.ok(
+        verifiedText.includes('E-Mail-Adresse bestätigt'),
+        'verified user should show the verified indicator',
+      )
+
+      let unverifiedResponse = await router.fetch(`${USERS_URL}?filter=${unverifiedId}`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(unverifiedResponse.status, 200)
+      let unverifiedText = await unverifiedResponse.text()
+      assert.ok(
+        unverifiedText.includes('E-Mail-Adresse noch nicht bestätigt'),
+        'unverified user should show the pending indicator',
+      )
+    })
+
+    it('resets the page offset when switching status filter tabs', async () => {
+      // Switching from page 2 to the Aktiv/Deaktiviert tabs must start at page 1,
+      // otherwise the smaller result set can land on an empty page.
+      let response = await router.fetch(`${USERS_URL}?offset=15&sort=name&order=asc`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('?filter=enabled&amp;sort=name&amp;order=asc'),
+        'Aktiv tab should reset the offset',
+      )
+      assert.ok(
+        !text.includes('filter=enabled&amp;sort=name&amp;order=asc&amp;offset'),
+        'Aktiv tab must not carry the previous page offset',
+      )
+    })
+
+    it('preserves the active sort in the search form', async () => {
+      let response = await router.fetch(`${USERS_URL}?sort=email&order=desc`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(
+        text.includes('name="sort" value="email"'),
+        'search form should carry the active sort column',
+      )
+      assert.ok(
+        text.includes('name="order" value="desc"'),
+        'search form should carry the active sort direction',
+      )
+    })
+
     it('embedding in an agent panel frame targets the panel for the toggle form', async () => {
       // The activate/deactivate (toggle-disabled) form must target the agent panel
       // frame when the users grid is loaded inside it, so toggling stays put
@@ -457,6 +544,54 @@ describe('Admin Users Controller', () => {
         changes?.password_hash,
         '***REDACTED***',
         'password_hash must be redacted in audit log',
+      )
+    })
+
+    it('renders a password reset field in the edit panel', async () => {
+      let id = await createTestUser(`test-edit-pwd-${Date.now()}@example.com`)
+      assert.ok(id, 'test user for edit password field must be created')
+
+      let response = await router.fetch(`${USERS_URL}?editing=${id}`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Neues Passwort'), 'edit panel should offer a password field')
+      assert.ok(
+        text.includes('Unverändert lassen'),
+        'edit panel should hint that an empty password keeps the current one',
+      )
+    })
+
+    it('does not echo the submitted password back into the edit form on error', async () => {
+      let id = await createTestUser(`test-no-pwd-echo-${Date.now()}@example.com`)
+      assert.ok(id, 'test user for password echo must be created')
+
+      let body = new URLSearchParams({
+        name: 'Test User',
+        email: 'bad-email',
+        role: 'customer',
+        password: 'super-secret-pw-123!',
+        _csrf: adminCsrfToken,
+        _offset: '',
+        _sort: '',
+        _order: '',
+        _filter: '',
+      })
+      let response = await router.fetch(`${BASE}/admin/users/${id}`, {
+        method: 'PUT',
+        headers: {
+          Cookie: adminCookie,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Csrf-Token': adminCsrfToken,
+        },
+        body: body.toString(),
+      })
+      assert.equal(response.status, 200, 'invalid email should re-render the edit panel')
+      let text = await response.text()
+      assert.ok(
+        !text.includes('super-secret-pw-123!'),
+        'the submitted password must never be echoed into the DOM',
       )
     })
 

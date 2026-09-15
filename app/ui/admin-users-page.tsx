@@ -35,6 +35,7 @@ type DisplayUser = {
   email: string
   name: string
   role: string
+  email_verified: number | null
   disabled_at: number | null
   created_at: number | null
   updated_at: number | null
@@ -72,31 +73,71 @@ const fieldErrorStyle = css({
   color: theme.colors.action.danger.background,
 })
 
-const rowActionsStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
+const fieldHintStyle = css({
+  marginTop: theme.space.xs,
+  fontSize: theme.fontSize.xxs,
+  color: theme.colors.text.muted,
 })
 
-const iconActionStyle = css({
+const verifiedBadgeStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: `2px ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+const verifiedBadgeOnStyle = css({
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+})
+
+const verifiedBadgeOffStyle = css({
+  background: theme.surface.lvl0,
+  color: theme.colors.text.muted,
+  border: `1px solid ${theme.colors.border.default}`,
+})
+
+// Segmented button group for the row actions: edit / toggle / delete read as
+// one connected control instead of three floating icon buttons.
+const actionGroup = css({
+  display: 'inline-flex',
+  alignItems: 'stretch',
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  overflow: 'hidden',
+  boxShadow: theme.shadow.sm,
+})
+
+const actionSeg = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   width: '30px',
-  height: '30px',
+  height: '28px',
   padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
+  border: 'none',
+  borderRight: `1px solid ${theme.colors.border.default}`,
+  fontSize: theme.fontSize.xs,
   cursor: 'pointer',
   textDecoration: 'none',
   '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:focus-visible': {
+    position: 'relative',
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+    zIndex: 1,
+  },
 })
 
-const iconActionDangerStyle = css({
+const actionSegDanger = css({
   color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
+  borderRight: 'none',
   '&:hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
@@ -151,8 +192,10 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
           mix={table.filterBar}
         >
           <div mix={table.filterGroup}>
+            {/* Status tabs always reset to the first page: keeping the previous
+                offset while the result set changes can land on an empty page. */}
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, offset)}
+              href={ADMIN_BASE + '?' + buildFilterParams('', sortColumn, sortDirection, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[
                 table.filterTab,
@@ -164,24 +207,24 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
               Alle
             </a>
             <a
-              href={
-                ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, offset)
-              }
+              href={ADMIN_BASE + '?' + buildFilterParams('enabled', sortColumn, sortDirection, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'enabled' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
-              href={
-                ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, offset)
-              }
+              href={ADMIN_BASE + '?' + buildFilterParams('disabled', sortColumn, sortDirection, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'disabled' ? table.filterTabActive : undefined]}
             >
               Deaktiviert
             </a>
           </div>
+          {/* Preserve the active sort when searching so submitting the query does
+              not silently reset the ordering. */}
+          <input type="hidden" name="sort" value={sortColumn} />
+          <input type="hidden" name="order" value={sortDirection} />
           <input
             type="text"
             name="filter"
@@ -224,6 +267,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                 <col />
                 <col mix={css({ width: '100px' })} />
                 <col mix={css({ width: '80px' })} />
+                <col mix={css({ width: '120px' })} />
                 <col mix={css({ width: '120px' })} />
                 <col mix={colActionsWidth} />
               </colgroup>
@@ -315,6 +359,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                     </a>
                   </th>
                   <th mix={table.th}>Status</th>
+                  <th mix={table.th}>Verifiziert</th>
                   <th
                     mix={table.thSortable}
                     aria-sort={sortRule('created_at', sortColumn, sortDirection)}
@@ -384,19 +429,36 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                           {isDisabled ? 'Deaktiviert' : 'Aktiv'}
                         </span>
                       </td>
+                      <td mix={table.td}>
+                        {row.email_verified ? (
+                          <span
+                            mix={[verifiedBadgeStyle, verifiedBadgeOnStyle]}
+                            title="E-Mail-Adresse bestätigt"
+                          >
+                            <Glyph name="check" width={12} height={12} /> Verifiziert
+                          </span>
+                        ) : (
+                          <span
+                            mix={[verifiedBadgeStyle, verifiedBadgeOffStyle]}
+                            title="E-Mail-Adresse noch nicht bestätigt"
+                          >
+                            Ausstehend
+                          </span>
+                        )}
+                      </td>
                       <td mix={table.td} title={formatTimestamp(row.created_at)}>
                         {formatTimestamp(row.created_at)}
                       </td>
                       <td mix={table.actionCell}>
-                        <div mix={rowActionsStyle}>
+                        <div mix={actionGroup}>
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={iconActionStyle}
+                            mix={actionSeg}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
                           >
-                            <Glyph name="edit" width={14} height={14} />
+                            <Glyph name="edit" width={13} height={13} />
                           </a>
 
                           <RestfulForm
@@ -404,7 +466,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             action={routes.admin.users.toggleDisabled.href({ id: row.id })}
                             data-toggle-form={row.id}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
+                            mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                           >
                             <GridStateHiddenInputs
                               state={{
@@ -416,14 +478,14 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             />
                             <button
                               type="submit"
-                              mix={iconActionStyle}
+                              mix={actionSeg}
                               aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
                               title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
                             >
                               <Glyph
                                 name={isDisabled ? 'check' : 'shield'}
-                                width={14}
-                                height={14}
+                                width={13}
+                                height={13}
                               />
                             </button>
                           </RestfulForm>
@@ -434,7 +496,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             data-delete-form={row.id}
                             data-confirm={`Benutzer "${row.name}" wirklich löschen?`}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
+                            mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                           >
                             <GridStateHiddenInputs
                               state={{
@@ -446,11 +508,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             />
                             <button
                               type="submit"
-                              mix={[iconActionStyle, iconActionDangerStyle]}
+                              mix={[actionSeg, actionSegDanger]}
                               aria-label="Löschen"
                               title="Löschen"
                             >
-                              <Glyph name="trash" width={14} height={14} />
+                              <Glyph name="trash" width={13} height={13} />
                             </button>
                           </RestfulForm>
                         </div>
@@ -700,6 +762,29 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
                   />
                   Deaktiviert
                 </label>
+              </div>
+
+              <div mix={table.fieldGroup}>
+                <label mix={table.label} htmlFor="au-password">
+                  Neues Passwort
+                </label>
+                <input
+                  id="au-password"
+                  name="password"
+                  type="password"
+                  minLength={6}
+                  placeholder="Unverändert lassen"
+                  autoComplete="new-password"
+                  mix={[
+                    input.base,
+                    input.focus,
+                    fieldErrors?.password ? inputErrorStyle : null,
+                  ].filter(Boolean)}
+                />
+                <div mix={fieldHintStyle}>Leer lassen, um das aktuelle Passwort beizubehalten.</div>
+                {fieldErrors?.password ? (
+                  <div mix={fieldErrorStyle}>{fieldErrors.password}</div>
+                ) : null}
               </div>
 
               <div mix={table.actions}>
