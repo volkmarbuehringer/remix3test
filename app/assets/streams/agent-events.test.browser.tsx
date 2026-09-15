@@ -11,11 +11,19 @@ function setupAgentEventsDom() {
   container.id = 'agent-events-page'
   container.innerHTML = `
     <div id="agent-events-frame-container" data-active-frame="agent-events-panel"></div>
-    <div id="ae-status-bar"></div>
+    <div id="ae-confirm-gate"></div>
+    <div id="ae-status-bar">
+      <div id="ae-status-header">
+        <span>Activity</span>
+        <button id="ae-clear-log" type="button">Clear</button>
+      </div>
+      <div id="ae-status-body"></div>
+    </div>
     <form id="agent-events-form">
       <textarea id="agent-events-input" name="message"></textarea>
       <button id="agent-events-submit" type="submit">Send</button>
     </form>
+    <span id="ae-char-count"></span>
   `
   document.body.appendChild(container)
   return container
@@ -202,7 +210,10 @@ describe('Agent events pipeline', () => {
         pendingCount: 3,
       },
     })
-    await waitFor(() => !!document.getElementById('ae-confirm-gate'))
+    await waitFor(() => {
+      let gate = document.getElementById('ae-confirm-gate')
+      return !!gate && gate.textContent?.includes('Cancel Jane Doe?')
+    })
     sse.close()
 
     let gate = document.getElementById('ae-confirm-gate')!
@@ -240,7 +251,10 @@ describe('Agent events pipeline', () => {
     })
     renderWithFrame()
 
-    await waitFor(() => !!document.getElementById('ae-confirm-gate'))
+    await waitFor(() => {
+      let gate = document.getElementById('ae-confirm-gate')
+      return !!gate && gate.textContent?.includes('Cancel Jane Doe?')
+    })
     let gate = document.getElementById('ae-confirm-gate')!
     assert.ok(gate.textContent?.includes('Cancel Jane Doe?'), 'reconnected question renders')
     assert.ok(gate.textContent?.includes('3 pending appointments'), 'reconnected preflight renders')
@@ -256,5 +270,95 @@ describe('Agent events pipeline', () => {
     let body = resumeCall.init.body as FormData
     assert.equal(body.get('runId'), 'run-reconnect-1', 'resume posts the reconnected run id')
     assert.equal(body.get('confirmed'), 'true', 'resume posts the confirmed flag')
+  })
+
+  it('prefills the composer when an example chip is clicked', async () => {
+    setupAgentEventsDom()
+    let sse = createControllableSse()
+    stubFetchWithReconnect(sse)
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('panel-page'))
+
+    let chip = document.createElement('button')
+    chip.setAttribute('data-agent-command', 'cancel user 42')
+    chip.textContent = 'cancel user 42'
+    document.body.appendChild(chip)
+
+    chip.click()
+
+    let textarea = document.getElementById('agent-events-input') as HTMLTextAreaElement
+    assert.equal(textarea.value, 'cancel user 42', 'chip command fills the textarea')
+    assert.equal(
+      document.activeElement,
+      textarea,
+      'chip prefill focuses the composer so the admin can send immediately',
+    )
+    document.body.removeChild(chip)
+  })
+
+  it('updates the character counter on input and flags the max', async () => {
+    setupAgentEventsDom()
+    let sse = createControllableSse()
+    stubFetchWithReconnect(sse)
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('panel-page'))
+
+    let textarea = document.getElementById('agent-events-input') as HTMLTextAreaElement
+    let counter = document.getElementById('ae-char-count')!
+    textarea.value = 'hello'
+    textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    assert.ok(
+      counter.textContent?.startsWith('5 /'),
+      `counter shows typed length, got "${counter.textContent}"`,
+    )
+    assert.equal(counter.style.color, '', 'counter is neutral below the max length')
+  })
+
+  it('hides the confirm gate and clears the log via the Clear button', async () => {
+    setupAgentEventsDom()
+    let sse = createControllableSse()
+    stubFetchWithReconnect(sse)
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('panel-page'))
+
+    submitAgentEventsForm('cancel user 42')
+    sse.push('status', { text: 'Input validated', kind: 'success' })
+    await waitFor(() => !!document.getElementById('ae-pipeline-log'))
+
+    let clearBtn = document.getElementById('ae-clear-log') as HTMLButtonElement
+    assert.ok(clearBtn, 'clear button renders in the status bar header')
+    clearBtn.click()
+
+    let body = document.getElementById('ae-status-body')
+    assert.equal(body?.textContent ?? '', '', 'status log is cleared')
+    await waitFor(() => !document.getElementById('ae-pipeline-log'))
+    assert.ok(!document.getElementById('ae-pipeline-log'), 'frame pipeline log is cleared')
+  })
+
+  it('hides the confirm gate on a terminal event', async () => {
+    setupAgentEventsDom()
+    let sse = createControllableSse()
+    stubFetchWithReconnect(sse)
+    renderWithFrame()
+
+    await waitFor(() => !!document.getElementById('panel-page'))
+
+    submitAgentEventsForm('cancel user 42')
+    sse.push('start', { runId: 'run-123', workflowId: 'userManagementWorkflow' })
+    sse.push('workflow-step-suspended', { suspendPayload: { question: 'Cancel Jane Doe?' } })
+    await waitFor(() => {
+      let gate = document.getElementById('ae-confirm-gate')
+      return !!gate && gate.textContent?.includes('Cancel Jane Doe?')
+    })
+
+    sse.push('complete', {})
+    sse.close()
+
+    let gate = document.getElementById('ae-confirm-gate')!
+    await waitFor(() => gate.style.display === 'none')
+    assert.equal(gate.style.display, 'none', 'gate hides once the run reaches a terminal event')
   })
 })

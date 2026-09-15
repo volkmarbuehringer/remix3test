@@ -5,6 +5,7 @@ import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/a
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
 import { theme } from '../../ui/theme/theme.ts'
 import { AgentEventsPage } from '../../ui/agent-events-page.tsx'
+import { EXAMPLE_COMMANDS } from '../../ui/agent-events-log.ts'
 import { routes, frames } from '../../routes.ts'
 import { EventBus, type BaseEvent, MAX_MESSAGE_LENGTH } from './event-bus.ts'
 import { INTENTS } from './intents.ts'
@@ -132,6 +133,22 @@ function lookupRunWorkflow(runId: string): string | undefined {
   return entry.workflowId
 }
 
+const exampleChipStyle = css({
+  padding: '0.4rem 0.75rem',
+  borderRadius: theme.radius.full,
+  border: `1px solid ${theme.colors.border.default}`,
+  background: theme.surface.lvl0,
+  color: theme.colors.text.secondary,
+  fontFamily: theme.fontFamily.mono,
+  fontSize: theme.fontSize.xs,
+  cursor: 'pointer',
+  '&:hover': {
+    borderColor: theme.colors.action.primary.background,
+    color: theme.colors.action.primary.background,
+    background: theme.surface.lvl1,
+  },
+})
+
 function AgentEventsEmptyState(_handle: Handle) {
   return () => (
     <div
@@ -181,17 +198,19 @@ function AgentEventsEmptyState(_handle: Handle) {
       </p>
       <div
         mix={css({
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: theme.space.xs,
           marginTop: theme.space.sm,
-          padding: `${theme.space.sm} ${theme.space.md}`,
-          borderRadius: theme.radius.md,
-          background: theme.surface.lvl1,
-          border: `1px solid ${theme.colors.border.subtle}`,
-          fontFamily: theme.fontFamily.mono,
-          fontSize: theme.fontSize.xs,
-          color: theme.colors.text.secondary,
+          maxWidth: '30rem',
         })}
       >
-        e.g. &quot;cancel user 42&quot; or &quot;show appointments&quot;
+        {EXAMPLE_COMMANDS.map((command) => (
+          <button key={command} type="button" data-agent-command={command} mix={exampleChipStyle}>
+            {command}
+          </button>
+        ))}
       </div>
     </div>
   )

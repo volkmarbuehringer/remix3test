@@ -9,6 +9,21 @@ export type PipelineRow = {
   time: string
 }
 
+// Single source for the sample commands shown to admins — the empty-state chips
+// (controller) and the composer placeholder (page) both read this list so they
+// cannot drift apart.
+export const EXAMPLE_COMMANDS = [
+  'cancel user 42',
+  'lock user 42',
+  'unlock user 42',
+  'show appointments',
+]
+
+export function examplePlaceholder(): string {
+  let [a = 'cancel user 42', b = 'show appointments'] = EXAMPLE_COMMANDS
+  return `e.g. '${a}' or '${b}'`
+}
+
 export function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, {
     hour: '2-digit',

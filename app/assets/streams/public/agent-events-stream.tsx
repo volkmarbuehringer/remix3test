@@ -1,6 +1,7 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { routes } from '../../../routes.ts'
 import { theme } from '../../../ui/theme/theme.ts'
+import { MAX_MESSAGE_LENGTH } from '../../../utils/message-limits.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import {
   formatTime,
@@ -25,16 +26,40 @@ export const AgentEventsStream = clientEntry(
       return document.getElementById('ae-status-bar')
     }
 
+    function getStatusBody() {
+      return (
+        document.getElementById('ae-status-body') ??
+        (document.getElementById('ae-status-bar') as HTMLElement | null)
+      )
+    }
+
     function setFormEnabled(enabled: boolean) {
       let input = document.getElementById('agent-events-input') as HTMLTextAreaElement | null
       let submit = document.getElementById('agent-events-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
-      if (submit) submit.disabled = !enabled
+      if (submit) {
+        submit.disabled = !enabled
+        submit.textContent = enabled ? 'Send' : 'Sending…'
+      }
     }
 
     function clearStatusBar() {
-      let bar = getStatusBar()
-      if (bar) bar.innerHTML = ''
+      let body = getStatusBody()
+      if (body) body.innerHTML = ''
+    }
+
+    function updateCharCount() {
+      let input = document.getElementById('agent-events-input') as HTMLTextAreaElement | null
+      let counter = document.getElementById('ae-char-count')
+      if (!input || !counter) return
+      let len = input.value.length
+      counter.textContent = `${len} / ${MAX_MESSAGE_LENGTH}`
+      counter.style.color = len >= MAX_MESSAGE_LENGTH ? theme.colors.action.danger.background : ''
+    }
+
+    function hideConfirmGate() {
+      let gate = document.getElementById('ae-confirm-gate') as HTMLElement | null
+      if (gate) gate.style.display = 'none'
     }
 
     // ── Live pipeline rendered into the main frame ──────────────
@@ -73,7 +98,7 @@ export const AgentEventsStream = clientEntry(
     }
 
     function showInfo(text: string, opts?: { kind?: RowKind }) {
-      let bar = getStatusBar()
+      let bar = getStatusBody()
       if (!bar) return
       let kind = opts?.kind ?? inferKind(text)
 
@@ -115,24 +140,55 @@ export const AgentEventsStream = clientEntry(
     }
 
     function showConfirmGate(suspendPayload: Record<string, unknown>) {
-      let bar = getStatusBar()
-      if (!bar) return
+      let container = document.getElementById('ae-confirm-gate') as HTMLElement | null
+      if (!container) {
+        // Fallback for hosts without the dedicated container (tests): render
+        // the gate at the top of the status bar so it stays discoverable.
+        container = document.createElement('div')
+        container.id = 'ae-confirm-gate'
+        let bar = getStatusBar()
+        if (!bar) return
+        bar.prepend(container)
+      }
 
-      let container = document.createElement('div')
-      container.id = 'ae-confirm-gate'
-      container.style.marginTop = '0.5rem'
-      container.style.padding = '0.75rem'
-      container.style.border = '1px solid ' + theme.colors.border.default
-      container.style.borderRadius = '6px'
-      container.style.background = theme.surface.lvl1
       container.style.display = 'flex'
       container.style.flexDirection = 'column'
       container.style.gap = '0.5rem'
+      container.style.margin = '0.5rem 0.75rem'
+      container.style.padding = '0.75rem'
+      container.style.border = '1px solid ' + theme.colors.border.default
+      container.style.borderLeft = '4px solid ' + theme.colors.action.primary.background
+      container.style.borderRadius = '6px'
+      container.style.background = theme.surface.lvl1
+      container.innerHTML = ''
+
+      let header = document.createElement('div')
+      header.style.display = 'flex'
+      header.style.alignItems = 'center'
+      header.style.gap = '0.5rem'
+      header.style.fontSize = '0.6875rem'
+      header.style.fontWeight = '600'
+      header.style.textTransform = 'uppercase'
+      header.style.letterSpacing = '0.04em'
+      header.style.color = theme.colors.text.muted
+
+      let glyph = document.createElement('span')
+      glyph.textContent = '⚠'
+      glyph.setAttribute('aria-hidden', 'true')
+      glyph.style.color = theme.colors.warning.background
+      glyph.style.fontSize = '0.8125rem'
+      header.appendChild(glyph)
+
+      let label = document.createElement('span')
+      label.textContent = 'Action requires confirmation'
+      header.appendChild(label)
+      container.appendChild(header)
 
       let q = document.createElement('div')
       q.textContent = String(suspendPayload.question || 'Confirm?')
       q.style.fontWeight = '600'
       q.style.fontSize = '0.875rem'
+      q.style.color = theme.colors.text.primary
       container.appendChild(q)
 
       let actionType = String(suspendPayload.actionType || '')
@@ -185,8 +241,13 @@ export const AgentEventsStream = clientEntry(
       buttons.appendChild(cancelBtn)
 
       container.appendChild(buttons)
-      bar.appendChild(container)
-      bar.scrollTop = bar.scrollHeight
+      container.scrollIntoView({ block: 'nearest' })
+
+      // The workflow is not streaming anything while it waits at the gate, so
+      // "Sending…" is misleading. Keep the composer disabled (a run is pending)
+      // but say so honestly.
+      let submit = document.getElementById('agent-events-submit') as HTMLButtonElement | null
+      if (submit && submit.disabled) submit.textContent = 'Waiting…'
     }
 
     function abortStream() {
@@ -280,6 +341,7 @@ export const AgentEventsStream = clientEntry(
                 showConfirmGate((parsed.suspendPayload as Record<string, unknown>) || {})
               } else if (eventType === 'workflow-finish') {
                 currentRunId = null
+                hideConfirmGate()
                 if (parsed.success) {
                   showInfo('Action completed', { kind: 'success' })
                   let container = document.getElementById('agent-events-frame-container')
@@ -292,6 +354,7 @@ export const AgentEventsStream = clientEntry(
                 }
               } else if (eventType === 'workflow-error') {
                 currentRunId = null
+                hideConfirmGate()
                 showInfo('Action failed: ' + (parsed.error || 'unknown'), { kind: 'error' })
               } else if (eventType === 'navigate') {
                 didNavigate = true
@@ -318,9 +381,11 @@ export const AgentEventsStream = clientEntry(
                 pushRow(parsed.text || '', 'info')
               } else if (eventType === 'complete') {
                 currentRunId = null
+                hideConfirmGate()
                 setFormEnabled(true)
               } else if (eventType === 'agent-error') {
                 let msg = 'Error: ' + (parsed.error || 'unknown')
+                hideConfirmGate()
                 pushRow(msg, 'error')
                 showInfo(msg, { kind: 'error' })
                 setFormEnabled(true)
@@ -355,11 +420,37 @@ export const AgentEventsStream = clientEntry(
       didNavigate = false
       currentRunId = null
       currentWorkflowId = null
+      hideConfirmGate()
       clearStatusBar()
       resetPipeline()
+      updateCharCount()
       pushRow('Processing…', 'active')
 
       startStream(routes.admin.agentEvents.index.href(), { method: 'POST', body: formData })
+    }
+
+    function prefillFromChip(command: string) {
+      let textarea = document.getElementById('agent-events-input') as HTMLTextAreaElement | null
+      if (!textarea) return
+      // Programmatic value assignment bypasses the maxLength attribute; clamp so
+      // a chip can never produce a value the server would reject.
+      textarea.value = command.slice(0, MAX_MESSAGE_LENGTH)
+      autoGrowReset?.()
+      updateCharCount()
+      textarea.focus()
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    }
+
+    function clearLog() {
+      // A run may still be suspended server-side awaiting confirmation; hiding
+      // the gate would make a pending destructive action invisible. Keep the
+      // log/gate intact until the run reaches a terminal state.
+      if (currentRunId) return
+      hideConfirmGate()
+      clearStatusBar()
+      resetPipeline()
+      let frame = getPipelineFrame()
+      if (frame) frame.reload().catch(() => {})
     }
 
     function handleTextareaKeydown(e: KeyboardEvent) {
@@ -422,8 +513,30 @@ export const AgentEventsStream = clientEntry(
             ) as HTMLTextAreaElement | null
             if (textarea) {
               textarea.addEventListener('keydown', handleTextareaKeydown, { signal: handle.signal })
+              textarea.addEventListener('input', updateCharCount, { signal: handle.signal })
               autoGrowReset = setupAutoGrowTextarea(textarea, { signal: handle.signal }).reset
             }
+
+            let clearBtn = document.getElementById('ae-clear-log') as HTMLButtonElement | null
+            if (clearBtn) {
+              clearBtn.addEventListener('click', clearLog, { signal: handle.signal })
+            }
+
+            // Example-command chips live inside the panel frame (same document);
+            // delegate clicks so they prefill the composer even when the frame
+            // re-resolves its content.
+            document.addEventListener(
+              'click',
+              (e) => {
+                let target = (e.target as HTMLElement | null)?.closest?.(
+                  '[data-agent-command]',
+                ) as HTMLElement | null
+                if (!target) return
+                let command = target.getAttribute('data-agent-command')
+                if (command) prefillFromChip(command)
+              },
+              { signal: handle.signal },
+            )
 
             // Reconnect after a reload / browser change / server restart: if a
             // workflow run is still suspended at the confirm gate, re-render it

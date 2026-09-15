@@ -9,6 +9,8 @@ import {
   kindColor,
   pipelineLogHtml,
   pipelineRowHtml,
+  examplePlaceholder,
+  EXAMPLE_COMMANDS,
   type PipelineRow,
 } from './agent-events-log.ts'
 
@@ -70,5 +72,13 @@ describe('agent-events-log', () => {
     let ts = new Date(2025, 0, 15, 9, 5, 7).getTime()
     let out = formatTime(ts)
     assert.ok(/^\d{1,2}:\d{2}:\d{2}/.test(out), `expected time-like string, got "${out}"`)
+  })
+
+  it('examplePlaceholder quotes the first two example commands', () => {
+    let out = examplePlaceholder()
+    assert.ok(
+      out.includes(EXAMPLE_COMMANDS[0]!) && out.includes(EXAMPLE_COMMANDS[1]!),
+      'placeholder surfaces the shared example commands',
+    )
   })
 })
