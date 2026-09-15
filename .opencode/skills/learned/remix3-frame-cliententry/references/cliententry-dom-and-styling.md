@@ -25,7 +25,9 @@ Use **parent-container CSS with child selectors** instead of passing mixins as p
 const actionBtnGroup = css({
   display: 'inline-flex',
   alignItems: 'stretch',
-  '& > a > button': {
+  // Edit is a link styled as a button (see "Never nest a button inside a link"),
+  // so the styles live on the direct <a> — there is no inner <button> to target.
+  '& > a': {
     borderTopRightRadius: 0,
     borderBottomRightRadius: 0,
     borderRight: 'none',
@@ -38,14 +40,36 @@ const actionBtnGroup = css({
 
 // Usage — no mix props needed on DelButton
 <div mix={actionBtnGroup}>
-  <a href={editUrl}>
-    <Button tone="secondary" mix={smallBtnStyle}>Edit</Button>
+  <a href={editUrl} mix={[buttonLink({ tone: 'secondary' }), smallBtnStyle]}>
+    Edit
   </a>
   <DelButton action={delUrl} offset={...} sort={...} order={...} filterValue={...} />
 </div>
 ```
 
-The CSS targets the known DOM structure: Edit is inside `<a><button/></a>` → `& > a > button`; Del is inside `<form><button/></form>` (from DelButton) → `& > form > button`. `remix/ui` CSS-in-JS uses scoped selectors, so `&` resolves to the generated scoped class; combined with child combinators (`>`) you can target nested elements without passing CSS objects through serializable prop boundaries.
+The CSS targets the known DOM structure: Edit is the direct `<a>` (the button styles are on the link itself, not a nested button) → `& > a`; Del is inside `<form><button/></form>` (from DelButton) → `& > form > button`. `remix/ui` CSS-in-JS uses scoped selectors, so `&` resolves to the generated scoped class; combined with child combinators (`>`) you can target nested elements without passing CSS objects through serializable prop boundaries.
+
+### Never nest a button inside a link
+
+A link that navigates (`href` + `data-rmx-target`) must not wrap a `<button>`: `<a><button>…</button></a>` is invalid HTML and drops the link role for assistive tech. Style the **anchor** itself as a button.
+
+The shared theme helper `app/ui/theme/button.ts` exports `buttonLink()` for this. `button()` is bound to `HTMLButtonElement` (the recursive `MixinDescriptor` relation is order-sensitive — see `ts7-order-sensitive-type-relations`), so applying it directly to an `<a>` is a `TS2322`; `buttonLink()` rebinds the host element type to `HTMLAnchorElement`. The upstream contract supports non-button hosts — it applies `type="button"` only to native `<button>` hosts and otherwise adds styling only.
+
+```tsx
+import { buttonLink } from '../ui/theme/button.ts'
+
+// BAD — invalid nesting, link semantics lost
+<a href={editUrl} data-rmx-target={frameTarget}>
+  <button mix={button({ tone: 'secondary' })}>Edit</button>
+</a>
+
+// GOOD — the link carries the button styles
+<a href={editUrl} data-rmx-target={frameTarget} mix={buttonLink({ tone: 'secondary' })}>
+  Edit
+</a>
+```
+
+For a grid row action this also keeps the action cell narrow: use an icon-only `buttonLink` with `aria-label` + `title`.
 
 Use when creating joined button groups where one button is a `clientEntry` component, styling children of a container that wraps `clientEntry` components, or any pattern where you'd pass a CSS mixin as a prop but the child is a `clientEntry`.
 
