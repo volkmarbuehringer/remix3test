@@ -33,6 +33,20 @@ function treeContainsText(node: unknown, text: string): boolean {
   return false
 }
 
+/** True when a <button> is nested inside an <a> — invalid HTML that breaks link semantics. */
+function hasButtonInsideAnchor(node: unknown, insideAnchor = false): boolean {
+  if (!node || typeof node !== 'object') return false
+  if (Array.isArray(node)) {
+    return node.some((child) => hasButtonInsideAnchor(child, insideAnchor))
+  }
+  let el = node as RemixElement
+  if (insideAnchor && el.type === 'button') return true
+  if (!el.props?.children) return false
+  let children = Array.isArray(el.props.children) ? el.props.children : [el.props.children]
+  let nested = insideAnchor || el.type === 'a'
+  return children.some((child) => hasButtonInsideAnchor(child, nested))
+}
+
 // ---------------------------------------------------------------------------
 // Sample data
 // ---------------------------------------------------------------------------
@@ -69,7 +83,7 @@ describe('ClientEditPage', () => {
     let tree = renderFn()
 
     assert.ok(tree, 'should produce a tree')
-    assert.ok(treeContainsText(tree, 'Edit Record'), 'should have Edit Record heading')
+    assert.ok(treeContainsText(tree, 'Kunde bearbeiten'), 'should have edit heading')
     assert.ok(treeContainsText(tree, '42'), 'should show row ID in badge')
   })
 
@@ -79,7 +93,7 @@ describe('ClientEditPage', () => {
     )
     let tree = renderFn()
 
-    assert.ok(treeContainsText(tree, 'Save Changes'), 'should have submit button')
+    assert.ok(treeContainsText(tree, 'Speichern'), 'should have submit button')
   })
 
   it('renders a cancel link back to client list', () => {
@@ -88,7 +102,7 @@ describe('ClientEditPage', () => {
     )
     let tree = renderFn()
 
-    assert.ok(treeContainsText(tree, 'Cancel'), 'should have cancel button')
+    assert.ok(treeContainsText(tree, 'Abbrechen'), 'should have cancel button')
   })
 
   it('renders all form fields (name, email, role, status, registered)', () => {
@@ -98,9 +112,22 @@ describe('ClientEditPage', () => {
     let tree = renderFn()
 
     assert.ok(treeContainsText(tree, 'Name'), 'should show Name label')
-    assert.ok(treeContainsText(tree, 'Email'), 'should show Email label')
-    assert.ok(treeContainsText(tree, 'Role'), 'should show Role label')
+    assert.ok(treeContainsText(tree, 'E-Mail'), 'should show E-Mail label')
+    assert.ok(treeContainsText(tree, 'Rolle'), 'should show Rolle label')
     assert.ok(treeContainsText(tree, 'Status'), 'should show Status label')
-    assert.ok(treeContainsText(tree, 'Registered'), 'should show Registered label')
+    assert.ok(treeContainsText(tree, 'Registriert'), 'should show Registriert label')
+  })
+
+  it('does not nest a button inside the cancel link (invalid HTML)', () => {
+    let renderFn = ClientEditPage(
+      makeHandle({ row: sampleRow, offset: '0', sort: '', order: 'asc' }),
+    )
+    let tree = renderFn()
+
+    assert.equal(
+      hasButtonInsideAnchor(tree),
+      false,
+      'links must not wrap buttons; style the anchor itself',
+    )
   })
 })

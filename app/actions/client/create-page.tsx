@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
-import button from '../../ui/theme/button.ts'
+import button, { buttonLink } from '../../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../../utils/motion.ts'
 import { input } from '../../ui/mixins/input.ts'
@@ -73,12 +73,16 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
       >
-        <RestfulForm method="POST" action={routes.admin.clients.index.href()} data-rmx-target={getSelfFrameTarget()}>
+        <RestfulForm
+          method="POST"
+          action={routes.admin.clients.index.href()}
+          data-rmx-target={getSelfFrameTarget()}
+        >
           <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
 
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
-              <span mix={table.panelTitle}>New Record</span>
+              <span mix={table.panelTitle}>Neuer Kunde</span>
             </div>
 
             <div mix={table.panelBody}>
@@ -94,7 +98,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                     Boolean,
                   )}
                   value={formValues?.name ?? ''}
-                  placeholder="Enter full name"
+                  placeholder="Vollständigen Namen eingeben"
                   required
                   maxLength={100}
                 />
@@ -103,12 +107,12 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-email">
-                  Email <span mix={requiredStarStyle}>*</span>
+                  E-Mail <span mix={requiredStarStyle}>*</span>
                 </label>
                 <input
                   id="cf-email"
                   name="email"
-                  type="text"
+                  type="email"
                   mix={[
                     input.base,
                     input.focus,
@@ -124,7 +128,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-role">
-                  Role
+                  Rolle
                 </label>
                 <select id="cf-role" name="role" mix={[input.base, input.focus, selectStyle]}>
                   <option value="Viewer" selected={!formValues || formValues.role === 'Viewer'}>
@@ -137,7 +141,7 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                     Admin
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>User permission level</div>
+                <div mix={fieldHintStyle}>Berechtigungsstufe</div>
               </div>
 
               <div mix={table.fieldGroup}>
@@ -152,12 +156,12 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
                     Inactive
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Account activation state</div>
+                <div mix={fieldHintStyle}>Aktivierungsstatus</div>
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="cf-registered">
-                  Registered <span mix={requiredStarStyle}>*</span>
+                  Registriert <span mix={requiredStarStyle}>*</span>
                 </label>
                 <input
                   id="cf-registered"
@@ -178,19 +182,22 @@ function ClientCreatePage(handle: Handle<ClientCreatePageProps>) {
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Create Record
+                  Anlegen
                 </button>
                 {(() => {
                   let cancelQ = gridStateToParams({ offset, sort, order, filter }).toString()
-                  let cancelHref = '/admin/clients' + (cancelQ ? '?' + cancelQ : '')
+                  let cancelHref =
+                    routes.admin.clients.index.href() + (cancelQ ? '?' + cancelQ : '')
                   return (
-                    <a href={cancelHref} mix={[table.spacer, table.linkPlain]}>
-                      <button
-                        type="button"
-                        mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                      >
-                        Cancel
-                      </button>
+                    <a
+                      href={cancelHref}
+                      mix={[
+                        buttonLink({ tone: 'secondary' }),
+                        table.spacer,
+                        css({ width: '100%' }),
+                      ]}
+                    >
+                      Abbrechen
                     </a>
                   )
                 })()}

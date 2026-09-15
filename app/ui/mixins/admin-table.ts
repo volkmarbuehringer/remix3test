@@ -248,7 +248,13 @@ export const table = {
     fontSize: theme.fontSize.xs,
     color: theme.colors.text.muted,
   }),
+  // Inline-flex so an optional leading/trailing glyph stays on the same line as
+  // its label. The global rmx-reset sets `:where(img, svg) { display: block }`, so a
+  // plain inline link wraps the icon above the text (visible on Vor/Weiter buttons).
   pageLink: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
     padding: `${theme.space.xs} ${theme.space.sm}`,
     background: surface.lvl2,
     color: theme.colors.text.secondary,
@@ -258,6 +264,9 @@ export const table = {
     '&:hover': { background: surface.lvl3, color: theme.colors.text.primary },
   }),
   pageLinkDisabled: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
     padding: `${theme.space.xs} ${theme.space.sm}`,
     borderRadius: theme.radius.md,
     fontSize: theme.fontSize.xs,

@@ -50,7 +50,7 @@ describe('Client lab controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('client-grid-content'), 'should have grid content')
-    assert.ok(html.includes('Next'), 'should have pagination')
+    assert.ok(html.includes('Weiter'), 'should have pagination')
   })
 
   it('renders status filter tabs and a status column', async () => {
@@ -75,6 +75,40 @@ describe('Client lab controller', () => {
     assert.ok(
       html.includes('toggle-status') || html.includes('data-toggle-form'),
       'should render a server-rendered toggle form',
+    )
+  })
+
+  it('resets the page offset when switching status filter tabs', async () => {
+    // Switching from page 2 to the Aktiv/Inaktiv tabs must start at page 1,
+    // otherwise the smaller result set can land on an empty page.
+    let response = await router.fetch(`${CLIENTS_URL}?offset=15&sort=name&order=asc`, {
+      headers: authHeaders(),
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('?filter=active&amp;sort=name&amp;order=asc'),
+      'Aktiv tab should reset the offset',
+    )
+    assert.ok(
+      !html.includes('filter=active&amp;sort=name&amp;order=asc&amp;offset'),
+      'Aktiv tab must not carry the previous page offset',
+    )
+  })
+
+  it('preserves the active sort in the search form', async () => {
+    let response = await router.fetch(`${CLIENTS_URL}?sort=email&order=desc`, {
+      headers: authHeaders(),
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('name="sort" value="email"'),
+      'search form should carry the active sort column',
+    )
+    assert.ok(
+      html.includes('name="order" value="desc"'),
+      'search form should carry the active sort direction',
     )
   })
 
@@ -157,7 +191,7 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('Edit Record'), 'should show edit form')
+    assert.ok(html.includes('Kunde bearbeiten'), 'should show edit form')
     assert.ok(html.includes('Ed'), 'should preserve submitted name value')
     assert.ok(html.includes('ed@example.com'), 'should preserve submitted email value')
   })
@@ -225,8 +259,8 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('New Record'), 'should re-render create form')
-    assert.ok(html.includes('Create Record'), 'should show Create Record button')
+    assert.ok(html.includes('Neuer Kunde'), 'should re-render create form')
+    assert.ok(html.includes('Anlegen'), 'should show Create Record button')
   })
 
   it('POST /admin/clients with year 2025 re-renders with validation error', async () => {
@@ -245,7 +279,7 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('New Record'), 'should show create form')
+    assert.ok(html.includes('Neuer Kunde'), 'should show create form')
     assert.ok(html.includes('Year must be 2026'), 'should show year validation error')
     assert.ok(html.includes('value="2025-06-01"'), 'should preserve submitted date value')
   })
@@ -266,7 +300,7 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('New Record'), 'should show create form')
+    assert.ok(html.includes('Neuer Kunde'), 'should show create form')
     assert.ok(html.includes('value="Bob"'), 'should preserve submitted name value')
     assert.ok(html.includes('value="bob@test.com"'), 'should preserve submitted email value')
   })
@@ -399,8 +433,8 @@ describe('Client lab controller', () => {
 
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('New Record'), 'should show New Record heading')
-    assert.ok(html.includes('Create Record'), 'should show Create Record button')
+    assert.ok(html.includes('Neuer Kunde'), 'should show New Record heading')
+    assert.ok(html.includes('Anlegen'), 'should show Create Record button')
   })
 
   // -----------------------------------------------------------------------

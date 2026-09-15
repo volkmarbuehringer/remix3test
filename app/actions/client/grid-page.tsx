@@ -2,7 +2,7 @@ import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
 import { rotatedGlyphCss } from '../../ui/mixins/icon.ts'
-import button from '../../ui/theme/button.ts'
+import { buttonLink } from '../../ui/theme/button.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 
 import type { Client } from '../../data/schema.ts'
@@ -71,35 +71,38 @@ const actionGroup = css({
   boxShadow: theme.shadow.sm,
 })
 
+// Icon-only segmented row actions (Bearbeiten | Aktivieren/Deaktivieren | Löschen).
+// A 30px square keeps the three controls aligned; the visible text moves to
+// aria-label/title so the Aktionen column stays narrow.
 const actionSeg = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '4px',
-  padding: `${theme.space.xs} ${theme.space.sm}`,
-  minHeight: '26px',
+  width: '30px',
+  height: '28px',
+  padding: 0,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
-  borderTop: 'none',
-  borderBottom: 'none',
-  borderLeft: 'none',
+  border: 'none',
   borderRight: `1px solid ${theme.colors.border.default}`,
   fontSize: theme.fontSize.xs,
-  fontWeight: theme.fontWeight.semibold,
   cursor: 'pointer',
   textDecoration: 'none',
-  whiteSpace: 'nowrap',
   '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:focus-visible': {
+    position: 'relative',
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '-2px',
+    zIndex: 1,
+  },
 })
 
 const actionSegDanger = css({
-  background: theme.colors.action.danger.background,
-  color: theme.colors.action.danger.foreground,
+  color: theme.colors.action.danger.background,
   borderRight: 'none',
   '&:hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
-    opacity: 0.9,
   },
 })
 
@@ -164,55 +167,62 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
           mix={table.filterBar}
         >
           <div mix={table.filterGroup}>
+            {/* Status tabs always reset to the first page: keeping the previous
+                offset while the result set changes can land on an empty page. */}
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('', sortCol, sortOrder, offset)}
+              href={ADMIN_BASE + '?' + buildFilterParams('', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, !isStatusFilter ? table.filterTabActive : undefined]}
             >
               Alle
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('active', sortCol, sortOrder, offset)}
+              href={ADMIN_BASE + '?' + buildFilterParams('active', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'active' ? table.filterTabActive : undefined]}
             >
               Aktiv
             </a>
             <a
-              href={ADMIN_BASE + '?' + buildFilterParams('inactive', sortCol, sortOrder, offset)}
+              href={ADMIN_BASE + '?' + buildFilterParams('inactive', sortCol, sortOrder, 0)}
               data-rmx-target={getSelfFrameTarget()}
               mix={[table.filterTab, filter === 'inactive' ? table.filterTabActive : undefined]}
             >
               Inaktiv
             </a>
           </div>
+          {/* Preserve the active sort when searching so submitting the query does
+              not silently reset the ordering. The offset is intentionally absent so
+              a new search starts on page 1. */}
+          <input type="hidden" name="sort" value={sortCol} />
+          <input type="hidden" name="order" value={sortOrder} />
           <input
             type="text"
             name="filter"
-            placeholder="Search by name or email..."
+            placeholder="Suche nach Name, E-Mail oder ID..."
             defaultValue={filter && !isStatusFilter ? filter : ''}
-            aria-label="Nach Name oder E-Mail suchen"
+            aria-label="Nach Name, E-Mail oder ID suchen"
             mix={table.filterInput}
           />
           <button type="submit" mix={table.searchBtn}>
-            <Glyph name="search" width={14} height={14} /> Search
+            <Glyph name="search" width={14} height={14} /> Suchen
           </button>
-          {filter && !isStatusFilter ? (
+          {filter ? (
             <a href={ADMIN_BASE} mix={table.clearLink}>
-              Clear
+              Zurücksetzen
             </a>
           ) : null}
           <span mix={table.spacer} />
           {editingId ? <input type="hidden" name="editing" value={editingId} /> : null}
           <FrameRefreshButton />
+          {/* A link styled as a button, not an <a> wrapping a <button> (invalid
+              nesting). buttonLink() applies the button styles to the link itself. */}
           <a
             href={buildCreateUrl(ADMIN_BASE, offset, sortCol, sortOrder, filter)}
-            data-rmx-document
-            mix={table.linkPlain}
+            data-rmx-target={getSelfFrameTarget()}
+            mix={[buttonLink({ tone: 'primary' }), smallBtnStyle]}
           >
-            <button mix={[button({ tone: 'primary' }), smallBtnStyle]}>
-              <Glyph name="add" width={14} height={14} /> Add New
-            </button>
+            <Glyph name="add" width={14} height={14} /> Neu anlegen
           </a>
         </form>
 
@@ -220,7 +230,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
         {rows.length === 0 ? (
           <div mix={table.wrap}>
             <div mix={table.empty}>
-              {filter ? 'No client records match your filter.' : 'No client records found.'}
+              {filter ? 'Keine Kunden für diese Suche gefunden.' : 'Keine Kunden vorhanden.'}
             </div>
           </div>
         ) : (
@@ -233,7 +243,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                 <col mix={css({ width: '90px' })} />
                 <col mix={css({ width: '100px' })} />
                 <col mix={css({ width: '110px' })} />
-                <col mix={css({ width: '220px' })} />
+                <col mix={css({ width: '120px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -267,7 +277,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
-                      Email
+                      E-Mail
                       <span mix={'email' === sortCol ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('email', sortCol, sortOrder)}
                       </span>
@@ -279,7 +289,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
-                      Role
+                      Rolle
                       <span mix={'role' === sortCol ? table.sortArrowActive : table.sortArrow}>
                         {sortArrow('role', sortCol, sortOrder)}
                       </span>
@@ -310,7 +320,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
                     >
-                      Reg.
+                      Registriert
                       <span
                         mix={'registered' === sortCol ? table.sortArrowActive : table.sortArrow}
                       >
@@ -318,7 +328,7 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Actions</th>
+                  <th mix={table.th}>Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -366,10 +376,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                             filter,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          title="Edit"
+                          aria-label="Bearbeiten"
+                          title="Bearbeiten"
                           mix={actionSeg}
                         >
-                          <Glyph name="edit" width={13} height={13} /> Edit
+                          <Glyph name="edit" width={13} height={13} />
                         </a>
                         <RestfulForm
                           method="POST"
@@ -381,23 +392,33 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                           <GridStateHiddenInputs state={gridState} />
                           <button
                             type="submit"
-                            title={row.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            aria-label={row.status === 'Active' ? 'Deaktivieren' : 'Aktivieren'}
+                            title={row.status === 'Active' ? 'Deaktivieren' : 'Aktivieren'}
                             mix={actionSeg}
                           >
-                            {row.status === 'Active' ? 'Deactivate' : 'Activate'}
+                            <Glyph
+                              name={row.status === 'Active' ? 'shield' : 'check'}
+                              width={13}
+                              height={13}
+                            />
                           </button>
                         </RestfulForm>
                         <RestfulForm
                           method="DELETE"
                           action={routes.admin.clients.destroy.href({ id: row.id })}
                           data-delete-form={row.id}
-                          data-confirm="Delete this row?"
+                          data-confirm={`Kunde "${row.name}" wirklich löschen?`}
                           data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
                           <GridStateHiddenInputs state={gridState} />
-                          <button type="submit" title="Delete" mix={[actionSeg, actionSegDanger]}>
-                            <Glyph name="trash" width={13} height={13} /> Del
+                          <button
+                            type="submit"
+                            aria-label="Löschen"
+                            title="Löschen"
+                            mix={[actionSeg, actionSegDanger]}
+                          >
+                            <Glyph name="trash" width={13} height={13} />
                           </button>
                         </RestfulForm>
                       </div>
@@ -437,11 +458,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
-                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Prev
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Prev
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </span>
               )}
               {hasNext ? (
@@ -456,11 +477,11 @@ function ClientGridPage(handle: Handle<ClientGridPageProps>) {
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
-                  Next <Glyph name="chevronRight" width={14} height={14} />
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
               ) : (
                 <span mix={table.pageLinkDisabled}>
-                  Next <Glyph name="chevronRight" width={14} height={14} />
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </span>
               )}
             </div>

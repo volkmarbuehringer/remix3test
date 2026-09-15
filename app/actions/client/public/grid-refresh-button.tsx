@@ -1,12 +1,24 @@
 import { clientEntry, css, on, type Handle } from 'remix/ui'
+import { theme } from '../../../ui/theme/theme.ts'
 
-const smallBtnStyle = css({
-  minHeight: '1.75rem',
-  paddingInline: '0.5rem',
-  fontSize: '0.75rem',
+const refreshBtnStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  minHeight: theme.control.height.sm,
+  padding: `0 ${theme.space.md}`,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.md,
+  fontSize: theme.fontSize.sm,
   cursor: 'pointer',
-  background: 'none',
-  border: 'none',
+  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:disabled': { opacity: 0.6, cursor: 'default' },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: '1px',
+  },
 })
 
 /**
@@ -22,8 +34,9 @@ export const FrameRefreshButton = clientEntry(
     return () => (
       <button
         type="button"
+        disabled={pending}
         mix={[
-          smallBtnStyle,
+          refreshBtnStyle,
           on('click', async () => {
             if (pending) return
             pending = true
@@ -43,7 +56,7 @@ export const FrameRefreshButton = clientEntry(
           }),
         ]}
       >
-        {pending ? '⟳' : '↻ Refresh'}
+        {pending ? '⟳ Aktualisieren…' : '↻ Aktualisieren'}
       </button>
     )
   },

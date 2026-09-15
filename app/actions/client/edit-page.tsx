@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
-import button from '../../ui/theme/button.ts'
+import button, { buttonLink } from '../../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../../utils/motion.ts'
 import { input } from '../../ui/mixins/input.ts'
@@ -100,7 +100,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
           <div mix={table.panel}>
             <div mix={table.panelHeader}>
               <span mix={rowIdBadgeStyle}>#{row.id}</span>
-              <span mix={table.panelTitle}>Edit Record</span>
+              <span mix={table.panelTitle}>Kunde bearbeiten</span>
             </div>
 
             <div mix={table.panelBody}>
@@ -116,7 +116,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     Boolean,
                   )}
                   value={formValues?.name ?? row.name}
-                  placeholder="Enter full name"
+                  placeholder="Vollständigen Namen eingeben"
                   required
                   maxLength={100}
                 />
@@ -125,12 +125,12 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-email">
-                  Email <span mix={requiredStarStyle}>*</span>
+                  E-Mail <span mix={requiredStarStyle}>*</span>
                 </label>
                 <input
                   id="ef-email"
                   name="email"
-                  type="text"
+                  type="email"
                   mix={[
                     input.base,
                     input.focus,
@@ -146,7 +146,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-role">
-                  Role
+                  Rolle
                 </label>
                 <select id="ef-role" name="role" mix={[input.base, input.focus, selectStyle]}>
                   <option
@@ -180,7 +180,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     Viewer
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>User permission level</div>
+                <div mix={fieldHintStyle}>Berechtigungsstufe</div>
               </div>
 
               <div mix={table.fieldGroup}>
@@ -209,12 +209,12 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
                     Inactive
                   </option>
                 </select>
-                <div mix={fieldHintStyle}>Account activation state</div>
+                <div mix={fieldHintStyle}>Aktivierungsstatus</div>
               </div>
 
               <div mix={table.fieldGroup}>
                 <label mix={table.label} htmlFor="ef-registered">
-                  Registered <span mix={requiredStarStyle}>*</span>
+                  Registriert <span mix={requiredStarStyle}>*</span>
                 </label>
                 <input
                   id="ef-registered"
@@ -235,18 +235,19 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
 
               <div mix={table.actions}>
                 <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Save Changes
+                  Speichern
                 </button>
                 <a
-                  href={buildCancelUrl('/admin/clients', offset, sort, order, filter)}
-                  mix={[table.spacer, table.linkPlain]}
+                  href={buildCancelUrl(
+                    routes.admin.clients.index.href(),
+                    offset,
+                    sort,
+                    order,
+                    filter,
+                  )}
+                  mix={[buttonLink({ tone: 'secondary' }), table.spacer, css({ width: '100%' })]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Cancel
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>

@@ -38,6 +38,29 @@ function button(options: ButtonOptions = {}): ButtonMixin {
   return upstreamButton({ size, tone }) as unknown as ButtonMixin
 }
 
+/**
+ * `button()` styling for a link host. `remix/ui/button` applies its default
+ * `type="button"` behavior only to native `<button>` hosts; every other host
+ * receives styling only. This rebinds the host element type so a navigation link
+ * can be styled as a button instead of nesting a `<button>` inside an `<a>`
+ * (invalid HTML that also drops the link role for assistive tech).
+ */
+type AnchorButtonStyle = MixinDescriptor<HTMLAnchorElement, unknown[], ElementProps>
+
+type AnchorButtonMixin =
+  | readonly [AnchorButtonStyle, AnchorButtonStyle, AnchorButtonStyle, AnchorButtonStyle]
+  | readonly [
+      AnchorButtonStyle,
+      AnchorButtonStyle,
+      AnchorButtonStyle,
+      AnchorButtonStyle,
+      AnchorButtonStyle,
+    ]
+
+export function buttonLink(options: ButtonOptions = {}): AnchorButtonMixin {
+  return button(options) as unknown as AnchorButtonMixin
+}
+
 export default button
 
 const dangerStyle: CSSMixinDescriptor = css({
