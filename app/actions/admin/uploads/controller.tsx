@@ -41,6 +41,7 @@ import {
   idCellCss,
   filenameCellCss,
   sizeCellCss,
+  dateCellCss,
   mimeBadgeCss,
   emptyStateCss,
   emptyStateGlyph,
@@ -72,6 +73,9 @@ import {
   deleteUpload,
   deleteUploads,
   UPLOAD_SORT_FIELDS,
+  UPLOAD_KINDS,
+  isUploadKind,
+  type UploadKind,
   type UploadRow,
 } from '../../../data/uploads.ts'
 import { buildZipArchive } from '../../../utils/zip.ts'
@@ -97,9 +101,39 @@ import type { AppContext } from '../../../types/context.ts'
 
 const UPLOADS_PAGE_SIZE = 15
 
+/**
+ * German display label per MIME grouping. Typing this as `Record<UploadKind, …>`
+ * keeps it exhaustive: adding a value to `UPLOAD_KINDS` fails typecheck until a
+ * label exists, so the tabs can never drift from the query whitelist.
+ */
+const UPLOAD_KIND_LABELS: Record<UploadKind, string> = {
+  pdf: 'PDF',
+  image: 'Bilder',
+  text: 'Text',
+}
+
+/**
+ * Filter tabs for the uploads grid, derived from `UPLOAD_KINDS` so the query
+ * whitelist is the single source of truth. `undefined` is "Alle".
+ */
+const UPLOAD_KIND_TABS: { value: UploadKind | undefined; label: string }[] = [
+  { value: undefined, label: 'Alle' },
+  ...UPLOAD_KINDS.map((value) => ({ value, label: UPLOAD_KIND_LABELS[value] })),
+]
+
 function parseUploadPage(raw: string | null): number {
   let n = Number(raw)
   return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+/** URL `kind` parameter → a whitelisted MIME grouping, or undefined for "Alle". */
+function parseUploadKind(raw: string | null): UploadKind | undefined {
+  return isUploadKind(raw) ? raw : undefined
+}
+
+/** Display label for a whitelisted kind (used by the kind-aware empty state). */
+function uploadKindLabel(kind: UploadKind): string {
+  return UPLOAD_KIND_LABELS[kind]
 }
 
 function uploadErrorFromParam(code: string | null): string | null {
@@ -107,11 +141,17 @@ function uploadErrorFromParam(code: string | null): string | null {
   return uploadErrorMessages[code] ?? null
 }
 
+/**
+ * Build an uploads grid URL. The caller controls the page explicitly so a
+ * filtering change can reset to page 1 while sort/search/kind are preserved.
+ * Passing `deleted` also appends the post-delete banner count.
+ */
 function uploadsPageHref(
   page: number,
   sortColumn: string,
   sortDirection: 'asc' | 'desc',
   filter: string | undefined,
+  kind: UploadKind | undefined,
   deleted?: number | undefined,
 ): string {
   let params = new URLSearchParams()
@@ -119,6 +159,7 @@ function uploadsPageHref(
   params.set('sort', sortColumn)
   params.set('order', sortDirection)
   if (filter) params.set('filter', filter)
+  if (kind) params.set('kind', kind)
   let base = `${routes.admin.uploads.index.href()}?${params.toString()}`
   return deleted !== undefined ? `${base}&deleted=${deleted}` : base
 }
@@ -129,6 +170,7 @@ function uploadsSortHref(
   currentSort: string,
   currentOrder: 'asc' | 'desc',
   filter: string | undefined,
+  kind: UploadKind | undefined,
 ): string {
   let newOrder = field === currentSort ? (currentOrder === 'asc' ? 'desc' : 'asc') : 'asc'
   let params = new URLSearchParams()
@@ -136,7 +178,22 @@ function uploadsSortHref(
   params.set('order', newOrder)
   params.set('page', '1')
   if (filter) params.set('filter', filter)
+  if (kind) params.set('kind', kind)
   return `${routes.admin.uploads.index.href()}?${params.toString()}`
+}
+
+/**
+ * Kind-tab link. Selecting a MIME grouping always resets to page 1 — a stale
+ * page can be out of range for the narrower result set — and keeps the active
+ * search and sort.
+ */
+function uploadsKindHref(
+  kind: UploadKind | undefined,
+  sortColumn: string,
+  sortDirection: 'asc' | 'desc',
+  filter: string | undefined,
+): string {
+  return uploadsPageHref(1, sortColumn, sortDirection, filter, kind)
 }
 
 type UploadsGridOpts = {
@@ -144,6 +201,7 @@ type UploadsGridOpts = {
   sortColumn?: string | undefined
   sortDirection?: 'asc' | 'desc' | undefined
   filter?: string | undefined
+  kind?: UploadKind | undefined
   uploadedIds?: number[] | undefined
   uploadError?: string | null | undefined
   deletedCount?: number | undefined
@@ -170,6 +228,8 @@ async function renderUploadsPage(
       : Number(context.url.searchParams.get('deleted')) || 0
   let filter =
     opts.filter !== undefined ? opts.filter : context.url.searchParams.get('filter') || undefined
+  let kind =
+    opts.kind !== undefined ? opts.kind : parseUploadKind(context.url.searchParams.get('kind'))
   let pageSize = getPageSize(context.session, UPLOADS_PAGE_SIZE)
   let { column, direction } = parseSort(context.url, {
     allowedColumns: UPLOAD_SORT_FIELDS,
@@ -191,6 +251,7 @@ async function renderUploadsPage(
     sortColumn,
     sortDirection,
     filter,
+    kind,
   )
   let quota = await getUploadsQuotaUsage(context.db, user.role === 'admin' ? undefined : user.id)
   return renderAdminPage(
@@ -207,6 +268,7 @@ async function renderUploadsPage(
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       filter={filter}
+      kind={kind}
       quota={quota}
     />,
   )
@@ -358,8 +420,9 @@ export default createController(routes.admin.uploads, {
       let sortDirection: 'asc' | 'desc' =
         (form.get('_order') as string | null) === 'asc' ? 'asc' : 'desc'
       let filter = (form.get('_filter') as string | null) || undefined
+      let kind = parseUploadKind(form.get('_kind') as string | null)
 
-      return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter))
+      return redirect(uploadsPageHref(page, sortColumn, sortDirection, filter, kind))
     },
 
     async destroyMany(context) {
@@ -385,11 +448,19 @@ export default createController(routes.admin.uploads, {
       let sortDirection: 'asc' | 'desc' =
         (form.get('_order') as string | null) === 'asc' ? 'asc' : 'desc'
       let filter = (form.get('_filter') as string | null) || undefined
+      let kind = parseUploadKind(form.get('_kind') as string | null)
 
       // Only carry the count (and thus the banner) when rows were actually
       // removed; omitting it for a no-op keeps the redirect URL clean.
       return redirect(
-        uploadsPageHref(page, sortColumn, sortDirection, filter, deleted > 0 ? deleted : undefined),
+        uploadsPageHref(
+          page,
+          sortColumn,
+          sortDirection,
+          filter,
+          kind,
+          deleted > 0 ? deleted : undefined,
+        ),
       )
     },
 
@@ -410,6 +481,7 @@ type UploadsContentProps = {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  kind: UploadKind | undefined
   quota: {
     userUsedBytes: number
     userQuotaBytes: number | null
@@ -431,6 +503,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
       sortColumn,
       sortDirection,
       filter,
+      kind,
       quota,
     } = handle.props
 
@@ -518,21 +591,42 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               data-rmx-target={getSelfFrameTarget()}
               mix={filterBarCss}
             >
+              {/* Kind tabs reset to page 1 — a stale page can be out of range for
+                  the narrower result set — while preserving search and sort. */}
+              <span
+                mix={table.filterGroup}
+                data-kind-tabs
+                role="group"
+                aria-label="Nach Dateityp filtern"
+              >
+                {UPLOAD_KIND_TABS.map((tab) => (
+                  <a
+                    key={tab.label}
+                    href={uploadsKindHref(tab.value, sortColumn, sortDirection, filter)}
+                    data-rmx-target={getSelfFrameTarget()}
+                    aria-current={kind === tab.value ? 'true' : undefined}
+                    mix={[table.filterTab, kind === tab.value ? table.filterTabActive : undefined]}
+                  >
+                    {tab.label}
+                  </a>
+                ))}
+              </span>
               <input type="hidden" name="page" value="1" />
               <input type="hidden" name="sort" value={sortColumn} />
               <input type="hidden" name="order" value={sortDirection} />
+              {kind ? <input type="hidden" name="kind" value={kind} /> : null}
               <input
                 type="text"
                 name="filter"
-                placeholder="durchsuchen"
+                placeholder="Suche nach Dateiname oder Typ…"
                 defaultValue={filter ?? ''}
-                aria-label="Dateien durchsuchen"
+                aria-label="Dateien nach Name oder Typ durchsuchen"
                 mix={table.filterInput}
               />
               <button type="submit" mix={table.searchBtn}>
                 <Glyph name="search" width={14} height={14} /> Suchen
               </button>
-              {filter ? (
+              {filter || kind ? (
                 <a
                   href={routes.admin.uploads.index.href()}
                   data-rmx-target={getSelfFrameTarget()}
@@ -558,6 +652,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
                     filter={filter}
+                    kind={kind}
                   />
                   <div mix={bulkToolbarCss}>
                     <span mix={selectedCountCss} data-selected-count>
@@ -602,7 +697,11 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
           <UploadBulkDownload />
           {uploads.length > 0 ? (
             <div mix={tableScrollCss}>
-              <table mix={tableCss} data-uploads-table="true" data-selection-scope={filter ?? ''}>
+              <table
+                mix={tableCss}
+                data-uploads-table="true"
+                data-selection-scope={`${kind ?? ''}::${filter ?? ''}`}
+              >
                 <thead>
                   <tr>
                     <th mix={thCheckboxCss}>
@@ -614,7 +713,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     </th>
                     <th aria-sort={sortRule('id', sortColumn, sortDirection)} mix={thIdCss}>
                       <a
-                        href={uploadsSortHref('id', sortColumn, sortDirection, filter)}
+                        href={uploadsSortHref('id', sortColumn, sortDirection, filter, kind)}
                         data-rmx-target={getSelfFrameTarget()}
                         mix={sortLinkCss}
                       >
@@ -626,7 +725,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     </th>
                     <th aria-sort={sortRule('filename', sortColumn, sortDirection)}>
                       <a
-                        href={uploadsSortHref('filename', sortColumn, sortDirection, filter)}
+                        href={uploadsSortHref('filename', sortColumn, sortDirection, filter, kind)}
                         data-rmx-target={getSelfFrameTarget()}
                         mix={sortLinkCss}
                       >
@@ -641,7 +740,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       mix={thTypeCss}
                     >
                       <a
-                        href={uploadsSortHref('mime_type', sortColumn, sortDirection, filter)}
+                        href={uploadsSortHref('mime_type', sortColumn, sortDirection, filter, kind)}
                         data-rmx-target={getSelfFrameTarget()}
                         mix={sortLinkCss}
                       >
@@ -653,7 +752,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                     </th>
                     <th aria-sort={sortRule('size', sortColumn, sortDirection)} mix={thSizeCss}>
                       <a
-                        href={uploadsSortHref('size', sortColumn, sortDirection, filter)}
+                        href={uploadsSortHref('size', sortColumn, sortDirection, filter, kind)}
                         data-rmx-target={getSelfFrameTarget()}
                         mix={sortLinkCss}
                       >
@@ -668,7 +767,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                       mix={thDateCss}
                     >
                       <a
-                        href={uploadsSortHref('created_at', sortColumn, sortDirection, filter)}
+                        href={uploadsSortHref(
+                          'created_at',
+                          sortColumn,
+                          sortDirection,
+                          filter,
+                          kind,
+                        )}
                         data-rmx-target={getSelfFrameTarget()}
                         mix={sortLinkCss}
                       >
@@ -704,7 +809,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                         </span>
                       </td>
                       <td mix={sizeCellCss}>{formatSize(u.size)}</td>
-                      <td>
+                      <td mix={dateCellCss}>
                         <span title={new Date(u.created_at).toLocaleString('de-DE')}>
                           {formatRelativeTimeDE(u.created_at)}
                         </span>
@@ -735,6 +840,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
                               sortColumn={sortColumn}
                               sortDirection={sortDirection}
                               filter={filter}
+                              kind={kind}
                             />
                             <button
                               type="submit"
@@ -756,9 +862,13 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             <div mix={emptyStateCss}>
               <div mix={emptyStateGlyph}>{uploadIcon()}</div>
               <p mix={bodyTextCss}>
-                {filter
-                  ? 'Keine Dateien gefunden für diese Suche.'
-                  : 'Noch keine Dateien hochgeladen. Ziehen Sie eine Datei hierher oder wählen Sie eine aus.'}
+                {filter && kind
+                  ? 'Keine Dateien für diese Suche und diesen Typ gefunden.'
+                  : filter
+                    ? 'Keine Dateien gefunden für diese Suche.'
+                    : kind
+                      ? `Keine Dateien vom Typ „${uploadKindLabel(kind)}“ gefunden.`
+                      : 'Noch keine Dateien hochgeladen. Ziehen Sie eine Datei hierher oder wählen Sie eine aus.'}
               </p>
             </div>
           )}
@@ -770,7 +880,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
             <div mix={paginationButtonsCss}>
               {page > 1 ? (
                 <a
-                  href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter)}
+                  href={uploadsPageHref(page - 1, sortColumn, sortDirection, filter, kind)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                   aria-label={`Seite ${page - 1}`}
@@ -782,7 +892,7 @@ function UploadsContent(handle: { props: UploadsContentProps }) {
               )}
               {page < totalPages ? (
                 <a
-                  href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter)}
+                  href={uploadsPageHref(page + 1, sortColumn, sortDirection, filter, kind)}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                   aria-label={`Seite ${page + 1}`}
@@ -807,21 +917,23 @@ type UploadsGridStateHiddenInputsProps = {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  kind: UploadKind | undefined
 }
 
 /** Carries the uploads grid state through a delete submit so the post-delete
- * redirect lands back on the same page/sort/order/filter view. Unlike the
+ * redirect lands back on the same page/sort/order/filter/kind view. Unlike the
  * shared {@link GridStateHiddenInputs} (offset-based), uploads paginates by
  * page number, so it emits `_page` instead of `_offset`. */
 function UploadsGridStateHiddenInputs(handle: Handle<UploadsGridStateHiddenInputsProps>) {
   return () => {
-    let { page, sortColumn, sortDirection, filter } = handle.props
+    let { page, sortColumn, sortDirection, filter, kind } = handle.props
     return (
       <>
         <input type="hidden" name="_page" value={page} />
         <input type="hidden" name="_sort" value={sortColumn} />
         <input type="hidden" name="_order" value={sortDirection} />
         <input type="hidden" name="_filter" value={filter ?? ''} />
+        <input type="hidden" name="_kind" value={kind ?? ''} />
       </>
     )
   }

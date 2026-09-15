@@ -341,7 +341,11 @@ describe('Admin Uploads controller', () => {
     assert.ok(html.includes('test-filt-2.txt'), 'matching upload should appear')
     assert.ok(!html.includes('test-filt-1.txt'), 'non-matching upload should be excluded')
     assert.ok(!html.includes('test-filt-3.txt'), 'non-matching upload should be excluded')
-    assert.ok(html.includes('durchsuchen'), 'filter box should render the durchsuchen input')
+    assert.ok(
+      html.includes('Suche nach Dateiname oder Typ'),
+      'filter box should render the descriptive search input',
+    )
+    assert.ok(html.includes('data-kind-tabs'), 'filter box should render the kind tabs')
   })
 
   it('GET /admin/uploads shows a no-match message when the filter finds nothing', async () => {
@@ -358,6 +362,175 @@ describe('Admin Uploads controller', () => {
       html.includes('Keine Dateien gefunden für diese Suche.'),
       'filtered empty state should be shown',
     )
+  })
+
+  it('GET /admin/uploads?kind=pdf filters to PDF uploads', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let specs: [string, string][] = [
+      ['test-kind-doc.pdf', 'application/pdf'],
+      ['test-kind-note.txt', 'text/plain'],
+      ['test-kind-photo.png', 'image/png'],
+    ]
+    let ids: number[] = []
+    for (let [filename, mimeType] of specs) {
+      let id = await insertUpload(db, {
+        filename,
+        mimeType,
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+      ids.push(Number(id))
+    }
+    let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
+    if (!claimed) throw new Error('Could not claim test uploads')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?kind=pdf&sort=created_at&order=desc&page=1`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('data-kind-tabs'), 'kind tabs should render')
+    assert.ok(html.includes('test-kind-doc.pdf'), 'the PDF should appear under the PDF tab')
+    assert.ok(!html.includes('test-kind-note.txt'), 'text uploads should be filtered out')
+    assert.ok(!html.includes('test-kind-photo.png'), 'image uploads should be filtered out')
+  })
+
+  it('GET /admin/uploads kind filter matches the image and text families', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let imageId = Number(
+      await insertUpload(db, {
+        filename: 'test-kindfam-image.webp',
+        mimeType: 'image/webp',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let textId = Number(
+      await insertUpload(db, {
+        filename: 'test-kindfam-data.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [imageId, textId], userId, Number.MAX_SAFE_INTEGER)
+
+    let imageResponse = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?kind=image`,
+      { headers: { Cookie: session.cookie } },
+    )
+    let imageHtml = await imageResponse.text()
+    assert.ok(imageHtml.includes('test-kindfam-image.webp'), 'image/* should match the Bilder tab')
+    assert.ok(!imageHtml.includes('test-kindfam-data.json'), 'JSON should not match Bilder')
+
+    let textResponse = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?kind=text`, {
+      headers: { Cookie: session.cookie },
+    })
+    let textHtml = await textResponse.text()
+    assert.ok(textHtml.includes('test-kindfam-data.json'), 'JSON should match the Text tab')
+    assert.ok(!textHtml.includes('test-kindfam-image.webp'), 'images should not match Text')
+  })
+
+  it('GET /admin/uploads ignores an unknown kind and intersects kind with the search', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let pdfId = Number(
+      await insertUpload(db, {
+        filename: 'test-kindcombo-a.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    let textId = Number(
+      await insertUpload(db, {
+        filename: 'test-kindcombo-b.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [pdfId, textId], userId, Number.MAX_SAFE_INTEGER)
+
+    // An unrecognised kind must not narrow or break the grid (falls back to all).
+    let unknown = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?kind=bogus`, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(unknown.status, 200)
+    let unknownHtml = await unknown.text()
+    assert.ok(unknownHtml.includes('test-kindcombo-a.pdf'))
+    assert.ok(unknownHtml.includes('test-kindcombo-b.txt'))
+
+    // kind + filter intersect: only the PDF matching the search survives.
+    let combined = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?kind=pdf&filter=test-kindcombo`,
+      { headers: { Cookie: session.cookie } },
+    )
+    let combinedHtml = await combined.text()
+    assert.ok(combinedHtml.includes('test-kindcombo-a.pdf'))
+    assert.ok(!combinedHtml.includes('test-kindcombo-b.txt'))
+  })
+
+  it('GET /admin/uploads shows a kind-aware empty state', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let response = await router.fetch(
+      `${BASE}${routes.admin.uploads.index.href()}?kind=image&filter=zzz-no-such-upload`,
+      { headers: { Cookie: session.cookie } },
+    )
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(
+      html.includes('Keine Dateien für diese Suche und diesen Typ gefunden.'),
+      'kind + search empty state should be shown',
+    )
+  })
+
+  it('POST /admin/uploads/:id/delete preserves the active kind on redirect', async () => {
+    let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!session) throw new Error('Could not create auth session')
+
+    let id = Number(
+      await insertUpload(db, {
+        filename: 'test-kind-del.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      }),
+    )
+    await claimUploads(db, [id], userId, Number.MAX_SAFE_INTEGER)
+
+    let formData = new FormData()
+    formData.set('_csrf', session.csrfToken)
+    formData.set('_page', '1')
+    formData.set('_sort', 'created_at')
+    formData.set('_order', 'desc')
+    formData.set('_filter', '')
+    formData.set('_kind', 'pdf')
+
+    let response = await router.fetch(`${BASE}${routes.admin.uploads.destroy.href({ id })}`, {
+      method: 'POST',
+      headers: { Cookie: session.cookie },
+      body: formData,
+      redirect: 'manual',
+    })
+
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location') ?? ''
+    assert.ok(location.includes('kind=pdf'), 'redirect should preserve the active kind')
   })
 
   it('GET /admin/uploads renders a delete button and context-menu trigger per row', async () => {

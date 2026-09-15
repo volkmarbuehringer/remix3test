@@ -199,6 +199,99 @@ describe('uploads', () => {
     assert.equal(rows[0]!.filename, 'test-id-only.txt')
   })
 
+  it('listUploads filters by upload kind', async () => {
+    await insertUpload(db, {
+      filename: 'test-kind-data.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('p'),
+      size: 1,
+      now: Date.now(),
+    })
+    await insertUpload(db, {
+      filename: 'test-kind-data.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('i'),
+      size: 1,
+      now: Date.now(),
+    })
+    await insertUpload(db, {
+      filename: 'test-kind-data.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('t'),
+      size: 1,
+      now: Date.now(),
+    })
+
+    // The grid store also holds seed rows, so scope every assertion to the
+    // fixture filenames instead of relying on an empty table.
+    let byKind = async (kind: 'pdf' | 'image' | 'text') =>
+      (await listUploads(db, undefined, { kind }))
+        .map((r) => r.filename)
+        .filter((name) => name.startsWith('test-kind-data'))
+
+    assert.deepEqual(await byKind('pdf'), ['test-kind-data.pdf'])
+    assert.deepEqual(await byKind('image'), ['test-kind-data.png'])
+    assert.deepEqual(await byKind('text'), ['test-kind-data.txt'])
+  })
+
+  it('getUploadsPage counts and paginates within an upload kind', async () => {
+    for (let i = 1; i <= 3; i++) {
+      await insertUpload(db, {
+        filename: `test-kindpage-${i}.pdf`,
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('x'),
+        size: 1,
+        now: Date.now(),
+      })
+    }
+    await insertUpload(db, {
+      filename: 'test-kindpage-photo.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from('x'),
+      size: 1,
+      now: Date.now(),
+    })
+
+    let pdf = await getUploadsPage(
+      db,
+      undefined,
+      1,
+      20,
+      'created_at',
+      'desc',
+      'test-kindpage',
+      'pdf',
+    )
+    assert.equal(pdf.total, 3)
+    assert.ok(pdf.rows.every((r) => r.mime_type === 'application/pdf'))
+
+    let image = await getUploadsPage(
+      db,
+      undefined,
+      1,
+      20,
+      'created_at',
+      'desc',
+      'test-kindpage',
+      'image',
+    )
+    assert.equal(image.total, 1)
+    assert.equal(image.rows[0]!.filename, 'test-kindpage-photo.png')
+
+    let twoUp = await getUploadsPage(
+      db,
+      undefined,
+      1,
+      2,
+      'created_at',
+      'desc',
+      'test-kindpage',
+      'pdf',
+    )
+    assert.equal(twoUp.totalPages, 2)
+    assert.equal(twoUp.rows.length, 2)
+  })
+
   it('getUploadsPage counts only matching rows', async () => {
     for (let i = 1; i <= 3; i++) {
       await insertUpload(db, {

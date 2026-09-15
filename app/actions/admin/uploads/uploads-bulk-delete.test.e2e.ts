@@ -120,5 +120,28 @@ describe('admin uploads: multirow delete banner', () => {
       1,
       'the unselected upload should remain',
     )
+
+    // Regression: a second bulk delete right after the first must also work. The
+    // frame reload replaces the form/table, so the clientEntry has to re-attach
+    // to the new nodes — otherwise selecting rows a second time leaves the
+    // button disabled and nothing can be deleted.
+    page.once('dialog', (dialog) => {
+      dialog.accept()
+    })
+    await page.locator('[data-upload-filename="test-e2e-3.txt"] input[name="ids"]').check()
+    await page.locator('[data-selected-count]').filter({ hasText: '1 ausgewählt' }).waitFor({
+      timeout: 10_000,
+    })
+    await bulkButton.click()
+    let secondBanner = page
+      .locator('[data-deleted-banner]')
+      .filter({ hasText: '1 Datei gelöscht.' })
+    await secondBanner.waitFor({ timeout: 15_000 })
+    assert.equal(await secondBanner.textContent(), '1 Datei gelöscht.')
+    assert.equal(
+      await page.locator('[data-upload-filename="test-e2e-3.txt"]').count(),
+      0,
+      'the last upload should be gone after the second delete',
+    )
   })
 })

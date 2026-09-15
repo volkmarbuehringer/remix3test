@@ -35,6 +35,39 @@ export interface UploadRow {
 export const UPLOAD_SORT_FIELDS = ['id', 'filename', 'mime_type', 'size', 'created_at'] as const
 
 /**
+ * MIME groupings the uploads grid can be filtered by. Each value maps to a
+ * static WHERE fragment (see {@link kindCondition}) rather than an interpolated
+ * value, so a URL-driven kind can never inject SQL. Shared with the controller
+ * so its filter tabs stay in sync with the query layer.
+ */
+export const UPLOAD_KINDS = ['pdf', 'image', 'text'] as const
+
+export type UploadKind = (typeof UPLOAD_KINDS)[number]
+
+/** Type guard: true when `value` is one of the whitelisted upload kinds. */
+export function isUploadKind(value: string | null | undefined): value is UploadKind {
+  return value != null && (UPLOAD_KINDS as readonly string[]).includes(value)
+}
+
+/**
+ * Static WHERE fragment for an upload kind. `text` covers every plain-text
+ * family MIME the upload policy accepts (text/plain, CSV, JSON, XML); `image`
+ * matches any `image/*`. Returns null for an absent/unknown kind (no filter).
+ */
+function kindCondition(kind: UploadKind | undefined): string | null {
+  switch (kind) {
+    case 'pdf':
+      return `mime_type = 'application/pdf'`
+    case 'image':
+      return `mime_type LIKE 'image/%'`
+    case 'text':
+      return `mime_type IN ('text/plain', 'text/csv', 'application/json', 'application/xml', 'text/xml')`
+    default:
+      return null
+  }
+}
+
+/**
  * Build a safe ORDER BY SqlStatement for the uploads grid. A column that is not
  * in {@link UPLOAD_SORT_FIELDS} is never interpolated (so a URL-driven value
  * cannot inject SQL) and falls back to the store's default newest-first order;
@@ -51,16 +84,19 @@ function orderByStatement(sortColumn: string, sortDirection: 'asc' | 'desc'): Sq
 /**
  * Build a safe WHERE SqlStatement for the uploads grid. Combines the optional
  * per-user ownership restriction with an optional search filter (all values are
- * parameterized). A numeric filter matches the row id exactly; any other filter
- * matches filename or mime_type with a case-insensitive substring search.
+ * parameterized) and an optional MIME kind (a static, whitelisted fragment). A
+ * numeric filter matches the row id exactly; any other filter matches filename
+ * or mime_type with a case-insensitive substring search.
  */
-function whereStatement(userId?: number, filter?: string): SqlStatement {
+function whereStatement(userId?: number, filter?: string, kind?: UploadKind): SqlStatement {
   let conditions: string[] = []
   let values: unknown[] = []
   if (userId !== undefined) {
     conditions.push('uploaded_by = ?')
     values.push(userId)
   }
+  let kindSql = kindCondition(kind)
+  if (kindSql) conditions.push(kindSql)
   let trimmed = filter?.trim()
   if (trimmed) {
     if (/^\d+$/.test(trimmed)) {
@@ -92,11 +128,19 @@ export async function listUploads(
     sortColumn?: string | undefined
     sortDirection?: 'asc' | 'desc' | undefined
     filter?: string | undefined
+    kind?: UploadKind | undefined
   } = {},
 ): Promise<UploadRow[]> {
-  let { limit = 100, offset = 0, sortColumn = 'created_at', sortDirection = 'desc', filter } = opts
+  let {
+    limit = 100,
+    offset = 0,
+    sortColumn = 'created_at',
+    sortDirection = 'desc',
+    filter,
+    kind,
+  } = opts
   let orderBy = orderByStatement(sortColumn, sortDirection)
-  let where = whereStatement(userId, filter)
+  let where = whereStatement(userId, filter, kind)
   let rows = await queryRows(
     db,
     sql`SELECT id, filename, mime_type, size, created_at FROM uploads ${where} ${orderBy} LIMIT ${limit} OFFSET ${offset}`,
@@ -111,13 +155,17 @@ export async function listUploads(
   }))
 }
 
-/** Total number of uploads, optionally limited to one user's claims or a search filter. */
+/**
+ * Total number of uploads, optionally limited to one user's claims, a search
+ * filter, or a MIME kind.
+ */
 export async function countUploads(
   db: Database,
   userId?: number,
   filter?: string,
+  kind?: UploadKind,
 ): Promise<number> {
-  let where = whereStatement(userId, filter)
+  let where = whereStatement(userId, filter, kind)
   let row = await queryRow(
     db,
     sql`SELECT COUNT(*) AS total FROM uploads ${where}`,
@@ -130,9 +178,10 @@ export async function countUploads(
  * Fetch one page of uploads with its total count and page count. `page` is
  * 1-based and `pageSize` is the configured page size (session-aware).
  * `sortColumn`/`sortDirection` control ordering (default newest-first) and
- * `filter` narrows the result set (and the total used for pagination). The page
- * is clamped to the valid range and the effective page is returned so callers
- * can render the controls against the page actually displayed.
+ * `filter` narrows the result set (and the total used for pagination) and
+ * `kind` restricts it to one MIME grouping. The page is clamped to the valid
+ * range and the effective page is returned so callers can render the controls
+ * against the page actually displayed.
  */
 export async function getUploadsPage(
   db: Database,
@@ -142,8 +191,9 @@ export async function getUploadsPage(
   sortColumn?: string | undefined,
   sortDirection?: 'asc' | 'desc' | undefined,
   filter?: string | undefined,
+  kind?: UploadKind | undefined,
 ): Promise<{ rows: UploadRow[]; total: number; totalPages: number; page: number }> {
-  let total = await countUploads(db, userId, filter)
+  let total = await countUploads(db, userId, filter, kind)
   let totalPages = Math.max(1, Math.ceil(total / pageSize))
   let safePage = Math.min(Math.max(1, page), totalPages)
   let offset = (safePage - 1) * pageSize
@@ -153,6 +203,7 @@ export async function getUploadsPage(
     sortColumn,
     sortDirection,
     filter,
+    kind,
   })
   return { rows, total, totalPages, page: safePage }
 }

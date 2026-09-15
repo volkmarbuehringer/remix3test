@@ -266,7 +266,9 @@ export const thTypeCss = css({ width: '80px' })
 
 export const thSizeCss = css({ width: '84px' })
 
-export const thDateCss = css({ width: '104px' })
+// Wide enough for an absolute German date ("Mo., 07.09.2026") on one line, so
+// the Datum column never wraps and every row keeps the same height.
+export const thDateCss = css({ width: '120px' })
 
 export const thCheckboxCss = css({
   width: '36px',
@@ -437,6 +439,11 @@ export const filenameCellCss = css({
 })
 
 export const sizeCellCss = css({ whiteSpace: 'nowrap' })
+
+// The date cell never wraps: relative values ("vor 5 Tagen") are short, but the
+// absolute fallback for older uploads ("Mo., 07.09.2026") would otherwise break
+// onto two lines and bump the row height by ~4px.
+export const dateCellCss = css({ whiteSpace: 'nowrap' })
 
 export const mimeBadgeCss = css({
   display: 'inline-flex',
@@ -640,4 +647,8 @@ export const clearSelectionBtnCss = css({
   cursor: 'pointer',
   textDecoration: 'underline',
   '&:hover': { color: theme.colors.text.primary },
+  // The button is toggleable via its `hidden` attribute; without this guard the
+  // author `display: inline-flex` above beats the UA `[hidden]{display:none}`
+  // rule and "Auswahl aufheben" stays visible with nothing selected.
+  '&[hidden]': { display: 'none' },
 })

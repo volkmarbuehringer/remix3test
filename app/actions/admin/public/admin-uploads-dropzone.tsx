@@ -46,6 +46,13 @@ const chipRemoveStyle = {
   lineHeight: 1,
 } as const
 
+// Not-yet-submitted file selection, kept at module scope so it survives a Frame
+// DOM replacement. A frame reload (upload response, SSE invalidate, sort/filter)
+// replaces the `<input type="file">`, and the browser's selected files — bound to
+// the replaced node — are lost, which left "Hochladen" disabled after a second
+// trial. `onSubmit` clears this so an uploaded batch is never re-applied.
+let pendingFiles: File[] = []
+
 /**
  * ClientEntry that enhances the uploads upload form (`[data-upload-form]`):
  *
@@ -66,252 +73,299 @@ const chipRemoveStyle = {
  * unchanged — this entry only adds the UI layer on top. `required` is left off
  * the input and the empty-selection case is handled here (and, as a no-JS
  * fallback, by the server's "Upload fehlgeschlagen" banner).
+ *
+ * Listener lifetime: a Frame navigation replaces the server-rendered form, but
+ * the entry's hidden host node can be reused (so `ref` does not fire). `init()`
+ * re-resolves the current form on every frame `reloadComplete` and aborts the
+ * previous attachment, which also resets the in-flight `uploading` state — a
+ * stale in-flight flag would otherwise keep "Hochladen" disabled after a frame
+ * update that reused the DOM.
  */
 export const UploadDropzone = clientEntry(
   import.meta.url + '#UploadDropzone',
   function UploadDropzone(handle: Handle) {
+    let controller: AbortController | null = null
+
+    function init() {
+      let form = document.querySelector<HTMLFormElement>('[data-upload-form]')
+      if (!form) return
+      let input = form.querySelector<HTMLInputElement>('[data-file-input]')
+      let dropzone = form.querySelector<HTMLElement>('[data-dropzone]')
+      let list = form.querySelector<HTMLUListElement>('[data-pending-list]')
+      let validation = form.querySelector<HTMLElement>('[data-upload-validation]')
+      let submit = form.querySelector<HTMLButtonElement>('[data-upload-submit]')
+      if (!input || !dropzone || !list || !validation || !submit) return
+
+      // Query before aborting: a transient init (the hidden host is inserted
+      // before the server-rendered form, or a mid-replacement frame) must not
+      // tear down the live listeners without replacing them — that left the
+      // submit stuck disabled after selecting files.
+      controller?.abort()
+      let ac = new AbortController()
+      controller = ac
+      // In-flight state is per-init so a frame reload always clears a stuck
+      // "Hochladen …" flag from the previous form.
+      let uploading = false
+
+      function selectedFiles(): File[] {
+        return Array.from(input!.files ?? [])
+      }
+
+      function fileKey(file: File): string {
+        return `${file.name}:${file.size}:${file.lastModified}`
+      }
+
+      function setBusy(busy: boolean) {
+        uploading = busy
+        if (busy) form!.dataset.uploading = 'true'
+        else delete form!.dataset.uploading
+        dropzone!.toggleAttribute('data-disabled', busy)
+        submit!.setAttribute('aria-busy', String(busy))
+        let idle = submit!.querySelector('[data-upload-idle]')
+        let busyEl = submit!.querySelector('[data-upload-busy]')
+        if (idle) idle.toggleAttribute('hidden', busy)
+        if (busyEl) busyEl.toggleAttribute('hidden', !busy)
+        if (busy) {
+          // Defer the disable until after the submit event has fully
+          // propagated, so the Frame runtime reads the submitter while it is
+          // still enabled (independent of listener registration order). The
+          // button stays disabled until the frame re-renders the form.
+          setTimeout(() => {
+            submit!.disabled = true
+          }, 0)
+        } else {
+          submit!.disabled = false
+        }
+      }
+
+      function syncSubmitState(files: File[]) {
+        let error = validateUploadFiles(
+          files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+        )
+        if (error) {
+          validation!.textContent = error
+          validation!.removeAttribute('hidden')
+        } else {
+          validation!.textContent = ''
+          validation!.setAttribute('hidden', '')
+        }
+        // Enable the submit button only when a valid batch is selected and an
+        // upload is not already in flight.
+        return files.length > 0 && error == null && !uploading
+      }
+
+      function renderPending() {
+        let files = selectedFiles()
+        list!.innerHTML = ''
+        if (files.length === 0) {
+          list!.setAttribute('hidden', '')
+        } else {
+          list!.removeAttribute('hidden')
+        }
+
+        for (let [i, file] of files.entries()) {
+          let li = document.createElement('li')
+          Object.assign(li.style, chipStyle)
+          li.setAttribute('data-pending-file', String(file.size))
+
+          let name = document.createElement('span')
+          Object.assign(name.style, chipNameStyle)
+          name.textContent = file.name
+          li.appendChild(name)
+
+          let size = document.createElement('span')
+          Object.assign(size.style, chipSizeStyle)
+          size.textContent = formatBytes(file.size)
+          li.appendChild(size)
+
+          let remove = document.createElement('button')
+          remove.type = 'button'
+          Object.assign(remove.style, chipRemoveStyle)
+          remove.setAttribute('aria-label', `${file.name} entfernen`)
+          remove.textContent = '×'
+          remove.addEventListener('click', () => removeFile(i), { signal: ac.signal })
+          li.appendChild(remove)
+
+          list!.appendChild(li)
+        }
+
+        submit!.disabled = !syncSubmitState(files)
+        pendingFiles = files
+      }
+
+      function setInputFiles(files: File[]) {
+        let dt = new DataTransfer()
+        for (let file of files) dt.items.add(file)
+        input!.files = dt.files
+      }
+
+      function removeFile(index: number) {
+        let files = selectedFiles()
+        if (index >= files.length) return
+        files.splice(index, 1)
+        setInputFiles(files)
+        renderPending()
+      }
+
+      function addFiles(incoming: FileList) {
+        let current = Array.from(selectedFiles())
+        let keys = new Set(current.map(fileKey))
+        for (let file of Array.from(incoming)) {
+          if (!keys.has(fileKey(file))) {
+            current.push(file)
+            keys.add(fileKey(file))
+          }
+        }
+        setInputFiles(current)
+        renderPending()
+      }
+
+      function onChange() {
+        renderPending()
+      }
+
+      function onSubmit(event: Event) {
+        let files = selectedFiles()
+
+        if (files.length === 0) {
+          validation!.textContent = 'Keine Dateien ausgewählt.'
+          validation!.removeAttribute('hidden')
+          event.preventDefault()
+          return
+        }
+
+        let error = validateUploadFiles(
+          files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+        )
+        if (error) {
+          validation!.textContent = error
+          validation!.removeAttribute('hidden')
+          event.preventDefault()
+          return
+        }
+
+        // Double-submit guard: the Frame runtime handles the first valid
+        // submission; any further submit while it is in flight is blocked.
+        if (uploading) {
+          event.preventDefault()
+          return
+        }
+        // This batch is being uploaded, so the post-upload init must not restore
+        // it (see `pendingFiles`).
+        pendingFiles = []
+        setBusy(true)
+      }
+
+      function onDragOver(event: Event) {
+        event.preventDefault()
+        dropzone!.dataset.dragover = 'true'
+      }
+
+      function onDragLeave(event: Event) {
+        event.preventDefault()
+        delete dropzone!.dataset.dragover
+      }
+
+      function onDrop(event: Event) {
+        event.preventDefault()
+        delete dropzone!.dataset.dragover
+        let data = (event as DragEvent).dataTransfer
+        if (data && data.files.length > 0) addFiles(data.files)
+      }
+
+      // The dashed box already shows `cursor: pointer`, so clicking anywhere
+      // in it should open the picker like the label does. Clicks routed
+      // through the label (or the input itself) are left to the native
+      // behaviour, otherwise the picker would open twice.
+      function onDropzoneClick(event: Event) {
+        let target = event.target as HTMLElement | null
+        if (target && (target.closest('label') || target === input)) return
+        event.preventDefault()
+        input!.click()
+      }
+
+      // Drops outside the dropzone fall through to the browser, which would
+      // navigate away and open the file. Cancel those and say where the file
+      // should go instead.
+      //
+      // Only drags that actually carry files are cancelled: cancelling
+      // `dragover` is what marks an element as a valid drop target, so
+      // doing it for every drag would also swallow unrelated native drops
+      // (e.g. dragging selected text into the search field).
+      function carriesFiles(event: DragEvent): boolean {
+        return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+      }
+
+      function onDocumentDragOver(event: DragEvent) {
+        if (carriesFiles(event)) event.preventDefault()
+      }
+
+      function onDocumentDrop(event: DragEvent) {
+        if (!carriesFiles(event)) return
+        event.preventDefault()
+        let target = event.target as Node | null
+        if (target && dropzone!.contains(target)) return
+        validation!.textContent = 'Bitte Dateien in das Feld oben ziehen.'
+        validation!.removeAttribute('hidden')
+      }
+
+      input.addEventListener('change', onChange, { signal: ac.signal })
+      dropzone.addEventListener('dragover', onDragOver, { signal: ac.signal })
+      dropzone.addEventListener('dragenter', onDragOver, { signal: ac.signal })
+      dropzone.addEventListener('dragleave', onDragLeave, { signal: ac.signal })
+      dropzone.addEventListener('drop', onDrop, { signal: ac.signal })
+      dropzone.addEventListener('click', onDropzoneClick, { signal: ac.signal })
+      document.addEventListener('dragover', onDocumentDragOver, { signal: ac.signal })
+      document.addEventListener('drop', onDocumentDrop, { signal: ac.signal })
+      form.addEventListener('submit', onSubmit, { signal: ac.signal })
+
+      // Restore a selection lost to a Frame DOM replacement so the submit button
+      // is not left disabled with the user's files gone. An uploaded batch was
+      // cleared in onSubmit, so it is never restored.
+      if ((input.files?.length ?? 0) === 0 && pendingFiles.length > 0) {
+        setInputFiles(pendingFiles)
+      }
+
+      renderPending()
+
+      // Hydration signal for e2e: the clientEntry attaches listeners
+      // asynchronously after the form renders, so tests wait for this
+      // attribute before interacting to avoid a hydration race.
+      form.dataset.dropzoneReady = 'true'
+    }
+
+    if (typeof document !== 'undefined') {
+      handle.frame.addEventListener('reloadComplete', init, { signal: handle.signal })
+
+      // Safety net: if a file selection lands while this entry is not attached
+      // to the current form (e.g. the hidden host node was reused across a frame
+      // update, so `ref` did not fire), re-init. `init()` resolves the live form
+      // and refreshes the submit state from `input.files`, so selecting files
+      // can never leave "Hochladen" disabled. Scoped to the upload input so
+      // unrelated change events elsewhere on the page are ignored.
+      document.addEventListener(
+        'change',
+        (event) => {
+          let target = event.target
+          if (target instanceof HTMLInputElement && target.matches('[data-file-input]')) init()
+        },
+        { signal: handle.signal },
+      )
+    }
+    handle.signal.addEventListener('abort', () => {
+      controller?.abort()
+      controller = null
+    })
+
     return () => (
       <div
         mix={[
           css({ display: 'none' }),
-          ref((_el) => {
-            let formNode = document.querySelector<HTMLFormElement>('[data-upload-form]')
-            if (!formNode) return
-            let form = formNode
-            let input = form.querySelector<HTMLInputElement>('[data-file-input]')!
-            let dropzone = form.querySelector<HTMLElement>('[data-dropzone]')!
-            let list = form.querySelector<HTMLUListElement>('[data-pending-list]')!
-            let validation = form.querySelector<HTMLElement>('[data-upload-validation]')!
-            let submit = form.querySelector<HTMLButtonElement>('[data-upload-submit]')!
-
-            let uploading = false
-
-            function selectedFiles(): File[] {
-              return Array.from(input.files ?? [])
-            }
-
-            function fileKey(file: File): string {
-              return `${file.name}:${file.size}:${file.lastModified}`
-            }
-
-            function setBusy(busy: boolean) {
-              uploading = busy
-              if (busy) form.dataset.uploading = 'true'
-              else delete form.dataset.uploading
-              dropzone.toggleAttribute('data-disabled', busy)
-              submit.setAttribute('aria-busy', String(busy))
-              let idle = submit.querySelector('[data-upload-idle]')
-              let busyEl = submit.querySelector('[data-upload-busy]')
-              if (idle) idle.toggleAttribute('hidden', busy)
-              if (busyEl) busyEl.toggleAttribute('hidden', !busy)
-              if (busy) {
-                // Defer the disable until after the submit event has fully
-                // propagated, so the Frame runtime reads the submitter while it is
-                // still enabled (independent of listener registration order). The
-                // button stays disabled until the frame re-renders the form.
-                setTimeout(() => {
-                  submit.disabled = true
-                }, 0)
-              } else {
-                submit.disabled = false
-              }
-            }
-
-            function syncSubmitState(files: File[]) {
-              let error = validateUploadFiles(
-                files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
-              )
-              if (error) {
-                validation.textContent = error
-                validation.removeAttribute('hidden')
-              } else {
-                validation.textContent = ''
-                validation.setAttribute('hidden', '')
-              }
-              // Enable the submit button only when a valid batch is selected and an
-              // upload is not already in flight.
-              return files.length > 0 && error == null && !uploading
-            }
-
-            function renderPending() {
-              let files = selectedFiles()
-              list.innerHTML = ''
-              if (files.length === 0) {
-                list.setAttribute('hidden', '')
-              } else {
-                list.removeAttribute('hidden')
-              }
-
-              for (let [i, file] of files.entries()) {
-                let li = document.createElement('li')
-                Object.assign(li.style, chipStyle)
-                li.setAttribute('data-pending-file', String(file.size))
-
-                let name = document.createElement('span')
-                Object.assign(name.style, chipNameStyle)
-                name.textContent = file.name
-                li.appendChild(name)
-
-                let size = document.createElement('span')
-                Object.assign(size.style, chipSizeStyle)
-                size.textContent = formatBytes(file.size)
-                li.appendChild(size)
-
-                let remove = document.createElement('button')
-                remove.type = 'button'
-                Object.assign(remove.style, chipRemoveStyle)
-                remove.setAttribute('aria-label', `${file.name} entfernen`)
-                remove.textContent = '×'
-                remove.addEventListener('click', () => removeFile(i))
-                li.appendChild(remove)
-
-                list.appendChild(li)
-              }
-
-              submit.disabled = !syncSubmitState(files)
-            }
-
-            function setInputFiles(files: File[]) {
-              let dt = new DataTransfer()
-              for (let file of files) dt.items.add(file)
-              input.files = dt.files
-            }
-
-            function removeFile(index: number) {
-              let files = selectedFiles()
-              if (index >= files.length) return
-              files.splice(index, 1)
-              setInputFiles(files)
-              renderPending()
-            }
-
-            function addFiles(incoming: FileList) {
-              let current = Array.from(selectedFiles())
-              let keys = new Set(current.map(fileKey))
-              for (let file of Array.from(incoming)) {
-                if (!keys.has(fileKey(file))) {
-                  current.push(file)
-                  keys.add(fileKey(file))
-                }
-              }
-              setInputFiles(current)
-              renderPending()
-            }
-
-            function onChange() {
-              renderPending()
-            }
-
-            function onSubmit(event: Event) {
-              let files = selectedFiles()
-
-              if (files.length === 0) {
-                validation.textContent = 'Keine Dateien ausgewählt.'
-                validation.removeAttribute('hidden')
-                event.preventDefault()
-                return
-              }
-
-              let error = validateUploadFiles(
-                files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
-              )
-              if (error) {
-                validation.textContent = error
-                validation.removeAttribute('hidden')
-                event.preventDefault()
-                return
-              }
-
-              // Double-submit guard: the Frame runtime handles the first valid
-              // submission; any further submit while it is in flight is blocked.
-              if (uploading) {
-                event.preventDefault()
-                return
-              }
-              setBusy(true)
-            }
-
-            function onDragOver(event: Event) {
-              event.preventDefault()
-              dropzone.dataset.dragover = 'true'
-            }
-
-            function onDragLeave(event: Event) {
-              event.preventDefault()
-              delete dropzone.dataset.dragover
-            }
-
-            function onDrop(event: Event) {
-              event.preventDefault()
-              delete dropzone.dataset.dragover
-              let data = (event as DragEvent).dataTransfer
-              if (data && data.files.length > 0) addFiles(data.files)
-            }
-
-            // The dashed box already shows `cursor: pointer`, so clicking anywhere
-            // in it should open the picker like the label does. Clicks routed
-            // through the label (or the input itself) are left to the native
-            // behaviour, otherwise the picker would open twice.
-            function onDropzoneClick(event: Event) {
-              let target = event.target as HTMLElement | null
-              if (target && (target.closest('label') || target === input)) return
-              event.preventDefault()
-              input.click()
-            }
-
-            // Drops outside the dropzone fall through to the browser, which would
-            // navigate away and open the file. Cancel those and say where the file
-            // should go instead.
-            //
-            // Only drags that actually carry files are cancelled: cancelling
-            // `dragover` is what marks an element as a valid drop target, so
-            // doing it for every drag would also swallow unrelated native drops
-            // (e.g. dragging selected text into the search field).
-            function carriesFiles(event: DragEvent): boolean {
-              return Array.from(event.dataTransfer?.types ?? []).includes('Files')
-            }
-
-            function onDocumentDragOver(event: DragEvent) {
-              if (carriesFiles(event)) event.preventDefault()
-            }
-
-            function onDocumentDrop(event: DragEvent) {
-              if (!carriesFiles(event)) return
-              event.preventDefault()
-              let target = event.target as Node | null
-              if (target && dropzone.contains(target)) return
-              validation.textContent = 'Bitte Dateien in das Feld oben ziehen.'
-              validation.removeAttribute('hidden')
-            }
-
-            input.addEventListener('change', onChange)
-            dropzone.addEventListener('dragover', onDragOver)
-            dropzone.addEventListener('dragenter', onDragOver)
-            dropzone.addEventListener('dragleave', onDragLeave)
-            dropzone.addEventListener('drop', onDrop)
-            dropzone.addEventListener('click', onDropzoneClick)
-            document.addEventListener('dragover', onDocumentDragOver)
-            document.addEventListener('drop', onDocumentDrop)
-            form.addEventListener('submit', onSubmit)
-
-            renderPending()
-
-            // Hydration signal for e2e: the clientEntry attaches listeners
-            // asynchronously after the form renders, so tests wait for this
-            // attribute before interacting to avoid a hydration race.
-            form.dataset.dropzoneReady = 'true'
-
-            handle.signal.addEventListener('abort', () => {
-              input.removeEventListener('change', onChange)
-              dropzone.removeEventListener('dragover', onDragOver)
-              dropzone.removeEventListener('dragenter', onDragOver)
-              dropzone.removeEventListener('dragleave', onDragLeave)
-              dropzone.removeEventListener('drop', onDrop)
-              dropzone.removeEventListener('click', onDropzoneClick)
-              document.removeEventListener('dragover', onDocumentDragOver)
-              document.removeEventListener('drop', onDocumentDrop)
-              form.removeEventListener('submit', onSubmit)
-            })
+          // Re-run on every insertion; the frame's reloadComplete re-runs it too.
+          // Cleanup is owned by the controller created inside init (and
+          // handle.signal on disposal), not by this insertion's node removal.
+          ref(() => {
+            init()
           }),
         ]}
       />
