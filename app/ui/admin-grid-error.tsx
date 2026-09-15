@@ -15,6 +15,7 @@ export interface AdminGridErrorState {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter?: string | undefined
+  status?: string | undefined
   pageSize: number
 }
 
@@ -63,6 +64,7 @@ export async function renderGridFormError<Row>(opts: {
       sortColumn: grid.sortColumn,
       sortDirection: grid.sortDirection,
       filter: grid.filter,
+      status: grid.status,
       pageSize: grid.pageSize,
     }),
     { status: 200 },

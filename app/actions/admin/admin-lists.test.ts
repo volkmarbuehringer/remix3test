@@ -145,6 +145,69 @@ describe('Admin Lists Controller', () => {
       let text = await response.text()
       assert.ok(text.includes('min-width: 840px'), 'table min-width style should be present')
     })
+
+    it('renders the item-count filter tabs and refresh action', async () => {
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(text.includes('Mit Elementen'), 'items filter tab should render')
+      assert.ok(text.includes('Leer'), 'empty filter tab should render')
+      assert.ok(text.includes('status=items'), 'tabs should link to the items filter')
+      assert.ok(text.includes('status=empty'), 'tabs should link to the empty filter')
+      assert.ok(text.includes('Aktualisieren'), 'toolbar should offer a refresh action')
+    })
+
+    it('renders accessible segmented row actions instead of floating buttons', async () => {
+      await insertList('Actions Row', 'test-admin-actions', [{ id: 'a', label: 'Widget' }])
+      let response = await router.fetch(LISTS_URL, { headers: { Cookie: adminCookie } })
+      let text = await response.text()
+      assert.ok(text.includes('In Listen öffnen'), 'row should offer an open-in-lists action')
+      assert.ok(text.includes('aria-label="Bearbeiten"'), 'edit action should be labelled')
+      assert.ok(text.includes('aria-label="Löschen"'), 'delete action should be labelled')
+    })
+
+    it('filters to empty lists with status=empty', async () => {
+      await insertList('Empty Filter Row', 'test-admin-empty-filter', [])
+      await insertList('Filled Filter Row', 'test-admin-filled-filter', [
+        { id: 'a', label: 'Widget' },
+      ])
+      let response = await router.fetch(LISTS_URL + '?status=empty', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('test-admin-empty-filter'), 'empty list should be listed')
+      assert.ok(
+        !text.includes('test-admin-filled-filter'),
+        'a list with items must not appear in the empty filter',
+      )
+    })
+
+    it('filters to non-empty lists with status=items', async () => {
+      await insertList('Empty Filter Row 2', 'test-admin-empty-filter2', [])
+      await insertList('Filled Filter Row 2', 'test-admin-filled-filter2', [
+        { id: 'a', label: 'Widget' },
+      ])
+      let response = await router.fetch(LISTS_URL + '?status=items', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('test-admin-filled-filter2'), 'non-empty list should be listed')
+      assert.ok(
+        !text.includes('test-admin-empty-filter2'),
+        'an empty list must not appear in the items filter',
+      )
+    })
+
+    it('ignores an unknown status value instead of filtering on it', async () => {
+      await insertList('Unknown Status Row', 'test-admin-unknown-status', [])
+      let response = await router.fetch(LISTS_URL + '?status=../etc/passwd', {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('test-admin-unknown-status'), 'unknown status should not filter rows')
+    })
   })
 
   describe('create (POST /admin/lists)', () => {

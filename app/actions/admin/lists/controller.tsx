@@ -8,7 +8,12 @@ import type { Database, TableRow } from 'remix/data-table'
 import { parseId } from '../../../utils/ids.ts'
 import { logAdminAction } from '../../../data/audit-log.ts'
 import { lists } from '../../../data/schema.ts'
-import { searchLists, toListRow, type ListRow } from '../../../data/admin-lists.ts'
+import {
+  isListItemFilter,
+  searchLists,
+  toListRow,
+  type ListRow,
+} from '../../../data/admin-lists.ts'
 import { requireAuth } from '../../../middleware/auth.ts'
 import { requireAdmin } from '../../../middleware/admin.ts'
 import { routes } from '../../../routes.ts'
@@ -31,7 +36,15 @@ const SORTABLE_FIELDS = ['id', 'title', 'description', 'created_at', 'updated_at
 
 type ListSortColumn = (typeof SORTABLE_FIELDS)[number]
 
-const LISTS_FORM_KEYS = ['title', 'description', '_offset', '_sort', '_order', '_filter'] as const
+const LISTS_FORM_KEYS = [
+  'title',
+  'description',
+  '_offset',
+  '_sort',
+  '_order',
+  '_filter',
+  '_status',
+] as const
 
 const listsCreateSchema = f.object({
   title: f.field(s.defaulted(s.string(), '').pipe(minLength(1))),
@@ -74,6 +87,13 @@ function gridFilter(raw: Record<string, string>): string | undefined {
   return raw._filter || undefined
 }
 
+/** Whitelist the hidden `_status` grid field (item-count filter) so an
+ *  arbitrary submitted value can never reach the SQL builder. */
+function gridStatus(raw: Record<string, string>): string | undefined {
+  let value = raw._status
+  return isListItemFilter(value) ? value : undefined
+}
+
 function listsGridUrl(formData: FormData): string {
   let params = gridStateToParams(gridStateFromFormData(formData))
   let qs = params.toString()
@@ -88,15 +108,28 @@ async function loadGridData(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: string | undefined
     pageSize: number
   },
 ): Promise<{ rows: ListRow[]; hasMore: boolean }> {
   let limit = opts.pageSize + 1
-  if (opts.filter) {
-    let filter = opts.filter.length > 200 ? opts.filter.slice(0, 200) : opts.filter
+  if (opts.filter || opts.status) {
+    let filter = opts.filter
+      ? opts.filter.length > 200
+        ? opts.filter.slice(0, 200)
+        : opts.filter
+      : ''
     let esc = filter.replace(/[%_\\]/g, '\\$&')
-    let searchPattern = `%${esc}%`
-    let rows = await searchLists(db, searchPattern, limit, opts.offset, opts.column, opts.direction)
+    let searchPattern = filter ? `%${esc}%` : '%%'
+    let rows = await searchLists(
+      db,
+      searchPattern,
+      limit,
+      opts.offset,
+      opts.column,
+      opts.direction,
+      opts.status,
+    )
     let hasMore = rows.length > opts.pageSize
     if (hasMore) rows.pop()
     return { rows, hasMore }
@@ -133,6 +166,7 @@ async function renderListsError(
     column: string
     direction: 'asc' | 'desc'
     filter?: string | undefined
+    status?: string | undefined
     pageSize: number
   },
 ): Promise<Response> {
@@ -141,6 +175,7 @@ async function renderListsError(
     sortColumn: opts.column,
     sortDirection: opts.direction,
     filter: opts.filter,
+    status: opts.status,
     pageSize: opts.pageSize,
   }
   return renderGridFormError<ListRow>({
@@ -152,6 +187,7 @@ async function renderListsError(
         column: opts.column,
         direction: opts.direction,
         filter: opts.filter,
+        status: opts.status,
         pageSize: opts.pageSize,
       }),
     buildPage: (page) => (
@@ -164,6 +200,7 @@ async function renderListsError(
         sortColumn={page.sortColumn}
         sortDirection={page.sortDirection}
         filter={page.filter}
+        status={page.status}
         editRow={opts.editRow ?? null}
         creating={opts.creating ?? false}
         pageSize={page.pageSize}
@@ -187,6 +224,8 @@ export default createController(routes.admin.lists, {
       let effectivePageSize = getPageSize(context.session, LISTS_PAGE_LIMIT)
       let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
       let filter = context.url.searchParams.get('filter') || undefined
+      let statusParam = context.url.searchParams.get('status')
+      let status = isListItemFilter(statusParam) ? statusParam : undefined
 
       // Default to `updated_at DESC`: unlike `created_at` it is a visible
       // column, so the active-sort arrow on first load matches the row order.
@@ -201,6 +240,7 @@ export default createController(routes.admin.lists, {
         column,
         direction,
         filter,
+        status,
         pageSize: effectivePageSize,
       })
 
@@ -226,6 +266,7 @@ export default createController(routes.admin.lists, {
           sortColumn={column}
           sortDirection={direction}
           filter={filter}
+          status={status}
           editRow={editRow}
           creating={creating}
           pageSize={effectivePageSize}
@@ -250,6 +291,7 @@ export default createController(routes.admin.lists, {
           column: gridSortColumn(rawValues),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: gridStatus(rawValues),
           pageSize: effectivePageSize,
         })
       }
@@ -314,6 +356,7 @@ export default createController(routes.admin.lists, {
           column: gridSortColumn(rawValues),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
+          status: gridStatus(rawValues),
           pageSize: effectivePageSize,
         })
       }

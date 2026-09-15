@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
@@ -14,7 +14,8 @@ import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
 import { table } from './mixins/admin-table.ts'
-import type { ListRow } from '../data/admin-lists.ts'
+import { rotatedGlyphCss } from './mixins/icon.ts'
+import { isListItemFilter, type ListRow } from '../data/admin-lists.ts'
 import {
   sortArrow,
   buildSortUrl,
@@ -22,6 +23,7 @@ import {
   buildCreateUrl,
   buildCancelUrl,
   buildEditUrl,
+  buildFilterParams,
   formatTimestamp,
 } from './mixins/admin-urls.ts'
 
@@ -36,19 +38,13 @@ interface AdminListsPageProps {
   sortColumn: string
   sortDirection: 'asc' | 'desc'
   filter: string | undefined
+  status?: string | undefined
   editRow?: ListRow | null
   creating?: boolean
   pageSize: number
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
   formError?: string | undefined
-}
-
-function formatPreview(items: Array<{ label: string }>): string {
-  if (!Array.isArray(items) || items.length === 0) return '(leer)'
-  let labels = items.map((i) => i.label)
-  if (labels.length <= 5) return labels.join(', ')
-  return labels.slice(0, 5).join(', ') + ' (+' + (labels.length - 5) + ' weitere)'
 }
 
 // -- Styles --
@@ -66,72 +62,79 @@ const fieldErrorStyle = css({
   color: theme.colors.action.danger.background,
 })
 
-const rowActionsStyle = css({
-  display: 'inline-flex',
-  alignItems: 'stretch',
+/** Compact button sizing for the toolbar's Aktualisieren/Neu anlegen links. */
+const smallBtnStyle = css({
+  minHeight: '1.75rem',
+  paddingInline: '0.5rem',
+  fontSize: '0.75rem',
 })
 
-const iconActionStyle = css({
+// Segmented button group for the row actions: open / edit / delete read as one
+// connected control instead of three floating icon buttons. The visible text
+// moves to aria-label/title so the Aktionen column stays narrow.
+const actionGroup = css({
+  display: 'inline-flex',
+  alignItems: 'stretch',
+  border: '1px solid ' + theme.colors.border.default,
+  borderRadius: theme.radius.md,
+  overflow: 'hidden',
+  boxShadow: theme.shadow.sm,
+})
+
+const actionSeg = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   width: '30px',
-  height: '30px',
+  height: '28px',
   padding: 0,
-  border: '1px solid ' + theme.colors.border.default,
-  borderRight: 'none',
-  borderRadius: theme.radius.md + ' 0 0 ' + theme.radius.md,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
+  border: 'none',
+  borderRight: '1px solid ' + theme.colors.border.default,
+  fontSize: theme.fontSize.xs,
   cursor: 'pointer',
   textDecoration: 'none',
   '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
+  '&:focus-visible': {
+    position: 'relative',
+    outline: '2px solid ' + theme.colors.focus.ring,
+    outlineOffset: '-2px',
+    zIndex: 1,
+  },
 })
 
-const iconActionDangerStyle = css({
-  borderRight: '1px solid ' + theme.colors.border.default,
-  borderRadius: '0 ' + theme.radius.md + ' ' + theme.radius.md + ' 0',
+const actionSegDanger = css({
   color: theme.colors.action.danger.background,
+  borderRight: 'none',
   '&:hover': {
     background: theme.colors.action.danger.background,
     color: theme.colors.action.danger.foreground,
   },
 })
 
-const previewTextStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.secondary,
-  lineHeight: 1.5,
-  maxWidth: '280px',
+const titleCellStyle = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+  minWidth: 0,
+})
+
+const titleTextStyle = css({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-})
-
-const detailsStyle = css({
-  fontSize: theme.fontSize.xs,
-  color: theme.colors.text.secondary,
-  marginTop: theme.space.sm,
-  padding: theme.space.sm,
-  background: theme.surface.lvl0,
-  borderRadius: theme.radius.md,
-  border: '1px solid ' + theme.colors.border.subtle,
-  lineHeight: 1.6,
-})
-
-const summaryStyle = css({
-  cursor: 'pointer',
-  color: theme.colors.action.primary.background,
   fontWeight: theme.fontWeight.medium,
-  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.primary,
 })
 
 const descLinkStyle = css({
   color: theme.colors.action.primary.background,
   fontWeight: theme.fontWeight.medium,
   textDecoration: 'none',
-  fontSize: theme.fontSize.sm,
+  fontSize: theme.fontSize.xs,
   display: 'block',
+  maxWidth: '100%',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -146,10 +149,68 @@ const descEmptyStyle = css({
   fontSize: theme.fontSize.xs,
 })
 
-const colItemsWidth = css({ width: '60px' })
-const colDescWidth = css({ width: '200px' })
-const colUpdatedWidth = css({ width: '155px' })
-const colActionsWidth = css({ width: '120px' })
+const previewListStyle = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '4px',
+  maxWidth: '320px',
+})
+
+const previewChipStyle = css({
+  display: 'inline-block',
+  maxWidth: '150px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  padding: '1px ' + theme.space.xs,
+  background: theme.surface.lvl0,
+  border: '1px solid ' + theme.colors.border.subtle,
+  borderRadius: theme.radius.sm,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+})
+
+const previewChipDoneStyle = css({
+  color: theme.colors.text.muted,
+  textDecoration: 'line-through',
+})
+
+const previewMoreStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '1px ' + theme.space.xs,
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+})
+
+const detailsStyle = css({
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.secondary,
+  marginTop: theme.space.sm,
+  padding: theme.space.sm,
+  background: theme.surface.lvl0,
+  borderRadius: theme.radius.md,
+  border: '1px solid ' + theme.colors.border.subtle,
+  lineHeight: 1.6,
+})
+
+const detailsItemStyle = css({
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '4px',
+})
+
+const summaryStyle = css({
+  cursor: 'pointer',
+  color: theme.colors.action.primary.background,
+  fontWeight: theme.fontWeight.medium,
+  fontSize: theme.fontSize.xs,
+  marginTop: '2px',
+})
+
+const colItemsWidth = css({ width: '96px' })
+const colUpdatedWidth = css({ width: '150px' })
+const colActionsWidth = css({ width: '104px' })
 
 const itemCountBadgeStyle = css({
   display: 'inline-flex',
@@ -162,6 +223,22 @@ const itemCountBadgeStyle = css({
   borderRadius: theme.radius.full,
   fontSize: theme.fontSize.xs,
   fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
+})
+
+const itemCountBadgeDoneStyle = css({
+  background: theme.colors.success.background,
+  color: theme.colors.success.foreground,
+})
+
+const pageBadgeStyle = css({
+  padding: theme.space.xs + ' ' + theme.space.sm,
+  borderRadius: theme.radius.full,
+  background: theme.surface.lvl2,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
 })
 
 const emptyStateStyle = css({
@@ -187,6 +264,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       sortColumn,
       sortDirection,
       filter,
+      status,
       editRow = null,
       creating = false,
       pageSize,
@@ -197,6 +275,22 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
     let pageStart = lists.length > 0 ? offset + 1 : 0
     let pageEnd = offset + lists.length
     let hasFormPanel = Boolean(editRow || creating)
+    let activeItemFilter = isListItemFilter(status) ? status : undefined
+    let currentPage = Math.floor(offset / pageSize) + 1
+
+    // Name the active filter so the empty state explains why nothing matched.
+    let emptyMessage: string
+    if (!filter && !activeItemFilter) {
+      emptyMessage = 'Noch keine Listen gespeichert.'
+    } else if (!filter && activeItemFilter === 'empty') {
+      emptyMessage = 'Keine leeren Listen gefunden.'
+    } else if (!filter && activeItemFilter === 'items') {
+      emptyMessage = 'Keine Listen mit Elementen gefunden.'
+    } else if (filter && !activeItemFilter) {
+      emptyMessage = 'Keine Listen für diese Suche gefunden.'
+    } else {
+      emptyMessage = 'Keine Listen für diese Filter gefunden.'
+    }
 
     let gridSection = (
       <div mix={table.minWidth0}>
@@ -209,63 +303,130 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
           data-rmx-history="replace"
           mix={table.filterBar}
         >
+          <div mix={table.filterGroup}>
+            {/* Item-count tabs always reset to page 1: keeping a stale offset
+                while the result set changes can land on an empty page. They
+                preserve the text search. */}
+            <a
+              href={
+                ADMIN_BASE + '?' + buildFilterParams(filter ?? '', sortColumn, sortDirection, 0)
+              }
+              data-rmx-target={getSelfFrameTarget()}
+              mix={[table.filterTab, !activeItemFilter ? table.filterTabActive : undefined]}
+            >
+              Alle
+            </a>
+            <a
+              href={
+                ADMIN_BASE +
+                '?' +
+                buildFilterParams(filter ?? '', sortColumn, sortDirection, 0, undefined, 'items')
+              }
+              data-rmx-target={getSelfFrameTarget()}
+              mix={[
+                table.filterTab,
+                activeItemFilter === 'items' ? table.filterTabActive : undefined,
+              ]}
+            >
+              Mit Elementen
+            </a>
+            <a
+              href={
+                ADMIN_BASE +
+                '?' +
+                buildFilterParams(filter ?? '', sortColumn, sortDirection, 0, undefined, 'empty')
+              }
+              data-rmx-target={getSelfFrameTarget()}
+              mix={[
+                table.filterTab,
+                activeItemFilter === 'empty' ? table.filterTabActive : undefined,
+              ]}
+            >
+              Leer
+            </a>
+          </div>
+          {/* Preserve the active sort and item filter when searching; the offset
+              is intentionally absent so a new search starts on page 1. */}
+          <input type="hidden" name="sort" value={sortColumn} />
+          <input type="hidden" name="order" value={sortDirection} />
+          {activeItemFilter ? <input type="hidden" name="status" value={activeItemFilter} /> : null}
           <input
             type="text"
             name="filter"
-            placeholder="Nach Element oder Beschreibung suchen…"
+            placeholder="Suche nach Titel, Beschreibung oder Element…"
             defaultValue={filter ?? ''}
-            aria-label="Nach Element oder Beschreibung suchen"
+            aria-label="Nach Titel, Beschreibung oder Element suchen"
             mix={table.filterInput}
           />
-          <input type="hidden" name="sort" value={sortColumn} />
-          <input type="hidden" name="order" value={sortDirection} />
           <button type="submit" mix={table.searchBtn}>
             <Glyph name="search" width={14} height={14} /> Suchen
           </button>
-          {filter && (
+          {filter || activeItemFilter ? (
             <a href={routes.admin.lists.index.href()} mix={table.clearLink}>
               Zurücksetzen
             </a>
-          )}
+          ) : null}
           <span mix={table.spacer} />
           <a
-            href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+            href={buildPaginationUrl(
+              ADMIN_BASE,
+              offset,
+              sortColumn,
+              sortDirection,
+              filter,
+              undefined,
+              activeItemFilter,
+            )}
             data-rmx-target={getSelfFrameTarget()}
-            mix={table.linkPlain}
+            mix={[buttonLink({ tone: 'secondary' }), smallBtnStyle]}
           >
-            <button type="button" mix={[button({ tone: 'primary' })]}>
-              <Glyph name="add" width={14} height={14} /> Neu anlegen
-            </button>
+            ↻ Aktualisieren
+          </a>
+          <a
+            href={buildCreateUrl(
+              ADMIN_BASE,
+              offset,
+              sortColumn,
+              sortDirection,
+              filter,
+              undefined,
+              activeItemFilter,
+            )}
+            data-rmx-target={getSelfFrameTarget()}
+            mix={[buttonLink({ tone: 'primary' }), smallBtnStyle]}
+          >
+            <Glyph name="add" width={14} height={14} /> Neu anlegen
           </a>
         </form>
 
         <div mix={table.wrap} data-lists-table="true">
           {lists.length === 0 ? (
             <div mix={emptyStateStyle}>
-              <span>
-                {filter
-                  ? 'Keine Listen für diese Suche gefunden.'
-                  : 'Noch keine Listen gespeichert.'}
-              </span>
+              <span>{emptyMessage}</span>
               {!hasFormPanel && (
                 <a
-                  href={buildCreateUrl(ADMIN_BASE, offset, sortColumn, sortDirection, filter)}
+                  href={buildCreateUrl(
+                    ADMIN_BASE,
+                    offset,
+                    sortColumn,
+                    sortDirection,
+                    filter,
+                    undefined,
+                    activeItemFilter,
+                  )}
                   data-rmx-target={getSelfFrameTarget()}
-                  mix={table.linkPlain}
+                  mix={buttonLink({ tone: 'primary' })}
                 >
-                  <button type="button" mix={[button({ tone: 'primary' })]}>
-                    <Glyph name="add" width={14} height={14} /> Neu anlegen
-                  </button>
+                  <Glyph name="add" width={14} height={14} /> Neu anlegen
                 </a>
               )}
             </div>
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '60px' })} />
+                <col mix={css({ width: '56px' })} />
                 <col />
                 <col mix={colItemsWidth} />
-                <col mix={colDescWidth} />
                 <col />
                 <col mix={colUpdatedWidth} />
                 <col mix={colActionsWidth} />
@@ -281,6 +442,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         sortDirection,
                         offset,
                         filter,
+                        undefined,
+                        activeItemFilter,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
@@ -303,6 +466,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         sortDirection,
                         offset,
                         filter,
+                        undefined,
+                        activeItemFilter,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
@@ -314,30 +479,6 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     </a>
                   </th>
                   <th mix={table.th}>Elemente</th>
-                  <th
-                    mix={table.thSortable}
-                    aria-sort={sortRule('description', sortColumn, sortDirection)}
-                  >
-                    <a
-                      href={buildSortUrl(
-                        ADMIN_BASE,
-                        'description',
-                        sortColumn,
-                        sortDirection,
-                        offset,
-                        filter,
-                      )}
-                      data-rmx-target={getSelfFrameTarget()}
-                      mix={table.sortLink}
-                    >
-                      Beschreibung
-                      <span
-                        mix={'description' === sortColumn ? table.sortArrowActive : table.sortArrow}
-                      >
-                        {sortArrow('description', sortColumn, sortDirection)}
-                      </span>
-                    </a>
-                  </th>
                   <th mix={table.th}>Vorschau</th>
                   <th
                     mix={table.thSortable}
@@ -351,6 +492,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         sortDirection,
                         offset,
                         filter,
+                        undefined,
+                        activeItemFilter,
                       )}
                       data-rmx-target={getSelfFrameTarget()}
                       mix={table.sortLink}
@@ -369,6 +512,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
               <tbody>
                 {lists.map((row) => {
                   let items = Array.isArray(row.list) ? row.list : []
+                  let doneCount = items.filter((item) => item.done).length
                   let editHref = buildEditUrl(
                     ADMIN_BASE,
                     row.id,
@@ -376,6 +520,8 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeItemFilter,
                   )
                   return (
                     <tr
@@ -386,46 +532,102 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                       <td mix={table.td} title={String(row.id)}>
                         {row.id}
                       </td>
-                      <td mix={table.td} title={row.title}>
-                        {row.title}
+                      <td mix={table.td}>
+                        <div mix={titleCellStyle}>
+                          <span mix={titleTextStyle} title={row.title}>
+                            {row.title}
+                          </span>
+                          {row.description ? (
+                            <a
+                              href={'/lists?load=' + row.id}
+                              target="_top"
+                              data-rmx-document
+                              mix={descLinkStyle}
+                              title={row.description}
+                            >
+                              {row.description}
+                            </a>
+                          ) : (
+                            <span mix={descEmptyStyle}>(keine Beschreibung)</span>
+                          )}
+                        </div>
                       </td>
                       <td mix={table.td}>
-                        <span mix={itemCountBadgeStyle}>{items.length}</span>
+                        <span
+                          mix={
+                            doneCount > 0
+                              ? [itemCountBadgeStyle, itemCountBadgeDoneStyle]
+                              : itemCountBadgeStyle
+                          }
+                          title={
+                            items.length === 0
+                              ? 'Keine Elemente'
+                              : doneCount + ' von ' + items.length + ' Elementen erledigt'
+                          }
+                          aria-label={
+                            items.length === 0
+                              ? 'Keine Elemente'
+                              : doneCount + ' von ' + items.length + ' Elementen erledigt'
+                          }
+                        >
+                          {doneCount > 0 ? doneCount + '/' + items.length : String(items.length)}
+                        </span>
                       </td>
                       <td mix={table.td}>
-                        {row.description ? (
-                          <a
-                            href={'/lists?load=' + row.id}
-                            target="_top"
-                            data-rmx-document
-                            mix={descLinkStyle}
-                            title={row.description}
-                          >
-                            {row.description}
-                          </a>
+                        {items.length === 0 ? (
+                          <span mix={descEmptyStyle}>–</span>
                         ) : (
-                          <span mix={descEmptyStyle}>(keine Beschreibung)</span>
+                          <div mix={previewListStyle}>
+                            {items.slice(0, 3).map((item) => (
+                              <span
+                                key={item.id || item.label}
+                                mix={
+                                  item.done
+                                    ? [previewChipStyle, previewChipDoneStyle]
+                                    : previewChipStyle
+                                }
+                                title={item.label}
+                              >
+                                {item.done ? '✓ ' : ''}
+                                {item.label}
+                              </span>
+                            ))}
+                            {items.length > 3 ? (
+                              <span mix={previewMoreStyle}>+{items.length - 3} weitere</span>
+                            ) : null}
+                          </div>
                         )}
-                      </td>
-                      <td mix={table.td}>
-                        <div mix={previewTextStyle}>{formatPreview(items)}</div>
                         {items.length > 0 && (
                           <details>
-                            <summary mix={summaryStyle}>
-                              Alle {items.length} Elemente anzeigen
-                            </summary>
+                            <summary mix={summaryStyle}>Alle {items.length} Elemente</summary>
                             <div mix={detailsStyle}>
                               {items.map((item, idx) => (
-                                <div key={item.id}>
+                                <div key={item.id || String(idx)} mix={detailsItemStyle}>
                                   <span
                                     mix={css({
                                       color: theme.colors.text.muted,
-                                      marginRight: '4px',
+                                      minWidth: '1.5em',
                                     })}
                                   >
                                     {idx + 1}.
                                   </span>
-                                  {item.label}
+                                  <span mix={item.done ? previewChipDoneStyle : undefined}>
+                                    {item.label}
+                                  </span>
+                                  {item.done ? (
+                                    // success.background is the pale tile fill
+                                    // (#f0fdf4); success.foreground is the token
+                                    // intended for text (see admin-page.tsx).
+                                    <span
+                                      mix={css({
+                                        color: theme.colors.success.foreground,
+                                        fontWeight: theme.fontWeight.bold,
+                                      })}
+                                      title="Erledigt"
+                                    >
+                                      ✓
+                                    </span>
+                                  ) : null}
                                 </div>
                               ))}
                             </div>
@@ -436,26 +638,35 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         {formatTimestamp(row.updated_at)}
                       </td>
                       <td mix={table.actionCell}>
-                        <div mix={rowActionsStyle}>
+                        <div mix={actionGroup}>
+                          <a
+                            href={'/lists?load=' + row.id}
+                            target="_top"
+                            data-rmx-document
+                            aria-label="In Listen öffnen"
+                            title="In Listen öffnen"
+                            mix={actionSeg}
+                          >
+                            <Glyph name="open" width={14} height={14} />
+                          </a>
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={iconActionStyle}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
+                            mix={actionSeg}
                           >
                             <Glyph name="edit" width={14} height={14} />
                           </a>
-
                           <RestfulForm
                             method="DELETE"
                             action={routes.admin.lists.destroy.href({ id: row.id })}
                             data-delete-form={row.id}
                             data-confirm={
-                              'Liste #' + row.id + ' (' + items.length + ' Elemente) löschen?'
+                              'Liste "' + row.title + '" (' + items.length + ' Elemente) löschen?'
                             }
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={css({ margin: 0, padding: 0 })}
+                            mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                           >
                             <GridStateHiddenInputs
                               state={{
@@ -463,13 +674,14 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                                 sort: sortColumn,
                                 order: sortDirection,
                                 filter: filter ?? '',
+                                status: activeItemFilter ?? '',
                               }}
                             />
                             <button
                               type="submit"
-                              mix={[iconActionStyle, iconActionDangerStyle]}
                               aria-label="Löschen"
                               title="Löschen"
+                              mix={[actionSeg, actionSegDanger]}
                             >
                               <Glyph name="trash" width={14} height={14} />
                             </button>
@@ -492,6 +704,9 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   Zeige {pageStart}–{pageEnd}
                 </span>
               ) : null}
+              <span mix={pageBadgeStyle} aria-label={'Seite ' + currentPage}>
+                Seite {currentPage}
+              </span>
             </span>
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
@@ -502,13 +717,19 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeItemFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
-                  Zurück
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
                 </a>
-              ) : null}
+              ) : (
+                <span mix={table.pageLinkDisabled}>
+                  <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
+                </span>
+              )}
               {hasMore ? (
                 <a
                   href={buildPaginationUrl(
@@ -517,13 +738,19 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                     sortColumn,
                     sortDirection,
                     filter,
+                    undefined,
+                    activeItemFilter,
                   )}
                   data-rmx-target={getSelfFrameTarget()}
                   mix={table.pageLink}
                 >
-                  Weiter
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
                 </a>
-              ) : null}
+              ) : (
+                <span mix={table.pageLinkDisabled}>
+                  Weiter <Glyph name="chevronRight" width={14} height={14} />
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -545,6 +772,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  status={activeItemFilter}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />
@@ -554,6 +782,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                   sort={sortColumn}
                   order={sortDirection}
                   filter={filter}
+                  status={activeItemFilter}
                   formValues={formValues}
                   fieldErrors={fieldErrors}
                 />
@@ -590,6 +819,7 @@ interface EditPanelProps {
   sort?: string
   order?: string
   filter?: string | undefined
+  status?: string | undefined
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
@@ -602,6 +832,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
       sort = '',
       order = '',
       filter = '',
+      status = '',
       formValues,
       fieldErrors,
     } = handle.props
@@ -615,7 +846,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
           <DirtyFormGuard />
 
           <div mix={table.panel}>
@@ -674,15 +905,18 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
                     sort,
                     order,
                     filter,
+                    undefined,
+                    status,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ justifyContent: 'center', textAlign: 'center' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>
@@ -700,13 +934,22 @@ interface CreatePanelProps {
   sort?: string
   order?: string
   filter?: string | undefined
+  status?: string | undefined
   formValues?: Record<string, string> | undefined
   fieldErrors?: Record<string, string> | undefined
 }
 
 function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
   return () => {
-    let { offset = '', sort = '', order = '', filter = '', formValues, fieldErrors } = handle.props
+    let {
+      offset = '',
+      sort = '',
+      order = '',
+      filter = '',
+      status = '',
+      formValues,
+      fieldErrors,
+    } = handle.props
     return (
       <div
         mix={animateEntrance(entrance({ opacity: 0, transform: 'translateY(4px)', duration: 180 }))}
@@ -717,7 +960,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
           data-rmx-target={getSelfFrameTarget()}
           novalidate
         >
-          <GridStateHiddenInputs state={{ offset, sort, order, filter }} />
+          <GridStateHiddenInputs state={{ offset, sort, order, filter, status }} />
           <DirtyFormGuard />
 
           <div mix={table.panel}>
@@ -776,15 +1019,18 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
                     sort,
                     order,
                     filter,
+                    undefined,
+                    status,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ justifyContent: 'center', textAlign: 'center' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>

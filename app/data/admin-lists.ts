@@ -57,9 +57,24 @@ export function toListRow(row: TableRow<typeof lists>): ListRow {
   }
 }
 
+/** Item-count filters offered by the admin grid's filter tabs. */
+export const LIST_ITEM_FILTERS = ['items', 'empty'] as const
+export type ListItemFilter = (typeof LIST_ITEM_FILTERS)[number]
+
+/** Narrow an arbitrary query-string/form value to the whitelisted item filter
+ *  set so it can never reach the SQL builder unchecked. */
+export function isListItemFilter(value: string | undefined | null): value is ListItemFilter {
+  return value === 'items' || value === 'empty'
+}
+
 /** Results are ordered by `sortColumn`/`direction`; the column is
  *  validated against a fixed whitelist so the ORDER BY clause cannot be
- *  injected. Falls back to `created_at DESC` when omitted. */
+ *  injected. Falls back to `created_at DESC` when omitted.
+ *
+ *  `searchPattern` matches title/description/item labels; pass `''`/`'%%'`
+ *  to skip the text search. `status` filters by whether the JSONB `list`
+ *  column has items at all. Conditions are composed into one parameterized
+ *  WHERE clause, so callers can combine a text search with an item filter. */
 export async function searchLists(
   db: Database,
   searchPattern: string,
@@ -67,6 +82,7 @@ export async function searchLists(
   offset: number,
   sortColumn?: string,
   direction?: 'asc' | 'desc',
+  status?: string,
 ): Promise<ListRow[]> {
   let column =
     sortColumn === 'id'
@@ -79,19 +95,45 @@ export async function searchLists(
             ? 'updated_at'
             : 'created_at'
   let orderDir = compileOrderByDirection(direction ?? 'desc')
+
+  let conditions: string[] = []
+  let params: unknown[] = []
+
+  if (searchPattern && searchPattern !== '%%') {
+    params.push(searchPattern)
+    let pattern = '$' + params.length
+    conditions.push(
+      `(title ILIKE ${pattern}
+        OR description ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM jsonb_array_elements(COALESCE(list, '[]'::jsonb)) item
+          WHERE item->>'label' ILIKE ${pattern}
+        ))`,
+    )
+  }
+
+  // `list` is nullable in the schema; COALESCE keeps the length check safe.
+  if (isListItemFilter(status)) {
+    conditions.push(
+      status === 'empty'
+        ? `jsonb_array_length(COALESCE(list, '[]'::jsonb)) = 0`
+        : `jsonb_array_length(COALESCE(list, '[]'::jsonb)) > 0`,
+    )
+  }
+
+  let where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : ''
+  params.push(limit, offset)
+  let limitIndex = params.length - 1
+  let offsetIndex = params.length
+
   let rows = await queryRows(
     db,
     rawSql(
       `SELECT * FROM lists
-     WHERE title ILIKE $1
-        OR description ILIKE $1
-        OR EXISTS (
-          SELECT 1 FROM jsonb_array_elements(list) item
-          WHERE item->>'label' ILIKE $1
-        )
+     ${where}
      ORDER BY ${column} ${orderDir}, id DESC
-     LIMIT $2 OFFSET $3`,
-      [searchPattern, limit, offset],
+     LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      params,
     ),
     listWireSchema,
   )

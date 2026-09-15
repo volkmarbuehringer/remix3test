@@ -1175,12 +1175,19 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
   })
 
-  it('GET /admin/lists includes Description column header', async () => {
+  it('GET /admin/lists renders each list description in the title cell', async () => {
+    // The description is no longer its own column; it renders as a subtitle
+    // under the title, so assert on a freshly-seeded row that is guaranteed to
+    // be on the first page.
+    let description = `DescriptionProbe-${Date.now()}`
+    await db.create(lists, { title: 'Description probe', description, list: [] })
+
     let response = await router.fetch(ADMIN_LISTS_URL, {
       headers: { Cookie: adminCookie },
     })
+    assert.equal(response.status, 200)
     let text = await response.text()
-    assert.ok(text.includes('Beschreibung'), 'table should include Beschreibung column header')
+    assert.ok(text.includes(description), 'row should render the list description as a subtitle')
   })
 
   // -----------------------------------------------------------------------
