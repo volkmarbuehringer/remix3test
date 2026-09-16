@@ -20,7 +20,7 @@ interface NavCardProps {
 const cardBaseCss = {
   background: theme.surface.lvl0,
   borderRadius: theme.radius.lg,
-  padding: '1.5rem',
+  padding: '1.25rem',
   boxShadow: theme.shadow.sm,
   border: `1px solid ${theme.colors.border.default}`,
 }
@@ -69,7 +69,7 @@ const cardTitleStyle = css({
 const cardDescStyle = css({
   color: theme.colors.text.secondary,
   fontSize: '0.875rem',
-  marginBottom: '1.5rem',
+  marginBottom: '1rem',
 })
 
 const countStyle = css({
@@ -78,7 +78,7 @@ const countStyle = css({
   gap: theme.space.xs,
   fontSize: '0.75rem',
   color: theme.colors.text.secondary,
-  marginBottom: '1.5rem',
+  marginBottom: '1rem',
 })
 
 const countBadgeStyle = css({
@@ -111,18 +111,12 @@ const cardActionStyle = css({
   fontSize: '0.875rem',
 })
 
-const headingStyle = css({
-  fontSize: theme.fontSize.xl,
-  fontWeight: theme.fontWeight.bold,
-  marginBottom: theme.space.lg,
-})
-
 const toolbarStyle = css({
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
   gap: theme.space.md,
-  marginBottom: theme.space.xl,
+  marginBottom: theme.space.lg,
 })
 
 const searchFormStyle = css({
@@ -253,8 +247,6 @@ export function VerwaltungDashboardContent(handle: Handle<VerwaltungDashboardCon
 
     return (
       <div>
-        <h1 mix={headingStyle}>Verwaltung</h1>
-
         <div mix={toolbarStyle}>
           <form
             method="GET"

@@ -489,7 +489,6 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
     if (editRow || creating) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Angebotskonfigurationen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -521,12 +520,7 @@ export function AdminOfferingConfigsPage(handle: Handle<AdminOfferingConfigsPage
       )
     }
 
-    return (
-      <div mix={table.page}>
-        <h2 mix={table.title}>Angebotskonfigurationen</h2>
-        {gridSection}
-      </div>
-    )
+    return <div mix={table.page}>{gridSection}</div>
   }
 }
 

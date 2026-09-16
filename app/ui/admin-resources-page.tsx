@@ -421,7 +421,6 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
     if (editRow || creating) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Ressourcen</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -451,12 +450,7 @@ export function AdminResourcesPage(handle: Handle<AdminResourcesPageProps>) {
       )
     }
 
-    return (
-      <div mix={table.page}>
-        <h2 mix={table.title}>Ressourcen</h2>
-        {gridSection}
-      </div>
-    )
+    return <div mix={table.page}>{gridSection}</div>
   }
 }
 

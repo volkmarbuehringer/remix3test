@@ -27,7 +27,7 @@ const ITEMS: NavItem[] = [
 ]
 
 const navCss = css({
-  marginBottom: theme.space.lg,
+  marginBottom: theme.space.sm,
   borderBottom: '1px solid ' + theme.colors.border.default,
 })
 

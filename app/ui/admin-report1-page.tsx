@@ -83,8 +83,6 @@ export function AdminReport1Page(handle: Handle<AdminReport1PageProps>) {
 
     return (
       <div mix={table.page}>
-        <h1 mix={table.title}>Monatsauswertung</h1>
-
         <form
           method="GET"
           action={BASE}

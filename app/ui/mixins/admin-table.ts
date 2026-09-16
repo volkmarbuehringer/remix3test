@@ -17,7 +17,7 @@ export const table = {
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: theme.space.sm,
-    marginBottom: theme.space.md,
+    marginBottom: theme.space.sm,
   }),
   filterInput: css({
     flex: '1',

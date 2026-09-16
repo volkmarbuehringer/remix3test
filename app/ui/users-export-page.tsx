@@ -13,20 +13,13 @@ interface UsersExportPageProps {
 }
 
 const pageStyle = css({
-  padding: '2rem',
   maxWidth: '640px',
-})
-
-const headingStyle = css({
-  fontSize: theme.fontSize.xl,
-  fontWeight: theme.fontWeight.bold,
-  marginBottom: '0.5rem',
 })
 
 const descStyle = css({
   fontSize: theme.fontSize.sm,
   color: theme.colors.text.muted,
-  marginBottom: '1.5rem',
+  marginBottom: '1rem',
 })
 
 const formStyle = css({
@@ -95,7 +88,6 @@ export function UsersExportPage(handle: Handle<UsersExportPageProps>) {
 
     return (
       <div mix={pageStyle}>
-        <h2 mix={headingStyle}>Benutzer-Export (gefiltert)</h2>
         <p mix={descStyle}>
           Wählen Sie einen Zeitraum aus, um alle Benutzer mit Terminen in diesem Zeitraum als PDF zu
           exportieren.

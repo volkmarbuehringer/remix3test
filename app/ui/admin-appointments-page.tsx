@@ -120,9 +120,9 @@ function sortRule(
 
 const headerBarStyle = css({
   display: 'flex',
-  justifyContent: 'space-between',
+  justifyContent: 'flex-end',
   alignItems: 'center',
-  marginBottom: theme.space.lg,
+  marginBottom: theme.space.sm,
 })
 
 const rowActionsStyle = css({
@@ -722,7 +722,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
       return (
         <div mix={table.page}>
           <div mix={headerBarStyle}>
-            <h2 mix={table.title}>Termine</h2>
             <ConnectionIndicator
               url={routes.verwaltung.appointments.events.href()}
               reloadMode="frame"
@@ -773,7 +772,6 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
     return (
       <div mix={table.page}>
         <div mix={headerBarStyle}>
-          <h2 mix={table.title}>Termine</h2>
           <ConnectionIndicator
             url={routes.verwaltung.appointments.events.href()}
             reloadMode="frame"

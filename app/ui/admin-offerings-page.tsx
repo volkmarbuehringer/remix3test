@@ -407,9 +407,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               )
             })}
           </span>
-        </form>
-
-        <div mix={table.filterBar}>
           <a
             href={buildCreateUrl(
               ADMIN_BASE,
@@ -447,7 +444,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
             pastCount={pastCount}
             deletePastHref={routes.verwaltung.offerings.deletePast.href()}
           />
-        </div>
+        </form>
 
         {/* Table */}
         <div mix={[table.wrap, table.mobileCards]} data-offerings-table="true">
@@ -780,7 +777,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     if (editRow || creating || configResourceId || addWeek) {
       return (
         <div mix={table.page}>
-          <h2 mix={table.title}>Angebote</h2>
           <div mix={table.twoColumn}>
             {gridSection}
             <div mix={table.stickyPanel}>
@@ -840,11 +836,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
       )
     }
 
-    return (
-      <div mix={table.page}>
-        <h2 mix={table.title}>Angebote</h2>
-        {gridSection}
-      </div>
-    )
+    return <div mix={table.page}>{gridSection}</div>
   }
 }
