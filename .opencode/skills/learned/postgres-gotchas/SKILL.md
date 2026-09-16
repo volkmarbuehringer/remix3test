@@ -199,6 +199,8 @@ SELECT * FROM nonexistent_table;
 
 ## Part 4: node-postgres Returns `BIGINT`/`int8` Columns as Strings
 
+> Cross-reference: the raw-SQL consumption side of this (wrapping `Number()` around `BIGINT` values from `pool.query`/`db.exec`) is covered in `remix-database-errors`. This part is the **schema/validation** side: Zod and Mastra `outputSchema`.
+
 ### Problem
 
 node-postgres (`pg`) returns PostgreSQL `BIGINT` (`int8`) columns as **strings**, not numbers. This is a documented driver behavior: Postgres `int8` values can exceed the JS safe-integer range, so `pg` hands them back as a `string` rather than a `number`. `int4` columns still come back as numbers.

@@ -1,14 +1,6 @@
----
-name: remix3-session-flash-frames
-description: "Use when a `session.flash` PRG message never appears inside a Remix 3 frame fragment, or a test reading `session.flash` sees an empty session — flash renders only in the top-level Layout."
-metadata:
-  origin: auto-extracted
----
-
 # session.flash in Remix 3 Frame Apps
 
 **Extracted:** 2026-08-24
-**Context:** Converting an admin row toggle from a JSON fetch to a server-rendered POST form with Post/Redirect/Get + `session.flash` error handling on the shared frame runtime (`renderAdminPage` / `createSidebarLayout`), and a route that renders both a full document and a content-only frame fragment (`renderVerwaltungPage`).
 
 ## Problem
 
@@ -26,60 +18,8 @@ metadata:
 
 Surface `session.get('error' | 'success')` in whichever fragment path renders the content. Both are implemented in this repo — keep them in sync:
 
-**Sidebar shell** (`createSidebarLayout`'s content pane, `app/ui/sidebar-layout.tsx`):
-
-```tsx
-let flashError: string | undefined
-let flashSuccess: string | undefined
-try {
-  let session = getContext().session
-  if (session) {
-    let err = session.get('error')
-    if (typeof err === 'string') flashError = err
-    let success = session.get('success')
-    if (typeof success === 'string') flashSuccess = success
-  }
-} catch { /* no session context */ }
-
-return (
-  <div mix={shellStyle}>
-    <aside ...>{sidebar}</aside>
-    <section mix={contentStyle}>
-      {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
-      {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
-      <Breadcrumbs items={...} />
-      {children}
-    </section>
-  </div>
-)
-```
-
-**Dual-render page fragment branch** (`renderVerwaltungPage`, `app/ui/verwaltung-layout.tsx`): read the flash **only in the `isFrame` branch** so the two render paths never double-consume it:
-
-```tsx
-if (isFrame) {
-  let flashError: string | undefined
-  let flashSuccess: string | undefined
-  try {
-    let session = getContext().session
-    if (session) {
-      let err = session.get('error')
-      if (typeof err === 'string') flashError = err
-      let success = session.get('success')
-      if (typeof success === 'string') flashSuccess = success
-    }
-  } catch { /* no session context */ }
-  return render(
-    <>
-      {flashError ? <div mix={flashErrorStyle}>{flashError}</div> : null}
-      {flashSuccess ? <div mix={flashSuccessStyle}>{flashSuccess}</div> : null}
-      {content}
-    </>,
-    init,
-  )
-}
-return render(<Layout>{content}</Layout>, init)
-```
+- **Sidebar shell** (`app/ui/sidebar-layout.tsx`): reads the flash in the content pane and renders `flashErrorStyle` / `flashSuccessStyle` banners above the breadcrumbs.
+- **Dual-render page fragment branch** (`app/ui/verwaltung-layout.tsx`): reads the flash **only in the `isFrame` branch** so the two render paths never double-consume it.
 
 `flashErrorStyle` / `flashSuccessStyle` mirror the `flashBase` + `surface.dangerBg` / `surface.successBg` tokens already in `app/ui/layout.tsx`. Put the banner style constants at **module scope**: this repo's oxlint rule `remix-style(prefer-let-locals)` uses `let` for locals and `const` only at module scope, so constants defined inside the factory get flagged.
 

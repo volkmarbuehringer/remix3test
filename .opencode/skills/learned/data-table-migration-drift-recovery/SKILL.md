@@ -9,13 +9,13 @@ origin: auto-extracted
 
 **Extracted:** 2026-08-18
 **Updated:** 2026-08-19 (vendor added `remix db rollback` CLI, #11723; rollback is now the preferred recovery for runner-based apps)
-**Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (branch-pinned `~/remix`).
+**Context:** Editing an applied migration's `up.sql` breaks startup with a checksum-drift error; deleting the migration file makes it worse (orphaned journal entry). Applies to `@remix-run/data-table` (branch-pinned `remix`, installed in `node_modules/`).
 
 ## Problem
 
 The `remix/data-table` migration runner journals each applied migration and checksums its SQL. Two startup failures are possible, and the second is a dead end:
 
-1. **Drift**: editing an applied migration's `up.sql` throws `Migration checksum drift detected for "<id>" (journal=<old>, current=<new>)` at `~/remix/packages/data-table/src/lib/migrations/runner.ts:118`.
+1. **Drift**: editing an applied migration's `up.sql` throws `Migration checksum drift detected for "<id>" (journal=<old>, current=<new>)` at `node_modules/.pnpm/@remix-run+data-table@*/node_modules/@remix-run/data-table/src/lib/migrations/runner.ts:118`.
 2. **Orphaned journal entry (worse)**: deleting the migration file does NOT fix #1 — the runner now throws `Applied migration "<id>_<name>" is missing from current migrations` (runner.ts:110) because the journal row in `data_table_migrations` has no matching file. Forward runs hard-error on orphans; only `down` runs ignore them.
 
 The vendor `remix` skill already documents that drift is detected (`references/data-and-validation.md`, "the database checksums each up.sql and detects drift if a previously applied migration changes") and that migrations must be immutable artifacts — this skill covers what to do when it happens.

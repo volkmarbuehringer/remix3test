@@ -7,7 +7,7 @@ description: "Use when generating HTML strings outside the component system (RSS
 
 Covers `remix/html-template`.
 
-For the safe-HTML tagged-template API (`html\`...\`` auto-escaping, `html.raw` for trusted sources, composition/arrays, conditional `null`/`undefined`), see `~/remix/packages/html-template/README.md`.
+For the safe-HTML tagged-template API (`html\`...\`` auto-escaping, `html.raw` for trusted sources, composition/arrays, conditional `null`/`undefined`), see `node_modules/remix/src/html-template/README.md`.
 
 ## Standalone Error Pages
 
@@ -17,52 +17,12 @@ When returning HTML from `new Response()` (e.g., 500, 429 handlers outside the r
 import { html } from 'remix/html-template'
 
 return new Response(
-  String(
-    html`<!doctype html>
-      <html lang="de">
-        <head>
-          <meta charset="utf-8" />
-          <title>Serverfehler</title>
-          <style>
-            body {
-              font-family: 'JetBrains Mono', ui-monospace, monospace;
-              background: #f7fbff;
-              color: #313539;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              margin: 0;
-            }
-            .card {
-              background: #fff;
-              padding: 2rem;
-              border-radius: 8px;
-              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-              text-align: center;
-              max-width: 480px;
-            }
-            h1 {
-              font-size: 1.25rem;
-              margin: 0 0 0.5rem;
-            }
-            p {
-              color: #5a5e62;
-              margin: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>Serverfehler</h1>
-            <p>Bitte versuchen Sie es später erneut.</p>
-          </div>
-        </body>
-      </html>`,
-  ),
+  String(html`<!doctype html><html lang="de"><head>...</head><body>...</body></html>`),
   { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
 )
 ```
+
+The live 500 handler is `server.ts:38` (the `catch` in the request listener) — mirror it when adding sibling error pages.
 
 ### Full document vs fragment
 
@@ -108,4 +68,5 @@ This is most commonly encountered when extracting template strings into locale/i
 
 ## References
 
-- `~/remix/packages/html-template/README.md` — full API docs
+- `node_modules/remix/src/html-template/README.md` — full API docs
+- `server.ts:38` — the live 500 handler in this repo

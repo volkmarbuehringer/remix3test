@@ -1,14 +1,6 @@
----
-name: remix3-frame-form-action-get-route
-description: "Use when a frame-targeted form POSTs to a URL with no GET handler (frame then GETs it → 404), or a racing SSE invalidate-reload crashes with `Node.insertBefore` — make the action path a valid GET."
-metadata:
-  origin: auto-extracted
----
-
-# Remix 3: form action must be a valid GET inside `<Frame>`
+# form action must be a valid GET inside `<Frame>`
 
 **Extracted:** 2026-08-25
-**Context:** Admin CRUD inside a Remix 3 `remix/ui` `<Frame>` — a create/update form that posts to a param path and then the browser 404s on `GET /resource/:id`.
 
 ## Problem
 

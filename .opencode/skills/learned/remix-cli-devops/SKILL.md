@@ -105,5 +105,5 @@ mock.method(scrollLock, 'lockScroll', () => () => {})
 
 ## References
 
-- `~/remix/packages/cli/README.md` — full CLI docs
-- `~/remix/packages/node-tsx/README.md` — loader docs and TS config
+- `node_modules/remix/src/cli/README.md` — full CLI docs
+- `node_modules/remix/src/node-tsx/README.md` — loader docs and TS config

@@ -1,6 +1,6 @@
 ---
 name: remix-security-middleware
-description: "Use when adding security middleware to a Remix router stack — CSRF tokens, CORS policies, and cross-origin protection."
+description: "Use when adding security middleware to a Remix 3 router stack — CSRF tokens, CORS policies, and cross-origin protection."
 ---
 
 # Remix Security Middleware
@@ -9,7 +9,7 @@ Covers `remix/middleware/csrf`, `remix/middleware/cors`, `remix/middleware/cop`.
 
 ## CSRF Protection
 
-Session-backed synchronizer token validation. For the basic setup (`csrf()` middleware, default token sources `X-Csrf-Token` header > `_csrf` form field > `_csrf` query param, session-middleware requirement), see `~/remix/packages/csrf-middleware/README.md`.
+Session-backed synchronizer token validation. For the basic setup (`csrf()` middleware, default token sources `X-Csrf-Token` header > `_csrf` form field > `_csrf` query param, session-middleware requirement), see `node_modules/remix/src/csrf-middleware/README.md`.
 
 ### Common Pitfall: Every POST Form Needs a CSRF Token Input
 
@@ -28,28 +28,21 @@ import { CsrfTokenInput } from './csrf-token-input.tsx'
 
 `CsrfTokenInput` renders `<input type="hidden" name="_csrf" value="<token>" />` during SSR by reading the CSRF token from async request context.
 
-### Skipping CSRF for External Endpoints (Webhooks)
+### Skipping CSRF for External Endpoints (Webhooks) and SSE
 
-When `csrf()` is installed globally, external callers (webhooks, API integrations) cannot provide a CSRF token. Wrap the `csrf()` middleware in a path-checking conditional:
+When `csrf()` is installed globally, external callers (webhooks, API integrations) cannot provide a CSRF token, and SSE/agent streams call `fetch()` which cannot embed a form token. The repo wraps `csrf()` in a path-checking conditional — see `app/middleware/skip-csrf.ts`:
 
-```tsx
-// app/middleware/skip-csrf.ts
-import type { Middleware } from 'remix/router'
-import { csrf } from 'remix/middleware/csrf'
+- `isExternalPath()` — webhook/API/callback paths bypass CSRF entirely (server-to-server, no browser header possible).
+- `isAgentPath()` — SSE/agent paths bypass CSRF **only for GET** (EventSource is read-only) and require a custom header on non-GET (`X-Sse-Request: 1`). A cross-site `<form>` cannot set custom headers, so this blocks form CSRF while letting `fetch()` streams through.
 
-const csrfMiddleware = csrf({
-  origin: (origin, context) =>
-    /\.trusteddomain\.com$/.test(origin) || origin === context.url.origin,
+The client sends the header on the streaming POST:
+
+```typescript
+fetch('/chat', {
+  method: 'POST',
+  headers: { 'X-Sse-Request': '1' },
+  body: formData,
 })
-
-export function skipCsrf(): Middleware {
-  return async (context, next) => {
-    if (context.url.pathname.startsWith('/webhook/')) {
-      return next() // ← bypass CSRF for webhook paths
-    }
-    return csrfMiddleware(context, next) // ← CSRF for everything else
-  }
-}
 ```
 
 ### Gotcha: New `createAction`/`router.post()` Routes Also Need CSRF Bypass
@@ -68,20 +61,9 @@ router.post(callbackRoute, callbackReceive)
 
 And `callbackReceive` returns 403 even when the controller logic looks correct. The root cause is CSRF middleware running before your handler.
 
-**Fix:** Add the new path to the existing `skip-csrf.ts` skip list:
+**Fix:** Add the new path to the skip list in `app/middleware/skip-csrf.ts` (`isExternalPath()` for server-to-server/API/callback, or `isAgentPath()` for SSE).
 
-```ts
-if (
-  context.url.pathname.startsWith('/webhook/') ||
-  context.url.pathname === '/callback' // ← add new routes here
-) {
-  return next()
-}
-```
-
-**Debug tip:** When a new POST route returns 403 and the handler's logic seems correct, check `skip-csrf.ts` first. If the route isn't a browser form (server-to-server, API, callback), it needs to be added to the skip list.
-
-````
+**Debug tip:** When a new POST route returns 403 and the handler's logic seems correct, check `skip-csrf.ts` first. If the route isn't a browser form (server-to-server, API, callback, SSE), it needs to be added to the skip list.
 
 In your middleware chain, replace the standalone `csrf()` with the wrapper:
 
@@ -93,7 +75,7 @@ createMiddleware(
   skipCsrf(),  // ← replaces csrf({...})
   ...
 )
-````
+```
 
 **clientEntry forms** (no server context): Inject the token from a `<meta>` tag on submission:
 
@@ -122,57 +104,12 @@ createMiddleware(
 
 ## CORS and Cross-Origin Protection (COP)
 
-`remix/middleware/cors` configures allowed origins; `remix/middleware/cop` is tokenless protection via browser provenance headers (`Sec-Fetch-*`). For the basic setup, see `~/remix/packages/cors-middleware/README.md` and `~/remix/packages/cop-middleware/README.md`.
-
-### SSE Streaming Endpoints Also Need CSRF Bypass
-
-SSE streaming endpoints (POST handlers returning `text/event-stream`) called via client-side `fetch()` also return 403 — the client can't embed a CSRF token in a `fetch()` POST the way HTML forms can.
-
-**Fix:** Add SSE endpoint paths to the CSRF skip list:
-
-```typescript
-// app/middleware/skip-csrf.ts
-export function skipCsrf(): Middleware {
-  return async (context, next) => {
-    if (
-      context.url.pathname.startsWith('/webhook/') ||
-      context.url.pathname.startsWith('/callback') ||
-      context.url.pathname === '/admin/support-agent' ||
-      context.url.pathname.startsWith('/admin/support-agent/') ||
-      context.url.pathname === '/mastra/chat' ||
-      context.url.pathname.startsWith('/mastra/chat/')
-    ) {
-      return next()
-    }
-    return csrfMiddleware(context, next)
-  }
-}
-```
-
-**Optional: Custom header check for extra safety.** Since skipping CSRF entirely opens the endpoint to `<form>` CSRF attacks, add a header check that blocks requests without the expected header (forms can't set custom headers):
-
-```typescript
-if (context.url.pathname === '/mastra/chat' || context.url.pathname.startsWith('/mastra/chat/')) {
-  if (context.request.headers.get('X-SSE-Request') !== '1') {
-    return new Response('Forbidden', { status: 403 })
-  }
-  return next()
-}
-```
-
-The client then sends the header:
-
-```typescript
-fetch('/mastra/chat', {
-  method: 'POST',
-  headers: { 'X-SSE-Request': '1' },
-  body: formData,
-})
-```
+`remix/middleware/cors` configures allowed origins; `remix/middleware/cop` is tokenless protection via browser provenance headers (`Sec-Fetch-*`). For the basic setup, see `node_modules/remix/src/cors-middleware/README.md` and `node_modules/remix/src/cop-middleware/README.md`.
 
 ## References
 
-- `~/remix/packages/csrf-middleware/README.md` — CSRF token sources, origin validation, caveats
-- `~/remix/packages/cors-middleware/README.md` — CORS options and configuration
-- `~/remix/packages/cop-middleware/README.md` — tokenless cross-origin protection
-- `~/remix/packages/session-middleware/README.md` — required by csrf()
+- `node_modules/remix/src/csrf-middleware/README.md` — CSRF token sources, origin validation, caveats
+- `node_modules/remix/src/cors-middleware/README.md` — CORS options and configuration
+- `node_modules/remix/src/cop-middleware/README.md` — tokenless cross-origin protection
+- `node_modules/remix/src/session-middleware/README.md` — required by csrf()
+- `app/middleware/skip-csrf.ts` — the repo's `skipCsrf()` wrapper (external + SSE bypass, header guard)

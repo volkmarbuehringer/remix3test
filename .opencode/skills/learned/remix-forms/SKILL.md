@@ -21,7 +21,7 @@ This skill is the **index** for form/data deltas. For validation and error re-re
 
 ## Core Rules
 
-- `remix/data-schema` `.optional()`/`.nullable()` are **top-level functions**, not methods: use `s.optional(s.string())`, not `s.string().optional()` (`Property 'optional' does not exist on type 'Schema<...>'`). Full API: `~/remix/packages/data-schema/README.md`.
+- `remix/data-schema` `.optional()`/`.nullable()` are **top-level functions**, not methods: use `s.optional(s.string())`, not `s.string().optional()` (`Property 'optional' does not exist on type 'Schema<...>'`). Full API: `node_modules/remix/src/data-schema/README.md`.
 - Delete confirmation must intercept at the **capture-phase click** level (`{ capture: true }` + `preventDefault()` + `stopPropagation()`); a `submit`-phase listener can be preempted by frame navigation.
 - Render exactly **one** `<ConfirmDelete />` per grid section — one per row causes N stacked `confirm()` dialogs.
 - Never put `defaultValue` on password fields; exclude them from `readFormFieldValues` key arrays.

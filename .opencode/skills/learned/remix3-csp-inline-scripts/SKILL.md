@@ -25,7 +25,7 @@ A bare `<script>{code}</script>` in a Remix 3 component has two silent failure m
 > `packages/ui/src/server/stream.ts:541-543` now renders `<script>{children}</script>` through
 > `escapeScriptTextContent()` (defined at `:1192`), which only escapes `</script` / `<script`
 > sequences (as `\u0073`/`\u0053`) and **preserves** `<`/`>` in JS string literals. Only the
-> CSP-nonce requirement (#1) still applies. Re-confirmed against `~/remix/packages/ui/src/server/stream.ts`
+> CSP-nonce requirement (#1) still applies. Re-confirmed against `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts`
 > @ `f12afc1de` (2026-09-08); earlier grep-able `:1192` was the function definition, not the render site.
 
 ## Solution

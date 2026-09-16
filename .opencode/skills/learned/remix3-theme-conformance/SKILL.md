@@ -37,15 +37,7 @@ Styling drifts out of the theme in five ways, all of which skip the contract and
 
 ### `*.background` is a fill, not a text color
 
-The `success` / `warning` / `danger` groups pair a fill with the readable on-fill color:
-
-| token | light | dark |
-| --- | --- | --- |
-| `success.background` | `#f0fdf4` (pale) | `#052e16` (near-black) |
-| `success.foreground` | `#166534` | `#86efac` |
-| `warning.background` | `#fef3c7` (pale) | `#451a03` |
-| `warning.foreground` | `#92400e` | `#fcd34d` |
-| `danger.background` | `#dc2626` | `#ef4444` |
+The `success` / `warning` / `danger` groups pair a fill with the readable on-fill color — the actual light/dark hex values live in `app/theme.tsx` (`Theme`/`DarkTheme`). The pattern to remember: `success.background` is a pale tint in light mode and near-black in dark mode, so as ink it is invisible in **both** themes; `danger.background` is a saturated red that happens to read fine, so the bug is easy to inherit from danger styling.
 
 ```ts
 // BAD — pale fill used as ink: measured rgb(240 253 244) on rgb(247 251 255) ≈ 1.02:1
@@ -109,19 +101,7 @@ If the required semantic color has no token, **add it to the theme** — do not 
 
 ## Reference: key tokens
 
-| `theme.*` key                          | Resolves to                     |
-| -------------------------------------- | ------------------------------- |
-| `theme.surface.lvl0` / `.lvl1`         | `var(--rmx-surface-lvl0)` / `-lvl1` |
-| `theme.colors.text.primary`            | `var(--rmx-color-text-primary)`      |
-| `theme.colors.text.secondary`          | `var(--rmx-color-text-secondary)`    |
-| `theme.colors.text.muted`              | `var(--rmx-color-text-muted)`        |
-| `theme.colors.border.subtle` / default | `var(--rmx-color-border-subtle/-default)` |
-| `theme.colors.action.primary.*`        | `var(--rmx-color-action-primary-*)`  |
-| `theme.colors.action.danger.*`         | `var(--rmx-color-action-danger-*)`   |
-| `theme.colors.success.*`               | `var(--rmx-color-success-*)`         |
-| `theme.colors.warning.*`               | `var(--rmx-color-warning-*)`         |
-| `theme.colors.focus.ring`              | `var(--rmx-color-focus-ring)`        |
-| `theme.space.md`, `theme.radius.md`, `theme.fontSize.sm`, `theme.shadow.md`, ... | `var(--rmx-space-md)`, `var(--rmx-radius-md)`, `var(--rmx-font-size-sm)`, `var(--rmx-shadow-md)`, ... |
+Every token key and its `--rmx-*` CSS variable name is defined in `app/ui/theme/contract.ts` (the typed tree) with the light/dark values in `app/theme.tsx`. Don't memorize the table — read `theme.*` from the contract. The naming rule is mechanical: `theme.colors.<group>.<key>` → `var(--rmx-color-<group>-<key>)`, `theme.surface.<n>` → `var(--rmx-surface-<n>)`, and the space/radius/fontSize/shadow groups → `var(--rmx-space-<k>)`, `var(--rmx-radius-<k>)`, `var(--rmx-font-size-<k>)`, `var(--rmx-shadow-<k>)`.
 
 ## When to Use
 

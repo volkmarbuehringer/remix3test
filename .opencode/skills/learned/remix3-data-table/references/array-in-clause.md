@@ -1,14 +1,7 @@
----
-name: remix3-data-table-array-in-clause
-description: "Use when querying by multiple IDs in remix/data-table — prefer `db.findMany({ where: inList('id', ids) })`; fall back to `db.exec = ANY($1)` only to preserve order."
-origin: auto-extracted
----
-
-# Remix Data-Table: Array `IN` Clauses
+# Array `IN` Clauses
 
 **Extracted:** 2026-07-13
 **Revalidated:** 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/data-table` d7eb6b18).
-**Context:** Querying rows by multiple IDs using `@remix-run/data-table`'s `db.findMany`
 
 ## Problem
 
@@ -81,3 +74,4 @@ Key points:
 ## Related
 
 - `remix-database-errors` — unwrapping `DataTableAdapterError` causes and PostgreSQL error codes
+- `raw-sql-sort-filter.md` (this index) — the raw-SQL `db.exec` sibling pattern

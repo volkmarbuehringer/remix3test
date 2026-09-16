@@ -18,7 +18,7 @@ For the frame/forms contract, see `frame-navigation.md`. For CSS/DOM patterns, s
 
 A Remix 3 Frame's grid crashes with `Error: handle.update() infinite loop detected` when the page size is large enough to produce 50+ rows, but only on **subsequent page loads** (pagination, sort, filter), not on the initial load.
 
-> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `~/remix/packages/ui/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`~/remix/packages/ui/src/runtime/scheduler.ts:129`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
+> **Note (per #11795, 2026-09-08):** `handle.update()` is now phase-guarded in `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/component.ts`. Called during **setup** it warns and skips; called during **render** (or before the initial commit, outside setup) it **throws** `Cannot call handle.update() while X is running its <phase> function`. The older cascading guard `handle.update() infinite loop detected` (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/scheduler.ts:129`) still fires for async cascades. Either symptom is the same class of bug — call `handle.update()` only from an event handler or `handle.queueTask()`, never from a render function, a `dragover`/resize/scroll handler, or a setup-time effect.
 
 **Root cause chain:**
 
@@ -236,7 +236,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`~/remix/packages/ui/src/runtime/frame.ts:883`, dispatched by `completeReload` defined at `:878`; the inherited-reload variant dispatches at `:918`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/frame.ts:883`, dispatched by `completeReload` defined at `:878`; the inherited-reload variant dispatches at `:918`). At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
@@ -292,7 +292,7 @@ Use when a `clientEntry` inside a `<Frame>` must reload data on frame URL change
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/ui` d7eb6b18); `~/remix` `packages/ui/src/runtime/` is in sync for these files.
+> Line references below revalidated 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/ui` d7eb6b18); the installed `@remix-run/ui` source (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 

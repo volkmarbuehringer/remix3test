@@ -26,66 +26,22 @@ try {
 
 ## Shared Utility: `app/utils/db-errors.ts`
 
-```typescript
-const PG_RESTRICT_VIOLATION = '23001' as const
-const PG_FOREIGN_KEY_VIOLATION = '23503' as const
+The repo's `app/utils/db-errors.ts` already implements cause-chain unwrapping and the predicate helpers. Use them directly:
 
-export function isConstraintViolation(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; cause?: { code?: string } }
-    // Check top-level (raw pg error)
-    if (err.code === PG_RESTRICT_VIOLATION || err.code === PG_FOREIGN_KEY_VIOLATION) return true
-    // Check nested (DataTableAdapterError wrapping)
-    if (err.cause?.code === PG_RESTRICT_VIOLATION || err.cause?.code === PG_FOREIGN_KEY_VIOLATION)
-      return true
-  }
-  return false
-}
-```
+- `isConstraintViolation(error)` — matches PG `23001` (`RESTRICT_VIOLATION`) and `23503` (`FOREIGN_KEY_VIOLATION`), walking the `.cause` chain.
+- `isUniqueViolation(error)` — matches `23505`.
+- `isExclusionConstraintError(error)` — matches `23P01`, the `no_overlapping_seats` / `no_overlapping_offerings` constraints, or a `conflicts with key` message.
 
-**PostgreSQL error codes to check for:**
+**PostgreSQL error codes to remember:**
 
 - `23001` — `RESTRICT_VIOLATION` (ON DELETE RESTRICT is in use)
 - `23503` — `FOREIGN_KEY_VIOLATION` (generic FK constraint)
+- `23505` — `UNIQUE_VIOLATION`
+- `23P01` — `EXCLUSION_VIOLATION`
 
-Always check BOTH codes. `ON DELETE RESTRICT` produces `23001`, not `23503`.
+Always check BOTH `23001` and `23503`. `ON DELETE RESTRICT` produces `23001`, not `23503`. When using a data-table adapter that wraps errors, unwrap the cause chain to find the original PostgreSQL error (the helpers do this for you).
 
-### Exclusion Constraint Violations (`23P01`)
-
-PostgreSQL exclusion constraints (e.g., preventing double-booked appointments via `EXCLUDE USING GIST`) produce error code `23P01`. These can be identified by the constraint name or the error code:
-
-```typescript
-const PG_EXCLUSION_VIOLATION = '23P01'
-
-function isExclusionConstraintError(error: unknown): boolean {
-  if (error && typeof error === 'object') {
-    let err = error as { code?: string; message?: string; constraint?: string }
-    return (
-      err.constraint === 'no_overlapping_seats' ||
-      err.code === PG_EXCLUSION_VIOLATION ||
-      (err.message ?? '').includes('conflicts with key')
-    )
-  }
-  return false
-}
-```
-
-When using a data-table adapter that wraps errors, unwrap the cause chain to find the original PostgreSQL error:
-
-```typescript
-export function isExclusionViolation(error: unknown): boolean {
-  let cause: unknown = error
-  while (cause instanceof Error && 'cause' in cause && cause.cause != null) {
-    cause = (cause as Error).cause
-  }
-  return (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'code' in cause &&
-    (cause as { code: string }).code === PG_EXCLUSION_VIOLATION
-  )
-}
-```
+> _Consolidated from: remix-data-table-adapter-error-unwrapping_
 
 ### DataTableAdapterError: Additional API differences
 
@@ -95,8 +51,6 @@ When using `Database.exec()` from `remix/data-table` (via `createPostgresDatabas
 - **`result.affectedRows`** replaces `PoolQueryResult.rowCount` — use `result.affectedRows ?? 0`
 - **No `.rowCount`** — use `.affectedRows` instead
 - **TypeScript strict casting**: cast `Record<string, unknown>[]` through `unknown`: `(result.rows ?? []) as unknown as MyType[]`
-
-> _Consolidated from: remix-data-table-adapter-error-unwrapping_
 
 ## Structured Logging
 
@@ -148,19 +102,7 @@ async destroy(context) {
 }
 ```
 
-The page component needs a `formError` prop and a banner in the grid section:
-
-````tsx
-interface AdminPageProps {
-  formError?: string
-}
-
-let gridSection = (
-  <div mix={table.minWidth0}>
-    {formError ? <div mix={table.errorBanner}>{formError}</div> : null}
-    {/* ... */}
-  </div>
-)
+The page component needs a `formError` prop and a banner in the grid section — see the admin grid pages (e.g. `app/ui/admin-lists-page.tsx`) for the `formError` banner pattern.
 
 ---
 
@@ -176,21 +118,9 @@ new Date(row.day).toLocaleDateString('de-DE')
 
 // ✅ FIX: Number() coerces string → number
 new Date(Number(row.day)).toLocaleDateString('de-DE')
-````
-
-For bulk conversion, use a utility:
-
-```typescript
-function parseIntFields(value: Record<string, unknown>, ...fields: string[]): void {
-  for (let field of fields) {
-    if (typeof value[field] === 'string') {
-      value[field] = parseInt(value[field] as string, 10)
-    }
-  }
-}
 ```
 
-**When to use:** Consuming `BIGINT`/`int8` columns via raw SQL in Node.js (`pool.query`, `db.exec`), especially epoch-ms timestamps.
+**When to use:** Consuming `BIGINT`/`int8` columns via raw SQL in Node.js (`pool.query`, `db.exec`), especially epoch-ms timestamps. (Also see `postgres-gotchas` Part 4.)
 
 ---
 
@@ -222,7 +152,3 @@ if (status === 'pending' || !status) {
 ```
 
 **When to use:** Database columns storing epoch-ms dates at UTC day boundaries (BIGINT), SQL `WHERE` clauses filtering by "future"/"past", or comparing timestamps at different granularities.
-
-```
-
-```

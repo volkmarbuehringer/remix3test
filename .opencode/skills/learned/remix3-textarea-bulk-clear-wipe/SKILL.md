@@ -6,14 +6,14 @@ origin: manual
 
 # Remix 3 Textarea: `diffChildren` Bulk-Clear Wipes Unchanged `defaultValue`/`value`
 
-**Validated:** 2026-09-08 (re-checked against `~/remix` @ `f12afc1de`; bug still present, line refs updated)
+**Validated:** 2026-09-08 (re-checked against the installed `@remix-run/ui` source @ `f12afc1de`; bug still present, line refs updated)
 **Context:** Re-diffing a textarea whose `defaultValue`/`value` prop is unchanged silently empties it. Observed in `app/actions/lists/lists-client.browser.tsx`: clicking "Bearbeiten" opened the edit textarea empty instead of prefilled.
 
 ## Problem
 
-`@remix-run/ui` renders a textarea's `value`/`defaultValue` prop into a DOM **text child** (`~/remix/packages/ui/src/server/stream.ts:562` `buildTextareaElementSegment` renders `<textarea attrs>escaped-value-text</textarea>`; the `tag === 'textarea'` dispatch is at `:524-525`). But that text child is **not tracked** in the committed `_children` array — it is owned by the prop, not by child vnodes.
+`@remix-run/ui` renders a textarea's `value`/`defaultValue` prop into a DOM **text child** (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts:562` `buildTextareaElementSegment` renders `<textarea attrs>escaped-value-text</textarea>`; the `tag === 'textarea'` dispatch is at `:524-525`). But that text child is **not tracked** in the committed `_children` array — it is owned by the prop, not by child vnodes.
 
-`diffChildren` has a bulk-clear fast path (`~/remix/packages/ui/src/runtime/reconcile.ts:1584-1595`; `canBulkClearChildren` at `:1620`):
+`diffChildren` has a bulk-clear fast path (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/reconcile.ts:1584-1595`; `canBulkClearChildren` at `:1620`):
 
 ```typescript
 if (
@@ -52,6 +52,6 @@ The `as never` cast is required: the framework's JSX types declare `children?: n
 
 ## Constraints
 
-- This is a framework runtime bug: `~/remix` is read-only vendor, and the installed `@remix-run/ui` is a branch-pinned tarball (`github:remix-run/remix#preview/main&path:packages/remix`). Do **not** edit `node_modules/.pnpm/.../@remix-run/ui/dist/runtime/reconcile.js` as a permanent fix — a reinstall re-downloads the tarball and reverts it. The upstream fix belongs in `diffChildren`'s bulk-clear guard (exclude `TEXTAREA` from `canBulkClearChildren`).
+- This is a framework runtime bug: the installed `@remix-run/ui` is read-only vendor, branch-pinned as a tarball (`github:remix-run/remix#preview/main&path:packages/remix`). Do **not** edit `node_modules/.pnpm/.../@remix-run/ui/dist/runtime/reconcile.js` as a permanent fix — a reinstall re-downloads the tarball and reverts it. The upstream fix belongs in `diffChildren`'s bulk-clear guard (exclude `TEXTAREA` from `canBulkClearChildren`).
 - A controlled `value={...}` prop is equally affected — the unchanged-value skip still applies. Only tracked children survive re-diff.
 - Applies to any textarea re-diffed with unchanged `value`/`defaultValue`: the edit textarea (`app/actions/lists/lists-client.browser.tsx`) and the new-item textarea (same file, previously `defaultValue={newItemLabel}`). The description **input** uses `defaultValue` safely — inputs have no text children, so bulk-clear is a no-op there.

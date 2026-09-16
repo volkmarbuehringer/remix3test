@@ -31,4 +31,4 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 ## Related Skills
 
 - `remix-route-relocation` — moving routes between route trees (frame ↔ top-level)
-- `~/remix/packages/render-middleware/README.md` — wiring request-scoped renderers into the router
+- `node_modules/remix/src/render-middleware/README.md` — wiring request-scoped renderers into the router

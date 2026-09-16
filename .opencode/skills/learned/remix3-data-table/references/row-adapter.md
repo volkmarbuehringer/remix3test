@@ -1,14 +1,6 @@
----
-name: remix3-data-table-row-adapter
-description: "Use when remix/data-table query results (`db.findMany`/`findOne`/`create`) won't assign to a UI row type because json/bigint columns are `unknown`, or a data row type and UI row type drift apart."
-metadata:
-  origin: auto-extracted
----
-
-# Remix Data-Table: Narrow Unknown Columns at One Row Adapter
+# Narrow Unknown Columns at One Row Adapter
 
 **Extracted:** 2026-09-04
-**Context:** Remix 3 + `remix/data-table`. A typed query result (`TableRow<typeof table>`) cannot be assigned to the concrete UI row type, forcing `as unknown as SomeRow` at every call site.
 
 ## Problem
 
@@ -62,3 +54,8 @@ Adjacent gotchas this fixes in the same stroke:
 - `db.findMany` / `db.findOne` / `db.create(returnRow)` results won't assign to a concrete UI/props row type without `as unknown as`.
 - Two hand-written row interfaces describe the same entity (data layer vs UI layer) and drift.
 - You want a single, checked boundary where remix/data-table's `unknown` json/bigint columns are narrowed, instead of casts scattered across call sites.
+
+## Related
+
+- `remix3-raw-sql-wire-honest-rows` — decoding `db.exec` rows with wire-honest zod schemas (the raw-SQL sibling of this adapter)
+- `exact-optional-property-types-migration` — building optional fields under `exactOptionalPropertyTypes`

@@ -30,4 +30,4 @@ This skill is the **index** for tool-design deltas. For the base approval API (`
 - `mastra-agent` — SSE streaming, askUserTool/requireApproval transport, tool result extraction
 - `mastra-workflow` — Mastra Workflow resume/abort race and step type compatibility
 - `remix-security-middleware` — CSRF protection for approval form endpoints
-- `remix3-session-flash-frames` — `session.flash()` for one-time approval UI routing decisions
+- `remix3-frame-cliententry` (`references/session-flash-frames.md`) — `session.flash()` for one-time approval UI routing decisions

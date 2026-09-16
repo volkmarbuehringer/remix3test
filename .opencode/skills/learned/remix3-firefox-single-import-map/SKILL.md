@@ -26,7 +26,7 @@ Fresh-browser Chromium tests pass, so a "stale browser" diagnosis is wrong for F
 
 ## Solution
 
-Wire `run()` to the multiple-import-maps polyfill (the integration documented in the ui 0.9.0 changelog and `~/remix/packages/multiple-import-maps-polyfill/README.md`):
+Wire `run()` to the multiple-import-maps polyfill (the integration documented in the ui 0.9.0 changelog and `node_modules/remix/src/multiple-import-maps-polyfill/README.md`):
 
 ```tsx
 // app/assets/entry.tsx

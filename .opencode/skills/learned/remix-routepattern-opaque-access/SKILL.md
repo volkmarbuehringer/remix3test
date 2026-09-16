@@ -26,7 +26,7 @@ Migrating from remix v3.0.0-beta.4 to beta.5+ made RoutePattern opaque (still tr
 - `route.pattern.toJSON()` — serialized `protocol`/`hostname`/`port`/`pathname`/`search` parts
 - `getRoutePatternCaptures(route.pattern)` — `{ part: 'hostname' | 'pathname', type: ':' | '*', name, optional }[]` in source order (the supported way to inspect variables/wildcards without touching internals)
 
-The parsed internals (`_parts`, `pathname.tokens`) are underscore-prefixed/not part of the public API. See `~/remix/packages/route-pattern/README.md`. The migration delta here is the string-based rewrite technique for the common parent-path case:
+The parsed internals (`_parts`, `pathname.tokens`) are underscore-prefixed/not part of the public API. See `node_modules/remix/src/route-pattern/README.md`. The migration delta here is the string-based rewrite technique for the common parent-path case:
 
 **Before** (token walking):
 

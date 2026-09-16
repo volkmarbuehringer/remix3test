@@ -1,13 +1,6 @@
----
-name: remix3-data-table-dynamic-sort-order-by
-description: "Use when `db.findMany({ orderBy })` rejects a dynamic sort column with TS2322 OrderByTuple — narrow the column to a `SORTABLE_FIELDS` union and cast it."
-origin: auto-extracted
----
-
-# Remix Data-Table: Dynamic Sort Column in `orderBy`
+# Dynamic Sort Column in `orderBy`
 
 **Extracted:** 2026-08-26
-**Context:** Building a sortable admin grid where the sort column comes from the URL (`parseSort`) and is passed to `db.findMany(lists, { orderBy })`.
 
 ## Problem
 
@@ -55,6 +48,6 @@ Key points:
 
 ## Related
 
-- `remix3-data-table-array-in-clause` — vendor `inList()` operator and the `db.exec`/`= ANY($1)` fallback
-- `remix3-data-table-raw-sql-sort-filter` — the raw-SQL counterpart; compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`)
+- `array-in-clause.md` (this index) — vendor `inList()` operator and the `db.exec`/`= ANY($1)` fallback
+- `raw-sql-sort-filter.md` (this index) — the raw-SQL counterpart; compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`)
 - `parseSafe` / `grid-state.ts` grid-state round-trip used by the admin page handlers

@@ -22,42 +22,21 @@ In a Remix 3 app with session-authenticated routes (cookie + CSRF), you need to 
 
 Use a three-part pattern:
 
-### 1. Extract shared CRUD logic into `app/lib/`
+### 1. Extract shared CRUD logic into a lib module
 
-Move `db.findOne`, `db.create`, `db.updateMany`, `db.delete`, etc. from the controller into pure functions in a lib module. Keep HTTP concerns (body parsing, status codes, response format) in the controller.
-
-```ts
-// app/lib/widgets-api.ts
-import { widgets } from '../data/schema.ts'
-import type { Pool } from 'pg'
-
-export async function getWidgetById(db: { findOne: Function }, id: number) {
-  let row = await db.findOne(widgets, { where: { id } })
-  if (!row) return null
-  return { id: row.id, name: row.name /* ... */ }
-}
-
-export async function createWidget(db: { create: Function }, input: { name: string }) {
-  let row = await db.create(
-    widgets,
-    { name: input.name, created_at: Date.now() },
-    { returnRow: true },
-  )
-  return { id: row.id, name: row.name }
-}
-```
+Move `db.findOne`, `db.create`, `db.updateMany`, `db.delete`, etc. from the controller into pure functions in a lib module (e.g. `app/lib/<entity>-api.ts`; create `app/lib/` if it doesn't exist yet). Keep HTTP concerns (body parsing, status codes, response format) in the controller.
 
 ### 2. Create a token-authenticated API controller
 
 Create a separate controller that calls `authenticateWebhook()` inline (no middleware registry needed) and delegates to the lib:
 
 ```ts
-// app/actions/api/widgets/controller.tsx
+// app/actions/api/<entity>/controller.tsx
 import { createController } from 'remix/router'
-import { authenticateWebhook } from '../../../lib/auth-webhook.ts'
+import { authenticateWebhook } from '<path-to-auth-webhook>'
 import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
-import { getWidgetById, createWidget } from '../../../lib/widgets-api.ts'
+import { getWidgetById, createWidget } from '<path-to-lib>'
 
 export default createController<typeof routes.apiWidgets, AppContext>(routes.apiWidgets, {
   middleware: [], // no session auth
@@ -77,6 +56,8 @@ export default createController<typeof routes.apiWidgets, AppContext>(routes.api
   },
 })
 ```
+
+The repo's live example is `app/actions/api/lists/controller.tsx` — token auth via `app/middleware/api-token-auth.ts` (`apiTokenAuth`) + `app/middleware/api-require-auth.ts` (`requireApiAuth`), with the shared CRUD in `app/data/lists.ts`.
 
 ### 3. Wire the new routes + CSRF exemption
 
@@ -99,35 +80,11 @@ export const routes = route({
 router.map(routes.apiWidgets, apiWidgetsController)
 ```
 
-```ts
-// app/middleware/skip-csrf.ts — add /api/ prefix exemption
-export function skipCsrf(): Middleware {
-  return async (context, next) => {
-    if (
-      context.url.pathname.startsWith('/api/') || // NEW
-      context.url.pathname === '/webhook' ||
-      context.url.pathname === '/app-webhook' ||
-      context.url.pathname === '/callback'
-    ) {
-      return next()
-    }
-    return csrfMiddleware(context, next)
-  }
-}
-```
+CSRF: the repo's `app/middleware/skip-csrf.ts` already exempts `/api/` paths in `isExternalPath()` — add the new route under `/api/` and it stays CSRF-free.
 
 ### 4. Refactor the existing controller to use the same lib
 
 Replace inline `db` calls with lib imports. Validation and HTTP concerns stay in the controller — only DB operations move to the lib.
-
-```ts
-// Before
-let row = await db.findOne(widgets, { where: { id: listId } })
-
-// After
-import { getWidgetById } from '../../lib/widgets-api.ts'
-let row = await getWidgetById(db, listId)
-```
 
 ## When to Use
 
@@ -135,4 +92,4 @@ let row = await getWidgetById(db, listId)
 - The existing session-authenticated routes must remain unchanged
 - You want to avoid duplicating CRUD logic between controllers
 - The API consumer is another service, not a browser
-- There is an existing `authenticateWebhook()` utility in the project (from `app/lib/auth-webhook.ts`)
+- There is an existing `authenticateWebhook()` utility in the project

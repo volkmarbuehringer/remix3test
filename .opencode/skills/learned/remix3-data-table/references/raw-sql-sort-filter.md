@@ -1,15 +1,7 @@
----
-name: remix3-data-table-raw-sql-sort-filter
-description: "Use when a remix/data-table raw-SQL grid (`sql`/`rawSql`/`db.exec`, not `db.findMany`) needs sortable/filterable columns — whitelist identifiers, build ORDER BY/WHERE, add an id tiebreaker."
-metadata:
-  origin: auto-extracted
----
-
-# Remix Data-Table: Safe Raw-SQL Sort + Filter
+# Safe Raw-SQL Sort + Filter
 
 **Extracted:** 2026-09-05
 **Revalidated:** 2026-09-12 against the pinned `remix` 3.0.0-rc.2 (build `c2afabc`) — direction compilation is now vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838).
-**Context:** Adding URL-driven sort and search-filter columns to the `/admin/uploads` grid, which queries the DB through raw `sql`/`rawSql` statements (`app/data/uploads.ts`) rather than the typed `db.findMany` API.
 
 ## Problem
 A raw-SQL grid (`db.exec` + `queryRows`/`queryRow` + the `sql` tag) has no typed `orderBy`/`where` object, so sort and filter columns come straight from the URL (`?sort=`, `?filter=`). Two hazards:
@@ -89,7 +81,7 @@ let total = await countUploads(db, userId, filter) // uses whereStatement(userId
 - You're passing optional sort/filter params through layered functions and `tsc` complains under `exactOptionalPropertyTypes`.
 
 ## Related
-- `remix3-data-table-dynamic-sort-order-by` — the typed `db.findMany({ orderBy })` TS2322 counterpart (same whitelist discipline)
-- `remix3-data-table-array-in-clause` — `inList` / `= ANY($1)` multi-ID filter
+- `dynamic-sort-order-by.md` (this index) — the typed `db.findMany({ orderBy })` TS2322 counterpart (same whitelist discipline)
+- `array-in-clause.md` (this index) — `inList` / `= ANY($1)` multi-ID filter
 - `remix3-raw-sql-wire-honest-rows` — decoding `db.exec` rows with wire-honest zod schemas
 - `exact-optional-property-types-migration` — the general `exactOptionalPropertyTypes` widening pattern

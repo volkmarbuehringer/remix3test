@@ -16,11 +16,9 @@ Covers two aspects of Mastra persistence:
 
 ## Part 1: Observability with PostgresStore
 
-### Problem
+### The delta
 
-The Mastra Studio quickstart and documentation examples show wiring observability with `MastraCompositeStore`, `LibSQLStore`, and `DuckDBStore`. This creates unnecessary complexity when you're already using `PostgresStore`.
-
-The standard example looks like:
+The Mastra Studio quickstart and documentation examples show wiring observability with `MastraCompositeStore`, `LibSQLStore`, and `DuckDBStore`:
 
 ```typescript
 storage: new MastraCompositeStore({
@@ -31,46 +29,11 @@ storage: new MastraCompositeStore({
 }),
 ```
 
-Adding DuckDB and LibSQL as additional dependencies when you're on Postgres is wasteful. You need to know whether PostgresStore already handles this.
+Adding DuckDB and LibSQL as additional dependencies when you're on Postgres is wasteful: **`PostgresStore` extends `MastraCompositeStore` internally and composes **all** domain classes including `ObservabilityPG`.** The observability domain tables already exist in your Postgres database — they're created by `PostgresStore.init()`.
 
-### Solution
+So to add observability to a PostgresStore-backed Mastra you only need to install `@mastra/observability` and wire `Observability` + `MastraStorageExporter` into the existing `Mastra()` constructor — no storage changes, no DuckDB, no LibSQL, no second connection. The `MastraStorageExporter` writes traces, metrics, and logs to the observability domain tables in your existing Postgres database.
 
-`PostgresStore` extends `MastraCompositeStore` internally and composes **all** domain classes including `ObservabilityPG`. The observability domain tables already exist in your Postgres database — they're created by `PostgresStore.init()`.
-
-To add observability to a Mastra instance using PostgresStore:
-
-1. Install `@mastra/observability`:
-
-```sh
-pnpm add @mastra/observability
-```
-
-2. Wire `Observability` + `MastraStorageExporter` into the existing `Mastra()` constructor with no storage changes:
-
-```typescript
-import { Mastra } from '@mastra/core'
-import { PinoLogger } from '@mastra/loggers'
-import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mastra/observability'
-
-export const mastra = new Mastra({
-  // ... existing config: agents, storage, logger ...
-  storage: new PostgresStore({
-    id: 'mastra',
-    pool, // your existing pg pool
-  }),
-  observability: new Observability({
-    configs: {
-      default: {
-        serviceName: 'my-app',
-        exporters: [new MastraStorageExporter()],
-        spanOutputProcessors: [new SensitiveDataFilter()],
-      },
-    },
-  }),
-})
-```
-
-That's it. No DuckDB, no LibSQL, no second connection. The `MastraStorageExporter` writes traces, metrics, and logs to the observability domain tables in your existing Postgres database.
+The repo's live wiring is `app/actions/mastra/index.ts`; the full constructor shape is covered by the vendor `mastra` skill (`.agents/skills/mastra/`) and `@mastra/observability` docs.
 
 ### What you get in Studio
 

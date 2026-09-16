@@ -17,34 +17,13 @@ Using a single `sourceIp()` function with a fallback chain (`X-Forwarded-For` �
 
 ## Solution
 
-Use **two tiers** of IP resolution with separate functions:
+Use **two tiers** of IP resolution. The working implementation is `app/utils/request-ip.ts`:
+
+- `connectionIp(request)` — Tier 1 (trusted): reads `X-Client-Ip`, the header stamped by `server.ts` from the TCP socket.
+- `isLocalhost(ip)` — matches `127.0.0.1`, `::1`, `::ffff:127.0.0.1`.
+- `sourceIp(request)` — Tier 2 (untrusted): fallback chain `X-Client-Ip` → `Cf-Connecting-Ip` → `X-Forwarded-For` → `X-Real-Ip`, for audit logging only.
 
 ### Tier 1: Trusted (security-critical)
-
-```ts
-// app/utils/request-ip.ts
-export function connectionIp(request: Request): string {
-  return request.headers.get('X-Client-Ip') ?? ''
-}
-
-export function isLocalhost(ip: string): boolean {
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
-}
-```
-
-The `X-Client-Ip` header is set by `server.ts` from the TCP socket — it is unspoofable **only while `trustProxy: false`** (see the CRITICAL section below — with `trustProxy: true` the framework derives `client.address` from the spoofable `Forwarded`/`X-Forwarded-For` headers instead):
-
-```ts
-// server.ts
-const handler = createRequestListener(
-  async (request, client) => {
-    // Always set() so a client-supplied X-Client-Ip is overwritten.
-    request.headers.set('X-Client-Ip', client?.address ?? '')
-    return await router.fetch(request)
-  },
-  { trustProxy: false },
-)
-```
 
 Use `connectionIp()` for security decisions:
 
@@ -53,19 +32,6 @@ Use `connectionIp()` for security decisions:
 - Admin IP allowlists
 
 ### Tier 2: Untrusted (informational)
-
-```ts
-// app/utils/request-ip.ts
-export function sourceIp(request: Request): string {
-  return (
-    request.headers.get('X-Client-Ip') ??
-    request.headers.get('Cf-Connecting-Ip') ??
-    request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ??
-    request.headers.get('X-Real-Ip') ??
-    ''
-  )
-}
-```
 
 Use `sourceIp()` for non-security purposes:
 
@@ -98,16 +64,9 @@ const handler = createRequestListener(handler, { trustProxy: true })
 
 ### Correct server.ts
 
-```ts
-const handler = createRequestListener(
-  async (request, client) => {
-    // Stamped from the real TCP socket; overwrites any client-supplied value
-    request.headers.set('X-Client-Ip', client?.address ?? '')
-    return await router.fetch(request)
-  },
-  { trustProxy: false },
-)
-```
+See `server.ts` — the listener stamps `X-Client-Ip` from the real TCP socket
+(`request.headers.set('X-Client-Ip', client?.address ?? '')`, always `set()` so
+a client-supplied value is overwritten) and passes `{ trustProxy: false }`.
 
 `trustProxy: true` is only safe when a **trusted reverse proxy strips and
 rewrites** `X-Forwarded-For` (e.g. nginx `proxy_set_header`, cloudflare).

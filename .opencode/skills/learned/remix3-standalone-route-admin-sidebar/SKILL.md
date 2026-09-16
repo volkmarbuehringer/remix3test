@@ -36,56 +36,13 @@ router.get(mySseRoute, mySseHandler)
 
 ### 2. Link from admin sidebar with `iframeNav: false`
 
-```tsx
-// app/ui/admin-layout.tsx
-import { myRoute } from '../routes.ts'
-
-export type AdminNavItem =
-  | 'dashboard' | ... | 'myFeature'
-
-const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
-  {
-    label: 'Daten',
-    items: [
-      { id: 'myFeature', label: 'My Feature', route: myRoute, iframeNav: false },
-      //                                          ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^
-      //                                          standalone route  full-page nav, not frame
-    ],
-  },
-]
-
-function navIcon(id: AdminNavItem): RemixNode {
-  switch (id) {
-    case 'myFeature': return mySvg()
-  }
-}
-```
-
-The `iframeNav: false` prop forces a full-page navigation instead of frame navigation (`document: true` instead of `target: frameTarget`).
+In `app/ui/admin-layout.tsx`, add the standalone route as a nav item with `iframeNav: false` — it forces a full-page navigation instead of frame navigation (`document: true` instead of `target: frameTarget`).
 
 ### 3. SSE endpoints need 401-auth, not redirect-auth
 
 `EventSource` cannot follow 302 redirects. Using `requireAuth()` on an SSE endpoint causes the EventSource to silently fail when redirecting to login.
 
-Create a custom middleware that returns 401 instead:
-
-```tsx
-// app/middleware/sse-auth.ts
-import type { Middleware } from 'remix/router'
-import { Auth } from 'remix/middleware/auth'
-
-export function requireSseAuth(): Middleware {
-  return async (context, next) => {
-    let auth = context.get(Auth)
-    if (!auth || !('user' in auth) || !auth.user) {
-      return new Response('Unauthorized', { status: 401 })
-    }
-    return next()
-  }
-}
-```
-
-Usage on the SSE route:
+Use the repo's `requireSseAuth()` middleware (`app/middleware/sse-auth.ts`) on any non-interactive endpoint (EventSource, WebSocket):
 
 ```tsx
 export const mySseHandler = createAction<typeof mySseRoute, AppContext>(mySseRoute, {
@@ -94,15 +51,15 @@ export const mySseHandler = createAction<typeof mySseRoute, AppContext>(mySseRou
 })
 ```
 
-**Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The `requireSseAuth()` middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint (EventSource, WebSocket).
+**Note:** This section replaces the standalone `remix3-sse-auth-401` skill. The `requireSseAuth()` middleware is the same pattern — use it instead of `requireAuth()` on any non-interactive endpoint.
 
-Auth state check behavior:
+Auth state check behavior (`context.get(Auth)`):
 
-| `auth` value               | `context.get(Auth)`              | Result         |
-| -------------------------- | -------------------------------- | -------------- |
-| `loadAuth()` not installed | `undefined`                      | 401            |
-| No valid session           | `{ ok: false }` (no `user` prop) | 401            |
-| Valid session              | `{ user: {...} }`                | passes through |
+| `auth` value               | Result         |
+| -------------------------- | -------------- |
+| `loadAuth()` not installed | 401            |
+| No valid session (`!auth.ok` or no `identity`) | 401            |
+| Valid session             | passes through |
 
 ### 4. Client IP extraction
 

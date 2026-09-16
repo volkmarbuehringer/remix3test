@@ -7,7 +7,7 @@ description: "Use when parsing, modifying, or constructing HTTP headers in Remix
 
 Covers `remix/headers`.
 
-For the SuperHeaders API (lazy typed property accessors on a `Headers` subclass), the individual header classes, and the raw `parse`/`stringify` helpers, see `~/remix/packages/headers/README.md`.
+For the SuperHeaders API (lazy typed property accessors on a `Headers` subclass), the individual header classes, and the raw `parse`/`stringify` helpers, see `node_modules/remix/src/headers/README.md`.
 
 ## Caveats: Typed Classes Handle Quoting Natively
 
@@ -41,4 +41,4 @@ headers.contentLength = buffer.length // ✅ not String(buffer.length)
 
 ## References
 
-- `~/remix/packages/headers/README.md` — full docs with per-header examples
+- `node_modules/remix/src/headers/README.md` — full docs with per-header examples

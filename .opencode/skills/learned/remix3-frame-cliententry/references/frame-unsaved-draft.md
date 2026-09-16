@@ -1,15 +1,6 @@
----
-name: remix3-frame-unsaved-draft
-description: "Use when a Remix 3 frame-based editor's 'create new' mode has no server id and navigating away would silently lose typed content (beforeunload can't flush it) — persist a sessionStorage draft."
-metadata:
-  origin: auto-extracted
----
-
-# Remix 3 frame editor: persist an unsaved "create new" draft
+# Frame editor: persist an unsaved "create new" draft
 
 **Extracted:** 2026-09-08
-**Context:** The /lists editor — a Remix 3 `clientEntry` editor with a "new list"
-mode (`loadedListId === null`) alongside saved lists.
 
 ## Problem
 A brand-new record in a Remix 3 frame editor has no id, so the common

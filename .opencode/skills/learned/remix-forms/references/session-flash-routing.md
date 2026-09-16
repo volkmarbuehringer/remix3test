@@ -40,4 +40,4 @@ if (bookingResult) session.unset('bookingResult')
 
 The routing card renders only on the first GET after the POST. On refresh, the flash is gone and the normal chat UI returns.
 
-For session-flash inside frame fragments (the flash renders only in the top-level Layout), see `remix3-session-flash-frames`.
+For session-flash inside frame fragments (the flash renders only in the top-level Layout), see `remix3-frame-cliententry` (`references/session-flash-frames.md`).

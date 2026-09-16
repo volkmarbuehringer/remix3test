@@ -1,14 +1,6 @@
----
-name: remix3-frame-shell-duplicate-breadcrumb
-description: "Use when a Remix 3 frame-shell page shows the breadcrumb (or page name) twice on a full GET, or a new frame-shell route appears as two headings — the top-level Layout also renders one."
-metadata:
-  origin: auto-extracted
----
-
 # Frame-shell page duplicates the top-level Layout's breadcrumb
 
 **Extracted:** 2026-09-01
-**Context:** Redesigning `/lists` in this app (custom `lists-layout.tsx` shell) — the page rendered the breadcrumb twice on first load, and the user reported "two headings with lists."
 
 ## Problem
 A route that renders its own frame shell (a custom layout with a sidebar + a `<Breadcrumbs>` in the content pane) **also** gets a breadcrumb from the top-level `Layout`. `app/ui/layout.tsx` renders breadcrumbs for every path *except* the hardcoded `/admin` and `/ai` prefixes:
@@ -36,7 +28,7 @@ currentPath.startsWith('/lists') ? null : (
 
 Do **not** fix it by deleting the shell's breadcrumb: `Layout` is the document shell and is not re-rendered on frame (`X-Remix-Target`) navigations, so the shell's breadcrumb is the only one that survives in-page navigation. Suppress the top-level one instead.
 
-This is the mirror of `remix3-session-flash-frames`: flash needs its own banner *in* the fragment because fragments bypass the top-level `Layout`; breadcrumb is rendered *by* the fragment, so the top-level `Layout` must be told not to also render it.
+This is the mirror of `session-flash-frames.md` (this index): flash needs its own banner *in* the fragment because fragments bypass the top-level `Layout`; breadcrumb is rendered *by* the fragment, so the top-level `Layout` must be told not to also render it.
 
 ## When to Use
 - A frame-shell page (custom sidebar/layout, e.g. `/lists`, a new admin-like section) shows the page name twice on first load.

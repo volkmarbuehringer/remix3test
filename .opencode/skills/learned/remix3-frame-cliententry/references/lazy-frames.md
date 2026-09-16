@@ -2,7 +2,7 @@
 
 ## What This Covers
 
-Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. Upstream demo: `~/remix/demos/lazy-frames`; app port: `app/ui/lazy-frame.browser.tsx`.
+Read this when a Remix 3 page resolves frames for content the user cannot see yet — rows inside collapsed `<details>`, sections below the fold, a pane hidden until a selection exists — or when asked to make frames load lazily. App port: `app/ui/lazy-frame.browser.tsx`.
 
 ## Which Frames May Be Deferred
 

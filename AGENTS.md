@@ -22,8 +22,11 @@ at .opencode/skills/ are skills for Remix 3 development
 
 When you need API docs or usage examples for a `remix/*` subpath:
 
-- READMEs: `~/remix/packages/<package>/README.md` or `~/remix/packages/remix/src/<subpath>/README.md`
-- Demos: `~/remix/demos/<demo-name>/`
+- Package READMEs: `node_modules/remix/src/<package>/README.md` (installed vendor docs)
+- Vendor `remix` skill: `.agents/skills/remix/SKILL.md` and its `references/*.md` files
+- Installed package source (for version-pinned line refs): `node_modules/.pnpm/@remix-run+<pkg>@*/node_modules/@remix-run/<pkg>/src/...`
+
+Do not reference `~/remix` (a separate vendor checkout) — the installed `node_modules/remix` / `node_modules/.pnpm/@remix-run+<pkg>@*/` tree and the in-project vendor skills are authoritative.
 
 ## Building Features
 
@@ -33,9 +36,9 @@ Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix-cli
 
 Only the learned skills in `.opencode/skills/learned/` are maintained by this repo — everything vendor-supplied (guides, package READMEs, the vendor `remix` skill, `@mastra/core` docs) is authoritative and read-only; learned skills should point at it, never restate it.
 
-Learned deltas encode hard-won, often **version-pinned** facts (file/line references into `~/remix/`, API behaviors, release milestones). These rot silently: the vendor code moves on while the delta stays frozen. Before relying on a learned delta, validate its version-pinned claims against the current vendor tree:
+Learned deltas encode hard-won, often **version-pinned** facts (file/line references into the installed `@remix-run/*` packages, API behaviors, release milestones). These rot silently: the vendor code moves on while the delta stays frozen. Before relying on a learned delta, validate its version-pinned claims against the current vendor tree:
 
-- Line/path references: confirm the referenced file still exists at `~/remix/packages/` / `~/remix/packages/remix/src/` and the behavior matches the current source
+- Line/path references: confirm the referenced file still exists in the installed `@remix-run/*` packages (`node_modules/.pnpm/@remix-run+<pkg>@*/node_modules/@remix-run/<pkg>/`) or at `node_modules/remix/src/<pkg>/`, and the behavior matches the current source
 - API claims: check the package README or source for the named function/operator (e.g. an `inList()` operator may now exist where a raw-SQL workaround was recorded)
 - Release milestones: treat "as of beta.N" / "since vX" statements as stale unless re-confirmed against the current version
 
