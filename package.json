@@ -24,23 +24,23 @@
     "@mastra/observability": "^1.17.7",
     "@mastra/pg": "^1.24.0",
     "date-holidays": "^3.36.1",
-    "nodemailer": "^10.0.9",
+    "nodemailer": "^10.0.10",
     "pdfmake": "^0.3.11",
     "pg": "^8.23.0",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
-    "zod": "^4.6.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@fission-ai/openspec": "^1.13.0",
-    "@oxlint/plugins": "^1.82.0",
+    "@oxlint/plugins": "^1.83.0",
     "@types/node": "26.5.1",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfmake": "^0.3.3",
     "@types/pg": "^8.23.1",
     "mastra": "^1.29.0",
     "openspec": "latest",
-    "oxfmt": "^0.67.0",
-    "oxlint": "^1.82.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
     "oxlint-tsgolint": "^7.0.2001",
     "playwright": "^1.63.0",
     "typescript": "7.0.2"
