@@ -101,49 +101,6 @@ const verifiedBadgeOffStyle = css({
   border: `1px solid ${theme.colors.border.default}`,
 })
 
-// Segmented button group for the row actions: edit / toggle / delete read as
-// one connected control instead of three floating icon buttons.
-const actionGroup = css({
-  display: 'inline-flex',
-  alignItems: 'stretch',
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  overflow: 'hidden',
-  boxShadow: theme.shadow.sm,
-})
-
-const actionSeg = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '28px',
-  padding: 0,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  border: 'none',
-  borderRight: `1px solid ${theme.colors.border.default}`,
-  fontSize: theme.fontSize.xs,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-  '&:focus-visible': {
-    position: 'relative',
-    outline: `2px solid ${theme.colors.focus.ring}`,
-    outlineOffset: '-2px',
-    zIndex: 1,
-  },
-})
-
-const actionSegDanger = css({
-  color: theme.colors.action.danger.background,
-  borderRight: 'none',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 const colActionsWidth = css({ width: '120px' })
 
 const pageBadgeStyle = css({
@@ -450,11 +407,11 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                         {formatTimestamp(row.created_at)}
                       </td>
                       <td mix={table.actionCell}>
-                        <div mix={actionGroup}>
+                        <div mix={table.actionGroup}>
                           <a
                             href={editHref}
                             data-rmx-target={getSelfFrameTarget()}
-                            mix={actionSeg}
+                            mix={table.actionSeg}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
                           >
@@ -478,7 +435,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             />
                             <button
                               type="submit"
-                              mix={actionSeg}
+                              mix={table.actionSeg}
                               aria-label={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
                               title={isDisabled ? 'Aktivieren' : 'Deaktivieren'}
                             >
@@ -508,7 +465,7 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
                             />
                             <button
                               type="submit"
-                              mix={[actionSeg, actionSegDanger]}
+                              mix={[table.actionSeg, table.actionSegDanger]}
                               aria-label="Löschen"
                               title="Löschen"
                             >

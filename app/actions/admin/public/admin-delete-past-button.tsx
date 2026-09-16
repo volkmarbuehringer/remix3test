@@ -52,7 +52,7 @@ export const DeletePastButton = clientEntry(
       return (
         <button
           type="button"
-          mix={[button({ tone: 'danger' }), clickHandler]}
+          mix={[button({ tone: 'dangerOutline' }), clickHandler]}
           disabled={pastCount === 0}
           title={pastCount === 0 ? 'Keine vergangenen Angebote zu löschen.' : undefined}
         >

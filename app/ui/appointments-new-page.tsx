@@ -165,46 +165,6 @@ const emptyStateStyle = css({
   gap: theme.space.md,
 })
 
-const apptTableCard = css({
-  '@media (max-width: 768px)': {
-    // Stacked cards, not horizontal scroll: cancel the shared grid min-width.
-    // !important is required — the shared table mixin's min-width lives in a
-    // later rmx.* sub-layer, and layer order beats specificity for the nested
-    // selector (see the cascade-layer override pattern).
-    '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
-    '& thead': { display: 'none' },
-    '& tbody': { display: 'block' },
-    '& tbody tr': {
-      display: 'grid',
-      gridTemplateColumns: '1fr',
-      gap: theme.space.xs,
-      padding: theme.space.sm,
-      marginBottom: theme.space.sm,
-      border: `1px solid ${theme.colors.border.default}`,
-      borderRadius: theme.radius.md,
-      background: theme.surface.lvl1,
-    },
-    '& tbody td': {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      gap: theme.space.sm,
-      padding: `${theme.space.xs} 0`,
-      borderBottom: 'none',
-      overflow: 'visible',
-      textOverflow: 'clip',
-      whiteSpace: 'normal',
-      '&::before': {
-        content: 'attr(data-label)',
-        flexShrink: 0,
-        fontWeight: theme.fontWeight.semibold,
-        fontSize: theme.fontSize.xs,
-        color: theme.colors.text.secondary,
-      },
-    },
-  },
-})
-
 export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
   return () => {
     let {
@@ -356,7 +316,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
           </div>
         </div>
 
-        <div mix={[table.wrap, apptTableCard]} data-appointments-table="true">
+        <div mix={[table.wrap, table.mobileCards]} data-appointments-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
               {filter ? (

@@ -2,8 +2,10 @@ import { css } from 'remix/ui'
 import type { CSSMixinDescriptor, MixinDescriptor, ElementProps } from 'remix/ui'
 import upstreamButton from 'remix/ui/button'
 
+import { theme } from './theme.ts'
+
 type ButtonSize = 'md' | 'lg'
-type ButtonTone = 'neutral' | 'primary' | 'ghost' | 'secondary' | 'danger'
+type ButtonTone = 'neutral' | 'primary' | 'ghost' | 'secondary' | 'danger' | 'dangerOutline'
 
 interface ButtonOptions {
   size?: ButtonSize
@@ -33,6 +35,13 @@ function button(options: ButtonOptions = {}): ButtonMixin {
 
   if (tone === 'danger') {
     return [...upstreamButton({ size, tone: 'primary' }), dangerStyle] as unknown as ButtonMixin
+  }
+
+  if (tone === 'dangerOutline') {
+    return [
+      ...upstreamButton({ size, tone: 'neutral' }),
+      dangerOutlineStyle,
+    ] as unknown as ButtonMixin
   }
 
   return upstreamButton({ size, tone }) as unknown as ButtonMixin
@@ -84,5 +93,35 @@ const dangerStyle: CSSMixinDescriptor = css({
     },
   '&:active:not(:disabled):not([aria-disabled="true"])': {
     transform: 'translateY(1px)',
+  },
+})
+
+/**
+ * Outline danger tone: a destructive action that stays visible but does not
+ * dominate the page the way the solid red primary shadow does.
+ *
+ * Colours are theme tokens, not hex: a hardcoded light-mode red leaves the
+ * label at ~2.4:1 on the dark surface (#363a3e) — below WCAG AA. The mode-aware
+ * danger action token lifts that to ~3.1:1 (dark) / ~4.6:1 (light), and matches
+ * the danger-accent treatment already used for row-action icons and menu items.
+ */
+const dangerOutlineStyle: CSSMixinDescriptor = css({
+  background: 'transparent',
+  border: `1px solid ${theme.colors.action.danger.background}`,
+  color: theme.colors.action.danger.background,
+  '--rmx-button-shadow': 'none',
+  '&:hover:not(:disabled):not([aria-disabled="true"])': {
+    background: theme.colors.action.danger.background,
+    borderColor: theme.colors.action.danger.background,
+    color: theme.colors.action.danger.foreground,
+  },
+  '&:active:not(:disabled):not([aria-disabled="true"]), &[aria-pressed="true"]:not(:disabled):not([aria-disabled="true"])':
+    {
+      background: theme.colors.action.danger.backgroundActive,
+      borderColor: theme.colors.action.danger.backgroundActive,
+      color: theme.colors.action.danger.foreground,
+    },
+  '&:disabled, &[aria-disabled="true"]': {
+    opacity: 0.5,
   },
 })

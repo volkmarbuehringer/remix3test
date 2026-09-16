@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
@@ -210,14 +210,15 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
                     period,
                     status,
                   )}
-                  mix={[table.spacer, table.linkPlain]}
+                  data-rmx-target={getSelfFrameTarget()}
+                  mix={[
+                    table.spacer,
+                    table.linkPlain,
+                    buttonLink({ tone: 'secondary' }),
+                    css({ justifyContent: 'center', textAlign: 'center' }),
+                  ]}
                 >
-                  <button
-                    type="button"
-                    mix={[button({ tone: 'secondary' }), css({ width: '100%' })]}
-                  >
-                    Abbrechen
-                  </button>
+                  Abbrechen
                 </a>
               </div>
             </div>

@@ -230,6 +230,75 @@ export const table = {
     cursor: 'pointer',
     '&:hover': { opacity: 0.9 },
   }),
+
+  /**
+   * Joined icon-button group for a table row (config / edit / delete). The
+   * container owns the outer border, radius and shadow; each segment is a flat
+   * square that draws only the divider to its right. This reads as one control
+   * instead of three floating buttons and keeps the Aktionen column narrow. The
+   * segments intentionally do not carry the vendor `button()` mixin, so its pill
+   * radius cannot win over the flat group shape (see segmented.ts for the same
+   * cascade caveat on the filter chips).
+   */
+  actionGroup: css({
+    display: 'inline-flex',
+    alignItems: 'stretch',
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.md,
+    overflow: 'hidden',
+    boxShadow: theme.shadow.sm,
+  }),
+  actionSeg: css({
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px',
+    height: '28px',
+    padding: 0,
+    background: surface.lvl2,
+    color: theme.colors.text.secondary,
+    border: 'none',
+    borderRight: `1px solid ${theme.colors.border.default}`,
+    fontSize: theme.fontSize.xs,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    '&:hover': { background: surface.lvl3, color: theme.colors.text.primary },
+    '&:focus-visible': {
+      position: 'relative',
+      outline: `2px solid ${theme.colors.focus.ring}`,
+      outlineOffset: '-2px',
+      zIndex: 1,
+    },
+  }),
+  actionSegDanger: css({
+    color: theme.colors.action.danger.background,
+    borderRight: 'none',
+    '&:hover': {
+      background: theme.colors.action.danger.background,
+      color: theme.colors.action.danger.foreground,
+    },
+  }),
+
+  /** Two-line table cell: a title with an optional muted meta line below it. */
+  cellStack: css({
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    minWidth: 0,
+  }),
+  cellTitle: css({
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    color: theme.colors.text.primary,
+  }),
+  cellMeta: css({
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.text.muted,
+  }),
   empty: css({
     textAlign: 'center',
     padding: theme.space.xxl,
@@ -277,6 +346,53 @@ export const table = {
   row: css({
     '&:nth-child(even)': { background: surface.lvl0 },
     '&:hover': { background: surface.lvl3 },
+  }),
+
+  /**
+   * Stacked-card layout for narrow viewports. Apply it to the `table.wrap`
+   * container: below 768px the header is hidden and every row becomes a card,
+   * each cell prefixed by its `data-label` — so the row actions stay on screen
+   * instead of scrolling off the right edge of the 840px grid.
+   *
+   * The `min-width` override is `!important` on purpose: the shared `table`
+   * mixin sets it, and the two rules land in sibling `@layer rmx.*` sub-layers
+   * where declaration order, not specificity, decides the winner (the same
+   * cascade caveat documented in segmented.ts).
+   */
+  mobileCards: css({
+    '@media (max-width: 768px)': {
+      '& table': { display: 'block', tableLayout: 'auto', minWidth: '0 !important' },
+      '& thead': { display: 'none' },
+      '& tbody': { display: 'block' },
+      '& tbody tr': {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: theme.space.xs,
+        padding: theme.space.sm,
+        marginBottom: theme.space.sm,
+        border: `1px solid ${theme.colors.border.default}`,
+        borderRadius: theme.radius.md,
+        background: theme.surface.lvl1,
+      },
+      '& tbody td': {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: theme.space.sm,
+        padding: `${theme.space.xs} 0`,
+        borderBottom: 'none',
+        overflow: 'visible',
+        textOverflow: 'clip',
+        whiteSpace: 'normal',
+        '&::before': {
+          content: 'attr(data-label)',
+          flexShrink: 0,
+          fontWeight: theme.fontWeight.semibold,
+          fontSize: theme.fontSize.xs,
+          color: theme.colors.text.secondary,
+        },
+      },
+    },
   }),
   twoColumn: css({
     display: 'grid',

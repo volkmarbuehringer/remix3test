@@ -3,7 +3,7 @@ import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { segmentedButton } from './mixins/segmented.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
@@ -59,35 +59,28 @@ interface AdminOfferingsPageProps {
 
 const ADMIN_BASE = routes.verwaltung.offerings.index.href()
 
-const rowActionsStyle = css({
+// One-line affordance for the right-click shortcut (power users can still
+// reach it without the visible action group). Hidden where there is no hover.
+const contextHintStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '6px',
+  gap: '4px',
+  fontSize: theme.fontSize.xs,
+  color: theme.colors.text.muted,
+  whiteSpace: 'nowrap',
+  '@media (hover: none)': { display: 'none' },
+  '@media (max-width: 768px)': { display: 'none' },
 })
 
-const iconActionStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
+// Page number pill in the pagination footer.
+const pageBadgeStyle = css({
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.full,
   background: theme.surface.lvl2,
   color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-const iconActionDangerStyle = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+  whiteSpace: 'nowrap',
 })
 
 function buildEditUrl(
@@ -190,16 +183,19 @@ function formatWeekNumber(day: string): number {
   return Math.ceil(((target.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
-function formatDate(day: string): string {
-  return new Date(Number(day)).toLocaleDateString('de-DE', {
+function formatDate(value: string): string {
+  return new Date(Number(value)).toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   })
 }
 
-function formatDayCell(day: string): string {
-  return `KW ${formatWeekNumber(day)} \u00b7 ${formatWeekday(day)} \u00b7 ${formatDate(day)}`
+function formatTime(value: string): string {
+  return new Date(Number(value)).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function formatDuring(during: string): string {
@@ -254,6 +250,26 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
     }
 
     let hasFormPanel = !!(editRow || creating)
+
+    // Derive the page size from the server-computed next offset so the footer can
+    // show "Seite N" without another prop.
+    let pageSize = Math.max(1, nextOffset - offset)
+    let currentPage = Math.floor(offset / pageSize) + 1
+
+    // Name the active filters so the empty state explains why nothing matched.
+    let emptyMessage: string
+    if (filter) {
+      emptyMessage = 'Keine Angebote für diese Suche gefunden.'
+    } else if (status === 'expired') {
+      emptyMessage = 'Keine abgelaufenen Angebote gefunden.'
+    } else if (status === 'all') {
+      emptyMessage = 'Keine Angebote gefunden.'
+    } else if (period) {
+      emptyMessage = 'Keine ausstehenden Angebote in diesem Zeitraum gefunden.'
+    } else {
+      emptyMessage = 'Keine ausstehenden Angebote vorhanden.'
+    }
+
     let gridSection = (
       <div mix={table.minWidth0}>
         {!hasFormPanel && formError ? <div mix={table.errorBanner}>{formError}</div> : null}
@@ -265,10 +281,19 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           data-rmx-target={getSelfFrameTarget()}
           mix={table.filterBar}
         >
+          {/* Preserve the active sort, period and status when searching; the
+              offset is intentionally absent so a new search starts on page 1. */}
+          <input type="hidden" name="sort" value={sortColumn} />
+          <input type="hidden" name="order" value={sortDirection} />
+          {period && status !== 'expired' ? (
+            <input type="hidden" name="period" value={period} />
+          ) : null}
+          {status ? <input type="hidden" name="status" value={status} /> : null}
           <input
             type="text"
             name="filter"
             placeholder="Suche nach Ressource..."
+            aria-label="Nach Ressource suchen"
             defaultValue={filter ?? ''}
             mix={table.filterInput}
           />
@@ -300,16 +325,41 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                 let href = active
                   ? buildPeriodUrl(null, offset, sortColumn, sortDirection, filter, status)
                   : buildPeriodUrl(value, offset, sortColumn, sortDirection, filter, status)
+                if (status === 'expired') {
+                  // Future periods are meaningless alongside the expired view;
+                  // mirror /verwaltung/appointments and disable the switcher
+                  // rather than linking to a guaranteed-empty grid.
+                  return (
+                    <span>
+                      <button
+                        type="button"
+                        disabled
+                        mix={[
+                          button({ tone: active ? 'primary' : 'secondary' }),
+                          segmentedButton({
+                            isFirst,
+                            isLast,
+                            paddingX: theme.space.sm,
+                            disabled: true,
+                          }),
+                        ]}
+                      >
+                        {label}
+                      </button>
+                    </span>
+                  )
+                }
                 return (
-                  <a href={href} data-rmx-target={getSelfFrameTarget()}>
-                    <button
-                      mix={[
-                        button({ tone: active ? 'primary' : 'secondary' }),
-                        segmentedButton({ isFirst, isLast, paddingX: theme.space.sm }),
-                      ]}
-                    >
-                      {label}
-                    </button>
+                  <a
+                    href={href}
+                    data-rmx-target={getSelfFrameTarget()}
+                    aria-current={active ? 'true' : undefined}
+                    mix={[
+                      buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                      segmentedButton({ isFirst, isLast, paddingX: theme.space.sm }),
+                    ]}
+                  >
+                    {label}
                   </a>
                 )
               },
@@ -333,7 +383,9 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               params.set('sort', sortColumn)
               params.set('order', sortDirection)
               if (filter) params.set('filter', filter)
-              if (period) params.set('period', period)
+              // A future period cannot coexist with the expired view — drop it
+              // instead of navigating to a guaranteed-empty grid.
+              if (period && value !== 'expired') params.set('period', period)
               // Only omit `status` when this is the neutral default (pending) view;
               // re-clicking the active "Alle"/"Abgelaufen" tab must keep its own filter.
               if (!(value === 'pending' && (!status || status === 'pending'))) {
@@ -341,15 +393,16 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               }
               let href = routes.verwaltung.offerings.index.href() + '?' + params.toString()
               return (
-                <a href={href} data-rmx-target={getSelfFrameTarget()}>
-                  <button
-                    mix={[
-                      button({ tone: active ? 'primary' : 'secondary' }),
-                      segmentedButton({ isFirst, isLast }),
-                    ]}
-                  >
-                    {label}
-                  </button>
+                <a
+                  href={href}
+                  data-rmx-target={getSelfFrameTarget()}
+                  aria-current={active ? 'true' : undefined}
+                  mix={[
+                    buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                    segmentedButton({ isFirst, isLast }),
+                  ]}
+                >
+                  {label}
                 </a>
               )
             })}
@@ -368,22 +421,21 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
               status,
             )}
             data-rmx-target={getSelfFrameTarget()}
-            mix={table.linkPlain}
+            mix={buttonLink({ tone: 'primary' })}
           >
-            <button mix={[button({ tone: 'primary' })]}>
-              <Glyph name="add" width={14} height={14} /> Neu anlegen
-            </button>
+            <Glyph name="add" width={14} height={14} /> Neu anlegen
           </a>
           <a
             href={buildAddWeekUrl(offset, sortColumn, sortDirection, filter, period, status)}
             data-rmx-target={getSelfFrameTarget()}
-            mix={table.linkPlain}
+            mix={buttonLink({ tone: 'secondary' })}
           >
-            <button mix={[button({ tone: 'secondary' })]}>
-              <Glyph name="add" width={14} height={14} /> Woche hinzufügen
-            </button>
+            <Glyph name="add" width={14} height={14} /> Woche hinzufügen
           </a>
           <span mix={table.spacer} />
+          <span mix={contextHintStyle}>
+            <Glyph name="info" width={13} height={13} /> Rechtsklick: Aktionsmenü
+          </span>
           <DeletePastButton
             csrfToken={csrfToken}
             offset={String(offset)}
@@ -398,10 +450,10 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         </div>
 
         {/* Table */}
-        <div mix={table.wrap} data-offerings-table="true">
+        <div mix={[table.wrap, table.mobileCards]} data-offerings-table="true">
           {rows.length === 0 ? (
             <div mix={table.empty}>
-              {filter ? 'Keine Angebote gefunden für diese Suche.' : 'Keine Angebote vorhanden.'}
+              {emptyMessage}
               {!hasFormPanel && (
                 <div mix={css({ marginTop: theme.space.md })}>
                   <a
@@ -415,11 +467,9 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       status,
                     )}
                     data-rmx-target={getSelfFrameTarget()}
-                    mix={table.linkPlain}
+                    mix={buttonLink({ tone: 'primary' })}
                   >
-                    <button mix={[button({ tone: 'primary' })]}>
-                      <Glyph name="add" width={14} height={14} /> Neu anlegen
-                    </button>
+                    <Glyph name="add" width={14} height={14} /> Neu anlegen
                   </a>
                 </div>
               )}
@@ -427,12 +477,11 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
           ) : (
             <table mix={table.table}>
               <colgroup>
-                <col mix={css({ width: '170px' })} />
+                <col mix={css({ width: '132px' })} />
                 <col />
-                <col />
-                <col />
-                <col mix={css({ width: '90px' })} />
-                <col mix={css({ width: '130px' })} />
+                <col mix={css({ width: '124px' })} />
+                <col mix={css({ width: '112px' })} />
+                <col mix={css({ width: '112px' })} />
               </colgroup>
               <thead>
                 <tr>
@@ -482,7 +531,6 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}>Beschreibung</th>
                   <th mix={table.thSortable} title="Zeitraum">
                     <a
                       href={buildSortUrl(
@@ -531,7 +579,11 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                       </span>
                     </a>
                   </th>
-                  <th mix={table.th}></th>
+                  <th
+                    mix={table.th}
+                    aria-label="Aktionen"
+                    title="Rechtsklick auf eine Zeile öffnet das Aktionsmenü"
+                  ></th>
                 </tr>
               </thead>
               <tbody>
@@ -542,23 +594,41 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                     data-row-id={row.id}
                     data-resource-id={row.resource_id}
                   >
-                    <td mix={table.td} title={formatDate(row.day)}>
-                      {formatDayCell(row.day)}
+                    <td mix={table.td} title={formatDate(row.day)} data-label="Tag">
+                      <div mix={table.cellStack}>
+                        <span mix={table.cellTitle}>
+                          {`KW ${formatWeekNumber(row.day)} · ${formatWeekday(row.day)}`}
+                        </span>
+                        <span mix={table.cellMeta}>{formatDate(row.day)}</span>
+                      </div>
                     </td>
-                    <td mix={table.td} title={row.resource_name ?? ''}>
-                      {row.resource_name ?? '\u2014'}
+                    <td
+                      mix={table.td}
+                      title={row.resource_description ?? row.resource_name ?? ''}
+                      data-label="Ressource"
+                    >
+                      <div mix={table.cellStack}>
+                        <span mix={table.cellTitle}>{row.resource_name ?? '—'}</span>
+                        {row.resource_description ? (
+                          <span mix={table.cellMeta}>{row.resource_description}</span>
+                        ) : null}
+                      </div>
                     </td>
-                    <td mix={table.td} title={row.resource_description ?? ''}>
-                      {row.resource_description ?? '\u2014'}
-                    </td>
-                    <td mix={table.td} title={row.during}>
+                    <td mix={table.td} title={row.during} data-label="Zeitraum">
                       {formatDuring(row.during)}
                     </td>
-                    <td mix={table.td} title={formatTimestamp(row.updated_at)}>
-                      {formatTimestamp(row.updated_at)}
+                    <td
+                      mix={table.td}
+                      title={formatTimestamp(row.updated_at)}
+                      data-label="Aktualisiert"
+                    >
+                      <div mix={table.cellStack}>
+                        <span mix={table.cellTitle}>{formatDate(row.updated_at)}</span>
+                        <span mix={table.cellMeta}>{formatTime(row.updated_at)}</span>
+                      </div>
                     </td>
-                    <td mix={table.actionCell}>
-                      <div mix={rowActionsStyle}>
+                    <td mix={table.actionCell} data-label="Aktionen">
+                      <div mix={table.actionGroup}>
                         <a
                           href={buildConfigUrl(
                             row.resource_id,
@@ -570,7 +640,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             status,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={iconActionStyle}
+                          mix={table.actionSeg}
                           aria-label="Konfiguration"
                           title="Konfiguration"
                         >
@@ -587,7 +657,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                             status,
                           )}
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={iconActionStyle}
+                          mix={table.actionSeg}
                           aria-label="Bearbeiten"
                           title="Bearbeiten"
                         >
@@ -599,7 +669,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                           data-delete-form={row.id}
                           data-confirm="Wirklich löschen?"
                           data-rmx-target={getSelfFrameTarget()}
-                          mix={css({ margin: 0, padding: 0 })}
+                          mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                         >
                           <GridStateHiddenInputs
                             state={{
@@ -613,7 +683,7 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
                           />
                           <button
                             type="submit"
-                            mix={[iconActionStyle, iconActionDangerStyle]}
+                            mix={[table.actionSeg, table.actionSegDanger]}
                             aria-label="Löschen"
                             title="Löschen"
                           >
@@ -632,11 +702,16 @@ export function AdminOfferingsPage(handle: Handle<AdminOfferingsPageProps>) {
         {/* Pagination */}
         {(offset > 0 || hasMore) && (
           <div mix={table.pagination}>
-            {rows.length > 0 && (
-              <span mix={table.paginationInfo}>
-                Zeige {pageStart}–{pageEnd}
+            <span mix={css({ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' })}>
+              {rows.length > 0 && (
+                <span mix={table.paginationInfo}>
+                  Zeige {pageStart}–{pageEnd}
+                </span>
+              )}
+              <span mix={pageBadgeStyle} aria-label={`Seite ${currentPage}`}>
+                Seite {currentPage}
               </span>
-            )}
+            </span>
             <div mix={table.flexGapSm}>
               {offset > 0 ? (
                 <a

@@ -193,6 +193,72 @@ describe('Admin Offerings Controller', () => {
       let html = await response.text()
       assert.ok(html.includes('status=expired'), 'sort URLs should preserve status param')
     })
+
+    it('renders the row actions as a visible buttongroup', async () => {
+      let response = await router.fetch(ADMIN_OFFERINGS_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('data-delete-form'), 'delete form must be rendered in the row')
+      assert.ok(
+        html.includes('aria-label="Konfiguration"') &&
+          html.includes('aria-label="Bearbeiten"') &&
+          html.includes('aria-label="Löschen"'),
+        'all three row actions should be visible with accessible labels',
+      )
+    })
+
+    it('preserves the active period, status and sort when searching', async () => {
+      let response = await router.fetch(
+        `${ADMIN_OFFERINGS_URL}?status=all&period=this-week&sort=ao.day&order=desc`,
+        { headers: { Cookie: adminCookie } },
+      )
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        html.includes('name="period" value="this-week"'),
+        'the search form should preserve the active period',
+      )
+      assert.ok(
+        html.includes('name="status" value="all"'),
+        'the search form should preserve the active status',
+      )
+      assert.ok(
+        html.includes('name="sort" value="ao.day"'),
+        'the search form should preserve the active sort',
+      )
+    })
+
+    it('disables the future-period filter while the expired status is active', async () => {
+      let response = await router.fetch(`${ADMIN_OFFERINGS_URL}?status=expired`, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(
+        !html.includes('period%3Dthis-week') && !html.includes('period=this-week'),
+        'the expired view must not link to a future period',
+      )
+      assert.ok(
+        html.includes('disabled'),
+        'the period switcher should be rendered disabled in the expired view',
+      )
+    })
+
+    it('labels every cell for the stacked mobile card layout', async () => {
+      let response = await router.fetch(ADMIN_OFFERINGS_URL, {
+        headers: { Cookie: adminCookie },
+      })
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      for (let label of ['Tag', 'Ressource', 'Zeitraum', 'Aktualisiert', 'Aktionen']) {
+        assert.ok(
+          html.includes(`data-label="${label}"`),
+          `the ${label} cell should carry a data-label for the stacked card view`,
+        )
+      }
+    })
   })
 
   describe('Offerings mutations (admin base contract conformance)', () => {

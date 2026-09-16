@@ -69,50 +69,6 @@ const smallBtnStyle = css({
   fontSize: '0.75rem',
 })
 
-// Segmented button group for the row actions: open / edit / delete read as one
-// connected control instead of three floating icon buttons. The visible text
-// moves to aria-label/title so the Aktionen column stays narrow.
-const actionGroup = css({
-  display: 'inline-flex',
-  alignItems: 'stretch',
-  border: '1px solid ' + theme.colors.border.default,
-  borderRadius: theme.radius.md,
-  overflow: 'hidden',
-  boxShadow: theme.shadow.sm,
-})
-
-const actionSeg = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '28px',
-  padding: 0,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  border: 'none',
-  borderRight: '1px solid ' + theme.colors.border.default,
-  fontSize: theme.fontSize.xs,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-  '&:focus-visible': {
-    position: 'relative',
-    outline: '2px solid ' + theme.colors.focus.ring,
-    outlineOffset: '-2px',
-    zIndex: 1,
-  },
-})
-
-const actionSegDanger = css({
-  color: theme.colors.action.danger.background,
-  borderRight: 'none',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 const titleCellStyle = css({
   display: 'flex',
   flexDirection: 'column',
@@ -638,14 +594,14 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                         {formatTimestamp(row.updated_at)}
                       </td>
                       <td mix={table.actionCell}>
-                        <div mix={actionGroup}>
+                        <div mix={table.actionGroup}>
                           <a
                             href={'/lists?load=' + row.id}
                             target="_top"
                             data-rmx-document
                             aria-label="In Listen öffnen"
                             title="In Listen öffnen"
-                            mix={actionSeg}
+                            mix={table.actionSeg}
                           >
                             <Glyph name="open" width={14} height={14} />
                           </a>
@@ -654,7 +610,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                             data-rmx-target={getSelfFrameTarget()}
                             aria-label="Bearbeiten"
                             title="Bearbeiten"
-                            mix={actionSeg}
+                            mix={table.actionSeg}
                           >
                             <Glyph name="edit" width={14} height={14} />
                           </a>
@@ -681,7 +637,7 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
                               type="submit"
                               aria-label="Löschen"
                               title="Löschen"
-                              mix={[actionSeg, actionSegDanger]}
+                              mix={[table.actionSeg, table.actionSegDanger]}
                             >
                               <Glyph name="trash" width={14} height={14} />
                             </button>
