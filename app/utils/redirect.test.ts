@@ -84,6 +84,15 @@ describe('getSafeReturnTo', () => {
     assert.equal(result, undefined)
   })
 
+  it('returns undefined for a same-origin path that normalizes to protocol-relative', () => {
+    // Act — resolves to origin remix.local but pathname `//evil.com`, which a
+    // browser treats as protocol-relative and would navigate to evil.com.
+    let result = getSafeReturnTo('//remix.local//evil.com')
+
+    // Assert
+    assert.equal(result, undefined)
+  })
+
   it('returns undefined for a path with protocol scheme', () => {
     // Act
     let result = getSafeReturnTo('javascript:alert(1)')
