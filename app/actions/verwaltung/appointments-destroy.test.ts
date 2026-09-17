@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/test-pool.ts'
-import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 import {
   BASE,
   ADMIN_APPT_URL,
@@ -103,7 +103,7 @@ describe('Admin Appointments Controller', () => {
       let location = response.headers.get('Location') ?? ''
       assert.ok(location.startsWith('/verwaltung/appointments'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let rawSid = await readSessionId(adminCookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')

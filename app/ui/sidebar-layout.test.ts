@@ -6,7 +6,7 @@ import { createSidebarLayout } from './sidebar-layout.tsx'
 import { renderAdminPage, AdminLayout } from './admin-layout.tsx'
 import { router } from '../test-router.ts'
 import { createAuthCookieWithCsrfForUser } from '../test-utils.ts'
-import { sessionCookie, sessionStorage } from '../middleware/session.ts'
+import { serializeSessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase } from '../db.ts'
 import { pool } from '../data/test-pool.ts'
 import { routes } from '../routes.ts'
@@ -145,7 +145,7 @@ describe('Admin sidebar shell — flash messages', () => {
 
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
-    let cookieHeader = await sessionCookie.serialize(sid)
+    let cookieHeader = await serializeSessionCookie(sid)
     return cookieHeader.split(';')[0]!
   }
 

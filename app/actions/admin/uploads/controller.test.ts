@@ -7,7 +7,7 @@ import { db, initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../data/test-pool.ts'
 import { insertUpload, claimUploads } from '../../../data/uploads.ts'
 import { uploadLimitErrorCode } from '../../../middleware/uploads.ts'
-import { sessionCookie, sessionStorage } from '../../../middleware/session.ts'
+import { serializeSessionCookie, sessionStorage } from '../../../middleware/session.ts'
 import { router } from '../../../test-router.ts'
 import { createAuthCookieWithCsrfForUser, generateCsrfToken } from '../../../test-utils.ts'
 import { routes } from '../../../routes.ts'
@@ -35,7 +35,7 @@ async function authCookieForUserWithPageSize(
     session.set('pageSize', pageSize)
     let sid = await sessionStorage.save(session)
     if (!sid) return null
-    let setCookieValue = await sessionCookie.serialize(sid)
+    let setCookieValue = await serializeSessionCookie(sid)
     let match = setCookieValue.match(/session=([^;]+)/)
     if (!match) return null
     return { cookie: `session=${match[1]}`, csrfToken }

@@ -29,6 +29,27 @@ function isoWeekFromMonday(ms: number): { year: number; week: number } {
   return { year: d.getUTCFullYear(), week: weekNum }
 }
 
+/**
+ * Build a `{ date, during }` pair for an appointment starting about
+ * `minutesFromNow` minutes in the future and fitting inside a single UTC day.
+ *
+ * `during` is stored as a same-day `[start,end)` minute range bounded by the
+ * `during_bounds` check constraint (0 <= lower < upper <= 1440). Deriving the
+ * start from the current wall-clock minute overflows past 24:00 near the end of
+ * the UTC day, so roll to the next UTC day's first hour when that happens.
+ */
+function nearFutureSlot(minutesFromNow: number): { date: number; during: string } {
+  let startMs = Date.now() + minutesFromNow * 60 * 1000
+  let day = new Date(startMs)
+  day.setUTCHours(0, 0, 0, 0)
+  let startMin = Math.floor((startMs - day.getTime()) / 60_000)
+  if (startMin + 60 > 1440) {
+    day = new Date(day.getTime() + 86_400_000)
+    startMin = 0
+  }
+  return { date: day.getTime(), during: `[${startMin},${startMin + 60})` }
+}
+
 describe('Appointments New Controller', () => {
   let userCookie: string
   let userCsrfToken: string
@@ -396,10 +417,7 @@ describe('Appointments New Controller', () => {
   })
 
   it('DELETE /appointments/new/:id rejects deletion when appointment starts within 24h and outside grace period', async () => {
-    let now = new Date()
-    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-    let nearFutureMin = currentMin + 70
+    let { date: slotDate, during: slotDuring } = nearFutureSlot(70)
     // Use a unique resource to avoid exclusion constraint conflicts
     let uniqueResourceId = firstResourceId + 100
     let resourceNow = Date.now()
@@ -414,7 +432,7 @@ describe('Appointments New Controller', () => {
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Near Future Delete', $2, $3, $4, $4)
        RETURNING id`,
-      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, oldCreatedAt],
+      [uniqueResourceId, slotDate, slotDuring, oldCreatedAt],
     )
     let appointmentId = insertResult.rows[0].id as number
 
@@ -434,10 +452,7 @@ describe('Appointments New Controller', () => {
   })
 
   it('DELETE /appointments/new/:id allows deletion within 10-minute grace period', async () => {
-    let now = new Date()
-    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-    let nearFutureMin = currentMin + 75
+    let { date: slotDate, during: slotDuring } = nearFutureSlot(75)
     let uniqueResourceId = firstResourceId + 200
     let resourceNow = Date.now()
     await pool.query(
@@ -449,7 +464,7 @@ describe('Appointments New Controller', () => {
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ((SELECT id FROM users WHERE email = 'user@newapp.com'), $1, 'Grace Period Delete', $2, $3, $4, $4)
        RETURNING id`,
-      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, Date.now()],
+      [uniqueResourceId, slotDate, slotDuring, Date.now()],
     )
     let appointmentId = insertResult.rows[0].id as number
 
@@ -472,10 +487,7 @@ describe('Appointments New Controller', () => {
   })
 
   it('DELETE /appointments/new/:id allows admin to delete within 24h (no grace period)', async () => {
-    let now = new Date()
-    let todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    let currentMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-    let nearFutureMin = currentMin + 80
+    let { date: slotDate, during: slotDuring } = nearFutureSlot(80)
     let uniqueResourceId = firstResourceId + 201
     let resourceNow = Date.now()
     await pool.query(
@@ -489,7 +501,7 @@ describe('Appointments New Controller', () => {
       `INSERT INTO appointments (user_id, resource_id, title, date, during, created_at, updated_at)
        VALUES ((SELECT id FROM users WHERE email = 'admin@newapp.com'), $1, 'Admin Override Delete', $2, $3, $4, $4)
        RETURNING id`,
-      [uniqueResourceId, todayMidnight, `[${nearFutureMin},${nearFutureMin + 60})`, oldCreatedAt],
+      [uniqueResourceId, slotDate, slotDuring, oldCreatedAt],
     )
     let appointmentId = insertResult.rows[0].id as number
 

@@ -5,7 +5,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser, createTestUser, extractCookie } from '../../test-utils.ts'
-import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'
 const USERS_URL = `${BASE}/admin/users`
@@ -715,7 +715,7 @@ describe('Admin Users Controller', () => {
       assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
 
       // The flash must be written to the session (consumed on the next render).
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Benutzer nicht gefunden'), 'flash error should be set')
@@ -750,7 +750,7 @@ describe('Admin Users Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/admin/users'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('eigene Konto'), 'flash error should mention own account')

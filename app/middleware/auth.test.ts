@@ -12,7 +12,7 @@ import { routes } from '../routes.ts'
 import { initializeAppDatabase } from '../db.ts'
 import { pool } from '../data/test-pool.ts'
 import { createSession } from 'remix/session'
-import { sessionCookie, sessionStorage } from './session.ts'
+import { serializeSessionCookie, sessionStorage } from './session.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -271,7 +271,7 @@ describe('Session token_version invalidation', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]!
+    let cookie = (await serializeSessionCookie(sid)).split(';')[0]!
 
     let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
       headers: { Cookie: cookie },
@@ -293,7 +293,7 @@ describe('Session token_version invalidation', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookie = (await sessionCookie.serialize(sid)).split(';')[0]!
+    let cookie = (await serializeSessionCookie(sid)).split(';')[0]!
 
     let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
       headers: { Cookie: cookie },

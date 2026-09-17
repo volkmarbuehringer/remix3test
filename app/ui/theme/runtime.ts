@@ -1,4 +1,4 @@
-import { createElement, type Handle } from 'remix/ui'
+import { createElement, unsafeHTML, type Handle } from 'remix/ui'
 
 import { REMIX_UI_RESET_LAYER, REMIX_UI_STYLE_LAYER } from './layers.ts'
 import {
@@ -24,7 +24,7 @@ export function createTheme(values: ThemeValues, options: CreateThemeOptions = {
         nonce: handle.props.nonce,
         'data-rmx-theme': '',
         'data-rmx-theme-selector': selector,
-        innerHTML: escapeStyleText(cssText),
+        innerHTML: unsafeHTML(escapeStyleText(cssText)),
       })
   }
 

@@ -3,7 +3,7 @@ import * as assert from 'remix/assert'
 import { createSession } from 'remix/session'
 
 import { router } from '../test-router.ts'
-import { sessionCookie, sessionStorage } from '../middleware/session.ts'
+import { serializeSessionCookie, sessionStorage } from '../middleware/session.ts'
 import { initializeAppDatabase } from '../db.ts'
 
 import { pool } from '../data/test-pool.ts'
@@ -52,7 +52,7 @@ describe('Layout — flash messages', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookieHeader = await sessionCookie.serialize(sid)
+    let cookieHeader = await serializeSessionCookie(sid)
     return cookieHeader.split(';')[0]! // "session=abc123"
   }
 
@@ -71,7 +71,7 @@ describe('Layout — flash messages', () => {
     let sid = await sessionStorage.save(session)
     if (!sid) throw new Error('sessionStorage.save returned null')
 
-    let cookieHeader = await sessionCookie.serialize(sid)
+    let cookieHeader = await serializeSessionCookie(sid)
     return cookieHeader.split(';')[0]!
   }
 

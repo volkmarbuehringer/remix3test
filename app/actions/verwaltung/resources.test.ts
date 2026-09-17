@@ -5,7 +5,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser, extractCookie } from '../../test-utils.ts'
-import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'
 const RESOURCES_URL = `${BASE}/verwaltung/resources`
@@ -423,7 +423,7 @@ describe('Admin Resources Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let rawSid = await readSessionId(adminCookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
@@ -474,7 +474,7 @@ describe('Admin Resources Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/resources'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let rawSid = await readSessionId(adminCookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
@@ -518,7 +518,7 @@ describe('Admin Resources Controller', () => {
       assert.ok(location.includes('order=desc'), 'should preserve order')
       assert.ok(location.includes('filter=fk'), 'should preserve filter')
 
-      let rawSid = (await sessionCookie.parse(adminCookie)) as string
+      let rawSid = await readSessionId(adminCookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(

@@ -1,6 +1,6 @@
 import { createSession } from 'remix/session'
 import { SetCookie } from 'remix/headers'
-import { sessionCookie, sessionStorage } from './middleware/session.ts'
+import { serializeSessionCookie, sessionStorage } from './middleware/session.ts'
 import { db } from './db.ts'
 import { router } from './test-router.ts'
 
@@ -71,7 +71,7 @@ export async function createAuthCookieWithCsrf(): Promise<{
     let sid = await sessionStorage.save(session)
     if (!sid) return null
 
-    let setCookieValue = await sessionCookie.serialize(sid)
+    let setCookieValue = await serializeSessionCookie(sid)
     let match = setCookieValue.match(/session=([^;]+)/)
     if (!match) return null
 
@@ -101,7 +101,7 @@ export async function createAuthCookieWithCsrfForUser(
     let sid = await sessionStorage.save(session)
     if (!sid) return null
 
-    let setCookieValue = await sessionCookie.serialize(sid)
+    let setCookieValue = await serializeSessionCookie(sid)
     let match = setCookieValue.match(/session=([^;]+)/)
     if (!match) return null
 

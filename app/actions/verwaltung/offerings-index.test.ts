@@ -4,7 +4,7 @@ import * as assert from 'remix/assert'
 import { router } from '../../test-router.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
-import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 import { BASE, setupTestEnvironment, teardownTestEnvironment } from './controller.test-utils.ts'
 
 const ADMIN_OFFERINGS_URL = `${BASE}/verwaltung/offerings`
@@ -342,7 +342,7 @@ describe('Admin Offerings Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err?.includes('Eintrag nicht gefunden'), 'flash error should be set')
@@ -372,7 +372,7 @@ describe('Admin Offerings Controller', () => {
       let location = response.headers.get('Location') || ''
       assert.ok(location.startsWith('/verwaltung/offerings'), 'should redirect to the grid list')
 
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       let err = session.get('error') as string | undefined
       assert.ok(err, 'a flash error should be set')
@@ -429,7 +429,7 @@ describe('Admin Offerings Controller', () => {
       assert.ok(location.includes('sort=r.description'), 'grid sort should be preserved')
       assert.ok(location.includes('order=desc'), 'grid order should be preserved')
       assert.ok(location.includes('filter=such'), 'grid filter should be preserved')
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       assert.ok(session.get('error') || session.get('success'), 'flash message should be set')
     })
@@ -452,7 +452,7 @@ describe('Admin Offerings Controller', () => {
         body: body.toString(),
       })
       assert.equal(response.status, 302, 'delete-past should PRG back to the grid')
-      let rawSid = (await sessionCookie.parse(fresh.cookie)) as string
+      let rawSid = await readSessionId(fresh.cookie)
       let session = await sessionStorage.read(rawSid)
       assert.ok(session.get('success'), 'flash success should be set')
     })

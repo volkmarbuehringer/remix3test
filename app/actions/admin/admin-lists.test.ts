@@ -5,7 +5,7 @@ import { router } from '../../test-router.ts'
 import { initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
-import { sessionStorage, sessionCookie } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
 const BASE = 'https://remix.run'
 const LISTS_URL = BASE + '/admin/lists'
@@ -61,13 +61,13 @@ describe('Admin Lists Controller', () => {
   }
 
   async function readFlash(): Promise<string | undefined> {
-    let rawSid = (await sessionCookie.parse(adminCookie)) as string
+    let rawSid = await readSessionId(adminCookie)
     let session = await sessionStorage.read(rawSid)
     return session.get('error') as string | undefined
   }
 
   async function readSuccessFlash(): Promise<string | undefined> {
-    let rawSid = (await sessionCookie.parse(adminCookie)) as string
+    let rawSid = await readSessionId(adminCookie)
     let session = await sessionStorage.read(rawSid)
     return session.get('success') as string | undefined
   }
