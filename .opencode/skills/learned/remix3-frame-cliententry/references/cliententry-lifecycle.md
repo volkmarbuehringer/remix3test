@@ -236,7 +236,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/frame.ts:883`, dispatched by `completeReload` defined at `:878`; the inherited-reload variant dispatches at `:918`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/frame.ts:912`, dispatched by `completeReload` defined at `:907`; the inherited-reload variant dispatches at `:947`). At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
@@ -298,7 +298,7 @@ Use when a `clientEntry` inside a `<Frame>` must reload data on frame URL change
 
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
-- `ref()` is driven by the mixin `insert` event (`packages/ui/src/runtime/mixins/ref-mixin.ts:16`).
+- `ref()` is driven by the mixin `insert` event (`packages/ui/src/runtime/mixins/ref-mixin.ts:15`).
 - During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/ui/src/runtime/reconcile.ts:905`, `:944`), so `insert` is dispatched on the client and `ref()` fires at hydration.
 - The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:914`, `:2146`) for mixin-persisted nodes — not for plain hydration.
 

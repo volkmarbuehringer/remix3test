@@ -22,11 +22,13 @@ A bare `<script>{code}</script>` in a Remix 3 component has two silent failure m
 
 > **Version-pinned update:** The content-escaping half (#2) is **no longer an issue** as of commit
 > `8ddca1f04` ("Preserve script text content during SSR", on `preview/main`, installable build `2f0e40303`).
-> `packages/ui/src/server/stream.ts:541-543` now renders `<script>{children}</script>` through
-> `escapeScriptTextContent()` (defined at `:1192`), which only escapes `</script` / `<script`
+> `packages/ui/src/server/stream.ts:622` renders `<script>{children}</script>` through
+> `escapeScriptTextContent()` (defined at `:1233`), which only escapes `</script` / `<script`
 > sequences (as `\u0073`/`\u0053`) and **preserves** `<`/`>` in JS string literals. Only the
-> CSP-nonce requirement (#1) still applies. Re-confirmed against `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts`
-> @ `f12afc1de` (2026-09-08); earlier grep-able `:1192` was the function definition, not the render site.
+> CSP-nonce requirement (#1) still applies. Re-confirmed 2026-09-17 against the installed
+> `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts` @ `c1e61b8`
+> (installable build `2aca9b4e4`); PR #11885 added the raw-HTML guard and the `innerHTML` render site
+> is now `:613-615`.
 
 ## Solution
 

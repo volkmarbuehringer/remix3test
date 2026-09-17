@@ -10,7 +10,7 @@
    - The **sidebar shell**: pages render through `createSidebarLayout`'s `LayoutComponent` (`app/ui/sidebar-layout.tsx`), which previously rendered content only.
    - A **dual-render page's fragment branch**: a route that serves both a full document and a content-only fragment (Remix 3 detects `X-Remix-Target`; e.g. `renderVerwaltungPage`'s `isFrame` branch, `app/ui/verwaltung-layout.tsx`) renders content only in that branch.
 
-2. **Tests read an empty session.** The session cookie value is a **signed** session id (`sessionCookie.serialize(sid)` → `session=<signed>`), not the raw id. `sessionStorage.read` expects the **raw** id, so `cookie.split('=')[1]` (which returns the signed value, truncating on any `=`) reads the wrong file → empty session → no flash.
+2. **Tests read an empty session.** The session cookie value is a **signed** session id (`sessionCookie.serialize(sid)` → `session=<signed>`), not the raw id. `sessionStorage.read` expects the **raw** id, so `cookie.split('=')[1]` (which returns the signed value, truncating on any `=`) reads the wrong file → empty session → no flash. As of the session-middleware cookie-lifetime change (#11857), a cookie with a configured lifetime (`maxAge`/`expires` — this app's 30-day `sessionCookie`) stores a **signed JSON envelope** `{"value":"<sid>","expires":<ms>}`; the raw id is the envelope's `.value`, and a cookie without the envelope is treated as expired, starting a new session.
 
 ## Solution
 
@@ -25,23 +25,24 @@ Surface `session.get('error' | 'success')` in whichever fragment path renders th
 
 ### 2. Read the flash in tests via the parsed session id
 
-Parse the **signed** cookie back to the raw id before reading:
+Use the codec helpers exported from `app/middleware/session.ts` — do not hand-roll `sessionCookie.parse`/`serialize`, because the middleware wraps the id in a lifetime envelope when `maxAge` (or `expires`) is configured:
 
 ```ts
-import { sessionCookie, sessionStorage } from '../../middleware/session.ts'
+import { readSessionId, sessionStorage } from '../../middleware/session.ts'
 
-let rawSid = (await sessionCookie.parse(fresh.cookie)) as string   // NOT cookie.split('=')[1]
+let rawSid = await readSessionId(fresh.cookie)   // NOT cookie.split('=')[1]
 let session = await sessionStorage.read(rawSid)
 let err = session.get('error') as string | undefined
 assert.ok(err?.includes('...'), 'flash error should be set')
 ```
 
-- `sessionCookie.parse(cookieHeader)` verifies the signature and returns the raw id; `sessionStorage.read(rawSid)` loads the flash.
+- `readSessionId(cookieHeader)` verifies the signature, unwraps the `{ value, expires }` envelope and returns the raw id; `sessionStorage.read(rawSid)` loads the flash. It also passes through a legacy raw value.
+- `serializeSessionCookie(sid)` is the inverse for tests that build a cookie directly from a `sessionStorage.save()` id.
 - Use a **fresh** session cookie per test (e.g. `createAuthCookieWithCsrfForUser`), so a cookie shared across many tests doesn't accumulate/consume the flash.
 
 ## When to Use
 
 - A PRG form in a frame-based Remix 3 admin app where the error/success flash never appears after a redirect.
 - Adding a flash banner to a frame fragment (sidebar shell or an `isFrame` fragment branch) so one-shot PRG messages are visible.
-- Writing a test that asserts a `session.flash` value — parse the signed cookie first.
+- Writing a test that asserts a `session.flash` value — unwrap the signed cookie with `readSessionId` first.
 - Debugging an assertion like `flash error should be set` failing with `session.get('error') === undefined`.
