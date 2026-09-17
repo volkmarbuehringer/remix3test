@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
+import { css, Fragment, Frame } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { rotatedGlyphCss } from './mixins/icon.ts'
@@ -76,39 +76,11 @@ const descriptionStyle = css({
   fontSize: theme.fontSize.sm,
 })
 
-const rowActionsStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-})
-
-const iconActionStyle = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '30px',
-  height: '30px',
-  padding: 0,
-  border: `1px solid ${theme.colors.border.default}`,
-  borderRadius: theme.radius.md,
-  background: theme.surface.lvl2,
-  color: theme.colors.text.secondary,
-  cursor: 'pointer',
-  textDecoration: 'none',
-  '&:hover': { background: theme.surface.lvl3, color: theme.colors.text.primary },
-})
-
-const iconActionDangerStyle = css({
-  color: theme.colors.action.danger.background,
-  borderColor: 'transparent',
-  '&:hover': {
-    background: theme.colors.action.danger.background,
-    color: theme.colors.action.danger.foreground,
-  },
-})
-
 const conversationLinkStyle = css({
   display: 'block',
+  // Lets the link ellipsize instead of overflowing once the table becomes a
+  // stacked card on phones (the cell is a flex row there).
+  minWidth: 0,
   color: theme.colors.action.primary.background,
   textDecoration: 'none',
   overflow: 'hidden',
@@ -126,6 +98,14 @@ const emptyStateStyle = css({
   textAlign: 'center',
   padding: theme.space.xxl,
   color: theme.colors.text.muted,
+})
+
+/** Inline link that clears an active source filter from the empty state. */
+const emptyStateLinkStyle = css({
+  color: theme.colors.action.primary.background,
+  textDecoration: 'none',
+  fontWeight: theme.fontWeight.semibold,
+  '&:hover': { textDecoration: 'underline' },
 })
 
 const pageBadgeStyle = css({
@@ -250,9 +230,24 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
           data-chatlog-master-detail="true"
           data-chatlog-detail-open={detailOpen ? 'true' : 'false'}
         >
-          <div mix={table.wrap} data-chatlog-table="true">
+          <div mix={[table.wrap, table.mobileCards]} data-chatlog-table="true">
             {conversations.length === 0 ? (
-              <div mix={emptyStateStyle}>Noch keine Konversationen gespeichert.</div>
+              <div mix={emptyStateStyle}>
+                {source === 'all' ? (
+                  'Noch keine Konversationen gespeichert.'
+                ) : (
+                  <Fragment>
+                    Keine Konversationen in „{CHATLOG_SOURCE_LABELS[source]}“.{' '}
+                    <a
+                      href={ADMIN_BASE}
+                      data-rmx-target={getSelfFrameTarget()}
+                      mix={emptyStateLinkStyle}
+                    >
+                      Alle anzeigen
+                    </a>
+                  </Fragment>
+                )}
+              </div>
             ) : (
               <table mix={[table.table, listTableMinWidthStyle]}>
                 <colgroup>
@@ -284,7 +279,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                         data-chatlog-row={conv.id}
                         {...(selectedId === conv.id ? { 'data-chatlog-row-active': 'true' } : {})}
                       >
-                        <td mix={table.td}>
+                        <td mix={table.td} data-label="Konversation">
                           {/*
                             No `data-rmx-target`: the detail client entry loads this
                             link into the nested detail frame. The href stays real so
@@ -305,7 +300,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                             )}
                           </a>
                         </td>
-                        <td mix={table.td}>
+                        <td mix={table.td} data-label="Quelle">
                           <span
                             mix={[
                               sourceBadgeStyle,
@@ -316,23 +311,33 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                             {CHATLOG_SOURCE_LABELS[conv.source]}
                           </span>
                         </td>
-                        <td mix={table.td}>{conv.messageCount}</td>
-                        <td mix={table.td} title={formatTimestamp(conv.created_at)}>
+                        <td mix={table.td} data-label="Nachrichten">
+                          {conv.messageCount}
+                        </td>
+                        <td
+                          mix={table.td}
+                          title={formatTimestamp(conv.created_at)}
+                          data-label="Erstellt"
+                        >
                           {formatTimestamp(conv.created_at)}
                         </td>
-                        <td mix={table.td} title={formatTimestamp(conv.updated_at)}>
+                        <td
+                          mix={table.td}
+                          title={formatTimestamp(conv.updated_at)}
+                          data-label="Letzte Nachricht"
+                        >
                           {formatTimestamp(conv.updated_at)}
                         </td>
-                        <td mix={table.actionCell}>
-                          <div mix={rowActionsStyle}>
+                        <td mix={table.actionCell} data-label="Aktionen">
+                          <div mix={table.actionGroup} data-chatlog-actions="true">
                             <a
                               href={href}
                               data-chatlog-open={conv.id}
-                              mix={iconActionStyle}
+                              mix={table.actionSeg}
                               aria-label="Detail anzeigen"
                               title="Detail anzeigen"
                             >
-                              <Glyph name="eye" width={14} height={14} />
+                              <Glyph name="eye" width={13} height={13} />
                             </a>
 
                             <RestfulForm
@@ -341,7 +346,7 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                               data-delete-form={conv.id}
                               data-confirm="Diese Konversation wirklich löschen?"
                               data-rmx-target={getSelfFrameTarget()}
-                              mix={css({ margin: 0, padding: 0 })}
+                              mix={css({ margin: 0, padding: 0, display: 'inline-flex' })}
                             >
                               <GridStateHiddenInputs
                                 state={{ offset: String(offset), sort: '', order: '', filter: '' }}
@@ -349,11 +354,11 @@ export function ChatLogPage(handle: Handle<ChatLogPageProps>) {
                               <input type="hidden" name="_source" value={source} />
                               <button
                                 type="submit"
-                                mix={[iconActionStyle, iconActionDangerStyle]}
+                                mix={[table.actionSeg, table.actionSegDanger]}
                                 aria-label="Löschen"
                                 title="Löschen"
                               >
-                                <Glyph name="trash" width={14} height={14} />
+                                <Glyph name="trash" width={13} height={13} />
                               </button>
                             </RestfulForm>
                           </div>

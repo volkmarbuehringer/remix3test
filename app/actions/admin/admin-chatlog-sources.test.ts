@@ -73,6 +73,47 @@ describe('Admin Chatlog source classification and filter', () => {
     assert.ok(html.includes('Letzte Nachricht'), 'last-activity column')
   })
 
+  it('renders the row actions as a visible buttongroup', async () => {
+    let html = await (await get()).text()
+
+    assert.ok(html.includes('data-chatlog-actions="true"'), 'row actions should share one control')
+    assert.ok(html.includes('aria-label="Detail anzeigen"'), 'detail action should be labelled')
+    assert.ok(html.includes('aria-label="Löschen"'), 'delete action should be labelled')
+    assert.ok(html.includes('data-delete-form'), 'delete form must be rendered in the row')
+  })
+
+  it('labels every cell for the stacked card layout', async () => {
+    let html = await (await get()).text()
+
+    for (let label of [
+      'Konversation',
+      'Quelle',
+      'Nachrichten',
+      'Erstellt',
+      'Letzte Nachricht',
+      'Aktionen',
+    ]) {
+      assert.ok(html.includes(`data-label="${label}"`), `missing data-label "${label}"`)
+    }
+  })
+
+  it('offers to clear the filter when the filtered list is empty', async () => {
+    __setTestChatlogFixtures({
+      threads: [
+        { id: 'support-only', resourceId: String(adminUserId), createdAt: 1, updatedAt: 2 },
+      ],
+      previews: new Map([
+        ['support-only', { preview: 'Nur Support', previewFull: 'Nur Support', messageCount: 1 }],
+      ]),
+    })
+
+    let html = await (await get('?source=customer')).text()
+
+    assert.ok(html.includes('Keine Konversationen in „Kunden“.'), 'filter-aware empty state')
+    assert.ok(html.includes('Alle anzeigen'), 'offers to clear the filter')
+    assert.ok(html.includes('href="/admin/chatlog"'), 'links back to the unfiltered list')
+  })
+
   it('shows per-source counts in the filter bar', async () => {
     let html = await (await get()).text()
     assert.ok(html.includes('Alle (3)'), 'all count')
