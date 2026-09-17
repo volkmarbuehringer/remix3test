@@ -28,6 +28,7 @@ import {
   toggleButtonCss,
 } from '../../ui/auth-card.tsx'
 import { issuesToFieldErrors } from '../../utils/schema-utils.ts'
+import { formatUtcDateDE } from '../../utils/date-utils.ts'
 import { validatePasswordComplexity, PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
@@ -68,6 +69,7 @@ export default createController(routes.settings, {
             <SettingsPage
               user={user}
               pageSize={pageSize}
+              activeTab="settings-account"
               deleteError="Administratoren können ihr Konto nicht selbst löschen."
             />,
             { status: 403 },
@@ -79,6 +81,7 @@ export default createController(routes.settings, {
             <SettingsPage
               user={user}
               pageSize={pageSize}
+              activeTab="settings-account"
               deleteError="Zu viele Versuche. Bitte versuchen Sie es in einer Minute erneut."
             />,
             { status: 429 },
@@ -95,6 +98,7 @@ export default createController(routes.settings, {
             <SettingsPage
               user={user}
               pageSize={pageSize}
+              activeTab="settings-account"
               deleteError="Aktuelles Passwort ist falsch."
             />,
             { status: 400 },
@@ -117,6 +121,7 @@ export default createController(routes.settings, {
             <SettingsPage
               user={user}
               pageSize={pageSize}
+              activeTab="settings-account"
               deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut."
             />,
             { status: 500 },
@@ -153,7 +158,7 @@ export default createController(routes.settings, {
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }
-        return redirect(routes.settings.index.href())
+        return redirect(`${routes.settings.index.href()}#settings-display`)
       }
 
       if (!changePasswordLimiter.attempt(user.id)) {
@@ -161,6 +166,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
+            activeTab="settings-password"
             passwordError="Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."
           />,
           { status: 429 },
@@ -173,6 +179,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
+            activeTab="settings-password"
             passwordError="Bitte überprüfen Sie Ihre Eingabe."
             passwordErrors={issuesToFieldErrors(parsed.issues)}
           />,
@@ -188,6 +195,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
+            activeTab="settings-password"
             passwordError="Aktuelles Passwort ist falsch."
             passwordErrors={{ currentPassword: 'Falsches Passwort' }}
           />,
@@ -200,6 +208,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
+            activeTab="settings-password"
             passwordError="Passwörter stimmen nicht überein."
             passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }}
           />,
@@ -213,6 +222,7 @@ export default createController(routes.settings, {
           <SettingsPage
             user={user}
             pageSize={pageSize}
+            activeTab="settings-password"
             passwordError={complexityError}
             passwordErrors={{ newPassword: complexityError }}
           />,
@@ -239,12 +249,38 @@ export default createController(routes.settings, {
         <SettingsPage
           user={user}
           pageSize={pageSize}
+          activeTab="settings-password"
           passwordSuccess="Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet."
         />,
       )
     },
   },
 })
+
+/** Initials for the decorative profile avatar, e.g. "John Doe" -> "JD". */
+function initialsFromName(name: string): string {
+  let parts = name.trim().split(/\s+/).filter(Boolean)
+  let first = parts[0]?.charAt(0) ?? ''
+  let last = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? '') : ''
+  return (first + last).toUpperCase() || '?'
+}
+
+function roleLabelDE(role: User['role']): string {
+  return role === 'admin' ? 'Administrator' : 'Kunde'
+}
+
+// The settings panels are presented as ARIA tabs. The order here is the tab
+// order, and each id doubles as the panel's DOM id and the URL fragment that
+// deep-links it (e.g. /settings#settings-password).
+const SETTINGS_TABS = [
+  { id: 'settings-profile', label: 'Profil' },
+  { id: 'settings-display', label: 'Anzeige' },
+  { id: 'settings-password', label: 'Passwort' },
+  { id: 'settings-account', label: 'Konto' },
+] as const
+
+type SettingsTabId = (typeof SETTINGS_TABS)[number]['id']
+const DEFAULT_SETTINGS_TAB: SettingsTabId = 'settings-profile'
 
 type SettingsPageProps = {
   user: User
@@ -253,43 +289,112 @@ type SettingsPageProps = {
   passwordErrors?: Record<string, string | undefined>
   passwordSuccess?: string
   deleteError?: string
+  /** Tab to mark selected on the server render; defaults to the profile tab. */
+  activeTab?: SettingsTabId
 }
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
     let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
       handle.props
+    let activeTab = handle.props.activeTab ?? DEFAULT_SETTINGS_TAB
 
     return (
       <Layout title="Einstellungen">
-        <PageSection title="Einstellungen" description="Verwalten Sie Ihre Kontoeinstellungen.">
+        <PageSection
+          title="Einstellungen"
+          titleHidden
+          description="Verwalten Sie Ihre Kontoeinstellungen."
+        >
           <SettingsEnhance />
-          <div mix={settingsGridCss}>
-            <div mix={panelCss}>
-              <h2 mix={sectionTitleCss}>Profil</h2>
-              <div mix={profileGridCss}>
-                <div mix={profileFieldCss}>
-                  <span mix={profileLabelCss}>Name</span>
-                  <span mix={profileValueCss}>{user.name}</span>
-                </div>
-                <div mix={profileFieldCss}>
-                  <span mix={profileLabelCss}>E-Mail</span>
-                  <span mix={profileValueCss}>{user.email}</span>
+          <div mix={sectionTabListCss} role="tablist" aria-label="Bereiche der Einstellungen">
+            {SETTINGS_TABS.map((tab) => (
+              <a
+                mix={sectionTabCss}
+                href={`#${tab.id}`}
+                id={`${tab.id}-tab`}
+                role="tab"
+                aria-controls={tab.id}
+                aria-selected={tab.id === activeTab ? 'true' : 'false'}
+                tabindex={tab.id === activeTab ? 0 : -1}
+                data-settings-tab
+              >
+                {tab.label}
+              </a>
+            ))}
+          </div>
+          <div mix={settingsGridCss} data-settings-active-tab={activeTab}>
+            <div
+              mix={[panelCss, panelAnchorCss]}
+              id="settings-profile"
+              role="tabpanel"
+              aria-labelledby="settings-profile-tab"
+              tabindex={0}
+              data-settings-tabpanel
+            >
+              <h2 id="settings-profile-title" mix={sectionTitleCss}>
+                Profil
+              </h2>
+              <div mix={profileHeaderCss}>
+                <span mix={avatarCss} aria-hidden="true">
+                  {initialsFromName(user.name)}
+                </span>
+                <div mix={profileIdentityCss}>
+                  <span mix={profileNameCss}>{user.name}</span>
+                  <span mix={profileEmailCss}>{user.email}</span>
                 </div>
               </div>
+              <dl mix={profileMetaCss}>
+                <div mix={profileMetaRowCss}>
+                  <dt mix={profileLabelCss}>Rolle</dt>
+                  <dd mix={profileValueCss}>
+                    <span
+                      mix={[badgeCss, user.role === 'admin' ? badgeAdminCss : badgeNeutralCss]}
+                      data-settings-role={user.role}
+                    >
+                      {roleLabelDE(user.role)}
+                    </span>
+                  </dd>
+                </div>
+                <div mix={profileMetaRowCss}>
+                  <dt mix={profileLabelCss}>E-Mail-Status</dt>
+                  <dd mix={profileValueCss}>
+                    {user.email_verified === 1 ? (
+                      <span mix={[badgeCss, badgeSuccessCss]}>Bestätigt</span>
+                    ) : (
+                      <span mix={[badgeCss, badgeWarningCss]}>Nicht bestätigt</span>
+                    )}
+                  </dd>
+                </div>
+                <div mix={profileMetaRowCss}>
+                  <dt mix={profileLabelCss}>Mitglied seit</dt>
+                  <dd mix={profileValueCss}>
+                    <span data-settings-member-since>{formatUtcDateDE(user.created_at)}</span>
+                  </dd>
+                </div>
+              </dl>
               <p mix={hintTextCss}>
                 Um Name oder E-Mail zu ändern, kontaktieren Sie Ihren Administrator.
               </p>
             </div>
 
-            <div mix={panelCss}>
-              <h2 mix={sectionTitleCss}>Anzeige</h2>
+            <div
+              mix={[panelCss, panelAnchorCss]}
+              id="settings-display"
+              role="tabpanel"
+              aria-labelledby="settings-display-tab"
+              tabindex={0}
+              data-settings-tabpanel
+            >
+              <h2 id="settings-display-title" mix={sectionTitleCss}>
+                Anzeige
+              </h2>
               <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
               <form action={routes.settings.action.href()} method="POST">
                 <input type="hidden" name="_action" value="set-page-size" />
                 <CsrfTokenInput />
-                <div mix={formContainer}>
-                  <label mix={fieldLabelCss}>
+                <div mix={pageSizeRowCss}>
+                  <label mix={[fieldLabelCss, pageSizeFieldCss]}>
                     <span>Einträge pro Seite</span>
                     <select name="pageSize" mix={selectCss}>
                       <option value={10} selected={pageSize === 10}>
@@ -319,8 +424,18 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               </form>
             </div>
 
-            <div mix={[panelCss, fullSpanCss]} data-settings-panel>
-              <h3 mix={sectionTitleCss}>Passwort ändern</h3>
+            <div
+              mix={[panelCss, fullSpanCss, panelAnchorCss]}
+              id="settings-password"
+              role="tabpanel"
+              aria-labelledby="settings-password-tab"
+              tabindex={0}
+              data-settings-panel
+              data-settings-tabpanel
+            >
+              <h2 id="settings-password-title" mix={sectionTitleCss}>
+                Passwort ändern
+              </h2>
               {passwordError ? (
                 <p role="alert" data-settings-alert mix={errorBanner}>
                   {passwordError}
@@ -331,7 +446,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                   {passwordSuccess}
                 </p>
               ) : null}
-              <form action={routes.settings.action.href()} method="POST">
+              <form action={routes.settings.action.href()} method="POST" mix={formWidthCss}>
                 <CsrfTokenInput />
                 <div mix={formContainer}>
                   <PasswordField
@@ -380,8 +495,17 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               </form>
             </div>
 
-            <div mix={[panelCss, dangerZoneCss, fullSpanCss]}>
-              <h3 mix={[sectionTitleCss, dangerTitleCss]}>Konto löschen</h3>
+            <div
+              mix={[panelCss, dangerZoneCss, fullSpanCss, panelAnchorCss]}
+              id="settings-account"
+              role="tabpanel"
+              aria-labelledby="settings-account-tab"
+              tabindex={0}
+              data-settings-tabpanel
+            >
+              <h2 id="settings-account-title" mix={[sectionTitleCss, dangerTitleCss]}>
+                Konto löschen
+              </h2>
               <p mix={warningTextCss}>
                 Diese Aktion löscht Ihr Konto und alle zugehörigen Daten dauerhaft. Dies kann nicht
                 rückgängig gemacht werden. Alle Sitzungen werden beendet.
@@ -394,6 +518,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               <form
                 action={routes.settings.action.href()}
                 method="POST"
+                mix={formWidthCss}
                 data-confirm="Möchten Sie Ihr Konto wirklich dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden."
               >
                 <input type="hidden" name="_action" value="delete-account" />
@@ -415,11 +540,12 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                       name="confirmDelete"
                       required
                       defaultChecked={deleteError ? true : undefined}
+                      data-delete-confirm
                       mix={confirmCheckboxCss}
                     />
                     <span>Ich möchte mein Konto dauerhaft löschen</span>
                   </label>
-                  <button type="submit" mix={deleteButtonCss}>
+                  <button type="submit" data-delete-submit mix={deleteButtonCss}>
                     Konto dauerhaft löschen
                   </button>
                 </div>
@@ -502,16 +628,59 @@ const sectionTitleCss = css({
   color: theme.colors.text.primary,
 })
 
-// Two-column grid on desktop so the four settings panels fit without
-// scrolling; collapses to a single column on small screens/narrow windows.
+// Tabs reveal exactly one panel at a time, so the panels stack full-width
+// instead of the previous two-column grid.
 const settingsGridCss = css({
   display: 'grid',
   gridTemplateColumns: '1fr',
   gap: theme.space.lg,
   alignItems: 'start',
-  '@media (min-width: 900px)': {
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+})
+
+// ARIA tab list for the four settings panels. Anchors (not buttons) keep the
+// URL fragment meaningful and give a no-JavaScript fallback: without the
+// client entry the panels all stay visible and each link scrolls to its panel.
+const sectionTabListCss = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: theme.space.sm,
+})
+
+const sectionTabCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '36px',
+  padding: `0 ${theme.space.md}`,
+  border: `1px solid ${theme.colors.border.subtle}`,
+  borderRadius: theme.radius.full,
+  backgroundColor: theme.surface.lvl0,
+  color: theme.colors.text.secondary,
+  fontSize: theme.fontSize.sm,
+  fontWeight: theme.fontWeight.medium,
+  textDecoration: 'none',
+  cursor: 'pointer',
+  transition: 'background-color 150ms ease, color 150ms ease, border-color 150ms ease',
+  '&:hover': {
+    backgroundColor: theme.surface.lvl1,
+    borderColor: theme.colors.border.default,
+    color: theme.colors.text.primary,
   },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.focus.ring}`,
+    outlineOffset: 2,
+  },
+  // Declared after :hover in the same descriptor so the selected tab stays
+  // visually selected even while it is hovered.
+  '&[aria-selected="true"]': {
+    backgroundColor: theme.colors.action.primary.background,
+    borderColor: theme.colors.action.primary.border,
+    color: theme.colors.action.primary.foreground,
+  },
+})
+
+// Keeps an anchored panel clear of the viewport edge when the fragment scrolls.
+const panelAnchorCss = css({
+  scrollMarginTop: theme.space.lg,
 })
 
 const dangerZoneCss = css({
@@ -542,16 +711,95 @@ const matchFeedbackCss = css({
   },
 })
 
-const profileGridCss = css({
+const profileHeaderCss = css({
   display: 'flex',
-  flexDirection: 'column',
-  gap: theme.space.sm,
+  alignItems: 'center',
+  gap: theme.space.md,
 })
 
-const profileFieldCss = css({
+const avatarCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '48px',
+  height: '48px',
+  flexShrink: 0,
+  borderRadius: theme.radius.full,
+  border: `1px solid ${theme.colors.border.subtle}`,
+  backgroundColor: theme.surface.lvl2,
+  color: theme.colors.text.primary,
+  fontSize: theme.fontSize.lg,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const profileIdentityCss = css({
   display: 'flex',
   flexDirection: 'column',
   gap: '2px',
+  minWidth: 0,
+})
+
+const profileNameCss = css({
+  fontSize: theme.fontSize.lg,
+  fontWeight: theme.fontWeight.semibold,
+  color: theme.colors.text.primary,
+})
+
+const profileEmailCss = css({
+  fontSize: theme.fontSize.sm,
+  color: theme.colors.text.secondary,
+  overflowWrap: 'anywhere',
+})
+
+const profileMetaCss = css({
+  display: 'grid',
+  gap: theme.space.sm,
+  margin: 0,
+})
+
+const profileMetaRowCss = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+})
+
+// Badges are self-contained variant styles: the base owns shape only and each
+// variant owns its own colours, so no two descriptors contest the same
+// property across Remix UI's per-class cascade layers.
+const badgeCss = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  alignSelf: 'flex-start',
+  padding: `2px ${theme.space.sm}`,
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderRadius: theme.radius.full,
+  fontSize: theme.fontSize.xs,
+  fontWeight: theme.fontWeight.semibold,
+})
+
+const badgeNeutralCss = css({
+  backgroundColor: theme.surface.lvl1,
+  borderColor: theme.colors.border.subtle,
+  color: theme.colors.text.secondary,
+})
+
+const badgeAdminCss = css({
+  backgroundColor: theme.colors.action.primary.background,
+  borderColor: theme.colors.action.primary.border,
+  color: theme.colors.action.primary.foreground,
+})
+
+const badgeSuccessCss = css({
+  backgroundColor: theme.colors.success.background,
+  borderColor: theme.colors.success.border,
+  color: theme.colors.success.foreground,
+})
+
+const badgeWarningCss = css({
+  backgroundColor: theme.colors.warning.background,
+  borderColor: theme.colors.warning.border,
+  color: theme.colors.warning.foreground,
 })
 
 const profileLabelCss = css({
@@ -562,6 +810,7 @@ const profileLabelCss = css({
 })
 
 const profileValueCss = css({
+  margin: 0,
   fontSize: theme.fontSize.md,
   color: theme.colors.text.primary,
   fontWeight: theme.fontWeight.medium,
@@ -582,6 +831,24 @@ const deleteFormCss = css({
   '@media (max-width: 768px)': {
     gap: theme.space.sm,
   },
+})
+
+// Keep text inputs a comfortable reading width on wide desktop panels instead
+// of stretching them across the full two-column grid.
+const formWidthCss = css({
+  maxWidth: '32rem',
+})
+
+const pageSizeRowCss = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'flex-end',
+  gap: theme.space.md,
+})
+
+const pageSizeFieldCss = css({
+  flex: '1 1 12rem',
+  maxWidth: '16rem',
 })
 
 const complexityListCss = css({
@@ -648,6 +915,7 @@ const submitButton = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  justifySelf: 'start',
   minHeight: '44px',
   padding: '0.5rem 1.5rem',
   fontSize: theme.fontSize.sm,
@@ -660,6 +928,10 @@ const submitButton = css({
   transition: 'all 150ms ease',
   '&:hover': {
     opacity: 0.9,
+  },
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
   '@media (max-width: 768px)': {
     padding: '0.35rem 1rem',
@@ -676,6 +948,7 @@ const deleteButtonCss = css({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  justifySelf: 'start',
   minHeight: '44px',
   padding: '0.5rem 1.5rem',
   fontSize: theme.fontSize.sm,
@@ -688,6 +961,10 @@ const deleteButtonCss = css({
   transition: 'all 150ms ease',
   '&:hover': {
     opacity: 0.9,
+  },
+  '&:disabled': {
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
 })
 

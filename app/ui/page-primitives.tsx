@@ -6,6 +6,10 @@ interface PageSectionProps {
   children: RemixNode
   description?: string
   title?: string
+  /** Render the title as a screen-reader-only `h1`. Use when an equivalent
+   *  visible label already names the page (for example the breadcrumb's
+   *  current-page crumb) so the heading is not shown twice. */
+  titleHidden?: boolean
   /** Optional extra styles merged with `sectionCss` (e.g. `flex: 1` so a
    *  viewport-bounded page's content can fill the remaining height). */
   mix?: MixValue<HTMLElement, ElementProps>
@@ -13,12 +17,14 @@ interface PageSectionProps {
 
 export function PageSection(handle: Handle<PageSectionProps>) {
   return () => {
-    let { children, description, title, mix } = handle.props
+    let { children, description, title, titleHidden, mix } = handle.props
     return (
       <section mix={[sectionCss, mix].filter(Boolean)}>
         {title || description ? (
           <div mix={sectionHeaderCss}>
-            {title ? <h1 mix={sectionTitleCss}>{title}</h1> : null}
+            {title ? (
+              <h1 mix={titleHidden ? sectionTitleHiddenCss : sectionTitleCss}>{title}</h1>
+            ) : null}
             {description ? <p mix={sectionDescriptionCss}>{description}</p> : null}
           </div>
         ) : null}
@@ -39,6 +45,10 @@ export const panelCss = css({
   borderRadius: theme.radius.lg,
   backgroundColor: theme.surface.lvl0,
   boxShadow: theme.shadow.xs,
+  // The author `display` above beats the UA `[hidden]{display:none}` rule, so
+  // anything toggled via the `hidden` attribute (e.g. inactive settings tabs)
+  // needs this nested guard in the same descriptor to actually hide.
+  '&[hidden]': { display: 'none' },
 })
 
 export const bodyTextCss = css({
@@ -76,4 +86,19 @@ const sectionDescriptionCss = css({
   fontSize: theme.fontSize.sm,
   lineHeight: theme.lineHeight.relaxed,
   color: theme.colors.text.secondary,
+})
+
+// Keeps the h1 in the accessibility tree while a visible label elsewhere (the
+// breadcrumb's current-page crumb) already names the page, so it is not
+// rendered twice on screen.
+const sectionTitleHiddenCss = css({
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
 })

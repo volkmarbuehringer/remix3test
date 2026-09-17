@@ -39,11 +39,81 @@ describe('Settings controller', () => {
       assert.equal(response.status, 200)
       let html = await response.text()
       assert.ok(html.includes('Einstellungen'), 'page should contain Einstellungen heading')
+      let h1Count = (html.match(/<h1[\s>]/g) ?? []).length
+      assert.equal(
+        h1Count,
+        1,
+        'should render exactly one h1 (the breadcrumb carries the visible page title)',
+      )
       assert.ok(html.includes('Passwort ändern'), 'page should contain password section')
       assert.ok(html.includes('name="currentPassword"'), 'should have current password input')
       assert.ok(html.includes('name="newPassword"'), 'should have new password input')
       assert.ok(html.includes('name="confirmPassword"'), 'should have confirm password input')
       assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
+      assert.ok(html.includes('role="tablist"'), 'should render the settings tab list')
+      assert.ok(
+        html.includes('data-settings-active-tab="settings-profile"'),
+        'profile tab should be selected by default',
+      )
+    })
+
+    it('renders the profile summary with role and membership date', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('data-settings-role="customer"'), 'should show the account role')
+      assert.ok(html.includes('Mitglied seit'), 'should label the membership date')
+      assert.ok(html.includes('data-settings-member-since'), 'should render the membership date')
+    })
+
+    it('renders an ARIA tab and tabpanel for every settings section', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      for (let section of ['profile', 'display', 'password', 'account']) {
+        assert.ok(html.includes(`id="settings-${section}"`), `should render the ${section} panel`)
+        assert.ok(
+          html.includes(`href="#settings-${section}"`),
+          `should link to the ${section} panel`,
+        )
+        assert.ok(
+          html.includes(`aria-controls="settings-${section}"`),
+          `tab should control the ${section} panel`,
+        )
+        assert.ok(html.includes(`id="settings-${section}-tab"`), `should render the ${section} tab`)
+      }
+      assert.equal((html.match(/role="tab"/g) ?? []).length, 4, 'should render one tab per section')
+      assert.equal(
+        (html.match(/role="tabpanel"/g) ?? []).length,
+        4,
+        'should render one tabpanel per section',
+      )
+    })
+
+    it('shows the administrator badge for admin accounts', async () => {
+      let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(html.includes('data-settings-role="admin"'), 'should label the admin role')
+      assert.ok(html.includes('Administrator'), 'should render the admin role label')
     })
 
     it('redirects unauthenticated user to login page', async () => {
@@ -118,6 +188,10 @@ describe('Settings controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show error')
+      assert.ok(
+        html.includes('data-settings-active-tab="settings-password"'),
+        'should keep the password tab active after a failed change',
+      )
     })
 
     it('rejects password that is too short', async () => {
@@ -203,6 +277,29 @@ describe('Settings controller', () => {
       let html = await response.text()
       assert.ok(html.includes('Passwörter stimmen nicht überein'), 'should show mismatch error')
     })
+
+    it('redirects back to the display tab after saving the page size', async () => {
+      let session = await createAuthCookieWithCsrfForUser(testUserEmail)
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.action.href()}`, {
+        method: 'POST',
+        headers: { Cookie: session.cookie },
+        body: new URLSearchParams({
+          _action: 'set-page-size',
+          pageSize: '25',
+          _csrf: session.csrfToken,
+        }),
+        redirect: 'manual',
+      })
+
+      assert.equal(response.status, 302)
+      let location = response.headers.get('Location')
+      assert.ok(
+        location?.endsWith('#settings-display'),
+        'should keep the display tab active after saving',
+      )
+    })
   })
 
   describe('DELETE ACCOUNT', () => {
@@ -223,6 +320,14 @@ describe('Settings controller', () => {
         'should show confirmation checkbox',
       )
       assert.ok(html.includes('name="_action"'), 'should have action routing hidden field')
+      assert.ok(
+        html.includes('data-delete-confirm'),
+        'confirmation checkbox should carry the client gate hook',
+      )
+      assert.ok(
+        html.includes('data-delete-submit'),
+        'destructive submit button should carry the client gate hook',
+      )
     })
 
     it('rejects delete account for admin users', async () => {
@@ -276,6 +381,10 @@ describe('Settings controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show password error')
+      assert.ok(
+        html.includes('data-settings-active-tab="settings-account"'),
+        'should keep the account tab active after a failed delete',
+      )
     })
 
     it('successfully deletes account and redirects to login', async () => {
