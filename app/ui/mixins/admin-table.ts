@@ -7,7 +7,8 @@ export const table = {
   page: css({ maxWidth: '1000px' }),
   title: css({
     margin: 0,
-    fontSize: theme.fontSize.xxl,
+    fontSize: theme.fontSize.xl,
+    lineHeight: theme.lineHeight.tight,
     fontWeight: theme.fontWeight.semibold,
     color: theme.colors.text.primary,
   }),

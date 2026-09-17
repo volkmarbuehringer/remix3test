@@ -51,11 +51,12 @@ const cardLinkStyle = css({
 })
 
 const pageHeaderStyle = css({
-  marginBottom: theme.space.lg,
+  marginBottom: theme.space.md,
 })
 
 const headingStyle = css({
-  fontSize: theme.fontSize.xxl,
+  fontSize: theme.fontSize.xl,
+  lineHeight: theme.lineHeight.tight,
   fontWeight: theme.fontWeight.bold,
   margin: 0,
 })
