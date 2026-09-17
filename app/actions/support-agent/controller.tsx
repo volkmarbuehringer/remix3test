@@ -32,11 +32,14 @@ import {
 } from '../mastra/shared-agent.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
-import { css } from 'remix/ui'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'
-import { SupportAgentPage } from '../../ui/support-agent-page.tsx'
-import { theme } from '../../ui/theme/theme.ts'
+import {
+  SupportAgentEmptyState,
+  SupportAgentPage,
+  type SupportRecentThread,
+} from '../../ui/support-agent-page.tsx'
 import type { TestAgent } from '../mastra/shared-agent.ts'
+import { fetchChatThreadPreviews, listChatThreadsForResource } from '../../utils/mastra-memory.ts'
 
 const chatRateLimiter = createRateLimiter({ windowMs: 2000, perUser: true })
 
@@ -177,42 +180,79 @@ async function isOwnedSupportThread(
   }
 }
 
+// ── Recent conversations (fresh page quick-resume) ────────────────────
+//
+// The index offers the admin's own most recent support conversations for quick
+// resume. A test-only resolver seam mirrors __setTestThreadResolver so tests can
+// stub Mastra memory.
+type SupportRecentThreadsResolver = () => Promise<SupportRecentThread[]>
+
+let _testRecentThreadsResolver: SupportRecentThreadsResolver | undefined
+export function __setTestRecentThreadsResolver(fn: SupportRecentThreadsResolver | undefined) {
+  if (process.env.NODE_ENV === 'test') _testRecentThreadsResolver = fn
+}
+
+async function resolveRecentSupportThreads(
+  userId: number,
+  log: (...args: unknown[]) => void,
+): Promise<SupportRecentThread[]> {
+  if (process.env.NODE_ENV === 'test') {
+    return _testRecentThreadsResolver ? _testRecentThreadsResolver() : []
+  }
+  try {
+    let agent = resolveAgent() as unknown as AgentHandle
+    let threads = await listChatThreadsForResource(agent, String(userId), { perPage: 8 })
+    if (threads.length === 0) return []
+    let previews = await fetchChatThreadPreviews(
+      agent,
+      threads.map((t) => t.id),
+    )
+    return threads.map((t) => ({
+      threadId: t.id,
+      title: previews.get(t.id)?.preview || 'Unterhaltung',
+    }))
+  } catch (err) {
+    log('recent threads failed: ' + sanitizeLog(err instanceof Error ? err.message : String(err)))
+    return []
+  }
+}
+
 export const supportAgentChat = createController(routes.admin.supportAgent, {
   middleware: [requireAuth(), requireAdmin()],
   actions: {
     async panel(context) {
-      return context.render(
-        <div
-          mix={css({
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            color: theme.colors.text.muted,
-            fontSize: '1rem',
-          })}
-        >
-          Frage zu Benutzern, Terminen und Systemdaten...
-        </div>,
-      )
+      return context.render(<SupportAgentEmptyState />)
     },
 
     async index(context) {
       let user = getCurrentUser()
+      let log = (...args: unknown[]) =>
+        context.logger?.(
+          `[SupportAgentChat] [user:${user.id}] ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`,
+        )
 
       // A full-document GET renders the admin shell, whose admin-content frame
       // then re-fetches this same URL for the page content. Only that frame
       // request renders SupportAgentPage, so only it needs the transcript
       // recall; loading it on the shell pass would read memory twice.
       let isFrameRequest = context.request.headers.get('X-Remix-Target') === frames.adminContent
-      let resume = isFrameRequest
-        ? await resolveSupportThread(user.id, context.url.searchParams.get('threadId'))
-        : null
+      let resume: SupportThreadResume | null = null
+      let recentThreads: SupportRecentThread[] = []
+      if (isFrameRequest) {
+        resume = await resolveSupportThread(user.id, context.url.searchParams.get('threadId'))
+        // The recent list only serves the fresh page; a resumed transcript
+        // already shows the conversation, so skip the extra memory reads.
+        if (!resume) recentThreads = await resolveRecentSupportThreads(user.id, log)
+      }
 
       return renderAdminPage(
         context.render,
         'support',
-        <SupportAgentPage threadId={resume?.threadId} messages={resume?.messages ?? []} />,
+        <SupportAgentPage
+          threadId={resume?.threadId}
+          messages={resume?.messages ?? []}
+          recentThreads={recentThreads}
+        />,
       )
     },
 

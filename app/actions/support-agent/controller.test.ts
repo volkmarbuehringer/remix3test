@@ -15,6 +15,7 @@ import {
   chatRateLimiter,
   __setRunStatusResolver,
   __setTestThreadResolver,
+  __setTestRecentThreadsResolver,
 } from './controller.tsx'
 import {
   upsertPendingGate,
@@ -1438,6 +1439,7 @@ describe('support-agent thread selection', () => {
 
   after(() => {
     __setTestThreadResolver(undefined)
+    __setTestRecentThreadsResolver(undefined)
   })
 
   function getWithThread(query: string): Promise<Response> {
@@ -1508,5 +1510,35 @@ describe('support-agent thread selection', () => {
     let html = await response.text()
     assert.equal(response.status, 200)
     assert.ok(!html.includes('data-thread-id'))
+  })
+
+  it('renders the panel empty state with example prompts', async () => {
+    let response = await getWithThread('')
+    let html = await response.text()
+    assert.ok(html.includes('Womit kann ich helfen?'), 'should render the empty-state title')
+    assert.ok(html.includes('data-support-prompt'), 'should render clickable example prompts')
+  })
+
+  it('renders the recent conversations list on a fresh page', async () => {
+    __setTestRecentThreadsResolver(async () => [
+      { threadId: 'recent-1', title: 'Wie viele Nutzer gibt es?' },
+      { threadId: 'recent-2', title: 'Termine diese Woche' },
+    ])
+
+    let response = await getWithThread('')
+    let html = await response.text()
+    assert.ok(html.includes('Letzte Unterhaltungen'), 'should render the recent threads title')
+    assert.ok(
+      html.includes('data-support-thread="recent-1"'),
+      'should render a recent thread link with its id',
+    )
+    assert.ok(html.includes('Wie viele Nutzer gibt es?'), 'should render the thread preview title')
+  })
+
+  it('renders no recent list when the resolver returns none', async () => {
+    __setTestRecentThreadsResolver(async () => [])
+    let response = await getWithThread('')
+    let html = await response.text()
+    assert.ok(!html.includes('Letzte Unterhaltungen'))
   })
 })

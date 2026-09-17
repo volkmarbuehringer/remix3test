@@ -6,6 +6,7 @@ import {
   getChatThread,
   listAllChatThreads,
   listChatThreads,
+  listChatThreadsForResource,
   listLatestCustomerThread,
   recallChatMessages,
 } from './mastra-memory.ts'
@@ -272,6 +273,53 @@ describe('mastra-memory thread summaries', () => {
     assert.equal(recallCalls, 2, 'one recall per thread')
     assert.equal(previews.get('a')?.messageCount, 7)
     assert.equal(previews.get('b')?.messageCount, 7)
+  })
+
+  it('listChatThreadsForResource scopes the query to the resource and normalises rows', async () => {
+    let captured: ListThreadsOpts | undefined
+    let agent = {
+      getMemory: async () => ({
+        listThreads: async (opts: ListThreadsOpts) => {
+          captured = opts
+          return {
+            threads: [
+              {
+                id: 'mine-2',
+                resourceId: '42',
+                createdAt: new Date(200),
+                updatedAt: new Date(400),
+              },
+              {
+                id: 'mine-1',
+                resourceId: '42',
+                createdAt: new Date(100),
+                updatedAt: new Date(300),
+              },
+            ],
+          }
+        },
+      }),
+    }
+
+    let threads = await listChatThreadsForResource(agent, '42', { perPage: 8 })
+
+    assert.equal(captured?.filter?.resourceId, '42', 'should scope to the admin resource')
+    assert.equal(captured?.page, 0)
+    assert.equal(captured?.perPage, 8)
+    assert.equal(captured?.orderBy?.field, 'updatedAt')
+    assert.equal(captured?.orderBy?.direction, 'DESC')
+    assert.equal(threads.length, 2)
+    assert.equal(threads[0]!.id, 'mine-2')
+    assert.equal(threads[0]!.resourceId, '42')
+    assert.equal(typeof threads[0]!.createdAt, 'number')
+  })
+
+  it('listChatThreadsForResource returns an empty list when the resource has none', async () => {
+    let agent = {
+      getMemory: async () => ({ listThreads: async () => ({ threads: [] }) }),
+    }
+    let threads = await listChatThreadsForResource(agent, '99', { perPage: 8 })
+    assert.equal(threads.length, 0)
   })
 })
 

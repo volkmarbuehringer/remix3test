@@ -1,6 +1,8 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
+import { routes } from '../../../routes.ts'
+import { renderMarkdownToDom } from './markdown-dom.ts'
 
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
@@ -18,6 +20,10 @@ export const SupportAgentStream = clientEntry(
     let submitting: boolean = false
 
     let currentAgentMessageEl: HTMLElement | null = null
+
+    // The most recent submit, so a failed turn can be retried with one click.
+    let lastSubmission: { url: string; init: RequestInit } | null = null
+    let thinkingEl: HTMLElement | null = null
 
     let pendingQuestion: {
       runId: string
@@ -93,7 +99,167 @@ export const SupportAgentStream = clientEntry(
       let input = document.getElementById('support-agent-input') as HTMLTextAreaElement | null
       let submit = document.getElementById('support-agent-submit') as HTMLButtonElement | null
       if (input) input.disabled = !enabled
-      if (submit) submit.disabled = !enabled
+      if (submit) {
+        submit.disabled = !enabled
+        submit.textContent = enabled ? 'Senden' : 'Senden …'
+      }
+      let chat = getChat()
+      if (chat) {
+        if (enabled) chat.removeAttribute('aria-busy')
+        else chat.setAttribute('aria-busy', 'true')
+      }
+    }
+
+    // ── Thinking indicator ─────────────────────────────────────────
+
+    let THINKING_ID = 'support-agent-thinking'
+
+    function ensureSupportStyles() {
+      if (document.getElementById('support-agent-styles')) return
+      let style = document.createElement('style')
+      style.id = 'support-agent-styles'
+      style.textContent =
+        `@keyframes support-agent-dots { 0%,20% {content:''} 40% {content:'.'} ` +
+        `60% {content:'..'} 80%,100% {content:'...'} } ` +
+        `.support-agent-dots::after { content:''; animation: support-agent-dots 1.2s infinite; }`
+      document.head.appendChild(style)
+    }
+
+    function showThinking() {
+      let chat = getChat()
+      if (!chat || thinkingEl) return
+      let el = document.createElement('div')
+      el.id = THINKING_ID
+      el.style.cssText =
+        `max-width:75%;align-self:flex-start;padding:0.5rem 0.75rem;` +
+        `border-radius:8px 8px 8px 4px;background:${theme.surface.lvl1};` +
+        `border:1px solid ${theme.colors.border.subtle};font-size:0.875rem;` +
+        `color:${theme.colors.text.secondary};`
+      let label = document.createElement('span')
+      label.setAttribute('aria-live', 'polite')
+      label.textContent = 'Assistent denkt nach'
+      let dots = document.createElement('span')
+      dots.className = 'support-agent-dots'
+      label.appendChild(dots)
+      el.appendChild(label)
+      chat.appendChild(el)
+      thinkingEl = el
+      scrollToBottom(true)
+    }
+
+    function hideThinking() {
+      if (thinkingEl) {
+        thinkingEl.remove()
+        thinkingEl = null
+      }
+    }
+
+    // ── URL / thread reflection ────────────────────────────────────
+
+    /**
+     * Adopts a thread id the server created or resumed into the page state and
+     * the address bar, so a reload restores the conversation instead of
+     * starting empty.
+     */
+    function reflectThreadInUrl(threadId: string) {
+      let chat = getChat()
+      if (chat) chat.setAttribute('data-thread-id', threadId)
+      try {
+        let url = new URL(window.location.href)
+        if (url.searchParams.get('threadId') !== threadId) {
+          url.searchParams.set('threadId', threadId)
+          window.history.replaceState({}, '', url.pathname + url.search)
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+
+    // ── Preview pane ───────────────────────────────────────────────
+
+    function setPreviewVisible(visible: boolean, path?: string) {
+      let pane = document.getElementById('support-agent-preview')
+      if (!pane) return
+      if (visible) {
+        pane.hidden = false
+        pane.setAttribute('aria-hidden', 'false')
+        let pathEl = document.getElementById('support-agent-preview-path')
+        if (pathEl && path) pathEl.textContent = path
+      } else {
+        pane.hidden = true
+        pane.setAttribute('aria-hidden', 'true')
+      }
+    }
+
+    function handlePreviewClose() {
+      setPreviewVisible(false)
+      let frame = handle.frames.get('support-agent-panel')
+      if (frame) {
+        frame.src = routes.admin.supportAgent.panel.href()
+        frame.reload().catch(() => {})
+      }
+    }
+
+    // ── Error + retry ──────────────────────────────────────────────
+
+    function showErrorWithRetry(message: string, retryDelayMs = 2000) {
+      let chat = getChat()
+      if (!chat) return
+
+      let row = document.createElement('div')
+      row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;'
+      let msgEl = document.createElement('span')
+      msgEl.textContent = message
+      msgEl.style.cssText = `font-size:0.8125rem;color:${theme.colors.action.danger.background};font-style:italic;`
+      row.appendChild(msgEl)
+
+      let retryBtn = document.createElement('button')
+      retryBtn.type = 'button'
+      retryBtn.textContent = 'Erneut versuchen'
+      retryBtn.style.cssText =
+        `padding:0.25rem 0.75rem;background:${theme.surface.lvl1};` +
+        `color:${theme.colors.text.primary};border:1px solid ${theme.colors.border.default};` +
+        `border-radius:6px;font-size:0.8125rem;cursor:pointer;`
+      retryBtn.disabled = true
+      row.appendChild(retryBtn)
+      chat.appendChild(row)
+      scrollToBottom(true)
+
+      let remaining = Math.ceil(retryDelayMs / 1000)
+      let timer: number | null = null
+      let tick = () => {
+        remaining--
+        if (remaining <= 0) {
+          retryBtn.disabled = false
+          retryBtn.textContent = 'Erneut versuchen'
+          return
+        }
+        retryBtn.textContent = `Erneut versuchen (${remaining}s)`
+        timer = window.setTimeout(tick, 1000)
+      }
+      timer = window.setTimeout(tick, 1000)
+      let clearTimer = () => {
+        if (timer !== null) {
+          clearTimeout(timer)
+          timer = null
+        }
+      }
+      handle.signal.addEventListener(
+        'abort',
+        () => {
+          clearTimer()
+          row.remove()
+        },
+        { once: true },
+      )
+      retryBtn.onclick = () => {
+        clearTimer()
+        row.remove()
+        if (lastSubmission) {
+          setFormEnabled(false)
+          startStream(lastSubmission.url, lastSubmission.init)
+        }
+      }
     }
 
     // ── Message rendering ────────────────────────────────────────────
@@ -134,7 +300,10 @@ export const SupportAgentStream = clientEntry(
       bubble.style.lineHeight = '1.4'
       bubble.style.whiteSpace = 'pre-wrap'
       bubble.style.wordBreak = 'break-word'
-      if (text) bubble.textContent = text
+      if (text) {
+        bubble.textContent = text
+        bubble.dataset.kind = 'text'
+      }
 
       chat.appendChild(bubble)
       currentAgentMessageEl = bubble
@@ -145,15 +314,19 @@ export const SupportAgentStream = clientEntry(
     function updateLastAgentMessage(text: string) {
       if (currentAgentMessageEl) {
         currentAgentMessageEl.textContent = text
+        if (!currentAgentMessageEl.dataset.kind) currentAgentMessageEl.dataset.kind = 'text'
         scrollToBottom()
       }
     }
 
-    function replaceAgentMessageContent(fn: (el: HTMLElement) => void) {
-      if (currentAgentMessageEl) {
+    /** Renders markdown into the final text bubble once the stream settles. */
+    function finalizeAgentMessage() {
+      if (currentAgentMessageEl && currentAgentMessageEl.dataset.kind === 'text') {
+        let text = currentAgentMessageEl.textContent || ''
         currentAgentMessageEl.textContent = ''
-        fn(currentAgentMessageEl)
-        scrollToBottom(true)
+        currentAgentMessageEl.dataset.kind = 'markdown'
+        currentAgentMessageEl.appendChild(renderMarkdownToDom(text))
+        scrollToBottom()
       }
     }
 
@@ -172,7 +345,7 @@ export const SupportAgentStream = clientEntry(
       scrollToBottom(true)
     }
 
-    // ── Question rendering (inline in agent bubble) ───────────────────
+    // ── Question rendering (fresh bubble, never clobbers streamed text) ──
 
     function showQuestion(data: {
       runId?: string
@@ -186,47 +359,45 @@ export const SupportAgentStream = clientEntry(
         toolCallId: data.toolCallId,
         selectionMode: data.selectionMode,
       }
+      hideThinking()
+      let el = appendAgentMessage()
 
       if (!data.options || data.options.length === 0) {
-        replaceAgentMessageContent((el) => {
-          let questionLine = document.createElement('div')
-          questionLine.textContent = '❓ ' + data.question
-          questionLine.style.fontWeight = '600'
-          questionLine.style.marginBottom = '8px'
-          el.appendChild(questionLine)
+        let fieldset = document.createElement('fieldset')
+        fieldset.style.cssText =
+          'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;'
+        let legend = document.createElement('legend')
+        legend.textContent = data.question
+        legend.style.cssText = 'font-weight:600;margin-bottom:4px;font-size:0.875rem;'
+        fieldset.appendChild(legend)
 
-          let input = document.createElement('input')
-          input.type = 'text'
-          input.placeholder = 'Antwort...'
-          input.style.padding = '6px 10px'
-          input.style.border = '1px solid ' + theme.colors.border.default
-          input.style.borderRadius = '4px'
-          input.style.fontSize = '0.8125rem'
-          input.style.width = '100%'
-          input.style.boxSizing = 'border-box'
-          el.appendChild(input)
+        let input = document.createElement('input')
+        input.type = 'text'
+        input.placeholder = 'Antwort...'
+        input.setAttribute('aria-label', data.question)
+        input.style.cssText =
+          `padding:6px 10px;border:1px solid ${theme.colors.border.default};` +
+          `border-radius:4px;font-size:0.8125rem;width:100%;box-sizing:border-box;` +
+          `background:${theme.surface.lvl0};color:${theme.colors.text.primary};`
+        fieldset.appendChild(input)
 
-          let btn = document.createElement('button')
-          btn.textContent = 'Antworten'
-          btn.style.padding = '4px 14px'
-          btn.style.marginTop = '6px'
-          btn.style.border = '1px solid ' + theme.colors.border.default
-          btn.style.borderRadius = '4px'
-          btn.style.cursor = 'pointer'
-          btn.style.background = theme.surface.lvl1
-          btn.style.color = theme.colors.text.primary
-          btn.style.fontSize = '0.8125rem'
-          btn.style.alignSelf = 'flex-start'
-          let submit = () => {
-            let answer = input.value.trim()
-            if (answer) handleAnswer(answer)
-          }
-          btn.onclick = submit
-          input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') submit()
-          })
-          el.appendChild(btn)
+        let btn = document.createElement('button')
+        btn.type = 'button'
+        btn.textContent = 'Antworten'
+        btn.style.cssText =
+          `padding:4px 14px;border:1px solid ${theme.colors.border.default};` +
+          `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
+          `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
+        let submit = () => {
+          let answer = input.value.trim()
+          if (answer) handleAnswer(answer)
+        }
+        btn.onclick = submit
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') submit()
         })
+        fieldset.appendChild(btn)
+        el.appendChild(fieldset)
         return
       }
 
@@ -236,121 +407,115 @@ export const SupportAgentStream = clientEntry(
       let optionList = data.options.slice(0, MAX_OPTIONS)
 
       try {
-        replaceAgentMessageContent((el) => {
-          let questionEl = document.createElement('div')
-          questionEl.textContent = data.question
-          questionEl.style.fontWeight = '600'
-          questionEl.style.marginBottom = '8px'
-          questionEl.style.fontSize = '0.875rem'
-          el.appendChild(questionEl)
+        let fieldset = document.createElement('fieldset')
+        fieldset.style.cssText =
+          'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;'
+        let legend = document.createElement('legend')
+        legend.textContent = data.question
+        legend.style.cssText = 'font-weight:600;margin-bottom:6px;font-size:0.875rem;'
+        fieldset.appendChild(legend)
 
-          for (let opt of optionList) {
-            let label = document.createElement('label')
-            label.style.display = 'flex'
-            label.style.alignItems = 'center'
-            label.style.gap = '6px'
-            label.style.cursor = 'pointer'
-            label.style.fontSize = '0.8125rem'
-            label.style.padding = '2px 0'
+        for (let opt of optionList) {
+          let label = document.createElement('label')
+          label.style.cssText =
+            'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8125rem;padding:2px 0;'
 
-            let input = document.createElement('input')
-            input.type = inputType
-            input.name = 'q-option'
-            input.value = opt.label
+          let input = document.createElement('input')
+          input.type = inputType
+          input.name = 'q-option'
+          input.value = opt.label
 
-            let span = document.createElement('span')
-            span.textContent = opt.label
+          let span = document.createElement('span')
+          span.textContent = opt.label
 
-            label.appendChild(input)
-            label.appendChild(span)
+          label.appendChild(input)
+          label.appendChild(span)
 
-            if (opt.description) {
-              let desc = document.createElement('span')
-              desc.textContent = '— ' + opt.description
-              desc.style.color = theme.colors.text.muted
-              desc.style.fontSize = '0.75rem'
-              label.appendChild(desc)
-            }
-
-            el.appendChild(label)
+          if (opt.description) {
+            let desc = document.createElement('span')
+            desc.textContent = '— ' + opt.description
+            desc.style.cssText = `color:${theme.colors.text.muted};font-size:0.75rem;`
+            label.appendChild(desc)
           }
 
-          let btn = document.createElement('button')
-          btn.textContent = 'Bestätigen'
-          btn.style.padding = '4px 14px'
-          btn.style.marginTop = '6px'
-          btn.style.border = '1px solid ' + theme.colors.border.default
-          btn.style.borderRadius = '4px'
-          btn.style.cursor = 'pointer'
-          btn.style.background = theme.surface.lvl1
-          btn.style.color = theme.colors.text.primary
-          btn.style.fontSize = '0.8125rem'
-          btn.style.alignSelf = 'flex-start'
-          btn.onclick = () => {
-            let checked = el.querySelectorAll(
-              'input[name="q-option"]:checked',
-            ) as NodeListOf<HTMLInputElement>
-            if (checked.length === 0) return
+          fieldset.appendChild(label)
+        }
 
-            let selected = [...checked].map((el2) => el2.value)
-            let answer = isMulti ? JSON.stringify(selected) : selected[0]!
+        let btn = document.createElement('button')
+        btn.type = 'button'
+        btn.textContent = 'Bestätigen'
+        btn.style.cssText =
+          `padding:4px 14px;margin-top:6px;border:1px solid ${theme.colors.border.default};` +
+          `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
+          `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
+        btn.onclick = () => {
+          let checked = fieldset.querySelectorAll(
+            'input[name="q-option"]:checked',
+          ) as NodeListOf<HTMLInputElement>
+          if (checked.length === 0) return
 
-            el.innerHTML = ''
-            handleAnswer(answer)
-          }
-          el.appendChild(btn)
-        })
+          let selected = [...checked].map((el2) => el2.value)
+          let answer = isMulti ? JSON.stringify(selected) : selected[0]!
+
+          el.textContent = ''
+          handleAnswer(answer)
+        }
+        fieldset.appendChild(btn)
+        el.appendChild(fieldset)
       } catch (err) {
         pendingQuestion = null
         appendStatusMessage('Fehler beim Anzeigen der Frage: ' + String(err), true)
       }
     }
 
-    // ── Suspension rendering (inline in agent bubble) ────────────────
+    // ── Suspension rendering (fresh bubble, never clobbers streamed text) ──
 
     function showSuspension(data: {
       toolCallId?: string
       toolName?: string
       args?: Record<string, unknown>
     }) {
-      replaceAgentMessageContent((el) => {
-        let warning = document.createElement('div')
-        warning.textContent = 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
-        warning.style.fontWeight = '600'
-        warning.style.marginBottom = '8px'
-        warning.style.fontSize = '0.875rem'
-        el.appendChild(warning)
+      hideThinking()
+      let el = appendAgentMessage()
 
-        let actions = document.createElement('div')
-        actions.style.display = 'flex'
-        actions.style.gap = '8px'
+      let warning = document.createElement('div')
+      warning.textContent = 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
+      warning.style.fontWeight = '600'
+      warning.style.marginBottom = '8px'
+      warning.style.fontSize = '0.875rem'
+      el.appendChild(warning)
 
-        let approveBtn = document.createElement('button')
-        approveBtn.textContent = '✔ Zulassen'
-        approveBtn.style.padding = '4px 14px'
-        approveBtn.style.border = 'none'
-        approveBtn.style.borderRadius = '4px'
-        approveBtn.style.cursor = 'pointer'
-        approveBtn.style.background = theme.colors.action.primary.background
-        approveBtn.style.color = theme.colors.action.primary.foreground
-        approveBtn.style.fontSize = '0.8125rem'
-        approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
-        actions.appendChild(approveBtn)
+      let actions = document.createElement('div')
+      actions.style.display = 'flex'
+      actions.style.gap = '8px'
 
-        let declineBtn = document.createElement('button')
-        declineBtn.textContent = '✖ Ablehnen'
-        declineBtn.style.padding = '4px 14px'
-        declineBtn.style.border = '1px solid ' + theme.colors.border.default
-        declineBtn.style.borderRadius = '4px'
-        declineBtn.style.cursor = 'pointer'
-        declineBtn.style.background = theme.surface.lvl1
-        declineBtn.style.color = theme.colors.text.primary
-        declineBtn.style.fontSize = '0.8125rem'
-        declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
-        actions.appendChild(declineBtn)
+      let approveBtn = document.createElement('button')
+      approveBtn.type = 'button'
+      approveBtn.textContent = '✔ Zulassen'
+      approveBtn.style.padding = '4px 14px'
+      approveBtn.style.border = 'none'
+      approveBtn.style.borderRadius = '4px'
+      approveBtn.style.cursor = 'pointer'
+      approveBtn.style.background = theme.colors.action.primary.background
+      approveBtn.style.color = theme.colors.action.primary.foreground
+      approveBtn.style.fontSize = '0.8125rem'
+      approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
+      actions.appendChild(approveBtn)
 
-        el.appendChild(actions)
-      })
+      let declineBtn = document.createElement('button')
+      declineBtn.type = 'button'
+      declineBtn.textContent = '✖ Ablehnen'
+      declineBtn.style.padding = '4px 14px'
+      declineBtn.style.border = '1px solid ' + theme.colors.border.default
+      declineBtn.style.borderRadius = '4px'
+      declineBtn.style.cursor = 'pointer'
+      declineBtn.style.background = theme.surface.lvl1
+      declineBtn.style.color = theme.colors.text.primary
+      declineBtn.style.fontSize = '0.8125rem'
+      declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
+      actions.appendChild(declineBtn)
+
+      el.appendChild(actions)
     }
 
     // ── Structured tool-result rendering ─────────────────────────────
@@ -492,6 +657,7 @@ export const SupportAgentStream = clientEntry(
         frame.reload().catch((err) => {
           appendStatusMessage('Navigation fehlgeschlagen: ' + String(err), true)
         })
+        setPreviewVisible(true, href)
         if (!historyMode || historyMode !== 'skip') {
           if (historyMode === 'replace') {
             window.history.replaceState({}, '', href)
@@ -597,6 +763,8 @@ export const SupportAgentStream = clientEntry(
       abortController = new AbortController()
       let signal = abortController.signal
       let streamingText = ''
+      lastSubmission = { url, init }
+      showThinking()
 
       try {
         let res = await fetch(url, {
@@ -608,14 +776,16 @@ export const SupportAgentStream = clientEntry(
           let text = await res.text().catch(() => '')
           let match = text.match(/data: (.*)\n/)
           let msg = match ? (JSON.parse(match[1]!).error ?? res.statusText) : res.statusText
-          appendStatusMessage('Fehler: ' + msg, true)
+          hideThinking()
+          showErrorWithRetry('Fehler: ' + msg)
           setFormEnabled(true)
           return
         }
 
         let reader = res.body?.getReader()
         if (!reader) {
-          appendStatusMessage('Fehler: Kein Antwortstream', true)
+          hideThinking()
+          showErrorWithRetry('Fehler: Kein Antwortstream')
           setFormEnabled(true)
           return
         }
@@ -627,6 +797,7 @@ export const SupportAgentStream = clientEntry(
           let { done, value } = await reader.read()
           if (done) break
           if (signal.aborted) {
+            hideThinking()
             reader.cancel().catch(() => {})
             return
           }
@@ -650,11 +821,13 @@ export const SupportAgentStream = clientEntry(
 
               if (eventType === 'start') {
                 didNavigate = false
+                hideThinking()
                 if (parsed.runId) currentRunId = parsed.runId
                 if (parsed.threadId) {
                   currentThreadId = parsed.threadId
                   startedOnPage = currentPageKey()
                   startedChatEl = getChat()
+                  reflectThreadInUrl(parsed.threadId)
                 }
                 appendAgentMessage()
                 streamingText = ''
@@ -678,9 +851,13 @@ export const SupportAgentStream = clientEntry(
               } else if (eventType === 'tool-result') {
                 renderToolResult((parsed.result as Record<string, unknown>) ?? {})
               } else if (eventType === 'stream-error') {
-                appendStatusMessage('Stream-Fehler: ' + (parsed.error || 'unbekannt'), true)
+                hideThinking()
+                showErrorWithRetry('Stream-Fehler: ' + (parsed.error || 'unbekannt'))
               } else if (eventType === 'complete') {
                 if (pendingQuestion) return
+                hideThinking()
+                finalizeAgentMessage()
+                lastSubmission = null
                 currentRunId = null
                 // Keep the active thread so the next message continues it; only
                 // remove it once the page itself changes (see resolveThreadId).
@@ -693,7 +870,8 @@ export const SupportAgentStream = clientEntry(
                   if (theFrame) theFrame.reload().catch(() => {})
                 }
               } else if (eventType === 'agent-error') {
-                appendStatusMessage('Fehler: ' + (parsed.error || 'unbekannt'), true)
+                hideThinking()
+                showErrorWithRetry('Fehler: ' + (parsed.error || 'unbekannt'))
               }
             } catch {
               if (eventType === 'message') {
@@ -705,11 +883,13 @@ export const SupportAgentStream = clientEntry(
         }
 
         if (!pendingQuestion) {
+          hideThinking()
           setFormEnabled(true)
         }
       } catch (err) {
+        hideThinking()
         if ((err as Error)?.name === 'AbortError') return
-        appendStatusMessage('Fehler: ' + String(err), true)
+        showErrorWithRetry('Fehler: ' + String(err))
         setFormEnabled(true)
       }
     }
@@ -786,6 +966,7 @@ export const SupportAgentStream = clientEntry(
       if (textarea) {
         textarea.value = ''
         autoGrowReset?.()
+        textarea.focus()
       }
       setFormEnabled(false)
       currentAgentMessageEl = null
@@ -801,6 +982,27 @@ export const SupportAgentStream = clientEntry(
       }
     }
 
+    // ── Empty-state prompts / controls ────────────────────────────────
+
+    function handleNewConversation() {
+      window.location.assign(routes.admin.supportAgent.index.href())
+    }
+
+    /** Example chips in the panel empty state submit their prompt into the chat. */
+    function handlePanelClick(e: MouseEvent) {
+      let target = (e.target as HTMLElement).closest('[data-support-prompt]') as HTMLElement | null
+      if (!target) return
+      let prompt = target.getAttribute('data-support-prompt')
+      if (!prompt) return
+      let textarea = document.getElementById('support-agent-input') as HTMLTextAreaElement | null
+      if (textarea) {
+        textarea.value = prompt
+        autoGrowReset?.()
+      }
+      let form = document.getElementById('support-agent-form') as HTMLFormElement | null
+      form?.requestSubmit()
+    }
+
     // ── Return (lifecycle) ───────────────────────────────────────────
 
     return () => (
@@ -808,6 +1010,8 @@ export const SupportAgentStream = clientEntry(
         mix={[
           css({ display: 'none' }),
           ref((el) => {
+            ensureSupportStyles()
+
             let form = document.getElementById('support-agent-form') as HTMLFormElement | null
             if (form) {
               form.addEventListener('submit', handleFormSubmit, {
@@ -828,6 +1032,23 @@ export const SupportAgentStream = clientEntry(
             let container = document.getElementById('support-agent-frame-container')
             if (container) {
               container.addEventListener('submit', handleFrameFormSubmit, {
+                signal: handle.signal,
+              })
+              container.addEventListener('click', handlePanelClick, {
+                signal: handle.signal,
+              })
+            }
+
+            let closeBtn = document.getElementById('support-agent-preview-close')
+            if (closeBtn) {
+              closeBtn.addEventListener('click', handlePreviewClose, {
+                signal: handle.signal,
+              })
+            }
+
+            let newBtn = document.getElementById('support-agent-new')
+            if (newBtn) {
+              newBtn.addEventListener('click', handleNewConversation, {
                 signal: handle.signal,
               })
             }

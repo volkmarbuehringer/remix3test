@@ -1664,3 +1664,249 @@ describe('Support agent thread continuation', () => {
     window.fetch = originalFetch
   })
 })
+
+// -----------------------------------------------------------------------
+// 8b. Support-agent UX: thinking indicator, no-clobber gates, URL reflection
+// -----------------------------------------------------------------------
+
+describe('Support agent chat UX', () => {
+  let cleanup: (() => void) | undefined
+  let dom: HTMLElement | undefined
+
+  afterEach(() => {
+    uninstallSseMock()
+    cleanup?.()
+    dom?.remove()
+    dom = undefined
+    window.history.replaceState({}, '', '/')
+  })
+
+  function sse(events: Array<{ type: string; data: string }>): Response {
+    let encoder = new TextEncoder()
+    let body = new ReadableStream({
+      start(controller) {
+        for (let { type, data } of events) {
+          controller.enqueue(encoder.encode(`event: ${type}\ndata: ${data}\n\n`))
+        }
+        controller.close()
+      },
+    })
+    return new Response(body, { headers: { 'Content-Type': 'text/event-stream' } })
+  }
+
+  function captureBody(init?: RequestInit): string {
+    return init?.body instanceof FormData
+      ? Array.from(init.body.entries())
+          .map(([k, v]) => `${k}=${String(v)}`)
+          .join('&')
+      : String(init?.body ?? '')
+  }
+
+  function submitSupportMessage(text: string): void {
+    let textarea = document.getElementById('support-agent-input') as HTMLTextAreaElement
+    textarea.value = text
+    let form = document.getElementById('support-agent-form') as HTMLFormElement
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  }
+
+  it('offers a retry that re-submits a failed turn', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let posts: string[] = []
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      posts.push(captureBody(init))
+      if (posts.length === 1) {
+        return new Response('event: agent-error\ndata: {"error":"Bitte warte einen Moment."}\n\n', {
+          status: 429,
+          headers: { 'Content-Type': 'text/event-stream' },
+        })
+      }
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Antwort' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Hallo')
+    await new Promise((r) => setTimeout(r, 50))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(chat.textContent?.includes('Bitte warte einen Moment.'), 'should show the error')
+    let retryBtn = Array.from(chat.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Erneut versuchen'),
+    )
+    assert.ok(retryBtn, 'should offer a retry button')
+    assert.equal(retryBtn?.disabled, true, 'retry should be disabled during the countdown')
+
+    await new Promise((r) => setTimeout(r, 2100))
+    assert.equal(retryBtn?.disabled, false, 'retry should enable after the countdown')
+
+    retryBtn?.click()
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.equal(posts.length, 2, 'retry should re-submit the message')
+    assert.ok(chat.textContent?.includes('Antwort'), 'the retried turn should render its reply')
+    assert.equal(
+      document.getElementById('support-agent-thinking'),
+      null,
+      'no leftover thinking indicator',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('shows a thinking indicator while the agent responds and clears it on complete', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Antwort' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Hallo')
+    let thinking = document.getElementById('support-agent-thinking')
+    assert.ok(thinking, 'a thinking indicator should appear while the agent responds')
+
+    await new Promise((r) => setTimeout(r, 50))
+    assert.equal(
+      document.getElementById('support-agent-thinking'),
+      null,
+      'the thinking indicator should be removed after the stream settles',
+    )
+    assert.ok(
+      (document.getElementById('chat-messages') as HTMLElement).textContent?.includes('Antwort'),
+      'should render the streamed reply',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('does not clobber streamed text when a question gate arrives', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        { type: 'message', data: JSON.stringify({ text: 'Vorläufige Antwort' }) },
+        {
+          type: 'question',
+          data: JSON.stringify({
+            runId: 'r1',
+            question: 'Welcher Benutzer?',
+            options: [{ label: 'Alice' }],
+            selectionMode: 'single_select',
+          }),
+        },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Suche Alice')
+    await new Promise((r) => setTimeout(r, 50))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(
+      chat.textContent?.includes('Vorläufige Antwort'),
+      'streamed text before the question must be preserved',
+    )
+    assert.ok(chat.textContent?.includes('Welcher Benutzer?'), 'the question should be shown')
+    assert.ok(chat.querySelector('fieldset'), 'the question options should be a fieldset')
+
+    window.fetch = originalFetch
+  })
+
+  it('reflects the server-created thread id into the URL and data-thread-id', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 'page-thread-1' }) },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Erste Frage')
+    await new Promise((r) => setTimeout(r, 50))
+
+    assert.ok(
+      window.location.href.includes('threadId=page-thread-1'),
+      'the address bar should reflect the created thread, got: ' + window.location.href,
+    )
+    assert.equal(
+      (document.getElementById('chat-messages') as HTMLElement).getAttribute('data-thread-id'),
+      'page-thread-1',
+      'the chat element should adopt the created thread id',
+    )
+
+    window.fetch = originalFetch
+  })
+
+  it('renders markdown for the final streamed agent message', async () => {
+    installSseMock()
+    resetCreatedEventSources()
+    window.history.replaceState({}, '', '/admin/support-agent')
+    dom = setupSupportDom()
+
+    let originalFetch = window.fetch
+    window.fetch = async (url, init) => {
+      if (String(url) !== '/admin/support-agent') return new Response('', { status: 404 })
+      return sse([
+        { type: 'start', data: JSON.stringify({ runId: 'r1', threadId: 't1' }) },
+        {
+          type: 'message',
+          data: JSON.stringify({ text: '**Fett** und [Link](https://example.com)' }),
+        },
+        { type: 'complete', data: JSON.stringify({}) },
+      ])
+    }
+
+    let result = render(<SupportAgentStream />)
+    cleanup = result.cleanup
+
+    submitSupportMessage('Zeige Formatierung')
+    await new Promise((r) => setTimeout(r, 50))
+
+    let chat = document.getElementById('chat-messages') as HTMLElement
+    assert.ok(chat.querySelector('strong'), 'bold text should render as <strong>')
+    let link = chat.querySelector('a') as HTMLAnchorElement | null
+    assert.ok(link, 'a link should render as an anchor')
+    assert.equal(link?.href, 'https://example.com/')
+
+    window.fetch = originalFetch
+  })
+})

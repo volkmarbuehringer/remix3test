@@ -138,6 +138,28 @@ export async function listLatestCustomerThread(
   return threads[0]?.id ?? null
 }
 
+/**
+ * Lists the most recently updated threads for a single resource, newest first.
+ *
+ * The support agent scopes its conversations by `resourceId` = the admin's own
+ * user id, so the page can offer "recent conversations" without sweeping the
+ * whole store.
+ */
+export async function listChatThreadsForResource(
+  agent: AgentHandle,
+  resourceId: string,
+  opts: { perPage: number },
+): Promise<ChatThreadSummary[]> {
+  let memory = await getMemory(agent)
+  let result = await memory.listThreads({
+    page: 0,
+    perPage: opts.perPage,
+    orderBy: { field: 'updatedAt', direction: 'DESC' },
+    filter: { resourceId },
+  })
+  return ((result.threads ?? []) as RawThreadRow[]).map(toChatThread)
+}
+
 export async function deleteChatThread(agent: AgentHandle, threadId: string): Promise<void> {
   let memory = await agent.getMemory()
   if (memory) {
