@@ -1,18 +1,19 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import { system } from '../routes.ts'
+import { routes } from '../routes.ts'
+import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import type { WebhookRequestRow } from '../data/webhook-requests.ts'
 import { table } from './mixins/admin-table.ts'
 import { sortArrow, buildEditUrl } from './mixins/admin-urls.ts'
-import { CsrfTokenInput } from './csrf-token-input.tsx'
+import { RestfulForm } from './restful-form.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
-import { WebhookComposer } from '../actions/webhook-requests/public/webhook-composer.tsx'
+import { WebhookComposer } from '../actions/admin/webhook-requests/public/webhook-composer.tsx'
 
-const BASE = system.webhookRequests.href()
+const BASE = routes.admin.webhookRequests.index.href()
 
-interface WebhookRequestsPageProps {
+interface AdminWebhookRequestsPageProps {
   rows: WebhookRequestRow[]
   offset: number
   hasMore: boolean
@@ -27,6 +28,8 @@ interface WebhookRequestsPageProps {
   editingSort?: string
   editingOrder?: string
   editingFilter?: string
+  formError?: string | undefined
+  editingPayload?: string | undefined
 }
 
 function buildUrl(overrides: Record<string, string | undefined>): string {
@@ -38,6 +41,21 @@ function buildUrl(overrides: Record<string, string | undefined>): string {
   if (overrides.viewing) params.set('viewing', overrides.viewing)
   let qs = params.toString()
   return BASE + (qs ? '?' + qs : '')
+}
+
+function resendUrl(
+  id: string,
+  offset: number,
+  sort: string,
+  order: string,
+  filter: string,
+): string {
+  let params = new URLSearchParams()
+  params.set('offset', String(offset))
+  params.set('sort', sort)
+  params.set('order', order)
+  if (filter) params.set('filter', filter)
+  return BASE + '/' + id + '/resend?' + params.toString()
 }
 
 function fmtDate(ts: number | string): string {
@@ -79,9 +97,10 @@ function pretty(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
 
-export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
+export function AdminWebhookRequestsPage(handle: Handle<AdminWebhookRequestsPageProps>) {
   return () => {
     let p = handle.props
+    let frameTarget = getSelfFrameTarget()
     let curSort = p.sortColumn
     let curOrder = p.sortDirection
     let curOffset = p.offset
@@ -98,25 +117,25 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
     })
 
     let headerContent = (
-      <div mix={headerRow}>
-        <h1 mix={table.title}>Webhook Requests</h1>
-        <div mix={headerActions}>
-          <a href={system.webhookRequestCreate.index.href()} mix={composeBtn}>
-            Erstellen
-          </a>
-          <ConnectionIndicator
-            url={system.webhookRequestEvents.href()}
-            reloadMode="window"
-            skipReloadParams={['editing', 'viewing']}
-          />
-        </div>
+      <div mix={headerActions}>
+        <a
+          href={routes.admin.webhookRequests.create.index.href()}
+          data-rmx-target={frameTarget}
+          mix={composeBtn}
+        >
+          Erstellen
+        </a>
+        <ConnectionIndicator
+          url={routes.admin.webhookRequests.events.index.href()}
+          skipReloadParams={['editing', 'viewing']}
+        />
       </div>
     )
 
     let gridSection = (
       <div mix={hasSidebar ? table.minWidth0 : undefined}>
         <ConfirmDelete />
-        <form method="GET" action={BASE} mix={table.filterBar}>
+        <form method="GET" action={BASE} data-rmx-target={frameTarget} mix={table.filterBar}>
           <input
             type="text"
             name="filter"
@@ -133,6 +152,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
           {curFilter && (
             <a
               href={buildUrl({ offset: '0', sort: curSort, order: curOrder, filter: undefined })}
+              data-rmx-target={frameTarget}
               mix={table.clearLink}
             >
               Zurücksetzen
@@ -168,6 +188,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                           offset: '0',
                           filter: curFilter || undefined,
                         })}
+                        data-rmx-target={frameTarget}
                         mix={table.sortLink}
                       >
                         {label}
@@ -196,6 +217,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                             order: curOrder,
                             filter: undefined,
                           })}
+                          data-rmx-target={frameTarget}
                           mix={emptyCta}
                         >
                           Filter zurücksetzen
@@ -204,7 +226,11 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     ) : (
                       <div mix={emptyStack}>
                         <span>Noch keine Webhook-Requests.</span>
-                        <a href={system.webhookRequestCreate.index.href()} mix={emptyCta}>
+                        <a
+                          href={routes.admin.webhookRequests.create.index.href()}
+                          data-rmx-target={frameTarget}
+                          mix={emptyCta}
+                        >
                           Ersten Request erstellen
                         </a>
                       </div>
@@ -261,6 +287,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                           filter: curFilter || undefined,
                           viewing: row.id,
                         })}
+                        data-rmx-target={frameTarget}
                         mix={payloadLink}
                         title="Details anzeigen"
                       >
@@ -271,21 +298,22 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                       <div mix={table.btnGroup}>
                         <a
                           href={buildEditUrl(BASE, row.id, curOffset, curSort, curOrder, curFilter)}
+                          data-rmx-target={frameTarget}
                           mix={table.editBtn}
                         >
                           Bearbeiten
                         </a>
-                        <form
+                        <RestfulForm
                           method="POST"
-                          action={`${BASE}/${row.id}/resend?offset=${curOffset}&sort=${curSort}&order=${curOrder}&filter=${encodeURIComponent(curFilter)}`}
+                          action={resendUrl(row.id, curOffset, curSort, curOrder, curFilter)}
                           data-confirm="Resend wirklich ausführen?"
+                          data-rmx-target={frameTarget}
                           mix={inlineForm}
                         >
-                          <CsrfTokenInput />
                           <button type="submit" mix={actionBtn}>
                             Resenden
                           </button>
-                        </form>
+                        </RestfulForm>
                       </div>
                     </td>
                   </tr>
@@ -309,6 +337,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     order: curOrder,
                     filter: curFilter || undefined,
                   })}
+                  data-rmx-target={frameTarget}
                   mix={table.pageLink}
                 >
                   Zurück
@@ -324,6 +353,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
                     order: curOrder,
                     filter: curFilter || undefined,
                   })}
+                  data-rmx-target={frameTarget}
                   mix={table.pageLink}
                 >
                   Vor
@@ -340,7 +370,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
     let editPanel = editRow ? (
       <div mix={table.stickyPanel}>
         <WebhookComposer
-          initialPayload={JSON.stringify(editRow.payload)}
+          initialPayload={p.editingPayload ?? JSON.stringify(editRow.payload)}
           editId={editRow.id}
           _offset={p.editingOffset ?? String(curOffset)}
           _sort={p.editingSort ?? curSort}
@@ -357,7 +387,7 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
             <div mix={table.panelHeader}>
               <span mix={table.panelTitle}>Request-Details</span>
               <div mix={table.spacer} />
-              <a href={gridReturnUrl} mix={panelClose}>
+              <a href={gridReturnUrl} data-rmx-target={frameTarget} mix={panelClose}>
                 Schließen
               </a>
             </div>
@@ -415,23 +445,27 @@ export function WebhookRequestsPage(handle: Handle<WebhookRequestsPageProps>) {
       ) : null
 
     return (
-      <div mix={page}>
+      <>
         {headerContent}
+        {p.formError ? (
+          <p role="alert" mix={table.errorBanner}>
+            {p.formError}
+          </p>
+        ) : null}
         <div mix={hasSidebar ? table.twoColumn : undefined}>
           {gridSection}
           {editPanel ?? viewPanel}
         </div>
-      </div>
+      </>
     )
   }
 }
-
-const page = css({ maxWidth: '1000px', margin: '0 auto', padding: theme.space.xl })
 
 const headerActions = css({
   display: 'flex',
   alignItems: 'center',
   gap: theme.space.sm,
+  marginBottom: theme.space.sm,
 })
 
 const composeBtn = css({
@@ -445,13 +479,6 @@ const composeBtn = css({
   '&:hover': {
     backgroundColor: theme.colors.action.primary.backgroundHover,
   },
-})
-
-const headerRow = css({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom: theme.space.md,
 })
 
 const statusBadgeOk = css({

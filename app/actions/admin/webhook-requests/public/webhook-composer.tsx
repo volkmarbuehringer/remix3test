@@ -1,5 +1,6 @@
 import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
-import { theme } from '../../../ui/theme/theme.ts'
+import { theme } from '../../../../ui/theme/theme.ts'
+import { routes } from '../../../../routes.ts'
 
 interface Row {
   id: number
@@ -8,7 +9,7 @@ interface Row {
 }
 
 interface WebhookComposerProps extends SerializableProps {
-  initialPayload?: string
+  initialPayload?: string | undefined
   editId?: string
   _offset?: string
   _sort?: string
@@ -92,9 +93,11 @@ export const WebhookComposer = clientEntry(
     return () => {
       let json = assembledPayload()
       let jsonStr = JSON.stringify(json, null, 2)
-      let action = isEdit ? `/webhook-requests/${props.editId}` : '/webhook-requests/create'
+      let action = props.editId
+        ? routes.admin.webhookRequests.update.href({ id: props.editId })
+        : routes.admin.webhookRequests.create.action.href()
 
-      let cancelUrl = '/webhook-requests'
+      let cancelUrl = routes.admin.webhookRequests.index.href()
       if (isEdit) {
         let p = new URLSearchParams()
         if (props._offset && props._offset !== '0') p.set('offset', props._offset)

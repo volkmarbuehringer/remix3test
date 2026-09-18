@@ -164,6 +164,23 @@ export const routes = route({
       downloadMany: post('/download-many'),
     }),
 
+    webhookRequests: route('webhook-requests', {
+      index: get('/'),
+      // Static `create`/`events` are declared before the `:id` routes so they are
+      // not swallowed by the dynamic `show` segment.
+      create: form('create'),
+      events: route('events', { index: get('/') }),
+      resend: post('/:id/resend'),
+      // The frame runtime commits the POST/PUT form action path as the top
+      // frame's src after an intercepted submission; any reload (including the
+      // SSE ConnectionIndicator's invalidate reload racing the in-flight POST)
+      // GETs that path. Both resolver paths must therefore also resolve as GETs
+      // — see admin chatlog/messages destroyResolve.
+      resendResolve: get('/:id/resend'),
+      update: put('/:id'),
+      show: get('/:id'),
+    }),
+
     fragments: route('fragments', {
       stats: get('/stats'),
       recentActivity: get('/recent-activity'),
@@ -252,16 +269,9 @@ export const system = {
   webhook: post('/webhook'),
   appWebhook: post('/app-webhook'),
   callback: post('/callback'),
-  webhookRequests: get('/webhook-requests'),
-  webhookRequestEvents: get('/webhook-requests/events'),
-  webhookRequestResend: post('/webhook-requests/:id/resend'),
-  webhookRequestUpdate: put('/webhook-requests/:id'),
-  webhookRequestCreate: form('/webhook-requests/create'),
-  // The frame runtime commits the POST/PUT form action path as the top frame's
-  // src after an intercepted submission; any reload (including the SSE
-  // ConnectionIndicator's invalidate reload racing the in-flight POST) GETs
-  // that path. Both action paths must therefore also resolve as GETs — see
-  // admin chatlog/messages destroyResolve and verwaltung.appointments.show.
-  webhookRequestResendResolve: get('/webhook-requests/:id/resend'),
-  webhookRequestShow: get('/webhook-requests/:id'),
+  // Legacy viewer paths. The webhook-requests viewer moved under /admin (it is an
+  // admin-only tool); keep the old top-level URLs working for bookmarks and
+  // stale SSE tabs by permanently redirecting them to the new admin path.
+  webhookRequestsLegacyRoot: get('/webhook-requests'),
+  webhookRequestsLegacy: get('/webhook-requests/*path'),
 } as const

@@ -30,6 +30,7 @@ export const ROUTE_LABELS: Record<string, string> = {
   [routeParentPath(routes.admin.fragments.userDetail)]: 'User Detail',
   [routes.admin.users.index.href()]: 'Users',
   [routes.admin.uploads.index.href()]: 'Uploads',
+  [routes.admin.webhookRequests.index.href()]: 'Webhooks',
 
   // Verwaltung
   [routes.verwaltung.index.href()]: 'Verwaltung',

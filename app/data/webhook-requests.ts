@@ -26,6 +26,58 @@ const WEBHOOK_REQUESTS_ORDER_BY_COLUMNS: Record<string, string> = {
   callback_received_at: 'callback_received_at',
 }
 
+/** Columns the viewer is allowed to sort by, derived from the ORDER BY map so they cannot drift. */
+export const WEBHOOK_REQUESTS_SORTABLE_FIELDS: readonly string[] = Object.keys(
+  WEBHOOK_REQUESTS_ORDER_BY_COLUMNS,
+)
+
+const MAX_PAYLOAD_LENGTH = 100_000
+const MAX_KEY_LENGTH = 256
+const MAX_VALUE_LENGTH = 10_000
+
+export type WebhookPayloadParse =
+  | { ok: true; payload: Record<string, string> }
+  | { ok: false; status: number; message: string }
+
+/**
+ * Parse the composer's serialized JSON payload into the flat string map stored
+ * in the webhook_requests payload column. Shared by the create and update
+ * controllers so the length/format limits live in one place.
+ */
+export function parseWebhookRequestPayload(raw: unknown): WebhookPayloadParse {
+  if (raw == null || raw === '') return { ok: true, payload: {} }
+  if (typeof raw !== 'string') return { ok: true, payload: {} }
+  if (raw.length > MAX_PAYLOAD_LENGTH) {
+    return { ok: false, status: 413, message: 'Payload zu groß.' }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { ok: false, status: 400, message: 'Ungültiges JSON im Payload.' }
+  }
+
+  let payload: Record<string, string> = {}
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { ok: true, payload }
+  }
+
+  for (let [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!key.trim()) continue
+    if (key.length > MAX_KEY_LENGTH) {
+      return { ok: false, status: 400, message: 'Schlüssel ist zu lang.' }
+    }
+    let strValue = String(value)
+    if (strValue.length > MAX_VALUE_LENGTH) {
+      return { ok: false, status: 400, message: 'Wert ist zu lang.' }
+    }
+    payload[key] = strValue
+  }
+
+  return { ok: true, payload }
+}
+
 interface ListWebhookRequestsOpts {
   offset: number
   column: string

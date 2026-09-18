@@ -5,6 +5,11 @@ export { default as adminFragments } from './fragments/controller.tsx'
 export { default as adminLists } from './lists/controller.tsx'
 export { default as adminUsers } from './users/controller.tsx'
 export { default as adminUploads } from './uploads/controller.tsx'
+export {
+  webhookRequests as adminWebhookRequests,
+  webhookRequestsEvents as adminWebhookRequestsEvents,
+} from './webhook-requests/controller.tsx'
+export { default as adminWebhookRequestsCreate } from './webhook-requests/create/controller.tsx'
 
 // Flat admin-route groups re-exported through the single admin entry point.
 export { default as adminClients } from '../client/controller.tsx'

@@ -25,14 +25,9 @@ import scrollRestorationController from './actions/scroll-restoration/controller
 import webhookReceive from './actions/webhook/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
-  webhookRequestsIndex,
-  webhookRequestsEvents,
-  webhookRequestsResend,
-  webhookRequestsResendResolve,
-  webhookRequestsShow,
-  webhookRequestsUpdate,
-} from './actions/webhook-requests/controller.tsx'
-import webhookRequestsCreate from './actions/webhook-requests/create/controller.tsx'
+  webhookRequestsLegacy,
+  webhookRequestsLegacyRoot,
+} from './actions/admin/webhook-requests/controller.tsx'
 import callbackReceive from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
 import { routes, system } from './routes.ts'
@@ -94,16 +89,20 @@ export function createNewappRouter(options?: NewappRouterOptions) {
   router.post(system.webhook, webhookReceive)
   router.post(system.appWebhook, appWebhookReceive)
   router.post(system.callback, callbackReceive)
-  router.get(system.webhookRequests, webhookRequestsIndex)
-  router.get(system.webhookRequestEvents, webhookRequestsEvents)
-  router.post(system.webhookRequestResend, webhookRequestsResend)
-  router.get(system.webhookRequestResendResolve, webhookRequestsResendResolve)
-  router.put(system.webhookRequestUpdate, webhookRequestsUpdate)
-  router.get(system.webhookRequestShow, webhookRequestsShow)
-  router.map(system.webhookRequestCreate, webhookRequestsCreate)
+  // Legacy top-level viewer URLs. The viewer now lives under /admin; redirect
+  // the old paths (bookmarks, stale SSE tabs) instead of 404ing.
+  router.get(system.webhookRequestsLegacyRoot, webhookRequestsLegacyRoot)
+  router.get(system.webhookRequestsLegacy, webhookRequestsLegacy)
 
   // Uploads routes
   router.map(routes.admin.uploads, admin.adminUploads)
+
+  // Webhook-requests viewer (admin-only). Start with the static child routes so
+  // the SSE (events) and composer (create) paths are matched before the parent
+  // group's dynamic GET /:id resolver.
+  router.map(routes.admin.webhookRequests.events, admin.adminWebhookRequestsEvents)
+  router.map(routes.admin.webhookRequests.create, admin.adminWebhookRequestsCreate)
+  router.map(routes.admin.webhookRequests, admin.adminWebhookRequests)
 
   // Appointment routes (separate controller with requireAuth middleware)
   router.map(routes.appointment, appointment)

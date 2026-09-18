@@ -1,7 +1,7 @@
 import type { RemixNode } from 'remix/ui'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
-import { routes, frames, system } from '../routes.ts'
+import { routes, frames } from '../routes.ts'
 import { createSidebarLayout, type NavGroup } from './sidebar-layout.tsx'
 
 type AdminNavItem =
@@ -32,7 +32,7 @@ const NAV_GROUPS: NavGroup<AdminNavItem>[] = [
       { id: 'clients', label: 'Client-Test', route: routes.admin.clients.index },
       { id: 'users', label: 'Benutzer', route: routes.admin.users.index },
       { id: 'uploads', label: 'Uploads', route: routes.admin.uploads.index },
-      { id: 'webhooks', label: 'Webhooks', route: system.webhookRequests, iframeNav: false },
+      { id: 'webhooks', label: 'Webhooks', route: routes.admin.webhookRequests.index },
       {
         id: 'agentevents',
         label: 'Agent-Events',

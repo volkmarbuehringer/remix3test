@@ -16,10 +16,17 @@ When moving a route from one tree to another (e.g. `adminRoutes.admin.foo` → `
 - [ ] Move the route entry to the target tree
 - [ ] Remove from the source tree
 - [ ] Verify path nesting — `route('foo')` under top-level produces `/foo`
+- [ ] Keep the old URL alive when anything may hold it (bookmarks, stale SSE tabs): leave a
+      same-origin redirect in the source tree —
+      `Location: '/admin' + context.url.pathname + context.url.search`.
+      Always prepend a fixed prefix; never use the raw `pathname` as the whole Location.
 
 ### 2. Router Mapping (router.ts)
 
 - [ ] Update `router.map(<newRouteRef>, <controller>)` to reference the new location
+- [ ] Register **static** children (`create`, `events`) before the parent group's dynamic `:id`
+      resolver, and add a test proving the static child hits its own handler — an SSE `events`
+      route must return `text/event-stream`, not the `:id` resolver's redirect.
 
 ### 3. Navigation Updates
 
@@ -37,6 +44,10 @@ Run: `grep -r "old/path" app/` — update every occurrence:
 - [ ] Form components: `action` attributes, cancel URLs
 - [ ] ClientEntry/asset files: fetch URLs, `window.location.href` navigations
 - [ ] Tests: route references, URL constants, assertions
+- [ ] **Relative import depth:** `git mv` one directory deeper adds a `../` to every relative
+      import (`app/actions/foo/create/` → `app/actions/admin/foo/create/` changes `../../../` to
+      `../../../../`). Typecheck reports these as `TS2307`. For `public/` client entries see
+      `remix3-browser-source-public-colocation`.
 
 ### 5. Frame Removal (if leaving frame layout)
 
@@ -68,6 +79,14 @@ After route relocation + validation upgrade, verify:
 - [ ] Required DB fields have corresponding `minLength(1)` in schema
 - [ ] DB error catch blocks re-render with user-friendly message (no re-throw)
 - [ ] `route-labels.ts` entry updated for the new path
+- [ ] Preserve each handler's redirect status: `redirect(url)` from `remix/response/redirect`
+      defaults to **302**. A frame-PRG handler that previously returned an explicit **303** must
+      keep it (`new Response(null, { status: 303, ... })`); a status assertion in the test catches
+      the regression.
+- [ ] Admin-only SSE: auth-only `requireSseAuth()` over-permits. Use a role-aware guard returning
+      plain 401/403 — not `requireAdmin`, whose redirect/HTML breaks `EventSource`. This repo's
+      `requireAdminSseAuth()` (`app/middleware/sse-auth.ts`) is the pattern; see
+      `remix3-standalone-route-admin-sidebar`.
 
 ## Route Deletion Sweep
 
