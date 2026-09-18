@@ -6,14 +6,14 @@ origin: manual
 
 # Remix 3 Textarea: `diffChildren` Bulk-Clear Wipes Unchanged `defaultValue`/`value`
 
-**Validated:** 2026-09-17 (re-checked against the installed `@remix-run/ui` source @ `c1e61b8` / installable build `2aca9b4e4`; bug still present — `canBulkClearNode` at `reconcile.ts:1659` has no `TEXTAREA` exclusion — line refs updated)
+**Validated:** 2026-09-18 (re-checked against the installed `@remix-run/ui` source @ `03cd3404` / installable build `3e94ca8a6`; bug still present — `canBulkClearNode` at `reconcile.ts:1771` has no `TEXTAREA` exclusion — line refs updated)
 **Context:** Re-diffing a textarea whose `defaultValue`/`value` prop is unchanged silently empties it. Observed in `app/actions/lists/lists-client.browser.tsx`: clicking "Bearbeiten" opened the edit textarea empty instead of prefilled.
 
 ## Problem
 
 `@remix-run/ui` renders a textarea's `value`/`defaultValue` prop into a DOM **text child** (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts:641` `buildTextareaElementSegment` renders `<textarea attrs>escaped-value-text</textarea>`; the `tag === 'textarea'` dispatch is at `:600-601`). But that text child is **not tracked** in the committed `_children` array — it is owned by the prop, not by child vnodes.
 
-`diffChildren` has a bulk-clear fast path (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/reconcile.ts:1616-1627`; `canBulkClearChildren` at `:1652`):
+`diffChildren` has a bulk-clear fast path (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/reconcile.ts:1728-1739`; `canBulkClearChildren` at `:1764`):
 
 ```typescript
 if (

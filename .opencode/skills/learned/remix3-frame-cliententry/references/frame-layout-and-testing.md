@@ -91,7 +91,7 @@ Use when embedding a nested `<Frame>` (panel) inside a page that already renders
 
 - `admin-content` renders with a `fallback`, so it is a **non-blocking** frame: the root document ships only `<!-- rmx:f:id -->` plus a template, and the frame's real content arrives from a second fetch and hydrates through `frame.ts`'s `resolveAndRenderReload` → fragment render path.
 - That path builds a `responseContext` from the fragment's own `rmx-data` (the one naming the nested frame) and calls `createSubFrames`, but the nested marker never ends up registered in the runtime's `namedFrames` map. `handle.frames.get('<nested-name>')` returns `undefined` in a `clientEntry`'s `queueTask` — and still does seconds later.
-- `getNamedFrame(name)` in `navigation.ts` resolves against that map and falls back to `topFrame` (`let frame = namedFrame ?? topFrame`), so the row link navigates the top document. That is the `X-Remix-Target: undefined` you see — the header is only set when the lookup succeeded.
+- `getNamedFrame(name)` in `navigation.ts` resolves against that map; when the named target is missing it now calls `fallbackToDocumentNavigation(...)` and returns instead of falling back to `topFrame`, so the row link does a full document navigation rather than loading the pane. That is the `X-Remix-Target: undefined` you see — the header is only set when the lookup succeeded.
 
 **Rule:** a nested `<Frame>` must be present in the **server-rendered** response of the frame that hosts it. Never mount it conditionally from client state, and never rely on one appearing in a fragment a parent frame fetches afterwards — if the pane's `<Frame>` only renders once a selection exists, the selection can never be made.
 
@@ -114,7 +114,7 @@ Then drive that frame directly from the entry — `frame.src = href; frame.reloa
 1. **The handle resolved at setup can be replaced.** `handle.frames.get(name)` inside `queueTask` may return a handle whose `reloadComplete` never fires for later loads (verified: the listener never ran for a pane that demonstrably updated). Drive focus/settle logic off a `MutationObserver` on the pane DOM instead of the handle's events.
 2. **A repeated identical fragment produces no mutation.** When a pane already shows the same "not found" fragment (a remembered selection whose thread was deleted), re-rendering it changes nothing in the DOM, so an observer-only settle check never runs and the dead pane stays open. Call the settle check explicitly after the reload promise you awaited, in addition to the observer.
 
-**Validated:** 2026-09-11 in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse).
+**Validated:** 2026-09-11 empirically in `/home/lucky/remix3test` with Playwright (frame request header, two-column layout, persistence across reload, stale-selection collapse); the `frame.ts`/`navigation.ts` source refs above revalidated 2026-09-18 against installable build `3e94ca8a6` (source `03cd3404`).
 
 Use when a nested `<Frame>`'s `data-rmx-target` silently navigates the whole document, `X-Remix-Target` is undefined on a frame request, `handle.frames.get('<name>')` returns undefined for a frame visible on the page, or a client-mounted frame pane never loads.
 
@@ -163,7 +163,7 @@ For the frame's `handleFrameFormSubmit` GET handler, apply the same pattern afte
 
 ### Corrected mechanism (this fork) + the simpler clear/reset fix
 
-The older `diff-dom.js`/`shouldPreserveLiveAttribute` description predates this fork. `remix 3.0.0-beta.10` (github:remix-run/remix#preview/main, pinned in `node_modules/remix`) reconciles frame content with its own runtime at `@remix-run/ui` `src/runtime/reconcile.ts` + `core/props.ts`:
+`diff-dom.ts` is not obsolete in this fork: `frame.ts` still installs frame server HTML with `diffNodes` from `@remix-run/ui` `src/runtime/diff-dom.ts`, whose `shouldPreserveLiveAttribute`/`shouldPreserveInputValue` keep a text input's live `.value` over the server's `value` attribute. Client-side re-renders of that content go through `@remix-run/ui` `src/runtime/reconcile.ts` + `src/runtime/core/props.ts` (verified on `remix` 3.0.0-rc.2, installable build `3e94ca8a6`, source `03cd3404`):
 
 - `diffVNodes(curr, next)` reuses an existing host DOM node whenever `curr.kind === next.kind && curr.type === next.type` — it **ignores `key`**, so putting `key={...}` on an `<input>` to force a remount does **not** work.
 - `patchHostProps` skips a prop when `prevValue === nextValue` and only sets the `defaultValue` **property** (not the live `.value`) on change, so the displayed value isn't restored either.
@@ -184,7 +184,7 @@ The `restoreFilterValue` client-side approach still applies when a value must *p
 
 **Related gotcha — filtering must reset pagination.** A GET filter form should **not** carry a hidden `offset` input set to the current page (`value={String(offset)}`) — that keeps the user on page N when they filter. Omit it (or hard-code `value="0"`) so filtering returns to page 1, while keeping hidden `sort`/`order` if you want the active sort preserved.
 
-**Validated:** 2026-08-31 against `remix 3.0.0-beta.10` + `@remix-run/ui` `reconcile.ts`/`core/props.ts` in `/home/lucky/remix3test`.
+**Validated:** 2026-08-31 empirically; vendor mechanism revalidated 2026-09-18 against `remix` 3.0.0-rc.2 (installable build `3e94ca8a6`, source `03cd3404`) — `@remix-run/ui` `src/runtime/diff-dom.ts`, `src/runtime/reconcile.ts`, and `src/runtime/core/props.ts` in `/home/lucky/remix3test`.
 
 Use when server-rendered form inputs with `defaultValue` inside a Frame don't show the expected value after navigation, filter/search inputs are empty after a Frame reload even though the URL has the correct query parameter, or the frame content updates but `<input>` elements keep their old values.
 
