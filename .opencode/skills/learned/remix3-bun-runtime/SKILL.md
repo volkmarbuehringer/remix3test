@@ -38,7 +38,7 @@ const server = Bun.serve({
 ```jsonc
 "test:bun": "NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test"
 ```
-**Do not use `bun run remix test`.** pnpm's `node_modules/.bin/remix` shim ends in `exec node …`, so `bun run remix` silently runs the whole suite under Node. The tell: Node's `module.register()` DEP0205 warning appears and `IS_BUN` stays false. Invoke the dist entry to actually get Bun.
+**Do not use plain `bun run remix test`.** pnpm's `node_modules/.bin/remix` shim ends in `exec node …`, so `bun run remix` silently runs the whole suite under Node. The tell: Node's `module.register()` DEP0205 warning appears and `IS_BUN` stays false. Two invocations that do get Bun: the explicit dist entry above, or `bun --bun run remix test` (verified — `--bun` forces the runtime through the same shim). See the `bun-run-pnpm-shim` skill for the general trap.
 
 `@remix-run/test` is Bun-aware (`src/lib/runtime.ts`: `IS_BUN = typeof process.versions.bun === 'string'`): native Bun `Glob` for discovery (pnpm symlink cycles), `importModule()` skips `@remix-run/node-tsx` ("node-tsx uses Node APIs that fail in Bun if statically imported"), and the Node V8 coverage loader is skipped — so `--coverage` is not meaningful under Bun. Browser + e2e work under Bun unchanged; Playwright needs no adjustment.
 
