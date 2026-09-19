@@ -269,6 +269,15 @@ function roleLabelDE(role: User['role']): string {
   return role === 'admin' ? 'Administrator' : 'Kunde'
 }
 
+// CSS-only no-JS fallback for the tab panels. Inactive panels are server-rendered
+// with `hidden` so they stay out of the first paint. The `scripting` media
+// feature is evaluated by the browser against the real scripting setting and is
+// immune to the client runtime's DOM patching, so the reveal rule only ever
+// applies when scripting is disabled — letting the tab anchors fall back to
+// plain in-page links.
+const PANEL_REVEAL_CSS =
+  '@media (scripting: none) { [data-settings-tabpanel][hidden] { display: flex !important; } }'
+
 // The settings panels are presented as ARIA tabs. The order here is the tab
 // order, and each id doubles as the panel's DOM id and the URL fragment that
 // deep-links it (e.g. /settings#settings-password).
@@ -298,6 +307,11 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
     let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
       handle.props
     let activeTab = handle.props.activeTab ?? DEFAULT_SETTINGS_TAB
+    // Inactive panels are hidden in the initial server HTML so the whole page
+    // never flashes before the client entry applies tab visibility. The
+    // @media (scripting: none) rule below reveals them again when JS is
+    // unavailable.
+    let panelHidden = (tabId: SettingsTabId) => (tabId === activeTab ? undefined : true)
 
     return (
       <Layout title="Einstellungen">
@@ -307,6 +321,20 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
           description="Verwalten Sie Ihre Kontoeinstellungen."
         >
           <SettingsEnhance />
+          {/*
+            Inactive panels are server-rendered with the `hidden` attribute so
+            the full page cannot flash before SettingsEnhance runs. When JS is
+            disabled the panels must all be visible again so the tab anchors keep
+            working as plain in-page links.
+
+            A <noscript> element cannot carry that rule: after the first
+            client-side patch the Remix UI runtime re-parses the noscript body
+            into a live <style>, which would un-hide every panel. A `data-js`
+            flag on <html> is also unreliable — the runtime reconciles the
+            document element against the server HTML and drops the flag. The
+            `@media (scripting: none)` rule below is immune to both.
+          */}
+          <style>{PANEL_REVEAL_CSS}</style>
           <div mix={sectionTabListCss} role="tablist" aria-label="Bereiche der Einstellungen">
             {SETTINGS_TABS.map((tab) => (
               <a
@@ -331,6 +359,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               aria-labelledby="settings-profile-tab"
               tabindex={0}
               data-settings-tabpanel
+              hidden={panelHidden('settings-profile')}
             >
               <h2 id="settings-profile-title" mix={sectionTitleCss}>
                 Profil
@@ -385,6 +414,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               aria-labelledby="settings-display-tab"
               tabindex={0}
               data-settings-tabpanel
+              hidden={panelHidden('settings-display')}
             >
               <h2 id="settings-display-title" mix={sectionTitleCss}>
                 Anzeige
@@ -432,6 +462,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               tabindex={0}
               data-settings-panel
               data-settings-tabpanel
+              hidden={panelHidden('settings-password')}
             >
               <h2 id="settings-password-title" mix={sectionTitleCss}>
                 Passwort ändern
@@ -502,6 +533,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               aria-labelledby="settings-account-tab"
               tabindex={0}
               data-settings-tabpanel
+              hidden={panelHidden('settings-account')}
             >
               <h2 id="settings-account-title" mix={[sectionTitleCss, dangerTitleCss]}>
                 Konto löschen
@@ -638,8 +670,10 @@ const settingsGridCss = css({
 })
 
 // ARIA tab list for the four settings panels. Anchors (not buttons) keep the
-// URL fragment meaningful and give a no-JavaScript fallback: without the
-// client entry the panels all stay visible and each link scrolls to its panel.
+// URL fragment meaningful and give a no-JavaScript fallback: the
+// @media (scripting: none) rule above reveals every panel and each link scrolls
+// to its own panel. With JS the inactive panels start hidden server-side so the
+// full page never flashes before the client entry applies tab visibility.
 const sectionTabListCss = css({
   display: 'flex',
   flexWrap: 'wrap',

@@ -10,6 +10,17 @@ import { hashPassword } from '../../utils/password-hash.ts'
 
 const BASE = 'https://remix.run'
 
+/** Opening tag of the settings panel with the given id, attributes in any order. */
+function panelOpeningTag(html: string, id: string): string {
+  return html.match(new RegExp(`<div[^>]*id="${id}"[^>]*>`))?.[0] ?? ''
+}
+
+function isPanelHidden(html: string, id: string): boolean {
+  let tag = panelOpeningTag(html, id)
+  if (!tag) throw new Error(`panel ${id} not found in HTML`)
+  return /\shidden(?:[\s=>]|$)/.test(tag)
+}
+
 const TEST_PREFIX = `sett-${Date.now()}-`
 const INITIAL_PASSWORD = 'password123'
 const NEW_PASSWORD = 'NewSecure1!pass'
@@ -102,6 +113,36 @@ describe('Settings controller', () => {
       )
     })
 
+    it('server-renders only the active panel visible to avoid a full-page flash', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+        headers: { Cookie: session.cookie },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.equal(
+        isPanelHidden(html, 'settings-profile'),
+        false,
+        'the default profile panel must be visible in the initial HTML',
+      )
+      for (let section of ['display', 'password', 'account']) {
+        assert.equal(
+          isPanelHidden(html, `settings-${section}`),
+          true,
+          `the inactive ${section} panel must be hidden in the initial HTML`,
+        )
+      }
+      assert.ok(
+        html.includes(
+          '@media (scripting: none) { [data-settings-tabpanel][hidden] { display: flex !important; } }',
+        ),
+        'should reveal every panel again when scripting is disabled',
+      )
+    })
+
     it('shows the administrator badge for admin accounts', async () => {
       let session = await createAuthCookieWithCsrfForUser('admin@newapp.com')
       if (!session) throw new Error('Could not create auth session')
@@ -191,6 +232,16 @@ describe('Settings controller', () => {
       assert.ok(
         html.includes('data-settings-active-tab="settings-password"'),
         'should keep the password tab active after a failed change',
+      )
+      assert.equal(
+        isPanelHidden(html, 'settings-password'),
+        false,
+        'the re-rendered password panel must be visible in the initial HTML',
+      )
+      assert.equal(
+        isPanelHidden(html, 'settings-profile'),
+        true,
+        'the other panels must stay hidden in the initial HTML',
       )
     })
 

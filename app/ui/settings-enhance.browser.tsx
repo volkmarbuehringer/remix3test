@@ -20,8 +20,11 @@ import { clientEntry, css, type Handle } from 'remix/ui'
  *      response cannot be double-submitted and the user sees that work started.
  *   7. Tabs: turn the four stacked panels into ARIA tabs, keep the URL hash in
  *      sync for deep links (e.g. /settings#settings-password), and support
- *      Arrow/Home/End keyboard navigation. Without JS every panel stays
- *      visible and the tab anchors still scroll to their section.
+ *      Arrow/Home/End keyboard navigation. The server already renders the
+ *      inactive panels hidden so the whole page cannot flash before this entry
+ *      runs; an `@media (scripting: none)` rule in the page reveals every
+ *      panel again when scripting is unavailable, so the tab anchors still
+ *      scroll to their section.
  *
  * This is progressive enhancement: without JS the form still works and the
  * server-side validation remains authoritative.
