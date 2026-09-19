@@ -11,7 +11,7 @@ against the server-rendered HTML and a Chromium session.
 ## Problem
 
 A Remix 3 page renders all sections in one document. Turning them into tabs in a
-`clientEntry` hits four non-obvious traps:
+`clientEntry` hits five non-obvious traps:
 
 1. **`hidden` doesn't hide.** The shared panel descriptor sets `display:flex`,
    which (author origin) beats the UA `[hidden]{display:none}` rule, so
@@ -25,6 +25,13 @@ A Remix 3 page renders all sections in one document. Turning them into tabs in a
 4. **`preventDefault()` kills the free fallback.** Buttons with a swallowing
    click handler leave no no-JS path and no history. Anchors with
    `href="#panel-id"` give native hash/history/scroll behavior instead.
+5. **The whole page flashes on first paint.** If every panel is rendered
+   un-hidden server-side, the browser paints the full stacked page until the
+   client entry's `queueTask` runs and hides the inactive panels. Hiding them
+   only in JS is the bug, not the fix. The two obvious no-JS reveal fixes are
+   themselves traps: `<noscript>` is re-parsed into a live `<style>` after the
+   first patch, and a JS-set `<html data-js>` flag is wiped when the runtime
+   reconciles the document element.
 
 ## Solution
 
@@ -52,11 +59,42 @@ type TabId = (typeof TABS)[number]['id']
      tabindex={0} data-settings-tabpanel>…</div>
 ```
 
-Mark the active tab from a prop (`activeTab`, default first). Render every panel
-un-hidden server-side, so the no-JS render is the previous stacked page and the
-anchors still scroll to each section. Add `'&[hidden]': { display: 'none' }` to
-the panel `css()` descriptor (same descriptor, same layer) before
-`panel.hidden = true` can work.
+Mark the active tab from a prop (`activeTab`, default first). Add
+`'&[hidden]': { display: 'none' }` to the panel `css()` descriptor (same
+descriptor, same layer) before `panel.hidden = true` can work.
+
+**Render the inactive panels `hidden` on the server** so only the active panel
+paints on first load — otherwise the full stacked page flashes before the client
+entry runs:
+
+```tsx
+let panelHidden = (tabId: TabId) => (tabId === activeTab ? undefined : true)
+// …
+<div id="settings-profile" role="tabpanel" … data-settings-tabpanel
+     hidden={panelHidden('settings-profile')}>…</div>
+```
+
+Keep the no-JS path with a rule scoped to the `scripting` media feature. The
+browser evaluates it against the real scripting setting and it survives client
+DOM patching:
+
+```tsx
+<style>{'@media (scripting: none) { [data-settings-tabpanel][hidden] { display: flex !important; } }'}</style>
+```
+
+Two fixes to avoid:
+- **Do not use `<noscript>`.** After the first client-side patch the Remix UI
+  runtime re-parses the noscript body into a live `<style>` element, so the
+  reveal rule goes live with JS enabled and every panel shows at once (observed:
+  the noscript's `childElementCount` goes 0 → 1 after a single tab click).
+- **Do not gate the reveal on a JS-set flag** such as `<html data-js>` written by
+  an inline head script: the runtime reconciles the document element against the
+  server HTML and drops the attribute, so the override stops matching after the
+  first navigation.
+
+The client `init()` still reconciles a matching `#hash` (deep links) and the
+server-selected `[aria-selected="true"]` tab; it only needs to toggle panels
+between themselves, never to perform the first hide.
 
 ### Server: keep the right tab after a POST
 
@@ -119,8 +157,10 @@ Roving-tabindex/keyboard details for lists with nested controls are covered by
 
 Server tests only see HTML: assert one `role="tab"`/`role="tabpanel"` per section
 plus `href="#<id>"`/`aria-controls`, `data-settings-active-tab` after an error
-POST, and `Location.endsWith('#<id>')` after a PRG redirect. Switching, keyboard,
-and deep-link behavior need a browser check.
+POST, and `Location.endsWith('#<id>')` after a PRG redirect. Also assert the
+no-flash contract directly: the active panel's opening tag carries no `hidden`
+attribute, every inactive panel's tag does, and the `@media (scripting: none)`
+reveal rule is present. Switching, keyboard, and deep-link behavior need a browser check.
 
 ## When to Use
 
