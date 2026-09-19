@@ -195,7 +195,7 @@ Rules:
 
 Note: the shared filter gates suspension on an `onSuspension` hook — without one,
 `tool-call-approval` is forwarded but the read loop does not stop. See
-`mastra-durable-run-ownership` for the durable-gate side.
+`references/durable-run-ownership.md` for the durable-gate side.
 
 ## askUserTool Integration
 

@@ -53,7 +53,7 @@ The CSS targets the known DOM structure: Edit is the direct `<a>` (the button st
 
 A link that navigates (`href` + `data-rmx-target`) must not wrap a `<button>`: `<a><button>…</button></a>` is invalid HTML and drops the link role for assistive tech. Style the **anchor** itself as a button.
 
-The shared theme helper `app/ui/theme/button.ts` exports `buttonLink()` for this. `button()` is bound to `HTMLButtonElement` (the recursive `MixinDescriptor` relation is order-sensitive — see `ts7-order-sensitive-type-relations`), so applying it directly to an `<a>` is a `TS2322`; `buttonLink()` rebinds the host element type to `HTMLAnchorElement`. The upstream contract supports non-button hosts — it applies `type="button"` only to native `<button>` hosts and otherwise adds styling only.
+The shared theme helper `app/ui/theme/button.ts` exports `buttonLink()` for this. `button()` is bound to `HTMLButtonElement` (the recursive `MixinDescriptor` relation is order-sensitive — see `typescript-gotchas` (`references/ts7-order-sensitive-type-relations.md`)), so applying it directly to an `<a>` is a `TS2322`; `buttonLink()` rebinds the host element type to `HTMLAnchorElement`. The upstream contract supports non-button hosts — it applies `type="button"` only to native `<button>` hosts and otherwise adds styling only.
 
 ```tsx
 import { buttonLink } from '../ui/theme/button.ts'
@@ -125,7 +125,7 @@ Only the **first** button gets the left radius and only the **last** gets the ri
 
 "Per-button" is necessary but not always sufficient. Every `css()` rule lives in its own `@layer rmx.<class>` sub-layer, and inside `rmx` the sub-layer registered last wins **regardless of specificity** — so when a button also carries the vendor `button()` mixin, the mixin's `border` shorthand can win on whichever button happens to be registered first. The visible symptom is one segment (usually the **active, primary-tone** one, whose own border is `0`) keeping a full border while its siblings are flattened.
 
-The period/status switchers were fixed by marking the two contested declarations `!important` in the per-button class (`app/ui/mixins/segmented.ts`). Full mechanism, alternatives (re-render the markup with app styles, declare a later layer) and the CDP recipe: `remix3-css-override-cascade-layer`.
+The period/status switchers were fixed by marking the two contested declarations `!important` in the per-button class (`app/ui/mixins/segmented.ts`). Full mechanism, alternatives (re-render the markup with app styles, declare a later layer) and the CDP recipe: `remix3-css-and-layout` → `references/cascade-layer-overrides.md`.
 
 ## Inline-Edit Server-Rendered Table Cells
 

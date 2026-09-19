@@ -12,131 +12,26 @@ Covers two aspects of guiding agent-user interaction:
 1. Rendering `ask_user`/confirm options as inline action buttons instead of radio buttons
 2. Specifying exact output format templates in agent instructions to prevent invented summaries
 
----
+## Load Only The References You Need
 
-## Part 1: Question Options as Action Buttons
+| Task involves... | Start with |
+| --- | --- |
+| Rendering `ask_user`/confirm options or clicking a choice in an agent chat UI | `references/action-buttons.md` |
+| Writing/reviewing agent instructions that relay tool data, or debugging an agent that invents generic summaries | `references/output-formatting.md` |
 
-### Problem
+## Core Rules
 
-When an agent asks a question with a small set of single-select options (e.g., "Lock user 5?" with options `["Confirm"]` or `["Lock user 5", "Cancel"]`), rendering them as radio buttons + a separate "Confirm" button requires two clicks and extra visual noise. The "Confirm" button itself is superfluous — each option is already meaningful. If the user just wants to proceed without selecting an action, the text input is always available.
-
-### Solution
-
-When the question uses single-select mode and has 6 or fewer options, render each option as a direct inline action button. Clicking a button immediately submits that option's value without requiring a separate confirmation click.
-
-```typescript
-let useButtons = !isMulti && optionList.length <= 6
-
-if (useButtons) {
-  let btnGroup = document.createElement('div')
-  btnGroup.style.display = 'flex'
-  btnGroup.style.flexWrap = 'wrap'
-  btnGroup.style.gap = '6px'
-
-  for (let opt of optionList) {
-    let optBtn = document.createElement('button')
-    optBtn.textContent = opt.label
-    optBtn.onclick = () => {
-      btnGroup.querySelectorAll('button').forEach((b) => (b.disabled = true))
-      handleAnswer(opt.label)
-    }
-    if (opt.description) {
-      optBtn.title = opt.description
-    }
-    btnGroup.appendChild(optBtn)
-  }
-  el.appendChild(btnGroup)
-} else {
-  // Fall back to radio/checkboxes + Confirm button
-  // for multi-select or large option sets (>6)
-}
-```
-
-**Result:**
-
-```
-Before:                         After (≤6 single-select options):
-┌──────────────────┐           ┌──────────────────────────┐
-│ Lock user 5?     │           │ Lock user 5?             │
-│ ◉ Lock user 5    │           │ [Lock user 5] [Cancel]   │
-│ ◉ Cancel         │           └──────────────────────────┘
-│ [Confirm]        │
-└──────────────────┘
-```
-
-### Key details
-
-- **Threshold**: ≤6 options, single-select only. Beyond that or multi-select, keep the checkbox + confirm pattern since selecting multiple inline buttons is awkward.
-- **Double-submit guard**: Disable all buttons in the group on first click rather than clearing the bubble (which creates a jarring visual gap).
-- **Descriptions**: Preserve option descriptions via `title` attribute on buttons.
-- **Text input always remains**: The user can type a new message instead of clicking any button — the text input below the chat is never removed.
-
----
-
-## Part 2: Agent Instructions Need Explicit Output Formatting
-
-### Problem
-
-When an LLM agent's instructions say "Report the results" or "Present the findings" without specifying the exact format, the agent often:
-
-- Summarizes generically ("No issues found", "All good") even when the tool returned specific data
-- Omits individual items and only reports aggregate counts
-- Invents plausible-sounding but factually incorrect summaries
-- Places tool output data in the wrong conversational context
-
-This is a failure of **instruction underspecificity** — the LLM optimizes for brevity/fluency over data fidelity when not explicitly constrained.
-
-**Real-world example:** A Mastra workflow agent was told "Report the results" after a consistency check tool ran. Instead of presenting the actual user names and pending appointment counts from the tool output, the agent invented a generic German "alles in Ordnung" (everything's fine) message — silently discarding the data.
-
-### Solution
-
-In agent instructions, always specify:
-
-1. **The exact output shape** of the tool (what fields are returned)
-2. **A template** for how to present data in the response
-3. **An anti-pattern to avoid** (explicit "do not" rule)
-
-### Before (vague — agent invents generic response)
-
-```
-- consistency_check: Run checks. Returns results.
-- Report the results.
-```
-
-The agent responds: "All consistency checks passed. Everything looks good." (even when the tool returned `{ users: [{name: "Max", pendingCount: 3}] }`)
-
-### After (specific — agent uses actual data)
-
-```
-- consistency_check: Run checks.
-  Returns { users: { id, name, email, pendingCount }[], total }.
-  You MUST present the actual users and counts — never invent a generic message.
-
-- When presenting results: if users is empty say "No users found."
-  If users has entries, say "{name}: {pendingCount} pending" for each.
-  Always include the total count.
-```
-
-The agent responds: "2 users found: Max (3 pending), Erika (1 pending). Total: 4 pending appointments."
-
-### Pattern Template
-
-```
-- <tool_name>: <description>
-  Returns <exact shape>
-  You MUST <specific presentation rule>
-
-- When presenting <check> results:
-  If <condition>: "<exact template>"
-  Always include <required field>.
-```
-
-Apply this pattern to:
-- Consistency/validation tools
-- Data query tools (user lists, appointment lists, etc.)
-- Any tool that returns structured data for the agent to relay
-
----
+- **Action buttons**: single-select questions with ≤6 options render every option as a direct inline button that submits on click — no separate "Confirm" step.
+- **Fallback**: multi-select or >6 options keep the checkbox/radio + Confirm pattern, since selecting multiple inline buttons is awkward.
+- **Why**: radio buttons plus a separate "Confirm" button need two clicks and add visual noise; the "Confirm" button is superfluous because each option is already meaningful, and the text input already lets the user proceed without choosing an action.
+- **Double-submit guard**: on first click, disable every button in the group rather than clearing the bubble (which creates a jarring visual gap).
+- **Descriptions**: preserve each option description via the button `title` attribute.
+- **Text input always remains**: the user can type a new message instead of clicking any button — never remove the input below the chat.
+- **Specify the exact output shape** of every data-returning tool (the fields it returns), a template for presenting the data, and an explicit anti-pattern (a "do not" rule).
+- **Underspecified "Report/Present the results"** instructions make an agent summarize generically, omit individual items in favor of aggregate counts, invent plausible-but-wrong summaries, and misplace tool output — a failure of instruction underspecificity.
+- **Worked failure**: a Mastra workflow agent told to "Report the results" invented a generic German "alles in Ordnung" message instead of relaying the actual user names and pending appointment counts.
+- **Pattern**: `<tool_name>: ... Returns <exact shape>` plus `You MUST <specific presentation rule>`, then `When presenting <check> results: If <condition>: "<exact template>" / Always include <required field>.`
+- **Apply to**: consistency/validation tools, data query tools (user/appointment lists), and any tool that returns structured data for the agent to relay.
 
 ## When to Use
 

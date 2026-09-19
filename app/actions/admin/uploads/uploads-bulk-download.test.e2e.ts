@@ -23,7 +23,7 @@ import { insertUpload, claimUploads } from '../../../data/uploads.ts'
 // Runs in parallel with other uploads e2e files against the shared database,
 // so it uses a distinct filename prefix (`test-bulkdl-`) and scopes every
 // assertion to its own rows rather than the whole grid (see the
-// remix-test-parallel-interference pattern).
+// remix3-testing `references/parallel-test-interference.md` pattern).
 //
 // Requires a running PostgreSQL database (global test setup) and a Playwright
 // browser. Runs as CI-only (gated on `type: ["e2e"]`).

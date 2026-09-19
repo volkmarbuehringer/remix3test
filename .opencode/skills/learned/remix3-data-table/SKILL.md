@@ -9,7 +9,7 @@ origin: consolidated
 
 **Consolidated from:** `remix3-data-table-array-in-clause`, `remix3-data-table-dynamic-sort-order-by`, `remix3-data-table-raw-sql-sort-filter`, `remix3-data-table-row-adapter`
 
-This skill is the **index** for data-table deltas. For the framework API and canonical query patterns, use the vendor `remix` skill's `references/data-and-validation.md` and `node_modules/remix/src/data-table/README.md`.
+This skill is the **index** for data-table deltas. For the framework API and canonical query patterns, use `node_modules/remix/src/data-table/README.md` and `node_modules/remix/src/data-schema/README.md`.
 
 ## Load Only The References You Need
 
@@ -26,11 +26,11 @@ This skill is the **index** for data-table deltas. For the framework API and can
 - **Dynamic sort column**: narrow to a `SORTABLE_FIELDS` union and cast (`as ListSortColumn`, not `as any`); add a stable `['id','desc']` tiebreaker.
 - **Raw-SQL sort/filter**: whitelist column identifiers, build `ORDER BY`/`WHERE` as `rawSql` fragments, parameterize every value, and compile the direction with the vendor `compileOrderByDirection()` (`remix/data-table/sql-helpers`).
 - **Typed-API rows**: own one canonical row interface plus one adapter that narrows `unknown` json/bigint columns at a single boundary — no `as unknown as` casts at call sites.
-- **Decode `db.exec` rows** with wire-honest zod schemas (int4→number, int8→string) — see `remix3-raw-sql-wire-honest-rows`.
+- **Decode `db.exec` rows** with wire-honest zod schemas (int4→number, int8→string) — see `database-gotchas` (`references/raw-sql-wire-honest-rows.md`).
 - **`exactOptionalPropertyTypes`**: widen pass-through optionals to `| undefined` instead of fighting the strict flag.
 
 ## Related Skills
 
-- `remix3-raw-sql-wire-honest-rows` — decoding `db.exec` rows with wire-honest zod schemas
-- `remix-database-errors` — `DataTableAdapterError` cause unwrapping and PG error codes
+- `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas (`references/raw-sql-wire-honest-rows.md`)
+- `database-gotchas` — `DataTableAdapterError` cause unwrapping and PG error codes (`references/database-errors.md`)
 - `exact-optional-property-types-migration` — the general `exactOptionalPropertyTypes` widening pattern

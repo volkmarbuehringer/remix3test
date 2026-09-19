@@ -12,78 +12,21 @@ Covers two common traps when using `createRateLimiter` from `app/utils/rate-limi
 1. Default `maxAttempts=1` blocks follow-up requests in multi-step flows
 2. `windowMs <= 0` silently blocks same-ms requests
 
----
+## Load Only The References You Need
 
-## Trap 1: Default `maxAttempts=1` Blocks Multi-Step Flows
+| Task involves... | Start with |
+| --- | --- |
+| A follow-up request in a multi-step flow getting silently blocked (`maxAttempts` default) | `references/maxattempts-default.md` |
+| Dev/test disabling the limiter with `windowMs=0` and same-millisecond requests still getting blocked | `references/window-ms-zero-trap.md` |
 
-### Problem
+## Core Rules
 
-`createRateLimiter` defaults to `maxAttempts: 1`, allowing only **one** request per window. Multi-step flows — where a client sends an initial request, the user responds, and a follow-up request arrives within the same window — get silently blocked:
-
-```typescript
-// Only 1 attempt allowed per 10-second window
-const supportAgentRateLimiter = createRateLimiter({ windowMs: 10_000 })
-//   maxAttempts defaults to 1 ↑
-
-// Flow:
-// POST /admin/support-agent          → attempt() → OK (count=1)
-// POST /admin/support-agent/answer   → attempt() → BLOCKED (count >= 1)
-//   (arrives within 10s of first request)
-```
-
-### Solution
-
-Always set `maxAttempts` explicitly when you expect more than one request per window:
-
-```typescript
-const supportAgentRateLimiter = createRateLimiter({
-  windowMs: 10_000,
-  perKey: true,
-  maxAttempts: 5, // explicit: action + answer + toolDecision = ~3
-})
-```
-
-When choosing a value:
-- `perKey: true` (per-IP) or `perUser: true` — prevents one user from starving another
-- `maxAttempts`: count the expected request waterfall (e.g. initial + answer + tool decision = at least 3)
-
----
-
-## Trap 2: `windowMs <= 0` Silently Blocks Same-ms Requests
-
-### Problem
-
-Setting `windowMs=0` (common in dev/test to disable rate limiting) creates a subtle bug: the `entryCount` function checks `Date.now() - entry.firstAt > windowMs`. When `windowMs=0`, this becomes `diff > 0`. If two requests arrive in the same millisecond, `diff = 0` is **not** greater than 0, so the entry is NOT expired and the second request is falsely rate-limited.
-
-### Solution
-
-Add an early-return guard that short-circuits all checks when rate limiting is disabled:
-
-```typescript
-export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
-  let { windowMs, perUser, perKey, maxAttempts = 1, cleanupInterval } = options
-
-  if (windowMs <= 0) {
-    return {
-      check(): { allowed: boolean } { return { allowed: true } },
-      set(): void {},
-      attempt(): boolean { return true },
-      state() { return { count: 0, remaining: maxAttempts, reset: 0 } },
-      reset(): void {},
-    }
-  }
-
-  // ... normal implementation ...
-}
-```
-
-### Detection
-
-- Sequential tests calling the same rate-limited action fail non-deterministically
-- "Too many requests" errors in dev/test when `windowMs=0`
-- Tests pass interleaved with arbitrary `setTimeout(5)` workarounds
-
----
+- **`createRateLimiter` (from `app/utils/rate-limiter.ts`) defaults to `maxAttempts: 1`** — only **one** request per window, so the follow-up request of a multi-step flow (initial request → user responds → follow-up within the same window) is silently blocked. Always set `maxAttempts` explicitly when you expect more than one request per window.
+- **Size `maxAttempts` from the request waterfall**: count the expected requests (e.g. initial + answer + tool decision = at least 3; the worked example uses 5).
+- **Set `perKey: true` (per-IP) or `perUser: true`** so one user cannot starve another.
+- **`windowMs <= 0` silently blocks same-ms requests**: `entryCount` tests `Date.now() - entry.firstAt > windowMs`; with `windowMs=0` two same-millisecond requests give `diff = 0`, which is **not** `> 0`, so the entry never expires and the second request is falsely rate-limited.
+- **Guard the disabled case with an early return**: when `windowMs <= 0`, return a limiter whose `check`/`set`/`attempt`/`state`/`reset` short-circuit (allow everything) before any window logic runs.
+- **Detection signals**: sequential tests calling the same rate-limited action fail non-deterministically; "Too many requests" errors appear in dev/test when `windowMs=0`; tests only pass with arbitrary `setTimeout(5)` workarounds.
 
 ## When to Use
 

@@ -57,5 +57,5 @@ Adjacent gotchas this fixes in the same stroke:
 
 ## Related
 
-- `remix3-raw-sql-wire-honest-rows` — decoding `db.exec` rows with wire-honest zod schemas (the raw-SQL sibling of this adapter)
+- `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas, the raw-SQL sibling of this adapter (`references/raw-sql-wire-honest-rows.md`)
 - `exact-optional-property-types-migration` — building optional fields under `exactOptionalPropertyTypes`

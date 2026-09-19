@@ -15,7 +15,7 @@ error: ungültige Eingabesyntax für Typ integer: »{"1","2","3"}«
 
 ## Solution (primary): `inList()` operator — now vendor-covered
 
-The canonical array-membership operator `inList()` is documented by the vendor `remix` skill itself in `references/data-and-validation.md` ("Operators" section, `remix/data-table/operators`). `WhereInput` accepts a `Predicate` directly, so pass `inList(...)` as the whole `where` value — not as a nested `{ id: ... }` object:
+The canonical array-membership operator `inList()` is documented in `node_modules/remix/src/data-table/README.md` ("Operators" section, `remix/data-table/operators`). `WhereInput` accepts a `Predicate` directly, so pass `inList(...)` as the whole `where` value — not as a nested `{ id: ... }` object:
 
 ```typescript
 import { inList } from 'remix/data-table/operators'
@@ -73,5 +73,5 @@ Key points:
 
 ## Related
 
-- `remix-database-errors` — unwrapping `DataTableAdapterError` causes and PostgreSQL error codes
+- `database-gotchas` — unwrapping `DataTableAdapterError` causes and PostgreSQL error codes (`references/database-errors.md`)
 - `raw-sql-sort-filter.md` (this index) — the raw-SQL `db.exec` sibling pattern

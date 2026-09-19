@@ -9,7 +9,7 @@ origin: consolidated
 
 Remix 3's `<Frame>` component and `clientEntry` hydration model form a tightly coupled lifecycle. Frames intercept GET navigations via the browser Navigation API, replacing DOM content server-side without full-page reloads; `clientEntry` components hydrate inside those frames. The interaction produces hard-to-debug failure modes: `handle.update()` cascades fire on large frames, `mounted` guards silently break after Frame DOM replacement, and binary responses crash the frame router.
 
-This skill is the **index** for the version-pinned deltas. For the framework API itself, use the vendor reference `remix/references/hydration-frames-navigation.md`; for component-local state and mixins, `remix/references/component-model.md` and `remix/references/mixins-styling-events.md`.
+This skill is the **index** for the version-pinned deltas. For the framework API itself, use the vendor reference `node_modules/remix/guides/06-streaming-ui-with-frames.md`; for component-local state and mixins, `node_modules/remix/src/ui/README.md` and `node_modules/remix/src/ui/README.md`.
 
 ## Load Only The References You Need
 

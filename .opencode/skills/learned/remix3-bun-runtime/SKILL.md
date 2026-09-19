@@ -32,7 +32,7 @@ const server = Bun.serve({
 })
 ```
 
-`server.requestIP()` is the TCP socket address, so `X-Client-Ip` stays unspoofable (see `remix3-two-tier-ip-trust-model`). Bun auto-loads `.env` — no `--env-file` flag.
+`server.requestIP()` is the TCP socket address, so `X-Client-Ip` stays unspoofable (see `security-gotchas` (`references/two-tier-ip-trust-model.md`)). Bun auto-loads `.env` — no `--env-file` flag.
 
 ### 2. `test:bun` must call the remix dist CLI directly
 ```jsonc

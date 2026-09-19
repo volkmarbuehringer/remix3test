@@ -45,5 +45,5 @@ The URL-param roundtrip pattern (`fv_`/`fe_` encoding) is **deprecated** — `fo
 ## Related
 
 - `remix3-frame-cliententry` — the `ShellOrFragment` patch that makes a 400 full-page re-render correct inside a `<Frame>`
-- `remix-route-relocation` — route relocation checklist and form-validation upgrade cross-reference
+- `remix3-route-wiring` (`references/route-relocation.md`) — route relocation checklist and form-validation upgrade cross-reference
 - `.agents/knowledge/remix3-parseSafe-declarative-schemas.md`, `.agents/knowledge/remix3-render-from-post-validation.md`

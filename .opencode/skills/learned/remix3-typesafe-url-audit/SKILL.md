@@ -47,5 +47,5 @@ Verify: `npm run typecheck` then run the touched files' tests (`npx remix test <
 
 ## Related
 
-- `remix` vendor skill → `references/routing-and-controllers.md` "URL generation with `.href()`" (authoritative; this delta is the audit workflow, not the API)
+- `remix` vendor skill → `node_modules/remix/guides/02-routing-and-controllers.md` "URL generation with `.href()`" (authoritative; this delta is the audit workflow, not the API)
 - `remix3-frame-cliententry` (`references/frame-form-action-get-route.md`) — form action paths must also resolve as GETs

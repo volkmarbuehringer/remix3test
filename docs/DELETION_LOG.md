@@ -13,7 +13,7 @@ drift correction for an export that a later feature commit re-introduced.
 - `app/data/lists.ts` — `getListsByIds()` (18 lines). Zero references in
   production or test. Orphan of the retired `routeAgent` list-selection UI
   (route removed 2026-08-28); the only remaining mentions are archived OpenSpec
-  docs and the `remix3-data-table-array-in-clause` learned skill's illustrative
+  docs and the `remix3-data-table` learned skill's illustrative
   example.
 - `app/data/uploads.ts` — `UploadSortField` type. Added with `UPLOAD_SORT_FIELDS`
   (5787202) but never referenced; the grid consumes `UPLOAD_SORT_FIELDS` directly.

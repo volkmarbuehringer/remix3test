@@ -33,7 +33,7 @@ loadAuth(),  // auth runs AFTER formData
 
 ### 2. Auth fixup — server-side request scope, NOT the form field
 
-⚠️ **The `file` form value is attacker-controlled.** Claiming `uploaded_by` from `context.formData.get('file')` — even with a scoped `(uploaded_by IS NULL OR uploaded_by = $1)` guard — lets any authenticated user steal any unclaimed upload by POSTing a plain text field `file=<victimId>` (no file part, so `uploadHandler` never runs). See `idor-scope-write-bypass`.
+⚠️ **The `file` form value is attacker-controlled.** Claiming `uploaded_by` from `context.formData.get('file')` — even with a scoped `(uploaded_by IS NULL OR uploaded_by = $1)` guard — lets any authenticated user steal any unclaimed upload by POSTing a plain text field `file=<victimId>` (no file part, so `uploadHandler` never runs). See `security-gotchas` (`references/idor-scope-write-bypass.md`).
 
 Claim ownership only from the server-scoped id: the handler calls `addUploadedId(id)` per accepted file, and the controller drains the whole batch with `takeUploadedIds()` in one quota check. See `app/middleware/upload-claim.ts`.
 

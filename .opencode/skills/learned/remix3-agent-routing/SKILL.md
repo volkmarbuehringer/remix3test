@@ -29,5 +29,5 @@ This skill is the **index** for the agent-routing pipeline. For the SSE transpor
 
 - `mastra-agent` — the SSE transport that carries `navigate` and `question` events
 - `form-error-handling-remix3` — validation errors re-render inline and preserve user edits over prefill values
-- `remix-security-middleware` — CSRF configuration for agent endpoints
+- `security-gotchas` (`references/security-middleware.md`) — CSRF configuration for agent endpoints
 - `rate-limiter-pitfalls` — rate limiter settings for multi-step agent flows

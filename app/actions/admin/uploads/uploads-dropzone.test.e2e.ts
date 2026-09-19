@@ -23,7 +23,7 @@ import { theme } from '../../../ui/theme/theme.ts'
 //
 // All four steps share one page on purpose: the suite runs many browser
 // sessions in parallel, and each extra session competes for CPU with the
-// SSE-driven e2e tests (see the remix-test-parallel-interference pattern).
+// SSE-driven e2e tests (see the remix3-testing `references/parallel-test-interference.md` pattern).
 //
 // The grid may be empty in a fresh test database, so readiness is keyed on the
 // dropzone's own hydration marker rather than on `[data-uploads-table]`.

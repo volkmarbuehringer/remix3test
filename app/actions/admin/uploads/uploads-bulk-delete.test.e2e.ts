@@ -71,7 +71,7 @@ describe('admin uploads: multirow delete banner', () => {
     // Other uploads e2e files (e.g. the multirow download test) may be writing
     // rows into the shared grid in parallel, so only require our three rows to
     // be present and scope every assertion to our own filenames (see the
-    // remix-test-parallel-interference pattern).
+    // remix3-testing `references/parallel-test-interference.md` pattern).
     let rowCheckboxes = page.locator('[data-uploads-table] input[name="ids"]')
     assert.ok(
       (await rowCheckboxes.count()) >= 3,

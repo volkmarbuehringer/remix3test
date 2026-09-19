@@ -15,7 +15,7 @@ import { theme } from '../../../ui/theme/theme.ts'
 // gap, square inner corners, rounded outer edges. The segment styles come from
 // `app/ui/mixins/segmented.ts`, which has to win a cascade-layer contest with
 // the mixin's own `border` shorthand — see the learned delta
-// `remix3-css-override-cascade-layer`. When that override loses, the segments
+// `remix3-css-and-layout` (`references/cascade-layer-overrides.md`). When that override loses, the segments
 // silently fall back to the mixin's border: two 1px lines per gap (a doubled
 // divider) in the wrong colour.
 //

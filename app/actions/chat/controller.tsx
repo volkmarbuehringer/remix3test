@@ -351,7 +351,7 @@ function toolDecisionStream(options: {
 
         // Terminal resolution — a settled run no longer needs an ownership
         // pointer, but a re-suspended one must keep it or the next decision is a
-        // false 403 (see mastra-durable-run-ownership).
+        // false 403 (see `mastra-agent` `references/durable-run-ownership.md`).
         if (isSettledRun(endReason)) {
           await clearChatRun(runId)
           if (result.runId && result.runId !== runId) await clearChatRun(result.runId)
@@ -478,7 +478,7 @@ export const customerChat = createController(routes.chat, {
 
             // A settled run no longer needs an ownership pointer; a suspended
             // one must keep it or the next approve/decline/answer is a false
-            // 403 (see mastra-durable-run-ownership).
+            // 403 (see `mastra-agent` `references/durable-run-ownership.md`).
             if (isSettledRun(endReason)) {
               await clearChatRun(output.runId)
             }
@@ -624,7 +624,7 @@ export const customerChat = createController(routes.chat, {
             )
 
             // A settled continuation can drop its pointer; a re-suspended one
-            // must keep it (see mastra-durable-run-ownership).
+            // must keep it (see `mastra-agent` `references/durable-run-ownership.md`).
             if (isSettledRun(endReason)) {
               await clearChatRun(output.runId)
             }

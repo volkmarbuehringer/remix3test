@@ -199,7 +199,7 @@ export const sortArrowActiveCss = css({
 
 // Viewport-bounded page: let the page section fill the remaining content height
 // so the table region can absorb it and scroll internally (see the
-// remix3-bounded-scroll-flexchain pattern). The reduced `gap` here also tightens
+// remix3-css-and-layout `references/bounded-scroll-flexchain.md` pattern). The reduced `gap` here also tightens
 // vertical spacing between the section header and the two panels, returning that
 // space to the scrollable table so more rows are visible.
 export const pageSectionCss = css({

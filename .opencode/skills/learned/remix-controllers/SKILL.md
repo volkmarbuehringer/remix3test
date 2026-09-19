@@ -9,7 +9,7 @@ origin: consolidated
 
 **Consolidated from:** `remix-createContextKey-property-middleware`, `remix-createController-generic-helper-edge-case`, `remix-createController-requires-route-map`, `remix-consolidate-controllers`, `remix-middleware-error-centralization`
 
-This skill is the **index** for controller/middleware deltas. For the framework API and canonical patterns, use the vendor references `remix/references/routing-and-controllers.md` and `remix/references/middleware-and-server.md`.
+This skill is the **index** for controller/middleware deltas. For the framework API and canonical patterns, use the vendor references `node_modules/remix/guides/02-routing-and-controllers.md` and `node_modules/remix/src/fetch-router/README.md`.
 
 ## Load Only The References You Need
 
@@ -30,5 +30,5 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 
 ## Related Skills
 
-- `remix-route-relocation` — moving routes between route trees (frame ↔ top-level)
+- `remix3-route-wiring` (`references/route-relocation.md`) — moving routes between route trees (frame ↔ top-level)
 - `node_modules/remix/src/render-middleware/README.md` — wiring request-scoped renderers into the router

@@ -9,7 +9,7 @@ const csrfMiddleware = csrf({
 // Session-cookie-authenticated browser endpoints that skip CSRF (SSE/agent
 // streams call fetch() and cannot embed a form token). Skipping CSRF opens
 // them to cross-site <form> attacks, so require a custom header that a
-// cross-site form cannot set (see remix-security-middleware learned skill).
+// cross-site form cannot set (see the `security-gotchas` `references/security-middleware.md` learned skill).
 const SSE_REQUEST_HEADER = 'X-Sse-Request'
 
 const AGENT_PATHS = [
