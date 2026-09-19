@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "bun", "remix/assets/types/hmr"]
+  },
+  "files": ["server.bun.ts"],
+  "exclude": []
+}

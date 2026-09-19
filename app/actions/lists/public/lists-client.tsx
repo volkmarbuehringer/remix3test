@@ -1145,23 +1145,30 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    // Listen for frame reloads
-    handle.frame.addEventListener('reloadComplete', reloadFromFrame, { signal: handle.signal })
+    // Frame reload events only fire in the browser. Registering them during SSR
+    // would pass @remix-run/ui's frozen, AbortSignal-shaped `handle.signal` stub
+    // as a native addEventListener option: Node tolerates it, but Bun requires a
+    // real AbortSignal and throws `TypeError: Type error`.
+    if (typeof document !== 'undefined') {
+      handle.frame.addEventListener('reloadComplete', reloadFromFrame, {
+        signal: handle.signal,
+      })
 
-    // Flush pending edits *before* the frame swaps in the next list.
-    //
-    // `beforeunload` never fires for a frame navigation (the document is not
-    // unloaded), so switching list / searching / paginating used to silently
-    // discard anything typed within the 1.5s autosave debounce. `reloadStart`
-    // fires synchronously before the new content is fetched, while
-    // `loadedListId`/`clean*` still describe the outgoing list — the only point
-    // where the edit can still be attributed to the right row.
-    function flushBeforeFrameReload() {
-      flushWithKeepalive()
+      // Flush pending edits *before* the frame swaps in the next list.
+      //
+      // `beforeunload` never fires for a frame navigation (the document is not
+      // unloaded), so switching list / searching / paginating used to silently
+      // discard anything typed within the 1.5s autosave debounce. `reloadStart`
+      // fires synchronously before the new content is fetched, while
+      // `loadedListId`/`clean*` still describe the outgoing list — the only point
+      // where the edit can still be attributed to the right row.
+      function flushBeforeFrameReload() {
+        flushWithKeepalive()
+      }
+      handle.frame.addEventListener('reloadStart', flushBeforeFrameReload, {
+        signal: handle.signal,
+      })
     }
-    handle.frame.addEventListener('reloadStart', flushBeforeFrameReload, {
-      signal: handle.signal,
-    })
 
     // On init, if no initial state was already provided, wait for frame load
     if (!initialized) {

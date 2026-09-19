@@ -39,6 +39,16 @@ export const ALLOWED_MIME_TYPES = new Set([
   'text/xml',
 ])
 
+/**
+ * Reduce a raw MIME type to its media type by dropping parameters such as
+ * `;charset=utf-8`. Runtimes differ here — Bun's `File` constructor appends a
+ * charset to text types — and a client may send a parameterized part header, so
+ * the allowlist must compare the media type only.
+ */
+export function normalizeMimeType(mime: string): string {
+  return (mime.split(';')[0] ?? '').trim().toLowerCase()
+}
+
 type ClientFile = {
   name: string
   type: string
@@ -48,7 +58,7 @@ type ClientFile = {
 function filePolicyError(file: ClientFile): string | null {
   let ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
   if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return 'Dateityp nicht erlaubt.'
-  if (!ALLOWED_MIME_TYPES.has(file.type)) return 'Dateityp nicht erlaubt.'
+  if (!ALLOWED_MIME_TYPES.has(normalizeMimeType(file.type))) return 'Dateityp nicht erlaubt.'
   if (file.name.replace(/[/\\]/g, '_') !== file.name) return 'Ungültiger Dateiname.'
   if (file.size > MAX_UPLOAD_BYTES) {
     return 'Eine Datei überschreitet die maximale Größe von 50 MB.'

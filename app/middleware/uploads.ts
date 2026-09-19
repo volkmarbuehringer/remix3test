@@ -17,6 +17,7 @@ import {
   ALLOWED_EXTENSIONS,
   ALLOWED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
+  normalizeMimeType,
 } from '../utils/upload-validation.ts'
 
 /**
@@ -29,7 +30,7 @@ function fileUploadErrorMessage(file: FileUpload): string | null {
   let ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0]
   if (!ext || !ALLOWED_EXTENSIONS.has(ext)) return 'Dateityp nicht erlaubt.'
 
-  if (!ALLOWED_MIME_TYPES.has(file.type)) return 'Dateityp nicht erlaubt.'
+  if (!ALLOWED_MIME_TYPES.has(normalizeMimeType(file.type))) return 'Dateityp nicht erlaubt.'
 
   let safeName = file.name.replace(/[/\\]/g, '_')
   if (safeName !== file.name) return 'Ungültiger Dateiname.'
@@ -75,7 +76,7 @@ async function uploadHandler(file: FileUpload): Promise<string | void> {
 
   let id = await insertUpload(db, {
     filename: file.name,
-    mimeType: file.type,
+    mimeType: normalizeMimeType(file.type),
     buffer: data,
     size: data.length,
     now: Date.now(),

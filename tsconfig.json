@@ -19,5 +19,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "remix/ui",
     "noEmit": true
-  }
+  },
+  "exclude": ["server.bun.ts"]
 }
