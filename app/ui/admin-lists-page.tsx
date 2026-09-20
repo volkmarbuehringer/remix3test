@@ -18,6 +18,7 @@ import { rotatedGlyphCss } from './mixins/icon.ts'
 import { isListItemFilter, type ListRow } from '../data/admin-lists.ts'
 import {
   sortArrow,
+  sortRule,
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
@@ -756,15 +757,6 @@ export function AdminListsPage(handle: Handle<AdminListsPageProps>) {
       </div>
     )
   }
-}
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
 // Inline Edit Panel

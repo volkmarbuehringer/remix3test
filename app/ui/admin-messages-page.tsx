@@ -9,6 +9,7 @@ import button from '../ui/theme/button.ts'
 import {
   formatTimestamp,
   sortArrow,
+  sortRule,
   buildSortUrl,
   buildPaginationUrl,
 } from './mixins/admin-urls.ts'
@@ -559,13 +560,4 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
       </div>
     )
   }
-}
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }

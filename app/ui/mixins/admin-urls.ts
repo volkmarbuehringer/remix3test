@@ -3,6 +3,16 @@ export function sortArrow(field: string, sortField: string, sortOrder: 'asc' | '
   return sortOrder === 'asc' ? '\u2191' : '\u2193'
 }
 
+/** Maps a column's sort state to the `aria-sort` value for its `<th>`. */
+export function sortRule(
+  field: string,
+  sortField: string,
+  sortOrder: 'asc' | 'desc',
+): 'ascending' | 'descending' | undefined {
+  if (field !== sortField) return undefined
+  return sortOrder === 'asc' ? 'ascending' : 'descending'
+}
+
 export function buildSortUrl(
   base: string,
   field: string,

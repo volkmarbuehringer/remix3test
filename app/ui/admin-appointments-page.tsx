@@ -9,6 +9,7 @@ import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
+  sortRule,
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
@@ -105,15 +106,6 @@ function formatDuring(during: unknown): string {
     if (parsed) return formatMinRange(parsed.startMin, parsed.endMin)
   }
   return String(during)
-}
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
 // ── Styles ──

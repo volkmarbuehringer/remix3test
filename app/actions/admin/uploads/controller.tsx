@@ -85,7 +85,7 @@ import { getCurrentUser } from '../../../utils/context.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { takeUploadedIds, takeUploadError } from '../../../middleware/upload-claim.ts'
 import { table } from '../../../ui/mixins/admin-table.ts'
-import { sortArrow } from '../../../ui/mixins/admin-urls.ts'
+import { sortArrow, sortRule } from '../../../ui/mixins/admin-urls.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { getSelfFrameTarget } from '../../../utils/frame-target.ts'
 import { formatRelativeTimeDE } from '../../../utils/date-utils.ts'
@@ -943,15 +943,6 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
 /** Upward-arrow upload glyph for the dropzone and empty state. */

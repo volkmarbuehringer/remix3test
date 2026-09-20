@@ -15,6 +15,7 @@ import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
 import { table } from '../../ui/mixins/admin-table.ts'
 import {
   sortArrow,
+  sortRule,
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
@@ -109,15 +110,6 @@ const actionSegDanger = css({
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
-}
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('de-DE', {

@@ -16,6 +16,7 @@ import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
+  sortRule,
   buildSortUrl,
   buildPaginationUrl,
   buildCreateUrl,
@@ -598,15 +599,6 @@ export function AdminUsersPage(handle: Handle<AdminUsersPageProps>) {
       </div>
     )
   }
-}
-
-function sortRule(
-  field: string,
-  sortField: string,
-  sortOrder: 'asc' | 'desc',
-): 'ascending' | 'descending' | undefined {
-  if (field !== sortField) return undefined
-  return sortOrder === 'asc' ? 'ascending' : 'descending'
 }
 
 // ── Inline Edit Panel ──
