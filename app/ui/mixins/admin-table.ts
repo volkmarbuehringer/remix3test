@@ -36,6 +36,27 @@ export const table = {
     },
     '&::placeholder': { color: theme.colors.text.muted },
   }),
+  /**
+   * Select for the inline filter bar. Unlike `select` — the full-width control
+   * used in stacked form panels — this sizes to its content, so year/month/user
+   * sit in one wrapped row instead of stacking into one line each.
+   */
+  filterSelect: css({
+    flex: '0 0 auto',
+    width: 'auto',
+    maxWidth: '220px',
+    padding: `${theme.space.xs} ${theme.space.sm}`,
+    fontSize: theme.fontSize.sm,
+    border: `1px solid ${theme.colors.border.default}`,
+    borderRadius: theme.radius.md,
+    background: theme.surface.lvl0,
+    color: theme.colors.text.primary,
+    outline: 'none',
+    '&:focus': {
+      borderColor: theme.colors.action.primary.background,
+      boxShadow: `0 0 0 2px ${theme.colors.focus.ring}`,
+    },
+  }),
   searchBtn: css({
     display: 'inline-flex',
     alignItems: 'center',
@@ -179,6 +200,12 @@ export const table = {
     lineHeight: '1',
     color: theme.colors.action.primary.background,
     fontWeight: theme.fontWeight.bold,
+  }),
+  /** `<abbr>` inside a sort header: browsers underline it by default, but the
+   *  header label is already a link and the dotted underline reads as a second
+   *  affordance. The `title` tooltip is the actual hint. */
+  sortAbbr: css({
+    textDecoration: 'none',
   }),
   td: css({
     padding: `${theme.space.sm} ${theme.space.md}`,

@@ -238,6 +238,10 @@ export const routes = route({
 
     report1: route('report1', {
       index: get('/'),
+      // PDF export of the currently filtered monthly evaluation. The page links
+      // here with `data-rmx-document` so the browser performs a native document
+      // navigation and the attachment response is not swallowed by the frame runtime.
+      pdf: get('/pdf'),
     }),
 
     pdf: route('pdf', {

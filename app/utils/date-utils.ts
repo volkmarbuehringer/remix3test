@@ -195,3 +195,26 @@ export function isoWeeksInYear(year: number): number {
   let isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   return day === 4 || (isLeap && day === 3) ? 53 : 52
 }
+
+const MONTH_NAMES_DE = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+]
+
+/**
+ * German month name for a 1-based month index, e.g. 9 → "September".
+ * Returns an empty string for out-of-range input.
+ */
+export function monthNameDE(month: number): string {
+  return MONTH_NAMES_DE[month - 1] ?? ''
+}
