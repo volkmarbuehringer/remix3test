@@ -31,4 +31,29 @@
 - [x] 5.1 Run `npm run typecheck` — no errors
 - [x] 5.2 Run `npm run lint` — no errors
 - [x] 5.3 Run `npm test` — all pass (especially `app/actions/agent-events/controller.test.ts`)
-- [ ] 5.4 Manual check on `/admin/workflowagent2` and the other three chat pages: no vertical scrollbar on load, input bar pinned at the bottom, textarea shows ≥2 lines and grows as the message wraps, Enter sends, Shift+Enter adds a newline, input resets after send
+- [ ] 5.4 Manual check on the agent chat pages: no vertical scrollbar on load, input bar pinned at the bottom, textarea shows ≥2 lines and grows as the message wraps, Enter sends, Shift+Enter adds a newline, input resets after send
+
+## 6. Shared agent-chat shell (folded in from the Stage 1 consolidation)
+
+The deferred shared `AgentChatShell` extraction (see design Non-Goals) is now done, and
+the layout/composer work above is expressed through it instead of being repeated per page.
+
+- [x] 6.1 Add `app/ui/agent-chat/shell.tsx` exporting `AgentChatShell` (slot-based
+      full-height / centered skeleton), `ChatComposer` (inline + stacked variants,
+      agent-specific element ids kept as props), and `MessageBubble` + `bubbleStyle`
+- [x] 6.2 Add `app/ui/agent-chat/cards.ts` with the shared `renderAgentApprovalCard` /
+      `renderAgentQuestionCard` DOM builders (customer / support / workflow variants)
+      used by the three `clientEntry` stream clients
+- [x] 6.3 Refactor `customer-chat-page.tsx`, `support-agent-page.tsx`, and
+      `agent-events-page.tsx` onto the shared shell/composer/bubble
+- [x] 6.4 Refactor the three stream clients onto the shared card builders
+- [x] 6.5 `npm run typecheck` and `npm run lint` pass
+
+### Reconciliation note
+
+This change was written when four pages existed (`agent-events`, `workflow-agent`,
+`support-agent`, `route-agent`). The app has since dropped `workflow-agent` and
+`route-agent`; the live surfaces are `/admin/agent-events`, `/admin/support-agent`,
+and the standalone customer `/chat`. Tasks 1.3, 2.2, 2.4, 3.2, 3.4, 4.3, and 4.5 refer
+to the removed pages and are superseded by the shared shell. `fullHeightTargets` now
+registers only `agentEvents.index`, `supportAgent.index`, and `uploads.index`.

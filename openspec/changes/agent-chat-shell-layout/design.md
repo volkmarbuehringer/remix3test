@@ -70,3 +70,12 @@ CSS/JS-only, no data or schema changes. Ship as a single commit; rollback is a r
 ## Open Questions
 
 - Exact maximum input height (recommended default ~10rem). Tune after visual check; changing the value does not affect the spec, approach, or tasks.
+
+## Update — shared `AgentChatShell` landed (Stage 1)
+
+The Non-Goal above ("No extraction of a shared `AgentChatShell` component") is now
+resolved. The shared shell, composer, message bubble, and card builders live in
+`app/ui/agent-chat/`, and the three live pages/streams use them. The full-height
+geometry and enlarged auto-growing input this change specified are preserved by
+`AgentChatShell` and `ChatComposer`. See tasks.md §6 and its reconciliation note for
+the removal of the `workflow-agent` / `route-agent` pages.

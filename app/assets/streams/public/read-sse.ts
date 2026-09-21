@@ -5,6 +5,17 @@
  * frames are `event: <type>\ndata: <json>\n\n`. This reads the stream and calls
  * `onEvent(type, data)` for each dispatched frame, closing when the body ends.
  */
+
+export type SseEventHandler = (type: string, data: unknown) => void | boolean
+
+export type ReadEventStreamOptions = {
+  /**
+   * Stop reading when this signal aborts. The response body is cancelled so the
+   * server sees the disconnect, and the call resolves with `true`.
+   */
+  signal?: AbortSignal | undefined
+}
+
 function parseSseFrame(frame: string): { event: string; data: unknown } | null {
   let event = 'message'
   let dataLines: string[] = []
@@ -28,18 +39,34 @@ function parseSseFrame(frame: string): { event: string; data: unknown } | null {
   return { event, data }
 }
 
+/**
+ * Reads an SSE response until the body ends, the signal aborts, or a handler
+ * returns `false`.
+ *
+ * Returns `true` when reading stopped early (abort or handler request) and
+ * `false` when the stream was exhausted. Callers that keep stream-level state
+ * (for example a suspended-run gate) use this to skip their "settled" cleanup.
+ */
 export async function readEventStream(
   res: Response,
-  onEvent: (type: string, data: unknown) => void,
-): Promise<void> {
+  onEvent: SseEventHandler,
+  options?: ReadEventStreamOptions,
+): Promise<boolean> {
   if (!res.body) throw new Error('No response body')
   let reader = res.body.getReader()
   let decoder = new TextDecoder()
   let buffer = ''
+  let stopped = false
 
   try {
     let done = false
-    while (!done) {
+    while (!done && !stopped) {
+      if (options?.signal?.aborted) {
+        stopped = true
+        await reader.cancel().catch(() => {})
+        break
+      }
+
       let read = await reader.read()
       done = read.done
       buffer += decoder.decode(read.value ?? new Uint8Array(), { stream: !done })
@@ -50,10 +77,16 @@ export async function readEventStream(
         buffer = buffer.slice(idx + 2)
         if (!frame.trim()) continue
         let parsed = parseSseFrame(frame)
-        if (parsed) onEvent(parsed.event, parsed.data)
+        if (parsed && onEvent(parsed.event, parsed.data) === false) {
+          stopped = true
+          await reader.cancel().catch(() => {})
+          break
+        }
       }
     }
   } finally {
     reader.releaseLock()
   }
+
+  return stopped
 }

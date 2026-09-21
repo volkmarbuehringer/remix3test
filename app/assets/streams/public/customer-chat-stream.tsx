@@ -3,6 +3,7 @@ import { clientEntry, css, ref, type Handle } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { readEventStream } from './read-sse.ts'
+import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
 
 export const CustomerChatStream = clientEntry(
   import.meta.url + '#CustomerChatStream',
@@ -506,12 +507,6 @@ export const CustomerChatStream = clientEntry(
       let container = getChatArea()
       if (!container) return
 
-      let card = document.createElement('div')
-      card.id = 'chat-approval'
-      card.style.cssText =
-        `padding:1rem;border:2px solid ${theme.colors.action.danger.border};border-radius:12px;` +
-        `background:${theme.surface.lvl0};align-self:flex-start;width:100%;`
-
       let args = data.args || {}
       let isCancelSingle = 'appointmentSummary' in args
       let isCancelAll = 'count' in args || 'appointmentSummaries' in args
@@ -522,24 +517,22 @@ export const CustomerChatStream = clientEntry(
         title = 'Termin stornieren?'
         description = String(args.appointmentSummary ?? '')
       } else if (isCancelAll) {
-        title = `${String(args.count ?? 0)} Termine stornieren?`
+        title = String(args.count ?? 0) + ' Termine stornieren?'
         description = (args.appointmentSummaries as string[] | undefined)?.join(', ') ?? ''
       } else {
         title = 'Aktion bestätigen'
         description = JSON.stringify(args, null, 2)
       }
 
-      card.innerHTML =
-        `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.action.danger.background}">${esc(title)}</div>` +
-        (description
-          ? `<div style="font-size:0.875rem;color:${theme.colors.text.secondary};margin-bottom:0.75rem;white-space:pre-wrap">${esc(description)}</div>`
-          : '') +
-        `<div style="display:flex;gap:0.75rem">` +
-        `<button class="approve-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.colors.action.danger.background};color:${theme.colors.action.danger.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">[X] Bestätigen</button>` +
-        `<button class="decline-btn" data-run-id="${esc(data.runId)}" data-tool-call-id="${esc(data.toolCallId || '')}" style="padding:0.5rem 1.25rem;background:${theme.surface.lvl1};color:inherit;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;cursor:pointer">[/] Ablehnen</button>` +
-        `</div>`
-
-      container.appendChild(card)
+      container.appendChild(
+        renderAgentApprovalCard({
+          variant: 'customer',
+          runId: data.runId,
+          toolCallId: data.toolCallId,
+          title,
+          description,
+        }),
+      )
       scrollToBottom()
     }
 
@@ -572,56 +565,14 @@ export const CustomerChatStream = clientEntry(
       let container = getChatArea()
       if (!container) return
 
-      let card = document.createElement('div')
-      card.id = 'chat-question'
-      card.style.cssText =
-        `padding:1rem;border:2px solid ${theme.colors.warning.border};border-radius:12px;` +
-        `background:${theme.surface.lvl0};align-self:flex-start;width:100%;margin-top:0.5rem;`
-
-      let html = `<div style="font-weight:600;font-size:1rem;margin-bottom:0.75rem;color:${theme.colors.warning.foreground}">${esc(data.question)}</div>`
-
-      if (data.options && data.options.length > 0) {
-        if (data.selectionMode === 'multi_select') {
-          html +=
-            `<div id="q-options">` +
-            data.options
-              .map(
-                (o) =>
-                  `<label style="display:block;margin:4px 0;cursor:pointer">` +
-                  `<input type="checkbox" class="q-option" value="${esc(o.label)}" /> ` +
-                  esc(o.label) +
-                  (o.description
-                    ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
-                    : '') +
-                  `</label>`,
-              )
-              .join('') +
-            `</div>`
-        } else {
-          html +=
-            `<div id="q-options">` +
-            data.options
-              .map(
-                (o, i) =>
-                  `<label style="display:block;margin:4px 0;cursor:pointer">` +
-                  `<input type="radio" class="q-option" name="q_option" value="${esc(o.label)}" ${i === 0 ? 'checked' : ''} /> ` +
-                  esc(o.label) +
-                  (o.description
-                    ? ` <span style="opacity:0.6;font-size:0.85em">— ${esc(o.description)}</span>`
-                    : '') +
-                  `</label>`,
-              )
-              .join('') +
-            `</div>`
-        }
-      } else {
-        html += `<input id="q-free-text" type="text" style="width:100%;padding:0.5rem;border:1px solid ${theme.colors.border.default};border-radius:6px;font-size:0.9rem;box-sizing:border-box" placeholder="Antwort eingeben..." />`
-      }
-
-      html += `<div style="margin-top:0.75rem"><button type="button" class="q-answer-btn" style="padding:0.5rem 1.25rem;background:${theme.colors.action.primary.background};color:${theme.colors.action.primary.foreground};border:none;border-radius:6px;font-size:0.9rem;cursor:pointer">Antworten</button></div>`
-
-      card.innerHTML = html
-      container.appendChild(card)
+      container.appendChild(
+        renderAgentQuestionCard({
+          variant: 'customer',
+          question: data.question,
+          options: data.options,
+          selectionMode: data.selectionMode,
+        }),
+      )
       scrollToBottom()
     }
 

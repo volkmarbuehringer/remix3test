@@ -3,6 +3,8 @@ import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'
 import { routes } from '../../../routes.ts'
 import { renderMarkdownToDom } from './markdown-dom.ts'
+import { renderAgentApprovalCard, renderAgentQuestionCard } from '../../../ui/agent-chat/cards.ts'
+import { readEventStream } from './read-sse.ts'
 
 export const SupportAgentStream = clientEntry(
   import.meta.url + '#SupportAgentStream',
@@ -362,110 +364,18 @@ export const SupportAgentStream = clientEntry(
       hideThinking()
       let el = appendAgentMessage()
 
-      if (!data.options || data.options.length === 0) {
-        let fieldset = document.createElement('fieldset')
-        fieldset.style.cssText =
-          'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;'
-        let legend = document.createElement('legend')
-        legend.textContent = data.question
-        legend.style.cssText = 'font-weight:600;margin-bottom:4px;font-size:0.875rem;'
-        fieldset.appendChild(legend)
-
-        let input = document.createElement('input')
-        input.type = 'text'
-        input.placeholder = 'Antwort...'
-        input.setAttribute('aria-label', data.question)
-        input.style.cssText =
-          `padding:6px 10px;border:1px solid ${theme.colors.border.default};` +
-          `border-radius:4px;font-size:0.8125rem;width:100%;box-sizing:border-box;` +
-          `background:${theme.surface.lvl0};color:${theme.colors.text.primary};`
-        fieldset.appendChild(input)
-
-        let btn = document.createElement('button')
-        btn.type = 'button'
-        btn.textContent = 'Antworten'
-        btn.style.cssText =
-          `padding:4px 14px;border:1px solid ${theme.colors.border.default};` +
-          `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
-          `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
-        let submit = () => {
-          let answer = input.value.trim()
-          if (answer) handleAnswer(answer)
-        }
-        btn.onclick = submit
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') submit()
-        })
-        fieldset.appendChild(btn)
-        el.appendChild(fieldset)
-        return
-      }
-
-      let isMulti = data.selectionMode === 'multi_select'
-      let inputType = isMulti ? 'checkbox' : 'radio'
-      let MAX_OPTIONS = 50
-      let optionList = data.options.slice(0, MAX_OPTIONS)
-
-      try {
-        let fieldset = document.createElement('fieldset')
-        fieldset.style.cssText =
-          'border:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;'
-        let legend = document.createElement('legend')
-        legend.textContent = data.question
-        legend.style.cssText = 'font-weight:600;margin-bottom:6px;font-size:0.875rem;'
-        fieldset.appendChild(legend)
-
-        for (let opt of optionList) {
-          let label = document.createElement('label')
-          label.style.cssText =
-            'display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8125rem;padding:2px 0;'
-
-          let input = document.createElement('input')
-          input.type = inputType
-          input.name = 'q-option'
-          input.value = opt.label
-
-          let span = document.createElement('span')
-          span.textContent = opt.label
-
-          label.appendChild(input)
-          label.appendChild(span)
-
-          if (opt.description) {
-            let desc = document.createElement('span')
-            desc.textContent = '— ' + opt.description
-            desc.style.cssText = `color:${theme.colors.text.muted};font-size:0.75rem;`
-            label.appendChild(desc)
-          }
-
-          fieldset.appendChild(label)
-        }
-
-        let btn = document.createElement('button')
-        btn.type = 'button'
-        btn.textContent = 'Bestätigen'
-        btn.style.cssText =
-          `padding:4px 14px;margin-top:6px;border:1px solid ${theme.colors.border.default};` +
-          `border-radius:4px;cursor:pointer;background:${theme.surface.lvl1};` +
-          `color:${theme.colors.text.primary};font-size:0.8125rem;align-self:flex-start;`
-        btn.onclick = () => {
-          let checked = fieldset.querySelectorAll(
-            'input[name="q-option"]:checked',
-          ) as NodeListOf<HTMLInputElement>
-          if (checked.length === 0) return
-
-          let selected = [...checked].map((el2) => el2.value)
-          let answer = isMulti ? JSON.stringify(selected) : selected[0]!
-
-          el.textContent = ''
-          handleAnswer(answer)
-        }
-        fieldset.appendChild(btn)
-        el.appendChild(fieldset)
-      } catch (err) {
-        pendingQuestion = null
-        appendStatusMessage('Fehler beim Anzeigen der Frage: ' + String(err), true)
-      }
+      renderAgentQuestionCard({
+        variant: 'support',
+        mount: el,
+        question: data.question,
+        options: data.options,
+        selectionMode: data.selectionMode,
+        onAnswer: (answer) => handleAnswer(answer),
+        onError: (err) => {
+          pendingQuestion = null
+          appendStatusMessage('Fehler beim Anzeigen der Frage: ' + String(err), true)
+        },
+      })
     }
 
     // ── Suspension rendering (fresh bubble, never clobbers streamed text) ──
@@ -478,44 +388,13 @@ export const SupportAgentStream = clientEntry(
       hideThinking()
       let el = appendAgentMessage()
 
-      let warning = document.createElement('div')
-      warning.textContent = 'Tool erfordert Bestätigung: ' + (data.toolName || 'unbekannt')
-      warning.style.fontWeight = '600'
-      warning.style.marginBottom = '8px'
-      warning.style.fontSize = '0.875rem'
-      el.appendChild(warning)
-
-      let actions = document.createElement('div')
-      actions.style.display = 'flex'
-      actions.style.gap = '8px'
-
-      let approveBtn = document.createElement('button')
-      approveBtn.type = 'button'
-      approveBtn.textContent = '✔ Zulassen'
-      approveBtn.style.padding = '4px 14px'
-      approveBtn.style.border = 'none'
-      approveBtn.style.borderRadius = '4px'
-      approveBtn.style.cursor = 'pointer'
-      approveBtn.style.background = theme.colors.action.primary.background
-      approveBtn.style.color = theme.colors.action.primary.foreground
-      approveBtn.style.fontSize = '0.8125rem'
-      approveBtn.onclick = () => handleToolDecision('approve', data.toolCallId)
-      actions.appendChild(approveBtn)
-
-      let declineBtn = document.createElement('button')
-      declineBtn.type = 'button'
-      declineBtn.textContent = '✖ Ablehnen'
-      declineBtn.style.padding = '4px 14px'
-      declineBtn.style.border = '1px solid ' + theme.colors.border.default
-      declineBtn.style.borderRadius = '4px'
-      declineBtn.style.cursor = 'pointer'
-      declineBtn.style.background = theme.surface.lvl1
-      declineBtn.style.color = theme.colors.text.primary
-      declineBtn.style.fontSize = '0.8125rem'
-      declineBtn.onclick = () => handleToolDecision('decline', data.toolCallId)
-      actions.appendChild(declineBtn)
-
-      el.appendChild(actions)
+      renderAgentApprovalCard({
+        variant: 'support',
+        mount: el,
+        toolName: data.toolName,
+        onApprove: () => handleToolDecision('approve', data.toolCallId),
+        onDecline: () => handleToolDecision('decline', data.toolCallId),
+      })
     }
 
     // ── Structured tool-result rendering ─────────────────────────────
@@ -782,79 +661,50 @@ export const SupportAgentStream = clientEntry(
           return
         }
 
-        let reader = res.body?.getReader()
-        if (!reader) {
-          hideThinking()
-          showErrorWithRetry('Fehler: Kein Antwortstream')
-          setFormEnabled(true)
-          return
-        }
-
-        let decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          let { done, value } = await reader.read()
-          if (done) break
-          if (signal.aborted) {
-            hideThinking()
-            reader.cancel().catch(() => {})
-            return
-          }
-
-          buffer += decoder.decode(value, { stream: true })
-          let parts = buffer.split('\n\n')
-          buffer = parts.pop() || ''
-
-          for (let part of parts) {
-            let lines = part.split('\n')
-            let eventType = ''
-            let data = ''
-            for (let line of lines) {
-              if (line.startsWith('event: ')) eventType = line.slice(7)
-              else if (line.startsWith('data: ')) data = line.slice(6)
-            }
-            if (!data) continue
-
+        let stopped = await readEventStream(
+          res,
+          (eventType, data) => {
             try {
-              let parsed = JSON.parse(data)
+              let parsed = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
 
               if (eventType === 'start') {
                 didNavigate = false
                 hideThinking()
-                if (parsed.runId) currentRunId = parsed.runId
+                if (parsed.runId) currentRunId = String(parsed.runId)
                 if (parsed.threadId) {
-                  currentThreadId = parsed.threadId
+                  currentThreadId = String(parsed.threadId)
                   startedOnPage = currentPageKey()
                   startedChatEl = getChat()
-                  reflectThreadInUrl(parsed.threadId)
+                  reflectThreadInUrl(String(parsed.threadId))
                 }
                 appendAgentMessage()
                 streamingText = ''
               } else if (eventType === 'message') {
-                streamingText += parsed.text || ''
+                streamingText += String(parsed.text ?? '')
                 updateLastAgentMessage(streamingText)
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                appendStatusMessage('Navigiere zu ' + parsed.href + '...')
-                handleNavigate(parsed)
+                appendStatusMessage('Navigiere zu ' + String(parsed.href) + '...')
+                handleNavigate({
+                  href: String(parsed.href),
+                  ...(parsed.target !== undefined ? { target: String(parsed.target) } : {}),
+                  ...(parsed.history !== undefined ? { history: String(parsed.history) } : {}),
+                })
               } else if (eventType === 'question') {
-                showQuestion(parsed)
-                reader.cancel().catch(() => {})
-                return
+                showQuestion(parsed as unknown as Parameters<typeof showQuestion>[0])
+                return false
               } else if (eventType === 'suspension') {
-                showSuspension(parsed)
-                reader.cancel().catch(() => {})
-                return
+                showSuspension(parsed as unknown as Parameters<typeof showSuspension>[0])
+                return false
               } else if (eventType === 'tool-error') {
-                appendStatusMessage('Tool-Fehler: ' + (parsed.error || 'unbekannt'), true)
+                appendStatusMessage('Tool-Fehler: ' + String(parsed.error ?? 'unbekannt'), true)
               } else if (eventType === 'tool-result') {
                 renderToolResult((parsed.result as Record<string, unknown>) ?? {})
               } else if (eventType === 'stream-error') {
                 hideThinking()
-                showErrorWithRetry('Stream-Fehler: ' + (parsed.error || 'unbekannt'))
+                showErrorWithRetry('Stream-Fehler: ' + String(parsed.error ?? 'unbekannt'))
               } else if (eventType === 'complete') {
-                if (pendingQuestion) return
+                if (pendingQuestion) return false
                 hideThinking()
                 finalizeAgentMessage()
                 lastSubmission = null
@@ -871,18 +721,19 @@ export const SupportAgentStream = clientEntry(
                 }
               } else if (eventType === 'agent-error') {
                 hideThinking()
-                showErrorWithRetry('Fehler: ' + (parsed.error || 'unbekannt'))
+                showErrorWithRetry('Fehler: ' + String(parsed.error ?? 'unbekannt'))
               }
             } catch {
               if (eventType === 'message') {
-                streamingText += data
+                streamingText += typeof data === 'string' ? data : ''
                 updateLastAgentMessage(streamingText)
               }
             }
-          }
-        }
+          },
+          { signal },
+        )
 
-        if (!pendingQuestion) {
+        if (!stopped && !pendingQuestion) {
           hideThinking()
           setFormEnabled(true)
         }

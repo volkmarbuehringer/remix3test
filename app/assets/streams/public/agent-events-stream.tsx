@@ -12,6 +12,8 @@ import {
   type PipelineRow,
   type RowKind,
 } from '../../../ui/agent-events-log.ts'
+import { renderAgentApprovalCard } from '../../../ui/agent-chat/cards.ts'
+import { readEventStream } from './read-sse.ts'
 
 export const AgentEventsStream = clientEntry(
   import.meta.url + '#AgentEventsStream',
@@ -151,97 +153,16 @@ export const AgentEventsStream = clientEntry(
         bar.prepend(container)
       }
 
-      container.style.display = 'flex'
-      container.style.flexDirection = 'column'
-      container.style.gap = '0.5rem'
-      container.style.margin = '0.5rem 0.75rem'
-      container.style.padding = '0.75rem'
-      container.style.border = '1px solid ' + theme.colors.border.default
-      container.style.borderLeft = '4px solid ' + theme.colors.action.primary.background
-      container.style.borderRadius = '6px'
-      container.style.background = theme.surface.lvl1
-      container.innerHTML = ''
-
-      let header = document.createElement('div')
-      header.style.display = 'flex'
-      header.style.alignItems = 'center'
-      header.style.gap = '0.5rem'
-      header.style.fontSize = '0.6875rem'
-      header.style.fontWeight = '600'
-      header.style.textTransform = 'uppercase'
-      header.style.letterSpacing = '0.04em'
-      header.style.color = theme.colors.text.muted
-
-      let glyph = document.createElement('span')
-      glyph.textContent = '⚠'
-      glyph.setAttribute('aria-hidden', 'true')
-      glyph.style.color = theme.colors.warning.background
-      glyph.style.fontSize = '0.8125rem'
-      header.appendChild(glyph)
-
-      let label = document.createElement('span')
-      label.textContent = 'Action requires confirmation'
-      header.appendChild(label)
-      container.appendChild(header)
-
-      let q = document.createElement('div')
-      q.textContent = String(suspendPayload.question || 'Confirm?')
-      q.style.fontWeight = '600'
-      q.style.fontSize = '0.875rem'
-      q.style.color = theme.colors.text.primary
-      container.appendChild(q)
-
-      let actionType = String(suspendPayload.actionType || '')
-      let userName = String(suspendPayload.targetUserName || '')
-      let pendingCount = Number(suspendPayload.pendingCount || 0)
-      let detailsText = actionType ? `${actionType} ${userName}`.trim() : userName
-      if (pendingCount > 0) detailsText += ` — ${pendingCount} pending appointments`
-      if (detailsText) {
-        let details = document.createElement('div')
-        details.style.fontSize = '0.75rem'
-        details.style.color = theme.colors.text.muted
-        details.textContent = detailsText
-        container.appendChild(details)
-      }
-
-      let buttons = document.createElement('div')
-      buttons.style.display = 'flex'
-      buttons.style.gap = '0.5rem'
-
-      let confirmBtn = document.createElement('button')
-      confirmBtn.textContent = 'Bestätigen'
-      confirmBtn.style.padding = '0.4rem 1rem'
-      confirmBtn.style.border = 'none'
-      confirmBtn.style.borderRadius = '4px'
-      confirmBtn.style.cursor = 'pointer'
-      confirmBtn.style.background = theme.colors.action.primary.background
-      confirmBtn.style.color = theme.colors.action.primary.foreground
-      confirmBtn.style.fontSize = '0.8125rem'
-      confirmBtn.onclick = () => {
-        confirmBtn.disabled = true
-        cancelBtn.disabled = true
-        handleResume(true)
-      }
-      buttons.appendChild(confirmBtn)
-
-      let cancelBtn = document.createElement('button')
-      cancelBtn.textContent = 'Abbrechen'
-      cancelBtn.style.padding = '0.4rem 1rem'
-      cancelBtn.style.border = '1px solid ' + theme.colors.border.default
-      cancelBtn.style.borderRadius = '4px'
-      cancelBtn.style.cursor = 'pointer'
-      cancelBtn.style.background = theme.surface.lvl1
-      cancelBtn.style.color = theme.colors.text.primary
-      cancelBtn.style.fontSize = '0.8125rem'
-      cancelBtn.onclick = () => {
-        confirmBtn.disabled = true
-        cancelBtn.disabled = true
-        handleResume(false)
-      }
-      buttons.appendChild(cancelBtn)
-
-      container.appendChild(buttons)
-      container.scrollIntoView({ block: 'nearest' })
+      renderAgentApprovalCard({
+        variant: 'workflow',
+        container,
+        question: String(suspendPayload.question || 'Confirm?'),
+        actionType: String(suspendPayload.actionType || ''),
+        targetUserName: String(suspendPayload.targetUserName || ''),
+        pendingCount: Number(suspendPayload.pendingCount || 0),
+        onConfirm: () => handleResume(true),
+        onCancel: () => handleResume(false),
+      })
 
       // The workflow is not streaming anything while it waits at the gate, so
       // "Sending…" is misleading. Keep the composer disabled (a run is pending)
@@ -297,46 +218,18 @@ export const AgentEventsStream = clientEntry(
           return
         }
 
-        let reader = res.body?.getReader()
-        if (!reader) {
-          showInfo('Error: no response body', { kind: 'error' })
-          setFormEnabled(true)
-          return
-        }
-
-        let decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          let { done, value } = await reader.read()
-          if (done) break
-          if (signal.aborted) {
-            reader.cancel().catch(() => {})
-            return
-          }
-
-          buffer += decoder.decode(value, { stream: true })
-          let parts = buffer.split('\n\n')
-          buffer = parts.pop() || ''
-
-          for (let part of parts) {
-            let lines = part.split('\n')
-            let eventType = ''
-            let data = ''
-            for (let line of lines) {
-              if (line.startsWith('event: ')) eventType = line.slice(7)
-              else if (line.startsWith('data: ')) data = line.slice(6)
-            }
-            if (!data) continue
-
+        await readEventStream(
+          res,
+          (eventType, data) => {
             try {
-              let parsed = JSON.parse(data)
+              let parsed = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>
 
               if (eventType === 'status') {
-                pushRow(parsed.text || '', (parsed.kind as RowKind) ?? inferKind(parsed.text || ''))
+                let text = String(parsed.text ?? '')
+                pushRow(text, (parsed.kind as RowKind) ?? inferKind(text))
               } else if (eventType === 'start') {
-                currentRunId = parsed.runId || null
-                currentWorkflowId = parsed.workflowId || null
+                currentRunId = (parsed.runId as string) || null
+                currentWorkflowId = (parsed.workflowId as string) || null
               } else if (eventType === 'workflow-step-suspended') {
                 showConfirmGate((parsed.suspendPayload as Record<string, unknown>) || {})
               } else if (eventType === 'workflow-finish') {
@@ -350,15 +243,15 @@ export const AgentEventsStream = clientEntry(
                   let theFrame = handle.frames.get(activeFrame)
                   if (theFrame) theFrame.reload().catch(() => {})
                 } else {
-                  showInfo('Action failed: ' + (parsed.error || 'unknown'), { kind: 'error' })
+                  showInfo('Action failed: ' + String(parsed.error ?? 'unknown'), { kind: 'error' })
                 }
               } else if (eventType === 'workflow-error') {
                 currentRunId = null
                 hideConfirmGate()
-                showInfo('Action failed: ' + (parsed.error || 'unknown'), { kind: 'error' })
+                showInfo('Action failed: ' + String(parsed.error ?? 'unknown'), { kind: 'error' })
               } else if (eventType === 'navigate') {
                 didNavigate = true
-                let href = parsed.href as string
+                let href = String(parsed.href)
                 let target = (parsed.target as string) || 'agent-events-panel'
                 showInfo('Navigating to ' + href + '...', { kind: 'info' })
                 let frame = target ? handle.frames.get(target) : handle.frame
@@ -368,7 +261,7 @@ export const AgentEventsStream = clientEntry(
                     () => restoreFilterValue(href),
                     (err) => showInfo('Navigation failed: ' + String(err), { kind: 'error' }),
                   )
-                  let historyMode = parsed.history as string
+                  let historyMode = parsed.history as string | undefined
                   if (!historyMode || historyMode !== 'skip') {
                     if (historyMode === 'replace') {
                       window.history.replaceState({}, '', href)
@@ -378,13 +271,13 @@ export const AgentEventsStream = clientEntry(
                   }
                 }
               } else if (eventType === 'message') {
-                pushRow(parsed.text || '', 'info')
+                pushRow(String(parsed.text ?? ''), 'info')
               } else if (eventType === 'complete') {
                 currentRunId = null
                 hideConfirmGate()
                 setFormEnabled(true)
               } else if (eventType === 'agent-error') {
-                let msg = 'Error: ' + (parsed.error || 'unknown')
+                let msg = 'Error: ' + String(parsed.error ?? 'unknown')
                 hideConfirmGate()
                 pushRow(msg, 'error')
                 showInfo(msg, { kind: 'error' })
@@ -393,8 +286,9 @@ export const AgentEventsStream = clientEntry(
             } catch {
               // ignore parse errors
             }
-          }
-        }
+          },
+          { signal },
+        )
 
         setFormEnabled(true)
       } catch (err) {
