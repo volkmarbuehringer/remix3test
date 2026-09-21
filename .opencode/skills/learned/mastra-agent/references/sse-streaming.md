@@ -147,6 +147,46 @@ async function startStream(url: string, init: RequestInit) {
 }
 ```
 
+### Prefer the shared `readEventStream` (with early-stop support)
+
+All three agent clients (`/chat`, `/admin/support-agent`, `/admin/agent-events`)
+consume frames through `app/assets/streams/public/read-sse.ts` instead of each
+hand-rolling `getReader()`. The shared reader parses `event:`/`data:` frames
+(JSON with a raw-string fallback, tolerant of `event:` with or without the
+space), reassembles frames split across chunks, skips empty frames, accepts
+`{ signal }` and cancels the body on abort, and lets `onEvent` return `false`
+to stop reading. It resolves `true` when it stopped early, `false` on exhaustion.
+
+**The consolidation trap:** an early `return` from the original for-over-frames
+loop also skipped everything *after* the loop. Routing that loop through a naive
+shared reader resumes the caller's post-loop code, which can re-enable UI that
+must stay disabled. In `/admin/support-agent`, `question`/`suspension`/
+`complete`-with-`pendingQuestion` used `reader.cancel(); return` specifically to
+leave the composer disabled while an approval gate was pending; the naive shared
+reader let the post-loop `setFormEnabled(true)` run and re-enabled the composer.
+
+Fix: return `false` from the handler on those frames and gate the caller's
+cleanup on the reader's `stopped` result:
+
+```ts
+let stopped = await readEventStream(
+  res,
+  (type, data) => {
+    // …
+    if (type === 'suspension') {
+      showSuspension(payload)
+      return false
+    }
+  },
+  { signal },
+)
+
+if (!stopped && !pendingQuestion) {
+  hideThinking()
+  setFormEnabled(true)
+}
+```
+
 ### SSE event types
 
 | Event          | Payload                                                   | Client action                                           |
