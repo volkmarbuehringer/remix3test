@@ -22,6 +22,7 @@ import appointmentsNewController from './actions/appointments-new/controller.tsx
 import settingsController from './actions/settings/controller.tsx'
 import notificationsController from './actions/notifications/controller.tsx'
 import scrollRestorationController from './actions/scroll-restoration/controller.tsx'
+import legalController from './actions/legal/controller.tsx'
 import webhookReceive from './actions/webhook/controller.tsx'
 import appWebhookReceive from './actions/app-webhook/controller.tsx'
 import {
@@ -30,7 +31,7 @@ import {
 } from './actions/admin/webhook-requests/controller.tsx'
 import callbackReceive from './actions/callback/controller.tsx'
 import { sessionCookie, sessionStorage } from './middleware/session.ts'
-import { routes, system } from './routes.ts'
+import { legal, routes, system } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
@@ -84,6 +85,9 @@ export function createNewappRouter(options?: NewappRouterOptions) {
 
   // Frame traversal scroll-restoration reproduction (public, no auth)
   router.map(routes.scrollRestoration, scrollRestorationController)
+
+  // Legal pages (public, no auth)
+  router.map(legal, legalController)
 
   // Webhook routes
   router.post(system.webhook, webhookReceive)

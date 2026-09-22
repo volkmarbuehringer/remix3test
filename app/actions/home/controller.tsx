@@ -15,7 +15,10 @@ export default createController(routes, {
     },
     home(context) {
       return context.render(
-        <Document>
+        <Document
+          title="newapp – Terminplanung, Kundenmanagement & KI-Assistenz"
+          description="newapp vereint Terminplanung, Kundenmanagement und KI-Assistenz in einer Plattform: DSGVO-konform, schnell und ohne Neuladen. Jetzt kostenlos starten."
+        >
           <HomePage />
         </Document>,
       )

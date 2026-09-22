@@ -8,6 +8,7 @@ import { uploadClaimScope } from './upload-claim.ts'
 import { logger, Logger, type LoggerFunction } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { session } from 'remix/middleware/session'
+import { staticFiles } from 'remix/middleware/static'
 import type { SessionStorage } from 'remix/session'
 
 import { globalRateLimit } from './global-rate-limit.ts'
@@ -53,6 +54,13 @@ export function createNewappMiddleware(cookie: Cookie, storage: SessionStorage) 
   return createMiddleware(
     skipAssetsLogger(),
     securityHeaders(),
+    // Root-served static files (self-hosted fonts under `public/`). Runs after
+    // `securityHeaders()` so static responses still get the CSP, and before the
+    // session/database stack so a font request never touches them.
+    staticFiles('./public', {
+      // No content hash in these URLs, so keep a bounded TTL instead of immutable.
+      cacheControl: 'public, max-age=86400',
+    }),
     compression(),
     globalRateLimit({
       maxPerWindow: Number(process.env.GLOBAL_RATE_LIMIT_MAX) || undefined,

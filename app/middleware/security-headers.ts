@@ -23,8 +23,8 @@ export function securityHeaders(): Middleware {
     let csp = [
       `default-src 'self'`,
       `script-src 'self' 'nonce-${nonce}' blob: 'wasm-unsafe-eval' 'unsafe-eval'`,
-      `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
-      `font-src 'self' https://fonts.gstatic.com`,
+      `style-src 'self' 'unsafe-inline'`,
+      `font-src 'self'`,
       `connect-src 'self' ws://localhost:44100 https://opencode.ai`,
       `frame-ancestors 'none'`,
       `form-action 'self'`,

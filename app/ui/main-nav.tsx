@@ -253,6 +253,8 @@ const logoGroupCss = css({
   display: 'flex',
   alignItems: 'center',
   gap: '0.625rem',
+  // 44px pointer target; the mark itself stays 24px.
+  minHeight: '2.75rem',
   textDecoration: 'none',
 })
 
@@ -372,7 +374,8 @@ const themeBtnCss = css({
   border: 'none',
   cursor: 'pointer',
   color: theme.colors.text.secondary,
-  padding: '0.25rem',
+  minWidth: '2.75rem',
+  minHeight: '2.75rem',
   borderRadius: theme.radius.md,
   marginLeft: theme.space.xs,
   transition: 'all 150ms ease',
@@ -406,7 +409,8 @@ const hamburgerBtnCss = css({
   border: 'none',
   cursor: 'pointer',
   color: theme.colors.text.secondary,
-  padding: '0.375rem',
+  minWidth: '2.75rem',
+  minHeight: '2.75rem',
   borderRadius: theme.radius.md,
   '&:hover': { color: theme.colors.text.primary, background: theme.surface.lvl2 },
 })

@@ -274,6 +274,13 @@ export const routes = route({
   }),
 })
 
+// Legal pages for the German-facing site. Kept at the URL root so the footer
+// links read as the conventional /impressum and /datenschutz.
+export const legal = route({
+  impressum: get('/impressum'),
+  datenschutz: get('/datenschutz'),
+})
+
 export const system = {
   webhook: post('/webhook'),
   appWebhook: post('/app-webhook'),

@@ -16,6 +16,9 @@ import { ThemeToggle } from '../ui/theme-toggle.browser.tsx'
 interface DocumentProps {
   children?: RemixNode
   title?: string | undefined
+  description?: string | undefined
+  ogImage?: string | undefined
+  ogType?: string | undefined
 }
 
 const DEFAULT_TITLE = readAppDisplayName('Newapp')
@@ -34,7 +37,7 @@ function getThemeFromCookie(): string | null {
 
 export function Document(handle: Handle<DocumentProps>) {
   return () => {
-    let { title = DEFAULT_TITLE, children } = handle.props
+    let { title = DEFAULT_TITLE, description, ogImage, ogType = 'website', children } = handle.props
     let theme = getThemeFromCookie()
     let isDark = theme === 'dark'
 
@@ -46,16 +49,18 @@ export function Document(handle: Handle<DocumentProps>) {
           <meta name="color-scheme" content="light dark" />
           <CsrfMetaTag />
           <title>{title}</title>
+          {description ? <meta name="description" content={description} /> : null}
+          <meta property="og:title" content={title} />
+          {description ? <meta property="og:description" content={description} /> : null}
+          <meta property="og:type" content={ogType} />
+          {ogImage ? <meta property="og:image" content={ogImage} /> : null}
+          <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
           <link
             rel="icon"
             href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232dacf9'/><text x='16' y='22' text-anchor='middle' font-size='18' font-family='sans' fill='white'>R</text></svg>"
           />
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link
-            rel="stylesheet"
-            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap"
-          />
+          {/* Self-hosted (see public/fonts) — never load webfonts from a third-party CDN. */}
+          <link rel="stylesheet" href="/fonts/fonts.css" />
           <Theme />
           <DarkTheme.Style />
           <style>{`
@@ -66,8 +71,25 @@ export function Document(handle: Handle<DocumentProps>) {
           <script nonce={getCspNonce()}>{`
             (function() {
               try {
-                var t = localStorage.getItem('theme');
-                if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+                var stored = localStorage.getItem('theme');
+                var cookie = /(?:^|;\\s*)theme=(dark|light)/.exec(document.cookie);
+                var explicit = stored || (cookie && cookie[1]) || null;
+                var mql = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+                var apply = function(dark) {
+                  if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+                  else document.documentElement.removeAttribute('data-theme');
+                };
+                // An explicit choice (localStorage or cookie) always wins; without
+                // one, follow the operating-system preference.
+                apply(explicit ? explicit === 'dark' : !!(mql && mql.matches));
+                if (!explicit && mql) {
+                  var onChange = function(e) {
+                    try { if (localStorage.getItem('theme')) return; } catch (err) {}
+                    apply(e.matches);
+                  };
+                  if (mql.addEventListener) mql.addEventListener('change', onChange);
+                  else if (mql.addListener) mql.addListener(onChange);
+                }
               } catch(e) {}
             })();
           `}</script>
