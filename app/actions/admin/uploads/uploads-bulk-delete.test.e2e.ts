@@ -78,6 +78,15 @@ describe('admin uploads: multirow delete banner', () => {
       'grid should render a checkbox for each of our rows',
     )
 
+    // The bulk-delete clientEntry attaches its row listeners asynchronously after
+    // the table renders (and re-runs `init()` on every frame `reloadComplete`).
+    // A click landing in that re-attach window is dropped and then reverted by
+    // the store re-sync, which surfaces as `locator.check: Clicking the checkbox
+    // did not change its state`. Wait for its hydration marker first, as the
+    // sibling `uploads-bulk-download.test.e2e.ts` does.
+    let bulkReady = page.locator('[data-bulk-delete-form][data-bulk-delete-ready]')
+    await bulkReady.waitFor({ timeout: 15_000 })
+
     // Accept the native confirm() dialog the clientEntry shows on submit.
     let confirmMessage = ''
     page.once('dialog', (dialog) => {
@@ -124,10 +133,12 @@ describe('admin uploads: multirow delete banner', () => {
     // Regression: a second bulk delete right after the first must also work. The
     // frame reload replaces the form/table, so the clientEntry has to re-attach
     // to the new nodes — otherwise selecting rows a second time leaves the
-    // button disabled and nothing can be deleted.
+    // button disabled and nothing can be deleted. The replaced form starts
+    // without the hydration marker, so wait for the new one.
     page.once('dialog', (dialog) => {
       dialog.accept()
     })
+    await bulkReady.waitFor({ timeout: 15_000 })
     await page.locator('[data-upload-filename="test-e2e-3.txt"] input[name="ids"]').check()
     await page.locator('[data-selected-count]').filter({ hasText: '1 ausgewählt' }).waitFor({
       timeout: 10_000,
