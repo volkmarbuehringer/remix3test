@@ -1,4 +1,4 @@
-import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, css, on, type Handle } from 'remix/ui'
 import { theme } from '../../../../ui/theme/theme.ts'
 import { routes } from '../../../../routes.ts'
 
@@ -8,7 +8,7 @@ interface Row {
   value: string
 }
 
-interface WebhookComposerProps extends SerializableProps {
+interface WebhookComposerProps {
   initialPayload?: string | undefined
   editId?: string
   _offset?: string

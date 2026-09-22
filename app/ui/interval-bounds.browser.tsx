@@ -1,6 +1,6 @@
-import { clientEntry, css, ref, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/ui'
 
-interface IntervalBoundsProps extends SerializableProps {
+interface IntervalBoundsProps {
   startId: string
   endId: string
 }

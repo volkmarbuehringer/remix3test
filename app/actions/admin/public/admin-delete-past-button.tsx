@@ -1,7 +1,7 @@
-import { clientEntry, on, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, on, type Handle } from 'remix/ui'
 import button from '../../../ui/theme/button.ts'
 
-interface DeletePastButtonProps extends SerializableProps {
+interface DeletePastButtonProps {
   csrfToken: string
   offset: string
   sort: string

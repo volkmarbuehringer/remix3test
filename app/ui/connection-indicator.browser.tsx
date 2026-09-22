@@ -1,8 +1,8 @@
-import { clientEntry, css, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, css, type Handle } from 'remix/ui'
 
 type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting'
 
-interface ConnectionIndicatorProps extends SerializableProps {
+interface ConnectionIndicatorProps {
   url: string
   /** How to reload when an 'invalidate' event is received.
    *  'frame' (default) calls handle.frame.reload() — for pages inside a Frame.

@@ -1,4 +1,4 @@
-import { clientEntry, css, on, ref, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../ui/theme/separator/separator.ts'
@@ -16,7 +16,7 @@ import { showToast } from './toast.ts'
 
 // ── Props ──
 
-interface AppointTypePanelProps extends SerializableProps {
+interface AppointTypePanelProps {
   csrfToken: string
 }
 
