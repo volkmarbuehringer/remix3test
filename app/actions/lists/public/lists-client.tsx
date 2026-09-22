@@ -2478,9 +2478,8 @@ export const ListsClient = clientEntry(
                     maxLength={500}
                     rows={2}
                     wrap="soft"
-                  >
-                    {description as never}
-                  </textarea>
+                    defaultValue={description}
+                  />
                 </>
               ) : (
                 <button
@@ -2543,9 +2542,8 @@ export const ListsClient = clientEntry(
                 placeholder="Neues Element eingeben…"
                 rows={1}
                 wrap="soft"
-              >
-                {newItemLabel as never}
-              </textarea>
+                defaultValue={newItemLabel}
+              />
               <button mix={[button({ tone: 'primary' }), on('click', addItem)]}>
                 + Element hinzufügen
               </button>
@@ -2998,9 +2996,8 @@ export const ListsClient = clientEntry(
                               autoFocus
                               rows={3}
                               wrap="soft"
-                            >
-                              {editText as never}
-                            </textarea>
+                              defaultValue={editText}
+                            />
                             <div mix={metaEditorStyle}>
                               <select
                                 mix={[

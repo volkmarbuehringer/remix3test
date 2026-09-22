@@ -1,19 +1,18 @@
 ---
 name: remix3-textarea-bulk-clear-wipe
-description: "Use when a Remix 3 textarea with an unchanged `defaultValue`/`value` loses its content on re-diff — render the text content as children (`as never`) so it stays tracked."
+description: "Historical Remix 3 textarea bug where re-diffing an unchanged `defaultValue`/`value` wiped the textarea (bulk-clear fast path). FIXED UPSTREAM — workaround removed; use plain `defaultValue` now."
 origin: manual
 ---
 
-# Remix 3 Textarea: `diffChildren` Bulk-Clear Wipes Unchanged `defaultValue`/`value`
+# Remix 3 Textarea: `diffChildren` Bulk-Clear Wiped Unchanged `defaultValue`/`value`
 
-**Validated:** 2026-09-18 (re-checked against the installed `@remix-run/ui` source @ `03cd3404` / installable build `3e94ca8a6`; bug still present — `canBulkClearNode` at `reconcile.ts:1771` has no `TEXTAREA` exclusion — line refs updated)
-**Context:** Re-diffing a textarea whose `defaultValue`/`value` prop is unchanged silently empties it. Observed in `app/actions/lists/lists-client.browser.tsx`: clicking "Bearbeiten" opened the edit textarea empty instead of prefilled.
+**Status: RESOLVED upstream.** Fixed by `remix-run/remix` commit `f5b5c5340` ("Preserve textarea values on first update after hydration", PR #11880). The installed `@remix-run/ui` guard now reads `reconcile.ts:1725-1734`: the bulk-clear fast path requires `curr.length > 0` (it only fires when a committed child is actually being removed). Keep this delta only as history/context — do not re-apply the workaround.
 
-## Problem
+## The original bug (for context)
 
-`@remix-run/ui` renders a textarea's `value`/`defaultValue` prop into a DOM **text child** (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/server/stream.ts:641` `buildTextareaElementSegment` renders `<textarea attrs>escaped-value-text</textarea>`; the `tag === 'textarea'` dispatch is at `:600-601`). But that text child is **not tracked** in the committed `_children` array — it is owned by the prop, not by child vnodes.
+`@remix-run/ui` renders a textarea's `value`/`defaultValue` prop into a DOM **text child** (`buildTextareaElementSegment` in `server/stream.ts`), but that text child is **not tracked** in the committed `_children` array — it is owned by the prop, not by child vnodes.
 
-`diffChildren` has a bulk-clear fast path (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/reconcile.ts:1728-1739`; `canBulkClearChildren` at `:1764`):
+`diffChildren` had a bulk-clear fast path (`runtime/reconcile.ts`):
 
 ```typescript
 if (
@@ -22,36 +21,19 @@ if (
   !parentUsesInnerHTML(vParent) &&
   canBulkClearChildren(curr)
 ) {
-  for (let i = 0; i < curr.length; i++) cleanupDescendants(curr[i], context)
-  domParent.textContent = ''   // ← wipes the textarea's value text
-  return EMPTY_COMMITTED_CHILDREN
+  domParent.textContent = ''   // ← wiped the textarea's value text
 }
 ```
 
-When a textarea is re-rendered (a fresh `diffHost` pass) and its `_children` is `[]` (because the value came from `defaultValue`, not children), the bulk-clear fires and `domParent.textContent = ''` erases the value text. `patchHostProps` then runs, but if the prop value is **unchanged** (`prevValue === nextValue`) it skips — so the wipe is never repaired. Result: an empty textarea whose prop "says" it should have content.
+When a textarea was re-diffed with an **unchanged** `value`/`defaultValue`, `_children` was `[]` and the bulk-clear fired, erasing the value text; `patchHostProps` then skipped (prev === next) and never repaired it. Typing still worked because each keystroke changed the value and repaired the wipe.
 
-### Why typing still works
+## The old workaround (REMOVED — do not reintroduce)
 
-On each keystroke the state value *changes*, so `patchHostProps` re-sets the prop after the wipe and repairs it. The bug only surfaces when a textarea is re-diffed with an **unchanged** value — e.g. two synchronous `handle.update()` passes triggered by a single user action (a button `on('click')` handler plus a bubbling row `on('click')` handler).
+Rendering the value as children kept it tracked (`next.length !== 0`), so the bulk-clear never fired. This required an `as never` cast because the framework's JSX types declare `children?: never` on textarea. The three sites in `app/actions/lists/public/lists-client.tsx` (description, new-item, edit-item textareas) used it and were reverted to `defaultValue={...}` after the upstream fix landed.
 
-## Verified mechanism (instrumentation)
+## Resolution notes
 
-`[DBG] BULK-CLEAR TEXTAREA curr=0 next=0` fires on the second update pass, immediately followed by no `patchHostProps SET` (skipped: `"Alpha" === "Alpha"`). The childList mutation removed the value text node.
-
-## Solution: render textarea content as children (workaround)
-
-Keep the value tracked as a child vnode so `next.length !== 0` and the bulk-clear path never fires; the text node is then diffed normally and the textarea always re-populates from the rendered value:
-
-```tsx
-<textarea mix={[...]}>
-  {editText as never}
-</textarea>
-```
-
-The `as never` cast is required: the framework's JSX types declare `children?: never` on textarea (`@remix-run/ui/dist/runtime/dom.d.ts` `TextareaHTMLProps` — "Textarea content comes from value or defaultValue"), so raw child text fails `tsc` with `TS2322: Type 'string' is not assignable to type 'undefined'`. The cast is the deliberate escape hatch for this framework runtime bug; the value is diffed via `diffText`, not innerHTML, so no escaping concern.
-
-## Constraints
-
-- This is a framework runtime bug: the installed `@remix-run/ui` is read-only vendor, branch-pinned as a tarball (`github:remix-run/remix#preview/main&path:packages/remix`). Do **not** edit `node_modules/.pnpm/.../@remix-run/ui/dist/runtime/reconcile.js` as a permanent fix — a reinstall re-downloads the tarball and reverts it. The upstream fix belongs in `diffChildren`'s bulk-clear guard (exclude `TEXTAREA` from `canBulkClearChildren`).
-- A controlled `value={...}` prop is equally affected — the unchanged-value skip still applies. Only tracked children survive re-diff.
-- Applies to any textarea re-diffed with unchanged `value`/`defaultValue`: the edit textarea (`app/actions/lists/lists-client.browser.tsx`) and the new-item textarea (same file, previously `defaultValue={newItemLabel}`). The description **input** uses `defaultValue` safely — inputs have no text children, so bulk-clear is a no-op there.
+- Upstream guard change: `packages/ui/src/runtime/reconcile.ts` — `diffChildren` bulk-clear now gated on `curr.length > 0`.
+- Upstream tests: `packages/ui/src/test/hydration.forms.test.tsx` covers untouched `defaultValue`, user-edited `defaultValue`, and controlled `value` across repeated updates.
+- The app's controlled-input fields were never affected — inputs have no text children, so bulk-clear was a no-op there.
+- App code after revert: `defaultValue={description}` / `defaultValue={newItemLabel}` / `defaultValue={editText}` in `app/actions/lists/public/lists-client.tsx`. The `title`/`description` fields stay uncontrolled and still rely on `syncFieldInputs()` refs to push state into the DOM on list load.
