@@ -45,12 +45,18 @@ import type {
   AppointmentResourceOption,
   AppointmentUserOption,
 } from '../../../data/appointments.ts'
+import { createAppointmentsIcs, icsAttachmentResponse } from '../../../utils/appointments-ics.ts'
 
 // ═══════════════════════════════════════════════════════════════════
 // Appointments
 // ═══════════════════════════════════════════════════════════════════
 
 const APPOINTMENTS_PAGE_SIZE = 15
+
+// Hard cap for the ICS export so a single export can never drain the DB.
+const APPOINTMENTS_ICS_LIMIT = 10_000
+
+const FRAME_DOWNLOAD_PARAM = 'frameDownload'
 
 const APPOINTMENTS_RATE_LIMIT_MS =
   process.env.ADMIN_APPOINTMENT_RATE_LIMIT_MS !== undefined
@@ -128,6 +134,19 @@ function appointmentsGridUrl(formData: FormData): string {
   return routes.verwaltung.appointments.index.href() + (qs ? '?' + qs : '')
 }
 
+/**
+ * Reads the grid's filter/period/status from the request URL. Shared by the
+ * grid page loader and the ICS export so the download always matches the view
+ * the page shows (see `remix3-report-pdf-export`).
+ */
+function readAppointmentGridFilter(context: Pick<AppContext, 'url'>) {
+  return {
+    filter: context.url.searchParams.get('filter') || undefined,
+    period: context.url.searchParams.get('period') || undefined,
+    status: context.url.searchParams.get('status') || undefined,
+  }
+}
+
 async function loadAppointmentPageData(
   context: Pick<AppContext, 'db' | 'session' | 'url'>,
   overrides?: {
@@ -147,9 +166,10 @@ async function loadAppointmentPageData(
 ): Promise<AppointmentPageData> {
   let effectivePageSize = getPageSize(context.session, APPOINTMENTS_PAGE_SIZE)
   let offset = overrides?.offset ?? Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
-  let filter = overrides?.filter ?? (context.url.searchParams.get('filter') || undefined)
-  let period = (overrides?.period ?? context.url.searchParams.get('period')) || undefined
-  let status = overrides?.status ?? (context.url.searchParams.get('status') || undefined)
+  let gridFilter = readAppointmentGridFilter(context)
+  let filter = overrides?.filter ?? gridFilter.filter
+  let period = overrides?.period ?? gridFilter.period
+  let status = overrides?.status ?? gridFilter.status
 
   let { column, direction } = overrides?.sortColumn
     ? { column: overrides.sortColumn, direction: overrides.sortDirection ?? ('asc' as const) }
@@ -649,6 +669,40 @@ export default createController(routes.verwaltung.appointments, {
 
     async events(context) {
       return appointmentChannel.subscribe(context.request)
+    },
+
+    async ics(context) {
+      let url = new URL(context.url)
+
+      // The frame client re-sends X-Remix-Frame when fetch follows a redirect,
+      // so a bare 302 to the same URL loops until the browser aborts. Redirect
+      // once to a marker URL: the marked request renders HTML (terminating the
+      // chain), after which the frame client bails to a full-page navigation of
+      // the marked URL, which downloads the .ics without frame headers.
+      if (context.request.headers.get('X-Remix-Frame') === 'true') {
+        if (url.searchParams.get(FRAME_DOWNLOAD_PARAM) === '1') {
+          return renderAppointmentsPage(context, await loadAppointmentPageData(context))
+        }
+        url.searchParams.set(FRAME_DOWNLOAD_PARAM, '1')
+        return redirect(url.href)
+      }
+
+      let { filter, period, status } = readAppointmentGridFilter(context)
+      let { rows, hasMore } = await listAppointments(context.db, {
+        offset: 0,
+        pageSize: APPOINTMENTS_ICS_LIMIT,
+        column: 'a.date',
+        direction: 'asc',
+        filter,
+        period,
+        status,
+      })
+
+      let filename = `termine-${new Date().toISOString().slice(0, 10)}.ics`
+      return icsAttachmentResponse(
+        createAppointmentsIcs(rows, new Date(), { truncated: hasMore }),
+        filename,
+      )
     },
   },
 })

@@ -3,7 +3,7 @@ import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { segmentedButton } from './mixins/segmented.ts'
-import button from '../ui/theme/button.ts'
+import button, { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { table } from './mixins/admin-table.ts'
@@ -53,6 +53,21 @@ function buildPeriodUrl(
   if (newPeriod) params.set('period', newPeriod)
   if (status) params.set('status', status)
   return ADMIN_BASE + '?' + params.toString()
+}
+
+/**
+ * ICS export URL carrying the grid's active filter/period/status, so the
+ * downloaded calendar matches the view the page shows.
+ */
+function buildIcsExportUrl(filter?: string, period?: string, status?: string): string {
+  let params = new URLSearchParams()
+  if (filter) params.set('filter', filter)
+  if (period) params.set('period', period)
+  // status === 'pending' is the neutral default; omit it to mirror the grid.
+  if (status && status !== 'pending') params.set('status', status)
+  return (
+    routes.verwaltung.appointments.ics.href() + (params.size > 0 ? '?' + params.toString() : '')
+  )
 }
 
 interface AdminAppointmentsPageProps {
@@ -307,6 +322,14 @@ export function AdminAppointmentsPage(handle: Handle<AdminAppointmentsPageProps>
               )
             })}
           </span>
+          <a
+            href={buildIcsExportUrl(filter, period, status)}
+            data-rmx-document
+            mix={[buttonLink({ tone: 'secondary' }), table.linkPlain]}
+            title="Termine als Kalenderdatei exportieren"
+          >
+            <Glyph name="download" width={14} height={14} /> ICS
+          </a>
           <a
             href={buildCreateUrl(
               ADMIN_BASE,

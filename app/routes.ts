@@ -228,6 +228,11 @@ export const routes = route({
       update: put('/:id'),
       destroy: del('/:id'),
       events: get('/events'),
+      // ICS calendar export of the currently filtered appointment grid. The
+      // page links here with `data-rmx-document` so the browser performs a
+      // native document navigation and the attachment is not swallowed by the
+      // frame runtime.
+      ics: get('/ics'),
     }),
 
     resources: resources('resources', { exclude: ['new', 'edit'] }),
