@@ -22,12 +22,13 @@ const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 const hmrProxyPort = process.env.HMR_PROXY_PORT
   ? Number.parseInt(process.env.HMR_PROXY_PORT, 10)
   : null
+const isHmr = process.env.REMIX_NODE_HMR === '1'
 
 const handleRequest = createServerHandler(router)
 
 const handler = createRequestListener(
   (request, client) => handleRequest(request, client?.address ?? ''),
-  { trustProxy: false },
+  { trustProxy: isHmr },
 )
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -53,7 +54,7 @@ if (isProduction) {
 
 const host = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
 server.listen(port, host, () => {
-  if (process.env.REMIX_NODE_HMR) {
+  if (isHmr) {
     import('remix/node-hmr/runtime')
       .then((nodeHmr) => nodeHmr.emitServerReady())
       .catch((error) => console.error('Failed to emit server-ready signal', error))
@@ -83,6 +84,6 @@ function shutdown() {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-if (process.env.REMIX_NODE_HMR) {
+if (isHmr) {
   process.on('disconnect', () => process.exit(0))
 }

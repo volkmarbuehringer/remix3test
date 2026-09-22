@@ -18,6 +18,8 @@ origin: auto-extracted
 
 **Re-validated (2026-09-18):** against the now-installed build `3e94ca8a6` (source `03cd3404`; the `remix` version string is now `3.0.0-rc.2`, no longer `3.0.0-beta.10`). All five claims hold: `run(entry, { env, nodeArgs, browserHmrChannel })` still at `index.d.ts:126` (`RunOptions` at `:4`, `browserHmrChannel` at `:9`, with `cwd`/`entryArgs`/`watch` present); `createHmrReadyFetch(runner, fetch, { shouldRetry })` at `index.js:16`, with `shouldRetrySafeUnavailableRequest` at `index.js:81` retrying GET/HEAD on `502/503/504` **and on thrown errors** (`response === undefined`); `createBrowserHmrChannel`/`emitServerReady` unchanged (`runtime.d.ts:17,25`); `REMIX_NODE_HMR` still injected by the runner itself (`lib/runner.js:16` names it, `buildChildProcessEnv` injects it at `:877`); the `fingerprint cannot be used with watch mode` guard shifted again to `@remix-run/assets/dist/lib/asset-server.js:775` (was 717).
 
+**Re-validated (2026-09-22):** build installed as `525ce2f6f` (installable dist of source `a1057f6`). Upstream landed **#11897 "Preserve auth flows through the HMR development proxy"** and **#11902 "Normalize HTTP/2 request authority and proxy headers"**; the app adopted both — see the "Auth flows through the proxy" section below and the `trustProxy: isHmr` change in `server.ts`. The old "Redirect-following false 500" workaround (bottom section) is now **obsolete** — kept only as history.
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:
@@ -112,13 +114,29 @@ function configuredPort(name: string, value: string | undefined, fallback: numbe
 }
 ```
 
+### 5. Trust the dev proxy under HMR (`trustProxy: isHmr`), `server.ts` — upstream #11897
+
+The HMR proxy forwards `X-Forwarded-Proto`/`Host`/`Port` (`xForwardedHeaders: true` in `hmr.ts`). The app server hardcoded `trustProxy: false`, so under HMR the request URL kept the loopback origin (`http://127.0.0.1:<appPort>`) instead of the browser-facing origin — breaking cookie/redirect auth flows. Upstream #11897 moved the template to `{ trustProxy: isHmr }`, and the app now mirrors it:
+
+```ts
+const isHmr = process.env.REMIX_NODE_HMR === '1'
+const handler = createRequestListener(
+  (request, client) => handleRequest(request, client?.address ?? ''),
+  { trustProxy: isHmr },
+)
+```
+
+`REMIX_NODE_HMR` is injected by the node-hmr runner itself. Production (`npm run start`) never sets it, so `trustProxy` stays `false` there — the app's no-trusted-reverse-proxy stance (`X-Client-Ip` from the TCP socket, `app/utils/server-handler.ts`) is preserved. Also reuse `isHmr` for the `emitServerReady`/`disconnect` guards.
+
+The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR proxy, so it needs no equivalent. `#11902` also changed `fetch-proxy` to strip hop-by-hop/`Connection`-listed headers and `Content-Length`, and `request-listener` to reject conflicting HTTP/2 `Host`/`:authority` with a 400 — no app change required.
+
 ## Smoke-Testing the HMR Loop
 
 - **Restart vs update markers** — a server-module content edit logs `restart <file>` (child re-emits ready); a `.browser.*` edit logs `hmr update <file>` (no restart, event goes to the browser channel). Assert on these to prove which path fired. Verdicts in the upstream CSS/SVG skills must be re-checked line-by-line against the installed `@remix-run/*` packages since pre-release churn is ongoing.
 - **Chokidar ignores mtime-only `touch` on Linux** (`IN_ATTRIB`, no `IN_MODIFY`) — a real content change is required to trigger a restart. If your smoke test "doesn't restart", that's why.
 - **Dev-only IP collapse** — `X-Client-Ip` is the socket address (`client?.address`); under the loopback proxy every dev client is `127.0.0.1`, so `connectionIp()`/`isLocalhost()`-gated logic (rate limiting, the `/callback` localhost guard) cannot distinguish client IPs in HMR mode. Dev-only, expected, no production leak: prod runs `npm run start`, not `hmr.ts`, and the proxy binds loopback only.
 - **grep/ss cleanup gotcha** — when killing hmr processes from an agent shell, `pkill -f '<pattern>'` can match and kill your own shell if the literal pattern text is in your command line; use the bracket trick (`pkill -f 'hm[r].ts'`) or kill by PID from `ss -ltnp | grep -oP 'pid=\K\d+'`.
-- **Redirect-following false 500 on auth smoke tests** — `createFetchProxy` forwards `redirect: request.redirect` (default `follow`) to its internal fetch; when the app returns a 302 (e.g. login POST → `/`), undici's `httpRedirectFetch` fails with `TypeError: fetch failed`, the proxy answers 500, and the Set-Cookie session header is swallowed — so a curl/node-fetch smoke test through `:44100` looks like a login regression even though auth works. The app server itself (`:44102`) handles the same POST fine (`302` + `Set-Cookie`). A browser never sees this: it follows the 302 client-side. Debug by hitting the app server directly, or by POSTing with `redirect: 'manual'` and following `Location` yourself while carrying the cookie.
+- **Redirect-following false 500 on auth smoke tests** — **OBSOLETE since #11897**: `createFetchProxy` now defaults `redirect: 'manual'`, so the proxy passes 302s (e.g. login POST → `/`) through to the client instead of following them server-side; the undici `httpRedirectFetch` `TypeError: fetch failed` → proxy-500 + swallowed `Set-Cookie` failure mode no longer occurs. (History: pre-#11897 the proxy forwarded `redirect: request.redirect` — default `follow` — and the app server returned `302` + `Set-Cookie` fine while the proxy answered 500; the workaround was POSTing with `redirect: 'manual'` and following `Location` yourself, or debugging against the app server directly.)
 
 ## When to Use
 
