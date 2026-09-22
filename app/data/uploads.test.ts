@@ -24,12 +24,12 @@ describe('uploads', () => {
   })
 
   afterEach(async () => {
-    await pool.query("DELETE FROM uploads WHERE filename LIKE 'test-%'")
+    await pool.query("DELETE FROM uploads WHERE filename LIKE 'upldata-%'")
   })
 
   it('insertUpload inserts a row and returns its id as string', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-hello.txt',
+      filename: 'upldata-hello.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('hello'),
       size: 5,
@@ -41,7 +41,7 @@ describe('uploads', () => {
 
   it('listUploads returns rows', async () => {
     await insertUpload(db, {
-      filename: 'test-list-a.txt',
+      filename: 'upldata-list-a.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('a'),
       size: 1,
@@ -53,7 +53,7 @@ describe('uploads', () => {
 
   it('listUploads filters by userId when provided', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-filter.txt',
+      filename: 'upldata-filter.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('f'),
       size: 1,
@@ -61,7 +61,7 @@ describe('uploads', () => {
     })
     await claimUpload(db, Number(id), uploadUserId)
     let rows = await listUploads(db, uploadUserId)
-    assert.ok(rows.some((r) => r.filename === 'test-filter.txt'))
+    assert.ok(rows.some((r) => r.filename === 'upldata-filter.txt'))
   })
 
   it('listUploads returns empty array for non-existent user', async () => {
@@ -72,7 +72,7 @@ describe('uploads', () => {
 
   it('countUploads returns the number of uploads', async () => {
     await insertUpload(db, {
-      filename: 'test-count.txt',
+      filename: 'upldata-count.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('a'),
       size: 1,
@@ -86,23 +86,29 @@ describe('uploads', () => {
   it('listUploads applies limit and offset in newest-first order', async () => {
     for (let i = 1; i <= 3; i++) {
       await insertUpload(db, {
-        filename: `test-pg-${i}.txt`,
+        filename: `upldata-pg-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from(String(i)),
         size: 1,
         now: Date.now(),
       })
     }
-    // Skip the two newest (test-pg-3, test-pg-2), keep one row (test-pg-1).
-    let page = await listUploads(db, undefined, { limit: 2, offset: 2 })
+    // Skip the two newest (upldata-pg-3, upldata-pg-2), keep one row (upldata-pg-1).
+    // Scope to this test's fixtures: parallel suites insert into the same
+    // ephemeral DB, so an unfiltered window is not stable.
+    let page = await listUploads(db, undefined, {
+      limit: 2,
+      offset: 2,
+      filter: 'upldata-pg-',
+    })
     assert.equal(page.length, 1)
-    assert.equal(page[0]!.filename, 'test-pg-1.txt')
+    assert.equal(page[0]!.filename, 'upldata-pg-1.txt')
   })
 
   it('listUploads sorts by the requested column and direction', async () => {
     for (let i = 1; i <= 3; i++) {
       await insertUpload(db, {
-        filename: `test-sort-${i}.txt`,
+        filename: `upldata-sort-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from(String(i)),
         size: i,
@@ -112,31 +118,33 @@ describe('uploads', () => {
     let asc = await listUploads(db, undefined, {
       sortColumn: 'filename',
       sortDirection: 'asc',
+      filter: 'upldata-sort-',
     })
     assert.deepEqual(
       asc.map((r) => r.filename),
-      ['test-sort-1.txt', 'test-sort-2.txt', 'test-sort-3.txt'],
+      ['upldata-sort-1.txt', 'upldata-sort-2.txt', 'upldata-sort-3.txt'],
     )
     let desc = await listUploads(db, undefined, {
       sortColumn: 'filename',
       sortDirection: 'desc',
+      filter: 'upldata-sort-',
     })
     assert.deepEqual(
       desc.map((r) => r.filename),
-      ['test-sort-3.txt', 'test-sort-2.txt', 'test-sort-1.txt'],
+      ['upldata-sort-3.txt', 'upldata-sort-2.txt', 'upldata-sort-1.txt'],
     )
   })
 
   it('listUploads falls back to a safe default sort for unknown columns', async () => {
     await insertUpload(db, {
-      filename: 'test-safe-1.txt',
+      filename: 'upldata-safe-1.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('a'),
       size: 1,
       now: 100,
     })
     await insertUpload(db, {
-      filename: 'test-safe-2.txt',
+      filename: 'upldata-safe-2.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('b'),
       size: 1,
@@ -148,21 +156,21 @@ describe('uploads', () => {
       sortColumn: 'filename; DROP TABLE uploads',
       sortDirection: 'asc',
     })
-    let mine = rows.filter((r) => r.filename.startsWith('test-safe-'))
+    let mine = rows.filter((r) => r.filename.startsWith('upldata-safe-'))
     assert.equal(mine.length, 2)
-    assert.equal(mine[0]!.filename, 'test-safe-2.txt', 'falls back to newest-first')
+    assert.equal(mine[0]!.filename, 'upldata-safe-2.txt', 'falls back to newest-first')
   })
 
   it('listUploads filters by filename substring (case-insensitive)', async () => {
     await insertUpload(db, {
-      filename: 'test-alpha-only.txt',
+      filename: 'upldata-alpha-only.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('a'),
       size: 1,
       now: Date.now(),
     })
     await insertUpload(db, {
-      filename: 'test-beta.txt',
+      filename: 'upldata-beta.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('b'),
       size: 1,
@@ -170,12 +178,12 @@ describe('uploads', () => {
     })
     let rows = await listUploads(db, undefined, { filter: 'ALPHA' })
     assert.equal(rows.length, 1)
-    assert.equal(rows[0]!.filename, 'test-alpha-only.txt')
+    assert.equal(rows[0]!.filename, 'upldata-alpha-only.txt')
   })
 
   it('listUploads filters by mime_type substring', async () => {
     await insertUpload(db, {
-      filename: 'test-mime-only.txt',
+      filename: 'upldata-mime-only.txt',
       mimeType: 'application/gzip',
       buffer: Buffer.from('a'),
       size: 1,
@@ -188,7 +196,7 @@ describe('uploads', () => {
 
   it('listUploads filters by numeric id', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-id-only.txt',
+      filename: 'upldata-id-only.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('a'),
       size: 1,
@@ -196,26 +204,26 @@ describe('uploads', () => {
     })
     let rows = await listUploads(db, undefined, { filter: String(Number(id)) })
     assert.equal(rows.length, 1)
-    assert.equal(rows[0]!.filename, 'test-id-only.txt')
+    assert.equal(rows[0]!.filename, 'upldata-id-only.txt')
   })
 
   it('listUploads filters by upload kind', async () => {
     await insertUpload(db, {
-      filename: 'test-kind-data.pdf',
+      filename: 'upldata-kind-data.pdf',
       mimeType: 'application/pdf',
       buffer: Buffer.from('p'),
       size: 1,
       now: Date.now(),
     })
     await insertUpload(db, {
-      filename: 'test-kind-data.png',
+      filename: 'upldata-kind-data.png',
       mimeType: 'image/png',
       buffer: Buffer.from('i'),
       size: 1,
       now: Date.now(),
     })
     await insertUpload(db, {
-      filename: 'test-kind-data.txt',
+      filename: 'upldata-kind-data.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('t'),
       size: 1,
@@ -227,17 +235,17 @@ describe('uploads', () => {
     let byKind = async (kind: 'pdf' | 'image' | 'text') =>
       (await listUploads(db, undefined, { kind }))
         .map((r) => r.filename)
-        .filter((name) => name.startsWith('test-kind-data'))
+        .filter((name) => name.startsWith('upldata-kind-data'))
 
-    assert.deepEqual(await byKind('pdf'), ['test-kind-data.pdf'])
-    assert.deepEqual(await byKind('image'), ['test-kind-data.png'])
-    assert.deepEqual(await byKind('text'), ['test-kind-data.txt'])
+    assert.deepEqual(await byKind('pdf'), ['upldata-kind-data.pdf'])
+    assert.deepEqual(await byKind('image'), ['upldata-kind-data.png'])
+    assert.deepEqual(await byKind('text'), ['upldata-kind-data.txt'])
   })
 
   it('getUploadsPage counts and paginates within an upload kind', async () => {
     for (let i = 1; i <= 3; i++) {
       await insertUpload(db, {
-        filename: `test-kindpage-${i}.pdf`,
+        filename: `upldata-kindpage-${i}.pdf`,
         mimeType: 'application/pdf',
         buffer: Buffer.from('x'),
         size: 1,
@@ -245,7 +253,7 @@ describe('uploads', () => {
       })
     }
     await insertUpload(db, {
-      filename: 'test-kindpage-photo.png',
+      filename: 'upldata-kindpage-photo.png',
       mimeType: 'image/png',
       buffer: Buffer.from('x'),
       size: 1,
@@ -259,7 +267,7 @@ describe('uploads', () => {
       20,
       'created_at',
       'desc',
-      'test-kindpage',
+      'upldata-kindpage',
       'pdf',
     )
     assert.equal(pdf.total, 3)
@@ -272,11 +280,11 @@ describe('uploads', () => {
       20,
       'created_at',
       'desc',
-      'test-kindpage',
+      'upldata-kindpage',
       'image',
     )
     assert.equal(image.total, 1)
-    assert.equal(image.rows[0]!.filename, 'test-kindpage-photo.png')
+    assert.equal(image.rows[0]!.filename, 'upldata-kindpage-photo.png')
 
     let twoUp = await getUploadsPage(
       db,
@@ -285,7 +293,7 @@ describe('uploads', () => {
       2,
       'created_at',
       'desc',
-      'test-kindpage',
+      'upldata-kindpage',
       'pdf',
     )
     assert.equal(twoUp.totalPages, 2)
@@ -295,7 +303,7 @@ describe('uploads', () => {
   it('getUploadsPage counts only matching rows', async () => {
     for (let i = 1; i <= 3; i++) {
       await insertUpload(db, {
-        filename: `test-filtpg-${i}.txt`,
+        filename: `upldata-filtpg-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -306,13 +314,13 @@ describe('uploads', () => {
     assert.equal(page.total, 1)
     assert.equal(page.totalPages, 1)
     assert.equal(page.rows.length, 1)
-    assert.equal(page.rows[0]!.filename, 'test-filtpg-2.txt')
+    assert.equal(page.rows[0]!.filename, 'upldata-filtpg-2.txt')
   })
 
   it('getUploadsPage paginates a filtered result set', async () => {
     for (let i = 1; i <= 5; i++) {
       await insertUpload(db, {
-        filename: `test-filtered-${i}.txt`,
+        filename: `upldata-filtered-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -327,30 +335,32 @@ describe('uploads', () => {
   it('getUploadsPage paginates and clamps out-of-range pages', async () => {
     for (let i = 1; i <= 25; i++) {
       await insertUpload(db, {
-        filename: `test-page-${i}.txt`,
+        filename: `upldata-page-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
         now: Date.now(),
       })
     }
-    let page1 = await getUploadsPage(db, undefined, 1, 20)
+    // Parallel suites insert uploads into the same ephemeral DB, so every
+    // count must be scoped to this test's own filenames.
+    let page1 = await getUploadsPage(db, undefined, 1, 20, 'created_at', 'desc', 'upldata-page-')
     assert.equal(page1.total, 25)
     assert.equal(page1.totalPages, 2)
     assert.equal(page1.rows.length, 20)
 
-    let page2 = await getUploadsPage(db, undefined, 2, 20)
+    let page2 = await getUploadsPage(db, undefined, 2, 20, 'created_at', 'desc', 'upldata-page-')
     assert.equal(page2.page, 2)
     assert.equal(page2.rows.length, 5)
 
-    let clamped = await getUploadsPage(db, undefined, 99, 20)
+    let clamped = await getUploadsPage(db, undefined, 99, 20, 'created_at', 'desc', 'upldata-page-')
     assert.equal(clamped.page, 2)
     assert.equal(clamped.rows.length, 5)
   })
 
   it('claimUpload claims an unowned upload', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-claim.txt',
+      filename: 'upldata-claim.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('c'),
       size: 1,
@@ -359,7 +369,7 @@ describe('uploads', () => {
     let claimed = await claimUpload(db, Number(id), uploadUserId)
     assert.ok(claimed)
     let rows = await listUploads(db, uploadUserId)
-    assert.ok(rows.some((r) => r.filename === 'test-claim.txt'))
+    assert.ok(rows.some((r) => r.filename === 'upldata-claim.txt'))
   })
 
   it('claimUpload returns false for a non-existent upload', async () => {
@@ -369,14 +379,14 @@ describe('uploads', () => {
 
   it('claimUploads claims a batch of uploads in one quota check', async () => {
     let idA = await insertUpload(db, {
-      filename: 'test-batch-a.txt',
+      filename: 'upldata-batch-a.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('aaa'),
       size: 3,
       now: Date.now(),
     })
     let idB = await insertUpload(db, {
-      filename: 'test-batch-b.txt',
+      filename: 'upldata-batch-b.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('bbbb'),
       size: 4,
@@ -390,20 +400,20 @@ describe('uploads', () => {
     )
     assert.equal(claimed, true)
     let rows = await listUploads(db, uploadUserId)
-    assert.ok(rows.some((r) => r.filename === 'test-batch-a.txt'))
-    assert.ok(rows.some((r) => r.filename === 'test-batch-b.txt'))
+    assert.ok(rows.some((r) => r.filename === 'upldata-batch-a.txt'))
+    assert.ok(rows.some((r) => r.filename === 'upldata-batch-b.txt'))
   })
 
   it('claimUploads rejects and deletes the whole batch when quota is exceeded', async () => {
     let idA = await insertUpload(db, {
-      filename: 'test-batch-q-a.txt',
+      filename: 'upldata-batch-q-a.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('aaaa'),
       size: 4,
       now: Date.now(),
     })
     let idB = await insertUpload(db, {
-      filename: 'test-batch-q-b.txt',
+      filename: 'upldata-batch-q-b.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('bbbbbbb'),
       size: 7,
@@ -432,7 +442,7 @@ describe('uploads', () => {
 
   it('claimUpload rejects and deletes the upload when the per-user quota is exceeded', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-quota.txt',
+      filename: 'upldata-quota.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('too big for the quota'),
       size: 22,
@@ -451,7 +461,7 @@ describe('uploads', () => {
 
   it('getUploadDownload returns file for owned upload', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-dl.txt',
+      filename: 'upldata-dl.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('content'),
       size: 7,
@@ -460,13 +470,13 @@ describe('uploads', () => {
     await claimUpload(db, Number(id), uploadUserId)
     let file = await getUploadDownload(db, Number(id), uploadUserId)
     assert.ok(file !== undefined)
-    assert.equal(file!.filename, 'test-dl.txt')
+    assert.equal(file!.filename, 'upldata-dl.txt')
     assert.equal(file!.mime_type, 'text/plain')
   })
 
   it('getUploadDownload returns undefined when userId does not match', async () => {
     let id = await insertUpload(db, {
-      filename: 'test-dl-no-access.txt',
+      filename: 'upldata-dl-no-access.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('private'),
       size: 7,
@@ -481,7 +491,7 @@ describe('uploads', () => {
     let ids: number[] = []
     for (let i = 1; i <= 3; i++) {
       let id = await insertUpload(db, {
-        filename: `test-dlmany-${i}.txt`,
+        filename: `upldata-dlmany-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from(`payload-${i}`),
         size: 8,
@@ -493,7 +503,7 @@ describe('uploads', () => {
     assert.equal(rows.length, 3)
     assert.deepEqual(
       rows.map((r) => r.filename),
-      ['test-dlmany-1.txt', 'test-dlmany-2.txt', 'test-dlmany-3.txt'],
+      ['upldata-dlmany-1.txt', 'upldata-dlmany-2.txt', 'upldata-dlmany-3.txt'],
     )
     assert.equal(rows[0]!.data.toString('utf8'), 'payload-1')
     assert.equal(rows[2]!.data.toString('utf8'), 'payload-3')
@@ -510,7 +520,7 @@ describe('uploads', () => {
 
     let owned = Number(
       await insertUpload(db, {
-        filename: 'test-dlmany-owned.txt',
+        filename: 'upldata-dlmany-owned.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('owned'),
         size: 5,
@@ -521,7 +531,7 @@ describe('uploads', () => {
 
     let other = Number(
       await insertUpload(db, {
-        filename: 'test-dlmany-other.txt',
+        filename: 'upldata-dlmany-other.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('secret'),
         size: 6,
@@ -532,13 +542,13 @@ describe('uploads', () => {
 
     let rows = await getUploadsByIds(db, [owned, other], uploadUserId)
     assert.equal(rows.length, 1, 'only the owned row should be returned')
-    assert.equal(rows[0]!.filename, 'test-dlmany-owned.txt')
+    assert.equal(rows[0]!.filename, 'upldata-dlmany-owned.txt')
   })
 
   it('getUploadsByIds deduplicates ids and returns [] for an empty array', async () => {
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-dlmany-nodup.txt',
+        filename: 'upldata-dlmany-nodup.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('d'),
         size: 1,
@@ -557,7 +567,7 @@ describe('uploads', () => {
     let ids: number[] = []
     for (let i = 1; i <= 3; i++) {
       let id = await insertUpload(db, {
-        filename: `test-delmany-${i}.txt`,
+        filename: `upldata-delmany-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from(String(i)),
         size: 1,
@@ -582,7 +592,7 @@ describe('uploads', () => {
 
     let owned = Number(
       await insertUpload(db, {
-        filename: 'test-delmany-owned.txt',
+        filename: 'upldata-delmany-owned.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('o'),
         size: 1,
@@ -593,7 +603,7 @@ describe('uploads', () => {
 
     let other = Number(
       await insertUpload(db, {
-        filename: 'test-delmany-other.txt',
+        filename: 'upldata-delmany-other.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -612,7 +622,7 @@ describe('uploads', () => {
   it('deleteUploads deduplicates ids and returns 0 for an empty array', async () => {
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-delmany-nodup.txt',
+        filename: 'upldata-delmany-nodup.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('d'),
         size: 1,

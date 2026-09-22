@@ -4,11 +4,22 @@ import { fileURLToPath } from 'node:url'
 import { createCookie } from 'remix/cookie'
 import { Session } from 'remix/session'
 import { createFsSessionStorage } from 'remix/session-storage/fs'
+import { createMemorySessionStorage } from 'remix/session-storage/memory'
 
 const appRootPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sessionDirectoryPath = path.join(appRootPath, '..', 'tmp', 'sessions')
 
-fs.mkdirSync(sessionDirectoryPath, { recursive: true })
+// Tests run many worker processes against one checkout. The fs store writes a
+// session file non-atomically, and a reader that catches the truncated file
+// fails JSON.parse ("Unexpected end of JSON input") and silently loses the
+// session — observed as a logged-out uploads grid under parallel load. Test
+// workers are separate processes that share module state with their in-process
+// test server, so an in-memory store is both per-worker-isolated and race-free.
+const isTest = process.env.NODE_ENV === 'test'
+
+if (!isTest) {
+  fs.mkdirSync(sessionDirectoryPath, { recursive: true })
+}
 
 const sessionSecret = process.env.SESSION_SECRET
 if (!sessionSecret) {
@@ -24,7 +35,9 @@ export const sessionCookie = createCookie('session', {
   path: '/',
 })
 
-export const sessionStorage = createFsSessionStorage(sessionDirectoryPath)
+export const sessionStorage = isTest
+  ? createMemorySessionStorage()
+  : createFsSessionStorage(sessionDirectoryPath)
 
 /**
  * Serialize a raw session id into the cookie value the session middleware

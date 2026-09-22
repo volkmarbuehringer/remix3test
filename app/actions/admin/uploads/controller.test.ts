@@ -59,7 +59,7 @@ describe('Admin Uploads controller', () => {
     // Remove upload rows created by this suite so runs stay independent. The
     // upload middleware inserts rows with uploaded_by = NULL; claiming assigns
     // them to the test user.
-    await pool.query("DELETE FROM uploads WHERE filename LIKE 'test-%'")
+    await pool.query("DELETE FROM uploads WHERE filename LIKE 'uplctl-%'")
   })
 
   it('GET /admin/uploads redirects unauthenticated users to login', async () => {
@@ -91,11 +91,11 @@ describe('Admin Uploads controller', () => {
     formData.set('_csrf', session.csrfToken)
     formData.append(
       'file',
-      new File([Buffer.from('alpha')], 'test-multi-a.txt', { type: 'text/plain' }),
+      new File([Buffer.from('alpha')], 'uplctl-multi-a.txt', { type: 'text/plain' }),
     )
     formData.append(
       'file',
-      new File([Buffer.from('beta')], 'test-multi-b.txt', { type: 'text/plain' }),
+      new File([Buffer.from('beta')], 'uplctl-multi-b.txt', { type: 'text/plain' }),
     )
 
     let response = await router.fetch(UPLOADS_URL, {
@@ -110,13 +110,13 @@ describe('Admin Uploads controller', () => {
       html.includes('Dateien hochgeladen (IDs:'),
       'success banner should report multiple files',
     )
-    assert.ok(html.includes('test-multi-a.txt'), 'uploaded file a should appear in the list')
-    assert.ok(html.includes('test-multi-b.txt'), 'uploaded file b should appear in the list')
+    assert.ok(html.includes('uplctl-multi-a.txt'), 'uploaded file a should appear in the list')
+    assert.ok(html.includes('uplctl-multi-b.txt'), 'uploaded file b should appear in the list')
 
     // Both rows must be claimed by the authenticated user.
     let result = await pool.query(
       'SELECT filename, uploaded_by FROM uploads WHERE filename LIKE $1',
-      ['test-multi-%'],
+      ['uplctl-multi-%'],
     )
     let rows = result.rows as { filename: string; uploaded_by: number }[]
     assert.equal(rows.length, 2, 'both files should be stored')
@@ -192,7 +192,7 @@ describe('Admin Uploads controller', () => {
     let ids: number[] = []
     for (let i = 1; i <= 25; i++) {
       let id = await insertUpload(db, {
-        filename: `test-page-${i}.txt`,
+        filename: `uplctl-page-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -209,9 +209,9 @@ describe('Admin Uploads controller', () => {
     assert.equal(page1.status, 200)
     let html1 = await page1.text()
     assert.ok(html1.includes('Seite 1 von 2'), 'page 1 should be the first of two pages')
-    assert.ok(html1.includes('test-page-25.txt'), 'newest upload should be on page 1')
-    assert.ok(html1.includes('test-page-11.txt'), '15th newest should close out page 1')
-    assert.ok(!html1.includes('test-page-10.txt'), '16th newest should be on page 2')
+    assert.ok(html1.includes('uplctl-page-25.txt'), 'newest upload should be on page 1')
+    assert.ok(html1.includes('uplctl-page-11.txt'), '15th newest should close out page 1')
+    assert.ok(!html1.includes('uplctl-page-10.txt'), '16th newest should be on page 2')
 
     let page2 = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?page=2`, {
       headers: { Cookie: session.cookie },
@@ -219,7 +219,7 @@ describe('Admin Uploads controller', () => {
     assert.equal(page2.status, 200)
     let html2 = await page2.text()
     assert.ok(html2.includes('Seite 2 von 2'), 'page 2 should be the second page')
-    assert.ok(html2.includes('test-page-1.txt'), 'oldest upload should appear on page 2')
+    assert.ok(html2.includes('uplctl-page-1.txt'), 'oldest upload should appear on page 2')
     assert.ok(html2.includes('Zurück'), 'page 2 should offer a back link')
   })
 
@@ -235,7 +235,7 @@ describe('Admin Uploads controller', () => {
     let ids: number[] = []
     for (let i = 1; i <= 25; i++) {
       let id = await insertUpload(db, {
-        filename: `test-page-${i}.txt`,
+        filename: `uplctl-page-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -253,10 +253,13 @@ describe('Admin Uploads controller', () => {
     let html = await response.text()
     // 25 uploads at a configured page size of 10 → three pages, and page 1
     // holds only the newest ten (not the default page size of 20).
-    assert.ok(html.includes('Seite 1 von 3'), 'pageSize 10 should yield 3 pages')
-    assert.ok(html.includes('test-page-25.txt'), 'newest upload should be on page 1')
-    assert.ok(html.includes('test-page-16.txt'), '10th newest should close out page 1')
-    assert.ok(!html.includes('test-page-15.txt'), '11th newest should be on page 2')
+    // Surface what was actually rendered (page size, total, page count) if
+    // this ever regresses again.
+    let footer = html.match(/\d+ Dateien · Seite \d+ von \d+/)?.[0] ?? '<no footer>'
+    assert.ok(html.includes('Seite 1 von 3'), `pageSize 10 should yield 3 pages; saw: ${footer}`)
+    assert.ok(html.includes('uplctl-page-25.txt'), 'newest upload should be on page 1')
+    assert.ok(html.includes('uplctl-page-16.txt'), '10th newest should close out page 1')
+    assert.ok(!html.includes('uplctl-page-15.txt'), '11th newest should be on page 2')
   })
 
   it('GET /admin/uploads sorts by the requested column and direction', async () => {
@@ -266,7 +269,7 @@ describe('Admin Uploads controller', () => {
     let ids: number[] = []
     for (let i = 1; i <= 3; i++) {
       let id = await insertUpload(db, {
-        filename: `test-sort-${i}.txt`,
+        filename: `uplctl-sort-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -277,19 +280,19 @@ describe('Admin Uploads controller', () => {
     let claimed = await claimUploads(db, ids, userId, Number.MAX_SAFE_INTEGER)
     if (!claimed) throw new Error('Could not claim test uploads')
 
-    // Default (no sort params): newest-first, so test-sort-3 renders before
-    // test-sort-1.
+    // Default (no sort params): newest-first, so uplctl-sort-3 renders before
+    // uplctl-sort-1.
     let defPage = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}`, {
       headers: { Cookie: session.cookie },
     })
     assert.equal(defPage.status, 200)
     let defHtml = await defPage.text()
     assert.ok(
-      defHtml.indexOf('test-sort-3.txt') < defHtml.indexOf('test-sort-1.txt'),
+      defHtml.indexOf('uplctl-sort-3.txt') < defHtml.indexOf('uplctl-sort-1.txt'),
       'default order should be newest-first',
     )
 
-    // filename ASC: test-sort-1 must render before test-sort-3.
+    // filename ASC: uplctl-sort-1 must render before uplctl-sort-3.
     let ascPage = await router.fetch(
       `${BASE}${routes.admin.uploads.index.href()}?sort=filename&order=asc&page=1`,
       { headers: { Cookie: session.cookie } },
@@ -297,11 +300,11 @@ describe('Admin Uploads controller', () => {
     assert.equal(ascPage.status, 200)
     let ascHtml = await ascPage.text()
     assert.ok(
-      ascHtml.indexOf('test-sort-1.txt') < ascHtml.indexOf('test-sort-3.txt'),
-      'filename ascending should put test-sort-1 first',
+      ascHtml.indexOf('uplctl-sort-1.txt') < ascHtml.indexOf('uplctl-sort-3.txt'),
+      'filename ascending should put uplctl-sort-1 first',
     )
 
-    // filename DESC: test-sort-3 must render before test-sort-1.
+    // filename DESC: uplctl-sort-3 must render before uplctl-sort-1.
     let descPage = await router.fetch(
       `${BASE}${routes.admin.uploads.index.href()}?sort=filename&order=desc&page=1`,
       { headers: { Cookie: session.cookie } },
@@ -309,8 +312,8 @@ describe('Admin Uploads controller', () => {
     assert.equal(descPage.status, 200)
     let descHtml = await descPage.text()
     assert.ok(
-      descHtml.indexOf('test-sort-3.txt') < descHtml.indexOf('test-sort-1.txt'),
-      'filename descending should put test-sort-3 first',
+      descHtml.indexOf('uplctl-sort-3.txt') < descHtml.indexOf('uplctl-sort-1.txt'),
+      'filename descending should put uplctl-sort-3 first',
     )
   })
 
@@ -321,7 +324,7 @@ describe('Admin Uploads controller', () => {
     let ids: number[] = []
     for (let i = 1; i <= 3; i++) {
       let id = await insertUpload(db, {
-        filename: `test-filt-${i}.txt`,
+        filename: `uplctl-filt-${i}.txt`,
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -333,14 +336,14 @@ describe('Admin Uploads controller', () => {
     if (!claimed) throw new Error('Could not claim test uploads')
 
     let response = await router.fetch(
-      `${BASE}${routes.admin.uploads.index.href()}?filter=test-filt-2&sort=created_at&order=desc&page=1`,
+      `${BASE}${routes.admin.uploads.index.href()}?filter=uplctl-filt-2&sort=created_at&order=desc&page=1`,
       { headers: { Cookie: session.cookie } },
     )
     assert.equal(response.status, 200)
     let html = await response.text()
-    assert.ok(html.includes('test-filt-2.txt'), 'matching upload should appear')
-    assert.ok(!html.includes('test-filt-1.txt'), 'non-matching upload should be excluded')
-    assert.ok(!html.includes('test-filt-3.txt'), 'non-matching upload should be excluded')
+    assert.ok(html.includes('uplctl-filt-2.txt'), 'matching upload should appear')
+    assert.ok(!html.includes('uplctl-filt-1.txt'), 'non-matching upload should be excluded')
+    assert.ok(!html.includes('uplctl-filt-3.txt'), 'non-matching upload should be excluded')
     assert.ok(
       html.includes('Suche nach Dateiname oder Typ'),
       'filter box should render the descriptive search input',
@@ -369,9 +372,9 @@ describe('Admin Uploads controller', () => {
     if (!session) throw new Error('Could not create auth session')
 
     let specs: [string, string][] = [
-      ['test-kind-doc.pdf', 'application/pdf'],
-      ['test-kind-note.txt', 'text/plain'],
-      ['test-kind-photo.png', 'image/png'],
+      ['uplctl-kind-doc.pdf', 'application/pdf'],
+      ['uplctl-kind-note.txt', 'text/plain'],
+      ['uplctl-kind-photo.png', 'image/png'],
     ]
     let ids: number[] = []
     for (let [filename, mimeType] of specs) {
@@ -394,9 +397,9 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.status, 200)
     let html = await response.text()
     assert.ok(html.includes('data-kind-tabs'), 'kind tabs should render')
-    assert.ok(html.includes('test-kind-doc.pdf'), 'the PDF should appear under the PDF tab')
-    assert.ok(!html.includes('test-kind-note.txt'), 'text uploads should be filtered out')
-    assert.ok(!html.includes('test-kind-photo.png'), 'image uploads should be filtered out')
+    assert.ok(html.includes('uplctl-kind-doc.pdf'), 'the PDF should appear under the PDF tab')
+    assert.ok(!html.includes('uplctl-kind-note.txt'), 'text uploads should be filtered out')
+    assert.ok(!html.includes('uplctl-kind-photo.png'), 'image uploads should be filtered out')
   })
 
   it('GET /admin/uploads kind filter matches the image and text families', async () => {
@@ -405,7 +408,7 @@ describe('Admin Uploads controller', () => {
 
     let imageId = Number(
       await insertUpload(db, {
-        filename: 'test-kindfam-image.webp',
+        filename: 'uplctl-kindfam-image.webp',
         mimeType: 'image/webp',
         buffer: Buffer.from('x'),
         size: 1,
@@ -414,7 +417,7 @@ describe('Admin Uploads controller', () => {
     )
     let textId = Number(
       await insertUpload(db, {
-        filename: 'test-kindfam-data.json',
+        filename: 'uplctl-kindfam-data.json',
         mimeType: 'application/json',
         buffer: Buffer.from('x'),
         size: 1,
@@ -428,15 +431,18 @@ describe('Admin Uploads controller', () => {
       { headers: { Cookie: session.cookie } },
     )
     let imageHtml = await imageResponse.text()
-    assert.ok(imageHtml.includes('test-kindfam-image.webp'), 'image/* should match the Bilder tab')
-    assert.ok(!imageHtml.includes('test-kindfam-data.json'), 'JSON should not match Bilder')
+    assert.ok(
+      imageHtml.includes('uplctl-kindfam-image.webp'),
+      'image/* should match the Bilder tab',
+    )
+    assert.ok(!imageHtml.includes('uplctl-kindfam-data.json'), 'JSON should not match Bilder')
 
     let textResponse = await router.fetch(`${BASE}${routes.admin.uploads.index.href()}?kind=text`, {
       headers: { Cookie: session.cookie },
     })
     let textHtml = await textResponse.text()
-    assert.ok(textHtml.includes('test-kindfam-data.json'), 'JSON should match the Text tab')
-    assert.ok(!textHtml.includes('test-kindfam-image.webp'), 'images should not match Text')
+    assert.ok(textHtml.includes('uplctl-kindfam-data.json'), 'JSON should match the Text tab')
+    assert.ok(!textHtml.includes('uplctl-kindfam-image.webp'), 'images should not match Text')
   })
 
   it('GET /admin/uploads ignores an unknown kind and intersects kind with the search', async () => {
@@ -445,7 +451,7 @@ describe('Admin Uploads controller', () => {
 
     let pdfId = Number(
       await insertUpload(db, {
-        filename: 'test-kindcombo-a.pdf',
+        filename: 'uplctl-kindcombo-a.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.from('x'),
         size: 1,
@@ -454,7 +460,7 @@ describe('Admin Uploads controller', () => {
     )
     let textId = Number(
       await insertUpload(db, {
-        filename: 'test-kindcombo-b.txt',
+        filename: 'uplctl-kindcombo-b.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -469,17 +475,17 @@ describe('Admin Uploads controller', () => {
     })
     assert.equal(unknown.status, 200)
     let unknownHtml = await unknown.text()
-    assert.ok(unknownHtml.includes('test-kindcombo-a.pdf'))
-    assert.ok(unknownHtml.includes('test-kindcombo-b.txt'))
+    assert.ok(unknownHtml.includes('uplctl-kindcombo-a.pdf'))
+    assert.ok(unknownHtml.includes('uplctl-kindcombo-b.txt'))
 
     // kind + filter intersect: only the PDF matching the search survives.
     let combined = await router.fetch(
-      `${BASE}${routes.admin.uploads.index.href()}?kind=pdf&filter=test-kindcombo`,
+      `${BASE}${routes.admin.uploads.index.href()}?kind=pdf&filter=uplctl-kindcombo`,
       { headers: { Cookie: session.cookie } },
     )
     let combinedHtml = await combined.text()
-    assert.ok(combinedHtml.includes('test-kindcombo-a.pdf'))
-    assert.ok(!combinedHtml.includes('test-kindcombo-b.txt'))
+    assert.ok(combinedHtml.includes('uplctl-kindcombo-a.pdf'))
+    assert.ok(!combinedHtml.includes('uplctl-kindcombo-b.txt'))
   })
 
   it('GET /admin/uploads shows a kind-aware empty state', async () => {
@@ -504,7 +510,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-kind-del.pdf',
+        filename: 'uplctl-kind-del.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.from('x'),
         size: 1,
@@ -539,7 +545,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-del-button.txt',
+        filename: 'uplctl-del-button.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -567,7 +573,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-del-owner.txt',
+        filename: 'uplctl-del-owner.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -582,7 +588,7 @@ describe('Admin Uploads controller', () => {
     formData.set('_page', '2')
     formData.set('_sort', 'created_at')
     formData.set('_order', 'desc')
-    formData.set('_filter', 'test-del-owner')
+    formData.set('_filter', 'uplctl-del-owner')
 
     let response = await router.fetch(`${BASE}${routes.admin.uploads.destroy.href({ id })}`, {
       method: 'POST',
@@ -599,7 +605,7 @@ describe('Admin Uploads controller', () => {
     )
     assert.ok(location?.includes('page=2'), 'redirect should preserve the grid page')
     assert.ok(
-      location?.includes('filter=test-del-owner'),
+      location?.includes('filter=uplctl-del-owner'),
       'redirect should preserve the grid filter',
     )
 
@@ -623,7 +629,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-del-other.txt',
+        filename: 'uplctl-del-other.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -660,7 +666,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-del-resolve.txt',
+        filename: 'uplctl-del-resolve.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -687,7 +693,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-ui.txt',
+        filename: 'uplctl-bulk-ui.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -730,7 +736,7 @@ describe('Admin Uploads controller', () => {
     for (let i = 1; i <= 2; i++) {
       let id = Number(
         await insertUpload(db, {
-          filename: `test-bulk-del-${i}.txt`,
+          filename: `uplctl-bulk-del-${i}.txt`,
           mimeType: 'text/plain',
           buffer: Buffer.from('x'),
           size: 1,
@@ -748,7 +754,7 @@ describe('Admin Uploads controller', () => {
     formData.set('_page', '2')
     formData.set('_sort', 'created_at')
     formData.set('_order', 'desc')
-    formData.set('_filter', 'test-bulk-del')
+    formData.set('_filter', 'uplctl-bulk-del')
 
     let response = await router.fetch(`${BASE}${routes.admin.uploads.destroyMany.href()}`, {
       method: 'POST',
@@ -761,7 +767,10 @@ describe('Admin Uploads controller', () => {
     let location = response.headers.get('Location') ?? ''
     assert.ok(location.startsWith(routes.admin.uploads.index.href()), 'should redirect to uploads')
     assert.ok(location.includes('page=2'), 'redirect should preserve the grid page')
-    assert.ok(location.includes('filter=test-bulk-del'), 'redirect should preserve the grid filter')
+    assert.ok(
+      location.includes('filter=uplctl-bulk-del'),
+      'redirect should preserve the grid filter',
+    )
     assert.ok(location.includes('deleted=2'), 'redirect should carry the deleted count')
 
     let result = await pool.query('SELECT id FROM uploads WHERE id = ANY($1)', [ids])
@@ -782,7 +791,7 @@ describe('Admin Uploads controller', () => {
 
     let owned = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-own.txt',
+        filename: 'uplctl-bulk-own.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -793,7 +802,7 @@ describe('Admin Uploads controller', () => {
 
     let other = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-other.txt',
+        filename: 'uplctl-bulk-other.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -835,7 +844,7 @@ describe('Admin Uploads controller', () => {
 
     let id = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-nop.txt',
+        filename: 'uplctl-bulk-nop.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('x'),
         size: 1,
@@ -898,7 +907,7 @@ describe('Admin Uploads controller', () => {
     for (let i = 1; i <= 2; i++) {
       let id = Number(
         await insertUpload(db, {
-          filename: `test-bulk-dl-${i}.txt`,
+          filename: `uplctl-bulk-dl-${i}.txt`,
           mimeType: 'text/plain',
           buffer: Buffer.from(`content-${i}`),
           size: 9,
@@ -944,7 +953,7 @@ describe('Admin Uploads controller', () => {
 
     let owned = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-dl-own.txt',
+        filename: 'uplctl-bulk-dl-own.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('own'),
         size: 3,
@@ -955,7 +964,7 @@ describe('Admin Uploads controller', () => {
 
     let other = Number(
       await insertUpload(db, {
-        filename: 'test-bulk-dl-other.txt',
+        filename: 'uplctl-bulk-dl-other.txt',
         mimeType: 'text/plain',
         buffer: Buffer.from('secret'),
         size: 6,
@@ -978,9 +987,9 @@ describe('Admin Uploads controller', () => {
     assert.equal(response.status, 200)
     let buffer = Buffer.from(await response.arrayBuffer())
     let text = buffer.toString('utf8')
-    assert.ok(text.includes('test-bulk-dl-own.txt'), 'zip should contain the owned file')
+    assert.ok(text.includes('uplctl-bulk-dl-own.txt'), 'zip should contain the owned file')
     assert.ok(
-      !text.includes('test-bulk-dl-other.txt'),
+      !text.includes('uplctl-bulk-dl-other.txt'),
       "another user's file must not be in the zip",
     )
   })
