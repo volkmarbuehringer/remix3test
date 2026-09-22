@@ -17,7 +17,7 @@ For event listeners re-attaching after frame reload, see `cliententry-lifecycle.
 
 **Context:** Creating a joined "Edit | Del" button group where the parent needs to style child Button components inside a `clientEntry` component.
 
-`clientEntry` components extend `SerializableProps` — only JSON-serializable values can be passed as props. CSS `MixinDescriptor` objects (produced by `css()`) are **not** serializable, so you cannot pass `btnMix` or similar styling props to a `clientEntry` component. This blocks the common joined "Edit | Del" button group.
+`clientEntry` props must be JSON-serializable. Since the pinned build `a4d62e199` (#11918) they no longer have to extend `SerializableProps` — a plain `interface` (including nested objects whose properties are all optional) type-checks, and the vendor's own template/demo dropped the index-signature workarounds. Functions and non-serializable objects are still rejected at the type level. CSS `MixinDescriptor` objects (produced by `css()`) are **not** serializable, so you cannot pass `btnMix` or similar styling props to a `clientEntry` component. This blocks the common joined "Edit | Del" button group.
 
 Use **parent-container CSS with child selectors** instead of passing mixins as props:
 
@@ -336,7 +336,7 @@ Use when adding inline editing to an existing server-rendered table, admin CRUD 
 
 Using the `on` event mixin from `remix/ui` in a server-rendered component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors. The `on` mixin's handler code only gets hydrated when the component is a `clientEntry` — otherwise the mixin output is static HTML with no client-side JS.
 
-Wrap the interactive element in a `clientEntry` component. Props must extend `SerializableProps` (strings, numbers, booleans, null — no functions), and the entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (see `admin-action-button.tsx`).
+Wrap the interactive element in a `clientEntry` component. Props must be serializable (strings, numbers, booleans, null, and plain objects/arrays of those — no functions, no `css()` mixin descriptors); `extends SerializableProps` is **not** required since the pinned build `a4d62e199` (#11918), so use a plain `interface`. The entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (see `admin-action-button.tsx`).
 
 #### Where to Mount Global clientEntry Behaviors
 

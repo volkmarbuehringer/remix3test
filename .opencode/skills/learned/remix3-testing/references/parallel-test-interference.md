@@ -3,7 +3,7 @@
 **Source:** `remix-test-parallel-interference`
 
 **Extracted:** 2026-06-12
-**Updated:** 2026-09-12 — added the "fails in isolation too" fixture-determinism caveat.
+**Updated:** 2026-09-22 — added the unscoped-`afterEach`-wipe failure mode; 2026-09-12 added the "fails in isolation too" fixture-determinism caveat.
 **Context:** Removing dead test cleanup code after implementing ephemeral databases per test run. Some cleanup was still needed because parallel workers' data pushed assertions past a pagination page boundary.
 
 ## Problem
@@ -39,6 +39,24 @@ Passing in isolation is a strong interference signal, not the only cause of a sh
 - **Seed rows are relative to today** — a filter test that relies on seeded weekday offerings (`Mon–Fri 8:00–18:00`) fails on weekends, once the default `day >= today` status window excludes every seeded row.
 
 Fix by making the fixture self-owned: create the rows the assertion depends on and scope the assertion to identifiers the test owns (`rows.some(r => r.id === testId)`) instead of `rows.length >= 1` over a shared table. In the source case the pick became `JOIN offering_configs … ORDER BY r.id LIMIT 1` with an explicit throw when empty, and the filter test creates its own offering and filters by that resource's actual name.
+
+### An unscoped `afterEach` wipe deletes a parallel suite's live fixture
+
+**Observed:** 2026-09-22 — `chat/gate-store.test.ts` "resolves a suspended question gate for a live run" failed once in a full run (`assert.ok(gate, 'suspended gate should resolve')`) and passed in isolation and in the next three full runs.
+
+`chat/controller.test.ts`'s `afterEach` ran `DELETE FROM chat_runs` / `DELETE FROM chat_pending_gates` with no predicate. `gate-store.test.ts` and `run-store.test.ts` create their own fixture users and depend on their just-inserted `chat_runs` row surviving — `resolvePendingGate()` joins it (`JOIN chat_runs r ON r.run_id = g.run_id AND r.user_id = g.user_id`), so any overlap between the controller suite's teardown and their insert→assert window silently nulls the gate. `pool: 'forks'` isolates processes, not the shared database.
+
+**Rule:** a test cleanup may only delete rows its own fixtures own. Resolve the ids the suite authenticates as once in `before()` and scope every delete to them:
+
+```ts
+suiteUserIds = (
+  await Promise.all([getUserId('admin@newapp.com'), getUserId('user@newapp.com')])
+).filter((id) => Number.isInteger(id))
+// afterEach
+await pool.query('DELETE FROM chat_runs WHERE user_id = ANY($1::int[])' , [suiteUserIds])
+```
+
+Keep the suite's own isolation (leftover rows still block the next test) without reaching into tables other suites own. Grep for the pattern when a shared-table test flakes: `grep -rn "DELETE FROM <table>'" app/` with no `WHERE` is the tell — unscoped deletes are the only cleanup that can cross suites.
 
 ## When to Use
 

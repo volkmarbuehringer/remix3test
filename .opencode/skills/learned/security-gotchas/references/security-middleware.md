@@ -6,7 +6,21 @@ Covers `remix/middleware/csrf`, `remix/middleware/cors`, `remix/middleware/cop`.
 
 ## CSRF Protection
 
-Session-backed synchronizer token validation. For the basic setup (`csrf()` middleware, default token sources `X-Csrf-Token` header > `_csrf` form field > `_csrf` query param, session-middleware requirement), see `node_modules/remix/src/csrf-middleware/README.md`.
+Session-backed synchronizer token validation. For the basic setup (`csrf()` middleware, default token sources `X-Csrf-Token` header > `_csrf` form field — **query parameters are not read**, session-middleware requirement), see `node_modules/remix/src/csrf-middleware/README.md`.
+
+### Token Sources: No Query-Param Fallback
+
+The pinned build (`a4d62e199`, upstream #11907) **removed** the `_csrf` query-param fallback. By default `csrf()` checks the `X-Csrf-Token` / `X-Xsrf-Token` / `Csrf-Token` header, then the parsed `_csrf` form field (which requires `formData()` middleware). A request whose token is only in the URL is rejected with 403.
+
+This repo never relied on it — `grep -rn "_csrf=" app/` is empty; every submission here is a hidden `_csrf` input (`<CsrfTokenInput />`, `app/ui/restful-form.tsx`), an `X-Csrf-Token` header, or a path skipped in `app/middleware/skip-csrf.ts`. A client that can only put the token in a URL must opt in explicitly, and the resolver **replaces** the default header+form lookup rather than adding a fallback to it:
+
+```ts
+csrf({
+  value(context) {
+    return context.url.searchParams.get('_csrf')
+  },
+})
+```
 
 ### Common Pitfall: Every POST Form Needs a CSRF Token Input
 

@@ -359,6 +359,12 @@ if (e.dataTransfer) {
 
 **Scope of that caveat (re-checked on Firefox 155, 2026-09-10):** it is a `dragstart` limitation, not a general one. `dragover` and `drop` events built with `new DragEvent(type, { dataTransfer })` **do** carry `dataTransfer.types`, so a test can assert on the payload kind there — the uploads drop-guard tests read `types.includes('Files')` from a synthetic `dragover`/`drop` pair and pass in the Firefox project (`app/actions/admin/uploads/uploads-dropzone.test.e2e.ts`). Keep the defensive `if (e.dataTransfer)` guard in handlers regardless, and do not assume a `dataTransfer` set in a synthetic `dragstart` survives to the later events of the same gesture.
 
+### Testing a re-attaching entry: wait for the hydration marker, not the markup
+
+An entry whose `init()` re-runs on every frame `reloadComplete` (uploads bulk delete/download, dropzone) aborts the previous listener set, attaches the new one, and then re-applies its selection store to the visible inputs. A Playwright `check()`/`click()` that lands in that window is dropped by the missing listener **and** reverted by the re-sync, so it surfaces as `locator.check: Clicking the checkbox did not change its state` — intermittently, and even when the file runs alone.
+
+Those entries stamp `form.dataset.<name>Ready = 'true'` at the end of `init()` (`admin-uploads-bulk-delete.tsx`, `admin-uploads-bulk-download.tsx`, `admin-uploads-dropzone.tsx`). Wait for that marker before interacting, and wait for it **again** after any frame reload that replaces the form — the replaced element starts without the attribute. `uploads-bulk-delete.test.e2e.ts` and its `-bulk-download` sibling show both patterns.
+
 ## clientEntry Authoring Constraints (SSR-safe DOM, mixin placement, asset-server imports)
 
 **Context:** Distinct failures when authoring a new remix/ui `clientEntry`: `ReferenceError: document is not defined` during server render, TS/JSX parse errors from misplaced mixins, `AssetServerCompilationError: IMPORT_NOT_ALLOWED`, and a hydrated entry that replaces the whole document with the error card.

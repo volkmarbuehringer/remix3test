@@ -16,7 +16,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | Task involves... | Start with |
 | --- | --- |
 | A `*.test.browser.tsx` must assert a `clientEntry` side effect driven by `getBoundingClientRect`, `matchMedia`, or `scrollTo` that `render`/`act` alone cannot drive | `references/cliententry-browser-test-stubs.md` |
-| Parallel tests interfere despite ephemeral per-run DBs; a test passes in isolation but fails in the full suite; a shared-DB test fails even alone (`LIMIT 1` without `ORDER BY`, seed rows relative to today) | `references/parallel-test-interference.md` |
+| Parallel tests interfere despite ephemeral per-run DBs; a test passes in isolation but fails in the full suite; a shared-DB test fails even alone (`LIMIT 1` without `ORDER BY`, seed rows relative to today); another suite's unscoped `afterEach` `DELETE` removed your live fixture | `references/parallel-test-interference.md` |
 | `waitFor(() => !!getElementById(x))` passes instantly and the next assertion fails on empty content | `references/waitfor-static-element.md` |
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
 | A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/html-amp-escaped-assertions.md` |
@@ -34,6 +34,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 - Ephemeral per-run databases do **not** fix within-run interference: parallel workers' `setupTestEnvironment()` data accumulates in the shared ephemeral DB, so when seed + helper + own + parallel data exceeds a paginated page size the test's own rows fall off the first page. Diagnose by isolation, then keep `after()` cleanup for colliding sources, raise the page size in the test environment, or scope assertions to unique filters/identifiers.
 - A shared-DB test can also fail **in isolation** when the fixture is not self-owned: `LIMIT 1` without `ORDER BY` picks an arbitrary row, and seed rows relative to today (seeded weekday offerings) are excluded by a `day >= today` window on weekends. Create the rows the assertion needs, require the needed properties in the query (`JOIN … WHERE … ORDER BY`, throwing when empty), and scope to identifiers the test owns.
+- A `forks` pool isolates **processes, not the database**: a teardown that deletes a whole shared table (`DELETE FROM chat_runs` with no `WHERE`) can land inside a parallel suite's insert→assert window and null its fixture. Resolve the ids your suite authenticates as once, and scope every delete to them (`WHERE user_id = ANY($1::int[])`).
 
 **Static container and `waitFor` (`references/waitfor-static-element.md`)**
 
