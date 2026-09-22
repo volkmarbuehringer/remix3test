@@ -173,6 +173,12 @@ describe('Customer Chat controller', () => {
   let adminCookie: string
   let userCookie: string
   let mockAgent: MockAgent
+  // Users this suite authenticates as, and therefore the only rows it owns.
+  // Deleting the whole table here raced the parallel chat suites
+  // (`gate-store.test.ts`, `run-store.test.ts`), which create their own users
+  // and need their `chat_runs` row to survive: `resolvePendingGate()` joins it,
+  // so a wipe between their insert and assertion nulls their suspended gate.
+  let suiteUserIds: number[] = []
 
   before(async () => {
     await initializeAppDatabase()
@@ -181,11 +187,16 @@ describe('Customer Chat controller', () => {
     adminCookie = adminResult?.cookie ?? ''
     let userResult = await createAuthCookieWithCsrfForUser('user@newapp.com')
     userCookie = userResult?.cookie ?? ''
+    suiteUserIds = (
+      await Promise.all([getUserId('admin@newapp.com'), getUserId('user@newapp.com')])
+    ).filter((id) => Number.isInteger(id))
   })
 
   afterEach(async () => {
-    await pool.query('DELETE FROM chat_runs')
-    await pool.query('DELETE FROM chat_pending_gates')
+    await pool.query('DELETE FROM chat_runs WHERE user_id = ANY($1::int[])', [suiteUserIds])
+    await pool.query('DELETE FROM chat_pending_gates WHERE user_id = ANY($1::int[])', [
+      suiteUserIds,
+    ])
     __setTestAgent(undefined)
     __setTestResumeResolver(undefined)
     __setTestThreadLookup(undefined)
