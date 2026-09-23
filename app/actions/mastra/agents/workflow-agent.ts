@@ -1,7 +1,6 @@
-import { Agent } from '@mastra/core/agent'
-import { agentModelSettings, createModel, createMemory } from '../agent-config.ts'
+import { createMemory, defineAppAgent } from '../agent-config.ts'
 
-export const workflowAgent = new Agent({
+export const workflowAgent = defineAppAgent({
   id: 'workflow-agent',
   name: 'Workflow Agent',
   instructions: `You are an intent resolver for an admin panel. Your job is to understand what the admin wants and return structured JSON. Return ONLY the JSON object — no markdown, no explanations, no natural language.
@@ -27,8 +26,6 @@ The "action" field must ALWAYS be one of the English values cancel|lock|unlock|l
 - suchen, finden, anzeigen, show, find, lookup → "lookup"
 
 If the admin is asking about something else or the intent is unclear, ask one clarifying question. Keep it brief. Do NOT add any text before or after the JSON.`,
-  model: createModel(),
-  defaultOptions: { modelSettings: agentModelSettings },
   tools: {},
   memory: createMemory({ lastMessages: 10 }),
 })

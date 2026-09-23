@@ -1,4 +1,3 @@
-import { Agent } from '@mastra/core/agent'
 import {
   UnicodeNormalizer,
   RegexFilterProcessor,
@@ -6,9 +5,9 @@ import {
   CostGuardProcessor,
 } from '@mastra/core/processors'
 import { customerTools } from '../tools/customer-tools.ts'
-import { agentModelSettings, createModel, createMemory, withUserTools } from '../agent-config.ts'
+import { defineAppAgent } from '../agent-config.ts'
 
-export const customerAgent = new Agent({
+export const customerAgent = defineAppAgent({
   id: 'customer-agent',
   name: 'Customer Agent',
   instructions: `Du bist ein freundlicher Berater für das Buchungssystem. Kunden beschreiben dir ihr Problem oder Anliegen, und du suchst die passende Ressource (Raum, Behandlung, Angebot) aus dem System.
@@ -58,8 +57,5 @@ Regeln:
       strategy: 'block',
     }),
   ],
-  model: createModel(),
-  defaultOptions: { modelSettings: agentModelSettings },
-  tools: withUserTools(customerTools),
-  memory: createMemory(),
+  tools: customerTools,
 })

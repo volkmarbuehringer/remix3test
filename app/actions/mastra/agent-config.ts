@@ -1,3 +1,4 @@
+import { Agent, type AgentConfig, type ToolsInput } from '@mastra/core/agent'
 import { askUserTool } from '@mastra/core/tools'
 import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { Memory } from '@mastra/memory'
@@ -57,6 +58,46 @@ export function createMemory(options?: {
   })
 }
 
-export function withUserTools<T extends Record<string, unknown>>(tools: T) {
+export function withUserTools<T extends ToolsInput>(tools: T) {
   return { ...tools, askUserTool }
+}
+
+/**
+ * The per-agent content of an app agent. Everything that differs between
+ * `supportAgent`, `customerAgent` and `workflowAgent` lives here; everything
+ * they share (model, model settings, memory defaults, `ask_user`) is filled in
+ * by {@link defineAppAgent} so the three definitions stay pure content.
+ */
+export interface AppAgentDefinition<TTools extends ToolsInput> {
+  id: string
+  name: string
+  instructions: string
+  tools: TTools
+  /** Defaults to working memory; pass {@link createMemory} for other options. */
+  memory?: Memory | undefined
+  inputProcessors?: AgentConfig['inputProcessors']
+  scorers?: AgentConfig['scorers']
+}
+
+/**
+ * Builds an app agent with the shared scaffolding applied.
+ *
+ * This is the single choke point for the model, the model settings and the
+ * `ask_user` tool every conversational agent gets, so the agent files only
+ * declare what is unique to them.
+ */
+export function defineAppAgent<TTools extends ToolsInput>(definition: AppAgentDefinition<TTools>) {
+  return new Agent({
+    id: definition.id,
+    name: definition.name,
+    instructions: definition.instructions,
+    model: createModel(),
+    defaultOptions: { modelSettings: agentModelSettings },
+    tools: withUserTools(definition.tools),
+    memory: definition.memory ?? createMemory(),
+    ...(definition.inputProcessors !== undefined
+      ? { inputProcessors: definition.inputProcessors }
+      : {}),
+    ...(definition.scorers !== undefined ? { scorers: definition.scorers } : {}),
+  })
 }

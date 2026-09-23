@@ -5,6 +5,40 @@ export type ClassifyAgent = {
   generate: (message: string, opts?: { abortSignal?: AbortSignal }) => Promise<{ text?: string }>
 }
 
+// ── Workflow (intent) agent resolution ─────────────────────────────
+
+let _workflowAgent: ClassifyAgent | undefined
+let _workflowAgentReady = false
+
+/** Test seam: inject (or clear) the classifier used by every caller. */
+export function __setWorkflowAgent(agent: ClassifyAgent | undefined): void {
+  _workflowAgent = agent
+  _workflowAgentReady = true
+}
+
+/**
+ * Resolves the registered workflow (intent) agent lazily.
+ *
+ * Both the Agent-Events classify handler and the support agent's
+ * `classify_intent` tool resolve the same agent. The dynamic import avoids a
+ * module cycle: the Mastra registry imports the agents, which import the tool,
+ * which would otherwise import the registry at module load.
+ */
+export async function resolveWorkflowAgent(): Promise<ClassifyAgent> {
+  if (_workflowAgentReady) {
+    if (!_workflowAgent) throw new Error('No classify agent configured')
+    return _workflowAgent
+  }
+  let mod = await import('./index.ts')
+  if (_workflowAgentReady) return _workflowAgent as ClassifyAgent
+  let agent = mod.mastra.getAgent('workflowAgent')
+  _workflowAgent = {
+    generate: (message, opts) => agent.generate(message, opts ?? {}),
+  }
+  _workflowAgentReady = true
+  return _workflowAgent
+}
+
 type ClassifyResult =
   | {
       intent: string
@@ -24,9 +58,7 @@ const AGENT_ACTION_TO_INTENT: Record<string, string> = {
   'appointment:delete-resource': INTENTS.DELETE_APPOINTMENTS,
 }
 
-function parseIntentJson(
-  text: string,
-): {
+function parseIntentJson(text: string): {
   type?: unknown
   action?: unknown
   targetQuery?: unknown

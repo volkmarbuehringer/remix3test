@@ -97,6 +97,27 @@ describe('chat pending gate store', () => {
     assert.equal(await resolvePendingGate(userId), null)
   })
 
+  it('resolves a specific run when a run id is supplied', async () => {
+    let otherRun = crypto.randomUUID()
+    await recordChatRun({ runId, userId, threadId: 't' })
+    await upsertPendingGate(userId, { runId, threadId: 't' })
+    await markGateSuspended(userId, {
+      runId,
+      threadId: 't',
+      gateType: 'question',
+      suspendPayload: { question: 'x' },
+    })
+
+    let match = await resolvePendingGate(userId, runId)
+    assert.ok(match, 'the matching run should resolve')
+    assert.equal(match!.runId, runId)
+    assert.equal(
+      await resolvePendingGate(userId, otherRun),
+      null,
+      'a non-matching run must not resolve to the newest gate',
+    )
+  })
+
   it('a new run supersedes the previous gate', async () => {
     let newRun = crypto.randomUUID()
     await recordChatRun({ runId, userId, threadId: 't' })

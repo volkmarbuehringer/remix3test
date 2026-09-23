@@ -1,27 +1,20 @@
 import type { EventHandler, BaseEvent } from '../event-bus.ts'
-import { classifyWithAgent, type ClassifyAgent } from '../../mastra/intent-classifier.ts'
+import {
+  classifyWithAgent,
+  resolveWorkflowAgent,
+  __setWorkflowAgent,
+  type ClassifyAgent,
+} from '../../mastra/intent-classifier.ts'
 
-let _agent: ClassifyAgent | undefined
-let _agentReady = false
-
+// Test seam kept at the handler (the public injection point the agent-events
+// tests use); the lazy registry lookup lives in the classifier module so the
+// support agent's classify_intent tool resolves the same agent.
 export function __setAgent(agent: ClassifyAgent | undefined): void {
-  _agent = agent
-  _agentReady = true
+  __setWorkflowAgent(agent)
 }
 
 async function getAgent(): Promise<ClassifyAgent> {
-  if (_agentReady) {
-    if (!_agent) throw new Error('No classify agent configured')
-    return _agent
-  }
-  let mod = await import('../../mastra/index.ts')
-  if (_agentReady) return _agent as ClassifyAgent
-  let agent = mod.mastra.getAgent('workflowAgent')
-  _agent = {
-    generate: (message, opts) => agent.generate(message, opts ?? {}),
-  }
-  _agentReady = true
-  return _agent
+  return resolveWorkflowAgent()
 }
 
 export const classifyHandler: EventHandler = {
