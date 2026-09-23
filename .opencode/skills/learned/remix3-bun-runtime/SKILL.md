@@ -60,11 +60,13 @@ new File(['x'], 'a.txt', { type: 'text/plain' }).type
 ```
 An exact-match allowlist (`ALLOWED_MIME_TYPES.has(file.type)`) then rejects valid uploads as `Dateityp nicht erlaubt.`. Compare the media type only, and store the normalized value:
 ```ts
+import { ContentType } from 'remix/headers/content-type'
+
 export function normalizeMimeType(mime: string): string {
-  return (mime.split(';')[0] ?? '').trim().toLowerCase()
+  return ContentType.from(mime).mediaType?.toLowerCase() ?? ''
 }
 ```
-Keep the client-safe validator and the server handler in sync (`app/utils/upload-validation.ts` ↔ `app/middleware/uploads.ts`).
+Delegate to the vendor parser instead of a hand-rolled `split(';')`: `ContentType.from()` is browser-safe (usable from the clientEntry-shared `app/utils/upload-validation.ts`) and hardened for quoted/parameterized values (#11901). It preserves the media type's case, so lower-case it here. Keep the client-safe validator and the server handler in sync (`app/utils/upload-validation.ts` ↔ `app/middleware/uploads.ts`).
 
 ### 5. Scope `@types/bun` — never add `"bun"` to the main `tsconfig` `types`
 Bun's global `fetch` type requires a `preconnect` property, so bundling `"bun"` into the app program breaks every test that mocks `fetch`: `TS2322 … Property 'preconnect' is missing in type … but required in type 'typeof fetch'`. Use a dedicated program instead:

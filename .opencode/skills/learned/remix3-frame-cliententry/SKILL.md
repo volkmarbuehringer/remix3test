@@ -24,6 +24,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | A frame-shell page shows the breadcrumb/page name twice on a full GET (top-level Layout also renders one) | `references/frame-shell-duplicate-breadcrumb.md` |
 | A frame editor's "create new" mode has no server id and navigation would lose typed content | `references/frame-unsaved-draft.md` |
 | A `session.flash` PRG message never appears in a frame fragment, or a test reads an empty session | `references/session-flash-frames.md` |
+| A client-owned attribute on a reconciled element (root `data-theme`, `open`, custom) reverts after a frame/document reload | `references/preserve-client-owned-attrs.md` |
 
 - `references/frame-navigation.md` — the frame navigation/forms contract and escape hatches.
 - `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps.
@@ -34,6 +35,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - `references/frame-shell-duplicate-breadcrumb.md` — suppressing the top-level Layout's breadcrumb for shell pages.
 - `references/frame-unsaved-draft.md` — `sessionStorage` draft persistence for id-less "create new" editors.
 - `references/session-flash-frames.md` — flash banner in fragment render paths + parsing the signed session cookie in tests.
+- `references/preserve-client-owned-attrs.md` — keeping client-owned attributes (root theme) across reloads via `data-rmx-preserve-attrs`.
 
 ## Core Invariants
 

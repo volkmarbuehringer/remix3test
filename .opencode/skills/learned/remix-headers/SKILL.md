@@ -39,6 +39,17 @@ Similarly, `Content-Length` accepts `number` directly — no `String()` wrapping
 headers.contentLength = buffer.length // ✅ not String(buffer.length)
 ```
 
+`ContentType` (subpath `remix/headers/content-type`) is **browser-safe** — importable from
+clientEntry-shared modules — so prefer `ContentType.from(value).mediaType` over a hand-rolled
+`split(';')` for MIME/media-type normalization (hardened for quoted/parameterized values,
+#11901). It preserves the media type's original case, so lower-case it yourself:
+
+```ts
+import { ContentType } from 'remix/headers/content-type'
+
+let mediaType = ContentType.from('text/plain; charset=utf-8').mediaType // 'text/plain'
+```
+
 ## References
 
 - `node_modules/remix/src/headers/README.md` — full docs with per-header examples
