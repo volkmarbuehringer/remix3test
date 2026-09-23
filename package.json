@@ -43,7 +43,7 @@
     "@types/pg": "^8.23.1",
     "mastra": "^1.30.0",
     "openspec": "latest",
-    "oxfmt": "^0.68.0",
+    "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
     "oxlint-tsgolint": "^7.0.2002",
     "playwright": "^1.63.0",
