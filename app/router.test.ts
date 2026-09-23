@@ -288,3 +288,43 @@ describe('CSRF protection', () => {
     )
   })
 })
+
+// ---------------------------------------------------------------------------
+// Document shell — client-owned theme attribute
+// ---------------------------------------------------------------------------
+
+describe('Document shell — client-owned theme attribute', () => {
+  it('marks data-theme for preservation across document reconciliation', async () => {
+    // Arrange & Act: fetch the full document (not a fragment).
+    let response = await router.fetch(`${BASE}/`)
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    // Assert: <html> opts `data-theme` into frame/document reconciliation.
+    // The theme is client-owned (inline script + ThemeToggle write
+    // `document.documentElement`), so without `data-rmx-preserve-attrs`
+    // (remix #11895) a reconcile restores the server-rendered value and wipes
+    // an OS-preference theme that never wrote the cookie.
+    assert.ok(
+      html.includes('data-rmx-preserve-attrs="data-theme"'),
+      'document <html> must preserve data-theme across reconciliation',
+    )
+  })
+
+  it('keeps the preserve list while seeding the cookie-selected theme', async () => {
+    // Arrange & Act: request the document with an explicit dark-theme cookie.
+    let response = await router.fetch(`${BASE}/`, {
+      headers: { Cookie: 'theme=dark' },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+
+    // Assert: the preserve list is independent of the selected theme, and the
+    // cookie still seeds the initial value so the first paint matches.
+    assert.ok(
+      html.includes('data-rmx-preserve-attrs="data-theme"'),
+      'preserve list must be present regardless of the selected theme',
+    )
+    assert.ok(html.includes('data-theme="dark"'), 'cookie theme should seed the initial value')
+  })
+})

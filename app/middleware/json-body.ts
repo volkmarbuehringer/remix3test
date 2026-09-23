@@ -1,4 +1,5 @@
 import { createContextKey, type Middleware } from 'remix/router'
+import { ContentType } from 'remix/headers/content-type'
 
 const JsonBody = createContextKey<unknown>()
 
@@ -33,9 +34,12 @@ export function jsonBody(options?: { maxSize?: number }): Middleware<{
   property: 'jsonBody'
 }> {
   return async (context, next) => {
-    let contentType = context.request.headers.get('Content-Type') ?? ''
+    let contentType = context.request.headers.get('Content-Type')
 
-    if (contentType.includes('application/json')) {
+    // Match the parsed media type, not a substring: `includes('application/json')`
+    // also accepts `application/json-patch+json` and friends, whose bodies are not
+    // plain JSON. `ContentType` ignores parameters (`;charset=utf-8`).
+    if (contentType != null && ContentType.from(contentType).mediaType === 'application/json') {
       if (options?.maxSize) {
         let contentLength = Number(context.request.headers.get('Content-Length')) || 0
         let isChunked =

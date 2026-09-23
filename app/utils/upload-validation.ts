@@ -7,6 +7,8 @@
  * remix/ui clientEntry.
  */
 
+import { ContentType } from 'remix/headers/content-type'
+
 /** Maximum size of a single uploaded file (bytes). Mirrors the server cap. */
 export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
@@ -44,9 +46,14 @@ export const ALLOWED_MIME_TYPES = new Set([
  * `;charset=utf-8`. Runtimes differ here — Bun's `File` constructor appends a
  * charset to text types — and a client may send a parameterized part header, so
  * the allowlist must compare the media type only.
+ *
+ * Parsing goes through the vendor `ContentType` parser (hardened for quoted and
+ * parameterized values) instead of a hand-rolled `split(';')`, so a malformed or
+ * quoted parameter cannot leak into the allowlist comparison. The parser keeps
+ * the media type's original case, so lower-case it here.
  */
 export function normalizeMimeType(mime: string): string {
-  return (mime.split(';')[0] ?? '').trim().toLowerCase()
+  return ContentType.from(mime).mediaType?.toLowerCase() ?? ''
 }
 
 type ClientFile = {

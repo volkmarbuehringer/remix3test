@@ -42,7 +42,12 @@ export function Document(handle: Handle<DocumentProps>) {
     let isDark = theme === 'dark'
 
     return (
-      <html lang="de" data-theme={isDark ? 'dark' : undefined} mix={css({ overflowY: 'scroll' })}>
+      <html
+        lang="de"
+        data-rmx-preserve-attrs="data-theme"
+        data-theme={isDark ? 'dark' : undefined}
+        mix={css({ overflowY: 'scroll' })}
+      >
         <head>
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
