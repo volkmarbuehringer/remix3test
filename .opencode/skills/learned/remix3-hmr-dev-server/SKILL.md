@@ -20,6 +20,8 @@ origin: auto-extracted
 
 **Re-validated (2026-09-22):** build installed as `525ce2f6f` (installable dist of source `a1057f6`). Upstream landed **#11897 "Preserve auth flows through the HMR development proxy"** and **#11902 "Normalize HTTP/2 request authority and proxy headers"**; the app adopted both — see the "Auth flows through the proxy" section below and the `trustProxy: isHmr` change in `server.ts`. The old "Redirect-following false 500" workaround (bottom section) is now **obsolete** — kept only as history.
 
+**Re-validated (2026-09-23):** build installed as `27393da759` (installable dist of source `6aad078`; `remix` version string now `3.0.0-rc.3`), bumped from `a4d62e19` (dist of `9f27468`). The range held exactly three upstream commits: **#11913 "Preserve hoisted client entry functions during HMR"** — the only app-affecting one, see section 6 — plus two `.github/workflows`-only bot commits (#11864 context delivery, GPT-6 Astra review model) that this app does not consume (its only workflow is `ci.yml.disabled`). All five node-hmr claims hold unchanged (`index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,877`); the `fingerprint cannot be used with watch mode` guard moved once more to `@remix-run/assets/dist/lib/asset-server.js:779` (was 775).
+
 ## Problem
 
 Hooking the upstream HMR template into this app produced four non-obvious failures:
@@ -130,6 +132,20 @@ const handler = createRequestListener(
 
 The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR proxy, so it needs no equivalent. `#11902` also changed `fetch-proxy` to strip hop-by-hop/`Connection`-listed headers and `Content-Length`, and `request-listener` to reject conflicting HTTP/2 `Host`/`:authority` with a 400 — no app change required.
 
+### 6. Hoisted function declarations after a component's `return` — upstream #11913, fixed in build `27393da759`
+
+Before that build, `getSetupStatements()` sliced the component body at the first `return` (`statements.slice(0, returnIndex)`), so **every `function` declared after `return <renderFn>` was dropped from the transformed module** while its call sites in the render body survived unrewritten — `ReferenceError: <name> is not defined` the moment the handler ran. This bites from the *first page load* under `npm run hmr` (the browser loader transforms every served module, not only edited ones); `npm run dev`, `npm start`, `npm test` and the Bun entries never run the transform, because `app/assets.ts` installs `uiHmr()` only when `isDevelopment && REMIX_NODE_HMR`.
+
+Measured on this app pre-fix: **32 handlers in 9 modules** — `app/ui/appointtype-panel.browser.tsx` (8), `app/ui/appointment-grid.browser.tsx` (7), `admin-{appointments,offering-configs,offerings,resources,uploads,users}-context-menu.tsx` and `clients-context-menu.tsx` (2–3 each, all `clientEntry` menus that declare `handleXAction()` after the `return`). To check any build, run the transform the loader runs and look for a binding per render-referenced handler:
+
+```js
+let { code } = transformComponentsForBrowser(source, { importSource: 'remix', moduleUrl: '/app/…' })
+// per handler name: bound in the emitted module?
+new RegExp(`function\\s+${name}\\b`).test(code) || new RegExp(`__s__\\.${name}\\s*=`).test(code)
+```
+
+Post-fix the declaration is kept, `__s__.handleX = handleX;` is hoisted ahead of the render registration, and every render reference is rewritten to `__s__.handleX` (verified: 32/32 handlers bound, 0 dangling). #11913 also folds the post-`return` declaration bodies into `getSetupHash`, so editing such a helper now invalidates the component's setup state instead of silently reusing it. On a pre-fix build the options are to bump the pin or move the declarations above the `return` (declarations *before* the `return` were always instrumented correctly). Related `var` traps covered by the same fix + tests: a `var` initializer before the `return` must still run after the hoisted assignment, and an uninitialized `var x` must not reset `__s__.x` to `undefined`.
+
 ## Smoke-Testing the HMR Loop
 
 - **Restart vs update markers** — a server-module content edit logs `restart <file>` (child re-emits ready); a `.browser.*` edit logs `hmr update <file>` (no restart, event goes to the browser channel). Assert on these to prove which path fired. Verdicts in the upstream CSS/SVG skills must be re-checked line-by-line against the installed `@remix-run/*` packages since pre-release churn is ongoing.
@@ -142,4 +158,5 @@ The Bun entry (`server.bun.ts`) does not use `createRequestListener` or the HMR 
 
 - Adding or changing the HMR / asset-server / dev-server config in this app
 - Debugging `npm run hmr` symptoms: requests hang (ready-gate), proxy returns 500 (`ECONNREFUSED` path), `EADDRINUSE` on the app port (orphan/`HOST` leak), or "Failed running server.ts. Waiting for file changes before restarting..." stalls
+- A handler/button in a `npm run hmr` session throwing `ReferenceError: <name> is not defined` — hoisted declarations after the component `return` were dropped on pre-`27393da759` builds (section 6)
 - Writing dev-server smoke tests and wondering why a `touch`-only change doesn't restart the server
