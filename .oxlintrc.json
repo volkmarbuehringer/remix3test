@@ -38,6 +38,7 @@
     "no-unused-expressions": "off",
     "no-useless-escape": "off",
     "no-async-promise-executor": "off",
+    "no-control-regex": "off",
     "no-useless-catch": "off",
     "jsdoc/require-yields": "off"
   },
@@ -82,7 +83,7 @@
         "./scripts/oxlint-plugins/canonical-header-names-plugin.ts"
       ],
       "rules": {
-        "remix-headers/canonical-header-name": "warn",
+        "remix-headers/canonical-header-name": "error",
         "remix-style/prefer-const-module-scope": "error",
         "remix-style/prefer-let-locals": "error",
         "no-var": "error",
