@@ -22,7 +22,7 @@ return new Response(
 )
 ```
 
-The live 500 handler is `server.ts:38` (the `catch` in the request listener) — mirror it when adding sibling error pages.
+The live 500 handler is `app/utils/server-handler.ts:25` (the `catch` in the request listener) — mirror it when adding sibling error pages.
 
 ### Full document vs fragment
 
@@ -69,4 +69,4 @@ This is most commonly encountered when extracting template strings into locale/i
 ## References
 
 - `node_modules/remix/src/html-template/README.md` — full API docs
-- `server.ts:38` — the live 500 handler in this repo
+- `app/utils/server-handler.ts:25` — the live 500 handler in this repo

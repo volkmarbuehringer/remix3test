@@ -6,7 +6,7 @@ origin: manual
 
 # Remix 3 Textarea: `diffChildren` Bulk-Clear Wiped Unchanged `defaultValue`/`value`
 
-**Status: RESOLVED upstream.** Fixed by `remix-run/remix` commit `f5b5c5340` ("Preserve textarea values on first update after hydration", PR #11880). The installed `@remix-run/ui` guard now reads `reconcile.ts:1725-1734`: the bulk-clear fast path requires `curr.length > 0` (it only fires when a committed child is actually being removed). Keep this delta only as history/context — do not re-apply the workaround.
+**Status: RESOLVED upstream.** Fixed by `remix-run/remix` commit `f5b5c5340` ("Preserve textarea values on first update after hydration", PR #11880). The installed `@remix-run/ui` guard now reads `reconcile.ts:1736-1742`: the bulk-clear fast path requires `curr.length > 0` (it only fires when a committed child is actually being removed). Keep this delta only as history/context — do not re-apply the workaround.
 
 ## The original bug (for context)
 

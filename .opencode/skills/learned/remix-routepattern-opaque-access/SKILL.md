@@ -7,7 +7,7 @@ origin: auto-extracted
 # RoutePattern Opaque Type — Migration Warning
 
 **Extracted:** 2026-06-19
-**Revalidated:** 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/route-pattern` d7eb6b18, `src/lib/route-pattern.ts:80`).
+**Revalidated:** 2026-09-24 against `remix` 3.0.0-rc.3 (build `3e516fcc2`, source `9ed3a5c`; `@remix-run/route-pattern` 0.24.1, `src/lib/route-pattern.ts:80`).
 **Context:** When a remix update makes `RoutePattern` opaque (hides internal `pathname.tokens` / `_parts`)
 
 ## Problem
@@ -21,7 +21,7 @@ let tokens = route.pattern.pathname.tokens
 
 ## Migration
 
-Migrating from remix v3.0.0-beta.4 to beta.5+ made RoutePattern opaque (still true on the current 3.0.0-rc.2). The public API surface is:
+Migrating from remix v3.0.0-beta.4 to beta.5+ made RoutePattern opaque (still true on the current 3.0.0-rc.3). The public API surface is:
 - `route.pattern.source` — normalized string (also `toString()`)
 - `route.pattern.toJSON()` — serialized `protocol`/`hostname`/`port`/`pathname`/`search` parts
 - `getRoutePatternCaptures(route.pattern)` — `{ part: 'hostname' | 'pathname', type: ':' | '*', name, optional }[]` in source order (the supported way to inspect variables/wildcards without touching internals)

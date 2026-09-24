@@ -10,6 +10,8 @@ origin: auto-extracted
 **Extracted:** 2026-09-19
 **Context:** Adding Bun as a second runtime to this Remix 3 + pnpm app (remix `3.0.0-rc.3`, build `95e5689cbdf1ef3caaad463093f7d8`; `@remix-run/ui` 0.10.0; Bun 1.4.2). Node stays runtime #1; Bun is opt-in via `pnpm dev:bun` / `start:bun` / `test:bun`. Re-validate version-pinned claims against `node_modules/.pnpm/@remix-run+*` and the installed Bun.
 
+**Re-validated (2026-09-24):** against the now-installed build `3e516fcc2` (installable dist of source `9ed3a5c`; `remix` `3.0.0-rc.3`, `@remix-run/ui` `0.10.0`, Bun `1.4.2`). All vendor claims hold: `IS_BUN = typeof process.versions.bun === 'string'` at `@remix-run/test` `src/lib/runtime.ts:2`; the Bun discovery branch uses Bun's native `Glob` because `fs.promises.glob` follows pnpm symlink cycles (`src/cli.ts:449-461`); `importModule()` returns through `import.meta.resolve` before the `@remix-run/node-tsx` import under Bun (`src/lib/import-module.ts:29-38`); the V8 coverage path is gated on `!IS_BUN` (`src/lib/worker-server.ts:25,138`); `ssrSignal` is still a frozen plain-object `AbortSignal` stand-in (`@remix-run/ui` `dist/server/stream.js:52-68`); and `ContentType.from()` + `.mediaType` exist (`@remix-run/headers` `src/lib/content-type.ts:85,49`). The `test:bun` script still points at the dist CLI (`package.json`: `NODE_ENV=test bun node_modules/remix/dist/cli-entry.js test`).
+
 ## Problem
 Bun accepts Fetch handlers directly (no Node adapter) and `@remix-run/test` already has `IS_BUN` branches, so the migration looks trivial. It isn't: Bun's runtime is stricter than Node's, and pnpm's bin shims silently reintroduce Node. Each divergence below caused a real failure.
 

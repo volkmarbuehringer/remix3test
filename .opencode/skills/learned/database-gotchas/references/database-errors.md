@@ -8,15 +8,16 @@ Use this skill when handling PostgreSQL errors in Remix controllers, especially:
 - Converting JSON error responses to page re-renders with `formError`
 - Logging server-side errors for debugging
 
-## The Problem: DataTableAdapterError Wrapping
+## The Problem: DataTableDatabaseError Wrapping
 
-Remix's `@remix-run/data-table-postgres` adapter wraps native `pg` errors in a `DataTableAdapterError`. The original PostgreSQL error details (including the error `code`) are nested in the `.cause` property:
+`@remix-run/data-table`'s `Database` layer (`#executeOperation` in `@remix-run/data-table/src/lib/database.ts`) wraps native `pg` errors in a `DataTableDatabaseError`. The original PostgreSQL error details (including the error `code`) are nested in the `.cause` property:
 
 ```typescript
 try {
   await db.deleteMany(resources, { where: { id } })
 } catch (error: unknown) {
-  // error.code = 'DATA_TABLE_ADAPTER_ERROR'     ← adapter wrapper
+  // error.name = 'DataTableDatabaseError'
+  // error.code = 'DATA_TABLE_DATABASE_ERROR'    ← data-table wrapper
   // error.cause.code = '23001'                   ← actual PG error
 }
 ```
@@ -40,9 +41,9 @@ Always check BOTH `23001` and `23503`. `ON DELETE RESTRICT` produces `23001`, no
 
 > _Consolidated from: remix-data-table-adapter-error-unwrapping_
 
-### DataTableAdapterError: Additional API differences
+### DataTableDatabaseError: Additional API differences
 
-When using `Database.exec()` from `remix/data-table` (via `createPostgresDatabaseAdapter`), the `DataManipulationResult` returned differs from raw `PoolQueryResult`:
+When using `Database.exec()` from `remix/data-table` (via `createPostgresDatabase`), the `DataManipulationResult` returned differs from raw `PoolQueryResult`:
 
 - **`result.rows` is nullable** — always use `result.rows ?? []`
 - **`result.affectedRows`** replaces `PoolQueryResult.rowCount` — use `result.affectedRows ?? 0`

@@ -2,9 +2,11 @@
 
 **Source:** `remix3-jsx-attribute-rename-blind-spot`
 
+**Validated:** 2026-09-24 against `remix` 3.0.0-rc.3, installable build `3e516fcc2` (source `9ed3a5c`) — `ElementProps = Record<string, any>` at `@remix-run/ui` `src/runtime/jsx.ts:17`; `FormHTMLProps` carries `data-rmx-target` (`src/runtime/dom.ts:2305`); the runtime still reads `data-rmx-*` at `dist/runtime/navigation.js:417-437`.
+
 ## Problem
 
-`remix/ui`'s automatic JSX runtime types the `jsx()` factory's props as `ElementProps = Record<string, any>` (`packages/ui/src/runtime/jsx.d.ts`). So **every attribute is accepted** on any intrinsic element — the strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX.
+`remix/ui`'s automatic JSX runtime types the `jsx()` factory's props as `ElementProps = Record<string, any>` (`packages/ui/src/runtime/jsx.ts:17` — the installed vendor copy is `@remix-run/ui` `src/runtime/jsx.ts`). So **every attribute is accepted** on any intrinsic element — the strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX.
 
 Consequences:
 - Attribute renames, typos, or removed attributes **compile without error**
@@ -17,10 +19,12 @@ Consequences:
 
 When a runtime contract changes (attribute renamed, prop removed), verify at the **runtime** layer, not via `tsc` or render assertions:
 
-1. **Confirm the installed runtime's actual behavior** — grep the installed package, not the source:
+1. **Confirm the installed runtime's actual behavior** — grep the *active* installed package, not the source and not a stale `node_modules/.pnpm` copy (several old `@remix-run/*` builds linger there; resolve the one `remix` actually links):
    ```bash
-   rg -n "getAttribute\('data-rmx" node_modules/@remix-run/ui/dist/runtime/navigation.js
+   UI=$(dirname "$(node -e "console.log(require.resolve('@remix-run/ui/package.json',{paths:[require.resolve('remix/package.json')]}))")")
+   rg -n "getAttribute\('data-rmx" "$UI/dist/runtime/navigation.js"
    ```
+   On build `3e516fcc2` this reads `data-rmx-target`/`-src`/`-reset-scroll`/`-history` at `navigation.js:417-437` (plus `data-rmx-document` and `data-rmx-preserve-dom` from `diff-dom.ts:31`), so the `rmx-*` → `data-rmx-*` rename still holds.
 2. **Sweep for stale attributes** with a negative-lookbehind regex (excludes already-renamed `data-rmx-*`):
    ```bash
    rg -n '(?<!data-)rmx-(target|src|document|history|reset-scroll|preserve-dom)' app/ -P

@@ -3,7 +3,7 @@
 **Source:** `remix3-two-tier-ip-trust-model`
 
 **Extracted:** 2026-06-26
-**Revalidated:** 2026-09-11 against `remix` 3.0.0-rc.2 (`@remix-run/node-fetch-server` d7eb6b18, `src/lib/request-listener.ts:440`).
+**Revalidated:** 2026-09-24 against `remix` 3.0.0-rc.3 (build 3e516fcc2, source 9ed3a5c; `@remix-run/node-fetch-server` 0.14.1, `src/lib/request-listener.ts:455`).
 **Context:** Remix 3 apps where client IP is used for both security-critical checks (localhost guards, rate limiting) and audit logging.
 
 ## Problem

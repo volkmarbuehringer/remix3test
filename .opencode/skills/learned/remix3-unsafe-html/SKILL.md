@@ -29,7 +29,7 @@ Enforcement sites in the installed source:
 
 - `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/to-vnode.ts:89-90` — `parseHostProps` calls `normalizeUnsafeHTMLProps`
 - `.../src/runtime/unsafe-html.ts:62-74` — the invariants (`Invalid innerHTML prop`, `Invalid srcDoc prop`, `Invalid srcdoc prop`, `Invalid outerHTML prop`)
-- `.../src/server/stream.ts:593` — the SSR path applies the same normalization
+- `.../src/server/stream.ts:607` — the SSR path applies the same normalization
 - `.../src/runtime/core/mix.ts:92-109` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped with a console error
 
 ## Solution

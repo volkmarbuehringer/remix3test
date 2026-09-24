@@ -7,7 +7,7 @@
 
 ## Problem
 
-`remix/ui` ships a global reset in the `rmx-reset` cascade layer:
+The app injects a global reset into the `rmx-reset` cascade layer (`app/ui/theme/runtime.ts` + `app/ui/theme/layers.ts`):
 
 ```css
 :where(img, svg) { display: block; }

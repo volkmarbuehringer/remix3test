@@ -17,13 +17,13 @@ DDL migrations (CREATE TABLE, ALTER TABLE, CREATE INDEX, etc.) are slow and acqu
 
 ## Current State in newapp (2026-08)
 
-The manual dedicated-`Client` migration path and the data-table migration runner are **retired in newapp**. newapp constructs the postgres database config-backed in `app/db.ts` and bootstraps the schema from an idempotent `db/schema.sql`:
+The manual dedicated-`Client` migration path and the data-table migration runner are **retired in newapp**. newapp builds the postgres database from a **caller-owned** `pg.Pool` in `app/db.ts` (so the pool can attach an `'error'` handler) and bootstraps the schema from an idempotent `db/schema.sql`:
 
 - `initializeAppDatabase()` runs `db.executeScript(await loadAppSchema())` then `seed(db)`. `db/schema.sql` uses `CREATE TABLE/INDEX/EXTENSION IF NOT EXISTS`, so startup is a no-op when tables already exist.
 - There is **no migration journal** and no checksum tracking. `db.migrate()`/`db.reset({ migrations, seed })`/`loadAppMigrations()` are no longer used; `db/migrations/` and `remix.json`'s `db.migrations.directory` were removed.
-- `db.executeScript()` runs the multi-statement script via the driver's simple-query path on the config-backed pool, so DDL inherits the pool `statement_timeout: 30000`. `db.exec(sql, [])` cannot be used instead — it routes through the parameterized extended protocol, which rejects multi-statement scripts.
+- `db.executeScript()` runs the multi-statement script via the driver's simple-query path on the caller-owned app pool, so DDL inherits the pool `statement_timeout: 30000`. `db.exec(sql, [])` cannot be used instead — it routes through the parameterized extended protocol, which rejects multi-statement scripts.
 - `CREATE EXTENSION IF NOT EXISTS` is **not advisory-lock-serialized** (the old migration path acquired `pg_advisory_lock`). Two instances cold-booting an empty catalog can race and one fails with a `pg_extension_name_index` duplicate-key error; the whole implicit-transaction script rolls back, so a single retry in `initializeAppDatabase()` is a safe no-op. `CREATE TABLE/INDEX IF NOT EXISTS` are catalog-lock-serialized and safe under concurrency.
-- `test/setup.ts` uses `db.wipe()` then `initializeAppDatabase()` to build each fresh test DB.
+- `test/setup.ts` creates a fresh test DB, drops/recreates `public` through a throwaway pool (config-only `db.wipe()` is unavailable on the caller-owned pool), then calls `initializeAppDatabase()`.
 
 So the dedicated-client workaround below remains a **fallback pattern** for projects that still run the data-table migration runner (or need atomic cross-statement DDL on a dedicated connection with `statement_timeout: 0`) when the pool `statement_timeout` is hit on slow hardware — not the default newapp approach.
 
@@ -42,11 +42,11 @@ So the dedicated-client workaround below remains a **fallback pattern** for proj
 
 Config-backed construction makes the driver own the pool internally (`this.#client = new pg.Pool(config)`), so `wipe()`/`reset()`/`close()` work — but the driver attaches **no `pool.on('error')` listener** and exposes no accessor (all 760 lines of the postgres driver keep `#client` private). Consequences:
 
-- The old manual-pool code attached a listener so server-side terminations of idle connections (Postgres restart, RDS failover, `pg_terminate_backend`) logged instead of crashing the process. That safeguard is gone with config-backed construction.
-- Passing your own `pg.Pool` to `createPostgresDatabase(pool)` re-enables the listener but disables `wipe()`/`reset()` (`#configOrThrow` throws "requires config-based construction"), breaking the test-isolation design.
+- The driver attaches no listener, so under config-backed construction server-side terminations of idle connections (Postgres restart, RDS failover, `pg_terminate_backend`) escape as an uncaught `'error'` and can crash the process. newapp now sidesteps this by building the pool itself and attaching a listener.
+- Passing your own `pg.Pool` to `createPostgresDatabase(pool)` re-enables the listener but disables `wipe()`/`reset()` (`#configOrThrow` throws "requires config-based construction"), which is why `test/setup.ts` resets the schema through a throwaway pool instead.
 - The vendor CLI path (`createConfiguredDatabase` in `packages/cli/src/lib/commands/db.ts`) is config-backed too and has the same behavior — this is vendor-consistent, not a newapp regression.
-- Safe in newapp tests because `test/setup.ts` calls `db.wipe()` (driver closes the pool before terminating backends) then closes the app pool before the force-drop.
-- If an unhandled pool `'error'` crash surfaces in production, the fix is a driver change (attach a listener or add an `onPoolError` option to `PostgresDatabaseDriverOptions`), not app-side code.
+- Safe in newapp tests because `test/setup.ts` builds a fresh test DB, resets `public` through a throwaway pool, then closes the app pool before the force-drop.
+- If an unhandled pool `'error'` crash surfaces under config-backed construction, the fix is either an app-side caller-owned pool with a listener (newapp's choice) or a driver change (add an `onPoolError` option to `PostgresDatabaseDriverOptions`).
 
 ## Fallback Solution
 

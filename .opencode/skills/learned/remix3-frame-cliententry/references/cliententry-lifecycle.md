@@ -236,7 +236,7 @@ export const MyEditor = clientEntry(
 )
 ```
 
-The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/frame.ts:912`, dispatched by `completeReload` defined at `:907`; the inherited-reload variant dispatches at `:947`). At this point `handle.frame.src` contains the just-rendered URL.
+The `reloadComplete` event fires in the `finally` block after the frame's new content is rendered (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/frame.ts:905`, dispatched by `completeReload` defined at `:900`; the inherited-reload variant dispatches at `:940`). At this point `handle.frame.src` contains the just-rendered URL.
 
 ### Frame-Only Navigation (replace `window.location.href`)
 
@@ -292,15 +292,15 @@ Use when a `clientEntry` inside a `<Frame>` must reload data on frame URL change
 
 **Context:** A `clientEntry` needs a global `document`/`window` listener (e.g., a delegated `dragstart` handler for sidebar rows that live outside the entry's own JSX). This records the *timing* trap.
 
-> Line references below revalidated 2026-09-18 against `remix` 3.0.0-rc.2 (`@remix-run/ui` `03cd3404` / installable build `3e94ca8a6`); the installed `@remix-run/ui` source (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/`) is in sync for these files.
+> Line references below revalidated 2026-09-24 against `remix` 3.0.0-rc.3 (`@remix-run/ui` source `9ed3a5c` / installable build `3e516fcc2`); the installed `@remix-run/ui` source (`node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/`) is in sync for these files.
 
 ### `ref()` does fire on hydration — the real trap is deferred hydration
 
 A `document.addEventListener` inside a `ref()` on a stable root can *appear* never to register, but the cause is not SSR-vs-hydration insertion. Verified against the pinned vendor tree:
 
-- `ref()` is driven by the mixin `insert` event (`packages/ui/src/runtime/mixins/ref-mixin.ts:15`).
+- `ref()` is driven by the mixin `insert` event (`packages/ui/src/runtime/mixins/ref-mixin.ts:16`).
 - During hydration the reconciler adopts a matching SSR element and calls `bindNodeMixRuntime(...)` **without** `reclaimed` (`packages/ui/src/runtime/reconcile.ts:931`, `:970`), so `insert` is dispatched on the client and `ref()` fires at hydration.
-- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:940`, `:2260`) for mixin-persisted nodes — not for plain hydration.
+- The `reclaimed` variant, which skips `insert`, is only selected by `reclaimPersistedMixinNode` (`runtime/reconcile.ts:940`, `:2229`) for mixin-persisted nodes — not for plain hydration.
 
 What actually breaks is **timing**. Client entries hydrate lazily (deferred import map, notably slow in Firefox — see `remix3-client-entries` (`references/firefox-single-import-map.md`)), so no listener exists until the entry's factory body and first render have run. A `setTimeout(0)` scheduled earlier in the page lifecycle, or a synthetic event dispatched as soon as the SSR-rendered markup appears, fires before that. The same applies to a *manual* check: dispatching events immediately after load proves nothing.
 

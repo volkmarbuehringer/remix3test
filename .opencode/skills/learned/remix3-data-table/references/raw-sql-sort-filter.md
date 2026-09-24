@@ -1,7 +1,7 @@
 # Safe Raw-SQL Sort + Filter
 
 **Extracted:** 2026-09-05
-**Revalidated:** 2026-09-12 against the pinned `remix` 3.0.0-rc.2 (build `c2afabc`) — direction compilation is now vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838).
+**Revalidated:** 2026-09-24 against the pinned `remix` 3.0.0-rc.3 (build `3e516fcc2`, source `9ed3a5c`) — direction compilation is now vendor-covered by `compileOrderByDirection()` (`remix/data-table/sql-helpers`, added upstream in #11838).
 
 ## Problem
 A raw-SQL grid (`db.exec` + `queryRows`/`queryRow` + the `sql` tag) has no typed `orderBy`/`where` object, so sort and filter columns come straight from the URL (`?sort=`, `?filter=`). Two hazards:

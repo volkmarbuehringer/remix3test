@@ -26,9 +26,10 @@ handle.queueTask(() => {
 
 ## Why `queueTask`, not `requestAnimationFrame`
 
-- `queueTask` is documented by the vendor specifically for "focusing elements, scrolling, or
-  measuring dimensions after conditional rendering" (see Authority below). `rAF` is a paint-timing
-  primitive that says nothing about whether the Frame's DOM mutation has flushed.
+- `queueTask` is documented by the vendor as running "a task during the commit after the next
+  update", for when "DOM measurement or another update must happen as part of that flush" (see
+  Authority below). `rAF` is a paint-timing primitive that says nothing about whether the Frame's
+  DOM mutation has flushed.
 - `queueTask` is **abortable on re-render**: rapid `draft → cancel` in `appointment-grid` previously
   let the `rAF` callback fire and steal focus onto a now-removed input. With `queueTask` the task is
   cancelled when the component re-renders.
@@ -56,12 +57,12 @@ This is NOT the same as the rAF anti-pattern and should not be "fixed" into `que
 
 ## Authority
 
-- Vendor doc: `node_modules/remix/src/ui/README.md` (component setup, state, lifecycle, updates,
-  `queueTask`) and the SKILL.md rule — *"do DOM-sensitive work in event handlers or `queueTask(...)`,
-  not in render"*. The vendor's guidance is: *"Use `handle.queueTask()` in event handlers for DOM
-  operations that need to happen after the DOM has changed from the next update. This is the pattern
-  for operations like focusing elements, scrolling, or measuring dimensions after conditional
-  rendering."* The modal and scroll examples there are the canonical forms.
+- Vendor guide: `node_modules/remix/guides/05-interactivity.md` — *"If rendering discovers work
+  that should run after the commit, schedule that work with `handle.queueTask()`"* (`:234-235`) and
+  *"`handle.queueTask(task)` runs a task during the commit after the next update. Use it when DOM
+  measurement or another update must happen as part of that flush"* (`:279-280`); the
+  `scrollIntoView` example at `:286-288` is the canonical form. The installed `Handle` type
+  documents the same contract at `@remix-run/ui/src/runtime/component.ts:33-51`.
 - Since #11795, `handle.update()`'s own docs say to call it from an event handler or `handle.queueTask()`
   — this skill is now the vendor-blessed remedy for the phase-guard throws (see `remix3-frame-cliententry`).
 

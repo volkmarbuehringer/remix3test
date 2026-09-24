@@ -54,12 +54,17 @@ Use `loadModule` for scoped JSX: `import { loadModule } from 'remix/node-tsx/loa
 # Run a single test file
 remix test "**/appointments*" --type=server
 
+# Run tests by partial filename (build 3e516fcc2 / remix 3.0.0-rc.3, upstream #11931)
+remix test appointments --type=server
+
 # Run all tests including browser and e2e
 remix test "**/*.test.*"
 
 # Run with coverage
 remix test --coverage
 ```
+
+> **Partial filenames (build `3e516fcc2`, upstream #11931):** a positional argument with no glob metacharacters (`*?[]{}()`), no path separator, and no `.ts`/`.tsx` extension expands to `**/*<name>*.test*.{ts,tsx}` — `remix test frame` runs `src/frame.test.ts` but not `src/frame.ts`. Arguments containing glob syntax or a path/extension pass through unchanged, multiple arguments select the union, and positional arguments (expanded or not) override `--glob.test`.
 
 Available `--type` values: `server`, `browser`, `e2e`.
 

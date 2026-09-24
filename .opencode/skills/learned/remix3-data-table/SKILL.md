@@ -32,5 +32,5 @@ This skill is the **index** for data-table deltas. For the framework API and can
 ## Related Skills
 
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas (`references/raw-sql-wire-honest-rows.md`)
-- `database-gotchas` — `DataTableAdapterError` cause unwrapping and PG error codes (`references/database-errors.md`)
+- `database-gotchas` — `DataTableDatabaseError` cause unwrapping and PG error codes (`references/database-errors.md`)
 - `exact-optional-property-types-migration` — the general `exactOptionalPropertyTypes` widening pattern

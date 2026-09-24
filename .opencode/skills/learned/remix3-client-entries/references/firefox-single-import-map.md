@@ -9,7 +9,7 @@
 
 Firefox allows **one** `<script type="importmap">` per document; any additional import maps are ignored (console warning: "Multiple import maps are not allowed."). Chromium merges multiple import maps.
 
-The remix/ui runtime (`@remix-run/ui@0.9.0`, from rc.2) renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (import-map-manager's `appendImportMapScript`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
+The remix/ui runtime (`@remix-run/ui@0.10.0`, remix 3.0.0-rc.3) renders the initial document's combined map via the `<ImportMap>` component, but for **deferred client entries** discovered in a frame response it appends a **second** `data-rmx-import-map` script (import-map-manager's `appendImportMapScript`). The second map holds the deltas for those client entries' dependencies (e.g. `lists-keyboard`, `button`, `drop-zone`, `sidebar-sync`).
 
 In Firefox the second map is ignored, so the affected client entries cannot resolve their bare-specifier imports. Symptoms:
 
@@ -21,7 +21,7 @@ Fresh-browser Chromium tests pass, so a "stale browser" diagnosis is wrong for F
 
 ## Solution
 
-Wire `run()` to the multiple-import-maps polyfill (the integration documented in the ui 0.9.0 changelog and `node_modules/remix/src/multiple-import-maps-polyfill/README.md`):
+Wire `run()` to the multiple-import-maps polyfill (the integration documented in `node_modules/remix/src/ui/README.md` under "Client Entry Loading" and `node_modules/remix/src/multiple-import-maps-polyfill/README.md`):
 
 ```tsx
 // app/assets/entry.tsx
