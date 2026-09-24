@@ -250,35 +250,42 @@ export async function claimUpload(
   userId: number,
   quotaBytes: number = uploadsPerUserQuotaBytes,
 ): Promise<boolean> {
-  let sizeRow = await queryRow(
-    db,
-    sql`SELECT size FROM uploads WHERE id = ${uploadId}`,
-    z.object({ size: z.string() }),
-  )
-  if (!sizeRow) return false
-  let newBytes = Number(sizeRow.size)
+  return await db.transaction(async (tx) => {
+    // Serialize concurrent claims for the same user. The quota check is a
+    // read-then-write, so without this lock two requests can both read the same
+    // pre-claim total, both pass, and between them exceed the per-user quota.
+    await tx.exec('SELECT pg_advisory_xact_lock($1::bigint)', [userId])
 
-  // Exclude the row itself so re-claiming an already-owned upload does not
-  // double-count it against the quota.
-  let totalRow = await queryRow(
-    db,
-    sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId} AND id <> ${uploadId}`,
-    z.object({ total: int8Aggregate }),
-  )
-  let currentBytes = totalRow?.total ?? 0
+    let sizeRow = await queryRow(
+      tx,
+      sql`SELECT size FROM uploads WHERE id = ${uploadId}`,
+      z.object({ size: z.string() }),
+    )
+    if (!sizeRow) return false
+    let newBytes = Number(sizeRow.size)
 
-  if (currentBytes + newBytes > quotaBytes) {
-    // Reject and remove the still-unclaimed row so a refused upload does not
-    // linger as an orphan until retention prunes it.
-    await db.exec('DELETE FROM uploads WHERE id = $1 AND uploaded_by IS NULL', [uploadId])
-    return false
-  }
+    // Exclude the row itself so re-claiming an already-owned upload does not
+    // double-count it against the quota.
+    let totalRow = await queryRow(
+      tx,
+      sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId} AND id <> ${uploadId}`,
+      z.object({ total: int8Aggregate }),
+    )
+    let currentBytes = totalRow?.total ?? 0
 
-  await db.exec(
-    `UPDATE uploads SET uploaded_by = $1 WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)`,
-    [userId, uploadId],
-  )
-  return true
+    if (currentBytes + newBytes > quotaBytes) {
+      // Reject and remove the still-unclaimed row so a refused upload does not
+      // linger as an orphan until retention prunes it.
+      await tx.exec('DELETE FROM uploads WHERE id = $1 AND uploaded_by IS NULL', [uploadId])
+      return false
+    }
+
+    await tx.exec(
+      `UPDATE uploads SET uploaded_by = $1 WHERE id = $2 AND (uploaded_by IS NULL OR uploaded_by = $1)`,
+      [userId, uploadId],
+    )
+    return true
+  })
 }
 
 /**
@@ -298,36 +305,42 @@ export async function claimUploads(
 ): Promise<boolean> {
   if (uploadIds.length === 0) return false
 
-  let sizeRows = await queryRows(
-    db,
-    sql`SELECT id, size FROM uploads WHERE id = ANY(${uploadIds}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
-    z.object({ id: z.number(), size: z.string() }),
-  )
-  if (sizeRows.length === 0) return false
+  return await db.transaction(async (tx) => {
+    // Same per-user serialization as claimUpload: a batch claim must not race a
+    // concurrent single or batch claim, or the quota check can be bypassed.
+    await tx.exec('SELECT pg_advisory_xact_lock($1::bigint)', [userId])
 
-  let batchBytes = sizeRows.reduce((sum, row) => sum + Number(row.size), 0)
+    let sizeRows = await queryRows(
+      tx,
+      sql`SELECT id, size FROM uploads WHERE id = ANY(${uploadIds}::int[]) AND (uploaded_by IS NULL OR uploaded_by = ${userId})`,
+      z.object({ id: z.number(), size: z.string() }),
+    )
+    if (sizeRows.length === 0) return false
 
-  let totalRow = await queryRow(
-    db,
-    sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId}`,
-    z.object({ total: int8Aggregate }),
-  )
-  let currentBytes = totalRow?.total ?? 0
+    let batchBytes = sizeRows.reduce((sum, row) => sum + Number(row.size), 0)
 
-  if (currentBytes + batchBytes > quotaBytes) {
-    // Reject and remove every still-unclaimed row so a refused batch does not
-    // linger as orphans until retention prunes them.
-    await db.exec('DELETE FROM uploads WHERE id = ANY($1::int[]) AND uploaded_by IS NULL', [
-      uploadIds,
-    ])
-    return false
-  }
+    let totalRow = await queryRow(
+      tx,
+      sql`SELECT COALESCE(SUM(size), 0) AS total FROM uploads WHERE uploaded_by = ${userId}`,
+      z.object({ total: int8Aggregate }),
+    )
+    let currentBytes = totalRow?.total ?? 0
 
-  await db.exec(
-    `UPDATE uploads SET uploaded_by = $1 WHERE id = ANY($2::int[]) AND (uploaded_by IS NULL OR uploaded_by = $1)`,
-    [userId, uploadIds],
-  )
-  return true
+    if (currentBytes + batchBytes > quotaBytes) {
+      // Reject and remove every still-unclaimed row so a refused batch does not
+      // linger as orphans until retention prunes them.
+      await tx.exec('DELETE FROM uploads WHERE id = ANY($1::int[]) AND uploaded_by IS NULL', [
+        uploadIds,
+      ])
+      return false
+    }
+
+    await tx.exec(
+      `UPDATE uploads SET uploaded_by = $1 WHERE id = ANY($2::int[]) AND (uploaded_by IS NULL OR uploaded_by = $1)`,
+      [userId, uploadIds],
+    )
+    return true
+  })
 }
 
 const uploadDownloadRowSchema = z.object({

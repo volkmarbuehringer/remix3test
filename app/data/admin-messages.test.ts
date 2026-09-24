@@ -40,6 +40,38 @@ describe('admin-messages', () => {
     assert.equal(match!.sender_id, testUserId)
   })
 
+  it('listMessages keeps messages whose sender account was deleted', async () => {
+    now = Date.now()
+    let user = await pool.query(
+      `INSERT INTO users (email, password_hash, name, role, created_at, updated_at)
+       VALUES ('test-orphan-msg@example.com', 'hash', 'Orphan Sender', 'customer', $1, $1)
+       RETURNING id`,
+      [now],
+    )
+    let orphanUserId = user.rows[0].id
+    let inserted = await pool.query(
+      `INSERT INTO messages (sender_id, content, created_at)
+       VALUES ($1, 'Orphaned Content Token', $2) RETURNING id`,
+      [orphanUserId, now],
+    )
+    let messageId = inserted.rows[0].id
+
+    // Deleting the user nulls messages.sender_id (ON DELETE SET NULL); the row
+    // must still be listed, with a null sender name, rather than dropped by an
+    // inner join.
+    await pool.query('DELETE FROM users WHERE id = $1', [orphanUserId])
+
+    try {
+      let rows = await listMessages(db, 10, 0, 'Orphaned Content Token')
+      let match = rows.find((r) => r.content === 'Orphaned Content Token')
+      assert.ok(match !== undefined, 'orphaned message must still be listed')
+      assert.equal(match!.sender_name, null)
+      assert.equal(match!.sender_id, null)
+    } finally {
+      await pool.query('DELETE FROM messages WHERE id = $1', [messageId])
+    }
+  })
+
   it('listMessages returns empty array for large offset', async () => {
     let rows = await listMessages(db, 10, 999999)
     assert.ok(Array.isArray(rows))

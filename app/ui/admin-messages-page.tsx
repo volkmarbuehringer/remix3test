@@ -28,11 +28,15 @@ const ADMIN_BASE = routes.admin.messages.index.href()
 
 interface MessageRow {
   id: number
-  sender_id: number
-  sender_name: string
+  /** Null when the sender account was deleted (FK is ON DELETE SET NULL). */
+  sender_id: number | null
+  sender_name: string | null
   content: string
   created_at: number
 }
+
+/** Shown in place of the sender name for a message whose account was deleted. */
+const DELETED_SENDER_LABEL = 'Gelöschter Nutzer'
 
 interface AdminMessagesPageProps {
   messages: MessageRow[]
@@ -458,8 +462,8 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
               <tbody>
                 {messages.map((msg) => (
                   <tr key={msg.id} mix={table.row}>
-                    <td mix={table.td} title={msg.sender_name}>
-                      {msg.sender_name}
+                    <td mix={table.td} title={msg.sender_name ?? DELETED_SENDER_LABEL}>
+                      {msg.sender_name ?? DELETED_SENDER_LABEL}
                     </td>
                     <td
                       mix={[table.td, contentTdStyle]}
@@ -490,7 +494,7 @@ export function AdminMessagesPage(handle: Handle<AdminMessagesPageProps>) {
                           method="POST"
                           action={routes.admin.messages.destroy.href({ id: msg.id })}
                           data-delete-form={msg.id}
-                          data-confirm={`Nachricht von ${msg.sender_name} löschen?`}
+                          data-confirm={`Nachricht von ${msg.sender_name ?? DELETED_SENDER_LABEL} löschen?`}
                           data-rmx-target={getSelfFrameTarget()}
                           mix={css({ margin: 0, padding: 0 })}
                         >

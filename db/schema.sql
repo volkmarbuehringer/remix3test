@@ -75,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_lists_title ON lists USING GIN (title gin_trgm_op
 CREATE INDEX IF NOT EXISTS lists_user_id_idx ON lists (user_id);
 CREATE INDEX IF NOT EXISTS lists_created_at_id_idx ON lists (created_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS lists_user_created_at_id_idx ON lists (user_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS lists_updated_at_id_idx ON lists (updated_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS resources (
   id SERIAL PRIMARY KEY,
@@ -215,6 +216,10 @@ CREATE TABLE IF NOT EXISTS webhook_requests (
 CREATE INDEX IF NOT EXISTS webhook_requests_created_at_idx ON webhook_requests (created_at DESC);
 CREATE INDEX IF NOT EXISTS webhook_requests_source_ip_idx ON webhook_requests (source_ip);
 CREATE INDEX IF NOT EXISTS webhook_requests_callback_received_at_idx ON webhook_requests (callback_received_at);
+-- The admin viewer searches payload::text with ILIKE; a trigram expression
+-- index lets that substring search avoid a full sequential scan.
+CREATE INDEX IF NOT EXISTS webhook_requests_payload_trgm_idx
+  ON webhook_requests USING GIN ((payload::text) gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS api_tokens (
   id SERIAL PRIMARY KEY,
@@ -225,7 +230,8 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   revoked_at BIGINT
 );
 
-CREATE INDEX IF NOT EXISTS api_tokens_token_hash_idx ON api_tokens (token_hash);
+-- token_hash already has a unique btree index from the UNIQUE constraint; a
+-- separate non-unique index on the same column would be redundant.
 CREATE INDEX IF NOT EXISTS api_tokens_user_id_idx ON api_tokens (user_id);
 
 CREATE TABLE IF NOT EXISTS mastra_workflow_snapshot (
@@ -274,6 +280,7 @@ CREATE TABLE IF NOT EXISTS chat_runs (
 
 CREATE INDEX IF NOT EXISTS chat_runs_user_id_idx ON chat_runs (user_id);
 CREATE INDEX IF NOT EXISTS chat_runs_thread_id_idx ON chat_runs (thread_id);
+CREATE INDEX IF NOT EXISTS chat_runs_created_at_idx ON chat_runs (created_at);
 
 -- Durable per-customer pointer to the /chat agent's currently pending gate (a
 -- tool decision or an ask_user question). One row per customer (upsert): the

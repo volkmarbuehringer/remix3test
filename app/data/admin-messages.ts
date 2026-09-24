@@ -6,8 +6,10 @@ import { queryRows } from './rows.ts'
 
 export interface AdminMessageRow {
   id: number
-  sender_id: number
-  sender_name: string
+  /** Null when the sender account was deleted (FK is ON DELETE SET NULL). */
+  sender_id: number | null
+  /** Null when the sender account was deleted; the grid renders a fallback. */
+  sender_name: string | null
   content: string
   created_at: number
 }
@@ -24,8 +26,8 @@ const SORT_EXPRS: Record<string, string> = {
 
 const adminMessageWireSchema = z.object({
   id: z.number(),
-  sender_id: z.number(),
-  sender_name: z.string(),
+  sender_id: z.number().nullable(),
+  sender_name: z.string().nullable(),
   content: z.string(),
   created_at: z.string(),
 })
@@ -53,7 +55,7 @@ export async function listMessages(
     rawSql(
       `SELECT m.id, m.sender_id, u.name AS sender_name, m.content, m.created_at
      FROM messages m
-     JOIN users u ON m.sender_id = u.id
+     LEFT JOIN users u ON m.sender_id = u.id
      ${where}
      ORDER BY ${orderCol} ${orderDir}, m.id DESC
      LIMIT $1
