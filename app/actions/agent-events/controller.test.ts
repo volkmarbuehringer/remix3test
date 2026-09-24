@@ -35,7 +35,7 @@ function streamOf(...chunks: unknown[]): AsyncIterable<unknown> {
 }
 
 // ── Fake classify agent ──────────────────────────────────────
-// Emulates what the real workflowAgent LLM returns for the fixed
+// Emulates what the real workflow classifier LLM returns for the fixed
 // test messages. Explicit per-message table — deterministic and
 // drift-free, rather than re-deriving intent from keywords.
 

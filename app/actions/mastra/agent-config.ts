@@ -64,9 +64,9 @@ export function withUserTools<T extends ToolsInput>(tools: T) {
 
 /**
  * The per-agent content of an app agent. Everything that differs between
- * `supportAgent`, `customerAgent` and `workflowAgent` lives here; everything
- * they share (model, model settings, memory defaults, `ask_user`) is filled in
- * by {@link defineAppAgent} so the three definitions stay pure content.
+ * `supportAgent` and `customerAgent` lives here; everything they share (model,
+ * model settings, memory defaults, `ask_user`) is filled in by
+ * {@link defineAppAgent} so the definitions stay pure content.
  */
 export interface AppAgentDefinition<TTools extends ToolsInput> {
   id: string

@@ -1,42 +1,40 @@
 import { AGENT_TIMEOUT_MS } from './shared-agent.ts'
 import { INTENTS } from '../agent-events/intents.ts'
+import { generateWorkflowIntent } from './workflow-classifier.ts'
 
 export type ClassifyAgent = {
   generate: (message: string, opts?: { abortSignal?: AbortSignal }) => Promise<{ text?: string }>
 }
 
-// ── Workflow (intent) agent resolution ─────────────────────────────
+// ── Workflow (intent) classifier resolution ────────────────────────
 
-let _workflowAgent: ClassifyAgent | undefined
-let _workflowAgentReady = false
+let _workflowClassifier: ClassifyAgent | undefined
+let _workflowClassifierReady = false
 
 /** Test seam: inject (or clear) the classifier used by every caller. */
 export function __setWorkflowAgent(agent: ClassifyAgent | undefined): void {
-  _workflowAgent = agent
-  _workflowAgentReady = true
+  _workflowClassifier = agent
+  _workflowClassifierReady = true
 }
 
 /**
- * Resolves the registered workflow (intent) agent lazily.
+ * Resolves the headless intent classifier.
  *
- * Both the Agent-Events classify handler and the support agent's
- * `classify_intent` tool resolve the same agent. The dynamic import avoids a
- * module cycle: the Mastra registry imports the agents, which import the tool,
- * which would otherwise import the registry at module load.
+ * The classifier is a utility, not a registered Mastra agent: it has no tools,
+ * no UI and no persona, so there is no `mastra.getAgent(...)` lookup. Both the
+ * Agent-Events classify handler and the support agent's `classify_intent` tool
+ * resolve it here, so they cannot drift.
  */
 export async function resolveWorkflowAgent(): Promise<ClassifyAgent> {
-  if (_workflowAgentReady) {
-    if (!_workflowAgent) throw new Error('No classify agent configured')
-    return _workflowAgent
+  if (_workflowClassifierReady) {
+    if (!_workflowClassifier) throw new Error('No classify agent configured')
+    return _workflowClassifier
   }
-  let mod = await import('./index.ts')
-  if (_workflowAgentReady) return _workflowAgent as ClassifyAgent
-  let agent = mod.mastra.getAgent('workflowAgent')
-  _workflowAgent = {
-    generate: (message, opts) => agent.generate(message, opts ?? {}),
+  _workflowClassifier = {
+    generate: (message, opts) => generateWorkflowIntent(message, opts),
   }
-  _workflowAgentReady = true
-  return _workflowAgent
+  _workflowClassifierReady = true
+  return _workflowClassifier
 }
 
 type ClassifyResult =
