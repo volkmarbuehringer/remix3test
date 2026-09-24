@@ -35,7 +35,7 @@ import { legal, routes, system } from './routes.ts'
 import { createNewappMiddleware } from './middleware/root.ts'
 import type { AppContext } from './types/context.ts'
 
-declare module 'remix/router' {
+declare module 'remix' {
   interface RouterTypes {
     context: AppContext
   }
