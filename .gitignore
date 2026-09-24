@@ -8,6 +8,7 @@ test-results/
 tests/
 .coverage
 .env*
+!.env.example
 dist
 build
 bun.lock
