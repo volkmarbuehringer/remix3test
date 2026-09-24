@@ -64,9 +64,32 @@ END $$;
 - **Must run under a lock**: The DROP and ADD should be in a single migration transaction or under an advisory lock to prevent races.
 - **Constraint naming**: PostgreSQL names constraints as `{table}_{column}_fkey` by default. Verify the name with `\d {table}` if you're unsure.
 - **`ON DELETE CASCADE` → `SET NULL` is the same pattern**: Just change the ON DELETE clause in the ADD statement.
+- **Audit joins after `SET NULL`**: the column is now nullable, so an `INNER JOIN` on it silently drops the orphaned rows; use `LEFT JOIN` plus a nullable wire field and a UI fallback (see the section below).
+
+## After switching to `ON DELETE SET NULL`: audit every join
+
+Making the FK `SET NULL` also makes the column nullable. Any `INNER JOIN` on
+that column now **silently drops the historical rows** whose parent was deleted —
+the row still exists, but it disappears from every list built with an inner join.
+
+```sql
+-- admin message list before the fix: deleted senders vanish
+FROM messages m
+JOIN users u ON m.sender_id = u.id
+
+-- after: keep the row and decide what to render
+FROM messages m
+LEFT JOIN users u ON m.sender_id = u.id
+```
+
+Grep **all** source roots for joins on the column (not just the data layer) and
+make the joined field nullable at the wire/type boundary, with a fallback label
+in the UI. Add a regression test that deletes the parent, then asserts the child
+still lists with a null parent field.
 
 ## When to Use
 
 - You need to change an existing FK's `ON DELETE` behavior in a migration
 - You're writing idempotent SQL migrations that must work on both fresh installs and upgrades
 - You're replacing manual pre-DELETE cleanup queries with database-enforced `ON DELETE SET NULL`
+- You just switched an FK to `ON DELETE SET NULL` and need to audit joins to that column
