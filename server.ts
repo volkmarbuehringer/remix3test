@@ -1,7 +1,7 @@
 import * as http from 'node:http'
 import * as https from 'node:https'
 import * as fs from 'node:fs'
-import { createRequestListener } from 'remix/node-fetch-server'
+import { createRequestListener, type ClientAddress } from 'remix/node-fetch-server'
 
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
@@ -27,7 +27,7 @@ const isHmr = process.env.REMIX_NODE_HMR === '1'
 const handleRequest = createServerHandler(router)
 
 const handler = createRequestListener(
-  (request, client) => handleRequest(request, client?.address ?? ''),
+  (request: Request, client: ClientAddress) => handleRequest(request, client.address),
   { trustProxy: isHmr },
 )
 
