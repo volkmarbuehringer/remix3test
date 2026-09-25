@@ -2,22 +2,19 @@ import type { Cookie } from 'remix/cookie'
 import { createRouter } from 'remix/router'
 import type { SessionStorage } from 'remix/session'
 
-import controller from './actions/home/controller.tsx'
+import controller from './actions/controller.tsx'
 import listsController from './actions/lists/controller.tsx'
 import * as api from './actions/api/controller.tsx'
-import {
-  authLogin,
-  authRegister,
-  registerSent,
-  verify,
-  authForgotten,
-  authForgottenReset,
-  authLogout,
-} from './actions/auth/controller.tsx'
+import authLogin from './actions/auth/login/controller.tsx'
+import authRegister from './actions/auth/register/controller.tsx'
+import authForgotten from './actions/auth/forgotten/controller.tsx'
+import authForgottenReset from './actions/auth/forgotten-reset/controller.tsx'
+import { registerSent, verify, authLogout } from './actions/auth/controller.tsx'
 import { customerChat } from './actions/chat/controller.tsx'
 import * as admin from './actions/admin/controller.tsx'
 import * as verwaltung from './actions/verwaltung/controller.tsx'
-import { appointment, appointmentTypes } from './actions/appointment/controller.tsx'
+import { appointment } from './actions/appointment/controller.tsx'
+import appointmentTypes from './actions/appointment/types/controller.tsx'
 import appointmentsNewController from './actions/appointments-new/controller.tsx'
 import settingsController from './actions/settings/controller.tsx'
 import notificationsController from './actions/notifications/controller.tsx'

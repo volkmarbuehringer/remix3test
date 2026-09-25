@@ -46,7 +46,7 @@ When a delta is found outdated, update the skill in place (keep the delta, corre
 
 ## Starter Layout
 
-- `app/actions/controller.tsx` owns the top-level route actions
+- `app/actions/controller.tsx` is the `remix doctor` entry point for the root route map; the top-level actions (`assets`, `home`) are implemented in `app/actions/home/controller.tsx` and re-exported
 - `app/routes.ts` defines the route contract
 - `app/router.ts` wires routes to route handlers
 - `app/middleware/root.ts` installs the conventional request-scoped renderer (`render({ assets })` from `remix/middleware/render`) used by actions
@@ -57,10 +57,16 @@ When a delta is found outdated, update the skill in place (keep the delta, corre
 ## Route Ownership
 
 - Start from `app/routes.ts` and map each route to the narrowest owner on disk.
-- Put top-level route actions in `app/actions/controller.tsx`.
-- Add `app/actions/<route-key>/controller.tsx` for nested route maps that need their own actions or middleware.
+- Give every route map a `controller.tsx` entry point at the path `remix doctor` derives from its key path: kebab-case each key segment and join with `/` under `app/actions/`. Examples: `auth.login` → `app/actions/auth/login/controller.tsx`, `apiLists` → `app/actions/api-lists/controller.tsx`, and the root map → `app/actions/controller.tsx`. A map with direct route leaves (`get`/`post`/`form`/`resources`) also needs that `controller.tsx` file.
+- Keep the real implementation in the narrowest feature controller and make the entry point a thin re-export when they differ; do not move code just to satisfy the path (e.g. `app/actions/admin/support-agent/controller.tsx` re-exports the colocated top-level `app/actions/support-agent/controller.tsx`).
 - Keep route-owned page modules next to the route that owns them.
 - Move shared UI to `app/ui/`, not `app/actions/`.
+
+## `remix doctor` Action Conventions
+
+- The `actions` suite only checks that the entry-point paths above exist; it does not inspect their contents.
+- Findings are warnings and exit 0, unless `--strict` or `--fix` is passed. `remix doctor --fix` only creates/updates `app/routes.ts`, so keep the entry points in sync by hand when adding or renaming route maps.
+- See `node_modules/remix/guides/14-cli-and-tooling.md`.
 
 ## Build-Out Notes
 
