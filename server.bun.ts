@@ -3,16 +3,11 @@ import * as fs from 'node:fs'
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
 import { createServerHandler } from './app/utils/server-handler.ts'
+import { configuredPublicOrigin } from './app/utils/public-origin.ts'
 
 await initializeAppDatabase()
 
-// `PUBLIC_ORIGIN` is required in production: it is the only trusted source for
-// the origin in emailed links. Host headers are attacker-controllable and would
-// allow password-reset link poisoning (see app/utils/public-origin.ts).
-const REQUIRED_ENV: readonly string[] =
-  process.env.NODE_ENV === 'production'
-    ? ['SESSION_SECRET', 'DATABASE_URL', 'PUBLIC_ORIGIN']
-    : ['SESSION_SECRET', 'DATABASE_URL']
+const REQUIRED_ENV = ['SESSION_SECRET', 'DATABASE_URL'] as const
 for (let key of REQUIRED_ENV) {
   if (!process.env[key]) {
     throw new Error('Missing required environment variable: ' + key)
@@ -24,6 +19,14 @@ const handleRequest = createServerHandler(router)
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 const isProduction = process.env.NODE_ENV === 'production'
+
+if (isProduction && configuredPublicOrigin() === undefined) {
+  console.warn(
+    '[config] No trusted public origin: set PUBLIC_ORIGIN or write the current URL to ' +
+      'tmp/public-origin. Password-reset and verification emails will fail until then ' +
+      '(the Host header is never trusted for links).',
+  )
+}
 const hostname = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
 
 function loadTls() {
