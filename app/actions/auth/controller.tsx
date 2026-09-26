@@ -19,6 +19,7 @@ import { issuesToFieldErrors, readFormFieldValues } from '../../utils/schema-uti
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../utils/send-email.ts'
 import { generateToken, resetExpires, verificationExpires } from '../../utils/verification-token.ts'
 import { connectionIp } from '../../utils/request-ip.ts'
+import { getPublicOrigin } from '../../utils/public-origin.ts'
 
 import {
   LoginPage,
@@ -275,7 +276,7 @@ export const authRegister = createController(routes.auth.register, {
       registerLimiter.reset(normalizedEmail)
 
       if (process.env.NODE_ENV !== 'test') {
-        let verificationUrl = `${context.url.origin}${routes.auth.verify.href({ token })}`
+        let verificationUrl = `${getPublicOrigin(context.url.origin)}${routes.auth.verify.href({ token })}`
         try {
           await sendVerificationEmail(
             context.mailer,
@@ -355,7 +356,7 @@ export const authForgotten = createController(routes.auth.forgotten, {
           password_reset_expires: expires,
         })
 
-        let resetUrl = `${context.url.origin}${routes.auth.forgottenReset.index.href({ token })}`
+        let resetUrl = `${getPublicOrigin(context.url.origin)}${routes.auth.forgottenReset.index.href({ token })}`
         try {
           await sendPasswordResetEmail(
             context.mailer,

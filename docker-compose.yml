@@ -3,4 +3,11 @@ services:
     build: .
     ports:
       - '44100:44100'
+    # Secrets and TLS keys are excluded from the image (see .dockerignore) and
+    # supplied at runtime instead, so they never end up in image layers.
+    env_file:
+      - .env
+    volumes:
+      - ./key.pem:/app/key.pem:ro
+      - ./cert.pem:/app/cert.pem:ro
     restart: unless-stopped

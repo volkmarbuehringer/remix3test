@@ -8,8 +8,12 @@ playwright-report
 playwright-results.*
 tmp
 .agents
-.env.example
-.env.neon
+.env
+.env.*
+*.pem
+*.crt
+*.key
+.opencode-session-id
 docs
 tests
 gan-harness
