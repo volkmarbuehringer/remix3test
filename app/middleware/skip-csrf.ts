@@ -1,10 +1,44 @@
 import type { Middleware } from 'remix/router'
 import { csrf } from 'remix/middleware/csrf'
 
-const csrfMiddleware = csrf({
-  origin: (origin, context) =>
-    /\.trycloudflare\.com$/.test(origin) || origin === context.url.origin,
-})
+import { configuredPublicOrigin } from '../utils/public-origin.ts'
+
+// Cloudflare quick-tunnel hostnames are `<random-words>.trycloudflare.com`.
+const TRYCLOUDFLARE_ORIGIN = /^https?:\/\/[a-z0-9-]+\.trycloudflare\.com$/i
+
+/**
+ * Whether an unsafe request's `Origin` may be trusted.
+ *
+ *  1. Same origin as the request URL.
+ *  2. The server-configured trusted origin (`PUBLIC_ORIGIN` / the origin file).
+ *     This is needed because Cloudflare quick tunnels rewrite `Host` to the
+ *     origin service, so the browser `Origin` (the tunnel hostname) differs from
+ *     `context.url.origin` (localhost). It also replaces the old blanket
+ *     `*.trycloudflare.com` allowance with a precise, server-controlled match.
+ *  3. A `*.trycloudflare.com` origin, but only for genuine same-origin browser
+ *     requests. `Sec-Fetch-Site` is set by the browser and cannot be forged by a
+ *     page, so an attacker-hosted tunnel (`cross-site`/`same-site`) no longer
+ *     passes the origin check.
+ *
+ * The CSRF token is still validated after this check; this only restores the
+ * origin layer as defense in depth.
+ */
+export function isAllowedCsrfOrigin(
+  origin: string,
+  context: { url: URL; request: Request },
+): boolean {
+  if (origin === context.url.origin) return true
+
+  let configured = configuredPublicOrigin()
+  if (configured != null && origin === configured) return true
+
+  if (!TRYCLOUDFLARE_ORIGIN.test(origin)) return false
+
+  let fetchSite = context.request.headers.get('Sec-Fetch-Site')
+  return fetchSite === 'same-origin' || fetchSite === 'none'
+}
+
+const csrfMiddleware = csrf({ origin: isAllowedCsrfOrigin })
 
 // Session-cookie-authenticated browser endpoints that skip CSRF (SSE/agent
 // streams call fetch() and cannot embed a form token). Skipping CSRF opens

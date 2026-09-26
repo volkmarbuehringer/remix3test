@@ -7,7 +7,7 @@ import { webhookChannel } from '../../utils/sse-events.ts'
 import { sourceIp } from '../../utils/request-ip.ts'
 import { SENSITIVE_HEADERS } from '../../utils/sensitive-headers.ts'
 import { apiTokenAuth } from '../../middleware/api-token-auth.ts'
-import { requireApiAuth } from '../../middleware/api-require-auth.ts'
+import { requireApiAdmin } from '../../middleware/api-require-auth.ts'
 import { createLogger } from '../../utils/logger.ts'
 const appWebhookLog = createLogger('[Webhook]')
 function hermesUrl(): string {
@@ -22,7 +22,7 @@ interface WebhookInsertResult {
 }
 
 export default createAction(system.appWebhook, {
-  middleware: [apiTokenAuth(), requireApiAuth()],
+  middleware: [apiTokenAuth(), requireApiAdmin()],
   handler: async (context) => {
     let body = context.jsonBody
     if (!body) {

@@ -187,4 +187,29 @@ describe('App-Webhook controller', () => {
 
     assert.equal(response.status, 413)
   })
+
+  it('returns 403 for a non-admin customer token', async () => {
+    let customer = await db.findOne(users, { where: { email: 'user@newapp.com' } })
+    if (!customer) throw new Error('Customer user not found')
+    let rawToken = generateApiToken()
+    await pool.query(
+      `INSERT INTO api_tokens (user_id, token_hash, created_at, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [customer.id, hashToken(rawToken), Date.now(), computeTokenExpiry()],
+    )
+    try {
+      let url = `${BASE}${system.appWebhook.href()}`
+      let response = await router.fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${rawToken}`,
+        },
+        body: JSON.stringify({ event: 'test' }),
+      })
+      assert.equal(response.status, 403)
+    } finally {
+      await pool.query('DELETE FROM api_tokens WHERE token_hash = $1', [hashToken(rawToken)])
+    }
+  })
 })
