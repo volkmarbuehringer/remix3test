@@ -65,7 +65,7 @@ export default createAction(routes.api.login, {
       return Response.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    if (user.email_verified === 0) {
+    if (user.email_verified !== 1) {
       return Response.json({ error: 'Email not verified' }, { status: 403 })
     }
 

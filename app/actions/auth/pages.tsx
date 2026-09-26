@@ -20,6 +20,7 @@ import { bodyTextCss } from '../../ui/page-primitives.tsx'
 import { input } from '../../ui/mixins/input.ts'
 import { PASSWORD_MIN_LENGTH } from '../../utils/password-complexity.ts'
 import { passwordComplexityScript } from '../../ui/password-complexity-script.browser.tsx'
+import { getCspNonce } from '../../middleware/security-headers.ts'
 
 // ── Login ──
 
@@ -245,7 +246,7 @@ export function RegisterPage(handle: Handle<RegisterPageProps>) {
                 </span>
               ) : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script>{passwordComplexityScript('password')}</script>
+              <script nonce={getCspNonce()}>{passwordComplexityScript('password')}</script>
             </label>
 
             <label mix={fieldLabelCss}>
@@ -441,7 +442,7 @@ export function ResetFormPage(handle: Handle<ResetFormPageProps>) {
                 </span>
               ) : null}
               <div data-pw-complexity mix={complexityFeedbackCss}></div>
-              <script>{passwordComplexityScript('password')}</script>
+              <script nonce={getCspNonce()}>{passwordComplexityScript('password')}</script>
             </label>
 
             <label mix={fieldLabelCss}>

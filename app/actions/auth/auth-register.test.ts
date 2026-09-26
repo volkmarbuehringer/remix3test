@@ -46,6 +46,23 @@ describe('Auth Register controller', () => {
     assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
   })
 
+  it('renders the password-complexity script with the per-request CSP nonce', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.register.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+    let nonceMatch = csp.match(/'nonce-([^']+)'/)
+    assert.ok(nonceMatch, 'CSP should carry a nonce')
+
+    let html = await response.text()
+    let complexityIndex = html.indexOf('Mindestens 10 Zeichen')
+    assert.ok(complexityIndex !== -1, 'password-complexity script should render')
+    let scriptOpen = html.lastIndexOf('<script', complexityIndex)
+    let scriptTag = html.slice(scriptOpen, html.indexOf('>', scriptOpen) + 1)
+    assert.ok(
+      scriptTag.includes(`nonce="${nonceMatch![1]}"`),
+      'password-complexity script should carry the CSP nonce',
+    )
+  })
+
   // -----------------------------------------------------------------------
   // POST /register — successful registration
   // -----------------------------------------------------------------------

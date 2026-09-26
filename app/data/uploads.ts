@@ -103,8 +103,11 @@ function whereStatement(userId?: number, filter?: string, kind?: UploadKind): Sq
       conditions.push('id = ?')
       values.push(Number(trimmed))
     } else {
+      // Escape LIKE metacharacters so a filter cannot broaden the search with
+      // `%`/`_` (the value is bound, so this is search semantics, not injection).
+      let escaped = trimmed.replace(/[%_\\]/g, '\\$&')
       conditions.push('(filename ILIKE ? OR mime_type ILIKE ?)')
-      values.push(`%${trimmed}%`, `%${trimmed}%`)
+      values.push(`%${escaped}%`, `%${escaped}%`)
     }
   }
   if (conditions.length === 0) return rawSql('')

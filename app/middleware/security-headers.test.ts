@@ -83,6 +83,16 @@ describe('Security headers middleware', () => {
     )
   })
 
+  it('CSP script-src does not allow unsafe-eval', async () => {
+    let response = await router.fetch(`${BASE}${routes.auth.login.index.href()}`)
+    let csp = response.headers.get('Content-Security-Policy')!
+    let scriptSrc = csp.split(';').find((p) => p.trim().startsWith('script-src'))
+    assert.ok(
+      scriptSrc && !scriptSrc.includes("'unsafe-eval'"),
+      'script-src should not allow unsafe-eval',
+    )
+  })
+
   it('all 6 headers present on a non-auth route too', async () => {
     let response = await router.fetch(`${BASE}/`)
     let headers = [

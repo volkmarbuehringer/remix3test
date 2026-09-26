@@ -194,6 +194,20 @@ describe('uploads', () => {
     assert.equal(rows[0]!.mime_type, 'application/gzip')
   })
 
+  it('listUploads escapes LIKE wildcards in the filter', async () => {
+    await insertUpload(db, {
+      filename: 'upldata-escape-me.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('a'),
+      size: 1,
+      now: Date.now(),
+    })
+
+    // Before escaping this pattern would wildcard-match `upldata-escape-me.txt`.
+    let rows = await listUploads(db, undefined, { filter: 'upldata%escape' })
+    assert.equal(rows.length, 0, 'a % in the filter must be treated literally')
+  })
+
   it('listUploads filters by numeric id', async () => {
     let id = await insertUpload(db, {
       filename: 'upldata-id-only.txt',
