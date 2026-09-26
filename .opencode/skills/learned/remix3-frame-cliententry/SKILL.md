@@ -1,6 +1,6 @@
 ---
 name: remix3-frame-cliententry
-description: 'Use when working on Remix 3 `<Frame>` navigation, `clientEntry` hydration, or deferring frames until they are visible (LazyFrame/IntersectionObserver) — forms, frame targets, `data-rmx-*` escapes, cascade/mounted-guard traps, DOM/styling, frame-render tests, form-action GET routes, duplicate shell breadcrumbs, unsaved drafts, and session.flash in fragments.'
+description: 'Use when working on Remix 3 `<Frame>` navigation, `clientEntry` hydration, or deferring frames until they are visible (LazyFrame/IntersectionObserver) — forms, frame targets, `data-rmx-*` escapes, cascade/mounted-guard traps, DOM/styling, frame-render tests, form-action GET routes, duplicate shell breadcrumbs, unsaved drafts, session.flash in fragments, frame failures/cancellation, same-origin frame HTML security, and renderToString/renderWith.'
 user-invocable: false
 origin: consolidated
 ---
@@ -25,6 +25,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | A frame editor's "create new" mode has no server id and navigation would lose typed content | `references/frame-unsaved-draft.md` |
 | A `session.flash` PRG message never appears in a frame fragment, or a test reads an empty session | `references/session-flash-frames.md` |
 | A client-owned attribute on a reconciled element (root `data-theme`, `open`, custom) reverts after a frame/document reload | `references/preserve-client-owned-attrs.md` |
+| A frame fails/cancels or its resolver must choose a fallback vs a login redirect; whether returned frame HTML is safe; `renderToString`/`renderWith`; a `data-rmx-src` link is not intercepted; native validation/`submit` ordering; stale server props after a frame reload | `references/frame-failures-and-rendering.md` |
 
 - `references/frame-navigation.md` — the frame navigation/forms contract and escape hatches.
 - `references/cliententry-lifecycle.md` — the entry's mount/hydration/re-render lifecycle traps.
@@ -36,6 +37,16 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - `references/frame-unsaved-draft.md` — `sessionStorage` draft persistence for id-less "create new" editors.
 - `references/session-flash-frames.md` — flash banner in fragment render paths + parsing the signed session cookie in tests.
 - `references/preserve-client-owned-attrs.md` — keeping client-owned attributes (root theme) across reloads via `data-rmx-preserve-attrs`.
+- `references/frame-failures-and-rendering.md` — failure/cancellation contract, frame HTML security, complete-HTML rendering, and interception limits.
+
+## Core Rules
+
+**Frame failures, complete-HTML rendering, and interception limits (`references/frame-failures-and-rendering.md`)**
+
+- The app's `resolveFrame`, not the runtime, decides a non-2xx frame outcome: a 4xx body renders in the slot, a 5xx becomes a bounded `ErrorCard` fragment, and a 401 becomes the full-page login redirect — so the global `error` event only sees genuine runtime faults, and frame render errors stay silent by design (the `fallback` is the visibility mechanism).
+- A supplied `data-rmx-src` must be a valid same-origin URL regardless of `data-rmx-target`; invalid or cross-origin values disable interception. Native constraint validation and the native `submit` event always run before Remix intercepts, and several admin forms here set `novalidate`.
+- `renderToString()` (frame-free complete HTML) and `renderWith()` (a different renderer) are vendor APIs with no current app call site; frame fragments stream through `context.render(..., fragmentResponseInit())`.
+- After a frame reload a clientEntry keeps its factory-closure setup state but receives fresh `handle.props` — read changing server values in the render function, never snapshot them in the closure.
 
 ## Core Invariants
 
@@ -47,3 +58,10 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - For cross-boundary transitions the frame runtime must not intercept (binary downloads, cross-section links, login), use `data-rmx-document` — do not disable the runtime.
 
 > Version-pinned facts here reference the pinned `remix` preview build (see `package.json`). Re-check against the installed vendor source before relying on them.
+
+## When to Use
+
+- A frame fails or is canceled and you need to know which hook reports it, or the resolver must choose between bounded fallback HTML, an auth redirect, and rejecting to the runtime handler.
+- You are checking whether returned frame HTML is safe, or a `data-rmx-src` link or frame form is not intercepted.
+- You need a complete HTML string (`renderToString`) or a different renderer (`renderWith`).
+- A clientEntry shows stale server-derived values after a frame reload because props were cached in the factory closure.

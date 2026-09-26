@@ -9,7 +9,7 @@ origin: consolidated
 
 **Consolidated from:** `remix3-css-hover-reveal`, `remix3-css-override-cascade-layer`, `remix3-svg-reset-inline-wrap`, `native-select-flex-contain`, `remix3-content-sized-flex-panel`, `remix3-bounded-scroll-flexchain`, `remix3-full-height-page-in-sidebar-shell`, `remix3-hidden-attribute-display-override`
 
-This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. For the framework CSS API and canonical styling patterns, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`); for theme tokens, see `remix3-theme-conformance`.
+This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. For the framework CSS API and canonical styling patterns, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`); for theme tokens, see `remix3-theme-conformance`. For component context, the document shell, and choosing among `remix/ui` building blocks, see `remix3-rendering-ui`.
 
 ## Load Only The References You Need
 

@@ -1,6 +1,6 @@
 ---
 name: remix3-testing
-description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, and HTML-escaped assertions on rendered markup."
+description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring."
 user-invocable: false
 origin: consolidated
 ---
@@ -9,7 +9,7 @@ origin: consolidated
 
 **Consolidated from:** `remix3-cliententry-browser-test-stubs`, `remix-test-parallel-interference`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `remix3-html-amp-escaped-assertions`
 
-This skill is the **index** for Remix 3 test-suite deltas. For the vendor test runner API (`remix test`, `describe`/`it`, `render`/`act`), use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`).
+This skill is the **index** for Remix 3 test-suite deltas. For the vendor test runner API (`remix test`, `describe`/`it`, `render`/`act`), use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`). For the canonical test boundaries and patterns (`router.fetch`, state isolation, browser component and e2e flows), use the installed testing guide `node_modules/remix/guides/13-testing.md`.
 
 ## Load Only The References You Need
 
@@ -20,6 +20,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | `waitFor(() => !!getElementById(x))` passes instantly and the next assertion fails on empty content | `references/waitfor-static-element.md` |
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
 | A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/html-amp-escaped-assertions.md` |
+| A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/state-isolation-and-e2e-serve.md` |
 
 ## Core Rules
 
@@ -51,6 +52,12 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Rendered HTML serializes `&` in attribute values as `&amp;` (and `"` as `&quot;`), and `response.text()` returns that serialized HTML with entities intact — so a string assertion written with the raw `&` never matches and fails with no hint of the cause. Match the escaped form in `response.text()`, including in absence assertions.
 - Prefer asserting on a redirect `Location` header when possible: headers are not HTML-escaped and keep the raw `&`.
 
+**State isolation and `t.serve` e2e (`references/state-isolation-and-e2e-serve.md`)**
+
+- The guide's generic seams are app-specific here: the factory is `createNewappRouter(options)` in `app/router.ts` (not `createAppRouter`), shared tests import `router` from `app/test-router.ts`, DB state is an ephemeral Postgres database created by `test/setup.ts` via `remix.json` `test.setup` (not SQLite `:memory:`), and session/cookie helpers already exist in `app/test-utils.ts` (`extractCookie`, `createCsrfSession`, `createAuthCookieWithCsrf*`) instead of a hand-rolled `getResponseCookie`.
+- E2E uses `t.serve(await createTestServer((request) => router.fetch(request)))` (arrow adapter, not `createTestServer(router.fetch)`); `t.serve` closes the server/page, but DB/file fixtures created outside it need their own cleanup, and Firefox-broken assertions are scoped with `isFirefox(page)` rather than skipped.
+- The ephemeral DB is per-run, not per-test: parallel workers accumulate rows, so a test that paginates still owns its cleanup (see `parallel-test-interference.md`).
+
 ## When to Use
 
 - You are writing or debugging a Remix 3 `remix test` suite (server-render or `*.test.browser.tsx`) and an assertion fails for a reason the test code does not explain.
@@ -58,6 +65,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Tests interfere when run in parallel, or a shared-DB test fails intermittently or even in isolation.
 - A `waitFor` existence check passes but the content assertion that follows fails.
 - You need to mock an external HTTP service or match escaped markup in rendered output.
+- A router test needs an authenticated session or multi-request flow, or you are adding an `*.test.e2e.ts`, and the guide's generic example does not match this repo's harness.
 
 ## Related Skills
 

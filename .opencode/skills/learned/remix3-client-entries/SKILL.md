@@ -1,6 +1,6 @@
 ---
 name: remix3-client-entries
-description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, and no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`)."
+description: "Use when building Remix 3 browser behavior in a `clientEntry` — DOM operations that must run after a re-render (`queueTask` vs `requestAnimationFrame`), Firefox rejecting multiple import maps, ARIA tab wiring over `hidden` panels with hash deep-linking, no-JS fallback CSS that survives client DOM patching (`<noscript>` re-parsing, `@media (scripting: none)`), and the interactivity runtime: `createRoot`/`run()` lifecycle, custom event mixins, `on(...)`/`handle.update()` cancellation, `navigate`/`link`/`attrs`, optimistic UI, and enhanced form submission."
 user-invocable: false
 origin: consolidated
 ---
@@ -19,6 +19,7 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 | A page works in Chromium but client entries fail in Firefox with `Multiple import maps are not allowed.` or `[createFrame] Failed to load module`; a server-hydrated textarea renders empty only in Firefox | `references/firefox-single-import-map.md` |
 | Several same-page sections should show one at a time; a section nav must deep-link via the URL hash and support Arrow/Home/End; `hidden` panels do not hide; the whole page flashes before the client entry hides inactive panels | `references/aria-tabs.md` |
 | A server-hidden element must reappear when scripting is disabled; a `<noscript>` or `<html data-*>` fallback goes live / gets wiped after a client patch | `references/nojs-fallback-scripting-media.md` |
+| A `clientEntry` needs a client-only mount, a custom event mixin, code-driven navigation (or a link-like non-anchor host), cancellation granularity / optimistic state, stable list keys / input ownership, or enhanced form submission | `references/interactivity-runtime.md` |
 
 ## Core Rules
 
@@ -41,11 +42,19 @@ This skill is the **index** for browser-side deltas that live in a Remix 3 `clie
 
 - A `<noscript><style>` no-JS reveal rule becomes **live** once the client runtime re-parses the noscript body, and a JS-set `<html data-*>` flag is **wiped** when the runtime reconciles the document element. Scope such rules to `@media (scripting: none)`; server-hide with `hidden` to avoid the first-paint flash. First applied in `app/actions/settings/controller.tsx` (`PANEL_REVEAL_CSS`).
 
+**Interactivity runtime: roots, mixins, navigation, forms (`references/interactivity-runtime.md`)**
+
+- `createRoot(container)` owns a client-only container (`render`/`flush`/`dispose`, dispose on `pagehide`); the app's only use is the fatal-error takeover in `app/assets/error-card.browser.tsx:113-135`, which runs after `app.dispose()` and replaces `document.body` — normal UI still starts on the server via `clientEntry`. `run()` exposes `app.ready()`/`app.flush()`/`app.dispose()` (guide L156-161), but this app never calls `ready()`/`flush()`.
+- Cancellation granularity: `handle.update()` resolves to an `AbortSignal` but cannot abort between the `await` and the next synchronous statement; the `on(type, (event, signal))` second argument aborts on re-run/element removal. The already-covered `handle.signal`/`queueTask` aborts live in `references/queuetask-over-raf.md`, not here.
+- `navigate(href, options)` is code-driven navigation and `link(...)` gives a non-anchor host `role="link"`/Enter/modifier activation/`aria-disabled`; `attrs(...)` supplies non-overriding defaults. In the app, `navigate` (imported from `remix/ui` in `app/ui/appointment-sidebar.browser.tsx`) is shadowed by a local frame-navigation `navigate` helper in `app/actions/lists/public/lists-sidebar-keyboard.tsx:34-38`; `link()`/`attrs()` are unused.
+- Optimistic UI belongs in the data model with its reconcile/rollback policy (setup-scope pending state only drives disabled/label state); use stable list ids, not index keys, and keep controlled vs uncontrolled input ownership straight. Enhanced submit intercepts `submit`, posts `new FormData(form)` with the handler signal, and follows a redirect with `navigate(response.url, { history: "replace" })` — the app's existing agent/chat SSE+JSON interception is a separate boundary.
+
 ## When to Use
 
 - You are building browser behavior in a Remix 3 `clientEntry` and the DOM does not do what the server render implies: an op must wait for `handle.update()`, client entries silently do nothing in Firefox, or same-page panels need to become hash-deep-linked ARIA tabs.
 - A page works in Chromium but client interactions, hover reveals, drag-and-drop, or textarea hydration fail in Firefox (especially after a remix/import-map upgrade); or a `requestAnimationFrame` focus/measure callback fires too early, too late, or after the element was removed.
 - Before adopting `requestAnimationFrame` for post-render DOM work, wiring the multiple-import-maps polyfill, or hand-rolling tabs over `hidden` panels.
+- You are adding a client-only `createRoot`, a custom event mixin (`createMixin`/`handle.element`), code-driven `navigate` or a link-like non-anchor host (`link`/`attrs`), optimistic UI, stable list keys, or an enhanced form submit that follows a controller redirect — see `references/interactivity-runtime.md` for the guide sections and the app's actual seams.
 
 ## Related Skills
 

@@ -44,6 +44,10 @@ Learned deltas encode hard-won, often **version-pinned** facts (file/line refere
 
 When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Audit runbooks: `remix3-data-table`, `security-gotchas`, `remix-routepattern-opaque-access`, `remix3-frame-cliententry` are the highest-drift-risk skills.
 
+### Guide ↔ skill coverage
+
+`docs/guide-skill-coverage.md` maps every installed guide chapter to the learned skill that owns it and lists known gaps. Update it whenever a guide is added/authored/renamed, a new learned delta lands, or a learned skill is added — and re-audit the chapters it marks `unfinished` when the vendor authors them. Vendor guides remain canonical; the registry only records who points at them.
+
 ## Starter Layout
 
 - `app/actions/controller.tsx` is the `remix doctor` entry point for the root route map; the top-level actions (`assets`, `home`) are implemented in `app/actions/home/controller.tsx` and re-exported
