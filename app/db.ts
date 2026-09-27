@@ -60,7 +60,14 @@ async function applyAppSchema(): Promise<void> {
 export async function initializeAppDatabase(): Promise<void> {
   await applyAppSchema()
   await seed(db)
-  startDatabaseMaintenance(db)
+  // Skip the background retention sweep under test. Every parallel worker (and
+  // the global setup) calls this against the same ephemeral database, so the
+  // immediate sweep races suites that deliberately seed rows past a retention
+  // window (e.g. app/data/maintenance.test.ts) and deletes them before the test
+  // can. The sweep functions are unit-tested directly against explicit windows.
+  if (process.env.NODE_ENV !== 'test') {
+    startDatabaseMaintenance(db)
+  }
 }
 
 export async function closeAppDatabase(): Promise<void> {
