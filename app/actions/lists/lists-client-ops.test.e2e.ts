@@ -92,6 +92,47 @@ describe('lists list-level operations', () => {
       return label ? getComputedStyle(label).getPropertyValue('-webkit-line-clamp').trim() : ''
     })
     assert.equal(lineClamp, '2', 'item labels must be clamped to two lines')
+
+    // The row-selection box and the completion toggle are two different controls
+    // in two different columns; nearly identical size and the same blue accent
+    // made them impossible to tell apart. Assert the larger, green completion
+    // toggle stays distinct from the smaller, blue selection box.
+    let checkboxMetrics = await page.evaluate(() => {
+      let selection = document.querySelector('[data-select-item="op-open"]') as HTMLElement | null
+      let done = document.querySelector('[data-done-item="op-open"]') as HTMLElement | null
+      if (!selection || !done) return null
+      let selectionStyle = getComputedStyle(selection)
+      let doneStyle = getComputedStyle(done)
+      return {
+        selectionWidth: parseFloat(selectionStyle.width),
+        doneWidth: parseFloat(doneStyle.width),
+        selectionAccent: selectionStyle.accentColor,
+        doneAccent: doneStyle.accentColor,
+      }
+    })
+    assert.ok(checkboxMetrics, 'both checkbox columns must render')
+    assert.ok(
+      checkboxMetrics!.doneWidth > checkboxMetrics!.selectionWidth,
+      'the completion toggle must be visibly larger than the row-selection box',
+    )
+    assert.notEqual(
+      checkboxMetrics!.doneAccent,
+      checkboxMetrics!.selectionAccent,
+      'the two checkbox columns must use different accent colours',
+    )
+
+    // Both checkbox columns must expose a hover tooltip; the completion toggle
+    // previously had only an aria-label, so hovering it gave no visible hint.
+    assert.equal(
+      await page.locator('[data-done-item="op-open"]').getAttribute('title'),
+      'Als erledigt markieren',
+      'the open completion toggle must carry a tooltip',
+    )
+    assert.equal(
+      await page.locator('[data-done-item="op-done"]').getAttribute('title'),
+      'Als offen markieren',
+      'the completed toggle must offer the reverse tooltip',
+    )
   })
 })
 
@@ -495,6 +536,57 @@ describe('lists copy selected items into another list', () => {
         sourceItems.map((item) => item.id),
         ['copy-src-1', 'copy-src-2', 'copy-src-3'],
         'source item ids must be unchanged',
+      )
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+
+  it('deletes only the selected items from the open list via the overflow menu', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto(`/lists?load=${sourceId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+
+      // Select the first and third source items (skip the middle one).
+      await selectItems(page, ['copy-src-1', 'copy-src-3'])
+
+      // The destructive bulk action lives in the "⋯ Weitere Aktionen" overflow
+      // menu and is only enabled while at least one row is selected.
+      await page.locator('summary[aria-label="Weitere Aktionen"]').click()
+      let deleteSelectedBtn = page.locator('button:has-text("Auswahl löschen")')
+      assert.equal(await deleteSelectedBtn.count(), 1)
+      assert.ok(
+        await deleteSelectedBtn.isEnabled(),
+        'delete-selected must be enabled once rows are selected',
+      )
+      await deleteSelectedBtn.click()
+
+      // The editor drops the two selected rows and keeps the unselected one.
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-item-id]').length === 1,
+        undefined,
+        { timeout: 15_000 },
+      )
+      assert.equal(await page.locator('[data-item-id="copy-src-2"]').count(), 1)
+
+      // The debounced autosave persists the deletion.
+      let sourceItems = await listItems(sourceId)
+      for (let attempt = 0; attempt < 40 && sourceItems.length !== 1; attempt++) {
+        await page.waitForTimeout(250)
+        sourceItems = await listItems(sourceId)
+      }
+      assert.deepEqual(
+        sourceItems.map((item) => item.id),
+        ['copy-src-2'],
+        'only the unselected item must survive',
       )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])

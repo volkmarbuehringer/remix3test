@@ -104,7 +104,7 @@ export const ListsClient = clientEntry(
     // Undo + inline-confirm state
     let undoSnapshot: ListItem[] | null = null
     let undoTimer: ReturnType<typeof setTimeout> | null = null
-    let undoKind: 'delete' | 'clear' | 'clearDone' | 'reorder' | null = null
+    let undoKind: 'delete' | 'clear' | 'clearDone' | 'deleteSelected' | 'reorder' | null = null
     let clearArmed = false
     let clearArmTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -125,7 +125,10 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
-    let showUndo = (kind: 'delete' | 'clear' | 'clearDone' | 'reorder', snapshot: ListItem[]) => {
+    let showUndo = (
+      kind: 'delete' | 'clear' | 'clearDone' | 'deleteSelected' | 'reorder',
+      snapshot: ListItem[],
+    ) => {
       if (undoTimer) clearTimeout(undoTimer)
       undoSnapshot = snapshot
       undoKind = kind
@@ -654,14 +657,27 @@ export const ListsClient = clientEntry(
       color: theme.colors.action.danger.foreground,
     })
 
-    // Row-selection checkbox for "Auswahl → in Liste kopieren". Distinct from the
-    // done toggle: checking it never marks the list dirty.
+    // The two checkbox columns do different jobs, so size and accent colour —
+    // not just column position — must tell them apart at a glance. The row
+    // selection box (also the header's select-all) is the smaller, blue pick
+    // control; checking it never marks the list dirty.
     let selectionCheckboxStyle = css({
-      width: '16px',
-      height: '16px',
+      width: '15px',
+      height: '15px',
       flexShrink: 0,
       cursor: 'pointer',
       accentColor: theme.colors.focus.ring,
+    })
+
+    // The completion toggle is the larger, green status control. Its size and
+    // colour deliberately differ from the selection box so the two checkbox
+    // columns can never be confused.
+    let doneCheckboxStyle = css({
+      width: '22px',
+      height: '22px',
+      flexShrink: 0,
+      cursor: 'pointer',
+      accentColor: theme.colors.success.foreground,
     })
 
     // Bulk-action bar, shown only while at least one row is selected.
@@ -1903,6 +1919,31 @@ export const ListsClient = clientEntry(
       handle.update()
     }
 
+    // "Auswahl löschen": remove every checked element in one action, with the
+    // same undo banner as the other deletions. Only reachable while at least
+    // one row is selected; clearing the selection afterwards keeps the bulk bar
+    // from lingering over rows that no longer exist.
+    let deleteSelected = () => {
+      disarmClear()
+      if (selectedItemIds.size === 0) return
+      let removed = items.filter((item) => selectedItemIds.has(item.id))
+      if (removed.length === 0) return
+      showUndo(
+        'deleteSelected',
+        items.map((item) => ({ ...item })),
+      )
+      items = items.filter((item) => !selectedItemIds.has(item.id))
+      clearSelection()
+      copyError = ''
+      setDirty()
+      announce(
+        removed.length === 1
+          ? 'Ausgewähltes Element gelöscht'
+          : `${removed.length} ausgewählte Elemente gelöscht`,
+      )
+      handle.update()
+    }
+
     // One-shot sort control. Choosing an order reorders the real `items` array
     // (so it autosaves) and offers undo, exactly like Umkehren/Mischen. "manual"
     // is the neutral drag state and does nothing.
@@ -2609,9 +2650,11 @@ export const ListsClient = clientEntry(
                     ? 'Alle Elemente gelöscht.'
                     : undoKind === 'clearDone'
                       ? 'Erledigte Elemente gelöscht.'
-                      : undoKind === 'reorder'
-                        ? 'Reihenfolge geändert.'
-                        : 'Element gelöscht.'}
+                      : undoKind === 'deleteSelected'
+                        ? 'Ausgewählte Elemente gelöscht.'
+                        : undoKind === 'reorder'
+                          ? 'Reihenfolge geändert.'
+                          : 'Element gelöscht.'}
                 </span>
                 <button
                   mix={[
@@ -2951,6 +2994,19 @@ export const ListsClient = clientEntry(
                         mix={[
                           button({ tone: 'secondary' }),
                           dangerTextStyle,
+                          on('click', deleteSelected),
+                        ]}
+                        disabled={selectedItemIds.size === 0}
+                        title="Ausgewählte Elemente aus der Liste entfernen"
+                      >
+                        {selectedItemIds.size > 0
+                          ? `✕ Auswahl löschen (${selectedItemIds.size})`
+                          : '✕ Auswahl löschen'}
+                      </button>
+                      <button
+                        mix={[
+                          button({ tone: 'secondary' }),
+                          dangerTextStyle,
                           ...(clearArmed ? [dangerArmedStyle] : []),
                           on('click', clearAll),
                         ]}
@@ -3261,18 +3317,16 @@ export const ListsClient = clientEntry(
                         </span>
                         <input
                           type="checkbox"
+                          data-done-item={item.id}
                           checked={item.done === true}
                           aria-label={
                             item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
                           }
+                          title={
+                            item.done === true ? 'Als offen markieren' : 'Als erledigt markieren'
+                          }
                           mix={[
-                            css({
-                              width: '18px',
-                              height: '18px',
-                              flexShrink: 0,
-                              cursor: 'pointer',
-                              accentColor: theme.colors.focus.ring,
-                            }),
+                            doneCheckboxStyle,
                             on('change', (e) => {
                               let idx = parseInt(
                                 (e.currentTarget.closest('[data-index]') as HTMLElement | null)
