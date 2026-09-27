@@ -1,6 +1,6 @@
 ---
 name: remix3-theme-conformance
-description: "Use when styling a remix3 app with theme tokens — raw `var(--rmx-...)` strings, bare variable names, a `*.background` token used as text, or a token missing from the contract tree (resolves to `undefined`) silently break light/dark contrast."
+description: "Use when styling a remix3 app with theme tokens — raw `var(--rmx-...)` strings, bare variable names, a `*.background` token used as text or `accent-color`, or a token missing from the contract tree (resolves to `undefined`) silently break light/dark contrast."
 origin: consolidated
 ---
 
@@ -25,7 +25,7 @@ This skill is the **index** for theme-token conformance — styling must go thro
 - **Always** reference tokens through the typed `theme` object (`app/ui/theme/theme.ts`); **never** write `var(--rmx-...)` literals or bare token names. `theme.*` leaves are already `var(--rmx-...)` strings.
 - **Never** hardcode colors, borders, shadows, or spacing that a token covers.
 - **Never re-wrap a token**: `var(${theme.…})` becomes `var(var(--rmx-…))`, which drops the whole declaration (and `element.style.x` rejects it outright).
-- **Fill vs. ink:** use `theme.colors.<group>.background` only as a surface fill paired with `.foreground`; use `.foreground` for accent text, glyphs, or a border. `*.background` passes `tsc` and lint even in the wrong role.
+- **Fill vs. ink:** use `theme.colors.<group>.background` only as a surface fill paired with `.foreground`; use `.foreground` for accent text, glyphs, a border, or a native control's `accent-color`. `*.background` passes `tsc` and lint even in the wrong role.
 - **Verify contrast by measurement, not lint**: toggle `data-theme="dark"` on `<html>` and read `getComputedStyle`; both gates are blind to contrast.
 - **Missing token:** add the key to the contract tree (`app/ui/theme/contract.ts`), add matching values to both `Theme` and `DarkTheme` (`app/theme.tsx`), then reference it — never hardcode a fallback.
 - **The contract is the source of truth**: a value defined in `app/theme.tsx` but absent from the contract resolves to `undefined` and its declarations are silently dropped — check `contract.ts`, not just `app/theme.tsx`.
@@ -41,6 +41,7 @@ This skill is the **index** for theme-token conformance — styling must go thro
 - Adding a token that a component needs but the theme doesn't define yet
 - A `theme.<group>.<key>` value is `undefined`, or a style silently does nothing (check `contract.ts`, not just `app/theme.tsx`)
 - Reviewing a coloured label or destructive-outline button for dark-mode contrast
+- A native checkbox/radio/switch styled with `accent-color` looks invisible or washed out (check `.background` vs `.foreground`)
 
 ## Related Skills
 

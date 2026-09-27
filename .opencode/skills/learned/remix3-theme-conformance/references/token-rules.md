@@ -11,7 +11,7 @@
   ```
 - **Never** write `var(--rmx-...)` literals or bare token names. `theme.*` leaves are typed as **`var(--rmx-...)` strings** (`createThemeContract` wraps each variable name), so interpolating `${theme.colors.border.default}` is exactly equivalent to the old literal minus any fallback.
 - **Never** hardcode colors, borders, shadows, or spacing values that a token covers.
-- **Fill vs. ink:** use `theme.colors.<group>.background` only as a surface fill, paired with `.foreground` text. For accent text, glyphs, or a border, use `.foreground`.
+- **Fill vs. ink:** use `theme.colors.<group>.background` only as a surface fill, paired with `.foreground` text. For accent text, glyphs, a border, or a native control's `accent-color`, use `.foreground` (or an already-saturated control token such as `focus.ring`).
 
 ## `*.background` is a fill, not a text color
 
@@ -28,6 +28,16 @@ css({ background: theme.colors.success.background, color: theme.colors.success.f
 ```
 
 `tsc` accepts any real token key and `check-theme-conformance` only scans for raw `var(--rmx-` literals, so role confusion passes every automated gate. After adding a status badge or accent glyph, grep for `color: theme.colors.[a-z]+.background` or measure `getComputedStyle(el).color` against its background — do not trust lint for this.
+
+`accent-color` is ink too, not a fill. The browser uses it to fill a checked checkbox/radio/switch and picks the checkmark colour separately, so a pale `*.background` tint washes out against the page. `success.background` is `#f0fdf4` light / `#052e16` dark, so the control nearly disappears in light mode and reads as a dark blob in dark mode — the same ≈1.02:1 light ratio recorded above.
+
+```ts
+// BAD — pale tint: the checked control disappears into the surface
+css({ accentColor: theme.colors.success.background })
+
+// GOOD — saturated ink; a colour-carrying control token (focus.ring) also works
+css({ accentColor: theme.colors.success.foreground })
+```
 
 ## When a token does not exist
 
