@@ -108,6 +108,15 @@ export const ListsClient = clientEntry(
     let clearArmed = false
     let clearArmTimer: ReturnType<typeof setTimeout> | null = null
 
+    // Row selection for "Auswahl → in Liste kopieren". Separate from the done
+    // toggle: selecting is view-only and never marks the list dirty.
+    let selectedItemIds = new Set<string>()
+    let copyTargetId = ''
+    let copyBusy = false
+    let copyError = ''
+    let copyNotice = ''
+    let copyNoticeTimer: ReturnType<typeof setTimeout> | null = null
+
     let clearUndo = () => {
       if (undoTimer) clearTimeout(undoTimer)
       undoTimer = null
@@ -271,6 +280,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
+      clearSelection()
       saveStatus = 'saved'
       loadError = ''
       conflictState = { show: false, serverState: null }
@@ -642,6 +652,61 @@ export const ListsClient = clientEntry(
       backgroundColor: theme.colors.action.danger.background,
       borderColor: theme.colors.action.danger.background,
       color: theme.colors.action.danger.foreground,
+    })
+
+    // Row-selection checkbox for "Auswahl → in Liste kopieren". Distinct from the
+    // done toggle: checking it never marks the list dirty.
+    let selectionCheckboxStyle = css({
+      width: '16px',
+      height: '16px',
+      flexShrink: 0,
+      cursor: 'pointer',
+      accentColor: theme.colors.focus.ring,
+    })
+
+    // Bulk-action bar, shown only while at least one row is selected.
+    let bulkBarStyle = css({
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.space.sm,
+      flexWrap: 'wrap',
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderBottom: `1px solid ${theme.colors.border.default}`,
+      backgroundColor: theme.surface.lvl3,
+    })
+
+    let bulkCountStyle = css({
+      fontSize: theme.fontSize.xs,
+      fontWeight: theme.fontWeight.semibold,
+      color: theme.colors.text.primary,
+      whiteSpace: 'nowrap',
+    })
+
+    let bulkSelectStyle = css({
+      padding: `${theme.space.xs} ${theme.space.sm}`,
+      borderRadius: theme.radius.sm,
+      border: `1px solid ${theme.colors.border.strong}`,
+      background: theme.surface.lvl0,
+      color: theme.colors.text.primary,
+      fontFamily: theme.fontFamily.sans,
+      fontSize: theme.fontSize.xs,
+      maxWidth: '220px',
+    })
+
+    let bulkNoticeStyle = css({
+      padding: `${theme.space.xs} ${theme.space.md}`,
+      fontSize: theme.fontSize.xs,
+      color: theme.colors.success.foreground,
+      backgroundColor: theme.surface.lvl1,
+      borderBottom: `1px solid ${theme.colors.border.default}`,
+    })
+
+    let bulkErrorStyle = css({
+      padding: `${theme.space.xs} ${theme.space.md}`,
+      fontSize: theme.fontSize.xs,
+      color: theme.colors.action.danger.background,
+      backgroundColor: theme.surface.lvl1,
+      borderBottom: `1px solid ${theme.colors.border.default}`,
     })
 
     let sortSelectStyle = css({
@@ -1041,6 +1106,129 @@ export const ListsClient = clientEntry(
       return await saveNow()
     }
 
+    // Drop the current row selection. Called on every list load so a selection
+    // never leaks onto a different list.
+    let clearSelection = () => {
+      selectedItemIds = new Set()
+      copyTargetId = ''
+    }
+
+    let toggleSelected = (id: string) => {
+      let next = new Set(selectedItemIds)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      selectedItemIds = next
+      copyError = ''
+      handle.update()
+    }
+
+    let toggleSelectAllVisible = () => {
+      let vis = visibleItems()
+      let all = vis.length > 0 && vis.every((item) => selectedItemIds.has(item.id))
+      let next = new Set(selectedItemIds)
+      if (all) {
+        for (let item of vis) next.delete(item.id)
+      } else {
+        for (let item of vis) next.add(item.id)
+      }
+      selectedItemIds = next
+      copyError = ''
+      handle.update()
+    }
+
+    // Candidate targets are the sidebar list rows — the same set the
+    // list-to-list drag exposes. Read at interaction time so a frame
+    // navigation's freshly rendered sidebar is always current.
+    let copyTargets = (): Array<{ id: number; label: string }> => {
+      if (typeof document === 'undefined') return []
+      let seen = new Set<number>()
+      let targets: Array<{ id: number; label: string }> = []
+      for (let row of Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]'))) {
+        let id = Number(row.dataset.listId)
+        if (!Number.isFinite(id) || id === loadedListId || seen.has(id)) continue
+        seen.add(id)
+        let label = row.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${id}`
+        targets.push({ id, label })
+      }
+      return targets
+    }
+
+    let copySelectedItems = async () => {
+      if (loadedListId === null || copyBusy) return
+      let targetId = Number(copyTargetId)
+      if (!Number.isFinite(targetId) || targetId < 1) {
+        copyError = 'Bitte eine Ziel-Liste wählen'
+        handle.update()
+        return
+      }
+      let itemIds = items.filter((item) => selectedItemIds.has(item.id)).map((item) => item.id)
+      if (itemIds.length === 0) {
+        copyError = 'Keine Elemente ausgewählt'
+        handle.update()
+        return
+      }
+
+      // Claim the in-flight guard *before* awaiting. A pending autosave makes
+      // `flushNow` span a network round-trip; without this, a second click could
+      // pass the `copyBusy` guard and copy the same selection twice.
+      copyBusy = true
+      copyError = ''
+      handle.update()
+      try {
+        // Persist pending edits first: the server checks If-Match against the
+        // source's `updated_at`, which a pending autosave is about to bump.
+        let flushed = await flushNow()
+        if (!flushed) return
+        let response = await fetch(`/lists/${loadedListId}/copy-items`, {
+          method: 'POST',
+          headers: getCsrfHeaders(),
+          body: JSON.stringify({ targetId, itemIds }),
+        })
+        if (response.ok) {
+          let data = await response.json()
+          let copied = typeof data.copied === 'number' ? data.copied : itemIds.length
+          selectedItemIds = new Set()
+          copyTargetId = ''
+          copyNotice = `${copied} ${copied === 1 ? 'Element' : 'Elemente'} kopiert`
+          if (copyNoticeTimer) clearTimeout(copyNoticeTimer)
+          copyNoticeTimer = setTimeout(() => {
+            copyNotice = ''
+            copyNoticeTimer = null
+            handle.update()
+          }, 5000)
+          announce(
+            `${copied} ${copied === 1 ? 'Element' : 'Elemente'} in die gewählte Liste kopiert`,
+          )
+          handle.update()
+          // Refresh the sidebar so the target row's count reflects the copies.
+          handle.frame.reload().catch(() => {})
+        } else if (response.status === 409) {
+          let server = await response.json()
+          conflictState = {
+            show: true,
+            serverState: {
+              id: server.id,
+              title: server.title,
+              description: server.description,
+              items: server.items,
+              updated_at: server.updated_at,
+            },
+          }
+        } else if (response.status === 404) {
+          copyError = 'Liste nicht gefunden'
+        } else if (response.status === 400) {
+          copyError = 'Kopieren nicht möglich'
+        } else {
+          copyError = 'Kopieren fehlgeschlagen'
+        }
+      } catch {
+        copyError = 'Kopieren fehlgeschlagen (Netzwerkfehler)'
+      } finally {
+        copyBusy = false
+        handle.update()
+      }
+    }
+
     // Revert unsaved edits back to the last saved snapshot.
     let discardChanges = () => {
       if (autosaveTimer) {
@@ -1053,6 +1241,7 @@ export const ListsClient = clientEntry(
       }
       undoSnapshot = null
       undoKind = null
+      clearSelection()
       items = JSON.parse(cleanItemsJSON)
       title = cleanTitle
       description = cleanDescription
@@ -1072,6 +1261,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = state.id
       loadedUpdatedAt = state.updated_at
+      clearSelection()
       snapshotClean()
       saveStatus = 'saved'
       loadError = ''
@@ -1119,6 +1309,7 @@ export const ListsClient = clientEntry(
         descriptionMode = 'auto'
         loadedListId = null
         loadedUpdatedAt = null
+        clearSelection()
         saveStatus = 'dirty'
         loadError = ''
         loadingList = false
@@ -1135,6 +1326,7 @@ export const ListsClient = clientEntry(
       descriptionMode = 'auto'
       loadedListId = null
       loadedUpdatedAt = null
+      clearSelection()
       saveStatus = 'saved'
       loadError = ''
       loadingList = false
@@ -1685,6 +1877,7 @@ export const ListsClient = clientEntry(
         items.map((item) => ({ ...item })),
       )
       items = []
+      selectedItemIds = new Set()
       setDirty()
       handle.update()
     }
@@ -1701,6 +1894,10 @@ export const ListsClient = clientEntry(
         items.map((item) => ({ ...item })),
       )
       items = items.filter((item) => item.done !== true)
+      // Drop the removed rows from the copy selection.
+      let nextSelected = new Set(selectedItemIds)
+      for (let item of doneItems) nextSelected.delete(item.id)
+      selectedItemIds = nextSelected
       setDirty()
       announce('Erledigte Elemente gelöscht')
       handle.update()
@@ -1776,12 +1973,19 @@ export const ListsClient = clientEntry(
     let deleteItem = (index: number) => {
       disarmClear()
       if (!items[index]) return
+      let removedId = items[index].id
       showUndo(
         'delete',
         items.map((item) => ({ ...item })),
       )
       // Simply filter — no id rewriting
       items = items.filter((_, i) => i !== index)
+      // Never leave a deleted row in the copy selection.
+      if (selectedItemIds.has(removedId)) {
+        let next = new Set(selectedItemIds)
+        next.delete(removedId)
+        selectedItemIds = next
+      }
       setDirty()
       handle.update()
     }
@@ -2184,6 +2388,7 @@ export const ListsClient = clientEntry(
       let vis = visibleItems()
       let doneCount = vis.filter((item) => item.done === true).length
       let totalCount = vis.length
+      let allVisibleSelected = vis.length > 0 && vis.every((item) => selectedItemIds.has(item.id))
 
       return (
         <div mix={cardStyle}>
@@ -2593,6 +2798,14 @@ export const ListsClient = clientEntry(
                   {items.length > 0 && (
                     <>
                       <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        disabled={totalCount === 0}
+                        aria-label="Alle sichtbaren Elemente auswählen"
+                        title="Alle sichtbaren Elemente auswählen"
+                        mix={[selectionCheckboxStyle, on('change', toggleSelectAllVisible)]}
+                      />
+                      <input
                         id="lists-inner-filter"
                         type="search"
                         placeholder="Elemente durchsuchen…"
@@ -2750,6 +2963,77 @@ export const ListsClient = clientEntry(
                   </details>
                 </div>
               </div>
+
+              {selectedItemIds.size > 0 && (
+                <div mix={bulkBarStyle}>
+                  <span mix={bulkCountStyle} data-bulk-count={String(selectedItemIds.size)}>
+                    {selectedItemIds.size} ausgewählt
+                  </span>
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'secondary' }), on('click', toggleSelectAllVisible)]}
+                  >
+                    {allVisibleSelected ? 'Auswahl aufheben' : 'Alle sichtbaren auswählen'}
+                  </button>
+                  <span mix={css({ flex: 1 })} />
+                  <select
+                    id="copy-items-target"
+                    aria-label="Ziel-Liste"
+                    mix={[
+                      bulkSelectStyle,
+                      on('change', (e) => {
+                        copyTargetId = e.currentTarget.value
+                        copyError = ''
+                        handle.update()
+                      }),
+                    ]}
+                  >
+                    <option value="">Ziel-Liste…</option>
+                    {copyTargets().map((target) => (
+                      <option
+                        key={target.id}
+                        value={target.id}
+                        selected={String(target.id) === copyTargetId}
+                      >
+                        {target.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    mix={[button({ tone: 'primary' }), on('click', () => void copySelectedItems())]}
+                    disabled={copyBusy || !copyTargetId}
+                    title="Ausgewählte Elemente in die Ziel-Liste kopieren"
+                  >
+                    {copyBusy ? 'Kopiere…' : '⧉ In Liste kopieren'}
+                  </button>
+                  <button
+                    type="button"
+                    mix={[
+                      button({ tone: 'secondary' }),
+                      on('click', () => {
+                        clearSelection()
+                        copyError = ''
+                        handle.update()
+                      }),
+                    ]}
+                    title="Auswahl aufheben"
+                    aria-label="Auswahl aufheben"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              {copyError && (
+                <div role="alert" mix={bulkErrorStyle}>
+                  {copyError}
+                </div>
+              )}
+              {copyNotice && (
+                <div role="status" aria-live="polite" mix={bulkNoticeStyle}>
+                  {copyNotice}
+                </div>
+              )}
 
               {items.length === 0 ? (
                 <div
@@ -2953,6 +3237,25 @@ export const ListsClient = clientEntry(
                         data-item-id={item.id}
                         tabIndex={item.id === activeItemId() ? 0 : -1}
                       >
+                        <input
+                          type="checkbox"
+                          data-select-item={item.id}
+                          checked={selectedItemIds.has(item.id)}
+                          aria-label={
+                            selectedItemIds.has(item.id)
+                              ? 'Element von der Auswahl entfernen'
+                              : 'Element auswählen'
+                          }
+                          title={
+                            selectedItemIds.has(item.id)
+                              ? 'Element von der Auswahl entfernen'
+                              : 'Element auswählen'
+                          }
+                          mix={[
+                            selectionCheckboxStyle,
+                            on('change', () => toggleSelected(item.id)),
+                          ]}
+                        />
                         <span mix={gripStyle} data-grip="" aria-hidden="true">
                           ⠿
                         </span>

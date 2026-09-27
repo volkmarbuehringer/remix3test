@@ -170,8 +170,8 @@ describe('lists merge via sidebar drag', () => {
   }
 
   async function readConfirmCalls(page: { evaluate: Function }) {
-    return (await page.evaluate(
-      () => Number(document.documentElement.dataset.confirmCalls ?? '0'),
+    return (await page.evaluate(() =>
+      Number(document.documentElement.dataset.confirmCalls ?? '0'),
     )) as number
   }
 
@@ -349,10 +349,152 @@ describe('lists merge via sidebar drag', () => {
       // Nothing may have been written, in the rendered editor or in the database.
       await page.waitForTimeout(500)
       assert.equal(await page.locator('[data-item-id]').count(), 1)
+      assert.equal(await targetItemCount(targetId), 1, 'a declined confirmation must not merge')
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// /lists copy selected items into another list (client entry e2e).
+//
+// Exercises the row selection checkboxes + the bulk "In Liste kopieren" bar:
+// select two of three source items, pick the target list in the picker, copy.
+// The server appends only the selected items with fresh ids and leaves the
+// source untouched. Selection lives in the client entry, so the driver retries
+// until the bulk count registers — a pre-hydration toggle is a silent no-op.
+// ---------------------------------------------------------------------------
+
+describe('lists copy selected items into another list', () => {
+  let adminCookie: string
+  let adminUserId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+    adminCookie = auth!.cookie
+
+    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows as { id: number }[]
+    assert.ok(userRows.length > 0, 'admin user must exist')
+    adminUserId = Number(userRows[0]!.id)
+  })
+
+  async function seedLists() {
+    let now = Date.now()
+    let sourceItems = JSON.stringify([
+      { id: 'copy-src-1', label: 'Quell Eintrag 1' },
+      { id: 'copy-src-2', label: 'Quell Eintrag 2' },
+      { id: 'copy-src-3', label: 'Quell Eintrag 3' },
+    ])
+    let targetItems = JSON.stringify([{ id: 'copy-tgt-1', label: 'Ziel Eintrag' }])
+
+    let sourceResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'copy source', 'seeded source for copy e2e', sourceItems, now],
+    )
+    let sourceId = Number(sourceResult.rows[0]!.id as number)
+
+    let targetResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'copy target', 'seeded target for copy e2e', targetItems, now],
+    )
+    let targetId = Number(targetResult.rows[0]!.id as number)
+
+    return { sourceId, targetId }
+  }
+
+  async function listItems(listId: number) {
+    let row = await pool.query('SELECT list FROM lists WHERE id = $1', [listId])
+    return row.rows[0]!.list as Array<{ id: string; label: string }>
+  }
+
+  // Drive the selection checkboxes until the rendered bulk count matches. Each
+  // attempt first clears any stale native checkbox state, then checks the wanted
+  // ids; before hydration the dispatches are no-ops, so the loop retries.
+  async function selectItems(
+    page: { evaluate: Function; waitForTimeout: Function },
+    ids: string[],
+  ) {
+    for (let attempt = 0; attempt < 60; attempt++) {
+      await page.evaluate((wanted: string[]) => {
+        for (let box of Array.from(
+          document.querySelectorAll<HTMLInputElement>('[data-select-item]'),
+        )) {
+          if (box.checked) {
+            box.checked = false
+            box.dispatchEvent(new Event('change', { bubbles: true }))
+          }
+        }
+        for (let id of wanted) {
+          let box = document.querySelector<HTMLInputElement>(`[data-select-item="${id}"]`)
+          if (box && !box.checked) {
+            box.checked = true
+            box.dispatchEvent(new Event('change', { bubbles: true }))
+          }
+        }
+      }, ids)
+
+      let count = (await page.evaluate(
+        () => document.querySelector('[data-bulk-count]')?.getAttribute('data-bulk-count') ?? '0',
+      )) as string
+      if (Number(count) === ids.length) return
+      await page.waitForTimeout(250)
+    }
+    assert.ok(false, 'the selection must register once the client entry hydrates')
+  }
+
+  it('copies only the selected items into the target and leaves the source intact', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto(`/lists?load=${sourceId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+      await page.locator(`[data-list-id="${targetId}"]`).waitFor({ timeout: 15_000 })
+
+      // Select the first and third source items (skip the middle one).
+      await selectItems(page, ['copy-src-1', 'copy-src-3'])
+
+      // The picker must offer the other sidebar list as a target.
       assert.equal(
-        await targetItemCount(targetId),
+        await page.locator(`#copy-items-target option[value="${targetId}"]`).count(),
         1,
-        'a declined confirmation must not merge',
+        'the target picker should list the other sidebar list',
+      )
+
+      await page.selectOption('#copy-items-target', String(targetId))
+      await page.locator('button:has-text("In Liste kopieren")').click()
+
+      // The server appends the two selected copies to the target.
+      let targetItems = await listItems(targetId)
+      for (let attempt = 0; attempt < 40 && targetItems.length !== 3; attempt++) {
+        await page.waitForTimeout(250)
+        targetItems = await listItems(targetId)
+      }
+      assert.equal(targetItems.length, 3, 'exactly the two selected items must be appended')
+      assert.equal(targetItems[0]!.label, 'Ziel Eintrag', 'existing target item stays first')
+      assert.equal(targetItems[1]!.label, 'Quell Eintrag 1')
+      assert.equal(targetItems[2]!.label, 'Quell Eintrag 3')
+      assert.ok(
+        !targetItems.some((item) => item.id === 'copy-src-1' || item.id === 'copy-src-3'),
+        'copied items must receive fresh ids',
+      )
+
+      // The skipped item stays in the source, and the source is untouched.
+      let sourceItems = await listItems(sourceId)
+      assert.deepEqual(
+        sourceItems.map((item) => item.id),
+        ['copy-src-1', 'copy-src-2', 'copy-src-3'],
+        'source item ids must be unchanged',
       )
     } finally {
       await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])

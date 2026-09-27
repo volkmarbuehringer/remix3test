@@ -236,6 +236,40 @@ The `/lists` sidebar list rows SHALL be draggable as list sources. Dropping one 
 - **WHEN** the client sends a merge without an `If-Match` header and without an `_if_match` body field
 - **THEN** the server responds `400` and does not modify either list
 
+### Requirement: Copy selected items into another list
+
+The `/lists` editor SHALL let the user select individual item rows with a dedicated selection checkbox (distinct from the done toggle) and copy the selected items into another list. The client SHALL issue `POST /lists/:sourceId/copy-items` with a JSON body `{ targetId, itemIds }` and a valid CSRF token, and SHALL send the source's last-known `updated_at` as `If-Match` (or the `_if_match` body fallback). The server SHALL append a fresh-id copy of every named item, in the order given, after the target's existing items, SHALL leave the source list unchanged (including its `updated_at`), and SHALL bump only the target's `updated_at`. Each copy MUST preserve its `done`, `priority`, `due`, `tags`, and `updatedAt` values. Selecting rows MUST NOT mark the list dirty. Per-user ownership MUST be enforced: a non-admin user MAY copy only between lists they own; an admin MAY copy between any lists.
+
+#### Scenario: Copy a subset of items
+
+- **WHEN** the client sends `POST /lists/:sourceId/copy-items` with a matching `If-Match` and an `itemIds` array naming a subset of the source's items
+- **THEN** the server appends a copy of each named item, in the order given, after the target's existing items, assigns each copy a fresh unique id, leaves the source unchanged, and responds `200` with the target row and the number of copied items
+
+#### Scenario: Copy to own list rejected
+
+- **WHEN** the client copies items into the source list itself
+- **THEN** the server responds `400` and neither list is modified
+
+#### Scenario: Empty or unmatched selection rejected
+
+- **WHEN** the client sends an empty `itemIds` array, or names ids that no longer exist in the source
+- **THEN** the server responds `400` and the target is not modified
+
+#### Scenario: Missing precondition rejected
+
+- **WHEN** the client sends a copy-items request without an `If-Match` precondition
+- **THEN** the server responds `400` and the target is not modified
+
+#### Scenario: Stale source precondition rejected
+
+- **WHEN** the client sends a copy whose source `If-Match` does not match the source row's current `updated_at`
+- **THEN** the server responds `409` with the current source row and does not modify either list
+
+#### Scenario: Foreign list copy forbidden
+
+- **WHEN** a non-admin user copies items into a list owned by another user
+- **THEN** the server responds `404` and neither list is modified
+
 ### Requirement: Move gesture feedback
 
 During a drag, the sidebar rows SHALL render an explicit drop highlight when hovered, and the intra-list reorder indicator (border above/below a target row) and the cross-list sidebar highlight MUST be mutually exclusive — hovering a sidebar row SHALL suppress the intra-list indicator and vice versa.

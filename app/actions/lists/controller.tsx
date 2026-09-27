@@ -19,6 +19,7 @@ import {
   moveItemBetweenLists,
   copyList,
   mergeListIntoList,
+  copyItemsToList,
   type ListSummary,
   type ListItemInput,
 } from '../../data/lists.ts'
@@ -71,6 +72,11 @@ const listsMoveSchema = s.object({
 
 const listsMergeSchema = s.object({
   targetId: s.number(),
+})
+
+const listsCopyItemsSchema = s.object({
+  targetId: s.number(),
+  itemIds: s.array(s.string()),
 })
 
 export default createController(routes.lists, {
@@ -222,10 +228,6 @@ export default createController(routes.lists, {
           { error: 'At least title, description or items is required' },
           { status: 400 },
         )
-      }
-
-      if (items !== undefined && items.length === 0) {
-        return context.json({ error: 'Items array must not be empty' }, { status: 400 })
       }
 
       let partial: {
@@ -440,6 +442,89 @@ export default createController(routes.lists, {
         description: result.target.description,
         items: result.target.list,
         updated_at: result.target.updated_at,
+      })
+    },
+
+    async copyItems(context) {
+      let user = getCurrentUser()
+      let listUserId = user.role === 'admin' ? undefined : user.id
+
+      let sourceId: number
+      try {
+        sourceId = s.parse(s.number(), Number(context.params.id))
+      } catch (error) {
+        context.logger?.('Invalid list ID in lists/copyItems: ' + String(error))
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      if (!Number.isInteger(sourceId) || sourceId < 1) {
+        return context.json({ error: 'Invalid list ID' }, { status: 400 })
+      }
+
+      let body = context.jsonBody
+      if (!body) {
+        return context.json({ error: 'Invalid JSON body' }, { status: 400 })
+      }
+
+      let parseResult = s.parseSafe(listsCopyItemsSchema, body)
+      if (!parseResult.success) {
+        let message =
+          parseResult.issues.length > 0 ? parseResult.issues[0]!.message : 'Invalid fields'
+        return context.json({ error: message }, { status: 400 })
+      }
+
+      let { targetId, itemIds } = parseResult.value
+
+      if (!Number.isInteger(targetId) || targetId < 1) {
+        return context.json({ error: 'Invalid target ID' }, { status: 400 })
+      }
+      if (itemIds.length === 0) {
+        return context.json({ error: 'At least one item is required' }, { status: 400 })
+      }
+
+      let ifMatch = context.request.headers.get('If-Match')
+      if (ifMatch == null && typeof body === 'object' && body !== null && '_if_match' in body) {
+        let bf = (body as Record<string, unknown>)._if_match
+        ifMatch = bf != null ? String(bf) : null
+      }
+      let expectedUpdatedAt = ifMatch ? Number(ifMatch) : undefined
+      if (expectedUpdatedAt == null || !Number.isFinite(expectedUpdatedAt)) {
+        return context.json({ error: 'If-Match precondition is required' }, { status: 400 })
+      }
+
+      let result = await copyItemsToList(context.db, sourceId, targetId, itemIds, listUserId, {
+        expectedUpdatedAt,
+      })
+
+      if (!result.ok && result.reason === 'not_found') {
+        return context.json({ error: 'List not found' }, { status: 404 })
+      }
+      if (!result.ok && result.reason === 'conflict') {
+        return context.json(
+          {
+            id: result.current.id,
+            title: result.current.title,
+            description: result.current.description,
+            items: result.current.list,
+            updated_at: result.current.updated_at,
+          },
+          { status: 409, headers: { ETag: String(result.current.updated_at) } },
+        )
+      }
+      if (!result.ok && result.reason === 'same_list') {
+        return context.json({ error: 'Cannot copy items into the same list' }, { status: 400 })
+      }
+      if (!result.ok && result.reason === 'item_not_found') {
+        return context.json({ error: 'Selected items not found in source list' }, { status: 400 })
+      }
+
+      return context.json({
+        id: result.target.id,
+        title: result.target.title,
+        description: result.target.description,
+        items: result.target.list,
+        updated_at: result.target.updated_at,
+        copied: result.copied,
       })
     },
 

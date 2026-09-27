@@ -655,7 +655,7 @@ describe('Lists controller', () => {
     assert.ok(body.error, 'response should include an error message')
   })
 
-  it('PUT /lists/:id (patch) with empty items array returns 400', async () => {
+  it('PUT /lists/:id (patch) with empty items array clears all items', async () => {
     let saveResponse = await router.fetch(LISTS_URL, {
       method: 'POST',
       headers: {
@@ -683,9 +683,29 @@ describe('Lists controller', () => {
         items: [],
       }),
     })
-    assert.equal(response.status, 400)
+    assert.equal(response.status, 200)
     let body = await response.json()
-    assert.ok(body.error, 'response should include an error message')
+    assert.ok(Array.isArray(body.items), 'response should include an items array')
+    assert.equal(body.items.length, 0, 'all items should be removed')
+    assert.equal(body.description, 'Empty items test', 'description should be unchanged')
+
+    // The cleared list must remain writable: adding an item back still succeeds.
+    let refill = await router.fetch(`${LISTS_URL}/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(body.updated_at),
+      },
+      body: JSON.stringify({
+        items: [{ label: 'Refilled' }],
+      }),
+    })
+    assert.equal(refill.status, 200)
+    let refilled = await refill.json()
+    assert.equal(refilled.items.length, 1)
+    assert.equal(refilled.items[0].label, 'Refilled')
   })
 
   // -----------------------------------------------------------------------
@@ -1015,6 +1035,225 @@ describe('Lists controller', () => {
         'If-Match': String(source.updated_at - 1),
       },
       body: JSON.stringify({ targetId: target.id }),
+    })
+    assert.equal(response.status, 409)
+    let body = await response.json()
+    assert.equal(body.id, source.id, 'body carries the current source row')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  // -----------------------------------------------------------------------
+  // POST /lists/:id/copy-items — copy selected items into another list
+  // -----------------------------------------------------------------------
+
+  it('POST /lists/:id/copy-items copies only the selected items with fresh ids', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Copy source', [
+      'Alpha',
+      'Beta',
+      'Gamma',
+    ])
+    let target = await createListFor(userCookie, userCsrfToken, 'Copy target', ['Existing'])
+
+    let sourceItems = source.items as Array<{ id: string; label: string }>
+    let picked = [sourceItems[0]!.id, sourceItems[2]!.id]
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: picked }),
+    })
+    assert.equal(response.status, 200)
+    let body = await response.json()
+    assert.equal(body.id, target.id, 'responds with the target row')
+    assert.equal(body.copied, 2, 'reports the number of copied items')
+    assert.equal(body.items.length, 3, 'existing target item plus two copies')
+    assert.equal(body.items[0].label, 'Existing', 'existing target items stay first')
+    assert.equal(body.items[1].label, 'Alpha', 'selection order is preserved')
+    assert.equal(body.items[2].label, 'Gamma')
+    assert.ok(body.updated_at >= target.updated_at, 'target updated_at bumped')
+
+    let copiedIds = body.items.slice(1).map((item: { id: string }) => item.id)
+    for (let id of copiedIds) {
+      assert.ok(!picked.includes(id), 'copied item id must differ from the source id')
+    }
+
+    // Source is untouched: same items, same ids, same updated_at.
+    let sourceRow = await db.findOne(lists, { where: { id: source.id } })
+    assert.ok(sourceRow, 'source row still exists')
+    if (sourceRow) {
+      let sourceList = sourceRow.list as unknown as Array<Record<string, unknown>>
+      assert.equal(sourceList.length, 3, 'source keeps all its items')
+      assert.equal(
+        JSON.stringify(sourceList.map((item) => item.id)),
+        JSON.stringify(sourceItems.map((item) => item.id)),
+        'source item ids unchanged',
+      )
+      assert.equal(
+        Number(sourceRow.updated_at),
+        source.updated_at,
+        'source updated_at unchanged (copy never writes the source)',
+      )
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/copy-items rejects an empty selection with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Empty selection source', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Empty selection target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: [] }),
+    })
+    assert.equal(response.status, 400)
+    let body = await response.json()
+    assert.ok(body.error, 'response should include an error message')
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/copy-items rejects copying into itself with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Self copy', ['A', 'B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: source.id, itemIds: [source.items[0].id] }),
+    })
+    assert.equal(response.status, 400)
+
+    await db.delete(lists, { id: source.id })
+  })
+
+  it('POST /lists/:id/copy-items rejects unknown item ids with 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Unknown items source', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Unknown items target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: ['does-not-exist'] }),
+    })
+    assert.equal(response.status, 400)
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/copy-items rejects when any requested item id is unknown', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Partial source', ['A', 'B'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Partial target', ['C'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({
+        targetId: target.id,
+        itemIds: [source.items[0].id, 'does-not-exist'],
+      }),
+    })
+    assert.equal(response.status, 400)
+
+    // The one valid id must NOT be copied on its own.
+    let targetRow = await db.findOne(lists, { where: { id: target.id } })
+    assert.ok(targetRow, 'target row still exists')
+    if (targetRow) {
+      assert.equal(
+        (targetRow.list as unknown as unknown[]).length,
+        1,
+        'target must be unchanged when any requested id is unknown',
+      )
+    }
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it('POST /lists/:id/copy-items without If-Match returns 400', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Copy no precondition', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Copy no precondition target', [
+      'B',
+    ])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: [source.items[0].id] }),
+    })
+    assert.equal(response.status, 400)
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: target.id })
+  })
+
+  it("POST /lists/:id/copy-items returns 404 for another user's target list", async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'User copy source', ['A'])
+    let adminTarget = await createListFor(adminCookie, adminCsrfToken, 'Admin copy target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at),
+      },
+      body: JSON.stringify({ targetId: adminTarget.id, itemIds: [source.items[0].id] }),
+    })
+    assert.equal(response.status, 404)
+
+    await db.delete(lists, { id: source.id })
+    await db.delete(lists, { id: adminTarget.id })
+  })
+
+  it('POST /lists/:id/copy-items with stale If-Match returns 409 with the current source row', async () => {
+    let source = await createListFor(userCookie, userCsrfToken, 'Stale copy source', ['A'])
+    let target = await createListFor(userCookie, userCsrfToken, 'Stale copy target', ['B'])
+
+    let response = await router.fetch(`${LISTS_URL}/${source.id}/copy-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+        'If-Match': String(source.updated_at - 1),
+      },
+      body: JSON.stringify({ targetId: target.id, itemIds: [source.items[0].id] }),
     })
     assert.equal(response.status, 409)
     let body = await response.json()

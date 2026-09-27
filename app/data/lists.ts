@@ -550,6 +550,127 @@ export async function mergeListIntoList(
   }
 }
 
+type CopyItemsResult =
+  | { ok: true; target: ListRow; copied: number }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'conflict'; current: ListRow }
+  | { ok: false; reason: 'same_list' }
+  | { ok: false; reason: 'item_not_found' }
+
+type CopyItemsFailure = 'not_found' | 'conflict' | 'same_list' | 'item_not_found'
+
+function throwCopyItemsError(reason: CopyItemsFailure, current?: ListRow): never {
+  let error = new Error(reason) as Error & {
+    copyItemsReason: CopyItemsFailure
+    copyItemsCurrent?: ListRow | undefined
+  }
+  error.copyItemsReason = reason
+  error.copyItemsCurrent = current
+  throw error
+}
+
+/**
+ * Copy only the identified items from the source list into the target list,
+ * appended after the target's existing items. The source is left untouched and
+ * every copy receives a fresh id (the originals stay in the source, so reusing
+ * ids would create duplicates across lists). `If-Match` semantics mirror
+ * `merge`: the source's last-known `updated_at` must still match, so a
+ * concurrent edit cannot silently copy a stale item set.
+ */
+export async function copyItemsToList(
+  db: Database,
+  sourceId: number,
+  targetId: number,
+  itemIds: string[],
+  userId?: number,
+  options?: { expectedUpdatedAt?: number },
+): Promise<CopyItemsResult> {
+  if (sourceId === targetId) return { ok: false, reason: 'same_list' }
+
+  let wanted = new Set(itemIds)
+
+  try {
+    return await db.transaction(async (tx) => {
+      // Lock both rows up front (in id order to avoid deadlocks) so a concurrent
+      // delete or write cannot corrupt data. FOR UPDATE requires a transaction.
+      for (let lockId of [sourceId, targetId].sort((a, b) => a - b)) {
+        let args: unknown[] = [lockId]
+        let ownerClause = ''
+        if (userId != null) {
+          args.push(userId)
+          ownerClause = ' AND user_id = $2'
+        }
+        let locked = await tx.exec(
+          `SELECT id FROM lists WHERE id = $1${ownerClause} FOR UPDATE`,
+          args,
+        )
+        if ((locked.rows ?? []).length === 0) {
+          throwCopyItemsError('not_found')
+        }
+      }
+
+      let sourceWhere = userId != null ? { id: sourceId, user_id: userId } : { id: sourceId }
+      let targetWhere = userId != null ? { id: targetId, user_id: userId } : { id: targetId }
+
+      let sourceRow = await tx.findOne(lists, { where: sourceWhere })
+      let targetRow = await tx.findOne(lists, { where: targetWhere })
+      if (!sourceRow || !targetRow) throwCopyItemsError('not_found')
+
+      let parsedSource = parseRow(sourceRow)
+      let parsedTarget = parseRow(targetRow)
+
+      let expectedUpdatedAt = options?.expectedUpdatedAt
+      if (expectedUpdatedAt != null && parsedSource.updated_at !== expectedUpdatedAt) {
+        throwCopyItemsError('conflict', parsedSource)
+      }
+
+      // Every requested id must exist: a partial match would silently copy a
+      // subset, so treat any unknown id as a rejected selection.
+      let selected = parsedSource.list.filter((item) => wanted.has(item.id))
+      if (wanted.size === 0 || selected.length !== wanted.size) {
+        throwCopyItemsError('item_not_found')
+      }
+
+      let now = Date.now()
+      let copied = selected.map((item) => ({ ...item, id: crypto.randomUUID() }))
+      let nextTarget = [...parsedTarget.list, ...copied]
+
+      let targetWrite = await tx.updateMany(
+        lists,
+        { list: nextTarget, updated_at: now },
+        { where: targetWhere },
+      )
+      if ((targetWrite.affectedRows ?? 0) === 0) throwCopyItemsError('not_found')
+
+      let updatedTarget = (await tx.findOne(lists, {
+        where: targetWhere,
+      })) as Record<string, unknown> | null
+      if (!updatedTarget) throwCopyItemsError('not_found')
+      return { ok: true, target: parseRow(updatedTarget), copied: copied.length }
+    })
+  } catch (error) {
+    if (error instanceof Error && 'copyItemsReason' in error) {
+      let typed = error as Error & {
+        copyItemsReason: CopyItemsFailure
+        copyItemsCurrent?: ListRow
+      }
+      switch (typed.copyItemsReason) {
+        case 'not_found':
+          return { ok: false, reason: 'not_found' }
+        case 'conflict':
+          return typed.copyItemsCurrent
+            ? { ok: false, reason: 'conflict', current: typed.copyItemsCurrent }
+            : { ok: false, reason: 'not_found' }
+        case 'same_list':
+          return { ok: false, reason: 'same_list' }
+        case 'item_not_found':
+          return { ok: false, reason: 'item_not_found' }
+      }
+    }
+    throw error
+  }
+}
+
 type MoveResult =
   | { ok: true; source: ListRow; target: ListRow }
   | { ok: false; reason: 'not_found' }
