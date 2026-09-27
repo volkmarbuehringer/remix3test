@@ -180,7 +180,7 @@ const hintStyle = css({
 
 // ── Empty state (panel placeholder + frame fallback) ────────────────
 
-export const SUPPORT_AGENT_EXAMPLES = [
+const SUPPORT_AGENT_EXAMPLES = [
   { label: 'Benutzer suchen', prompt: 'Suche den Benutzer mit der E-Mail admin@newapp.com.' },
   { label: 'Termine heute', prompt: 'Welche Termine gibt es heute?' },
   { label: 'Statistik', prompt: 'Zeige mir die aktuellen Systemstatistiken.' },

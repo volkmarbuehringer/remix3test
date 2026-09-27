@@ -26,7 +26,7 @@ const centeredPageStyle = css({
   padding: '1rem',
 })
 
-export type AgentChatShellProps = {
+type AgentChatShellProps = {
   /**
    * `fullHeight` fills the available area inside the admin sidebar shell (the
    * page must also be registered in the shell's `fullHeightTargets`).
@@ -67,15 +67,15 @@ export function AgentChatShell(handle: Handle<AgentChatShellProps>) {
 
 // ── Message bubbles ───────────────────────────────────────────────────
 
-export type MessageBubbleRole = 'user' | 'assistant' | 'error'
-export type MessageBubbleVariant = 'customer' | 'support'
+type MessageBubbleRole = 'user' | 'assistant' | 'error'
+type MessageBubbleVariant = 'customer' | 'support'
 
 /**
  * Inline bubble style. Returned as an object (not a `css()` class) so the
  * server-rendered transcript and any streamed-in bubble can share one source
  * without fighting the cascade-layer ordering of generated classes.
  */
-export function bubbleStyle(
+function bubbleStyle(
   role: MessageBubbleRole,
   variant: MessageBubbleVariant = 'support',
 ): Record<string, string | number | undefined> {
@@ -125,7 +125,7 @@ export function bubbleStyle(
   }
 }
 
-export type MessageBubbleProps = {
+type MessageBubbleProps = {
   role: MessageBubbleRole
   variant?: MessageBubbleVariant
   children?: RemixNode
@@ -267,7 +267,7 @@ const stackedButtonStyle = css({
   cursor: 'pointer',
 })
 
-export type ChatComposerTextarea = {
+type ChatComposerTextarea = {
   name?: string
   rows?: number
   placeholder?: string
@@ -278,7 +278,7 @@ export type ChatComposerTextarea = {
   autoComplete?: string
 }
 
-export type ChatComposerProps = {
+type ChatComposerProps = {
   /** `inline` = admin textarea + button row; `stacked` = customer label/textarea/actions. */
   variant?: 'inline' | 'stacked'
   formId: string

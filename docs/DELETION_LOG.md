@@ -1,5 +1,88 @@
 # Code Deletion Log
 
+## [2026-09-27] Drift Cleanup + Grid-Helper Consolidation
+
+Full-repo audit after the Sep-19 → Sep-26 remix/security commit series. knip,
+depcheck, and ts-prune are not installed and installing them would write outside
+the workspace sandbox, so this pass used an in-repo export/usage analyzer: it
+parses every exported symbol in `app/`, `scripts/`, `test/`, and the root
+entrypoints, then counts whole-word references from every other scanned source
+file (test/browser-asset/script classification included). The repo stayed clean
+since 2026-09-10; this pass removes the dead code the drift window introduced and
+finishes the grid-helper consolidation the 2026-09-10 pass deferred.
+
+### Dead Code Removed
+
+- `app/middleware/sse-auth.ts` — `requireSseAuth()` (9 lines). The only
+  remaining mention was a JSDoc line in `requireAdminSseAuth`; zero callers in
+  production or tests. The admin-only `requireAdminSseAuth` (the middleware
+  actually wired) is unchanged; its doc comment was reworded to drop the stale
+  reference.
+- `app/utils/agent-chat.ts` — `AgentChat` type alias
+  (`ReturnType<typeof createAgentChat>`). Never imported or referenced.
+
+### Unused Export Removed (re-export)
+
+- `app/ui/breadcrumbs.tsx` — `export type { BreadcrumbItem }`. The type is
+  still imported from `remix/ui/breadcrumbs` and used inside the module, but no
+  file imports it from `app/ui/breadcrumbs.tsx`.
+
+### Duplicate Code Consolidated
+
+- New `app/utils/grid-params.ts` — shared `gridOffset()`, `gridFilter()`,
+  `gridSortColumn(raw, sortableFields, fallback)`, and
+  `gridSortDirection(raw, direction?)`. Replaces four byte-identical copies of
+  the helpers in `app/actions/client/controller.tsx`,
+  `app/actions/admin/messages/controller.tsx`,
+  `app/actions/admin/lists/controller.tsx`, and
+  `app/actions/admin/users/controller.tsx` (the 2026-09-10 log flagged three;
+  `admin/messages` was the fourth). Only the sort-column fallback and the
+  messages grid's descending default are parameterized; every other behavior is
+  byte-identical.
+
+### Unused Exports Privatized (removed `export` keyword)
+
+- `app/actions/mastra/agent-config.ts` — `withUserTools`, `AppAgentDefinition`
+- `app/assets/streams/public/read-sse.ts` — `SseEventHandler`, `ReadEventStreamOptions`
+- `app/data/admin-lists.ts` — `LIST_ITEM_FILTERS`, `ListItemFilter`
+- `app/data/webhook-requests.ts` — `WebhookPayloadParse`
+- `app/ui/agent-chat/cards.ts` — the seven `*CardOptions` types
+- `app/ui/agent-chat/shell.tsx` — `AgentChatShellProps`, `MessageBubbleRole`,
+  `MessageBubbleVariant`, `bubbleStyle`, `MessageBubbleProps`,
+  `ChatComposerTextarea`, `ChatComposerProps`
+- `app/ui/support-agent-page.tsx` — `SUPPORT_AGENT_EXAMPLES`
+- `app/utils/agent-chat.ts` — `StreamEndReason`, `ChatRequestContext`, `AgentChatConfig`
+- `app/utils/agent-gate-store.ts` — `GateType`, `PendingGateStatus`,
+  `GateSuspension`, `GateStoreConfig`
+- `app/utils/server-handler.ts` — `RequestRouter`
+
+### Kept Deliberately (with reason)
+
+- `test/setup.ts` `globalSetup`/`globalTeardown` — invoked by the `remix test`
+  runner (`remix.json` `test.setup`), not imported.
+- Test-only exports (`__set*` seams, `findRunOwner`, `writeEvent`,
+  browser-asset exports, etc.) — imported by `*.test.*` / `*.browser.*`;
+  removing would break the suite.
+
+### Duplicate Scan Results
+
+- `MAX_MESSAGE_LENGTH` is now single-sourced in `app/utils/message-limits.ts`
+  (the 2026-09-10 "remaining" item is resolved). The re-exports in
+  `mastra/shared-agent.ts` and `agent-events/event-bus.ts` are imported by
+  consumers and stay.
+- `bodyTextCss` in `app/ui/page-primitives.tsx` vs
+  `app/actions/admin/uploads/uploads-grid-css.ts` — still not duplicates
+  (different color token and line height); left as-is.
+
+### Impact
+
+- Files touched: 17 (16 modified + 1 new shared module)
+- Diff: +70 / −130 across the modified files; new module 45 lines
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
+  `--max-warnings=0` + theme conformance OK), `npm run format` (clean on all
+  touched files), `npm test` (1857 tests: 1854 pass / 0 fail / 2 skipped /
+  1 todo)
+
 ## [2026-09-10] Dead-Code & Duplicate Cleanup (post-Sep-4 drift)
 
 Fresh knip + ts-prune + depcheck + tsc + oxlint pass. The repo remains largely

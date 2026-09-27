@@ -58,7 +58,7 @@ export function createMemory(options?: {
   })
 }
 
-export function withUserTools<T extends ToolsInput>(tools: T) {
+function withUserTools<T extends ToolsInput>(tools: T) {
   return { ...tools, askUserTool }
 }
 
@@ -68,7 +68,7 @@ export function withUserTools<T extends ToolsInput>(tools: T) {
  * model settings, memory defaults, `ask_user`) is filled in by
  * {@link defineAppAgent} so the definitions stay pure content.
  */
-export interface AppAgentDefinition<TTools extends ToolsInput> {
+interface AppAgentDefinition<TTools extends ToolsInput> {
   id: string
   name: string
   instructions: string

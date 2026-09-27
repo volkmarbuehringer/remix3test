@@ -58,8 +58,8 @@ export function toListRow(row: TableRow<typeof lists>): ListRow {
 }
 
 /** Item-count filters offered by the admin grid's filter tabs. */
-export const LIST_ITEM_FILTERS = ['items', 'empty'] as const
-export type ListItemFilter = (typeof LIST_ITEM_FILTERS)[number]
+const LIST_ITEM_FILTERS = ['items', 'empty'] as const
+type ListItemFilter = (typeof LIST_ITEM_FILTERS)[number]
 
 /** Narrow an arbitrary query-string/form value to the whitelisted item filter
  *  set so it can never reach the SQL builder unchecked. */

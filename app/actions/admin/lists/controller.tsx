@@ -24,6 +24,12 @@ import {
   gridStateToParams,
 } from '../../../utils/grid-state.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
+import {
+  gridFilter,
+  gridOffset,
+  gridSortColumn,
+  gridSortDirection,
+} from '../../../utils/grid-params.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
 import { renderAdminPage } from '../../../ui/admin-layout.tsx'
@@ -68,23 +74,6 @@ const listsUpdateSchema = f.object({
 
 function listFormValues(raw: Record<string, string>): Record<string, string> {
   return { title: raw.title ?? '', description: raw.description ?? '' }
-}
-
-function gridOffset(raw: Record<string, string>): number {
-  return Math.max(0, Number(raw._offset) || 0)
-}
-
-function gridSortColumn(raw: Record<string, string>): string {
-  let col = raw._sort
-  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'updated_at'
-}
-
-function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
-  return raw._order === 'desc' ? 'desc' : 'asc'
-}
-
-function gridFilter(raw: Record<string, string>): string | undefined {
-  return raw._filter || undefined
 }
 
 /** Whitelist the hidden `_status` grid field (item-count filter) so an
@@ -288,7 +277,7 @@ export default createController(routes.admin.lists, {
           formValues: listFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'updated_at'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: gridStatus(rawValues),
@@ -353,7 +342,7 @@ export default createController(routes.admin.lists, {
           formValues: listFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'updated_at'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           status: gridStatus(rawValues),

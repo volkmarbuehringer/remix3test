@@ -20,6 +20,12 @@ import { parseSort } from '../../utils/sort-params.ts'
 import { isConstraintViolation } from '../../utils/db-errors.ts'
 import { getPageSize } from '../../utils/get-page-size.ts'
 import {
+  gridFilter,
+  gridOffset,
+  gridSortColumn,
+  gridSortDirection,
+} from '../../utils/grid-params.ts'
+import {
   gridStateFromURL,
   gridStateFromForm,
   gridStateFromFormData,
@@ -100,23 +106,6 @@ async function loadGridData(
   })) as { items: Row[]; page: number; hasMore: boolean }
 
   return { rows: page, hasMore }
-}
-
-function gridOffset(raw: Record<string, string>): number {
-  return Math.max(0, Number(raw._offset) || 0)
-}
-
-function gridSortColumn(raw: Record<string, string>): string {
-  let col = raw._sort
-  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'id'
-}
-
-function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
-  return raw._order === 'desc' ? 'desc' : 'asc'
-}
-
-function gridFilter(raw: Record<string, string>): string | undefined {
-  return raw._filter || undefined
 }
 
 function buildEditRowFromRaw(id: number, raw: Record<string, string>): Row {
@@ -277,7 +266,7 @@ export default createController(routes.admin.clients, {
           formValues: rawValues,
           fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -407,7 +396,7 @@ export default createController(routes.admin.clients, {
           formValues: rawValues,
           fieldErrors: issuesToFieldErrors(parsed.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'id'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,

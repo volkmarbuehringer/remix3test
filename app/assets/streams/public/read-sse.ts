@@ -6,9 +6,9 @@
  * `onEvent(type, data)` for each dispatched frame, closing when the body ends.
  */
 
-export type SseEventHandler = (type: string, data: unknown) => void | boolean
+type SseEventHandler = (type: string, data: unknown) => void | boolean
 
-export type ReadEventStreamOptions = {
+type ReadEventStreamOptions = {
   /**
    * Stop reading when this signal aborts. The response body is cancelled so the
    * server sees the disconnect, and the call resolves with `true`.

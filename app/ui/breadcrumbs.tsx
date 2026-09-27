@@ -4,8 +4,6 @@ import type { BreadcrumbItem } from 'remix/ui/breadcrumbs'
 import { theme } from '../ui/theme/theme.ts'
 import { ROUTE_LABELS } from '../route-labels.ts'
 
-export type { BreadcrumbItem }
-
 // App-owned breadcrumb renderer. The vendor `remix/ui/breadcrumbs` component
 // styles its items with hardcoded `light-dark(...)` pixel values that resolve
 // from the OS `prefers-color-scheme` (via `color-scheme`) rather than the app's

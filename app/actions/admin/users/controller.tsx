@@ -23,6 +23,12 @@ import { routes } from '../../../routes.ts'
 import type { AppContext } from '../../../types/context.ts'
 import { getAdminIdentity } from '../../../utils/context.ts'
 import {
+  gridFilter,
+  gridOffset,
+  gridSortColumn,
+  gridSortDirection,
+} from '../../../utils/grid-params.ts'
+import {
   gridStateFromForm,
   gridStateFromFormData,
   gridStateToParams,
@@ -130,23 +136,6 @@ async function loadGridData(
 
   let rows = page.map(toSafeUser)
   return { rows, hasMore }
-}
-
-function gridOffset(raw: Record<string, string>): number {
-  return Math.max(0, Number(raw._offset) || 0)
-}
-
-function gridSortColumn(raw: Record<string, string>): string {
-  let col = raw._sort
-  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'name'
-}
-
-function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
-  return raw._order === 'desc' ? 'desc' : 'asc'
-}
-
-function gridFilter(raw: Record<string, string>): string | undefined {
-  return raw._filter || undefined
 }
 
 /** Strips sensitive/private fields before passing form values to the UI. Password
@@ -353,7 +342,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -367,7 +356,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { password: 'Passwort ist erforderlich.' },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -380,7 +369,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { password: complexityError },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -396,7 +385,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: { email: 'E-Mail existiert bereits.' },
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -456,7 +445,7 @@ export default createController(routes.admin.users, {
           formValues: userFormValues(rawValues),
           fieldErrors: issuesToFieldErrors(parseResult.issues),
           offset: gridOffset(rawValues),
-          column: gridSortColumn(rawValues),
+          column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
           direction: gridSortDirection(rawValues),
           filter: gridFilter(rawValues),
           pageSize: effectivePageSize,
@@ -474,7 +463,7 @@ export default createController(routes.admin.users, {
             formValues: userFormValues(rawValues),
             fieldErrors: { email: 'E-Mail existiert bereits.' },
             offset: gridOffset(rawValues),
-            column: gridSortColumn(rawValues),
+            column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
             pageSize: effectivePageSize,
@@ -490,7 +479,7 @@ export default createController(routes.admin.users, {
             formValues: userFormValues(rawValues),
             fieldErrors: { password: complexityError },
             offset: gridOffset(rawValues),
-            column: gridSortColumn(rawValues),
+            column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'name'),
             direction: gridSortDirection(rawValues),
             filter: gridFilter(rawValues),
             pageSize: effectivePageSize,

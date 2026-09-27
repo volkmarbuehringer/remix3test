@@ -15,7 +15,7 @@ import {
 import type { GateStore } from './agent-gate-store.ts'
 import { createLogger } from './logger.ts'
 
-export type StreamEndReason = 'complete' | 'suspended' | 'error' | 'aborted'
+type StreamEndReason = 'complete' | 'suspended' | 'error' | 'aborted'
 
 interface SuspensionInfo {
   runId?: string | undefined
@@ -35,13 +35,13 @@ interface DecisionResult {
 }
 
 /** The request surface the shared chat engine needs from a route context. */
-export interface ChatRequestContext {
+interface ChatRequestContext {
   formData: FormData
   request: Request
   json: (data: unknown) => Response
 }
 
-export interface AgentChatConfig {
+interface AgentChatConfig {
   /** Log prefix, e.g. `[CustomerChat]`. */
   logPrefix: string
   /** The per-surface agent resolver (carries that surface's test seam). */
@@ -600,5 +600,3 @@ export function createAgentChat(config: AgentChatConfig) {
 
   return { messageStream, toolDecision, answer, reconnect }
 }
-
-export type AgentChat = ReturnType<typeof createAgentChat>

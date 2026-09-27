@@ -35,7 +35,7 @@ const MAX_PAYLOAD_LENGTH = 100_000
 const MAX_KEY_LENGTH = 256
 const MAX_VALUE_LENGTH = 10_000
 
-export type WebhookPayloadParse =
+type WebhookPayloadParse =
   | { ok: true; payload: Record<string, string> }
   | { ok: false; status: number; message: string }
 

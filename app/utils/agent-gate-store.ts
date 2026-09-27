@@ -1,7 +1,7 @@
 import { db } from '../db.ts'
 
-export type GateType = 'tool_decision' | 'question'
-export type PendingGateStatus = 'running' | 'suspended'
+type GateType = 'tool_decision' | 'question'
+type PendingGateStatus = 'running' | 'suspended'
 
 /** A durable per-actor pointer to a suspended agent run. */
 export interface PendingGateRow {
@@ -17,7 +17,7 @@ export interface PendingGateRow {
 }
 
 /** The suspension payload written by `markSuspended`. */
-export interface GateSuspension {
+interface GateSuspension {
   runId: string
   threadId: string
   gateType: GateType
@@ -34,7 +34,7 @@ export interface GateStore {
   resolve(ownerId: number, runId?: string): Promise<PendingGateRow | null>
 }
 
-export interface GateStoreConfig {
+interface GateStoreConfig {
   /** The pointer table, e.g. `chat_pending_gates`. */
   table: string
   /** The per-actor key column, e.g. `user_id` or `admin_user_id`. */

@@ -23,6 +23,12 @@ import { AdminMessagesPage } from '../../../ui/admin-messages-page.tsx'
 import { renderGridFormError, type AdminGridErrorState } from '../../../ui/admin-grid-error.tsx'
 import { parseId } from '../../../utils/ids.ts'
 import { getPageSize } from '../../../utils/get-page-size.ts'
+import {
+  gridFilter,
+  gridOffset,
+  gridSortColumn,
+  gridSortDirection,
+} from '../../../utils/grid-params.ts'
 import { gridStateFromFormData } from '../../../utils/grid-state.ts'
 import { parseSort } from '../../../utils/sort-params.ts'
 import { issuesToFieldErrors, readFormFieldValues } from '../../../utils/schema-utils.ts'
@@ -66,25 +72,6 @@ function parseOffset(raw: string | null | undefined): number {
 function parseFilter(raw: string | null | undefined): string | undefined {
   let value = raw?.trim() ?? ''
   return value ? value.slice(0, 200) : undefined
-}
-
-// -- Grid state read back from the compose/delete forms --
-
-function gridOffset(raw: Record<string, string>): number {
-  return Math.max(0, Number(raw._offset) || 0)
-}
-
-function gridSortColumn(raw: Record<string, string>): string {
-  let col = raw._sort
-  return col && (SORTABLE_FIELDS as readonly string[]).includes(col) ? col : 'created_at'
-}
-
-function gridSortDirection(raw: Record<string, string>): 'asc' | 'desc' {
-  return raw._order === 'asc' ? 'asc' : 'desc'
-}
-
-function gridFilter(raw: Record<string, string>): string | undefined {
-  return raw._filter || undefined
 }
 
 /**
@@ -270,8 +257,8 @@ export default createController(routes.admin.messages, {
       let gridOpts = {
         formValues: { content: rawValues.content ?? '' },
         offset: gridOffset(rawValues),
-        column: gridSortColumn(rawValues),
-        direction: gridSortDirection(rawValues),
+        column: gridSortColumn(rawValues, SORTABLE_FIELDS, 'created_at'),
+        direction: gridSortDirection(rawValues, 'desc'),
         filter: gridFilter(rawValues),
         pageSize: effectivePageSize,
       }

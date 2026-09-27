@@ -1,7 +1,7 @@
 import { html } from 'remix/html-template'
 
 /** The subset of a Remix router the runtime entrypoints depend on. */
-export interface RequestRouter {
+interface RequestRouter {
   fetch(request: Request): Response | Promise<Response>
 }
 

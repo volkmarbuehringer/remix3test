@@ -18,7 +18,7 @@ function escapeHtml(value: string): string {
 
 // ── Approval / confirmation ───────────────────────────────────────────
 
-export type CustomerApprovalCardOptions = {
+type CustomerApprovalCardOptions = {
   variant: 'customer'
   runId: string
   toolCallId?: string | undefined
@@ -26,7 +26,7 @@ export type CustomerApprovalCardOptions = {
   description: string
 }
 
-export type SupportApprovalCardOptions = {
+type SupportApprovalCardOptions = {
   variant: 'support'
   /** The agent bubble the card is appended to. */
   mount: HTMLElement
@@ -35,7 +35,7 @@ export type SupportApprovalCardOptions = {
   onDecline: () => void
 }
 
-export type WorkflowConfirmGateOptions = {
+type WorkflowConfirmGateOptions = {
   variant: 'workflow'
   /** The gate container (`#ae-confirm-gate`) to fill. */
   container: HTMLElement
@@ -47,7 +47,7 @@ export type WorkflowConfirmGateOptions = {
   onCancel: () => void
 }
 
-export type AgentApprovalCardOptions =
+type AgentApprovalCardOptions =
   | CustomerApprovalCardOptions
   | SupportApprovalCardOptions
   | WorkflowConfirmGateOptions
@@ -228,14 +228,14 @@ export function renderAgentApprovalCard(options: AgentApprovalCardOptions): HTML
 
 // ── Questions ─────────────────────────────────────────────────────────
 
-export type CustomerQuestionCardOptions = {
+type CustomerQuestionCardOptions = {
   variant: 'customer'
   question: string
   options?: { label: string; description?: string }[] | null | undefined
   selectionMode: string
 }
 
-export type SupportQuestionCardOptions = {
+type SupportQuestionCardOptions = {
   variant: 'support'
   /** The agent bubble the question is appended to. */
   mount: HTMLElement
@@ -246,7 +246,7 @@ export type SupportQuestionCardOptions = {
   onError?: (error: unknown) => void
 }
 
-export type AgentQuestionCardOptions = CustomerQuestionCardOptions | SupportQuestionCardOptions
+type AgentQuestionCardOptions = CustomerQuestionCardOptions | SupportQuestionCardOptions
 
 function customerQuestionCard(options: CustomerQuestionCardOptions): HTMLElement {
   let card = document.createElement('div')
