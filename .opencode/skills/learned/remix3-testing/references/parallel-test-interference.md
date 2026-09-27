@@ -3,7 +3,7 @@
 **Source:** `remix-test-parallel-interference`
 
 **Extracted:** 2026-06-12
-**Updated:** 2026-09-22 — added the unscoped-`afterEach`-wipe failure mode; 2026-09-12 added the "fails in isolation too" fixture-determinism caveat.
+**Updated:** 2026-09-27 — added the background-timer sweep failure mode; 2026-09-22 added the unscoped-`afterEach`-wipe failure mode; 2026-09-12 added the "fails in isolation too" fixture-determinism caveat.
 **Context:** Removing dead test cleanup code after implementing ephemeral databases per test run. Some cleanup was still needed because parallel workers' data pushed assertions past a pagination page boundary.
 
 ## Problem
@@ -58,9 +58,38 @@ await pool.query('DELETE FROM chat_runs WHERE user_id = ANY($1::int[])' , [suite
 
 Keep the suite's own isolation (leftover rows still block the next test) without reaching into tables other suites own. Grep for the pattern when a shared-table test flakes: `grep -rn "DELETE FROM <table>'" app/` with no `WHERE` is the tell — unscoped deletes are the only cleanup that can cross suites.
 
+### A background timer started from shared init sweeps the old row your test just inserted
+
+**Observed:** 2026-09-27 — `app/data/maintenance.test.ts` "deleteExpiredWebhookRequests deletes rows older than the retention window" failed once in a full run (`assert.ok(deleted >= 1)` → "Expected false to be truthy") and always passed in isolation.
+
+`initializeAppDatabase()` started the retention timer unconditionally, and `startDatabaseMaintenance()` runs an **immediate** sweep before scheduling the interval. Every parallel worker calls `initializeAppDatabase()` in its suites' `before()` (and `test/setup.ts` calls it too), all against the same ephemeral DB. A sweep from another worker landing between the test's `INSERT` of a 31-day-old `webhook_requests` row and its own `deleteExpiredWebhookRequests(db, 30 days)` call deletes the row first, so the test's call returns `0`.
+
+Root cause: this is a **production background job** (not test cleanup) that deletes by age, running in every test worker. It was the only age-based deleter in the suite; every other test delete is scoped by id / `source_ip` / filename prefix, which is why scoping cleanup (the previous section) could not fix it.
+
+**Fix:** do not start background timers under test — guard the **start**, not the sweep function (which stays unit-testable against explicit windows):
+
+```ts
+export async function initializeAppDatabase(): Promise<void> {
+  await applyAppSchema()
+  await seed(db)
+  if (process.env.NODE_ENV !== 'test') {
+    startDatabaseMaintenance(db)
+  }
+}
+```
+
+**Detection:** when a shared-table test flakes on an age/retention assertion, check whether any code path deletes by timestamp (`created_at < $1`). Then look for a timer started from shared bootstrap rather than from the server entry:
+
+```sh
+grep -rn "startDatabaseMaintenance|setInterval" app/ | grep -v 'test'
+```
+
+The tell is a `setInterval`/`startXxx()` invoked from `initializeAppDatabase()` (or any shared bootstrap) instead of `server.ts`: it runs in every worker, not just the app process. This app already uses the same `NODE_ENV !== 'test'` guard for other background side effects (rate limiters, email, Mastra memory), so the guard is the established pattern rather than a new exception.
+
 ## When to Use
 
 - Removing test cleanup code after ephemeral database implementation
 - Debugging a test that passes in isolation but fails in parallel suite
 - Investigating whether pagination page sizes interact with parallel test data volume
 - A shared-DB test that fails even in isolation — check for an unordered `LIMIT 1` pick or seed data whose relevance depends on today's date
+- A shared-table test flakes on an age/retention assertion even though its cleanup is correctly scoped — suspect a background timer (retention/cleanup sweep) started from shared bootstrap and running in every worker

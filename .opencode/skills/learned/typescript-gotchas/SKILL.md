@@ -1,13 +1,13 @@
 ---
 name: typescript-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, or a vendor validator that validates or throws where a hand-rolled coercion used to be."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, or a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write."
 user-invocable: false
 origin: consolidated
 ---
 
 # TypeScript Gotchas
 
-**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`
+**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`
 
 This skill is the **index** for TypeScript/JavaScript deltas that bite at runtime or at the lint/type boundary. For the language and compiler APIs themselves, use the official TypeScript docs; for Remix-specific type wiring, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -16,6 +16,7 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 | Symptom / task involves... | Start with |
 | --- | --- |
 | `await fn()` returns before the async work finishes; a utility starts an internal async IIFE but returns `void` or a cleanup/cancel function | `references/async-void-return-type-race.md` |
+| A retriggerable action (button/submit/queue-drain) sets its `busy`/`inFlight` guard after an `await`, so a double-click runs the side effect twice | `references/async-guard-before-await.md` |
 | Identical code typechecks in one file but errors (`TS2322`/`TS2345`) in another; a dependency pin bump or module reordering flips recursive assignability | `references/ts7-order-sensitive-type-relations.md` |
 | oxlint `consistent-type-imports` rejects `typeof import()`, or `TS2709: Cannot use namespace 'X' as a type` | `references/ts-typeof-import-module-namespace.md` |
 | Tests cannot substitute a top-level imported function that code captured in a closure/map (no `jest.mock`/`vi.mock`) | `references/mutable-executor-setter-testable-imports.md` |
@@ -27,6 +28,11 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 
 - A function that starts async work via an IIFE but returns `void` (or a cancel/cleanup function) makes `await fn()` resolve **immediately**, so everything after the await runs before the work completes — timeouts cleared early, audit logs written before errors, resources freed while still in use. Return `Promise<void>` and wrap the IIFE in `new Promise<void>((resolve) => { … resolve() })`.
 - Call `resolve()` on **every** exit path (normal completion, error, abort, early return), remove/replace the cancel-function return, and update all call sites — they may need `await` added if they were not awaiting before.
+
+**Claim the in-flight guard before the first `await` (`references/async-guard-before-await.md`)**
+
+- A handler that checks `if (busy) return` but assigns `busy = true` only after an `await` lets a second trigger through while the awaited I/O is in flight, running a non-idempotent action twice. Claim the guard synchronously before the first `await` and release it in `finally`; drive the control's disabled state from the same flag.
+- Server `If-Match`/ETag preconditions do **not** dedupe it — the first request leaves the precondition resource unchanged, so both requests pass. Add a client-side guard (and an idempotency key for writes that are not naturally idempotent).
 
 **TS7 order-sensitive type relations (`references/ts7-order-sensitive-type-relations.md`)**
 
@@ -53,6 +59,7 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - A TypeScript/JavaScript behavior is surprising: an await returns too early, a recursive type check flips with ordering, a type-import lint rule fights the annotation you need, a test cannot control an imported dependency, or a vendor helper now throws where a coercion used to default.
 - You are writing or reviewing async "pump"/stream utilities, diagnosing flaky TS7 compile errors, or migrating a codebase to stricter type-import and runtime-validation rules.
 - Before swapping a ternary/coercion for a vendor `compile*`/`parse*`/`assert*` helper, or after a dependency bump changes validation behavior.
+- A user-triggerable async action can run twice (double-click, Enter-repeat, two tabs) and performs a non-idempotent write — see `references/async-guard-before-await.md`.
 
 ## Related Skills
 
@@ -62,3 +69,4 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - `remix-upstream-dependency-analysis` — deciding whether a branch-pinned dependency update's new runtime validation affects your project
 - `repeated-block-collapse-refactor` — the composite-helper refactor that the vendor-validator swap's line accounting points at
 - `remix3-testing` — Remix 3 test-suite patterns that consume the mutable-setter import seam
+- `remix3-client-entries` — the Remix 3 clientEntry handler / pending-state context where this re-entrancy bug is most often written
