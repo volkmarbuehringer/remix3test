@@ -338,12 +338,6 @@ export default createController(routes.lists, {
       if (!result.ok && result.reason === 'same_list') {
         return context.json({ error: 'Cannot move an item into its own list' }, { status: 400 })
       }
-      if (!result.ok && result.reason === 'last_item') {
-        return context.json(
-          { error: 'Cannot move the last remaining item of a list' },
-          { status: 400 },
-        )
-      }
       if (!result.ok && result.reason === 'item_not_found') {
         return context.json({ error: 'Item not found in source list' }, { status: 400 })
       }

@@ -760,7 +760,7 @@ describe('Lists controller', () => {
     assert.ok(body.target.updated_at >= target.updated_at)
   })
 
-  it('POST /lists/:id/move rejects moving the last item with 400', async () => {
+  it('POST /lists/:id/move moves the last item and leaves the source empty', async () => {
     let source = await createListFor(userCookie, userCsrfToken, 'Lonely source', ['Only'])
     let target = await createListFor(userCookie, userCsrfToken, 'Any target', ['Keep'])
 
@@ -774,9 +774,13 @@ describe('Lists controller', () => {
       },
       body: JSON.stringify({ targetId: target.id, itemId: source.items[0].id }),
     })
-    assert.equal(response.status, 400)
+    assert.equal(response.status, 200)
     let body = await response.json()
-    assert.ok(body.error, 'response should include an error message')
+    assert.equal(body.source.items.length, 0, 'source becomes empty')
+    assert.equal(body.target.items.length, 2)
+    assert.equal(body.target.items[1].id, source.items[0].id, 'moved item appended to target')
+    assert.ok(body.source.updated_at >= source.updated_at)
+    assert.ok(body.target.updated_at >= target.updated_at)
   })
 
   it('POST /lists/:id/move rejects moving into the same list with 400', async () => {

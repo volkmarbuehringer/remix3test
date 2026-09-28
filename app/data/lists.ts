@@ -676,10 +676,9 @@ type MoveResult =
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'conflict'; current: ListRow }
   | { ok: false; reason: 'same_list' }
-  | { ok: false; reason: 'last_item' }
   | { ok: false; reason: 'item_not_found' }
 
-type MoveFailure = 'not_found' | 'conflict' | 'item_not_found' | 'last_item' | 'same_list'
+type MoveFailure = 'not_found' | 'conflict' | 'item_not_found' | 'same_list'
 
 function throwMoveError(reason: MoveFailure, current?: ListRow): never {
   let error = new Error(reason) as Error & {
@@ -746,8 +745,9 @@ export async function moveItemBetweenLists(
       if (matchIndex === -1) throwMoveError('item_not_found')
       let item = parsedSource.list[matchIndex]
 
-      if (parsedSource.list.length === 1) throwMoveError('last_item')
-
+      // Moving the last item is allowed: the source list is left empty, which is
+      // a valid state (the editor and PUT /lists/:id both allow clearing every
+      // item). It used to be rejected when empty lists were forbidden.
       let now = Date.now()
       let nextSource = [...parsedSource.list]
       nextSource.splice(matchIndex, 1)
@@ -801,8 +801,6 @@ export async function moveItemBetweenLists(
             : { ok: false, reason: 'not_found' }
         case 'item_not_found':
           return { ok: false, reason: 'item_not_found' }
-        case 'last_item':
-          return { ok: false, reason: 'last_item' }
         case 'same_list':
           return { ok: false, reason: 'same_list' }
       }

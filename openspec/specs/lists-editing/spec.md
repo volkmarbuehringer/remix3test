@@ -162,7 +162,7 @@ The sidebar entry for each list SHALL display a progress indicator reflecting ho
 
 ### Requirement: Cross-list move via drag
 
-The sidebar list rows SHALL act as drop targets for item drags. Dropping an item on a sidebar row SHALL move that item from its current list into the target list, appended at the end. The move MUST respect per-user ownership: a non-admin user MAY move an item only between lists they own; an admin MAY move between any lists. The source list's precondition SHALL be enforced (stale source -> `409`), and moving an item when it is the last remaining item of the source list MUST be rejected (`400`) — a list can never be emptied via drag. Moving an item into its own source list MUST be rejected (`400`).
+The sidebar list rows SHALL act as drop targets for item drags. Dropping an item on a sidebar row SHALL move that item from its current list into the target list, appended at the end. The move MUST respect per-user ownership: a non-admin user MAY move an item only between lists they own; an admin MAY move between any lists. The source list's precondition SHALL be enforced (stale source -> `409`). Moving the last remaining item of the source list SHALL succeed and leave the source list empty: an empty list is a valid state (the editor and `PUT /lists/:id` both allow clearing every item). Moving an item into its own source list MUST be rejected (`400`).
 
 #### Scenario: Drag item onto another list
 
@@ -170,10 +170,10 @@ The sidebar list rows SHALL act as drop targets for item drags. Dropping an item
 - **THEN** list `A` no longer contains `B`, list `C` contains `B` appended after its existing items, and both `updated_at` values change
 - **AND** the client flushes pending autosave and reloads the frame so the sidebar and editor re-read from the server
 
-#### Scenario: Move rejected for last item
+#### Scenario: Move last item empties the source
 
 - **WHEN** the user drags the only remaining item of a list onto another list's sidebar row
-- **THEN** the server responds `400` and neither list is modified
+- **THEN** the server responds `200`, the source list is left empty, and the target list contains the moved item appended after its existing items
 
 #### Scenario: Move to own list rejected
 

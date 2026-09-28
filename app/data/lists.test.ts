@@ -322,7 +322,7 @@ describe('lists-api lib', () => {
     await db.delete(lists, { id: target.id })
   })
 
-  it('moveItemBetweenLists rejects moving the last item', async () => {
+  it('moveItemBetweenLists moves the last item and empties the source', async () => {
     let source = await createList(db, {
       description: 'Lonely source',
       items: [{ id: 'solo', label: 'Only' }],
@@ -335,11 +335,15 @@ describe('lists-api lib', () => {
     let result = await moveItemBetweenLists(db, source.id, target.id, 'solo', undefined, {
       expectedUpdatedAt: source.updated_at,
     })
-    assert.ok(!result.ok)
-    if (!result.ok) assert.equal(result.reason, 'last_item')
+    assert.ok(result.ok)
+    if (result.ok) {
+      assert.equal(result.source.list.length, 0, 'source may be emptied')
+      assert.equal(result.target.list.length, 2)
+      assert.equal(result.target.list[1]!.id, 'solo', 'moved item appended at end')
+    }
 
     let after = await getListById(db, source.id)
-    assert.equal(after!.list.length, 1, 'source unchanged')
+    assert.equal(after!.list.length, 0, 'source persisted empty')
 
     await db.delete(lists, { id: source.id })
     await db.delete(lists, { id: target.id })

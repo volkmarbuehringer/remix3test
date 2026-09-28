@@ -594,3 +594,133 @@ describe('lists copy selected items into another list', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// /lists cross-list move via item drag (client entry e2e).
+//
+// Dragging the last remaining item of a list onto another list's sidebar row
+// must move it and leave the source list empty: an empty list is a valid state
+// (the editor and PUT /lists/:id both allow clearing every item). Uses
+// synthetic DragEvents plus the client-only bulk-bar hydration marker, like the
+// copy-selected tests.
+// ---------------------------------------------------------------------------
+
+describe('lists cross-list move via item drag', () => {
+  let adminCookie: string
+  let adminUserId: number
+
+  before(async () => {
+    await initializeAppDatabase()
+
+    let auth = await createAuthCookieWithCsrfForUser('admin@newapp.com')
+    assert.ok(auth?.cookie, 'admin session must be created')
+    adminCookie = auth!.cookie
+
+    let userRows = (await pool.query('SELECT id FROM users WHERE email = $1', ['admin@newapp.com']))
+      .rows as { id: number }[]
+    assert.ok(userRows.length > 0, 'admin user must exist')
+    adminUserId = Number(userRows[0]!.id)
+  })
+
+  async function seedLists() {
+    let now = Date.now()
+    let sourceItems = JSON.stringify([{ id: 'move-src-1', label: 'Letzter Eintrag' }])
+    let targetItems = JSON.stringify([{ id: 'move-tgt-1', label: 'Ziel Eintrag' }])
+
+    let sourceResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'move source', 'seeded source for move drag e2e', sourceItems, now],
+    )
+    let targetResult = await pool.query(
+      'INSERT INTO lists (user_id, title, description, list, created_at, updated_at) VALUES ($1, $2, $3, $4::jsonb, $5, $5) RETURNING id',
+      [adminUserId, 'move target', 'seeded target for move drag e2e', targetItems, now],
+    )
+
+    return {
+      sourceId: Number(sourceResult.rows[0]!.id as number),
+      targetId: Number(targetResult.rows[0]!.id as number),
+    }
+  }
+
+  async function listItems(listId: number) {
+    let row = await pool.query('SELECT list FROM lists WHERE id = $1', [listId])
+    return row.rows[0]!.list as Array<{ id: string; label: string }>
+  }
+
+  function dragItemOntoList(page: { evaluate: Function }, itemId: string, targetListId: number) {
+    return page.evaluate(
+      ({ itemSel, targetSel }: { itemSel: string; targetSel: string }) => {
+        let source = document.querySelector(itemSel) as HTMLElement | null
+        let target = document.querySelector(targetSel) as HTMLElement | null
+        if (!source || !target) throw new Error('drag source or target row missing')
+        let dt = new DataTransfer()
+        source.dispatchEvent(
+          new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+        target.dispatchEvent(
+          new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+        target.dispatchEvent(
+          new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+      },
+      { itemSel: `[data-item-id="${itemId}"]`, targetSel: `[data-list-id="${targetListId}"]` },
+    )
+  }
+
+  it('moves the last item out and leaves the source list empty', async (t) => {
+    let { sourceId, targetId } = await seedLists()
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto(`/lists?load=${sourceId}`)
+      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
+      await page.locator('[data-item-id="move-src-1"]').waitFor({ timeout: 15_000 })
+      await page.locator(`[data-list-id="${targetId}"]`).waitFor({ timeout: 15_000 })
+
+      // Hydration marker: the row-selection bulk bar is client-only, so a
+      // synthetic drag before it appears would be a silent no-op.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await page.evaluate(() => {
+          let box = document.querySelector<HTMLInputElement>('[data-select-item="move-src-1"]')
+          if (box && !box.checked) {
+            box.checked = true
+            box.dispatchEvent(new Event('change', { bubbles: true }))
+          }
+        })
+        if ((await page.locator('[data-bulk-count]').count()) > 0) break
+        await page.waitForTimeout(250)
+      }
+      await page.evaluate(() => {
+        let box = document.querySelector<HTMLInputElement>('[data-select-item="move-src-1"]')
+        if (box && box.checked) {
+          box.checked = false
+          box.dispatchEvent(new Event('change', { bubbles: true }))
+        }
+      })
+
+      await dragItemOntoList(page, 'move-src-1', targetId)
+
+      let sourceItems = await listItems(sourceId)
+      for (let attempt = 0; attempt < 40 && sourceItems.length !== 0; attempt++) {
+        await page.waitForTimeout(250)
+        sourceItems = await listItems(sourceId)
+      }
+      assert.equal(sourceItems.length, 0, 'moving the last item must leave the source empty')
+
+      let targetItems = await listItems(targetId)
+      assert.deepEqual(
+        targetItems.map((item) => item.id),
+        ['move-tgt-1', 'move-src-1'],
+        'the moved item must be appended after the target items',
+      )
+    } finally {
+      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
+      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
+    }
+  })
+})
