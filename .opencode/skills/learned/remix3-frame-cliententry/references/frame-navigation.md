@@ -225,6 +225,8 @@ async index(context) {
 
 Target-ful frame clients then bail to a full-page navigation of the marker URL (no frame headers → binary downloads); target-less fetches degrade to rendering the page fragment. For the download trigger itself, prefer `data-rmx-document` **on the form** (as of #11668 forms are intercepted like links): native navigation hands the attachment to the browser's download manager without leaving the page — no shim needed on the happy path.
 
+**Since #11940** the browser navigation listener also steps aside when `event.downloadRequest != null` and for hash-only changes (`event.hashChange` with no pending frame reload) (`ui` `src/runtime/navigation.ts`, `startNavigationListenerImpl`). A link carrying the native `download` attribute therefore needs no `data-rmx-document`; the escape is still required for an attachment endpoint reached by a plain link or form with no `download` attribute. Also, a hash-only change no longer triggers a frame reload, so in-frame `#fragment` deep links are handled entirely by the browser.
+
 ### Conditionally apply `data-rmx-document` in shared navigation
 
 For components rendered across sections (e.g., MainNav), apply `data-rmx-document` only when the destination section differs from the current section. This preserves fast frame-based navigation within the same section:

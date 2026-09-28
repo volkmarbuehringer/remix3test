@@ -4,6 +4,8 @@
 
 **Extracted:** 2026-09-26
 
+**Re-validated (2026-09-28):** against installed build `2a098a36c` (installable dist of source `25c674d1f`, the #11940/#11941 pair; `remix` `3.0.0-rc.3`). remix #11941 replaced the `X-Remix-Frame` header check with the `internalFrameRequests` `WeakSet`, so the `render-ui.js` anchors below are re-pinned to that build.
+
 **Context:** Deciding what a non-success frame response should become, where frame render errors surface, whether returned frame HTML is safe, when to use `renderToString`/`renderWith`, why a `data-rmx-src` link or frame form is not intercepted, or why a clientEntry's server props are stale after a frame reload.
 
 ## Problem
@@ -14,11 +16,11 @@ The guide's failure contract has two reporting hooks and one decision point, but
 
 **Failure and cancellation contract (guide §"Render the response as a stream", §"Handle failures and cancellation")**
 
-- Server hook: `render()`'s `onError`. This app calls `render({ assets: assetServer })` with no callback (`app/middleware/root.ts:79`). Upstream defaults a missing callback to `console.error` (`ui` `dist/server/stream.js:79`) but forces it to a no-op for any request carrying `X-Remix-Frame: true` (`render-middleware` `dist/lib/render-ui.js:48`). Net effect here: top-level document render failures reach `console.error`; fragment render failures are silent by design, and the frame `fallback` is the only visibility mechanism.
+- Server hook: `render()`'s `onError`. This app calls `render({ assets: assetServer })` with no callback (`app/middleware/root.ts:79`), so upstream's default `(error) => console.error(error)` applies (`ui` `dist/server/stream.js:79`). Since remix #11941 the no-op suppression keys on **object identity, not the `X-Remix-Frame` header**: the renderer keeps an `internalFrameRequests` `WeakSet` (`render-middleware` `dist/lib/render-ui.js:9`) and only its own `followFrameRedirects` subrequests are added to it (`:120`), so `onError` is replaced by a no-op only for those (`:51`). Net effect here: top-level document render failures and render failures of **browser-initiated** frame requests both reach `console.error` (browser frame render failures were silent before #11941); only internal frame-redirect subrequests remain silent by design, and the frame `fallback` stays the in-slot visibility mechanism.
 - Browser hook: the `error` event on the app returned by `run()`. `app/assets/entry.tsx:44–56` disposes the app, fades the body, and renders the fatal card (`app/assets/error-card.browser.tsx`). This fires for genuine runtime faults, not for HTTP failures.
 - The resolver decides the non-success outcome (`app/assets/frame-response.browser.tsx`): a cross-origin src is never fetched and becomes a document navigation (`:25–30`); a 401 becomes the full-page login redirect (`:68–71`), whose matching 401 fragment is produced by `requireAuth` for sub-frame requests (`app/middleware/auth.ts:94–109`); a 4xx body is returned as frame content so a validation re-render or not-found page shows in the slot (`:73–81`); a 5xx becomes a bounded `ErrorCard` fragment (`:83–94`). Only network/stream faults reject to the runtime `error` event — unlike the guide's sample resolver (§"Resolve frames in the browser"), which throws on any `!response.ok`; do not copy that sample verbatim into this app.
 - A deferred frame that fails after its fallback chunk was sent cannot be replaced by an error response (guide §"Handle failures and cancellation"). Upstream catches the pending-frame rejection, reports it through `onError`, and leaves the already-streamed fallback in place (`ui` `dist/server/stream.js:1267–1270`). Keep fallbacks meaningful.
-- `request.signal` propagates from the outer request into frame work: the renderer passes it to `renderToStream` and the internal frame fetch (`stream.js:110–116`; `render-ui.js:53`, `:115`), this app's in-frame redirect follow forwards the outer signal to its re-fetch (`app/middleware/frame-redirect.ts:70`), and the browser resolver forwards `options.signal` to `fetch` (`app/assets/frame-response.browser.tsx:54`). The server entrypoint suppresses logging for an error that is exactly the abort reason (`app/utils/server-handler.ts:26`).
+- `request.signal` propagates from the outer request into frame work: the renderer passes it to `renderToStream` and the internal frame fetch (`stream.js:110–116`; `render-ui.js:56`, `:118`), this app's in-frame redirect follow forwards the outer signal to its re-fetch (`app/middleware/frame-redirect.ts:70`), and the browser resolver forwards `options.signal` to `fetch` (`app/assets/frame-response.browser.tsx:54`). The server entrypoint suppresses logging for an error that is exactly the abort reason (`app/utils/server-handler.ts:26`).
 
 **Security: returned frame HTML is not sanitized (guide §"Resolve frames in the browser")**
 
@@ -46,7 +48,7 @@ On a frame reload the clientEntry factory closure is preserved (setup state surv
 
 ## When to Use
 
-- Deciding whether a non-2xx frame response should render in the slot, keep a login redirect, or reject to the app `error` event — or wondering why a frame failure produced no log.
+- Deciding whether a non-2xx frame response should render in the slot, keep a login redirect, or reject to the app `error` event — or wondering why an internal frame-redirect subrequest failure produced no log.
 - Reviewing whether returned frame HTML is safe, especially when the frame src or a `data-rmx-src` could be influenced by user input or cross-origin.
 - Needing a complete HTML string (email preview or embedded fragment) and reaching for `renderToString`, or considering `renderWith` for a non-standard renderer.
 - A `data-rmx-src`/`data-rmx-target` link or a frame form is not intercepted (invalid/cross-origin src, or native validation/submit ordering).
