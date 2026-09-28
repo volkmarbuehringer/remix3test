@@ -42,16 +42,10 @@ import {
   getOfferingConfig,
   listOfferingConfigResources,
   toOfferingConfigRow,
+  OFFERING_CONFIGS_SORTABLE_FIELDS,
 } from '../../../data/offering-configs-queries.ts'
 
 const OFFERING_CONFIGS_PAGE_SIZE = 15
-
-const OFFERING_CONFIGS_SORTABLE_FIELDS = [
-  'id',
-  'resource_description',
-  'created_at',
-  'updated_at',
-] as const
 
 const OFFERING_CONFIG_FORM_KEYS_LIST = [
   'resource_id',
@@ -77,13 +71,6 @@ const OFFERING_CONFIG_FORM_KEYS_LIST = [
   'sunday_start',
   'sunday_end',
 ] as const
-
-const OFFERING_CONFIGS_ORDER_BY_COLUMNS: Record<string, string> = {
-  id: 'oc.id',
-  resource_description: 'r.name',
-  created_at: 'oc.created_at',
-  updated_at: 'oc.updated_at',
-}
 
 interface OfferingConfigPageData {
   rows: OfferingConfigRow[]
@@ -135,7 +122,6 @@ async function loadOfferingConfigPageData(
     pageSize: effectivePageSize + 1,
     column,
     direction,
-    orderByColumns: OFFERING_CONFIGS_ORDER_BY_COLUMNS,
   }
   if (filter) listOpts.filter = filter
 

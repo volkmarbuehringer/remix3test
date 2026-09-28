@@ -366,6 +366,13 @@ Fixed on 2026-09-24 (migration `2026-09-24-db-review-fixes.sql`): redundant
 `api_tokens` index dropped; `chat_runs.created_at`, webhook payload trigram, and
 `lists.updated_at` indexes added; messages `LEFT JOIN`; upload quota lock.
 
+Fixed on 2026-09-28 (migration `2026-09-28-db-review-indexes.sql`): trigram
+indexes for the admin message content search (`messages.content`) and the
+uploads grid filename/mime_type filter, plus `appointments (created_at DESC,
+id DESC)` for the support tool's recent-appointments list. The offering-configs
+ORDER BY whitelist moved into `app/data/offering-configs-queries.ts` so callers
+cannot supply SQL expressions.
+
 Not pursued, with reasons: JSONB item search and systemic `OFFSET` pagination
 (performance-only at current scale); RLS (app-layer scoping is already
 consistent; defense-in-depth only); upload retention ownership semantics (needs

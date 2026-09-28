@@ -71,13 +71,30 @@ export function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfi
   }
 }
 
+/**
+ * Whitelisted ORDER BY expressions for the offering-configs grid. The map lives
+ * in the data layer, not at the call site, so a request-derived `sort` value
+ * can never reach the SQL text: the caller picks a key, the data layer picks
+ * the expression.
+ */
+export const OFFERING_CONFIGS_ORDER_BY_COLUMNS: Record<string, string> = {
+  id: 'oc.id',
+  resource_description: 'r.name',
+  created_at: 'oc.created_at',
+  updated_at: 'oc.updated_at',
+}
+
+/** Sortable `sort` params, derived from the ORDER BY whitelist so they cannot drift. */
+export const OFFERING_CONFIGS_SORTABLE_FIELDS: readonly string[] = Object.keys(
+  OFFERING_CONFIGS_ORDER_BY_COLUMNS,
+)
+
 export interface ListOfferingConfigsOpts {
   offset: number
   pageSize: number
   column: string
   direction: 'asc' | 'desc'
   filter?: string
-  orderByColumns: Record<string, string>
 }
 
 export async function countOfferingConfigs(
@@ -102,7 +119,7 @@ export async function listOfferingConfigs(
   db: Database,
   opts: ListOfferingConfigsOpts,
 ): Promise<OfferingConfigRow[]> {
-  let { offset, pageSize, column, direction, filter, orderByColumns } = opts
+  let { offset, pageSize, column, direction, filter } = opts
 
   let query = `
     SELECT oc.id, oc.resource_id, r.name AS resource_name, r.description AS resource_description,
@@ -117,7 +134,7 @@ export async function listOfferingConfigs(
     params.push(`%${esc}%`)
   }
 
-  let orderCol = orderByColumns[column] || 'oc.id'
+  let orderCol = OFFERING_CONFIGS_ORDER_BY_COLUMNS[column] ?? 'oc.id'
   let orderDir = compileOrderByDirection(direction)
   query += ` ORDER BY ${orderCol} ${orderDir}`
   query += ` LIMIT $${params.length + 1} OFFSET $${params.length + 2}`

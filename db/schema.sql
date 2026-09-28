@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS messages_sender_id_idx ON messages (sender_id);
 CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at);
+-- The admin message viewer searches content with ILIKE; a trigram index lets
+-- that substring search avoid a full sequential scan.
+CREATE INDEX IF NOT EXISTS messages_content_trgm_idx ON messages USING GIN (content gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS clients (
   id SERIAL PRIMARY KEY,
@@ -117,6 +120,9 @@ CREATE INDEX IF NOT EXISTS appointments_user_date_idx ON appointments (user_id, 
 CREATE INDEX IF NOT EXISTS appointments_resource_date_idx ON appointments (resource_id, date);
 CREATE INDEX IF NOT EXISTS appointments_date_idx ON appointments (date);
 CREATE INDEX IF NOT EXISTS appointments_title_trgm_idx ON appointments USING GIN (title gin_trgm_ops);
+-- Support-tool "recent appointments" list ordered by created_at; the id
+-- tiebreaker keeps the order deterministic.
+CREATE INDEX IF NOT EXISTS appointments_created_at_id_idx ON appointments (created_at DESC, id DESC);
 
 -- In-app booking notification inbox, scoped to the user who owns the
 -- appointment. Type matches the Mastra workflow notification events
@@ -201,6 +207,10 @@ CREATE TABLE IF NOT EXISTS uploads (
 
 CREATE INDEX IF NOT EXISTS uploads_uploaded_by_idx ON uploads (uploaded_by);
 CREATE INDEX IF NOT EXISTS uploads_created_at_idx ON uploads (created_at DESC);
+-- The uploads grid filters filename/mime_type with ILIKE; a trigram index on
+-- each column lets the OR predicate be served by a BitmapOr instead of a scan.
+CREATE INDEX IF NOT EXISTS uploads_filename_trgm_idx ON uploads USING GIN (filename gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS uploads_mime_type_trgm_idx ON uploads USING GIN (mime_type gin_trgm_ops);
 
 CREATE TABLE IF NOT EXISTS webhook_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

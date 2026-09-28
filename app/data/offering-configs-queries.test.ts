@@ -60,12 +60,6 @@ describe('offering-configs-queries', () => {
       pageSize: 100,
       column: 'id',
       direction: 'asc',
-      orderByColumns: {
-        id: 'oc.id',
-        resource_description: 'r.name',
-        created_at: 'oc.created_at',
-        updated_at: 'oc.updated_at',
-      },
     })
     assert.ok(rows.length >= 1)
     assert.ok(typeof rows[0]!.rules === 'object')
@@ -79,12 +73,6 @@ describe('offering-configs-queries', () => {
       column: 'id',
       direction: 'asc',
       filter: 'NONEXISTENT_RESOURCE_NAME_ZZZZ',
-      orderByColumns: {
-        id: 'oc.id',
-        resource_description: 'r.name',
-        created_at: 'oc.created_at',
-        updated_at: 'oc.updated_at',
-      },
     })
     assert.equal(rows.length, 0)
   })
