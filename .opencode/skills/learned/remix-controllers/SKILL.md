@@ -1,13 +1,13 @@
 ---
 name: remix-controllers
-description: 'Use when typing or consolidating Remix 3 controllers/middleware — `createController` vs `createAction`, the route contract (`resources`/`exclude`, `patch`/`head`/`options`, nested-map registration, `context.method`), context keys, `Pick` slices for handler context, the request pipeline (`createRequestListener`, middleware ordering, `RouterContext` vs `MiddlewareContext`, `request.signal`), consolidation, error-centralization tests.'
+description: 'Use when typing or consolidating Remix 3 controllers/middleware — `createController` vs `createAction`, the route contract (`resources`/`exclude`, `patch`/`head`/`options`, nested-map registration, `context.method`), context keys, `Pick` slices for handler context, the request pipeline (`createRequestListener`, middleware ordering, `RouterContext` vs `MiddlewareContext`, `request.signal`), consolidation, error-centralization tests, opaque `RoutePattern` access, and typed `remix/headers`.'
 user-invocable: false
 origin: consolidated
 ---
 
 # Remix 3 Controllers & Middleware Patterns
 
-**Consolidated from:** `remix-createContextKey-property-middleware`, `remix-createController-generic-helper-edge-case`, `remix-createController-requires-route-map`, `remix-consolidate-controllers`, `remix-middleware-error-centralization`
+**Consolidated from:** `remix-createContextKey-property-middleware`, `remix-createController-generic-helper-edge-case`, `remix-createController-requires-route-map`, `remix-consolidate-controllers`, `remix-middleware-error-centralization`, `remix-routepattern-opaque-access`, `remix-headers`
 
 This skill is the **index** for controller/middleware deltas. For the framework API and canonical patterns, use the vendor references `node_modules/remix/guides/02-routing-and-controllers.md` and `node_modules/remix/src/fetch-router/README.md`.
 
@@ -21,6 +21,8 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 | Existing tests breaking after moving error handling into middleware | `references/error-centralization-tests.md` |
 | Route contract: `resources()`/`resource()` options (`only` vs this app's `exclude`), `patch`/`head`/`options` or any-method/bare-string leaves, nested-map registration and startup throws, `context.has`/`context.router`/request-only `context.headers` | `references/route-contract-and-controllers.md` |
 | Request pipeline: `createRequestListener` options and the `(request, client)` arg, root middleware order (`compression`/`staticFiles`/`logger`), `RouterContext` vs `MiddlewareContext`, `request.body`/`request.signal` streaming and cancellation | `references/request-middleware.md` |
+| `RoutePattern` becomes opaque and `.pathname.tokens`/`_parts` access breaks; you need the pattern's variables/wildcards | `references/routepattern-opaque-access.md` |
+| Constructing or parsing HTTP headers with the typed `remix/headers` classes (Content-Disposition quoting, `Content-Length`, browser-safe `ContentType`) | `references/headers.md` |
 
 ## Core Rules
 
@@ -44,12 +46,22 @@ This skill is the **index** for controller/middleware deltas. For the framework 
 - `logger()` / `context.logger?.(...)` is the app logging channel. Derive `AppContext` with `MiddlewareContext<ReturnType<typeof createNewappMiddleware>>` and keep the `declare module 'remix'` augmentation; do not switch to `RouterContext<typeof router>` without inlining the chain.
 - `request.body` is a Web stream (`app/middleware/json-body.ts` caps and cancels it); use `context.request.signal` for disconnect cleanup.
 
+**Opaque `RoutePattern` (`references/routepattern-opaque-access.md`)**
+
+- `RoutePattern` is opaque on current builds: use `.source`/`toString()`, `.toJSON()`, or `getRoutePatternCaptures(pattern)`; never `.pathname.tokens`/`_parts`. The common parent-path rewrite is string-based: `route.pattern.source.replace(/\/[:*][^/]*$/, '/')`.
+
+**Typed headers (`references/headers.md`)**
+
+- With the typed `remix/headers` classes, pass clean values and let the class quote (do not pre-escape `Content-Disposition` filenames); `Content-Length` accepts a `number`; and `ContentType` from `remix/headers/content-type` is browser-safe — prefer `ContentType.from(value).mediaType` over a hand-rolled `split(';')`.
+
 ## When to Use
 
 - You are adding or reshaping the route contract (resource helper options, a method-specific leaf, or a nested route map) and need the app-specific seams the guide cannot know.
 - You are wiring or debugging controllers: nested-map registration, startup `Missing action`/`Unknown action` throws, or controller middleware that does not reach a nested branch.
 - You are editing the server boundary or the root middleware chain: `createRequestListener` options, client address, middleware order, logging, or `AppContext` derivation.
 - You are reading built-in action context (`context.has`, `context.router`, `context.headers`) or handling `request.body`/`request.signal`.
+- A `RoutePattern` property access stops typechecking after a Remix update, or you need its captures.
+- You are building or parsing HTTP headers and reaching for raw strings instead of the typed classes.
 
 ## Related Skills
 

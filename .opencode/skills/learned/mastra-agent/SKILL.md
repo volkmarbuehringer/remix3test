@@ -1,12 +1,12 @@
 ---
 name: mastra-agent
-description: 'Use when building or debugging Mastra agents in Remix — inline model config, single-POST SSE streaming/pipeStream, askUserTool/requireToolApproval suspension (including restoring a pending gate after reload and durable run ownership), tool-result and message-content handling, and PostgresStore-backed observability.'
+description: 'Use when building or debugging Mastra agents in Remix — inline model config, single-POST SSE streaming/pipeStream, askUserTool/requireToolApproval suspension (including restoring a pending gate after reload and durable run ownership), tool-result and message-content handling, PostgresStore-backed observability, a shared `ReadableStream` a library consumed before you stored it, and parsing `agent.generate()` JSON output safely.'
 origin: consolidated
 ---
 
 # Mastra Agent Patterns
 
-**Consolidated from:** `mastra-agent-inline-model-config`, `mastra-agent-streaming-sse`, `mastra-agent-toolresult-chunk-format`, `mastra-message-content-normalization`, `mastra-observability-postgres-store`, `mastra-storage-api-vs-raw-sql`, `mastra-agent-pending-gate-restore`, `mastra-durable-run-ownership`
+**Consolidated from:** `mastra-agent-inline-model-config`, `mastra-agent-streaming-sse`, `mastra-agent-toolresult-chunk-format`, `mastra-message-content-normalization`, `mastra-observability-postgres-store`, `mastra-storage-api-vs-raw-sql`, `mastra-agent-pending-gate-restore`, `mastra-durable-run-ownership`, `drain-and-rebuild-stream-race`, `llm-classification-json-parsing`
 
 This skill is the **index** for Mastra agent deltas. For the framework API, use the vendor `mastra` skill (`.opencode/skills/mastra/SKILL.md`) and its `references/`.
 
@@ -23,6 +23,8 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 | Deleting a library-managed storage row, or tempted to `DELETE FROM mastra_*` directly | `references/storage-api-vs-raw-sql.md` |
 | A suspended `ask_user`/approval card is missing after reload and the user must retype | `references/pending-gate-restore.md` |
 | Approve/decline/answer returns 403 after restart/scale or on a re-suspended run | `references/durable-run-ownership.md` |
+| A library internally consumes a `ReadableStream` getter before you store it, and the stored stream yields ~2 bytes/empty | `references/drain-and-rebuild-stream-race.md` |
+| Parsing `agent.generate()` JSON for intent/classification — numeric `targetQuery`, markdown-wrapped/noisy output, or a required safe fallback | `references/llm-classification-json-parsing.md` |
 
 ## Core Rules
 
@@ -40,6 +42,14 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 - **A headless LLM helper is a utility, not a registered agent**: the workflow intent classifier lives in `app/actions/mastra/workflow-classifier.ts` (`generateWorkflowIntent`) and constructs an **unregistered** `Agent` used only as the LLM-call primitive (no `defineAppAgent`, no `ask_user`, no UI). `Mastra.agents` holds only the conversational app agents (`supportAgent`, `customerAgent`); resolve the classifier through `resolveWorkflowAgent()` in `intent-classifier.ts`, which both the Agent-Events classify handler and the support agent's `classify_intent` tool share.
 - **Demoting a registered agent to a utility keeps the seam but changes two hidden things**: keep `resolveWorkflowAgent()` / `__setWorkflowAgent()` and delete only the agent file + registry entry, so both consumers and their tests are untouched. Two consequences are silent: an unregistered `Agent` emits **no Mastra observability spans**, and swapping the dynamic `await import('./index.ts')` registry lookup for a static utility import pulls the utility's transitive imports (e.g. `storage.ts`, which throws without `DATABASE_URL`) into the import graph at module load.
 - **Consolidating a multi-agent registry: separate personas from headless helpers.** Inventory each agent by surface, tool set, mutation capability, and consumers. A headless JSON classifier is a utility, not a persona. Never merge conversational agents that differ in trust domain (read-only admin vs. customer mutation) or input processors (PII/cost guards).
+
+**Drain-and-rebuild a raced stream (`references/drain-and-rebuild-stream-race.md`)**
+
+- When a library's `fullStream` getter wraps a shared base stream and its internal broadcast races your `setStream`, the loser gets an empty (~2-byte) stream. Drain the stream into an array synchronously (before the library's microtask) and rebuild a fresh `ReadableStream`; or use `tee()` where supported. Trades streaming latency for deterministic delivery.
+
+**Parse LLM classification JSON (`references/llm-classification-json-parsing.md`)**
+
+- Tolerantly extract the first `{` … last `}` (strip markdown/prose), coerce ID-like fields from `string | number` with `String(raw).trim()` instead of asserting `typeof === 'string'`, bound the call with `abortSignal: AbortSignal.timeout(ms)` (treat `TimeoutError` as control flow, not a fault), and return a discriminated `{ unclear }` fallback so garbage can never execute an action.
 
 ## Related Skills
 

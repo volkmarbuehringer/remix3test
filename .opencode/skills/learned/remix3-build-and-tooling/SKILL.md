@@ -1,13 +1,13 @@
 ---
 name: remix3-build-and-tooling
-description: "Use when configuring how a Remix 3 app is served and built — asset-server config in `remix.json` (`loadConfig` + `config.assets`, `mounts`/`denyFiles`), colocating browser source under a route's `public/` and the `allowFiles` graph, and the `remix` CLI / `node-tsx` loader."
+description: "Use when configuring how a Remix 3 app is served and built — asset-server config in `remix.json` (`loadConfig` + `config.assets`, `mounts`/`denyFiles`), colocating browser source under a route's `public/` and the `allowFiles` graph, the `remix` CLI / `node-tsx` loader, the `node-hmr` dev server, self-hosting webfonts, and analyzing branch-pinned upstream dependency changes."
 user-invocable: false
 origin: consolidated
 ---
 
 # Remix 3 Build and Tooling
 
-**Consolidated from:** `remix3-browser-source-public-colocation`, `remix3-assets-config-inspection`, `remix-cli-devops`
+**Consolidated from:** `remix3-browser-source-public-colocation`, `remix3-assets-config-inspection`, `remix-cli-devops`, `remix3-hmr-dev-server`, `remix3-self-hosted-fonts`, `remix-upstream-dependency-analysis`
 
 This skill is the **index** for how a Remix 3 app's asset server is configured, how browser source is laid out for it, and how the `remix` CLI / `node-tsx` loader are driven. For the asset-server, CLI, and loader APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -18,6 +18,9 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 | Making `remix.json` the asset-server source of truth (`loadConfig` + spread `config.assets`), `mounts` vs the removed `fileMap`, `denyFiles` precedence, or debugging with `remix assets` / `remix assets inspect` and `AssetStatus` | `references/assets-config-inspection.md` |
 | Relocating `.browser.*` source into `<route>/public/`; `git mv` breaking sibling `./`/`../` imports (`TS2307`, silently un-bundled graph); a `ui/` module importing a non-public `app/actions/**` module that resolves `not-allowed`; tuning `allowFiles` | `references/browser-source-public-colocation.md` |
 | Running `remix new` / `test` / `doctor` / `routes` / `version` / `completion`, programmatic `runRemix`, wiring `node --import remix/node-tsx` or `loadModule`, the `node-tsx` tsconfig, `remix test` filters, `NODE_ENV=test`, or mocking frozen ES-module exports | `references/cli-devops.md` |
+| Wiring or debugging the `node-hmr` dev server (`npm run hmr`): fingerprint/watch conflict, IPv6 loopback, ready-gate hang, orphaned child, `trustProxy`, or hoisted declarations dropped after a component `return` | `references/hmr-dev-server.md` |
+| Adding/replacing/auditing a webfont, or a page still loads `fonts.googleapis.com` / `fonts.gstatic.com`; serving `public/` and tightening the CSP | `references/self-hosted-fonts.md` |
+| A branch-pinned (`github:…#branch`) dependency may have upstream changes and you must judge whether to update | `references/upstream-dependency-analysis.md` |
 
 ## Core Rules
 
@@ -36,11 +39,26 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 - `remix new <dir>`, `remix test`, `remix doctor [--fix]`, `remix routes [--table]`, `remix version`, `remix completion bash|zsh`, plus programmatic `runRemix` from `remix/cli`. `remix routes` discovers only the **first/default** export of `routes.ts` — independently mounted named trees run but stay invisible — and `remix test` takes a positional glob with `--type=server|browser|e2e` (no `--run`), does **not** auto-set `NODE_ENV=test`, and supports `--coverage`.
 - Register the TypeScript/JSX loader with `remix/node-tsx` (`node --import remix/node-tsx ./server.ts`, side-effect `import 'remix/node-tsx'`, scoped `loadModule` from `remix/node-tsx/load-module`) under `module`/`moduleResolution: NodeNext`, `allowImportingTsExtensions`, `isolatedModules`, `verbatimModuleSyntax`, and `rewriteRelativeImportExtensions`. `mock.method(obj, name)` cannot spy frozen ES-module named exports, so prefer side-effect/DOM testing or wrap the export in a mutable object (`export let scrollLock = { … }`).
 
+**HMR dev server (`references/hmr-dev-server.md`)**
+
+- `npm run hmr` runs `hmr.ts`, which spawns `server.ts` behind a readiness-gated loopback proxy. Gate `fingerprint`/`minify` to non-dev, pin the child `HOST: '127.0.0.1'`, wrap `runner.ready()` in a timeout so a boot crash returns 503 instead of hanging, and exit the child on IPC `disconnect`. Set `trustProxy: isHmr` so the proxy's forwarded headers restore the browser origin (upstream #11897). Pre-`27393da759` builds dropped function declarations after a component `return` (`ReferenceError` in the browser); bump the pin or move them above the `return`.
+
+**Self-hosted webfonts (`references/self-hosted-fonts.md`)**
+
+- Dedupe Google's variable families to one woff2 per family (every weight resolves to the same URL) and declare `font-weight: 100 900`; serve `public/` with `staticFiles('./public', …)` after `securityHeaders()` and before `session`/`loadDatabase`; link `/fonts/fonts.css` from `Document`'s `<head>`; set CSP `style-src 'self' 'unsafe-inline'` and `font-src 'self'`. Commit the fetch script and guard with a test that home HTML contains no `fonts.googleapis.com`/`fonts.gstatic.com`.
+
+**Upstream dependency analysis (`references/upstream-dependency-analysis.md`)**
+
+- For a `github:owner/repo#branch&path:subdir` pin, read the resolved commit from `pnpm-lock.yaml`, `git log <pinned>..origin/<branch>` and `git diff --stat` the package, grep the codebase for each changed API, then run `typecheck` + tests. Focus on new opaque types, changed defaults, and new runtime validation that can turn an unchecked `as` cast into a 500 (`typescript-gotchas` → `references/vendor-validator-cast-audit.md`).
+
 ## When to Use
 
 - You are wiring or diagnosing the asset server: moving static mapping/access config into `remix.json → assets`, adopting `loadConfig` + `config.assets`, migrating `fileMap` to `mounts`, reasoning about `denyFiles` precedence, or asking what is actually reachable with `remix assets` / `remix assets inspect`.
 - You are relocating or adding browser (`.browser.*`) source and need to know where it belongs (`<route>/public/` vs shared `app/ui/`), how `git mv` changes relative-import depth, or whether an import is servable under `allowFiles`.
 - You are running the `remix` CLI (scaffold, tests, doctor, routes), setting up `node-tsx` to execute TypeScript/JSX directly, filtering `remix test` by type, setting `NODE_ENV=test`, or working around frozen ES-module exports in tests.
+- You are wiring or debugging `npm run hmr` (asset-server/HMR config, proxy hangs, `EADDRINUSE`, the pre-#11913 hoisted-declaration `ReferenceError`).
+- You are self-hosting a webfont, auditing for a third-party font CDN, or serving `public/` through the static middleware.
+- A branch-pinned dependency may have moved and you need to judge whether updating breaks the app.
 
 ## Related Skills
 
@@ -50,4 +68,3 @@ This skill is the **index** for how a Remix 3 app's asset server is configured, 
 - `remix3-client-entries` — the browser behavior that runs inside the colocated `clientEntry` modules
 - `remix3-testing` — Remix 3 test-suite patterns, including `remix test` filters and the frozen-export mock seam
 - `remix3-bun-runtime` — running the app or `remix test` under Bun, where the `node-tsx` loader and `@types/bun` interact
-- `remix-upstream-dependency-analysis` — validating the version-pinned `remix.json`/asset-server milestones recorded in these references

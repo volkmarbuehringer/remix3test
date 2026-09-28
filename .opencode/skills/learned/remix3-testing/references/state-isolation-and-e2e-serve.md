@@ -1,6 +1,6 @@
 # Remix 3 Test State Isolation and `t.serve` E2E Wiring
 
-**Source:** App harness; primary API reference is the installed testing guide `node_modules/remix/guides/13-testing.md` — "Isolate stateful app tests" (L157–206) and "Test complete flows end to end" (L281–368).
+**Source:** App harness; primary API reference is the installed testing guide `node_modules/remix/guides/13-testing.md` — §"Isolate stateful app tests" and §"Test complete flows end to end".
 
 **Extracted:** 2026-09-26
 

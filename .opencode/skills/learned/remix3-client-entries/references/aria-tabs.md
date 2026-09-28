@@ -150,7 +150,7 @@ function init() {                     // hash wins; else the server-selected tab
   lands on a hidden panel.
 
 Roving-tabindex/keyboard details for lists with nested controls are covered by
-`roving-tabindex-keyboard-lists`; the active-tab visual uses
+`references/roving-tabindex-keyboard-lists.md`; the active-tab visual uses
 `&[aria-selected="true"]` declared after `&:hover` in the same descriptor.
 
 ### Tests

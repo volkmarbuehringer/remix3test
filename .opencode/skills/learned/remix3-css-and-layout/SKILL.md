@@ -87,7 +87,7 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 ## Related Skills
 
 - `remix3-theme-conformance` — theme-token rules that apply to whichever fix you pick (raw `var(--rmx-…)`, missing tokens, contrast)
-- `remix3-theme-glyph-add` — adding a missing theme glyph in the contract and preset
+- `remix3-theme-conformance` (`references/glyph-add.md`) — adding a missing theme glyph in the contract and preset
 - `remix3-client-entries` (`references/aria-tabs.md`) — ARIA tabs over `hidden` panels, including the no-JS stacked fallback
 - `remix3-frame-cliententry` — `Frame` navigation, `clientEntry` hydration, and `clientEntry` DOM/styling interactions
 - `remix3-jsx-attribute-conventions` — kebab-case SVG attributes and runtime `rmx-*` renames in `remix/ui` JSX

@@ -1,13 +1,13 @@
 ---
 name: remix3-testing
-description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring."
+description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring, and Playwright/browser-run hangs (`networkidle` on SSE pages, unforgeable `window.location` navigation, crash cards that hide the stack)."
 user-invocable: false
 origin: consolidated
 ---
 
 # Remix 3 Testing
 
-**Consolidated from:** `remix3-cliententry-browser-test-stubs`, `remix-test-parallel-interference`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `remix3-html-amp-escaped-assertions`
+**Consolidated from:** `remix3-cliententry-browser-test-stubs`, `remix-test-parallel-interference`, `static-element-waitfor-content-not-existence`, `mock-http-external-service-dynamic-port`, `remix3-html-amp-escaped-assertions`, `remix3-playwright-browser-testing`
 
 This skill is the **index** for Remix 3 test-suite deltas. For the vendor test runner API (`remix test`, `describe`/`it`, `render`/`act`), use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`). For the canonical test boundaries and patterns (`router.fetch`, state isolation, browser component and e2e flows), use the installed testing guide `node_modules/remix/guides/13-testing.md`.
 
@@ -21,6 +21,10 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
 | A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/html-amp-escaped-assertions.md` |
 | A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/state-isolation-and-e2e-serve.md` |
+| A Playwright navigation/submit hangs on a page that mounts an SSE/EventSource channel (`networkidle` never settles) | `references/sse-networkidle-never-settles.md` |
+| A `*.test.browser.tsx` hangs after code calls `window.location.reload()`/`assign`/`replace`/`href` | `references/location-reload-unforgeable.md` |
+| A generic crash card hides the real exception stack from `pageerror`/console | `references/crash-card-swallowed-stack.md` |
+| Choosing which browser engine to reproduce a DOMException report in | `references/reproduction-browser-from-message.md` |
 
 ## Core Rules
 
@@ -59,6 +63,13 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - E2E uses `t.serve(await createTestServer((request) => router.fetch(request)))` (arrow adapter, not `createTestServer(router.fetch)`); `t.serve` closes the server/page, but DB/file fixtures created outside it need their own cleanup, and Firefox-broken assertions are scoped with `isFirefox(page)` rather than skipped.
 - The ephemeral DB is per-run, not per-test: parallel workers accumulate rows, so a test that paginates still owns its cleanup (see `parallel-test-interference.md`).
 
+**Playwright / browser-run debugging (`references/sse-networkidle-never-settles.md`, `references/location-reload-unforgeable.md`, `references/crash-card-swallowed-stack.md`, `references/reproduction-browser-from-message.md`)**
+
+- **Never use `networkidle`** on a page/action that mounts an SSE/streaming connection — the open `EventSource` keeps `waitForLoadState('networkidle')` pending forever. Wait on a state-specific DOM anchor; use `waitForURL` for a signed-in submit→redirect; add a short `waitForTimeout` only if a `clientEntry` effect must settle.
+- `window.location.reload`/`location` are unforgeable in real Chromium (assigning or `Object.defineProperty`-ing throws `TypeError: Cannot assign to read only property 'reload' of object '[object Location]'`), and **any** `Location` navigation (`reload`/`assign`/`replace`/`href`) triggered while an `await` is pending navigates the test page away — the runner reports no progress (`0/N files completed`) and hangs. Window-mode navigation is **not assertable** in a real browser: skip it, add an injectable reload seam, assert a pre-reload side effect, or extract a pure predicate. `frame.reload()` is fine. If a dormant suite starts hanging after widening the glob to `.tsx`, run the file alone under an OS-level `timeout`.
+- **Crash cards swallow the stack**: the app's `try/catch` consumes the exception before Playwright sees it. Wrap the throwing DOM method in `page.addInitScript` (runs before app code, re-arms per document) and stash the stack on `window` (or `sessionStorage` when the failure navigates); wrap **one** named method (`Node.insertBefore`) or the usual `insertBefore`/`appendChild`/`removeChild`, and capture `this.nodeName`/`node.nodeName`.
+- **DOMException messages are browser-specific** (Firefox `Node.insertBefore: Cannot insert a Text as a child of a Document` vs Chromium `Failed to execute 'insertBefore' on 'Node': …`): reproduce in the engine whose wording matches the report.
+
 ## When to Use
 
 - You are writing or debugging a Remix 3 `remix test` suite (server-render or `*.test.browser.tsx`) and an assertion fails for a reason the test code does not explain.
@@ -67,10 +78,11 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - A `waitFor` existence check passes but the content assertion that follows fails.
 - You need to mock an external HTTP service or match escaped markup in rendered output.
 - A router test needs an authenticated session or multi-request flow, or you are adding an `*.test.e2e.ts`, and the guide's generic example does not match this repo's harness.
+- A Playwright/e2e navigation or submit hangs on a page with an SSE/EventSource channel, or a browser test hangs after a `window.location` navigation.
+- A crash card hides the real exception stack from `pageerror`/console capture.
 
 ## Related Skills
 
-- `remix3-playwright-browser-testing` — Playwright / browser-run hangs, `networkidle` on SSE pages, unforgeable navigation
 - `remix3-frame-cliententry` — production `Frame` navigation and `clientEntry` side effects (`handle.queueTask`, `data-*` identity)
 - `remix3-bun-runtime` — running the app and its `remix test` suite under Bun
 - `remix3-css-and-layout` — styling/layout deltas that browser tests assert on (geometry, computed style)

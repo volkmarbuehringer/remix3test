@@ -1,6 +1,6 @@
 # Remix 3 Entrance, Exit, and Layout Animation
 
-**Source:** installed guide `node_modules/remix/guides/07-animation.md` — "Entrance and exit animations" (L47–108) and "Layout animations" (L110–166).
+**Source:** installed guide `node_modules/remix/guides/07-animation.md` — §"Entrance and exit animations" and §"Layout animations".
 
 **Extracted:** 2026-09-26
 
@@ -32,6 +32,6 @@ No skill indexes `remix/ui/animation`; the presence and layout mixins are guide-
 
 ## Reference
 
-- `node_modules/remix/guides/07-animation.md` L47–166
+- `node_modules/remix/guides/07-animation.md` §"Entrance and exit animations", §"Layout animations"
 - `node_modules/remix/src/ui/animation/README.md`
 - `app/utils/motion.ts`, `app/assets/error-card.browser.tsx`

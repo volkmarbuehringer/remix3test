@@ -1,6 +1,6 @@
 # Remix 3 First-Party UI Blocks (mixins → composed → primitives)
 
-**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — "First-party UI building blocks" (L356–460), with the styling sections (L275–354).
+**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"First-party UI building blocks", with the styling sections §"Styling with css and dynamic style values" and §"Cascade layers and app-owned design tokens".
 
 **Extracted:** 2026-09-26
 
@@ -14,7 +14,7 @@ No skill names `remix/ui/button`, `remix/ui/accordion`, `remix/ui/select`, or th
 
 Use the guide's selection model, then this app's concrete decisions.
 
-**Selection order (guide L356–460):**
+**Selection order (guide §"First-party UI building blocks"):**
 
 1. **Style mixins** — `button`, `input`, `checkbox`, `radio`, `toggle`. Keep the native element; the mixin supplies visuals only. The control stays in `FormData` and keeps browser keyboard behavior.
 2. **Composed controls** — `accordion`, `breadcrumbs`, `combobox`, `menu`, `select`, `tabs`. These own the relationships among several elements and their disclosure/selection state. Use `default*` for uncontrolled and the controlled prop/callback when the parent owns state (names differ by component).
@@ -36,6 +36,6 @@ Interactive controls must sit inside a `clientEntry(...)` boundary, directly or 
 
 ## Reference
 
-- `node_modules/remix/guides/04-rendering-ui.md` L275–354, L356–460
+- `node_modules/remix/guides/04-rendering-ui.md` §"Styling with css and dynamic style values", §"Cascade layers and app-owned design tokens", §"First-party UI building blocks"
 - `node_modules/remix/src/ui/README.md` — per-subpath API
 - `app/ui/theme/button.ts`, `app/ui/breadcrumbs.tsx`

@@ -1,6 +1,6 @@
 # Remix 3 Reduced-Motion Behavior
 
-**Source:** installed guide `node_modules/remix/guides/07-animation.md` — "CSS-first visual states" (L6–40) and "Reduced-motion behavior" (L302–333).
+**Source:** installed guide `node_modules/remix/guides/07-animation.md` — §"CSS-first visual states" and §"Reduced-motion behavior".
 
 **Extracted:** 2026-09-26
 
@@ -25,5 +25,5 @@ No skill covers reduced motion; the only `matchMedia` reference is a test stub. 
 
 ## Reference
 
-- `node_modules/remix/guides/07-animation.md` L6–40, L302–333
+- `node_modules/remix/guides/07-animation.md` §"CSS-first visual states", §"Reduced-motion behavior"
 - `app/utils/motion.ts`, `app/ui/document.tsx`, `app/ui/scaffold-home-page.tsx`

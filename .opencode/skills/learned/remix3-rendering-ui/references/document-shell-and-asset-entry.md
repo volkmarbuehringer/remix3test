@@ -1,6 +1,6 @@
 # Remix 3 Document Shell and Asset Entry
 
-**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — "Rendering pages through request context" (L180–219) and "Document shells, head content, and HTML responses" (L221–273).
+**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Rendering pages through request context" and §"Document shells, head content, and HTML responses".
 
 **Extracted:** 2026-09-26
 
@@ -19,7 +19,7 @@ Use the guide for the head/shell rules; wire them to these app seams.
 - **Head wiring:** render `<ImportMap value={entry.importMap} nonce={getCspNonce()} />` and a `modulepreload` link per `entry.preloads` href. For the body script, use `entry.href` with the fallback `routes.assets.href({ path: 'app/assets/entry.tsx' })` (see `app/ui/document.tsx`).
 - **Frames skip the entry:** `loadAssetEntry` only loads when `!context.request.headers.get('X-Remix-Frame')`. Do not assume `getAssetEntry()` is populated in a fragment/frame render — keep global head, import-map, and preload work on document responses.
 - **CSP nonce:** inline `<script>` and `<ImportMap>` carry `getCspNonce()` (`app/middleware/security-headers.ts`). See `security-gotchas` (CSP inline scripts) before adding another inline script.
-- **Response pipeline:** `createHtmlResponse()` (guide L271–273) preserves or prepends `<!DOCTYPE html>` and sets `Content-Type: text/html; charset=UTF-8` unless supplied — note the app test comment at `app/router.test.ts:170` that it always adds the doctype. `context.render(tree, { status, headers })` adds a status/headers (guide L206–215).
+- **Response pipeline:** `createHtmlResponse()` (guide §"Document shells, head content, and HTML responses") preserves or prepends `<!DOCTYPE html>` and sets `Content-Type: text/html; charset=UTF-8` unless supplied — note the app test comment at `app/router.test.ts:170` that it always adds the doctype. `context.render(tree, { status, headers })` adds a status/headers (guide §"Rendering pages through request context").
 
 ## When to Use
 
@@ -29,5 +29,5 @@ Use the guide for the head/shell rules; wire them to these app seams.
 
 ## Reference
 
-- `node_modules/remix/guides/04-rendering-ui.md` L180–273
+- `node_modules/remix/guides/04-rendering-ui.md` §"Rendering pages through request context", §"Document shells, head content, and HTML responses"
 - `app/ui/document.tsx`, `app/middleware/asset-entry.ts`, `app/middleware/security-headers.ts`

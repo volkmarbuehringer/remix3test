@@ -6,7 +6,7 @@ origin: consolidated
 
 # Remix 3 Theme Conformance
 
-**Consolidated from:** `remix3-theme-object-conformance`, `remix3-theme-css-variable-prefix`
+**Consolidated from:** `remix3-theme-object-conformance`, `remix3-theme-css-variable-prefix`, `remix3-theme-glyph-add`
 
 This skill is the **index** for theme-token conformance — styling must go through the typed `theme` object, and the CSS variables it resolves to use the `--rmx-` prefix. Read only the reference you need.
 
@@ -19,6 +19,7 @@ This skill is the **index** for theme-token conformance — styling must go thro
 | A low-contrast or invisible label, badge, glyph, or destructive-outline button | `references/contrast-verification.md` |
 | Building style strings by hand in `clientEntry` / browser DOM code (incl. `var(${theme.…})` re-wrapping) | `references/cliententry-dom-styling.md` |
 | What `npm run lint` enforces, a past incident with measured light/dark ratios, or the `theme.<group>.<key>` to `--rmx-*` variable-name mapping | `references/metadata.md` |
+| Adding an icon/glyph missing from the theme set, or a `TS2339`/`TS2741`/`GlyphValues` error on `Glyph name=…` | `references/glyph-add.md` |
 
 ## Core Rules
 
@@ -31,6 +32,10 @@ This skill is the **index** for theme-token conformance — styling must go thro
 - **The contract is the source of truth**: a value defined in `app/theme.tsx` but absent from the contract resolves to `undefined` and its declarations are silently dropped — check `contract.ts`, not just `app/theme.tsx`.
 - **Enforcement:** `scripts/check-theme-conformance.ts` (wired into `npm run lint`) fails on `var(--rmx-` in `app/` outside `app/ui/theme/` and `app/theme.tsx`.
 
+**Adding a glyph (`references/glyph-add.md`)**
+
+- The icon set is a closed, typed contract spanning two files that must change together: `app/ui/theme/glyph-contract.ts` (`glyphNames`) and `app/ui/theme/presets/rmx-01/glyphs.tsx` (`glyphValues`); `GlyphValues = Readonly<Record<GlyphName, GlyphSymbol>>` makes a name without a symbol (or vice-versa) fail typecheck. Symbol ids auto-derive as `rmx-glyph-<name>`; only `rmx-01` exists today, so add the symbol to every preset if that changes.
+
 ## When to Use
 
 - Writing inline styles in `clientEntry` (client-side JavaScript, no React)
@@ -42,7 +47,4 @@ This skill is the **index** for theme-token conformance — styling must go thro
 - A `theme.<group>.<key>` value is `undefined`, or a style silently does nothing (check `contract.ts`, not just `app/theme.tsx`)
 - Reviewing a coloured label or destructive-outline button for dark-mode contrast
 - A native checkbox/radio/switch styled with `accent-color` looks invisible or washed out (check `.background` vs `.foreground`)
-
-## Related Skills
-
-- `remix3-theme-glyph-add` — adding a glyph to the theme contract and preset in sync
+- A screen needs an icon missing from the theme set, or `Glyph name=…` trips a `GlyphValues` type error.

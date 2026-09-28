@@ -1,6 +1,6 @@
 # Remix 3 Springs, Tweens, and Interruptible Motion
 
-**Source:** installed guide `node_modules/remix/guides/07-animation.md` — "Springs, tweens, and easing" (L168–251) and "Interruptible interactions" (L253–300).
+**Source:** installed guide `node_modules/remix/guides/07-animation.md` — §"Springs, tweens, and easing" and §"Interruptible interactions".
 
 **Extracted:** 2026-09-26
 
@@ -30,6 +30,6 @@
 
 ## Reference
 
-- `node_modules/remix/guides/07-animation.md` L168–300
+- `node_modules/remix/guides/07-animation.md` §"Springs, tweens, and easing", §"Interruptible interactions"
 - `node_modules/remix/src/ui/animation/README.md`
 - `app/assets/entry.tsx`, `app/assets/error-card.browser.tsx`

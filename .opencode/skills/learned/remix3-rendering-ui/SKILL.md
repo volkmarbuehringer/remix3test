@@ -1,11 +1,13 @@
 ---
 name: remix3-rendering-ui
-description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, and choosing among remix/ui style mixins, composed controls, and headless primitives."
+description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, choosing among remix/ui style mixins, composed controls, and headless primitives, raw-HTML props (`unsafeHTML()`), and HTML-string responses outside the component runtime (`remix/html-template`)."
 user-invocable: false
 origin: learned
 ---
 
 # Remix 3 Rendering UI
+
+**Consolidated from:** `remix3-unsafe-html`, `remix-html-template`
 
 **Extracted:** 2026-09-26
 
@@ -18,6 +20,8 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 | Sharing a value with descendant components (`handle.context`), generating a stable DOM id (`handle.id`), or a browser-reactive context value (`TypedEventTarget`) | `references/component-context-and-handle-id.md` |
 | Adding to `<head>` (meta/og, modulepreload, styles, CSP nonce), wiring the browser entry script / import map, or `context.render(tree, ResponseInit)` | `references/document-shell-and-asset-entry.md` |
 | Choosing among `remix/ui` style mixins, composed controls, and headless primitives, or deciding whether to wrap/replace a vendor component | `references/first-party-ui-blocks.md` |
+| Rendering raw HTML through a prop (`innerHTML`, iframe `srcDoc`/`srcdoc`) and `Framework invariant: Invalid … prop` throws after a Remix bump | `references/unsafe-html.md` |
+| Returning an HTML string outside the component runtime (standalone 500/429/error pages, frame fragments, email/RSS), with XSS-safe interpolation | `references/html-template.md` |
 
 ## Core Rules
 
@@ -41,11 +45,21 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 - This app wraps `remix/ui/button` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts), and deliberately re-implements `remix/ui/breadcrumbs` in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
 - Menus use `remix/ui/menu` + `remix/ui/menu/primitives` (`MenuList`, `MenuItem`, `onMenuSelect`).
 
+**Raw HTML props (`references/unsafe-html.md`)**
+
+- As of upstream #11885, `innerHTML`/`srcDoc`/`srcdoc` only accept the opaque value from `unsafeHTML()` (and `outerHTML` is rejected outright); a plain string throws `Framework invariant: Invalid innerHTML prop` at render time, not from `tsc` (`createElement`'s `ElementProps = Record<string, any>`). `unsafeHTML()` authorizes, it does not sanitize — keep escaping at the call site. The app's only prop site is `app/ui/theme/runtime.ts` (DOM `el.innerHTML = …` assignments are unaffected).
+
+**HTML-string responses (`references/html-template.md`)**
+
+- Outside the component system, use the `html` tagged template (auto-escaping; `html.raw` for trusted sources) and coerce with `String(html\`…\`)` for a `Response` body; top-level error pages emit a full `<!doctype html>` document, frame errors emit a bare fragment. Never refactor a tagged template to plain interpolation without a manual escape helper — that silently drops XSS escaping.
+
 ## When to Use
 
 - You need to pass a value from a component to a descendant without prop-drilling, or to give a reusable control a stable id.
 - You are editing the document shell, adding head tags/preloads, or wiring the browser entry/import map.
 - You are choosing a `remix/ui` building block or deciding whether to use, wrap, or replace a vendor component.
+- A raw-HTML prop throws `Invalid innerHTML`/`srcDoc`/`srcdoc prop`, or a mixin returning one is now stripped.
+- You are writing an HTML-string response (standalone error page, frame fragment, email/RSS) outside the component runtime.
 
 ## Related Skills
 
@@ -53,5 +67,4 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 - `remix3-css-and-layout` — `css()`, `@layer rmx`, and layout deltas
 - `remix3-theme-conformance` — theme tokens and light/dark contrast
 - `remix3-client-entries` — the `clientEntry`/hydration boundary and import-map constraints
-- `remix-html-template` — HTML-string responses outside the component runtime
 - `security-gotchas` — CSP nonces for inline scripts

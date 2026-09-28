@@ -1,6 +1,6 @@
 # Remix 3 Component Context, `handle.id`, and Mutable Context
 
-**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — "Props, local state, context, and updates" (L68–178).
+**Source:** installed guide `node_modules/remix/guides/04-rendering-ui.md` — §"Props, local state, context, and updates".
 
 **Extracted:** 2026-09-26
 
@@ -14,10 +14,10 @@ No skill names `handle.context`, `handle.id`, or `TypedEventTarget`; the guide i
 
 Follow the guide for the API; keep these two contexts distinct.
 
-- **Component context** (`handle.context`, guide L149–178): the provider component's type is the key. The provider calls `handle.context.set(value)` in setup; a descendant calls `handle.context.get(ProviderType)` and reads it during render. `set(...)` stores the value but does **not** schedule an update — for context that changes in the browser, update the provider or use a `TypedEventTarget` so only listening consumers re-render.
+- **Component context** (`handle.context`, guide §"Props, local state, context, and updates"): the provider component's type is the key. The provider calls `handle.context.set(value)` in setup; a descendant calls `handle.context.get(ProviderType)` and reads it during render. `set(...)` stores the value but does **not** schedule an update — for context that changes in the browser, update the provider or use a `TypedEventTarget` so only listening consumers re-render.
 - **Server request context** (`remix/middleware/async-context`): `getContext()` plus `context.set`/`context.get` in middleware. This app relies on it for request-scoped values (e.g. `app/ui/document.tsx` reads the theme cookie and CSRF token through `getContext()`; `app/middleware/asset-entry.ts` stores the asset entry on a context key). It is not available in a browser component and is not a substitute for `handle.context`.
-- **`handle.id`** (guide L133–147): a stable per-instance identifier for wiring `label`/`input` or ARIA relationships without requiring an `id` prop.
-- **`TypedEventTarget`** (guide L176–178): the recommended carrier for browser-reactive shared context.
+- **`handle.id`** (guide §"Props, local state, context, and updates"): a stable per-instance identifier for wiring `label`/`input` or ARIA relationships without requiring an `id` prop.
+- **`TypedEventTarget`** (guide §"Props, local state, context, and updates"): the recommended carrier for browser-reactive shared context.
 
 **App status (re-check before relying):** as of extraction, `handle.context`, `handle.id`, and `TypedEventTarget` have **zero** occurrences under `app/`. Treat this as new surface; when you introduce it, prefer a browser component test that drives the update (see `remix3-testing` and `remix3-client-entries`).
 
@@ -29,5 +29,5 @@ Follow the guide for the API; keep these two contexts distinct.
 
 ## Reference
 
-- `node_modules/remix/guides/04-rendering-ui.md` L68–178
+- `node_modules/remix/guides/04-rendering-ui.md` §"Props, local state, context, and updates"
 - `node_modules/remix/src/ui/README.md` — exact `Handle` context/id API

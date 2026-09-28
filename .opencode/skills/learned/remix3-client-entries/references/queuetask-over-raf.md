@@ -58,10 +58,10 @@ This is NOT the same as the rAF anti-pattern and should not be "fixed" into `que
 ## Authority
 
 - Vendor guide: `node_modules/remix/guides/05-interactivity.md` — *"If rendering discovers work
-  that should run after the commit, schedule that work with `handle.queueTask()`"* (`:234-235`) and
+  that should run after the commit, schedule that work with `handle.queueTask()`"* (§"State, updates, and post-render tasks") and
   *"`handle.queueTask(task)` runs a task during the commit after the next update. Use it when DOM
-  measurement or another update must happen as part of that flush"* (`:279-280`); the
-  `scrollIntoView` example at `:286-288` is the canonical form. The installed `Handle` type
+  measurement or another update must happen as part of that flush"* (§"State, updates, and post-render tasks"); the
+  `scrollIntoView` example at §"State, updates, and post-render tasks" is the canonical form. The installed `Handle` type
   documents the same contract at `@remix-run/ui/src/runtime/component.ts:33-51`.
 - Since #11795, `handle.update()`'s own docs say to call it from an event handler or `handle.queueTask()`
   — this skill is now the vendor-blessed remedy for the phase-guard throws (see `remix3-frame-cliententry`).

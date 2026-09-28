@@ -1,13 +1,13 @@
 ---
 name: security-gotchas
-description: "Use when reviewing or hardening request-handling security — CSRF/CORS/cross-origin middleware, client-IP trust and spoofing, open-redirect sanitization, IDOR ownership-scope bypass on write paths, path-traversal guards, and CSP nonces for inline scripts."
+description: "Use when reviewing or hardening request-handling security — CSRF/CORS/cross-origin middleware, client-IP trust and spoofing, open-redirect sanitization, IDOR ownership-scope bypass on write paths, path-traversal guards, CSP nonces for inline scripts, and adding a Bearer-token JSON API alongside session/CSRF routes."
 user-invocable: false
 origin: consolidated
 ---
 
 # Security Gotchas
 
-**Consolidated from:** `remix-security-middleware`, `remix3-two-tier-ip-trust-model`, `remix3-return-to-open-redirect`, `idor-scope-write-bypass`, `nodejs-path-traversal-guard`, `remix3-csp-inline-scripts`
+**Consolidated from:** `remix-security-middleware`, `remix3-two-tier-ip-trust-model`, `remix3-return-to-open-redirect`, `idor-scope-write-bypass`, `nodejs-path-traversal-guard`, `remix3-csp-inline-scripts`, `remix3-token-json-api-alongside-session`
 
 This skill is the **index** for request-handling security deltas. For the framework middleware APIs themselves (`remix/middleware/csrf`, `cors`, `cop`, `session`), use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -21,6 +21,7 @@ This skill is the **index** for request-handling security deltas. For the framew
 | Fixing an IDOR by scoping reads, when a write path SETs the owner column or the row id comes from client input | `references/idor-scope-write-bypass.md` |
 | Restricting filesystem access to a project root; reviewing `path.resolve(x, y).startsWith(x)` or symlink escapes | `references/path-traversal-guard.md` |
 | An inline `<script>` is blocked by CSP, or a `clientEntry` loses early clicks to the async `import()` gap | `references/csp-inline-scripts.md` |
+| Adding a Bearer-token JSON API alongside session-authenticated routes — reuse the backend logic instead of duplicating it | `references/token-json-api-alongside-session.md` |
 
 ## Core Rules
 
@@ -52,11 +53,16 @@ This skill is the **index** for request-handling security deltas. For the framew
 - A bare `<script>{code}</script>` is silently blocked by the `script-src 'self' 'nonce-...'` policy from `security-headers.ts`; render `<script nonce={getCspNonce()}>` so it executes synchronously on parse (no `clientEntry` `import()` timing gap that loses early clicks).
 - The separate "content escaping" failure mode (`<`/`>` in JS string literals SSR-escaped to `&lt;`/`&gt;`) is **fixed upstream** (commit `8ddca1f04`, `escapeScriptTextContent()` now preserves `<`/`>` and only escapes `</script`/`<script` sequences), so only the nonce requirement remains; prefer `clientEntry` if the handler needs dynamic props or re-rendering.
 
+**Token JSON API alongside session routes (`references/token-json-api-alongside-session.md`)**
+
+- Extract the shared CRUD into a data module (`app/data/<entity>.ts`), give the API its own controller with a token-auth guard and **no session/CSRF middleware**, wire it under `/api/` (the repo `app/middleware/skip-csrf.ts` `isExternalPath()` already exempts `/api/`), and refactor the session controller onto the same module. Keep body parsing, validation, status codes, and response format in each controller.
+
 ## When to Use
 
 - You are reviewing or hardening request handling in a Remix 3 app: CSRF/CORS/COP middleware, client-IP trust, redirect sanitization, ownership scoping, filesystem paths, or CSP.
 - A request returns 403 (especially a bare status on a new POST route), a redirect points at an attacker host, one user can read/claim another user's row, a path escapes the project root, or an inline script is blocked.
 - Before shipping a new POST route, an IP-based auth/rate-limit check, an upload ownership claim, a file-serving endpoint, or an inline script.
+- You are exposing existing CRUD through a shared Bearer-token JSON API while keeping the session routes unchanged.
 
 ## Related Skills
 

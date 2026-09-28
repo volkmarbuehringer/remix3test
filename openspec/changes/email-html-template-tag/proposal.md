@@ -1,6 +1,6 @@
 ## Why
 
-The HTML bodies of all transactional emails (verification, password reset, account deletion) are built in `app/locale/de.ts` with a hand-rolled `esc()` helper and `.join('\n')` string arrays — the only place in the app that does not use the `remix/html-template` `html` tagged template. The learned `remix-html-template` skill explicitly flags locale/i18n message functions as the most common place auto-escaping silently disappears. Escaping is currently only as reliable as every call site remembering to wrap values in `esc()`; the `html` tag makes it automatic. The existing `transactional-email` spec already claims these templates use `remix/html-template` — the implementation does not yet match that claim.
+The HTML bodies of all transactional emails (verification, password reset, account deletion) are built in `app/locale/de.ts` with a hand-rolled `esc()` helper and `.join('\n')` string arrays — the only place in the app that does not use the `remix/html-template` `html` tagged template. The learned `remix3-rendering-ui` skill (`references/html-template.md`) explicitly flags locale/i18n message functions as the most common place auto-escaping silently disappears. Escaping is currently only as reliable as every call site remembering to wrap values in `esc()`; the `html` tag makes it automatic. The existing `transactional-email` spec already claims these templates use `remix/html-template` — the implementation does not yet match that claim.
 
 ## What Changes
 

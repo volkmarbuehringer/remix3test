@@ -51,6 +51,6 @@ into `let orderDir` + 8 calls, minus 9 ternaries) while the implementation count
 - If fewer lines is the actual goal, the win is app-level pass-through duplication, not the vendor
   call. After the swap, 43 repeated six-line override blocks collapsed into one
   `gridStateOverrides()` composite (≈ −184 lines) — a separate refactor
-  (see `repeated-block-collapse-refactor`).
+  (see `references/repeated-block-collapse-refactor.md`).
 - Nothing shrinks at runtime either: type-level casts (`as 'asc' | 'desc'`) cost zero bytes, so
   removing one is not a size change.

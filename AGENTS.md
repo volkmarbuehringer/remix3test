@@ -30,7 +30,7 @@ Do not reference `~/remix` (a separate vendor checkout) — the installed `node_
 
 ## Building Features
 
-Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix3-build-and-tooling, remix-file-uploads, remix-headers, remix-html-template, security-gotchas). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
+Refer to `.opencode/skills/remix/SKILL.md` (plus 5 specialized skills: remix3-build-and-tooling, remix-file-uploads, remix-controllers, remix3-rendering-ui, security-gotchas). `remix/fetch-proxy`, `remix/cookie`, `remix/middleware/render`, `remix/response/*`, and the demo apps are covered by the vendor `remix` skill and their package READMEs.
 
 ## Maintaining Learned Deltas
 
@@ -42,7 +42,7 @@ Learned deltas encode hard-won, often **version-pinned** facts (file/line refere
 - API claims: check the package README or source for the named function/operator (e.g. an `inList()` operator may now exist where a raw-SQL workaround was recorded)
 - Release milestones: treat "as of beta.N" / "since vX" statements as stale unless re-confirmed against the current version
 
-When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Audit runbooks: `remix3-data-table`, `security-gotchas`, `remix-routepattern-opaque-access`, `remix3-frame-cliententry` are the highest-drift-risk skills.
+When a delta is found outdated, update the skill in place (keep the delta, correct the vendor fact) — do not delete it unless the vendor now covers the content. Audit runbooks: `remix3-data-table`, `security-gotchas`, `remix-controllers` (`references/routepattern-opaque-access.md`), `remix3-frame-cliententry` are the highest-drift-risk skills.
 
 ### Guide ↔ skill coverage
 

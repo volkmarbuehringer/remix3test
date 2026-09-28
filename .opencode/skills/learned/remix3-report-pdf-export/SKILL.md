@@ -60,7 +60,7 @@ return pdfAttachmentResponse(buffer, `monatsauswertung-${year}-${String(month).p
 <a href={pdfUrl(state)} data-rmx-document>PDF exportieren</a>
 ```
 
-Frame/download semantics are already documented — do not restate them: `remix3-frame-cliententry` → `references/frame-navigation.md` §"data-rmx-document: Binary Downloads".
+Frame/download semantics are already documented — do not restate them: `remix3-frame-cliententry` → `references/frame-navigation.md` §"data-rmx-document: Binary Downloads & Cross-Section Links".
 
 ### 5. ⚠️ Do NOT bare-redirect a framed export
 
@@ -86,7 +86,7 @@ if (context.request.headers.get('X-Remix-Frame') === 'true') {
 - Server test via `router.fetch(url, { headers: { Cookie } })`: assert `Content-Type: application/pdf`, a `Content-Disposition` filename, and `String.fromCharCode(...bytes.subarray(0, 4)) === '%PDF'`.
 - Assert the page's link carries the active params: `data-rmx-document`, `/report1/pdf?`, `month=3`, `filter=Admin`.
 - Assert the shim: framed request → 302 whose `Location` carries `frameDownload=1`; the marked framed request → 200 HTML (not `%PDF`).
-- Browser/client behaviors are a separate skill: `remix3-playwright-browser-testing`.
+- Browser/client behaviors are a separate skill: `remix3-testing` (`references/sse-networkidle-never-settles.md`, `references/location-reload-unforgeable.md`, `references/crash-card-swallowed-stack.md`).
 
 ## When to Use
 

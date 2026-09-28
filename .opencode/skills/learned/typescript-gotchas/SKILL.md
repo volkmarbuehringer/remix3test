@@ -1,13 +1,13 @@
 ---
 name: typescript-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, or a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, or the same multi-line object block is copy-pasted across many call sites."
 user-invocable: false
 origin: consolidated
 ---
 
 # TypeScript Gotchas
 
-**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`
+**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`
 
 This skill is the **index** for TypeScript/JavaScript deltas that bite at runtime or at the lint/type boundary. For the language and compiler APIs themselves, use the official TypeScript docs; for Remix-specific type wiring, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -21,6 +21,9 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 | oxlint `consistent-type-imports` rejects `typeof import()`, or `TS2709: Cannot use namespace 'X' as a type` | `references/ts-typeof-import-module-namespace.md` |
 | Tests cannot substitute a top-level imported function that code captured in a closure/map (no `jest.mock`/`vi.mock`) | `references/mutable-executor-setter-testable-imports.md` |
 | Replacing a hand-rolled coercion with a vendor helper that validates/throws, or a dependency update adds runtime validation — audit `as`-cast boundaries | `references/vendor-validator-cast-audit.md` |
+| Spreading a large array (`push(...arr)`, `Math.max(...arr)`) throws `RangeError: Maximum call stack size exceeded` on a shallow call tree | `references/array-spread-argument-limit.md` |
+| The same multi-line object-literal fragment is copy-pasted across many call sites and one composite helper + spread should replace it | `references/repeated-block-collapse-refactor.md` |
+| Building a typed in-process event pipeline consumed as an async iterable (SSE/log stream) with breadth-first traversal and cycle protection | `references/eventbus-bfs-async-generator.md` |
 
 ## Core Rules
 
@@ -54,19 +57,32 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - A hand-rolled coercion (`x === 'desc' ? 'DESC' : 'ASC'`) silently defaults on invalid input, while a vendor validator (`compileOrderByDirection`) throws — so an unchecked `as`-cast boundary turns tampered input (e.g. a hidden `_order` form field) into a 500. Read the helper first, enumerate call sites by count (`grep -rn … | wc -l`, never `| head`), classify each argument's provenance (parsed/whitelisted vs `as`-cast), and fix the **boundary once** with a runtime whitelist instead of every call site.
 - The swap **relocates** rather than deletes code (N ternaries → N calls + imports): measure implementations deduplicated (`9 → 1`), not lines — type-level casts like `as 'asc' | 'desc'` cost zero runtime bytes. Add a regression test driven through the real entry point and prove it fails without the fix.
 
+**Large-array spread argument limit (`references/array-spread-argument-limit.md`)**
+
+- `push(...arr)`, `arr2.push.apply(arr2, arr)`, `fn(...args)`, and `Math.max(...arr)` throw `RangeError: Maximum call stack size exceeded` past the engine's ~65,535 argument limit; the message looks like recursion even on a shallow tree. Push in a loop or use `concat` (`Promise.all(arr)` takes the array and is fine).
+
+**Collapsing repeated blocks (`references/repeated-block-collapse-refactor.md`)**
+
+- Inventory the duplicated object-literal fragments by `(indent, key list)` shape before choosing `replace_all` vs a script; never truncate discovery with `| head`; prune named imports from the rewritten text (keep the trailing `\(` so `gridStateFromForm` does not shadow `gridStateFromFormData`); diff each variant shape because a composite supplies omitted keys; type the composite `| undefined`-friendly for `exactOptionalPropertyTypes`, and verify with `tsc` (spread properties are not excess-property-checked).
+
+**Typed event bus / async-generator BFS (`references/eventbus-bfs-async-generator.md`)**
+
+- Typed discriminated-union events + a `Map` of handlers + an async generator that `shift()`s a FIFO queue (breadth-first) and `push()`es emitted events; guard cycles with a `maxDepth` and accept an `AbortSignal` for cancellation. Parameterize `EventHandler<T>` to avoid per-handler casts. Not for persistence/replay or strictly linear pipelines.
+
 ## When to Use
 
 - A TypeScript/JavaScript behavior is surprising: an await returns too early, a recursive type check flips with ordering, a type-import lint rule fights the annotation you need, a test cannot control an imported dependency, or a vendor helper now throws where a coercion used to default.
 - You are writing or reviewing async "pump"/stream utilities, diagnosing flaky TS7 compile errors, or migrating a codebase to stricter type-import and runtime-validation rules.
 - Before swapping a ternary/coercion for a vendor `compile*`/`parse*`/`assert*` helper, or after a dependency bump changes validation behavior.
 - A user-triggerable async action can run twice (double-click, Enter-repeat, two tabs) and performs a non-idempotent write — see `references/async-guard-before-await.md`.
+- A shallow call tree throws `Maximum call stack size exceeded` — suspect a large-array spread/`apply` before recursion depth.
+- A repetitive bulk refactor copies the same multi-line object fragment across many call sites.
+- You are building an in-process typed event pipeline consumed as a stream.
 
 ## Related Skills
 
 - `exact-optional-property-types-migration` — the other TypeScript compiler-flag gotcha cluster (`exactOptionalPropertyTypes` errors and widening optional targets)
-- `typescript-eventbus-bfs-async-generator` — typed event bus / async-generator patterns where the async-return race and recursive types recur
 - `remix3-frame-cliententry` — the frame/theme host-binding context that hits the TS7 order-sensitive `MixinDescriptor` relation
-- `remix-upstream-dependency-analysis` — deciding whether a branch-pinned dependency update's new runtime validation affects your project
-- `repeated-block-collapse-refactor` — the composite-helper refactor that the vendor-validator swap's line accounting points at
+- `remix3-build-and-tooling` (`references/upstream-dependency-analysis.md`) — deciding whether a branch-pinned dependency update's new runtime validation affects your project
 - `remix3-testing` — Remix 3 test-suite patterns that consume the mutable-setter import seam
 - `remix3-client-entries` — the Remix 3 clientEntry handler / pending-state context where this re-entrancy bug is most often written
