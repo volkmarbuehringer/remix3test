@@ -1,6 +1,6 @@
 # Frame Failures, Complete-HTML Rendering, and Interception Limits
 
-**Source:** Installed guide `node_modules/remix/guides/06-streaming-ui-with-frames.md` — §"Stream a fallback first", §"Render the response as a stream", §"Resolve frames in the browser", §"Name and reload frames", §"Navigate a frame with a form", §"Target a frame from a link", §"Handle failures and cancellation". Vendor source under `node_modules/.pnpm/@remix-run+*/node_modules/@remix-run/`: `render-middleware` `dist/lib/render-ui.js` (`render()` L44–61, `resolveFrame` L67–84, `followFrameRedirects` L106–128) and `dist/lib/render.js` (`renderWith` L13–17); `ui` `dist/server/stream.js` (`renderToStream` L77–163, `defaultResolveFrame` L181–183, `renderToString` L1318–1324).
+**Source:** Installed guide `node_modules/remix/guides/06-streaming-ui-with-frames.md` — §"Stream a fallback first", §"Render the response as a stream", §"Resolve frames in the browser", §"Name and reload frames", §"Navigate a frame with a form", §"Target a frame from a link", §"Handle failures and cancellation". Vendor source under `node_modules/.pnpm/@remix-run+*/node_modules/@remix-run/`: `render-middleware` `dist/lib/render-ui.js` (`render()`, `resolveFrame`, `followFrameRedirects`) and `dist/lib/render.js` (`renderWith`); `ui` `dist/server/stream.js` (`renderToStream`, `defaultResolveFrame`, `renderToString`).
 
 **Extracted:** 2026-09-26
 
@@ -12,7 +12,7 @@ The guide's failure contract has two reporting hooks and one decision point, but
 
 ## Solution
 
-**Failure and cancellation contract (guide §"Stream a fallback first", §"Handle failures and cancellation")**
+**Failure and cancellation contract (guide §"Render the response as a stream", §"Handle failures and cancellation")**
 
 - Server hook: `render()`'s `onError`. This app calls `render({ assets: assetServer })` with no callback (`app/middleware/root.ts:79`). Upstream defaults a missing callback to `console.error` (`ui` `dist/server/stream.js:79`) but forces it to a no-op for any request carrying `X-Remix-Frame: true` (`render-middleware` `dist/lib/render-ui.js:48`). Net effect here: top-level document render failures reach `console.error`; fragment render failures are silent by design, and the frame `fallback` is the only visibility mechanism.
 - Browser hook: the `error` event on the app returned by `run()`. `app/assets/entry.tsx:44–56` disposes the app, fades the body, and renders the fatal card (`app/assets/error-card.browser.tsx`). This fires for genuine runtime faults, not for HTTP failures.
