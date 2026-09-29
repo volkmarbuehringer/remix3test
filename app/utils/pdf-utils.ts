@@ -36,13 +36,14 @@ export async function generatePdfBuffer(docDef: TDocumentDefinitions): Promise<B
 
 /**
  * Wrap a PDF buffer as an attachment-download Response with the standard
- * headers (Content-Type, Content-Disposition, Content-Length) used by the
- * verwaltung PDF export routes.
+ * headers (Content-Type, Content-Disposition, Content-Length, nosniff) used
+ * by the verwaltung PDF export routes.
  */
 export function pdfAttachmentResponse(buffer: Buffer, filename: string): Response {
   let headers = new SuperHeaders()
   headers.contentType = 'application/pdf'
   headers.contentDisposition = { type: 'attachment', filename }
   headers.contentLength = buffer.length
+  headers.set('X-Content-Type-Options', 'nosniff')
   return new Response(new Uint8Array(buffer), { headers })
 }

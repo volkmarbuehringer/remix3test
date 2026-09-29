@@ -347,6 +347,7 @@ export default createController(routes.admin.uploads, {
         type: 'attachment',
         filename: cleanFilename,
       }
+      downloadHeaders.set('X-Content-Type-Options', 'nosniff')
       return new Response(data, { status: 200, headers: downloadHeaders })
     },
 
@@ -396,6 +397,7 @@ export default createController(routes.admin.uploads, {
         filename: 'uploads.zip',
       }
       zipHeaders.contentLength = archive.length
+      zipHeaders.set('X-Content-Type-Options', 'nosniff')
       return new Response(new Uint8Array(archive), { status: 200, headers: zipHeaders })
     },
 

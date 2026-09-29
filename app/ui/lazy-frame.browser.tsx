@@ -19,6 +19,15 @@ type LazyFrameProps = {
   children?: RemixNode
 }
 
+type IntersectionCallback = (entry: IntersectionObserverEntry) => void
+
+type IntersectionObserverPool = {
+  callbacks: Map<Element, Set<IntersectionCallback>>
+  observer: IntersectionObserver
+}
+
+const defaultRootMargin = '320px 0px'
+
 /**
  * Defers mounting a Frame until its host approaches the viewport.
  *
@@ -27,6 +36,9 @@ type LazyFrameProps = {
  * hidden. Frames that are navigation targets (`data-rmx-target`,
  * `handle.frames.get(...)`, sidebar shells) must stay eagerly rendered, because
  * a frame that has not mounted yet cannot be addressed.
+ *
+ * LazyFrame instances with the same `rootMargin` share one observer, registering
+ * their host for its element lifetime (as the upstream lazy-frames demo does).
  *
  * Two app-specific constraints, both verified against the pinned runtime:
  *
@@ -46,19 +58,18 @@ export const LazyFrame = clientEntry(
     let requested = false
 
     let observe = ref((node, signal) => {
-      let observer = new IntersectionObserver(
-        (entries) => {
-          if (requested || signal.aborted || !entries.some((entry) => entry.isIntersecting)) return
+      let stopLoading = observeIntersection(
+        node,
+        signal,
+        (entry) => {
+          if (!entry.isIntersecting) return
 
+          stopLoading()
           requested = true
-          observer.disconnect()
           handle.update()
         },
-        { rootMargin: handle.props.rootMargin ?? '320px 0px' },
+        handle.props.rootMargin ?? defaultRootMargin,
       )
-
-      observer.observe(node)
-      signal.addEventListener('abort', () => observer.disconnect(), { once: true })
     })
 
     return () => (
@@ -78,6 +89,62 @@ export const LazyFrame = clientEntry(
     )
   },
 )
+
+const intersectionObserverPools = new Map<string, IntersectionObserverPool>()
+
+function observeIntersection(
+  node: Element,
+  signal: AbortSignal,
+  callback: IntersectionCallback,
+  rootMargin: string,
+): () => void {
+  if (signal.aborted) return () => {}
+
+  let pool = intersectionObserverPools.get(rootMargin)
+  if (pool === undefined) {
+    let callbacks = new Map<Element, Set<IntersectionCallback>>()
+    let observer = new IntersectionObserver(
+      (entries) => {
+        for (let entry of entries) {
+          for (let dispatch of callbacks.get(entry.target) ?? []) dispatch(entry)
+        }
+      },
+      { rootMargin },
+    )
+    pool = { callbacks, observer }
+    intersectionObserverPools.set(rootMargin, pool)
+  }
+
+  let callbacks = pool.callbacks.get(node)
+  if (callbacks === undefined) {
+    callbacks = new Set()
+    pool.callbacks.set(node, callbacks)
+    pool.observer.observe(node)
+  }
+
+  function unobserve() {
+    signal.removeEventListener('abort', unobserve)
+
+    let currentPool = intersectionObserverPools.get(rootMargin)
+    if (currentPool === undefined) return
+    let currentCallbacks = currentPool.callbacks.get(node)
+    if (currentCallbacks === undefined || !currentCallbacks.delete(callback)) return
+
+    if (currentCallbacks.size === 0) {
+      currentPool.callbacks.delete(node)
+      currentPool.observer.unobserve(node)
+    }
+
+    if (currentPool.callbacks.size === 0) {
+      currentPool.observer.disconnect()
+      intersectionObserverPools.delete(rootMargin)
+    }
+  }
+
+  callbacks.add(callback)
+  signal.addEventListener('abort', unobserve, { once: true })
+  return unobserve
+}
 
 /** Runtime mixin on the entry's own host — never serialized, so it is safe. */
 const hostStyle = css({

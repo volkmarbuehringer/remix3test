@@ -106,6 +106,7 @@ export default createController(routes.verwaltung.pdf, {
           filename: `alle-termine-${new Date(now).toISOString().split('T')[0]}.pdf`,
         }
         pdfHeaders.contentLength = buffer.length
+        pdfHeaders.set('X-Content-Type-Options', 'nosniff')
         return new Response(new Uint8Array(buffer), { headers: pdfHeaders })
       } catch {
         return new Response('Fehler beim Erstellen des PDFs.', { status: 500 })
