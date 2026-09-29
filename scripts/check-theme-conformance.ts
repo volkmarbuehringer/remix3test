@@ -7,6 +7,11 @@ const APP_DIR = path.join(PROJECT_ROOT, 'app')
 const THEME_DIR = path.join(APP_DIR, 'ui', 'theme')
 const THEME_FILE = path.join(APP_DIR, 'theme.tsx')
 const RAW_VAR_RE = /var\(--rmx-/
+// A `var(--name)` that is neither a theme token (`--rmx-*`) nor a documented
+// page-local namespace (`--home-*`, see app/ui/scaffold-home-page.tsx). These
+// bypass the typed contract and silently fall back to whatever hardcoded value
+// sits beside them (e.g. the former `var(--color-danger, #e53e3e)`).
+const NON_THEME_VAR_RE = /var\(--(?!rmx-|home-)([a-zA-Z0-9_-]+)/
 
 async function* walk(dir: string): AsyncGenerator<string> {
   let entries = await fs.readdir(dir, { withFileTypes: true })
@@ -27,15 +32,24 @@ for await (let file of walk(APP_DIR)) {
   for (let [index, line] of content.split('\n').entries()) {
     if (RAW_VAR_RE.test(line)) {
       violations.push(`${path.relative(PROJECT_ROOT, file)}:${index + 1}`)
+      continue
+    }
+    let nonTheme = NON_THEME_VAR_RE.exec(line)
+    if (nonTheme) {
+      violations.push(
+        `${path.relative(PROJECT_ROOT, file)}:${index + 1} — var(--${nonTheme[1]}) is not a theme token`,
+      )
     }
   }
 }
 
 if (violations.length > 0) {
-  console.error('Theme conformance violations — raw var(--rmx-...) outside app/ui/theme/:')
+  console.error(
+    'Theme conformance violations — raw var(--rmx-...) or non-theme var(...) outside app/ui/theme/:',
+  )
   for (let v of violations) console.error('  ' + v)
   console.error('Use the typed `theme` object from app/ui/theme/theme.ts instead.')
   process.exit(1)
 }
 
-console.log('Theme conformance: OK (no raw var(--rmx-...) references outside the theme)')
+console.log('Theme conformance: OK (no raw or non-theme var(...) references outside the theme)')

@@ -53,6 +53,21 @@ function toSidebarEntry(row: ListSummary): ListSidebarEntry {
   }
 }
 
+/**
+ * Sidebar return target for write actions. Carries the current page offset
+ * and the active filter so a write does not silently reset the user's view
+ * (the admin grid already preserves its filter across pagination).
+ */
+function listsIndexReturnHref(url: URL): string {
+  let params = new URLSearchParams()
+  let offset = url.searchParams.get('offset')
+  if (offset) params.set('offset', offset)
+  let filter = url.searchParams.get('filter')
+  if (filter) params.set('filter', filter)
+  let query = params.toString()
+  return routes.lists.index.href() + (query ? '?' + query : '')
+}
+
 const listsCreateSchema = s.object({
   title: s.optional(s.string().pipe(maxLength(200))),
   description: s.optional(s.string().pipe(maxLength(500))),
@@ -92,6 +107,8 @@ export default createController(routes.lists, {
       let listResult: PaginationState | undefined
 
       if (idsRaw?.trim()) {
+        // Cap the selection: `ids` is a comma-separated query param, so an
+        // oversized value would otherwise build an unbounded `= ANY($1)` probe.
         let ids = [
           ...new Set(
             idsRaw
@@ -99,7 +116,7 @@ export default createController(routes.lists, {
               .map(Number)
               .filter((n) => Number.isFinite(n) && n >= 1),
           ),
-        ]
+        ].slice(0, 100)
         let entries = await getListSummariesByIds(context.db, ids, listUserId)
         sidebarEntries = entries.map(toSidebarEntry)
       } else {
@@ -543,12 +560,7 @@ export default createController(routes.lists, {
         return context.json({ error: 'List not found' }, { status: 404 })
       }
 
-      let redirectUrl = routes.lists.index.href()
-      let offset = context.url.searchParams.get('offset')
-      if (offset) {
-        redirectUrl += '?offset=' + encodeURIComponent(offset)
-      }
-      return redirect(redirectUrl)
+      return redirect(listsIndexReturnHref(context.url))
     },
 
     async copy(context) {
@@ -574,13 +586,14 @@ export default createController(routes.lists, {
 
       // Redirect straight to the duplicated list so both the sidebar (which
       // reloads on this frame navigation) and the editor pick up the new copy.
-      // Preserve the current sidebar page like the destroy route does.
-      let redirectUrl = `${routes.lists.index.href()}?load=${row.id}`
+      // Preserve the current sidebar page and filter like the destroy route does.
+      let params = new URLSearchParams()
+      params.set('load', String(row.id))
       let offset = context.url.searchParams.get('offset')
-      if (offset) {
-        redirectUrl += '&offset=' + encodeURIComponent(offset)
-      }
-      return redirect(redirectUrl)
+      if (offset) params.set('offset', offset)
+      let filter = context.url.searchParams.get('filter')
+      if (filter) params.set('filter', filter)
+      return redirect(routes.lists.index.href() + '?' + params.toString())
     },
   },
 })

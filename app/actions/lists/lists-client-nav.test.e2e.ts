@@ -164,4 +164,43 @@ describe('lists frame navigation', () => {
       await cleanup(a, b)
     }
   })
+
+  it('sidebar links expose a single roving tab stop on the anchors', async (t) => {
+    let { a, b } = await seedPair('rove')
+    try {
+      let server = await createTestServer((request) => router.fetch(request))
+      let page = await t.serve(server)
+      await page
+        .context()
+        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
+
+      await page.goto('/lists?load=' + a)
+      await page.locator('[data-list-id="' + b + '"] a').waitFor({ timeout: 15_000 })
+
+      // The client entry installs the roving tabindex after hydration.
+      await page.waitForFunction(
+        () => document.querySelectorAll('[data-list-id] a[href][tabindex="0"]').length === 1,
+        undefined,
+        { timeout: 15_000 },
+      )
+
+      let state = await page.evaluate(() => ({
+        tabbableLinks: document.querySelectorAll('[data-list-id] a[href][tabindex="0"]').length,
+        wrapperTabbables: document.querySelectorAll('[data-list-id][tabindex]').length,
+      }))
+      assert.equal(state.tabbableLinks, 1, 'exactly one sidebar link should be in the tab order')
+      assert.equal(state.wrapperTabbables, 0, 'row wrappers must not be tab stops')
+
+      let first = page.locator('[data-list-id] a[href][tabindex="0"]').first()
+      await first.focus()
+      let firstHref = await first.getAttribute('href')
+      await page.keyboard.press('ArrowDown')
+      let movedHref = await page.evaluate(
+        () => document.activeElement?.getAttribute('href') ?? null,
+      )
+      assert.ok(movedHref && movedHref !== firstHref, 'ArrowDown should move focus to another row')
+    } finally {
+      await cleanup(a, b)
+    }
+  })
 })

@@ -1909,4 +1909,68 @@ describe('Lists controller', () => {
     await db.delete(lists, { id })
     await db.delete(lists, { id: copyId })
   })
+
+  it('GET /lists preserves the active filter on pagination links', async () => {
+    // 16 matching lists force a second page, so the "Nächste" link renders.
+    let marker = 'pgfilter-' + Date.now()
+    let ids: number[] = []
+    try {
+      for (let i = 0; i < 16; i++) {
+        let saveResponse = await router.fetch(LISTS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Csrf-Token': userCsrfToken,
+            Cookie: userCookie,
+          },
+          body: JSON.stringify({ description: marker + ' ' + i, items: [] }),
+        })
+        assert.equal(saveResponse.status, 200)
+        ids.push((await saveResponse.json()).id)
+      }
+
+      let response = await router.fetch(LISTS_URL + '?filter=' + marker, {
+        headers: { Cookie: userCookie },
+      })
+      assert.equal(response.status, 200)
+      let text = await response.text()
+      assert.ok(text.includes('Nächste'), 'a second page should render a next link')
+      assert.ok(
+        text.includes('filter=' + marker),
+        'pagination links must carry the active filter forward',
+      )
+    } finally {
+      for (let id of ids) await db.delete(lists, { id })
+    }
+  })
+
+  it('POST /lists/:id/copy preserves the sidebar filter in the redirect', async () => {
+    let saveResponse = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ description: 'Filter copy', items: [{ label: 'A' }] }),
+    })
+    assert.equal(saveResponse.status, 200)
+    let { id } = await saveResponse.json()
+
+    let response = await router.fetch(LISTS_URL + '/' + id + '/copy?filter=needle', {
+      method: 'POST',
+      headers: {
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+    })
+    assert.equal(response.status, 302)
+    let location = response.headers.get('Location')
+    assert.ok(location?.startsWith('/lists?load='), 'should redirect to the new list load URL')
+    assert.ok(location?.includes('&filter=needle'), 'should preserve the sidebar filter')
+
+    let copyId = Number(new URL(location!, 'https://remix.run').searchParams.get('load'))
+    await db.delete(lists, { id })
+    await db.delete(lists, { id: copyId })
+  })
 })

@@ -16,60 +16,67 @@ export const ListsSidebarKeyboard = clientEntry(
       let rows = Array.from(document.querySelectorAll<HTMLElement>('[data-list-id]')).filter((el) =>
         Number.isFinite(Number(el.dataset.listId)),
       )
-      if (rows.length === 0) return
+      // The roving tab stop must be the row's anchor, not the wrapper: the anchor
+      // is the interactive element, so leaving it natively tabbable made *every*
+      // row a tab stop (the wrapper's tabindex never removed them). Focus and
+      // arrow navigation therefore live on the links.
+      let links = rows
+        .map((row) => row.querySelector<HTMLAnchorElement>('a[href]'))
+        .filter((link): link is HTMLAnchorElement => link !== null)
+      if (links.length === 0) return
+
+      // Drop any wrapper tabindex left by an older render so it cannot add a
+      // second tab stop per row.
+      for (let row of rows) row.removeAttribute('tabindex')
+
+      function moveFocus(target: number) {
+        if (target < 0 || target >= links.length) return
+        links.forEach((link) => link.setAttribute('tabindex', '-1'))
+        links[target]!.setAttribute('tabindex', '0')
+        links[target]!.focus()
+      }
 
       // Single tab stop: first row tabbable, the rest skipped (roving tabindex)
-      rows.forEach((row, i) => row.setAttribute('tabindex', i === 0 ? '0' : '-1'))
+      links.forEach((link, i) => link.setAttribute('tabindex', i === 0 ? '0' : '-1'))
 
-      rows.forEach((row) => {
+      links.forEach((link, idx) => {
         let ac = new AbortController()
         rovingControllers.push(ac)
-        row.addEventListener(
+        link.addEventListener(
           'keydown',
           (e) => {
-            let target = e.target as HTMLElement
-            let isRowTarget = target === row
-            let idx = rows.indexOf(row)
-
-            let navigate = (href: string | null) => {
-              if (!href || !handle.frame) return
-              handle.frame.src = href
-              handle.frame.reload().catch(() => {})
-            }
-
             switch (e.key) {
               case 'ArrowDown':
               case 'ArrowUp':
               case 'Home':
               case 'End': {
                 e.preventDefault()
-                let target = nextFocusIndex(rows.length, idx, e.key)
-                moveFocus(rows, target)
+                moveFocus(nextFocusIndex(links.length, idx, e.key))
                 break
               }
-              case 'Enter':
               case ' ':
-                // Only when the row itself is focused (not the inner link/button,
-                // which keeps its own Enter behavior, e.g. rename-on-Enter).
-                if (isRowTarget) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  let href = row.querySelector('a[href]')?.getAttribute('href') ?? null
-                  navigate(href)
+                // Enter activates an anchor natively; Space does not, so mirror
+                // the frame navigation to keep activate-on-Space working.
+                e.preventDefault()
+                let href = link.getAttribute('href')
+                if (href && handle.frame) {
+                  handle.frame.src = href
+                  handle.frame.reload().catch(() => {})
                 }
                 break
               default:
                 if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                  let labels = rows.map(
-                    (r) =>
+                  let labels = links.map(
+                    (l) =>
                       ({
-                        label: r.querySelector('[data-list-name]')?.textContent ?? '',
+                        label:
+                          l.querySelector('[data-list-name]')?.textContent ?? l.textContent ?? '',
                       }) as { label: string },
                   )
                   let target = findTypeaheadTarget(labels, idx, e.key)
                   if (target !== -1) {
                     e.preventDefault()
-                    moveFocus(rows, target)
+                    moveFocus(target)
                   }
                 }
                 break
@@ -78,13 +85,6 @@ export const ListsSidebarKeyboard = clientEntry(
           { signal: ac.signal },
         )
       })
-    }
-
-    function moveFocus(rows: HTMLElement[], target: number) {
-      if (target < 0 || target >= rows.length) return
-      rows.forEach((r) => r.setAttribute('tabindex', '-1'))
-      rows[target]!.setAttribute('tabindex', '0')
-      rows[target]!.focus()
     }
 
     // All DOM work happens in the ref callback, which only runs on the client.

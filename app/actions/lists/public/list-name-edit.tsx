@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { theme } from '../../../ui/theme/theme.ts'
 
 export const ListNameEdit = clientEntry(
   import.meta.url + '#ListNameEdit',
@@ -70,7 +71,7 @@ export const ListNameEdit = clientEntry(
                   } else if (response.status === 409) {
                     // Conflict — briefly flash red and abort
                     span.style.color = ''
-                    span.style.color = 'var(--color-danger, #e53e3e)'
+                    span.style.color = theme.colors.action.danger.background
                     errorTimer = setTimeout(() => {
                       span.style.color = ''
                     }, 2000)
@@ -81,7 +82,7 @@ export const ListNameEdit = clientEntry(
                   if (err instanceof DOMException && err.name === 'AbortError') return
                   cancelEdit()
                   span.style.color = ''
-                  span.style.color = 'var(--color-danger, #e53e3e)'
+                  span.style.color = theme.colors.action.danger.background
                   errorTimer = setTimeout(() => {
                     span.style.color = ''
                   }, 2000)

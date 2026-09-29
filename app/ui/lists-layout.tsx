@@ -177,9 +177,23 @@ function ShellOrFragment(
   }
 }
 
+/**
+ * The active sidebar search term from the current frame URL. List links and
+ * pagination links must carry it forward, otherwise paging out of a filtered
+ * result set silently shows unfiltered lists (the admin grid already preserves
+ * its filter across pagination).
+ */
+function currentFilter(): string | null {
+  return new URL(getContext().request.url).searchParams.get('filter')
+}
+
 function buildListHref(listId: number, pagination?: PaginationState): string {
   let params = new URLSearchParams()
   params.set('load', String(listId))
+  let filter = currentFilter()
+  if (filter) {
+    params.set('filter', filter)
+  }
   if (pagination && pagination.offset > 0) {
     params.set('offset', String(pagination.offset))
   }
@@ -192,6 +206,10 @@ function buildPageHref(offset: number, pagination: PaginationState): string {
   let loadParam = new URL(getContext().request.url).searchParams.get('load')
   if (loadParam) {
     params.set('load', loadParam)
+  }
+  let filter = currentFilter()
+  if (filter) {
+    params.set('filter', filter)
   }
   return routes.lists.index.href() + '?' + params.toString()
 }
