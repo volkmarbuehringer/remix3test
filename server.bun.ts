@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
-import { createServerHandler } from './app/utils/server-handler.ts'
+import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
 import { configuredPublicOrigin } from './app/utils/public-origin.ts'
 
 await initializeAppDatabase()
@@ -31,7 +31,10 @@ const hostname = process.env.HOST || (isProduction ? '0.0.0.0' : 'localhost')
 
 function loadTls() {
   try {
-    return { key: fs.readFileSync('key.pem'), cert: fs.readFileSync('cert.pem') }
+    return {
+      key: fs.readFileSync('key.pem'),
+      cert: fs.readFileSync('cert.pem'),
+    }
   } catch {
     console.error('Missing TLS certificate files (key.pem, cert.pem)')
     console.error('Generate self-signed certificates for your VPS IP:')
@@ -50,7 +53,13 @@ const server = Bun.serve({
   fetch(request, runtime) {
     // requestIP() is the TCP socket address, so X-Client-Ip stays unspoofable
     // (mirrors the Node entry's createRequestListener client.address).
-    return handleRequest(request, runtime.requestIP(request)?.address ?? '')
+    let clientIp = runtime.requestIP(request)?.address ?? ''
+    return handleRequest(request, clientIp).catch((error) => {
+      if (!(request.signal.aborted && error === request.signal.reason)) {
+        console.error(error)
+      }
+      return renderServerError()
+    })
   },
 })
 

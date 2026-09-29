@@ -5,7 +5,7 @@ import { createRequestListener, type ClientAddress } from 'remix/node-fetch-serv
 
 import { createNewappRouter } from './app/router.ts'
 import { initializeAppDatabase, closeAppDatabase } from './app/db.ts'
-import { createServerHandler } from './app/utils/server-handler.ts'
+import { createServerHandler, renderServerError } from './app/utils/server-handler.ts'
 import { configuredPublicOrigin } from './app/utils/public-origin.ts'
 
 await initializeAppDatabase()
@@ -29,7 +29,13 @@ const handleRequest = createServerHandler(router)
 
 const handler = createRequestListener(
   (request: Request, client: ClientAddress) => handleRequest(request, client.address),
-  { trustProxy: isHmr },
+  {
+    trustProxy: isHmr,
+    onError: (error) => {
+      console.error(error)
+      return renderServerError()
+    },
+  },
 )
 
 const isProduction = process.env.NODE_ENV === 'production'
