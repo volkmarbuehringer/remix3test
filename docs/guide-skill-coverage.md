@@ -24,6 +24,10 @@
 | 14 | cli-and-tooling | unfinished | `remix3-build-and-tooling` | partial | `remix routes` output modes + `[missing]` (§"Inspect route ownership with remix routes"); `doctor --json/--strict` + `--fix` scope (§"Check a project with remix doctor", §"Apply low-risk fixes with remix doctor --fix"); `remix/terminal` (§"Build project CLIs with terminal utilities"); `runRemix` (§"Call the CLI programmatically"); node-tsx limits (§"Run source files with remix/node-tsx"); `remix new` flags (§"Create an app with remix new"); help/--no-color (§"Help, version, color, and shell completion") |
 | 15 | production | unfinished | — | weak | startup env/secret validation (§"Validate environment variables and secrets at startup"); graceful shutdown (§"Initialize before listening, then shut down once"); `compression()` semantics (§"Compress without breaking streams or ranges"); error-reporting matrix (§"Report errors without exposing them"); process-safe storage (§"Choose process-safe storage"); cache policy/Vary/ETag (§"Assign cache policy by response type"); health/metrics/traces + checklist (§"Add app-owned health checks and observability", §"Deployment checklist"); `request.signal` (§"Propagate aborts through streaming work") |
 
+## Learned skills not tied to a guide chapter
+
+- `remix3-client-entry-decomposition` — decomposing a large `clientEntry` / `.browser.tsx` into styles/state/API/drag/view modules. Cross-cutting practice for chapters 04 (rendering-ui) and 05 (interactivity), so it is not a pointer to a single guide section.
+
 ## Unfinished chapters — re-audit on authoring
 
 08, 09, 10, 11, 12, 14, 15 all say "This chapter is unfinished." Their APIs will move, so do not build full API skills from them; treat the gap column as a watch list and convert entries into pointer refs once the vendor authors the chapter.
