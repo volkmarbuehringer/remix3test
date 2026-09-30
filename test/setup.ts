@@ -8,14 +8,53 @@ let testDbName = ''
 let appModule: typeof AppModule | undefined
 let appClosed = false
 
-async function forceDropTestDb() {
-  if (!testDbName || !adminDatabaseUrl) return
+const TEST_DB_PREFIX = 'newapp_test_'
+
+// Orphaned test DBs never younger than this survive into the next run's setup
+// (a run that is still alive created its DB after this cutoff). `globalTeardown`
+// drops the current DB on a normal exit, so anything older is left over from an
+// interrupted/crashed run and can be swept.
+const STALE_DB_AGE_MS = 30 * 60 * 1000
+
+async function forEachTestDb(action: (name: string) => Promise<void>) {
   let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
   try {
-    await adminPool.query(`DROP DATABASE IF EXISTS "${testDbName}" WITH (FORCE)`)
+    let { rows } = await adminPool.query<{ datname: string }>(
+      `SELECT datname FROM pg_database WHERE datname LIKE $1`,
+      [`${TEST_DB_PREFIX}%`],
+    )
+    for (let { datname } of rows) {
+      await action(datname)
+    }
   } finally {
     await adminPool.end()
   }
+}
+
+async function dropTestDb(name: string) {
+  let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
+  try {
+    await adminPool.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)
+  } finally {
+    await adminPool.end()
+  }
+}
+
+async function sweepStaleTestDbs() {
+  if (!adminDatabaseUrl) return
+  let cutoff = Date.now() - STALE_DB_AGE_MS
+  await forEachTestDb(async (datname) => {
+    let suffix = datname.slice(TEST_DB_PREFIX.length)
+    let startedAt = Number(suffix.slice(0, suffix.indexOf('_')))
+    if (!Number.isFinite(startedAt) || startedAt < cutoff) {
+      await dropTestDb(datname)
+    }
+  })
+}
+
+async function forceDropTestDb() {
+  if (!testDbName || !adminDatabaseUrl) return
+  await dropTestDb(testDbName)
 }
 
 export async function globalSetup() {
@@ -32,6 +71,10 @@ export async function globalSetup() {
   let parsed = new URL(originalDatabaseUrl)
   parsed.pathname = '/postgres'
   adminDatabaseUrl = parsed.toString()
+
+  // Drop orphaned test DBs from interrupted/crashed runs before creating the
+  // fresh one so they never accumulate between runs.
+  await sweepStaleTestDbs()
 
   let adminPool = new Pool({ connectionString: adminDatabaseUrl, max: 1 })
   try {
