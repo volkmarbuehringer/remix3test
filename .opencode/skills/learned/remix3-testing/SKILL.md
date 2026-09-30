@@ -1,6 +1,6 @@
 ---
 name: remix3-testing
-description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring, and Playwright/browser-run hangs (`networkidle` on SSE pages, unforgeable `window.location` navigation, crash cards that hide the stack)."
+description: "Use when writing or debugging a Remix 3 test suite — clientEntry DOM side effects that render/act cannot drive, parallel-test interference despite ephemeral DBs, waitFor on a statically present element, mocking an external HTTP service on a dynamic port, HTML-escaped assertions on rendered markup, and this app's harness for state isolation and `t.serve` e2e wiring, and Playwright/browser-run hangs (`networkidle` on SSE pages, unforgeable `window.location` navigation, crash cards that hide the stack), and ad-hoc verification against the running dev server (destructive controls must not be exercised there)."
 user-invocable: false
 origin: consolidated
 ---
@@ -20,6 +20,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | `waitFor(() => !!getElementById(x))` passes instantly and the next assertion fails on empty content | `references/waitfor-static-element.md` |
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
 | A `remix test` string assertion on an `href`/`action`/query string fails because the HTML escapes `&` to `&amp;` | `references/html-amp-escaped-assertions.md` |
+| You are ad-hoc verifying a UI change against the running dev server and the path includes a destructive control (delete/clear, or arm-then-confirm) | `references/ad-hoc-verification-safety.md` |
 | A router test shares session/DB state, or an `*.test.e2e.ts` needs `t.serve`/`createTestServer` wiring (the guide's generic `createAppRouter`/memory-storage examples don't match this app) | `references/state-isolation-and-e2e-serve.md` |
 | A Playwright navigation/submit hangs on a page that mounts an SSE/EventSource channel (`networkidle` never settles) | `references/sse-networkidle-never-settles.md` |
 | A `*.test.browser.tsx` hangs after code calls `window.location.reload()`/`assign`/`replace`/`href` | `references/location-reload-unforgeable.md` |
@@ -63,6 +64,10 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - E2E uses `t.serve(await createTestServer((request) => router.fetch(request)))` (arrow adapter, not `createTestServer(router.fetch)`); `t.serve` closes the server/page, but DB/file fixtures created outside it need their own cleanup, and Firefox-broken assertions are scoped with `isFirefox(page)` rather than skipped.
 - The ephemeral DB is per-run, not per-test: parallel workers accumulate rows, so a test that paginates still owns its cleanup (see `parallel-test-interference.md`).
 
+**Ad-hoc verification safety (`references/ad-hoc-verification-safety.md`)**
+
+- **Never verify a destructive control against the running dev server.** It shares the persistent `DATABASE_URL`, and a two-step arm/confirm button (e.g. `/lists` → `✕ Alle löschen`, label flips to "Wirklich alle löschen?") executes on the second click. Prove the behavior non-destructively (outside click / `Escape` / assert `details[open]`), or move the path into a seeded `*.test.e2e.ts` that deletes only its own rows.
+
 **Playwright / browser-run debugging (`references/sse-networkidle-never-settles.md`, `references/location-reload-unforgeable.md`, `references/crash-card-swallowed-stack.md`, `references/reproduction-browser-from-message.md`)**
 
 - **Never use `networkidle`** on a page/action that mounts an SSE/streaming connection — the open `EventSource` keeps `waitForLoadState('networkidle')` pending forever. Wait on a state-specific DOM anchor; use `waitForURL` for a signed-in submit→redirect; add a short `waitForTimeout` only if a `clientEntry` effect must settle.
@@ -79,6 +84,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - You need to mock an external HTTP service or match escaped markup in rendered output.
 - A router test needs an authenticated session or multi-request flow, or you are adding an `*.test.e2e.ts`, and the guide's generic example does not match this repo's harness.
 - A Playwright/e2e navigation or submit hangs on a page with an SSE/EventSource channel, or a browser test hangs after a `window.location` navigation.
+- You are manually verifying a UI change in the running app and the flow contains a delete/reset/confirm action.
 - A crash card hides the real exception stack from `pageerror`/console capture.
 
 ## Related Skills
