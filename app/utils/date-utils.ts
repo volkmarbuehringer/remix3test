@@ -19,7 +19,10 @@ export function formatRelativeTimeDE(epochMs: number | null | undefined, nowMs?:
   if (diff < MS_PER_MINUTE) return 'gerade eben'
   if (diff < MS_PER_HOUR) return `vor ${Math.floor(diff / MS_PER_MINUTE)} Min.`
   if (diff < MS_PER_DAY) return `vor ${Math.floor(diff / MS_PER_HOUR)} Std.`
-  if (diff < 7 * MS_PER_DAY) return `vor ${Math.floor(diff / MS_PER_DAY)} Tagen`
+  if (diff < 7 * MS_PER_DAY) {
+    let days = Math.floor(diff / MS_PER_DAY)
+    return days === 1 ? 'vor 1 Tag' : `vor ${days} Tagen`
+  }
   return formatDateDE(t)
 }
 

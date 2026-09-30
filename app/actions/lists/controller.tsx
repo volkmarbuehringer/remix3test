@@ -102,6 +102,8 @@ export default createController(routes.lists, {
       let user = getCurrentUser()
       let listUserId = user.role === 'admin' ? undefined : user.id
 
+      let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
+      let filter = context.url.searchParams.get('filter') || undefined
       let idsRaw = context.url.searchParams.get('ids')
       let sidebarEntries: ListSidebarEntry[]
       let listResult: PaginationState | undefined
@@ -120,9 +122,7 @@ export default createController(routes.lists, {
         let entries = await getListSummariesByIds(context.db, ids, listUserId)
         sidebarEntries = entries.map(toSidebarEntry)
       } else {
-        let offset = Math.max(0, Number(context.url.searchParams.get('offset')) || 0)
         let pageSize = getPageSize(context.session, 15)
-        let filter = context.url.searchParams.get('filter') || undefined
 
         let result = await getListSummaries(
           context.db,
@@ -135,8 +135,29 @@ export default createController(routes.lists, {
       }
 
       let loadParam = context.url.searchParams.get('load')
-      let activeItem: ListsNavItem
+      // The "Neue Liste" sidebar link passes ?new=1 to opt out of the
+      // default-open rule below.
+      let forceNew = context.url.searchParams.has('new')
+      let activeItem: ListsNavItem = 'new'
       let initialState: ListInitialState = null
+
+      // Returning users expect /lists to resume their most recently touched
+      // list rather than an empty create form. Only default-open on a bare
+      // first page (no explicit selection, filter or pagination) so search and
+      // paging keep the current view.
+      if (
+        loadParam == null &&
+        !forceNew &&
+        !idsRaw?.trim() &&
+        !filter &&
+        offset === 0 &&
+        sidebarEntries.length > 0
+      ) {
+        let first = sidebarEntries[0]!
+        if (typeof first.id === 'string' && first.id.startsWith('list:')) {
+          loadParam = first.id.slice(5)
+        }
+      }
 
       if (loadParam) {
         let listId = Number(loadParam)
@@ -151,14 +172,8 @@ export default createController(routes.lists, {
               items: row.list,
               updated_at: row.updated_at,
             }
-          } else {
-            activeItem = 'new'
           }
-        } else {
-          activeItem = 'new'
         }
-      } else {
-        activeItem = 'new'
       }
 
       return renderListsPage(

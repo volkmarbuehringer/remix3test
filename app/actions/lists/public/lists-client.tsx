@@ -2,7 +2,7 @@ import { clientEntry, type Handle } from 'remix/ui'
 import { theme } from '../../../ui/theme/theme.ts'
 import { moveItemInArray, findTypeaheadTarget } from '../../../utils/lists-keyboard.ts'
 
-import { syncSidebarRow } from './sidebar-sync.ts'
+import { sidebarRowLabel, syncSidebarRow, UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
 import { createListsDrag } from './lists-drag.ts'
 import {
   type ItemPriority,
@@ -429,9 +429,10 @@ export const ListsClient = clientEntry(
     // sidebar's title / count stay in sync without a full frame reload.
     let syncEditorSidebar = () => {
       if (loadedListId === null) return
-      let label = title.trim() || description.trim() || `Liste #${loadedListId}`
+      let name = title.trim() || description.trim()
       syncSidebarRow(loadedListId, {
-        label,
+        label: name || UNTITLED_LIST_LABEL,
+        untitled: !name,
         count: items.length,
         doneCount: items.filter((item) => item.done === true).length,
         updatedAt: loadedUpdatedAt ?? undefined,
@@ -499,8 +500,7 @@ export const ListsClient = clientEntry(
         let id = Number(row.dataset.listId)
         if (!Number.isFinite(id) || id === loadedListId || seen.has(id)) continue
         seen.add(id)
-        let label = row.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${id}`
-        targets.push({ id, label })
+        targets.push({ id, label: sidebarRowLabel(row, id) })
       }
       return targets
     }
@@ -980,8 +980,59 @@ export const ListsClient = clientEntry(
       window.addEventListener('beforeunload', flushWithKeepalive, { signal: handle.signal })
     }
 
+    // The "Weitere Aktionen" menu is a native <details>, which otherwise never
+    // dismisses: it stays open after choosing an action and ignores outside
+    // clicks and Escape. Close it from one delegated set of document listeners.
+    if (typeof document !== 'undefined') {
+      let closeMoreMenus = (except?: Node) => {
+        for (let menu of Array.from(
+          document.querySelectorAll<HTMLDetailsElement>('details[data-lists-more][open]'),
+        )) {
+          if (except && menu.contains(except)) continue
+          menu.open = false
+        }
+      }
+
+      document.addEventListener(
+        'pointerdown',
+        (e) => {
+          let target = e.target as Node | null
+          let summary = target instanceof Element ? target.closest('summary') : null
+          // Let the native toggle run; just dismiss any other open menu.
+          closeMoreMenus(summary ?? target ?? undefined)
+        },
+        { signal: handle.signal },
+      )
+
+      document.addEventListener(
+        'click',
+        (e) => {
+          let target = e.target as Node | null
+          if (target instanceof Element && target.closest('details[data-lists-more] button')) {
+            closeMoreMenus()
+          }
+        },
+        { signal: handle.signal },
+      )
+
+      document.addEventListener(
+        'keydown',
+        (e) => {
+          if (e.key !== 'Escape') return
+          let open = document.querySelector<HTMLDetailsElement>('details[data-lists-more][open]')
+          if (!open) return
+          open.open = false
+          open.querySelector('summary')?.focus()
+        },
+        { signal: handle.signal },
+      )
+    }
+
     // Status pill display
     let statusLabel = (): string => {
+      // A brand-new list that has not been created yet must not claim to be
+      // saved — "Gespeichert" is reserved for a list that exists on the server.
+      if (loadedListId === null && saveStatus === 'saved') return 'Nicht gespeichert'
       switch (saveStatus) {
         case 'saved':
           return 'Gespeichert'

@@ -197,6 +197,40 @@ describe('Lists controller', () => {
     assert.ok(text.includes('Neue Liste'), '"Neue Liste" should render in sidebar')
   })
 
+  it('GET /lists without ?load hydrates the most recently updated list', async () => {
+    let create = async (title: string) => {
+      let response = await router.fetch(LISTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Csrf-Token': userCsrfToken,
+          Cookie: userCookie,
+        },
+        body: JSON.stringify({ title, description: '', items: [] }),
+      })
+      assert.equal(response.status, 200)
+      return (await response.json()) as { id: number }
+    }
+
+    await create('Default open older')
+    let newest = await create('Default open newest')
+
+    let response = await router.fetch(LISTS_URL, { headers: { Cookie: userCookie } })
+    let text = await response.text()
+    assert.ok(
+      text.includes(`&quot;id&quot;:${newest.id}`),
+      'the most recently updated list should hydrate into the editor',
+    )
+  })
+
+  it('GET /lists?new=1 keeps the create form when lists exist', async () => {
+    let response = await router.fetch(`${LISTS_URL}?new=1`, {
+      headers: { Cookie: userCookie },
+    })
+    let text = await response.text()
+    assert.ok(!text.includes('data-state="{'), 'no list should be auto-opened when ?new=1 is set')
+  })
+
   it('GET /lists with X-Remix-Target: lists-content returns fragment (no Layout shell)', async () => {
     let response = await router.fetch(LISTS_URL, {
       headers: {

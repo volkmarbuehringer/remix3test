@@ -12,6 +12,7 @@ import { ListNameEdit } from '../actions/lists/public/list-name-edit.tsx'
 import { ListsSearch } from '../actions/lists/public/lists-search.tsx'
 import { ListsSidebarKeyboard } from '../actions/lists/public/lists-sidebar-keyboard.tsx'
 import { ListsRowActions } from '../actions/lists/public/lists-row-actions.tsx'
+import { UNTITLED_LIST_LABEL } from '../actions/lists/public/sidebar-sync.ts'
 import {
   shellStyle,
   sidebarStyle,
@@ -19,7 +20,11 @@ import {
   navLinkStyle,
   navActiveStyle,
   contentStyle,
+  shellResponsiveStyle,
+  sidebarToggleStyle,
 } from './sidebar-layout.tsx'
+import { SidebarToggle } from './layout/sidebar-toggle.browser.tsx'
+import { Glyph } from './theme/glyph/glyph.tsx'
 
 export type ListsNavItem = 'new' | `list:${number}`
 
@@ -200,12 +205,21 @@ function buildListHref(listId: number, pagination?: PaginationState): string {
   return routes.lists.index.href() + '?' + params.toString()
 }
 
-function buildPageHref(offset: number, pagination: PaginationState): string {
+function buildPageHref(
+  offset: number,
+  pagination: PaginationState,
+  activeId: number | null,
+): string {
   let params = new URLSearchParams()
   params.set('offset', String(offset))
   let loadParam = new URL(getContext().request.url).searchParams.get('load')
+  // Carry the open list across pagination too. A list opened by the default
+  // "most recent" rule has no `load` in the URL, so fall back to the active id
+  // or paging would reset the editor to the new-list form.
   if (loadParam) {
     params.set('load', loadParam)
+  } else if (activeId != null) {
+    params.set('load', String(activeId))
   }
   let filter = currentFilter()
   if (filter) {
@@ -224,9 +238,30 @@ function ListsLayout(
 ) {
   return () => {
     let { activeItem, sidebarEntries, pagination, children } = handle.props
+    let activeListId =
+      typeof activeItem === 'string' && activeItem.startsWith('list:')
+        ? Number(activeItem.slice(5))
+        : null
     return (
-      <div mix={[shellStyle, shellAlignStretchStyle, shellFullHeightStyle]}>
-        <aside mix={[sidebarStyle, compactSidebarStyle, sidebarScrollContainerStyle]}>
+      <div
+        mix={[
+          shellStyle,
+          shellAlignStretchStyle,
+          shellFullHeightStyle,
+          shellResponsiveStyle,
+          listsShellResponsiveStyle,
+          listsSidebarColumnsStyle,
+        ]}
+      >
+        <aside
+          id="sidebar-shell-nav"
+          mix={[
+            sidebarStyle,
+            compactSidebarStyle,
+            sidebarScrollContainerStyle,
+            listsSidebarResponsiveStyle,
+          ]}
+        >
           <nav mix={[navStyle, navScrollStyle]}>
             <input
               id="lists-sidebar-search"
@@ -257,7 +292,7 @@ function ListsLayout(
             <ListsSearch />
             <NavLink
               key="new"
-              href={routes.lists.index.href()}
+              href={routes.lists.index.href() + '?new=1'}
               target={frameTarget}
               active={activeItem === 'new'}
               mix={[
@@ -280,13 +315,14 @@ function ListsLayout(
               let href =
                 listId !== null ? buildListHref(listId, pagination) : routes.lists.index.href()
               let noDescription = !entry.label.trim()
-              let displayName = noDescription ? `Liste #${listId}` : entry.label
+              let displayName = noDescription ? UNTITLED_LIST_LABEL : entry.label
               return (
                 <div
                   key={entry.id}
                   mix={entryRowStyle}
                   draggable="true"
                   data-list-id={listId ?? undefined}
+                  data-list-untitled={noDescription ? '' : undefined}
                   data-updated-at={entry.updatedAt ?? undefined}
                 >
                   <NavLink
@@ -434,38 +470,69 @@ function ListsLayout(
                   : 'Keine gespeicherten Listen'}
               </p>
             )}
-            {pagination && sidebarEntries.length > 0 && (
-              <div mix={paginationStyle}>
-                {pagination.offset > 0 ? (
-                  <NavLink
-                    href={buildPageHref(pagination.offset - pagination.limit, pagination)}
-                    target={frameTarget}
-                    mix={paginationBtnStyle}
-                  >
-                    ← Vorherige
-                  </NavLink>
-                ) : (
-                  <span mix={paginationBtnDisabledStyle}>← Vorherige</span>
-                )}
-                <span mix={pageIndicatorStyle}>
-                  Seite {Math.floor(pagination.offset / pagination.limit) + 1}
-                </span>
-                {pagination.hasMore ? (
-                  <NavLink
-                    href={buildPageHref(pagination.offset + pagination.limit, pagination)}
-                    target={frameTarget}
-                    mix={paginationBtnStyle}
-                  >
-                    Nächste →
-                  </NavLink>
-                ) : (
-                  <span mix={paginationBtnDisabledStyle}>Nächste →</span>
-                )}
-              </div>
-            )}
           </nav>
+          {/* Kept outside the scrolling <nav> so the controls stay pinned to the
+              bottom of the sidebar instead of scrolling out of / clipping at the
+              panel edge. */}
+          {pagination && sidebarEntries.length > 0 && (
+            <div mix={paginationStyle}>
+              {pagination.offset > 0 ? (
+                <NavLink
+                  href={buildPageHref(
+                    pagination.offset - pagination.limit,
+                    pagination,
+                    activeListId,
+                  )}
+                  target={frameTarget}
+                  mix={paginationBtnStyle}
+                  aria-label="Vorherige Seite"
+                  title="Vorherige Seite"
+                >
+                  ←
+                </NavLink>
+              ) : (
+                <span mix={paginationBtnDisabledStyle} aria-hidden="true">
+                  ←
+                </span>
+              )}
+              <span mix={pageIndicatorStyle}>
+                Seite {Math.floor(pagination.offset / pagination.limit) + 1}
+              </span>
+              {pagination.hasMore ? (
+                <NavLink
+                  href={buildPageHref(
+                    pagination.offset + pagination.limit,
+                    pagination,
+                    activeListId,
+                  )}
+                  target={frameTarget}
+                  mix={paginationBtnStyle}
+                  aria-label="Nächste Seite"
+                  title="Nächste Seite"
+                >
+                  →
+                </NavLink>
+              ) : (
+                <span mix={paginationBtnDisabledStyle} aria-hidden="true">
+                  →
+                </span>
+              )}
+            </div>
+          )}
         </aside>
-        <section mix={contentStyle}>{children}</section>
+        <section mix={contentStyle}>
+          <button
+            id="sidebar-shell-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="sidebar-shell-nav"
+            mix={sidebarToggleStyle}
+          >
+            <Glyph name="menu" width={16} height={16} /> Listen
+          </button>
+          {children}
+        </section>
+        <SidebarToggle />
       </div>
     )
   }
@@ -675,8 +742,8 @@ const truncateStyle = css({
 const paginationStyle = css({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-start',
-  gap: theme.space.sm,
+  justifyContent: 'space-between',
+  gap: theme.space.xs,
   padding: `${theme.space.sm} calc(${theme.space.xs} + 3px)`,
   borderTop: `1px solid ${theme.colors.border.default}`,
   // Pin the pagination to the bottom of the full-height sidebar so there is no
@@ -687,6 +754,8 @@ const paginationStyle = css({
 const paginationBtnStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   padding: `${theme.space.xs} ${theme.space.sm}`,
   fontSize: theme.fontSize.xs,
   borderRadius: theme.radius.sm,
@@ -701,6 +770,8 @@ const paginationBtnStyle = css({
 const paginationBtnDisabledStyle = css({
   display: 'inline-flex',
   alignItems: 'center',
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   padding: `${theme.space.xs} ${theme.space.sm}`,
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,
@@ -710,4 +781,46 @@ const paginationBtnDisabledStyle = css({
 const pageIndicatorStyle = css({
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.muted,
+  whiteSpace: 'nowrap',
+})
+
+/**
+ * Phone layout for the /lists shell. The custom full-height grid used to omit
+ * any responsive overrides, so on phones the fixed 220px sidebar column left the
+ * editor in a ~60px sliver. On <=768px the shell drops the viewport-height
+ * constraint and the sidebar becomes a toggleable panel above the editor; the
+ * top-level Layout page container already scrolls.
+ */
+const listsShellResponsiveStyle = css({
+  '@media (max-width: 768px)': {
+    height: 'auto',
+    gridTemplateRows: 'auto',
+  },
+})
+
+/**
+ * /lists is a list-of-lists navigator, so its sidebar needs more room than the
+ * shared 220px shell column: the row name is the only thing that identifies a
+ * list and it was truncating after ~15 characters. Adaptive, and scoped to
+ * desktop so it cannot fight the single-column phone layout.
+ */
+const listsSidebarColumnsStyle = css({
+  '@media (min-width: 769px)': {
+    gridTemplateColumns: 'clamp(220px, 24vw, 300px) minmax(0, 1fr)',
+  },
+})
+
+/** Phone panel for the saved-lists sidebar: hidden until the "Listen" toggle
+ *  adds the is-open class (wired by the shared SidebarToggle client entry). */
+const listsSidebarResponsiveStyle = css({
+  '@media (max-width: 768px)': {
+    display: 'none',
+    position: 'static',
+    maxHeight: '70vh',
+    '&.is-open': {
+      display: 'flex',
+      flexDirection: 'column',
+      overflowY: 'auto',
+    },
+  },
 })

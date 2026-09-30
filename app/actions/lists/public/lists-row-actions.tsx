@@ -17,6 +17,10 @@ export const ListsRowActions = clientEntry(
           el.style.opacity = '1'
           el.style.pointerEvents = 'auto'
         }
+        // The action cluster is absolutely positioned over the badge's slot, so
+        // hide the badge while the actions are up — otherwise the icons paint on
+        // top of the count.
+        target.querySelector<HTMLElement>('[data-list-count]')?.style.setProperty('opacity', '0')
       }
 
       function dim(target: HTMLElement) {
@@ -24,6 +28,7 @@ export const ListsRowActions = clientEntry(
           el.style.opacity = ''
           el.style.pointerEvents = ''
         }
+        target.querySelector<HTMLElement>('[data-list-count]')?.style.removeProperty('opacity')
       }
 
       for (let row of rows) {

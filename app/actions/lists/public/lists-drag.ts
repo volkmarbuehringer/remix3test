@@ -2,6 +2,7 @@ import { theme } from '../../../ui/theme/theme.ts'
 import { resolveDropZone, type RectLike, type SidebarRowRect } from './drop-zone.ts'
 import { mergeListRequest, moveItemRequest, type ServerListState } from './lists-api.ts'
 import type { ListItem } from './lists-state.ts'
+import { sidebarRowLabel } from './sidebar-sync.ts'
 
 /**
  * Drag-and-drop controller for /lists: intra-list item reorder, item drop onto
@@ -399,10 +400,8 @@ export function createListsDrag(ctx: ListsDragContext): ListsDragController {
     let sourceId = draggedListId
     let targetId = Number(row.dataset.listId)
     let sourceRow = document.querySelector<HTMLElement>(`[data-list-id="${sourceId}"]`)
-    let sourceName =
-      sourceRow?.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${sourceId}`
-    let targetName =
-      row.querySelector('[data-list-name]')?.textContent?.trim() || `Liste #${targetId}`
+    let sourceName = sidebarRowLabel(sourceRow, sourceId)
+    let targetName = sidebarRowLabel(row, targetId)
     let sourceUpdatedAt = Number(sourceRow?.dataset.updatedAt)
     let count = parseListCount(sourceRow)
     cleanupListDrag()

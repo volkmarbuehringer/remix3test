@@ -364,7 +364,7 @@ const contentFullHeightStyle = css({
 
 /** Collapses the shell to a single column on phones so the page content is not
  *  squeezed into the sliver left over by the fixed 220px sidebar column. */
-const shellResponsiveStyle = css({
+export const shellResponsiveStyle = css({
   '@media (max-width: 768px)': {
     gridTemplateColumns: 'minmax(0, 1fr)',
     gap: theme.space.md,
@@ -372,7 +372,7 @@ const shellResponsiveStyle = css({
 })
 
 /** On phones the sidebar is a drawer: hidden until the toggle opens it. */
-const sidebarResponsiveStyle = css({
+export const sidebarResponsiveStyle = css({
   '@media (max-width: 768px)': {
     display: 'none',
     position: 'static',
@@ -383,7 +383,7 @@ const sidebarResponsiveStyle = css({
 })
 
 /** Phone-only button that opens the sidebar drawer. */
-const sidebarToggleStyle = css({
+export const sidebarToggleStyle = css({
   display: 'none',
   '@media (max-width: 768px)': {
     display: 'inline-flex',

@@ -21,6 +21,15 @@ export const ListsSearch = clientEntry(
             function doSearch(value: string) {
               let currentUrl = new URL(handle.frame.src, location.origin)
               let load = currentUrl.searchParams.get('load')
+              // A list opened by the default "most recent" rule has no load
+              // param in the URL; read the id the editor rendered so typing a
+              // search does not swap the open list for the new-list form.
+              if (!load) {
+                load =
+                  document
+                    .querySelector('[data-lists-active-id]')
+                    ?.getAttribute('data-lists-active-id') ?? null
+              }
               let params = new URLSearchParams()
               if (value.trim()) {
                 params.set('filter', value.trim())

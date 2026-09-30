@@ -10,6 +10,7 @@ type NavLinkProps = {
   mix?: MixValue<HTMLAnchorElement, ElementProps>
   style?: Record<string, string>
   title?: string
+  'aria-label'?: string | undefined
   children?: RemixNode
 }
 
@@ -25,6 +26,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       mix,
       style,
       title,
+      'aria-label': ariaLabel,
       children,
     } = handle.props
     let resolvedHref = href ?? route?.href() ?? '#'
@@ -37,6 +39,7 @@ export function NavLink(handle: Handle<NavLinkProps>) {
       extra['target'] = '_top'
     }
     if (title) extra['title'] = title
+    if (ariaLabel) extra['aria-label'] = ariaLabel
 
     return (
       <a

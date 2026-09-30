@@ -648,6 +648,25 @@ describe('lists-api lib', () => {
     await db.delete(lists, { id: created.id })
     await db.delete(lists, { id: empty.id })
   })
+  it('getListSummaries orders by updated_at, not created_at', async () => {
+    let first = await createList(db, { description: 'Ordering first', items: [] })
+    let second = await createList(db, { description: 'Ordering second', items: [] })
+
+    // Patch the older-created list so it becomes the most recently updated one.
+    // A distinct millisecond is needed because updated_at is Date.now().
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    let touched = await patchList(db, first.id, { description: 'Ordering first touched' })
+    assert.ok(touched.ok, 'patch should succeed')
+
+    let result = await getListSummaries(db, { limit: 100, offset: 0 })
+    let firstIndex = result.data.findIndex((s) => s.id === first.id)
+    let secondIndex = result.data.findIndex((s) => s.id === second.id)
+    assert.ok(firstIndex !== -1 && secondIndex !== -1, 'both lists should be present')
+    assert.ok(firstIndex < secondIndex, 'recently updated list should sort first')
+
+    await db.delete(lists, { id: first.id })
+    await db.delete(lists, { id: second.id })
+  })
 
   it('getListSummaries matches an item label via the filter', async () => {
     let created = await createList(db, {

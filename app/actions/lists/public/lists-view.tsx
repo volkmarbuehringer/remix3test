@@ -13,6 +13,7 @@ import {
   type UndoKind,
   priorityLabel,
 } from './lists-state.ts'
+import { UNTITLED_LIST_LABEL } from './sidebar-sync.ts'
 import {
   multilineDisplayStyle,
   gripStyle,
@@ -270,12 +271,15 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
   let allVisibleSelected = vis.length > 0 && vis.every((item) => selectedItemIds.has(item.id))
 
   return (
-    <div mix={cardStyle}>
+    <div
+      mix={cardStyle}
+      data-lists-active-id={loadedListId === null ? undefined : String(loadedListId)}
+    >
       {/* Card header: editable title + primary action + save status */}
       <div mix={cardHeaderStyle}>
         <div mix={cardTitleWrapStyle}>
           <span mix={listContextStyle} data-list-context>
-            {loadedListId === null ? 'Neue Liste' : `Liste #${loadedListId}`}
+            {loadedListId === null ? 'Neue Liste' : title.trim() ? 'Liste' : UNTITLED_LIST_LABEL}
           </span>
           <h1 mix={titleHeadingStyle}>
             <label mix={visuallyHiddenStyle} htmlFor="lists-title">
@@ -780,7 +784,7 @@ export function renderListsEditor(view: ListsEditorView): RemixNode {
                   ? `${doneCount} von ${totalCount} erledigt`
                   : `${totalCount} Einträge`}
               </span>
-              <details mix={menuDetailsStyle}>
+              <details mix={menuDetailsStyle} data-lists-more="">
                 <summary
                   mix={menuSummaryStyle}
                   aria-label="Weitere Aktionen"

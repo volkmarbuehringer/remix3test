@@ -242,7 +242,7 @@ export async function getListSummaries(
             SELECT 1 FROM jsonb_array_elements(list) item
             WHERE item->>'label' ILIKE $1
           )) ${ownerClause}
-       ORDER BY created_at DESC, id DESC
+       ORDER BY updated_at DESC, id DESC
        LIMIT $2 OFFSET $3`,
           args,
         ),
@@ -263,7 +263,7 @@ export async function getListSummaries(
         db,
         rawSql(
           `${summaryColumns} ${ownerClause}
-       ORDER BY created_at DESC, id DESC
+       ORDER BY updated_at DESC, id DESC
        LIMIT $1 OFFSET $2`,
           args,
         ),

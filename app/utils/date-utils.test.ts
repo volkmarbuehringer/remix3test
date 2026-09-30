@@ -6,6 +6,7 @@ import {
   isWithinHours,
   generateMinOptions,
   formatDateDE,
+  formatRelativeTimeDE,
   formatUtcDateDE,
   formatUtcPeriodDayDE,
   parseIsoDateUtc,
@@ -210,5 +211,17 @@ describe('getPeriodRange', () => {
 
   it('returns null for an unknown period', () => {
     assert.equal(getPeriodRange('fortnight'), null)
+  })
+})
+
+describe('formatRelativeTimeDE', () => {
+  it('uses the singular day form for exactly one day', () => {
+    let now = Date.UTC(2026, 0, 10)
+    assert.equal(formatRelativeTimeDE(now - 86_400_000, now), 'vor 1 Tag')
+  })
+
+  it('keeps the plural day form for several days', () => {
+    let now = Date.UTC(2026, 0, 10)
+    assert.equal(formatRelativeTimeDE(now - 3 * 86_400_000, now), 'vor 3 Tagen')
   })
 })
