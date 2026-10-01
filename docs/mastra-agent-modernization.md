@@ -163,10 +163,12 @@ fallback is removed.
 
 Caveats (unchanged):
 
-- The default event cache is in-memory and single-process; a multi-replica
-  deployment needs a persistent `cache` (Redis/Valkey) plus a shared PubSub.
-  Reconnect's `listSuspendedRuns` fallback is storage-backed, so it still works
-  across a restart; `observe()` replay does not.
+- The default event cache is in-memory and single-process, and `resume()` needs
+  the run's in-process registry entry (it throws without one). A multi-replica
+  deployment therefore needs a persistent `cache` (Redis/Valkey) plus a shared
+  PubSub for streaming, and sticky routing (or single-process execution) for
+  `resume()`. Reconnect's `listSuspendedRuns` fallback is storage-backed, so it
+  still works across a restart; `observe()` replay does not.
 - Snapshot recovery can **replay tool side effects** (booking, cancellation,
   notification).
 - `shouldPersistSnapshot` defaults are fine for HITL (always persists
