@@ -57,7 +57,7 @@ Key focus areas when reviewing diffs:
 
 ## Version Lines After the Component/UI Split (#11948)
 
-As of 2026-10-01 the repo carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. At the `Release` commit (`79b435003` on `release-pr/main`, which is what a `preview/main` install resolves to) they are:
+As of 2026-10-01 the repo carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. At the `Release v3.0.0-rc.5` commit (`dba1546a0`; tag `remix@3.0.0-rc.5`) they are (a `preview/main` install resolves to the generated installable-build commit `be58f7beb`, built from `904eb5ff3`):
 
 | package | version | notes |
 | --- | --- | --- |

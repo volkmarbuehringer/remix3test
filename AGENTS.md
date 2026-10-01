@@ -25,7 +25,7 @@ When you need API docs or usage examples for a `remix/*` subpath:
 - Package READMEs: `node_modules/remix/src/<package>/README.md` (installed vendor docs)
 - Vendor `remix` skill: `.agents/skills/remix/SKILL.md` (a single flat file — the installed build ships no `references/` directory). Drill into `node_modules/remix/INDEX.md` and the matching package README for API detail.
 - Installed package source (for version-pinned line refs): `node_modules/.pnpm/@remix-run+<pkg>@*/node_modules/@remix-run/<pkg>/src/...`
-- Release-day dependency versions and the post-#11948 split lines (`remix` 3.0.0, `@remix-run/ui` 0.12.0, `@remix-run/component` 0.8.0): `.opencode/skills/learned/remix3-build-and-tooling/references/upstream-dependency-analysis.md`
+- Release-day dependency versions and the post-#11948 split lines (`remix` 3.0.0-rc.5, `@remix-run/ui` 0.12.0, `@remix-run/component` 0.8.0): `.opencode/skills/learned/remix3-build-and-tooling/references/upstream-dependency-analysis.md`
 
 Do not reference `~/remix` (a separate vendor checkout) — the installed `node_modules/remix` / `node_modules/.pnpm/@remix-run+<pkg>@*/` tree and the in-project vendor skills are authoritative.
 
