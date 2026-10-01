@@ -23,7 +23,7 @@ Use a **single shared `clientEntry`** with a **capture-phase `click` listener** 
 
 ```tsx
 // app/assets/confirm-delete.tsx
-import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 export const ConfirmDelete = clientEntry(
   import.meta.url + '#ConfirmDelete',

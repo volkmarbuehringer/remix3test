@@ -4,11 +4,11 @@
 
 **Extracted:** 2026-09-26
 
-**Context:** Choosing a `remix/ui/*` building block, or deciding whether to use, wrap, or replace a vendor component.
+**Context:** Choosing a `remix/component/*` building block, or deciding whether to use, wrap, or replace a vendor component.
 
 ## Problem
 
-No skill names `remix/ui/button`, `remix/ui/accordion`, `remix/ui/select`, or the `/primitives` subpaths, so the three-level ownership model is guide-only. A generic "use the vendor component" answer also misses this app's deliberate wrappers and replacement.
+No skill names `app/ui/theme/upstream-button.ts`, `@remix-run/ui/accordion`, `@remix-run/ui/select`, or the `/primitives` subpaths, so the three-level ownership model is guide-only. A generic "use the vendor component" answer also misses this app's deliberate wrappers and replacement.
 
 ## Solution
 
@@ -24,18 +24,18 @@ Interactive controls must sit inside a `clientEntry(...)` boundary, directly or 
 
 **App-specific deltas:**
 
-- **Button is wrapped, not used raw.** `app/ui/theme/button.ts` imports `remix/ui/button`, adds `secondary`/`danger`/`dangerOutline` tones, and rebinds the mixin host type to `HTMLButtonElement` (a type-level workaround for TypeScript's order-sensitive recursive assignability). `buttonLink()` rebinds to `HTMLAnchorElement` so a navigation link is styled as a button without nesting a `<button>` inside an `<a>`.
-- **Breadcrumbs are deliberately app-owned.** `app/ui/breadcrumbs.tsx` does **not** use `remix/ui/breadcrumbs`: the vendor component hardcodes `light-dark(...)` values that follow the OS `prefers-color-scheme` rather than the app's `data-theme` toggle, and wraps classes in `@layer remix-ui.<class>` which makes overrides unreliable. The app re-renders with theme tokens — see `remix3-theme-conformance` and `remix3-css-and-layout`.
-- **Menus use primitives.** Context menus import `remix/ui/menu` and `remix/ui/menu/primitives` (`MenuList`, `MenuItem`, `onMenuSelect`) from browser clientEntries.
+- **Button is wrapped, not used raw.** `app/ui/theme/button.ts` imports `app/ui/theme/upstream-button.ts`, adds `secondary`/`danger`/`dangerOutline` tones, and rebinds the mixin host type to `HTMLButtonElement` (a type-level workaround for TypeScript's order-sensitive recursive assignability). `buttonLink()` rebinds to `HTMLAnchorElement` so a navigation link is styled as a button without nesting a `<button>` inside an `<a>`.
+- **Breadcrumbs are deliberately app-owned.** `app/ui/breadcrumbs.tsx` does **not** use a vendor breadcrumbs component: the vendor component hardcodes `light-dark(...)` values that follow the OS `prefers-color-scheme` rather than the app's `data-theme` toggle, and wraps classes in `@layer remix-ui.<class>` which makes overrides unreliable. The app re-renders with theme tokens — see `remix3-theme-conformance` and `remix3-css-and-layout`.
+- **Menus use primitives, styled by an app wrapper.** Context menus import `MenuList`/`MenuItem` from `app/ui/theme/menu/index.tsx` and `onMenuSelect` from `@remix-run/ui/menu`, inside browser clientEntries.
 
 ## When to Use
 
 - Adding a button/input/select/accordion/menu/tabs to a page and choosing the right level.
-- Deciding whether to use a vendor `remix/ui` component, wrap it (as with button), or replace it (as with breadcrumbs).
+- Deciding whether to use a vendor `remix/component` component, wrap it (as with button), or replace it (as with breadcrumbs).
 - Moving from a composed control down to primitives for custom markup.
 
 ## Reference
 
 - `node_modules/remix/guides/04-rendering-ui.md` §"Styling with css and dynamic style values", §"Cascade layers and app-owned design tokens", §"First-party UI building blocks"
-- `node_modules/remix/src/ui/README.md` — per-subpath API
+- `node_modules/remix/src/component/README.md` — per-subpath API
 - `app/ui/theme/button.ts`, `app/ui/breadcrumbs.tsx`

@@ -3,7 +3,7 @@
 **Source:** `remix3-hmr-dev-server`
 
 **Extracted:** 2026-08-10
-**Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/ui-hmr` (remix `preview/main` build `e52c10054`, includes "Add HMR support" #11515). `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the version-pinned pitfalls hit while wiring and smoke-testing it. Validate any claim here against the installed `@remix-run/*` packages (`node_modules/.pnpm/@remix-run+node-hmr*`, `@remix-run+assets*`) before relying on it — this feature is pre-release churn (follow-up fixes around Windows timeouts and Bun e2e skips, #11676–#11678).
+**Context:** This app adopted the opt-in HMR dev server from `@remix-run/node-hmr` + `@remix-run/component-hmr` (remix `preview/main` build `e52c10054`, includes "Add HMR support" #11515). `npm run hmr` runs `hmr.ts`, which spawns `server.ts` as a child behind a readiness-gated loopback proxy (proxy :44100, SSE :44101, child :44102). These are the version-pinned pitfalls hit while wiring and smoke-testing it. Validate any claim here against the installed `@remix-run/*` packages (`node_modules/.pnpm/@remix-run+node-hmr*`, `@remix-run+assets*`) before relying on it — this feature is pre-release churn (follow-up fixes around Windows timeouts and Bun e2e skips, #11676–#11678).
 
 **Validated:** 2026-08-18 against installed build `5e6e9862` (remix 0.7.0 / beta.10). API claims below confirmed in `@remix-run/node-hmr/dist`: `run(entry, { env, nodeArgs, browserHmrChannel })` (`index.d.ts`), `createHmrReadyFetch(runner, fetch, { shouldRetry })` with default retry of GET/HEAD on `502/503/504` (`index.js:17,81`), `createBrowserHmrChannel`/`emitServerReady` from `remix/node-hmr/runtime` (`runtime.d.ts`), `REMIX_NODE_HMR` injected by the runner itself (`lib/runner.js:16,878`), and the `fingerprint cannot be used with watch mode` guard in `@remix-run/assets/dist/lib/asset-server.js:695`.
 
@@ -17,7 +17,7 @@
 
 **Re-validated (2026-09-23):** build installed as `27393da759` (installable dist of source `6aad078`; `remix` version string now `3.0.0-rc.3`), bumped from `a4d62e19` (dist of `9f27468`). The range held exactly three upstream commits: **#11913 "Preserve hoisted client entry functions during HMR"** — the only app-affecting one, see section 6 — plus two `.github/workflows`-only bot commits (#11864 context delivery, GPT-6 Astra review model) that this app does not consume (its only workflow is `ci.yml.disabled`). All five node-hmr claims hold unchanged (`index.d.ts:4,9,126`; `index.js:16,81`; `runtime.d.ts:17,25`; `lib/runner.js:16,877`); the `fingerprint cannot be used with watch mode` guard moved once more to `@remix-run/assets/dist/lib/asset-server.js:779` (was 775).
 
-**Re-validated (2026-09-24):** lock refreshed from build `1128ab5c` (dist of source `ae51cfa`) to the now-installed build `3e516fcc2` (installable dist of source `9ed3a5c`; `remix` version string `3.0.0-rc.3`). That range carries four real upstream commits — **#11920** (~47 `packages/remix/src/*/README.md` rewrites + guide renumbering; docs only), **#11931** (`remix test` partial-filename expansion in `packages/cli/src/lib/commands/test.ts`), a `.github/workflows`-only commit, and a new `demos/i18n` app — and `packages/*/src/**` runtime source is byte-identical apart from the CLI test command. All five node-hmr claims therefore hold unchanged: `run(entry, { env, nodeArgs, browserHmrChannel })` at `index.d.ts:126` (`RunOptions` `:4`, `browserHmrChannel` `:9`); `createHmrReadyFetch` at `index.js:16` with `shouldRetrySafeUnavailableRequest` at `index.js:81` (GET/HEAD on `502/503/504` **or** `response === undefined`); `createBrowserHmrChannel`/`emitServerReady` at `runtime.d.ts:17,25`; `REMIX_NODE_HMR` named at `lib/runner.js:16` and injected at `:877`; and the `fingerprint cannot be used with watch mode` guard is **unchanged** at `@remix-run/assets/dist/lib/asset-server.js:779`. (The line above pinned `27393da759`/`6aad078`, which this lock refresh skips over; section 6's #11913 fix is still present in the installed `@remix-run/ui-hmr` `src/lib/transform.ts` `getSetupStatements()`.)
+**Re-validated (2026-09-24):** lock refreshed from build `1128ab5c` (dist of source `ae51cfa`) to the now-installed build `3e516fcc2` (installable dist of source `9ed3a5c`; `remix` version string `3.0.0-rc.3`). That range carries four real upstream commits — **#11920** (~47 `packages/remix/src/*/README.md` rewrites + guide renumbering; docs only), **#11931** (`remix test` partial-filename expansion in `packages/cli/src/lib/commands/test.ts`), a `.github/workflows`-only commit, and a new `demos/i18n` app — and `packages/*/src/**` runtime source is byte-identical apart from the CLI test command. All five node-hmr claims therefore hold unchanged: `run(entry, { env, nodeArgs, browserHmrChannel })` at `index.d.ts:126` (`RunOptions` `:4`, `browserHmrChannel` `:9`); `createHmrReadyFetch` at `index.js:16` with `shouldRetrySafeUnavailableRequest` at `index.js:81` (GET/HEAD on `502/503/504` **or** `response === undefined`); `createBrowserHmrChannel`/`emitServerReady` at `runtime.d.ts:17,25`; `REMIX_NODE_HMR` named at `lib/runner.js:16` and injected at `:877`; and the `fingerprint cannot be used with watch mode` guard is **unchanged** at `@remix-run/assets/dist/lib/asset-server.js:779`. (The line above pinned `27393da759`/`6aad078`, which this lock refresh skips over; section 6's #11913 fix is still present in the installed `@remix-run/component-hmr` `src/lib/transform.ts` `getSetupStatements()`.)
 
 ## Problem
 
@@ -33,7 +33,7 @@ Hooking the upstream HMR template into this app produced four non-obvious failur
 ### 1. Gate fingerprint (and minify) to non-dev, `app/assets.ts`
 
 ```ts
-import { uiHmr } from 'remix/ui-hmr/assets'
+import { uiHmr } from 'remix/component-hmr/assets'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isHmr = Boolean(isDevelopment && process.env.REMIX_NODE_HMR)
@@ -58,7 +58,7 @@ Put `HOST: '127.0.0.1'` **after** `...process.env` in the runner's child env so 
 ```ts
 const hmrRunner = run('server.ts', {
   env: { ...process.env, PORT: String(appPort), HMR_PROXY_PORT: String(hmrProxyPort), HOST: '127.0.0.1' },
-  nodeArgs: ['--import', 'remix/node-tsx', '--import', 'remix/ui-hmr/node'],
+  nodeArgs: ['--import', 'remix/node-tsx', '--import', 'remix/component-hmr/node'],
   browserHmrChannel: { port: hmrEventPort },
 })
 ```

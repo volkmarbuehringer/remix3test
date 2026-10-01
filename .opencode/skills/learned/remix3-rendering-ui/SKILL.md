@@ -1,6 +1,6 @@
 ---
 name: remix3-rendering-ui
-description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, choosing among remix/ui style mixins, composed controls, and headless primitives, raw-HTML props (`unsafeHTML()`), and HTML-string responses outside the component runtime (`remix/html-template`)."
+description: "Use when building Remix 3 pages and components — component context / handle.id / TypedEventTarget, the document shell and asset-entry/ImportMap/head wiring, choosing among remix/component style mixins, composed controls, and headless primitives, raw-HTML props (`unsafeHTML()`), and HTML-string responses outside the component runtime (`remix/html-template`)."
 user-invocable: false
 origin: learned
 ---
@@ -19,7 +19,7 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 | --- | --- |
 | Sharing a value with descendant components (`handle.context`), generating a stable DOM id (`handle.id`), or a browser-reactive context value (`TypedEventTarget`) | `references/component-context-and-handle-id.md` |
 | Adding to `<head>` (meta/og, modulepreload, styles, CSP nonce), wiring the browser entry script / import map, or `context.render(tree, ResponseInit)` | `references/document-shell-and-asset-entry.md` |
-| Choosing among `remix/ui` style mixins, composed controls, and headless primitives, or deciding whether to wrap/replace a vendor component | `references/first-party-ui-blocks.md` |
+| Choosing among `remix/component` style mixins, composed controls, and headless primitives, or deciding whether to wrap/replace a vendor component | `references/first-party-ui-blocks.md` |
 | Rendering raw HTML through a prop (`innerHTML`, iframe `srcDoc`/`srcdoc`) and `Framework invariant: Invalid … prop` throws after a Remix bump | `references/unsafe-html.md` |
 | Returning an HTML string outside the component runtime (standalone 500/429/error pages, frame fragments, email/RSS), with XSS-safe interpolation | `references/html-template.md` |
 
@@ -42,8 +42,8 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 **First-party UI blocks (`references/first-party-ui-blocks.md`)**
 
 - Selection order: style mixins (`button`/`input`/`checkbox`/`radio`/`toggle`) keep the native control → composed controls (`accordion`/`breadcrumbs`/`combobox`/`menu`/`select`/`tabs`) own multi-element relationships → headless primitives (`popover`/`listbox`/`anchor` and `/primitives`) when markup must change. Interactive controls still need a `clientEntry` boundary.
-- This app wraps `remix/ui/button` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts), and deliberately re-implements `remix/ui/breadcrumbs` in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
-- Menus use `remix/ui/menu` + `remix/ui/menu/primitives` (`MenuList`, `MenuItem`, `onMenuSelect`).
+- This app wraps the vendored `app/ui/theme/upstream-button.ts` in `app/ui/theme/button.ts` (extra tones, host-type rebind, `buttonLink()` for anchor hosts), and deliberately renders its own breadcrumbs in `app/ui/breadcrumbs.tsx` (vendor hardcodes `light-dark(...)` + `@layer remix-ui.*`, breaking `data-theme` and overrides).
+- Menus use `@remix-run/ui/menu` primitives, wrapped by the app's `app/ui/theme/menu/index.tsx` styled `MenuList`/`MenuItem`; `onMenuSelect` comes from the vendor module.
 
 **Raw HTML props (`references/unsafe-html.md`)**
 
@@ -57,7 +57,7 @@ This skill is the **pointer/delta index** for the rendering-ui guide's uncovered
 
 - You need to pass a value from a component to a descendant without prop-drilling, or to give a reusable control a stable id.
 - You are editing the document shell, adding head tags/preloads, or wiring the browser entry/import map.
-- You are choosing a `remix/ui` building block or deciding whether to use, wrap, or replace a vendor component.
+- You are choosing a `remix/component` building block or deciding whether to use, wrap, or replace a vendor component.
 - A raw-HTML prop throws `Invalid innerHTML`/`srcDoc`/`srcdoc prop`, or a mixin returning one is now stripped.
 - You are writing an HTML-string response (standalone error page, frame fragment, email/RSS) outside the component runtime.
 

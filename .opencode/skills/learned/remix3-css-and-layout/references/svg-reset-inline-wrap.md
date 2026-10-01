@@ -3,7 +3,7 @@
 **Source:** `remix3-svg-reset-inline-wrap`
 
 **Extracted:** 2026-09-15
-**Context:** A Remix 3 (`remix/ui`) page renders an icon/glyph next to text (pagination "Weiter ›", a chip, a plain text link with a chevron). The icon appears on the line above the label instead of beside it.
+**Context:** A Remix 3 (`remix/component`) page renders an icon/glyph next to text (pagination "Weiter ›", a chip, a plain text link with a chevron). The icon appears on the line above the label instead of beside it.
 
 ## Problem
 
@@ -35,7 +35,7 @@ Fix the shared control, not each call site. In this repo the pagination links ar
 Notes:
 
 - If the host is already a flex item (e.g. inside a `display: flex` toolbar), the computed `display` is blockified from `inline-flex` to `flex` — still correct.
-- `remix/ui` mixins that already declare `display: inline-flex` (`button()`, `table.searchBtn`, `table.sortLink`, `table.filterTab`) do **not** hit this. The bug appears in hand-rolled links/spans that only set padding/background.
+- `remix/component` mixins that already declare `display: inline-flex` (`button()`, `table.searchBtn`, `table.sortLink`, `table.filterTab`) do **not** hit this. The bug appears in hand-rolled links/spans that only set padding/background.
 - Prefer `gap` on the host over margins on the glyph.
 
 ## How to find the rule
@@ -72,6 +72,6 @@ The fast tell: `getComputedStyle(svg).display === 'block'` on an SVG you wrote i
 
 ## When to Use
 
-- An icon/glyph and its label render on separate lines in a `remix/ui` page (pagination, toolbars, chips, text links).
+- An icon/glyph and its label render on separate lines in a `remix/component` page (pagination, toolbars, chips, text links).
 - `getComputedStyle(svg).display === 'block'` on an inline SVG.
 - Adding a new hand-rolled link/span with an icon — give the host `display: inline-flex; align-items: center; gap`.

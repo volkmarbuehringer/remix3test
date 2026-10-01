@@ -3,10 +3,10 @@
 **Source:** `remix3-css-hover-reveal`
 
 **Extracted:** 2026-08-24
-**Context:** Styling a sidebar/row whose action buttons (rename, delete, etc.) should appear only while the row is hovered or keyboard-focused, in a Remix 3 `remix/ui` app.
+**Context:** Styling a sidebar/row whose action buttons (rename, delete, etc.) should appear only while the row is hovered or keyboard-focused, in a Remix 3 `remix/component` app.
 
 ## Problem
-In the `remix/ui` `css()` runtime (this app's nightly `remix`), a reveal rule that selects a **descendant/child only while a hovered ancestor** is applied silently generates *nothing*. All of these are no-ops:
+In the `remix/component` `css()` runtime (this app's nightly `remix`), a reveal rule that selects a **descendant/child only while a hovered ancestor** is applied silently generates *nothing*. All of these are no-ops:
 
 ```ts
 css({
@@ -45,7 +45,7 @@ let after  = await btn.evaluate((el) => getComputedStyle(el).opacity) // "1"
 Use a still-clickable resting state (so `pointer-events` never traps clicks); gate destructive actions separately (e.g. a `data-confirm` delete) rather than via `pointer-events: none` on the hidden button.
 
 ## When to Use
-- A hover/focus reveal of per-row actions in a remix3 `remix/ui` app isn't appearing.
+- A hover/focus reveal of per-row actions in a remix3 `remix/component` app isn't appearing.
 - You reached for `&:hover > child` / `&:hover [child]` in `css()` and it does nothing.
 - The row matches `:hover` but the child's computed style never changes; `:hover` on the element itself still works.
 - You need keyboard reachability as well — handle `focusin`/`focusout`, not just `mouseenter`/`mouseleave`.

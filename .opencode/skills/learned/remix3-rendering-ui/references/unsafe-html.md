@@ -3,11 +3,11 @@
 **Source:** `remix3-unsafe-html`
 
 **Extracted:** 2026-09-17
-**Context:** Bumping the pinned `remix` to installable build `2aca9b4e4` (main `c1e61b8`, PR #11885) broke every page that rendered raw HTML through `remix/ui` — `Framework invariant: Invalid innerHTML prop`.
+**Context:** Bumping the pinned `remix` to installable build `2aca9b4e4` (main `c1e61b8`, PR #11885) broke every page that rendered raw HTML through `remix/component` — `Framework invariant: Invalid innerHTML prop`.
 
 ## Problem
 
-As of PR #11885, `remix/ui` refuses plain strings for the props that make the browser parse HTML. They must be opaque values created by `unsafeHTML()`:
+As of PR #11885, `remix/component` refuses plain strings for the props that make the browser parse HTML. They must be opaque values created by `unsafeHTML()`:
 
 - `innerHTML`
 - iframe `srcDoc` / `srcdoc`
@@ -23,7 +23,7 @@ The JSX types do (`HostProps.innerHTML?: UnsafeHTML`, `AllHTMLProps.srcDoc?: Tra
 
 Enforcement sites in the installed source:
 
-- `node_modules/.pnpm/@remix-run+ui@*/node_modules/@remix-run/ui/src/runtime/to-vnode.ts:89-90` — `parseHostProps` calls `normalizeUnsafeHTMLProps`
+- `node_modules/.pnpm/@remix-run+component@*/node_modules/@remix-run/component/src/runtime/to-vnode.ts:89-90` — `parseHostProps` calls `normalizeUnsafeHTMLProps`
 - `.../src/runtime/unsafe-html.ts:62-74` — the invariants (`Invalid innerHTML prop`, `Invalid srcDoc prop`, `Invalid srcdoc prop`, `Invalid outerHTML prop`)
 - `.../src/server/stream.ts:607` — the SSR path applies the same normalization
 - `.../src/runtime/core/mix.ts:92-109` — mixins may not return raw-HTML props; `children`/`innerHTML`/`srcDoc`/`srcdoc`/`outerHTML` are stripped with a console error
@@ -31,8 +31,8 @@ Enforcement sites in the installed source:
 ## Solution
 
 ```diff
--import { createElement } from 'remix/ui'
-+import { createElement, unsafeHTML } from 'remix/ui'
+-import { createElement } from 'remix/component'
++import { createElement, unsafeHTML } from 'remix/component'
 
  createElement('style', {
    nonce: handle.props.nonce,

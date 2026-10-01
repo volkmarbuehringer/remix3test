@@ -85,7 +85,7 @@ Without this, guards like `if (process.env.NODE_ENV !== 'test')` won't fire — 
 `mock.method(obj, methodName)` cannot spy on named ES module exports because ES module namespaces are frozen:
 
 ```ts
-import * as scrollLock from 'remix/ui/scroll-lock'
+import * as scrollLock from 'app/utils/scroll-lock.ts'
 
 // ❌ Throws: Cannot assign to property 'lockScroll' of [object Module]
 mock.method(scrollLock, 'lockScroll', () => () => {})

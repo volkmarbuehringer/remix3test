@@ -7,7 +7,7 @@
 
 ## Mechanism
 
-`remix/ui` puts **every** `css(...)` rule into a cascade layer, one sub-layer per generated class:
+`remix/component` puts **every** `css(...)` rule into a cascade layer, one sub-layer per generated class:
 
 ```css
 @layer rmx.rmxc-13464qnk3l09y {
@@ -16,7 +16,7 @@
 }
 ```
 
-The vendor README documents the top-level contract (`node_modules/remix/src/ui/README.md`, "Cascade Layers": *"Remix UI emits generated css(...) rules under the rmx cascade layer. Unlayered CSS outranks layered CSS, so use explicit layer order when mixing Remix UI with global styles."*) and this app pins the order in `app/ui/theme/runtime.ts` + `app/ui/theme/layers.ts`:
+The vendor README documents the top-level contract (`node_modules/remix/src/component/README.md`, "Cascade Layers": *"Remix UI emits generated css(...) rules under the rmx cascade layer. Unlayered CSS outranks layered CSS, so use explicit layer order when mixing Remix UI with global styles."*) and this app pins the order in `app/ui/theme/runtime.ts` + `app/ui/theme/layers.ts`:
 
 ```css
 @layer rmx-reset, rmx;

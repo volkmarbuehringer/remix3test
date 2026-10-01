@@ -78,7 +78,7 @@ Create a `clientEntry` in `app/assets/` (NOT in `app/ui/`) that uses document-le
 
 ```typescript
 // app/assets/password-toggle.tsx
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 
 const eyeSvg = `<svg xmlns="..." width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
 
@@ -155,8 +155,8 @@ Server-render the toggle buttons with `data-toggle-pw` pointing to the input's `
 ### CSS for toggle button positioning
 
 ```typescript
-import { css } from 'remix/ui'
-import { theme } from 'remix/ui/theme'
+import { css } from 'remix/component'
+import { theme } from 'app/ui/theme/theme.ts'
 
 export const inputWrapperCss = css({
   position: 'relative',
@@ -197,7 +197,7 @@ export const toggleButtonCss = css({
 
 ### Why clientEntry must be in `app/assets/`, not `app/ui/`
 
-Placing `clientEntry(import.meta.url, ...)` in a file under `app/ui/` (like `auth-card.tsx`) triggers the Remix asset server to trace all imports from that file for client-side bundling. The trace follows `remix/ui` → `remix/middleware/async-context` → `@remix-run/async-context-middleware`, which imports `node:async_hooks` — a Node.js built-in that cannot be resolved for client bundles. This produces:
+Placing `clientEntry(import.meta.url, ...)` in a file under `app/ui/` (like `auth-card.tsx`) triggers the Remix asset server to trace all imports from that file for client-side bundling. The trace follows `remix/component` → `remix/middleware/async-context` → `@remix-run/async-context-middleware`, which imports `node:async_hooks` — a Node.js built-in that cannot be resolved for client bundles. This produces:
 
 ```
 AssetServerCompilationError: Failed to resolve import "node:async_hooks"

@@ -10,7 +10,7 @@ A form lives inside a `<Frame>` and posts to a **method-only** param route:
 <RestfulForm method="PUT" action={routes.admin.widgets.update.href({ id: row.id })} data-rmx-target="admin-content">
 ```
 
-When the frame runtime handles this form submission, it reuses the form's **action path** as the frame's address. From `@remix-run/ui` `navigation.ts` `getSourceElementNavigation`:
+When the frame runtime handles this form submission, it reuses the form's **action path** as the frame's address. From `@remix-run/component` `navigation.ts` `getSourceElementNavigation`:
 
 ```ts
 state = {

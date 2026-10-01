@@ -132,7 +132,7 @@ When `formValues` are present (validation failure), use them for `selected`; oth
 </select>
 ```
 
-**Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. `remix/ui` compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it.
+**Note:** React's `defaultValue` attribute on `<select>` does NOT work in Remix 3's template system. `remix/component` compiles to HTML string output and passes `defaultValue` through as a non-standard HTML attribute on `<select>`, where browsers ignore it. Always use `selected` on individual `<option>` elements — `selected={true}` adds it, `selected={false}` omits it.
 
 ## Schema Validation: Choose the Right Approach
 

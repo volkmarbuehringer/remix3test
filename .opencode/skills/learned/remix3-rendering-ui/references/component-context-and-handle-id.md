@@ -30,4 +30,4 @@ Follow the guide for the API; keep these two contexts distinct.
 ## Reference
 
 - `node_modules/remix/guides/04-rendering-ui.md` §"Props, local state, context, and updates"
-- `node_modules/remix/src/ui/README.md` — exact `Handle` context/id API
+- `node_modules/remix/src/component/README.md` — exact `Handle` context/id API

@@ -133,7 +133,7 @@ Use `frame.reload()` (re-fetches the frame's `src` through the `resolveFrame` pi
 Use the options-object signature and build the request body from `options.formData` yourself:
 
 ```tsx
-import type { FrameContent, ResolveFrameOptions } from 'remix/ui'
+import type { FrameContent, ResolveFrameOptions } from 'remix/component'
 
 async resolveFrame(src, options) {
   return resolveFrameResponse(new URL(src, window.location.href), options)
@@ -339,4 +339,4 @@ if (result instanceof Response) {
   a bare `302`) carrying `X-Remix-Redirect-To`, plus a browser e2e driving the
   confirm-gate → resume → reload path (no 404).
 
-(Version-dependent: the top-frame-only `src` reconcile and the `resolveFrameResponse` redirect bail are remix/ui runtime behavior — re-check against the pinned vendor source before relying on it.)
+(Version-dependent: the top-frame-only `src` reconcile and the `resolveFrameResponse` redirect bail are remix/component runtime behavior — re-check against the pinned vendor source before relying on it.)

@@ -8,7 +8,7 @@
 
 ## Problem
 
-`@remix-run/ui`'s server runtime gives every component `signal: ssrSignal`, a frozen plain object (`@remix-run/ui/dist/server/stream.js`), not an `AbortSignal`. So `handle.frame.addEventListener(type, fn, { signal: handle.signal })` in component setup throws `TypeError: Type error` under Bun; Node tolerates the non-AbortSignal (it only rejects `null`).
+`@remix-run/component`'s server runtime gives every component `signal: ssrSignal`, a frozen plain object (`@remix-run/component/dist/server/stream.js`), not an `AbortSignal`. So `handle.frame.addEventListener(type, fn, { signal: handle.signal })` in component setup throws `TypeError: Type error` under Bun; Node tolerates the non-AbortSignal (it only rejects `null`).
 
 ## Solution
 

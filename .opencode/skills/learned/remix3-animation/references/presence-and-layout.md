@@ -8,11 +8,11 @@
 
 ## Problem
 
-No skill indexes `remix/ui/animation`; the presence and layout mixins are guide-only. The app also has its own reduced-motion wrapper that a generic answer would miss.
+No skill indexes `@remix-run/ui/animation`; the presence and layout mixins are guide-only. The app also has its own reduced-motion wrapper that a generic answer would miss.
 
 ## Solution
 
-- Import from `remix/ui/animation` and compose the mixins into the `mix` array alongside `css()`, `on()`, and `ref()`.
+- Import from `@remix-run/ui/animation` and compose the mixins into the `mix` array alongside `css()`, `on()`, and `ref()`.
 - `animateEntrance(config)` animates a host node when it is inserted. `animateExit(config)` keeps a removed node in the DOM until its exit animation finishes, so it can animate out instead of vanishing.
 - Pass `true` for the default opacity animation or `false` to disable a mixin without changing the surrounding array. `animateEntrance({ initial: false })` skips the first insertion for a key but still animates later insertions. If a keyed element returns before its exit finishes, Remix reclaims that DOM node and animates it back toward its rendered styles.
 - Keep `key`s stable when toggling related elements or reordering a list: the key is how the runtime knows which node is entering, exiting, or being replaced.

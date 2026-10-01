@@ -1,6 +1,6 @@
 ---
 name: remix3-jsx-attribute-conventions
-description: "Use when writing Remix 3 `remix/ui` JSX — attributes pass through verbatim (use kebab-case for SVG), and runtime renames (`rmx-*` → `data-rmx-*`) must be verified at runtime, not tsc."
+description: "Use when writing Remix 3 `remix/component` JSX — attributes pass through verbatim (use kebab-case for SVG), and runtime renames (`rmx-*` → `data-rmx-*`) must be verified at runtime, not tsc."
 origin: consolidated
 ---
 
@@ -19,7 +19,7 @@ This skill is the **index** for the consolidated JSX attribute conventions. Read
 
 ## Core Rules
 
-Remix 3 uses its own JSX runtime (`remix/ui`, `jsxImportSource: "remix/ui"`), not React. It passes attributes through **verbatim** — there is no React-style attribute-name translation. Two consequences follow, both silent breakages:
+Remix 3 uses its own JSX runtime (`remix/component`, `jsxImportSource: "remix/component"`), not React. It passes attributes through **verbatim** — there is no React-style attribute-name translation. Two consequences follow, both silent breakages:
 
 1. SVG presentation attributes must be written in **kebab-case** (the SVG spec's lowercase form), not React camelCase.
 2. Because JSX props are typed as `Record<string, any>`, attribute renames/typos **compile without error** — verify runtime attribute contracts at the runtime layer, not via `tsc` or render assertions.
@@ -31,7 +31,7 @@ Remix 3 uses its own JSX runtime (`remix/ui`, `jsxImportSource: "remix/ui"`), no
 ## When to Use
 
 - Rendering inline SVG elements in Remix 3 components (migrating SVG from React, or icons not rendering)
-- Upstream `remix`/`@remix-run/ui` renames, removes, or adds a runtime attribute
+- Upstream `remix`/`@remix-run/component` renames, removes, or adds a runtime attribute
 - A `data-rmx-*` / `rmx-*` / `ln-*` attribute appears dead (frame targeting, document escape, or history semantics not working)
 - Diagnosing "tests pass but feature silently broken" in a Remix 3 frame app
 - Before trusting `npm run typecheck` after bumping the pinned `remix` build (`github:remix-run/remix#preview/main`)

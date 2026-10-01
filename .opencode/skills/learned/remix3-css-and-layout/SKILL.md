@@ -9,7 +9,7 @@ origin: consolidated
 
 **Consolidated from:** `remix3-css-hover-reveal`, `remix3-css-override-cascade-layer`, `remix3-svg-reset-inline-wrap`, `native-select-flex-contain`, `remix3-content-sized-flex-panel`, `remix3-bounded-scroll-flexchain`, `remix3-full-height-page-in-sidebar-shell`, `remix3-hidden-attribute-display-override`
 
-This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. For the framework CSS API and canonical styling patterns, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`); for theme tokens, see `remix3-theme-conformance`. For component context, the document shell, and choosing among `remix/ui` building blocks, see `remix3-rendering-ui`.
+This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. For the framework CSS API and canonical styling patterns, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`); for theme tokens, see `remix3-theme-conformance`. For component context, the document shell, and choosing among `remix/component` building blocks, see `remix3-rendering-ui`.
 
 ## Load Only The References You Need
 
@@ -90,6 +90,6 @@ This skill is the **index** for Remix 3 / `remix-ui` styling and layout deltas. 
 - `remix3-theme-conformance` (`references/glyph-add.md`) — adding a missing theme glyph in the contract and preset
 - `remix3-client-entries` (`references/aria-tabs.md`) — ARIA tabs over `hidden` panels, including the no-JS stacked fallback
 - `remix3-frame-cliententry` — `Frame` navigation, `clientEntry` hydration, and `clientEntry` DOM/styling interactions
-- `remix3-jsx-attribute-conventions` — kebab-case SVG attributes and runtime `rmx-*` renames in `remix/ui` JSX
+- `remix3-jsx-attribute-conventions` — kebab-case SVG attributes and runtime `rmx-*` renames in `remix/component` JSX
 - `remix3-testing` (`references/cliententry-browser-test-stubs.md`) — driving measurement/geometry-driven `clientEntry` side effects in browser tests
-- vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) — canonical `remix/ui` CSS API and styling patterns
+- vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) — canonical `remix/component` CSS API and styling patterns

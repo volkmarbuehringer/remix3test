@@ -6,7 +6,7 @@
 
 ## Problem
 
-`remix/ui`'s automatic JSX runtime types the `jsx()` factory's props as `ElementProps = Record<string, any>` (`packages/ui/src/runtime/jsx.ts:17` — the installed vendor copy is `@remix-run/ui` `src/runtime/jsx.ts`). So **every attribute is accepted** on any intrinsic element — the strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX.
+`remix/component`'s automatic JSX runtime types the `jsx()` factory's props as `ElementProps = Record<string, any>` (`packages/component/src/runtime/jsx.ts:17` — the installed vendor copy is `@remix-run/component` `src/runtime/jsx.ts`). So **every attribute is accepted** on any intrinsic element — the strict `IntrinsicElements` prop types (e.g. `FormHTMLProps` with `data-rmx-target`) are never enforced on JSX.
 
 Consequences:
 - Attribute renames, typos, or removed attributes **compile without error**
@@ -21,7 +21,7 @@ When a runtime contract changes (attribute renamed, prop removed), verify at the
 
 1. **Confirm the installed runtime's actual behavior** — grep the *active* installed package, not the source and not a stale `node_modules/.pnpm` copy (several old `@remix-run/*` builds linger there; resolve the one `remix` actually links):
    ```bash
-   UI=$(dirname "$(node -e "console.log(require.resolve('@remix-run/ui/package.json',{paths:[require.resolve('remix/package.json')]}))")")
+   UI=$(dirname "$(node -e "console.log(require.resolve('@remix-run/component/package.json',{paths:[require.resolve('remix/package.json')]}))")")
    rg -n "getAttribute\('data-rmx" "$UI/dist/runtime/navigation.js"
    ```
    On build `3e516fcc2` this reads `data-rmx-target`/`-src`/`-reset-scroll`/`-history` at `navigation.js:417-437` (plus `data-rmx-document` and `data-rmx-preserve-dom` from `diff-dom.ts:31`), so the `rmx-*` → `data-rmx-*` rename still holds.

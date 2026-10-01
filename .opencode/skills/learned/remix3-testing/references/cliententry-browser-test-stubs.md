@@ -7,7 +7,7 @@
 
 ## Problem
 
-`render(...)` from `remix/ui/test` mounts a component and `result.act(...)` flushes
+`render(...)` from `remix/component/test` mounts a component and `result.act(...)` flushes
 `handle.queueTask`, which is enough for event-driven entries. It is **not** enough when the
 entry's side effect depends on browser geometry or media state:
 
@@ -30,7 +30,7 @@ geometry/measurement APIs it reads, and observe the side-effect call it makes.
 ```tsx
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { render } from 'remix/ui/test'
+import { render } from 'remix/component/test'
 
 import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'
 

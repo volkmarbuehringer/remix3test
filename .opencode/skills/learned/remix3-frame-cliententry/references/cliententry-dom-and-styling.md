@@ -47,7 +47,7 @@ const actionBtnGroup = css({
 </div>
 ```
 
-The CSS targets the known DOM structure: Edit is the direct `<a>` (the button styles are on the link itself, not a nested button) → `& > a`; Del is inside `<form><button/></form>` (from DelButton) → `& > form > button`. `remix/ui` CSS-in-JS uses scoped selectors, so `&` resolves to the generated scoped class; combined with child combinators (`>`) you can target nested elements without passing CSS objects through serializable prop boundaries.
+The CSS targets the known DOM structure: Edit is the direct `<a>` (the button styles are on the link itself, not a nested button) → `& > a`; Del is inside `<form><button/></form>` (from DelButton) → `& > form > button`. `remix/component` CSS-in-JS uses scoped selectors, so `&` resolves to the generated scoped class; combined with child combinators (`>`) you can target nested elements without passing CSS objects through serializable prop boundaries.
 
 ### Never nest a button inside a link
 
@@ -75,7 +75,7 @@ Use when creating joined button groups where one button is a `clientEntry` compo
 
 ## Joining a Button Group with 3+ Buttons (per-button styles)
 
-**Context:** Building a joined flat button group (edit | delete | move-up | move-down) on a direct child of a row in a `remix/ui` app, mirroring the `/admin/lists` row-action group.
+**Context:** Building a joined flat button group (edit | delete | move-up | move-down) on a direct child of a row in a `remix/component` app, mirroring the `/admin/lists` row-action group.
 
 The container child-selector approach works for a **two**-button group (first = left radius, last = right radius). For **3+ direct buttons**, styling via a container rule is unreliable in this `css()` runtime — the `button()` mixin's pill styles (`borderRadius: 999px`) can win, leaving egg-shaped buttons with no shared vertical border.
 
@@ -147,7 +147,7 @@ Single clientEntry
 #### Implementation Pattern
 
 ```tsx
-import { clientEntry, css, type Handle } from 'remix/ui'
+import { clientEntry, css, type Handle } from 'remix/component'
 
 export const InlineEdit = clientEntry(
   import.meta.url + '#InlineEdit',
@@ -334,7 +334,7 @@ Use when adding inline editing to an existing server-rendered table, admin CRUD 
 
 **Context:** Adding a "Vergangene löschen" button with a `confirm()` dialog to an admin offerings page in a Remix 3 project.
 
-Using the `on` event mixin from `remix/ui` in a server-rendered component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors. The `on` mixin's handler code only gets hydrated when the component is a `clientEntry` — otherwise the mixin output is static HTML with no client-side JS.
+Using the `on` event mixin from `remix/component` in a server-rendered component (not wrapped in `clientEntry`) compiles without errors but the event handler **never fires** on the client. Raw HTML event attributes (`onsubmit`, `onclick`) as string props also fail with TypeScript errors. The `on` mixin's handler code only gets hydrated when the component is a `clientEntry` — otherwise the mixin output is static HTML with no client-side JS.
 
 Wrap the interactive element in a `clientEntry` component. Props must be serializable (strings, numbers, booleans, null, and plain objects/arrays of those — no functions, no `css()` mixin descriptors); `extends SerializableProps` is **not** required since build `a4d62e199` (#11918), so use a plain `interface`. The entry ID is `import.meta.url + '#ComponentName'`. The `on` handler goes in setup scope (inside the `return () => {` closure) so it has stable references. For form submission, create the form programmatically in the handler, or use `fetch()` + `handle.frame.reload()` (see `admin-action-button.tsx`).
 
@@ -376,7 +376,7 @@ Adding HTML5 Drag and Drop (`dragstart`, `dragover`, `drop`, `dragend`) to a Rem
 Attach drag event listeners via `ref()` with an `AbortController` for cleanup:
 
 ```ts
-import { clientEntry, ref, css } from 'remix/ui'
+import { clientEntry, ref, css } from 'remix/component'
 
 export const MyList = clientEntry(import.meta.url + '#MyList', (handle) => {
   let items = [...]

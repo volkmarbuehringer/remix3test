@@ -24,7 +24,7 @@ Symptoms:
 3. **Fix by making the comparison hit the identity fast-path.** Cast the value to the **exact** structurally-recursive target type (`args = any`, exact `node`) so the check becomes trivial instead of recursive:
 
 ```ts
-import type { MixinDescriptor, ElementProps } from 'remix/ui'
+import type { MixinDescriptor, ElementProps } from 'remix/component'
 
 type ButtonStyle = MixinDescriptor<HTMLButtonElement, any, ElementProps>
 

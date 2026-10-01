@@ -62,7 +62,7 @@ This is NOT the same as the rAF anti-pattern and should not be "fixed" into `que
   *"`handle.queueTask(task)` runs a task during the commit after the next update. Use it when DOM
   measurement or another update must happen as part of that flush"* (§"State, updates, and post-render tasks"); the
   `scrollIntoView` example at §"State, updates, and post-render tasks" is the canonical form. The installed `Handle` type
-  documents the same contract at `@remix-run/ui/src/runtime/component.ts:33-51`.
+  documents the same contract at `@remix-run/component/src/runtime/component.ts:33-51`.
 - Since #11795, `handle.update()`'s own docs say to call it from an event handler or `handle.queueTask()`
   — this skill is now the vendor-blessed remedy for the phase-guard throws (see `remix3-frame-cliententry`).
 

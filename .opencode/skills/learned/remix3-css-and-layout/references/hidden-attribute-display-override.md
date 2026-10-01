@@ -3,7 +3,7 @@
 **Source:** `remix3-hidden-attribute-display-override`
 
 **Extracted:** 2026-09-15
-**Context:** Remix 3 (`remix/ui` `css()` mixins) components that show/hide an element by toggling the native `hidden` attribute from a `clientEntry` or an event handler.
+**Context:** Remix 3 (`remix/component` `css()` mixins) components that show/hide an element by toggling the native `hidden` attribute from a `clientEntry` or an event handler.
 
 ## Problem
 
@@ -11,7 +11,7 @@ The native `hidden` attribute is hidden only by the **user-agent** stylesheet ru
 An author rule that sets `display` (`inline-flex`, `flex`, `block`, …) wins the origin cascade, so the UA rule
 never applies and the element stays visible.
 
-`remix/ui`'s `css()` emits an author class rule, so any host whose descriptor sets `display` becomes immune
+`remix/component`'s `css()` emits an author class rule, so any host whose descriptor sets `display` becomes immune
 to `hidden`:
 
 ```ts

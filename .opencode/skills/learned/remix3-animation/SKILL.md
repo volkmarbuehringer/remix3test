@@ -1,6 +1,6 @@
 ---
 name: remix3-animation
-description: "Use when adding or debugging motion in a Remix 3 app — entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, and interruptible imperative animations with remix/ui/animation."
+description: "Use when adding or debugging motion in a Remix 3 app — entrance/exit presence, layout animation, spring()/tween()/easing values, CSS-first reduced-motion gating, and interruptible imperative animations with @remix-run/ui/animation."
 user-invocable: false
 origin: learned
 ---
