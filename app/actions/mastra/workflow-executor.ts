@@ -81,7 +81,7 @@ export async function executeUserPreflightWorkflow(input: { targetUserId: number
 
   if (preflightResult.status !== 'success') {
     let preflightError =
-      preflightResult.status === 'failed' ? String(preflightResult.error) : 'unknown_error'
+      preflightResult.status === 'failed' ? runErrorMessage(preflightResult.error) : 'unknown_error'
     if (!error) error = preflightError
   }
 
