@@ -24,6 +24,7 @@ import type { Resource } from '../data/schema.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { AdminResourcesContextMenu } from '../actions/admin/public/admin-resources-context-menu.tsx'
 
@@ -578,9 +579,7 @@ function AdminResourcesEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Speichern
-                </button>
+                <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.resources.index.href(),
@@ -721,9 +720,7 @@ function AdminResourcesCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Anlegen
-                </button>
+                <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.resources.index.href(),

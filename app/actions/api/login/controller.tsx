@@ -1,7 +1,8 @@
 import { createAction } from 'remix/router'
-import { Database, DataTableConstraintError } from 'remix/data-table'
+import { DataTableConstraintError } from 'remix/data-table'
 import * as s from 'remix/data-schema'
 
+import { databaseContext } from '../../../middleware/database.ts'
 import { routes } from '../../../routes.ts'
 import { users, apiTokens } from '../../../data/schema.ts'
 import { verifyPassword } from '../../../utils/password-hash.ts'
@@ -49,7 +50,7 @@ export default createAction(routes.api.login, {
       return Response.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
     }
 
-    let db = context.get(Database)
+    let db = context.get(databaseContext)
     if (!db) {
       return Response.json({ error: 'Service unavailable' }, { status: 503 })
     }

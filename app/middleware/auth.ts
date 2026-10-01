@@ -5,9 +5,9 @@ import {
   requireAuth as requireAuthenticatedUser,
   createSessionAuthScheme,
 } from 'remix/middleware/auth'
-import { Database } from 'remix/data-table'
 import { html } from 'remix/html-template'
 import { SuperHeaders } from 'remix/headers'
+import { databaseContext } from './database.ts'
 import { routes } from '../routes.ts'
 
 import { users } from '../data/schema.ts'
@@ -29,7 +29,7 @@ export function loadAuth() {
           return parseAppAuthSession(session.get('auth'))
         },
         async verify(value, context) {
-          let db = context.get(Database)
+          let db = context.get(databaseContext)
           if (db == null) {
             throw new Error('Expected database middleware before session auth scheme')
           }
@@ -66,7 +66,7 @@ export const passwordProvider = createCredentialsAuthProvider({
     }
   },
   async verify({ email, password }, context) {
-    let db = context.get(Database)
+    let db = context.get(databaseContext)
     if (db == null) {
       throw new Error('Expected database middleware before password auth provider')
     }

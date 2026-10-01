@@ -27,6 +27,7 @@ import type {
   OfferingConfigResourceOption,
 } from '../data/offering-configs-queries.ts'
 import { ConfirmDelete } from '../ui/confirm-delete.browser.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { getCspNonce } from '../middleware/security-headers.ts'
 import { AdminOfferingConfigsContextMenu } from '../actions/admin/public/admin-offering-configs-context-menu.tsx'
 
@@ -627,9 +628,7 @@ function EditPanel(handle: Handle<EditPanelProps>) {
               })}
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Speichern
-                </button>
+                <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.offeringConfigs.index.href(),
@@ -746,9 +745,7 @@ function CreatePanel(handle: Handle<CreatePanelProps>) {
               })}
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Anlegen
-                </button>
+                <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.offeringConfigs.index.href(),

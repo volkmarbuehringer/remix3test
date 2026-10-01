@@ -9,6 +9,8 @@ Handle form validation errors with the **direct re-render** pattern (preferred):
 
 The URL-param roundtrip pattern (`fv_`/`fe_` encoding) is **deprecated** — `form-params.ts` has been removed and all forms use direct re-render. Frame-based forms that once needed URL params are handled by the `ShellOrFragment` patch in `remix3-frame-cliententry`.
 
+The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) canonically shows the `parseSafe` + preserved-`values`/`issues` + status-400 pattern (§"Return validation failures with the form", §"Parse and save the submitted form") and the `readText()` display-values helper. This skill keeps the app-specific deltas the guide cannot know: admin-grid `renderGridFormError` returning **200 not 400**, `<select>` `selected` over `defaultValue`, and the `coerce.number()` empty-select trap.
+
 ## When To Use This Skill
 
 - Adding validation to a POST/PUT/DELETE form action

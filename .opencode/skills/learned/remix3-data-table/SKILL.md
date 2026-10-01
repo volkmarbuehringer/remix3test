@@ -11,6 +11,8 @@ origin: consolidated
 
 This skill is the **index** for data-table deltas. For the framework API and canonical query patterns, use `node_modules/remix/src/data-table/README.md` and `node_modules/remix/src/data-schema/README.md`.
 
+The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored as of rc.4) is canonical for the typed-API surface this skill does not restate: `table()`/`TableRow`/`primaryKey`, SQL migration files + `loadMigrations`/`db.migrate` + checksums, `databaseContext` middleware (`context.db`), form-data schemas (`f.object`/`f.field`/`f.fields`/`f.file(s)`, `s.defaulted`, `coerce.number()`), relations (`belongsTo`/`hasMany`/`hasOne`/`hasManyThrough` + `with`), `query()` values vs `db.query()` chains, the `sql` tag, lifecycle hooks (`validate`/`fail`, `beforeWrite`/`afterWrite`/`beforeDelete`/`afterDelete`/`afterRead`), `db.transaction`, and the SQLite/PostgreSQL/MySQL adapters — all under the guide's "Advanced data and validation" section. The rules below stay deltas because the guide does not cover them: `inList()` multi-ID filters, dynamic sort columns, raw-SQL sort/filter grids, and row adapters.
+
 ## Load Only The References You Need
 
 | Task involves... | Start with |

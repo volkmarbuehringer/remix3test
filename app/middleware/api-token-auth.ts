@@ -1,10 +1,10 @@
 import { createContextKey, type Middleware } from 'remix/router'
-import { Database } from 'remix/data-table'
 
 import { hashToken } from '../utils/api-token.ts'
 import { parseBearerToken } from '../utils/auth-header.ts'
 import { apiTokens, users } from '../data/schema.ts'
 import type { User } from '../data/schema.ts'
+import { databaseContext } from './database.ts'
 
 export const ApiUser = createContextKey<User>()
 
@@ -19,7 +19,7 @@ export function apiTokenAuth(): Middleware<{
       return next()
     }
 
-    let db = context.get(Database)
+    let db = context.get(databaseContext)
     if (!db) {
       return next()
     }

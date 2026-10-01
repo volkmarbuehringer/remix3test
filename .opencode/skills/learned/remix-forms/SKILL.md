@@ -11,6 +11,8 @@ origin: consolidated
 
 This skill is the **index** for form/data deltas. For validation and error re-render, use `form-error-handling-remix3`; for the framework API, the vendor `remix` skill references.
 
+The vendor guide `node_modules/remix/guides/09-forms-and-mutations.md` (authored as of rc.4) is canonical for the basics this skill does not restate: `parseSafe` re-render with preserved `values`/`issues` and status 400, `303`-after-save redirects, the frame `reloadStart`/`reloadComplete` "Saving…" pending button (§"Add pending feedback"), and `_method` override with `formMethod: "PATCH"` (§"Use other HTTP methods when the route calls for them"). The rules below stay deltas because the guide does not cover them: top-level `s.optional()`, capture-phase delete confirmation, password-form handling, and `session.flash()` soft-fork routing.
+
 ## Load Only The References You Need
 
 | Task involves... | Start with |

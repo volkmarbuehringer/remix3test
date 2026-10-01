@@ -1,13 +1,14 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import button, { buttonLink } from '../ui/theme/button.ts'
+import { buttonLink } from '../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { input } from './mixins/input.ts'
 import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { IntervalBounds } from './interval-bounds.browser.tsx'
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
@@ -197,9 +198,7 @@ export function AdminOfferingsCreatePage(handle: Handle<AdminOfferingsCreatePage
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Anlegen
-                </button>
+                <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.offerings.index.href(),

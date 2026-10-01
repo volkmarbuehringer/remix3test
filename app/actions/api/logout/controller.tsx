@@ -1,6 +1,6 @@
 import { createAction } from 'remix/router'
-import { Database } from 'remix/data-table'
 
+import { databaseContext } from '../../../middleware/database.ts'
 import { routes } from '../../../routes.ts'
 import { hashToken } from '../../../utils/api-token.ts'
 import { parseBearerToken } from '../../../utils/auth-header.ts'
@@ -14,7 +14,7 @@ export default createAction(routes.api.logout, {
       return Response.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let db = context.get(Database)
+    let db = context.get(databaseContext)
     if (!db) {
       return Response.json({ error: 'Service unavailable' }, { status: 503 })
     }

@@ -13,6 +13,7 @@ import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import {
   sortArrow,
@@ -737,9 +738,7 @@ function AdminUsersEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Speichern
-                </button>
+                <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.admin.users.index.href(),
@@ -879,9 +878,7 @@ function AdminUsersCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Anlegen
-                </button>
+                <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.admin.users.index.href(),

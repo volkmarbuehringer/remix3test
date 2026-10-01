@@ -1,13 +1,14 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../../ui/theme/theme.ts'
-import button, { buttonLink } from '../../ui/theme/button.ts'
+import { buttonLink } from '../../ui/theme/button.ts'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../../utils/motion.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { table } from '../../ui/mixins/admin-table.ts'
 import { RestfulForm } from '../../ui/restful-form.tsx'
 import { GridStateHiddenInputs } from '../../ui/grid-state-hidden.tsx'
+import { PendingSubmitButton } from '../../ui/pending-submit.browser.tsx'
 import { buildCancelUrl } from '../../ui/mixins/admin-urls.ts'
 import { getSelfFrameTarget } from '../../utils/frame-target.ts'
 import { routes } from '../../routes.ts'
@@ -234,9 +235,7 @@ function ClientEditPage(handle: Handle<ClientEditPageProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Speichern
-                </button>
+                <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.admin.clients.index.href(),

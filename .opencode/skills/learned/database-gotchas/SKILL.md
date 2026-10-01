@@ -11,6 +11,8 @@ origin: consolidated
 
 This skill is the **index** for Postgres access deltas in a Remix 3 app. For the driver/data-table APIs themselves, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
+The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored as of rc.4) is canonical for the basics this skill does not restate: migration files + checksum journaling, `createPostgresDatabase({ connectionString })`, and `db.transaction({ isolationLevel: "serializable" })` (§"Create the tables with SQL", §"Use PostgreSQL or MySQL"). The deltas below stay here because the guide cannot know them: dedicated-client DDL, checksum-drift/orphaned-journal recovery, constraint-error cause unwrapping, and wire-honest `db.exec` row decoding.
+
 ## Load Only The References You Need
 
 | Task involves... | Start with |

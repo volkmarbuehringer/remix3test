@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { css } from 'remix/ui'
 import { theme } from '../ui/theme/theme.ts'
-import button, { buttonLink } from '../ui/theme/button.ts'
+import { buttonLink } from '../ui/theme/button.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { animateEntrance } from 'remix/ui/animation'
 import { entrance } from '../utils/motion.ts'
@@ -13,6 +13,7 @@ import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { ConfirmDelete } from './confirm-delete.browser.tsx'
 import { DirtyFormGuard } from './dirty-form-guard.browser.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { table } from './mixins/admin-table.ts'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { isListItemFilter, type ListRow } from '../data/admin-lists.ts'
@@ -843,9 +844,7 @@ function AdminListsEditPanel(handle: Handle<EditPanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Speichern
-                </button>
+                <PendingSubmitButton>Speichern</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.admin.lists.index.href(),
@@ -957,9 +956,7 @@ function AdminListsCreatePanel(handle: Handle<CreatePanelProps>) {
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  Anlegen
-                </button>
+                <PendingSubmitButton>Anlegen</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.admin.lists.index.href(),

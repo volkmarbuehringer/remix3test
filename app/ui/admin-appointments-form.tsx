@@ -9,6 +9,7 @@ import { table } from './mixins/admin-table.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { IntervalBounds } from './interval-bounds.browser.tsx'
+import { PendingSubmitButton } from './pending-submit.browser.tsx'
 import { routes } from '../routes.ts'
 import { getSelfFrameTarget } from '../utils/frame-target.ts'
 import { buildCancelUrl } from './mixins/admin-urls.ts'
@@ -321,9 +322,7 @@ export function AdminAppointmentsForm(handle: Handle<AdminAppointmentsFormProps>
               </div>
 
               <div mix={table.actions}>
-                <button type="submit" mix={[button({ tone: 'primary' }), table.spacer]}>
-                  {submitLabel}
-                </button>
+                <PendingSubmitButton>{submitLabel}</PendingSubmitButton>
                 <a
                   href={buildCancelUrl(
                     routes.verwaltung.appointments.index.href(),
