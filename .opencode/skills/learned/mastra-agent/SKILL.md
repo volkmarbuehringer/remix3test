@@ -14,7 +14,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 
 | Task involves... | Start with |
 | --- | --- |
-| Constructing an `Agent` without eager model resolution; registering lazily with `mastra.addAgent()` | `references/model-config.md` |
+| Constructing an `Agent` without eager model resolution; registering lazily with `mastra.addAgent()`; `createDurableAgent()` crashing app startup | `references/model-config.md` |
 | Streaming `agent.stream()` over SSE in one POST; `pipeStream`; SSE event types; client/server event-contract drift; consolidating hand-rolled client readers onto a shared `readEventStream` and preserving post-loop cleanup on early stop; `askUserTool` question/resume; `requireToolApproval` snapshot loss | `references/sse-streaming.md` |
 | Extracting tool output from `agent.generate()` when the shape is chunk vs flat, or when `toolName` is the property key | `references/tool-results.md` |
 | Normalizing the polymorphic `content` (string / v2 parts / `.text` / array) to plain text | `references/message-content.md` |
@@ -29,6 +29,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 ## Core Rules
 
 - Prefer the **inline model config object** over `model: getModel()` so a missing API key fails only the AI route, not module load / app startup.
+- **Wrap with `createDurableAgent()` lazily.** The durable wrapper's constructor calls `agent.getModel()` even when the wrapped agent uses the inline config, so wrapping at module load re-introduces the startup crash. Create it (and `mastra.addAgent(...)`) on first use.
 - Stream with a **single POST**: call `agent.stream()` inside the action's `ReadableStream.start`, emit a `start` event, then pipe `fullStream` into the same response. No in-memory stream-store, no second endpoint.
 - Treat `agent.generate()` tool output as **chunk-or-flat** and iterate `toolResults` directly; `toolName` at runtime is the JavaScript property key, not the `createTool({ id })` value.
 - Normalize message `content` at the memory boundary with a shared `messageContentToText()` so every consumer gets `content: string`.

@@ -2,7 +2,7 @@
 
 ## What This Covers
 
-Constructing a Mastra `Agent` without eager model resolution. Read this when embedding Mastra in a non-Mastra framework (Remix, Next.js, Express, Fastify), when some routes don't use AI, or when tests import the module without credentials.
+Constructing a Mastra `Agent` without eager model resolution. Read this when embedding Mastra in a non-Mastra framework (Remix, Next.js, Express, Fastify), when some routes don't use AI, when tests import the module without credentials, or when wrapping an agent with `createDurableAgent()` (the durable wrapper resolves the model at construction, even with an inline model config).
 
 ## Problem
 
@@ -69,9 +69,52 @@ export function getSupportAgent(): Agent {
 }
 ```
 
+## Durable Wrappers Re-Introduce Eager Resolution
+
+`createDurableAgent({ agent })` (`@mastra/core/agent/durable`, 1.45.0+) resolves
+the model **at construction even when the wrapped agent uses the inline config**.
+`DurableAgent`'s constructor builds itself with
+`model: agent.__model ?? agent.getModel()`, so `agent.getModel()` runs eagerly and
+throws `AGENT_GET_MODEL_MISSING_MODEL_INSTANCE` when the key is unset. Wrapping at
+module load therefore re-breaks the lazy startup you just fixed — and it surfaces
+as the whole `remix test` worker dying at import, not as a failing assertion.
+
+```ts
+// BAD: crashes at module load if the key is unset, despite the agent's inline config
+const durableCustomerAgent = createDurableAgent({ agent: customerAgent })
+export const mastra = new Mastra({ agents: { customerAgent, durableCustomerAgent } })
+```
+
+Create and register the wrapper lazily on first use, with a distinct id so the
+durable workflow's `getAgentById(agentId)` rebuild resolves the wrapper, not the
+raw agent registered alongside it:
+
+```ts
+import type { Agent } from '@mastra/core/agent'
+import { createDurableAgent } from '@mastra/core/agent/durable'
+
+let durableCustomerAgent: Agent | undefined
+
+export function getDurableCustomerAgent(): Agent {
+  if (!durableCustomerAgent) {
+    durableCustomerAgent = createDurableAgent({
+      agent: customerAgent as unknown as Agent, // widen the id literal
+      id: 'customer-agent-durable',
+    }) as unknown as Agent
+    mastra.addAgent(durableCustomerAgent, 'durableCustomerAgent')
+  }
+  return durableCustomerAgent
+}
+```
+
+The `as unknown as Agent` casts only widen `Agent<'customer-agent', …>` to
+`Agent<string, …>` so the `id` override type-checks; the runtime object is the
+real `DurableAgent`.
+
 ## When to Use
 
 - Embedding Mastra agents inside a non-Mastra framework (Remix, Next.js, Express, Fastify)
 - Multiple routes where some use AI and others don't — you don't want every route to fail when the API key is missing
 - Setting up a Mastra dev server (`mastra dev`) alongside an existing app — the CLI entry point can re-export the same agent config
 - Tests that need to import the module without triggering model initialization
+- Wrapping an agent with `createDurableAgent()` — the wrapper resolves the model at construction, so it belongs behind the same lazy getter as the agent
