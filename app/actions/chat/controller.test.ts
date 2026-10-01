@@ -10,11 +10,18 @@ import {
   __setTestAgent,
   __setTestResumeResolver,
   __setTestThreadLookup,
+  __setTestDurableChat,
+  __setTestDurableAgent,
   chatRateLimiter,
 } from './controller.tsx'
 import { recordChatRun, findChatRunOwner } from './run-store.ts'
 import { resolvePendingGate } from './gate-store.ts'
 import type { AgentStreamOutput } from '../mastra/shared-agent.ts'
+import type {
+  DurableChatAgent,
+  DurableResumeOptions,
+  DurableStreamOptions,
+} from '../../utils/agent-chat-durable.ts'
 
 const BASE = 'https://remix.run'
 const CHAT_INDEX_URL = `${BASE}${routes.chat.index.href()}`
@@ -1156,5 +1163,512 @@ describe('Customer Chat controller', () => {
       events.find((e) => e.type === 'agent-error'),
       '429 should emit agent-error',
     )
+  })
+})
+
+// ─────────────────────────────────────────────────────────────
+// Durable-agent path (feature-flagged; Mastra createDurableAgent)
+// ─────────────────────────────────────────────────────────────
+
+function emptyDurableStream(): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      controller.close()
+    },
+  })
+}
+
+function durableTextStream(text: string): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      if (text) controller.enqueue({ type: 'text-delta', payload: { text } })
+      controller.enqueue({ type: 'finish', payload: {} })
+      controller.close()
+    },
+  })
+}
+
+function durableSuspensionStream(opts: {
+  kind: 'approval' | 'question'
+  toolCallId: string
+  toolName: string
+  args?: Record<string, unknown>
+  question?: string
+}): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      if (opts.kind === 'approval') {
+        controller.enqueue({
+          type: 'tool-call-approval',
+          payload: { toolCallId: opts.toolCallId, toolName: opts.toolName, args: opts.args ?? {} },
+        })
+      } else {
+        controller.enqueue({
+          type: 'tool-call-suspended',
+          payload: {
+            toolCallId: opts.toolCallId,
+            toolName: opts.toolName,
+            args: opts.args ?? {},
+            suspendPayload: {
+              question: opts.question ?? 'Welcher Termin?',
+              options: null,
+              selectionMode: 'single_select',
+            },
+          },
+        })
+      }
+      controller.close()
+    },
+  })
+}
+
+function makeDurableMockAgent(overrides?: Partial<DurableChatAgent>): DurableChatAgent {
+  return {
+    stream: async () => ({
+      runId: crypto.randomUUID(),
+      output: { fullStream: durableTextStream('Durable Antwort.') },
+      cleanup: () => {},
+    }),
+    resume: async (_runId, _data) => ({
+      runId: crypto.randomUUID(),
+      output: { fullStream: durableTextStream('Fortsetzung.') },
+      cleanup: () => {},
+    }),
+    observe: async () => ({
+      output: { fullStream: emptyDurableStream() },
+      detach: () => {},
+    }),
+    listSuspendedRuns: async () => ({ runs: [], total: 0 }),
+    ...overrides,
+  }
+}
+
+describe('Customer Chat controller — durable path', () => {
+  let adminId: number
+  let otherUserId: number
+  let suiteUserIds: number[] = []
+
+  before(async () => {
+    await initializeAppDatabase()
+    adminId = await getUserId('admin@newapp.com')
+    otherUserId = await getUserId('user@newapp.com')
+    suiteUserIds = [adminId, otherUserId].filter((id) => Number.isInteger(id))
+  })
+
+  afterEach(async () => {
+    await pool.query('DELETE FROM chat_runs WHERE user_id = ANY($1::int[])', [suiteUserIds])
+    await pool.query('DELETE FROM chat_pending_gates WHERE user_id = ANY($1::int[])', [
+      suiteUserIds,
+    ])
+    __setTestDurableChat(undefined)
+    __setTestDurableAgent(undefined)
+    __setTestAgent(undefined)
+  })
+
+  after(async () => {
+    __setTestDurableChat(undefined)
+    __setTestDurableAgent(undefined)
+  })
+
+  it('streams a durable turn and clears ownership + cleanup on settle', async () => {
+    chatRateLimiter.reset(adminId)
+    let cleaned = false
+    let seenOpts: DurableStreamOptions | undefined
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        stream: async (_message, opts) => {
+          seenOpts = opts
+          return {
+            runId,
+            output: { fullStream: durableTextStream('Durable Antwort.') },
+            cleanup: () => {
+              cleaned = true
+            },
+          }
+        },
+      }),
+    )
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'hallo' }),
+    })
+    let { events, text } = await parseSSEResponse(response)
+    assert.equal(response.status, 200)
+    assert.equal(events[0]?.type, 'start')
+    assert.equal(text, 'Durable Antwort.')
+    assert.ok(
+      events.find((e) => e.type === 'complete'),
+      'should complete',
+    )
+
+    await waitFor(async () => (await findChatRunOwner(runId)) === null)
+    assert.equal(cleaned, true, 'cleanup must run from the starting process on settle')
+    // Parity: no call-site requireToolApproval (true would gate every tool).
+    assert.equal(seenOpts?.requireToolApproval, undefined)
+    // Actor identity travels in RequestContext, not AsyncLocalStorage.
+    assert.equal(seenOpts?.requestContext?.getRaw('actorId'), adminId)
+  })
+
+  it('keeps ownership and skips cleanup when the durable run suspends on approval', async () => {
+    chatRateLimiter.reset(adminId)
+    let cleaned = false
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        stream: async () => ({
+          runId,
+          output: {
+            fullStream: durableSuspensionStream({
+              kind: 'approval',
+              toolCallId: 'tc-1',
+              toolName: 'cancel_booking',
+              args: { appointmentId: 1 },
+            }),
+          },
+          cleanup: () => {
+            cleaned = true
+          },
+        }),
+      }),
+    )
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'storniere' }),
+    })
+    let { events } = await parseSSEResponse(response)
+    let suspension = events.find((e) => e.type === 'suspension')
+    assert.ok(suspension, 'should emit suspension')
+    assert.equal((JSON.parse(suspension!.data) as { toolCallId?: string }).toolCallId, 'tc-1')
+
+    let owner = await findChatRunOwner(runId)
+    assert.ok(owner, 'a suspended durable run keeps its ownership row')
+    assert.equal(owner!.userId, adminId)
+    assert.equal(cleaned, false, 'a suspended run must not be cleaned up')
+  })
+
+  it('forwards a durable ask_user suspension as a question event', async () => {
+    chatRateLimiter.reset(adminId)
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        stream: async () => ({
+          runId,
+          output: {
+            fullStream: durableSuspensionStream({
+              kind: 'question',
+              toolCallId: 'call-q',
+              toolName: 'ask_user',
+              question: 'Welcher Termin?',
+            }),
+          },
+          cleanup: () => {},
+        }),
+      }),
+    )
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_ACTION_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ message: 'wann?' }),
+    })
+    let { events } = await parseSSEResponse(response)
+    let question = events.find((e) => e.type === 'question')
+    assert.ok(question, 'should emit question')
+    let payload = JSON.parse(question!.data) as { question?: string; runId?: string }
+    assert.equal(payload.question, 'Welcher Termin?')
+    assert.equal(payload.runId, runId)
+  })
+
+  it('resumes a suspended approval through durable resume({ approved: true })', async () => {
+    chatRateLimiter.reset(adminId)
+    let resumeArgs:
+      | { runId: string; data: unknown; opts: DurableResumeOptions | undefined }
+      | undefined
+    let cleaned = false
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        resume: async (rid, data, opts) => {
+          resumeArgs = { runId: rid, data, opts }
+          return {
+            runId: rid,
+            output: { fullStream: durableTextStream('Bestätigt durable.') },
+            cleanup: () => {
+              cleaned = true
+            },
+          }
+        },
+      }),
+    )
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'Bestätigt durable.')
+    assert.deepEqual(resumeArgs?.data, { approved: true })
+    assert.equal(resumeArgs?.opts?.toolCallId, 'tc')
+
+    await waitFor(async () => (await findChatRunOwner(runId)) === null)
+    assert.equal(cleaned, true)
+  })
+
+  it('declines with durable resume({ approved: false })', async () => {
+    chatRateLimiter.reset(adminId)
+    let seenData: unknown
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        resume: async (_rid, data) => {
+          seenData = data
+          return {
+            runId,
+            output: { fullStream: durableTextStream('Abgelehnt durable.') },
+            cleanup: () => {},
+          }
+        },
+      }),
+    )
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_DECLINE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'Abgelehnt durable.')
+    assert.deepEqual(seenData, { approved: false })
+  })
+
+  it('answers an ask_user question through durable resume with the answer data', async () => {
+    chatRateLimiter.reset(adminId)
+    let resumeArgs:
+      | { runId: string; data: unknown; opts: DurableResumeOptions | undefined }
+      | undefined
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        resume: async (rid, data, opts) => {
+          resumeArgs = { runId: rid, data, opts }
+          return {
+            runId: rid,
+            output: { fullStream: durableTextStream('Antwort verarbeitet.') },
+            cleanup: () => {},
+          }
+        },
+      }),
+    )
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_ANSWER_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({
+        runId,
+        answer: 'ja',
+        selectionMode: 'single_select',
+        toolCallId: 'tc',
+      }),
+    })
+    let { text } = await parseSSEResponse(response)
+    assert.equal(text, 'Antwort verarbeitet.')
+    assert.equal(resumeArgs?.data, 'ja')
+    assert.equal(resumeArgs?.opts?.toolCallId, 'tc')
+  })
+
+  it('re-attaches with observe(runId) and detaches on reconnect', async () => {
+    chatRateLimiter.reset(adminId)
+    let detached = false
+    let observedRunId: string | undefined
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        listSuspendedRuns: async () => ({
+          runs: [
+            {
+              runId,
+              threadId: 't',
+              toolCalls: [
+                {
+                  toolCallId: 'call-q',
+                  toolName: 'ask_user',
+                  args: { question: 'Welcher Termin?' },
+                  requiresApproval: false,
+                  suspendPayload: {
+                    question: 'Welcher Termin?',
+                    options: null,
+                    selectionMode: 'single_select',
+                  },
+                },
+              ],
+            },
+          ],
+          total: 1,
+        }),
+        observe: async (rid, opts) => {
+          observedRunId = rid
+          opts?.onSuspended?.({
+            toolCallId: 'call-q',
+            toolName: 'ask_user',
+            suspendPayload: {
+              question: 'Welcher Termin?',
+              options: null,
+              selectionMode: 'single_select',
+            },
+            type: 'suspension',
+          })
+          return {
+            output: { fullStream: emptyDurableStream() },
+            detach: () => {
+              detached = true
+            },
+          }
+        },
+      }),
+    )
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: session.cookie },
+    })
+    assert.equal(response.status, 200)
+    let body = (await response.json()) as {
+      status?: string
+      runId?: string
+      gateType?: string
+      suspendPayload?: { question?: string }
+    }
+    assert.equal(body.status, 'suspended')
+    assert.equal(body.runId, runId)
+    assert.equal(body.gateType, 'question')
+    assert.equal(body.suspendPayload?.question, 'Welcher Termin?')
+    assert.equal(observedRunId, runId)
+    assert.equal(detached, true, 'reconnect must detach the observer')
+  })
+
+  it('reconnect falls back to durable storage when the event cache is cold', async () => {
+    chatRateLimiter.reset(adminId)
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        listSuspendedRuns: async () => ({
+          runs: [
+            {
+              runId,
+              threadId: 't',
+              toolCalls: [
+                {
+                  toolCallId: 'tc-9',
+                  toolName: 'cancel_booking',
+                  args: { appointmentId: 7 },
+                  requiresApproval: true,
+                },
+              ],
+            },
+          ],
+          total: 1,
+        }),
+        observe: async () => ({
+          output: { fullStream: emptyDurableStream() },
+          detach: () => {},
+        }),
+      }),
+    )
+    await recordChatRun({ runId, userId: adminId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_RECONNECT_URL, {
+      headers: { Cookie: session.cookie },
+    })
+    let body = (await response.json()) as {
+      status?: string
+      gateType?: string
+      toolCallId?: string
+      args?: { appointmentId?: number }
+    }
+    assert.equal(body.status, 'suspended')
+    assert.equal(body.gateType, 'tool_decision')
+    assert.equal(body.toolCallId, 'tc-9')
+    assert.equal(body.args?.appointmentId, 7)
+  })
+
+  it('rejects a durable decision on a run owned by another user with 403', async () => {
+    chatRateLimiter.reset(adminId)
+    let resumeCalled = false
+    let runId = crypto.randomUUID()
+    __setTestDurableChat(true)
+    __setTestDurableAgent(
+      makeDurableMockAgent({
+        resume: async (rid) => {
+          resumeCalled = true
+          return {
+            runId: rid,
+            output: { fullStream: durableTextStream('sollte nicht passieren') },
+            cleanup: () => {},
+          }
+        },
+      }),
+    )
+    // The run belongs to a different customer.
+    await recordChatRun({ runId, userId: otherUserId, threadId: 't' })
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({ runId, toolCallId: 'tc' }),
+    })
+    assert.equal(response.status, 403)
+    assert.equal(resumeCalled, false, 'a foreign run must not be resumed')
+  })
+
+  it('rejects a durable decision with no runId before touching the agent', async () => {
+    chatRateLimiter.reset(adminId)
+    __setTestDurableChat(true)
+    __setTestDurableAgent(makeDurableMockAgent())
+
+    let session = await createAuthCookieWithCsrf()
+    assert.ok(session?.cookie, 'Failed to create auth session')
+    let response = await router.fetch(CHAT_APPROVE_URL, {
+      method: 'POST',
+      headers: { Cookie: session.cookie, ...SSE_HEADERS },
+      body: new URLSearchParams({}),
+    })
+    assert.equal(response.status, 400)
+    let { events } = await parseSSEResponse(response)
+    assert.ok(events.find((e) => e.type === 'agent-error'))
   })
 })
