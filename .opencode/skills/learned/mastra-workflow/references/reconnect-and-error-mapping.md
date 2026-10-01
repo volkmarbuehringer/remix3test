@@ -44,7 +44,7 @@ let payload = row.suspendPayload ?? run.suspendPayload  // NULL-payload window
 
 ## Failed-Run `result.error` Is a Plain Object, Not an Error
 
-When a workflow step throws and the run ends `failed`, `run.start()` resolves with `result.status === 'failed'` and `result.error` — but that error is a **plain serialized object, not an `Error` instance** (verified against `@mastra/core` 1.63.0). The common executor mapping silently destroys it:
+When a workflow step throws and the run ends `failed`, `run.start()` resolves with `result.status === 'failed'` and `result.error` — but that error is a **plain serialized object, not an `Error` instance** (verified against `@mastra/core` 1.72.0; the run-result type is `SerializedError` in `node_modules/@mastra/core/dist/workflows/types.d.ts`). The common executor mapping silently destroys it:
 
 ```ts
 error: result.status === 'failed' ? String(result.error) : 'unknown_error'

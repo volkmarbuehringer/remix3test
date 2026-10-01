@@ -9,7 +9,7 @@ Hard-gating destructive tools with `agent.generate()` and handling suspensions. 
 - Multiple `requireApproval` tools chaining in one run
 - Multiple approval tools needing different UI cards, where the payload lacks the tool name
 
-For the base approval API (`requireApproval: true`, `finishReason: 'suspended'`, `suspendPayload`, `requireToolApproval`), see `node_modules/@mastra/core/dist/docs/references/docs-agents-agent-approval.md`. For tool design (single-job, self-lookup, pagination), see `tool-design.md`.
+For the base approval API (`requireApproval: true`, `finishReason: 'suspended'`, `suspendPayload`, `requireToolApproval`), see `node_modules/@mastra/core/dist/docs/references/docs-agents-human-in-the-loop.md`. For tool design (single-job, self-lookup, pagination), see `tool-design.md`.
 
 ## Hard-Gating Tools with `generate()` (Non-Streaming)
 

@@ -8,7 +8,7 @@ origin: consolidated
 
 **Consolidated from:** `mastra-tool-approval-generate`, `mastra-tool-suspension-detection`, `mastra-tool-offset-pagination`, `mastra-tool-param-self-lookup`, `mastra-tool-single-job-separation`
 
-This skill is the **index** for tool-design deltas. For the base approval API (`requireApproval`, `finishReason: 'suspended'`, `approveToolCallGenerate`/`declineToolCallGenerate`, `requireToolApproval`), use the authoritative `node_modules/@mastra/core/dist/docs/references/docs-agents-agent-approval.md`.
+This skill is the **index** for tool-design deltas. For the base approval API (`requireApproval`, `finishReason: 'suspended'`, `approveToolCallGenerate`/`declineToolCallGenerate`, `requireToolApproval`), use the authoritative `node_modules/@mastra/core/dist/docs/references/docs-agents-human-in-the-loop.md`.
 
 ## Load Only The References You Need
 
