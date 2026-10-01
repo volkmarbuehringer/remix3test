@@ -54,6 +54,25 @@ export async function findChatRunOwner(runId: string): Promise<ChatRunRow | null
   return row ? toRow(row) : null
 }
 
+/**
+ * Resolves the actor's most recent run pointer.
+ *
+ * The durable reconnect path needs a run id to `observe()` after a reload. A
+ * suspended run keeps its `chat_runs` row (the terminal hook clears it), so the
+ * newest row for the actor is the pending run to re-attach to.
+ */
+export async function findLatestChatRun(userId: number): Promise<ChatRunRow | null> {
+  let result = await db.exec(
+    `SELECT run_id, user_id, thread_id FROM chat_runs
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId],
+  )
+  let row = (result.rows ?? [])[0] as DbRow | undefined
+  return row ? toRow(row) : null
+}
+
 /** Removes the ownership row once the run reaches a terminal state. */
 export async function clearChatRun(runId: string): Promise<void> {
   await db.exec('DELETE FROM chat_runs WHERE run_id = $1', [runId])

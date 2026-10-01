@@ -1,12 +1,13 @@
 import { createController } from 'remix/router'
 import { requireAuth } from '../../middleware/auth.ts'
-import { mastra } from '../mastra/index.ts'
+import { mastra, getDurableCustomerAgent } from '../mastra/index.ts'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
-import { recordChatRun, findChatRunOwner, clearChatRun } from './run-store.ts'
+import { createDurableAgentChat, type DurableChatAgent } from '../../utils/agent-chat-durable.ts'
+import { recordChatRun, findChatRunOwner, clearChatRun, findLatestChatRun } from './run-store.ts'
 import { chatGateStore } from './gate-store.ts'
 import { Layout } from '../../ui/layout.tsx'
 import { CustomerChatPage } from '../../ui/customer-chat-page.tsx'
@@ -49,6 +50,37 @@ function resolveCustomerAgent(): TestAgent {
   return process.env.NODE_ENV === 'test' && _testAgent
     ? _testAgent
     : mastra.getAgent('customerAgent')
+}
+
+// ── Durable-agent feature flag ─────────────────────────────────
+//
+// The durable path is opt-in until parity is proven; the hand-rolled engine in
+// agent-chat.ts stays the fallback. Enable with CUSTOMER_CHAT_DURABLE=1.
+let _testDurableChat: boolean | undefined
+export function __setTestDurableChat(enabled: boolean | undefined) {
+  if (process.env.NODE_ENV === 'test') {
+    _testDurableChat = enabled
+  }
+}
+
+export function useDurableCustomerChat(): boolean {
+  if (process.env.NODE_ENV === 'test' && _testDurableChat !== undefined) return _testDurableChat
+  let flag = process.env.CUSTOMER_CHAT_DURABLE
+  return flag === '1' || flag === 'true'
+}
+
+// Test-only durable-agent injection point — setter is a no-op outside test env.
+let _testDurableAgent: DurableChatAgent | undefined
+export function __setTestDurableAgent(agent: typeof _testDurableAgent) {
+  if (process.env.NODE_ENV === 'test') {
+    _testDurableAgent = agent
+  }
+}
+
+function resolveDurableCustomerAgent(): DurableChatAgent {
+  return process.env.NODE_ENV === 'test' && _testDurableAgent
+    ? _testDurableAgent
+    : (getDurableCustomerAgent() as unknown as DurableChatAgent)
 }
 
 // ── Conversation resume ────────────────────────────────────────
@@ -140,6 +172,37 @@ const engine = createAgentChat({
   answerErrorMessage: 'Fehler bei der Antwortverarbeitung.',
 })
 
+// The durable path replaces the gate-store reconnect and the
+// approve/decline/answer transport with `createDurableAgent`'s
+// `observe()`/`detach()` and `resume()`. It shares the customer's actor scope
+// and thread-ownership boundary with the fallback engine.
+const durableEngine = createDurableAgentChat({
+  logPrefix: '[CustomerChatDurable]',
+  resolveAgent: resolveDurableCustomerAgent,
+  recordRun: (run) =>
+    recordChatRun({ runId: run.runId, userId: run.ownerId, threadId: run.threadId }),
+  clearRun: (runId) => clearChatRun(runId),
+  authorizeRun: async (runId, ownerId) => {
+    let owner = await findChatRunOwner(runId)
+    return owner && owner.userId === ownerId ? { threadId: owner.threadId } : null
+  },
+  findLatestRun: async (ownerId) => {
+    let run = await findLatestChatRun(ownerId)
+    return run ? { runId: run.runId, threadId: run.threadId } : null
+  },
+  // Durable agents accept only a boolean requireToolApproval, and `true` gates
+  // every tool call — including read-only searches. The customer agent's
+  // destructive tools already set tool-level `requireApproval`, so parity lives
+  // there; see docs/mastra-agent-modernization.md §3.1.
+  requireToolApproval: undefined,
+  answerErrorMessage: 'Fehler bei der Antwortverarbeitung.',
+})
+
+/** Selects the durable engine when the flag/test seam enables it. */
+function customerChatEngine() {
+  return useDurableCustomerChat() ? durableEngine : engine
+}
+
 export const customerChat = createController(routes.chat, {
   middleware: [requireAuth()],
 
@@ -193,12 +256,12 @@ export const customerChat = createController(routes.chat, {
         threadId = crypto.randomUUID()
       }
 
-      return engine.messageStream({ context, actorId: user.id, message, threadId })
+      return customerChatEngine().messageStream({ context, actorId: user.id, message, threadId })
     },
 
     async approve(context) {
       let user = getCurrentUser()
-      return engine.toolDecision({
+      return customerChatEngine().toolDecision({
         context,
         actorId: user.id,
         decision: 'approve',
@@ -209,7 +272,7 @@ export const customerChat = createController(routes.chat, {
 
     async decline(context) {
       let user = getCurrentUser()
-      return engine.toolDecision({
+      return customerChatEngine().toolDecision({
         context,
         actorId: user.id,
         decision: 'decline',
@@ -220,7 +283,7 @@ export const customerChat = createController(routes.chat, {
 
     async answer(context) {
       let user = getCurrentUser()
-      return engine.answer({
+      return customerChatEngine().answer({
         context,
         actorId: user.id,
         runId: context.formData.get('runId')?.toString() || undefined,
@@ -240,7 +303,7 @@ export const customerChat = createController(routes.chat, {
      */
     async reconnect(context) {
       let user = getCurrentUser()
-      return engine.reconnect({ context, actorId: user.id })
+      return customerChatEngine().reconnect({ context, actorId: user.id })
     },
   },
 })

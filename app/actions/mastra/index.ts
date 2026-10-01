@@ -1,4 +1,6 @@
 import { Mastra } from '@mastra/core'
+import type { Agent } from '@mastra/core/agent'
+import { createDurableAgent } from '@mastra/core/agent/durable'
 import { PinoLogger } from '@mastra/loggers'
 import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mastra/observability'
 import { supportAgent } from './agents/support-agent.ts'
@@ -54,5 +56,29 @@ export const mastra = new Mastra({
     },
   }),
 })
+
+/**
+ * Lazily creates and registers the durable customer agent.
+ *
+ * `DurableAgent`'s constructor resolves the wrapped agent's model eagerly
+ * (`model: agent.__model ?? agent.getModel()`), so wrapping at module load made
+ * a missing `OPENCODE_API_KEY` fail app startup instead of the AI route — the
+ * opposite of this app's lazy-model design. Register on first durable use
+ * instead; `addAgent()` also wires the durable agent's required workflows.
+ *
+ * The wrapper id is distinct from the raw agent's so the durable workflow's
+ * `getAgentById(agentId)` rebuild resolves the wrapper, not the raw agent.
+ */
+let durableCustomerAgent: Agent | undefined
+export function getDurableCustomerAgent(): Agent {
+  if (!durableCustomerAgent) {
+    durableCustomerAgent = createDurableAgent({
+      agent: customerAgent as unknown as Agent,
+      id: 'customer-agent-durable',
+    }) as unknown as Agent
+    mastra.addAgent(durableCustomerAgent, 'durableCustomerAgent')
+  }
+  return durableCustomerAgent
+}
 
 setMastra(mastra)
