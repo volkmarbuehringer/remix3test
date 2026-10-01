@@ -12,7 +12,6 @@ import { createRateLimiter } from '../../utils/rate-limiter.ts'
 import type { ChatMessage } from '../../types/chatlog.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
-import { runWithAdminId } from '../mastra/tools/admin-context.ts'
 import { sanitizeLog, validateMessage } from '../mastra/shared-agent.ts'
 
 import { logAdminAction } from '../../data/audit-log.ts'
@@ -209,7 +208,6 @@ const engine = createAgentChat({
   logPrefix: '[SupportAgentChat]',
   resolveAgent: resolveAgent,
   gateStore: supportGateStore,
-  runWithActor: (actorId, fn) => runWithAdminId(actorId, fn),
   getTarget: getPanelTarget,
   clearGateOn: 'complete-or-error',
   verifyRunStatus: (ownerId, runId) => _runStatusResolver(ownerId, runId),

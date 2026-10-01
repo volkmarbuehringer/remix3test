@@ -1,3 +1,4 @@
+import type { RequestContext } from '@mastra/core/request-context'
 import * as s from 'remix/data-schema'
 import * as f from 'remix/data-schema/form-data'
 import { validateThreadId } from '../../utils/thread-id.ts'
@@ -38,11 +39,13 @@ export interface TestAgent {
     runId: string
     toolCallId?: string
     abortSignal?: AbortSignal
+    requestContext?: RequestContext
   }) => Promise<MastraSuspendableResult>
   declineToolCallGenerate?: (opts: {
     runId: string
     toolCallId?: string
     abortSignal?: AbortSignal
+    requestContext?: RequestContext
   }) => Promise<MastraSuspendableResult>
 }
 

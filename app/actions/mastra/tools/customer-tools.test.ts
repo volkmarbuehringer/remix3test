@@ -3,16 +3,18 @@ import * as assert from 'remix/assert'
 
 import { initializeAppDatabase } from '../../../db.ts'
 import { pool } from '../../../data/test-pool.ts'
-import { customerTools, runWithUserId } from './customer-tools.ts'
+import { customerTools } from './customer-tools.ts'
+import { createActorRequestContext } from '../actor-context.ts'
 // Side-effect: registers the Mastra instance (setMastra) so cancellation workflows can execute
 import '../index.ts'
 
-function execTool(tool: Record<string, unknown>, input: Record<string, unknown>) {
+function execTool(tool: Record<string, unknown>, input: Record<string, unknown>, actorId?: number) {
   let fn = tool.execute as (
     input: Record<string, unknown>,
     opts: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>
-  return fn(input, {})
+  let opts = actorId === undefined ? {} : { requestContext: createActorRequestContext(actorId) }
+  return fn(input, opts)
 }
 
 function getFirstResourceId(): Promise<number> {
@@ -185,8 +187,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] list 1', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE, Date.now()],
     )
-    let result = (await runWithUserId(customerId, () =>
-      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    let result = (await execTool(
+      customerTools.listMyAppointments as unknown as Record<string, unknown>,
+      {},
+      customerId,
     )) as Record<string, unknown>
     assert.ok(Array.isArray(result.appointments))
     assert.ok((result.appointments as unknown[]).length >= 1)
@@ -210,8 +214,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] today', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, todayMs, Date.now()],
     )
-    let result = (await runWithUserId(customerId, () =>
-      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    let result = (await execTool(
+      customerTools.listMyAppointments as unknown as Record<string, unknown>,
+      {},
+      customerId,
     )) as Record<string, unknown>
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
@@ -228,8 +234,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = (await runWithUserId(tempUserId, () =>
-        execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+      let result = (await execTool(
+        customerTools.listMyAppointments as unknown as Record<string, unknown>,
+        {},
+        tempUserId,
       )) as Record<string, unknown>
       assert.ok(Array.isArray(result.appointments))
       assert.equal((result.appointments as unknown[]).length, 0)
@@ -246,8 +254,10 @@ describe('Customer tools — self-service appointments', () => {
         VALUES ($1, $2, '[TEST SELF] past', $3, '[600,660)'::int4range, $4, $4)`,
       [customerId, resourceId, pastDate, Date.now()],
     )
-    let result = (await runWithUserId(customerId, () =>
-      execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+    let result = (await execTool(
+      customerTools.listMyAppointments as unknown as Record<string, unknown>,
+      {},
+      customerId,
     )) as Record<string, unknown>
     let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
       (a: Record<string, unknown>) => a.title,
@@ -261,7 +271,7 @@ describe('Customer tools — self-service appointments', () => {
       await execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {})
       assert.fail('should have thrown')
     } catch (e) {
-      assert.ok(String(e).includes('Not authenticated as customer'))
+      assert.ok(String(e).includes('Not authenticated'))
     }
   })
 
@@ -280,8 +290,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let otherUserId = r2.rows[0].id
     try {
-      let result = (await runWithUserId(otherUserId, () =>
-        execTool(customerTools.listMyAppointments as unknown as Record<string, unknown>, {}),
+      let result = (await execTool(
+        customerTools.listMyAppointments as unknown as Record<string, unknown>,
+        {},
+        otherUserId,
       )) as Record<string, unknown>
       let titles = ((result.appointments as Array<Record<string, unknown>>) || []).map(
         (a: Record<string, unknown>) => a.title,
@@ -314,8 +326,10 @@ describe('Customer tools — self-service appointments', () => {
        VALUES ($1, $2, '[TEST SELF] cancel-2', $3, '[720,780)'::int4range, $4, $4)`,
       [customerId, resourceId, FUTURE + 86_400_000, Date.now()],
     )
-    let result = (await runWithUserId(customerId, () =>
-      execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+    let result = (await execTool(
+      customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
+      {},
+      customerId,
     )) as Record<string, unknown>
     // MED-6: use >= instead of === to tolerate any pre-existing appointments for this user
     assert.ok((result.cancelled as number) >= 2)
@@ -339,8 +353,10 @@ describe('Customer tools — self-service appointments', () => {
     )
     let tempUserId = r2.rows[0].id
     try {
-      let result = (await runWithUserId(tempUserId, () =>
-        execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+      let result = (await execTool(
+        customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
+        {},
+        tempUserId,
       )) as Record<string, unknown>
       assert.equal(result.cancelled, 0)
       assert.equal(result.failed, 0)
@@ -358,7 +374,7 @@ describe('Customer tools — self-service appointments', () => {
       await execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {})
       assert.fail('should have thrown')
     } catch (e) {
-      assert.ok(String(e).includes('Not authenticated as customer'))
+      assert.ok(String(e).includes('Not authenticated'))
     }
   })
 
@@ -380,8 +396,10 @@ describe('Customer tools — self-service appointments', () => {
     // Delete one appointment directly (simulates concurrent cancellation)
     await pool.query('DELETE FROM appointments WHERE id = $1', [race2Id])
     // Run cancelAll — should cancel race-1 (1 remaining) and handle race-2 gracefully
-    let result = (await runWithUserId(customerId, () =>
-      execTool(customerTools.cancelAllAppointments as unknown as Record<string, unknown>, {}),
+    let result = (await execTool(
+      customerTools.cancelAllAppointments as unknown as Record<string, unknown>,
+      {},
+      customerId,
     )) as Record<string, unknown>
     assert.ok((result.cancelled as number) >= 1)
     assert.ok((result.failed as number) === 0)

@@ -10,10 +10,7 @@ import {
 } from '../../../data/appointofferings.ts'
 import { getTodayUtcMidnight, MS_PER_DAY, formatMinOption } from '../../../utils/date-utils.ts'
 import { executeBookingWorkflow, executeCancellationWorkflow } from '../workflow-executor.ts'
-import { createAsyncStorage } from '../../../utils/async-storage.ts'
-
-const { runWithId: runWithUserId, requireId: requireCurrentUserId } = createAsyncStorage('customer')
-export { runWithUserId }
+import { requireActorId } from '../actor-context.ts'
 
 // German stop words that add no search value
 const STOP_WORDS = new Set([
@@ -349,8 +346,8 @@ export const customerTools = {
         .max(1380)
         .describe('Gewünschte Startzeit in Minuten seit Mitternacht'),
     }),
-    execute: async ({ resourceId, title, date, startMin }) => {
-      let customerId = requireCurrentUserId()
+    execute: async ({ resourceId, title, date, startMin }, { requestContext }) => {
+      let customerId = requireActorId(requestContext)
       return executeBookingWorkflow({ resourceId, customerId, title, date, startMin })
     },
   }),
@@ -370,8 +367,8 @@ export const customerTools = {
           'PFLICHTFELD: Beschreibe den Termin kurz zur Anzeige im Bestätigungsdialog (z.B. "Massage, 15.07.2026, 14:00–15:00 Uhr")',
         ),
     }),
-    execute: async ({ appointmentId }) => {
-      let requestingUserId = requireCurrentUserId()
+    execute: async ({ appointmentId }, { requestContext }) => {
+      let requestingUserId = requireActorId(requestContext)
       return executeCancellationWorkflow({ appointmentId, requestingUserId })
     },
   }),
@@ -381,8 +378,8 @@ export const customerTools = {
     description:
       'Zeigt die eigenen bevorstehenden Termine des Kunden an. Parameter: keine. Gibt eine Liste aller zukünftigen Termine des aktuell eingeloggten Kunden zurück mit ID, Datum, Uhrzeit, Ressourcenname und Titel.',
     inputSchema: z.object({}),
-    execute: async () => {
-      let userId = requireCurrentUserId()
+    execute: async (_input, { requestContext }) => {
+      let userId = requireActorId(requestContext)
       let todayMidnight = getTodayUtcMidnight()
       let result = await db.exec(sql`
         SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name
@@ -437,8 +434,8 @@ export const customerTools = {
           'PFLICHTFELD: Liste der Terminbeschreibungen zur Anzeige im Bestätigungsdialog (z.B. ["Massage, 15.07. 14:00", "Physio, 16.07. 10:00"])',
         ),
     }),
-    execute: async () => {
-      let userId = requireCurrentUserId()
+    execute: async (_input, { requestContext }) => {
+      let userId = requireActorId(requestContext)
       let todayMidnight = getTodayUtcMidnight()
       let result = await db.exec(sql`
         SELECT a.id, a.date, a.during::text AS during, a.title, r.name AS resource_name

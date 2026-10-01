@@ -4,6 +4,7 @@ import {
   MAX_MESSAGE_LENGTH,
   sanitizeLog,
 } from '../actions/mastra/shared-agent.ts'
+import { createActorRequestContext } from '../actions/mastra/actor-context.ts'
 import {
   createRunSignal,
   pipeStream,
@@ -48,8 +49,6 @@ interface AgentChatConfig {
   resolveAgent: () => TestAgent
   /** The durable pending-gate store for this surface. */
   gateStore: GateStore
-  /** Runs `fn` with the actor id in async-local scope for the agent tools. */
-  runWithActor: <T>(actorId: number, fn: () => T) => T
   /** Resolves the frame a `navigate` tool result targets (support panel). */
   getTarget?: ((path: string) => string) | undefined
   /** Records a run -> owner pointer before a stream starts (customer chat). */
@@ -275,13 +274,12 @@ export function createAgentChat(config: AgentChatConfig) {
         let run = createRunSignal(context.request.signal, AGENT_TIMEOUT_MS)
         try {
           let agent = config.resolveAgent()
-          let output = await config.runWithActor(actorId, () =>
-            agent.stream(message, {
-              maxSteps: 10,
-              abortSignal: run.signal,
-              memory: { thread: threadId, resource: String(actorId) },
-            }),
-          )
+          let output = await agent.stream(message, {
+            maxSteps: 10,
+            abortSignal: run.signal,
+            memory: { thread: threadId, resource: String(actorId) },
+            requestContext: createActorRequestContext(actorId),
+          })
 
           await config.recordRun?.({ ownerId: actorId, runId: output.runId, threadId })
           await store.upsert(actorId, { runId: output.runId, threadId })
@@ -357,19 +355,20 @@ export function createAgentChat(config: AgentChatConfig) {
           controller.enqueue(sseEvent('start', { runId, threadId }))
 
           let agent = config.resolveAgent()
-          let result = (await config.runWithActor(actorId, () =>
-            decision === 'approve'
-              ? agent.approveToolCallGenerate!({
-                  runId: runId!,
-                  abortSignal: run.signal,
-                  ...(toolCallId !== undefined ? { toolCallId } : {}),
-                })
-              : agent.declineToolCallGenerate!({
-                  runId: runId!,
-                  abortSignal: run.signal,
-                  ...(toolCallId !== undefined ? { toolCallId } : {}),
-                }),
-          )) as DecisionResult
+          let requestContext = createActorRequestContext(actorId)
+          let result = (await (decision === 'approve'
+            ? agent.approveToolCallGenerate!({
+                runId: runId!,
+                abortSignal: run.signal,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                requestContext,
+              })
+            : agent.declineToolCallGenerate!({
+                runId: runId!,
+                abortSignal: run.signal,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+                requestContext,
+              }))) as DecisionResult
 
           options.onDecision?.(runId!)
 
@@ -485,13 +484,12 @@ export function createAgentChat(config: AgentChatConfig) {
         let contRunId = runId!
         try {
           let agent = config.resolveAgent()
-          let output = await config.runWithActor(actorId, () =>
-            agent.resumeStream(resumeData, {
-              runId: runId!,
-              toolCallId,
-              abortSignal: run.signal,
-            }),
-          )
+          let output = await agent.resumeStream(resumeData, {
+            runId: runId!,
+            toolCallId,
+            abortSignal: run.signal,
+            requestContext: createActorRequestContext(actorId),
+          })
 
           controller.enqueue(sseEvent('start', { runId: output.runId, threadId: gateThreadId }))
 

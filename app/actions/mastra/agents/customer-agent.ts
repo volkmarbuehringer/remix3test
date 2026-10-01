@@ -2,7 +2,7 @@ import {
   UnicodeNormalizer,
   RegexFilterProcessor,
   TokenLimiterProcessor,
-  CostGuardProcessor,
+  TokenCostControl,
 } from '@mastra/core/processors'
 import { customerTools } from '../tools/customer-tools.ts'
 import { defineAppAgent } from '../agent-config.ts'
@@ -50,7 +50,7 @@ Regeln:
       strategy: 'block',
     }),
     new TokenLimiterProcessor({ limit: 10000 }),
-    new CostGuardProcessor({
+    new TokenCostControl({
       maxCost: 0.5,
       scope: 'resource',
       window: '24h',

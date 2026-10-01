@@ -4,7 +4,6 @@ import { mastra } from '../mastra/index.ts'
 import { routes } from '../../routes.ts'
 import { getCurrentUser } from '../../utils/context.ts'
 import { createRateLimiter } from '../../utils/rate-limiter.ts'
-import { runWithUserId } from '../mastra/tools/customer-tools.ts'
 import { sseErrorResponse } from '../../utils/agent-sse.ts'
 import { createAgentChat, validationErrorResponse } from '../../utils/agent-chat.ts'
 import { recordChatRun, findChatRunOwner, clearChatRun } from './run-store.ts'
@@ -130,7 +129,6 @@ const engine = createAgentChat({
   logPrefix: '[CustomerChat]',
   resolveAgent: resolveCustomerAgent,
   gateStore: chatGateStore,
-  runWithActor: (actorId, fn) => runWithUserId(actorId, fn),
   recordRun: (run) =>
     recordChatRun({ runId: run.runId, userId: run.ownerId, threadId: run.threadId }),
   clearRun: (runId) => clearChatRun(runId),
