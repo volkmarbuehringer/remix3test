@@ -3,8 +3,7 @@ import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { logAdminActionStrict } from '../../../data/audit-log.ts'
 import { getTodayUtcMidnight } from '../../../utils/date-utils.ts'
-import { dbNotificationSender } from '../notifications/sender.ts'
-import { enqueueFailedNotification } from '../notifications/queue.ts'
+import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
 
 const validateTargetStep = createStep({
   id: 'validate-target',
@@ -221,23 +220,24 @@ const notifyUserStep = createStep({
       }
     }
     try {
-      let result = await dbNotificationSender.send(
-        String(inputData.targetUserId),
-        'cancellation',
-        {
-          type: 'cancellation',
-          recipient: String(inputData.targetUserId),
-          customerName: inputData.userName,
-          title: 'Account cancelled',
-        },
-      )
+      let result = await dbNotificationSender.send(String(inputData.targetUserId), 'cancellation', {
+        type: 'cancellation',
+        recipient: String(inputData.targetUserId),
+        customerName: inputData.userName,
+        title: 'Account cancelled',
+      })
       if (!result.sent) {
-        enqueueFailedNotification(String(inputData.targetUserId), 'cancellation', {
-          type: 'cancellation',
-          recipient: String(inputData.targetUserId),
-          customerName: inputData.userName,
-          title: 'Account cancelled',
-        })
+        reportNotificationFailure(
+          String(inputData.targetUserId),
+          'cancellation',
+          {
+            type: 'cancellation',
+            recipient: String(inputData.targetUserId),
+            customerName: inputData.userName,
+            title: 'Account cancelled',
+          },
+          result.error,
+        )
       }
       return {
         success: true,
@@ -246,13 +246,18 @@ const notifyUserStep = createStep({
         auditLogged: inputData.auditLogged,
         notificationSent: result.sent,
       }
-    } catch {
-      enqueueFailedNotification(String(inputData.targetUserId), 'cancellation', {
-        type: 'cancellation',
-        recipient: String(inputData.targetUserId),
-        customerName: inputData.userName,
-        title: 'Account cancelled',
-      })
+    } catch (error) {
+      reportNotificationFailure(
+        String(inputData.targetUserId),
+        'cancellation',
+        {
+          type: 'cancellation',
+          recipient: String(inputData.targetUserId),
+          customerName: inputData.userName,
+          title: 'Account cancelled',
+        },
+        error,
+      )
       return {
         success: true,
         targetUserId: inputData.targetUserId,

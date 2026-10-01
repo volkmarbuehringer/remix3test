@@ -6,8 +6,7 @@ import { createAppointmentRecord } from '../../../data/appointments.ts'
 import { isExclusionConstraintError } from '../../../utils/db-errors.ts'
 import { isDateInPast } from '../../../utils/date-utils.ts'
 import { isSlotBookable } from '../../../data/appointofferings.ts'
-import { dbNotificationSender } from '../notifications/sender.ts'
-import { enqueueFailedNotification } from '../notifications/queue.ts'
+import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
 import { formatMinOption } from '../../../utils/date-utils.ts'
 
 const findAvailableSlotsStep = createStep({
@@ -186,11 +185,16 @@ const sendConfirmationStep = createStep({
         payload,
       )
       if (!result.sent) {
-        enqueueFailedNotification(String(inputData.customerId), 'confirmation', payload)
+        reportNotificationFailure(
+          String(inputData.customerId),
+          'confirmation',
+          payload,
+          result.error,
+        )
       }
       return { success: true, id: inputData.id, notificationSent: result.sent }
-    } catch {
-      enqueueFailedNotification(String(inputData.customerId), 'confirmation', payload)
+    } catch (error) {
+      reportNotificationFailure(String(inputData.customerId), 'confirmation', payload, error)
       return { success: true, id: inputData.id, notificationSent: false }
     }
   },

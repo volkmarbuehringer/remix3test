@@ -1,6 +1,9 @@
 import { db } from '../../../db.ts'
 import { createNotification, type NotificationType } from '../../../data/notifications.ts'
 import { broadcastNotification } from '../../../utils/notifications-sse.ts'
+import { createLogger } from '../../../utils/logger.ts'
+
+const log = createLogger('[Notification]')
 
 export interface NotificationData {
   recipient: string
@@ -91,8 +94,8 @@ function notificationBody(type: NotificationData['type'], data: NotificationData
 /**
  * In-app notification sender: persists one notification row for the user and
  * pushes a per-user SSE `new` event so the bell badge and inbox update live.
- * Throws on delivery failure (the workflow caller falls back to the retry
- * queue), and never affects the booking outcome.
+ * Throws on delivery failure; the workflow caller records the failure and
+ * continues, so it never affects the booking outcome.
  */
 export const dbNotificationSender: NotificationSender = {
   async send(recipient, type, data) {
@@ -118,4 +121,27 @@ export const dbNotificationSender: NotificationSender = {
     broadcastNotification(userId, { id: row.id, type: type as NotificationType, title })
     return { sent: true, provider: 'db' }
   },
+}
+
+/**
+ * Records a notification delivery failure.
+ *
+ * Notifications are a best-effort side effect of a booking or cancellation: the
+ * booking outcome must never depend on them. Failures are logged with the
+ * recipient and appointment context so they are observable — they are not
+ * queued, because there is no retry worker and an in-memory queue would be lost
+ * on restart (and would not help when the database itself is the failure cause).
+ */
+export function reportNotificationFailure(
+  recipient: string,
+  type: NotificationData['type'],
+  data: NotificationData,
+  error?: unknown,
+): void {
+  log.error('delivery failed', {
+    recipient,
+    type,
+    appointmentId: data.appointmentId,
+    error: error instanceof Error ? error.message : typeof error === 'string' ? error : undefined,
+  })
 }

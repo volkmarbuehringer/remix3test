@@ -7,11 +7,6 @@ import { db } from '../../db.ts'
 // Side-effect: initializes Mastra instance with all workflows
 import {} from './index.ts'
 import { consoleNotificationSender, dbNotificationSender } from './notifications/sender.ts'
-import {
-  clearFailedNotifications,
-  enqueueFailedNotification,
-  getFailedNotifications,
-} from './notifications/queue.ts'
 import { createAppointmentRecord, deleteAppointmentRecord } from '../../data/appointments.ts'
 import { notificationsChannel } from '../../utils/notifications-sse.ts'
 
@@ -39,10 +34,7 @@ async function createNotificationTestUser(): Promise<number> {
   return r.rows[0].id as number
 }
 
-async function readAllStream(
-  stream: ReadableStream,
-  controller: AbortController,
-): Promise<string> {
+async function readAllStream(stream: ReadableStream, controller: AbortController): Promise<string> {
   controller.abort()
   let reader = stream.getReader()
   let parts: string[] = []
@@ -70,31 +62,6 @@ describe('NotificationSender', () => {
   })
 })
 
-describe('Failed notification queue', () => {
-  it('enqueues and retrieves failed notifications', () => {
-    clearFailedNotifications()
-    enqueueFailedNotification('1', 'confirmation', { type: 'confirmation', recipient: '1' })
-    let items = getFailedNotifications()
-    assert.equal(items.length, 1)
-    assert.equal(items[0]!.recipient, '1')
-    assert.equal(items[0]!.type, 'confirmation')
-  })
-
-  it('clearFailedNotifications empties the queue', () => {
-    enqueueFailedNotification('1', 'confirmation', { type: 'confirmation', recipient: '1' })
-    clearFailedNotifications()
-    assert.equal(getFailedNotifications().length, 0)
-  })
-
-  it('multiple notifications accumulate in the queue', () => {
-    clearFailedNotifications()
-    enqueueFailedNotification('1', 'confirmation', { type: 'confirmation', recipient: '1' })
-    enqueueFailedNotification('2', 'cancellation', { type: 'cancellation', recipient: '2' })
-    enqueueFailedNotification('3', 'reminder', { type: 'reminder', recipient: '3' })
-    assert.equal(getFailedNotifications().length, 3)
-  })
-})
-
 describe('dbNotificationSender', () => {
   before(async () => {
     await initializeAppDatabase()
@@ -116,10 +83,10 @@ describe('dbNotificationSender', () => {
     assert.equal(result.sent, true)
     assert.equal(result.provider, 'db')
 
-    let rows = await pool.query(
-      'SELECT * FROM notifications WHERE user_id = $1 AND type = $2',
-      [userId, 'confirmation'],
-    )
+    let rows = await pool.query('SELECT * FROM notifications WHERE user_id = $1 AND type = $2', [
+      userId,
+      'confirmation',
+    ])
     assert.equal(rows.rows.length, 1, 'one confirmation row must be persisted')
     assert.equal(rows.rows[0].read_at, null, 'new rows start unread')
 
@@ -153,7 +120,6 @@ describe('dbNotificationSender', () => {
   })
 
   it('a throwing sender is caught and the booking outcome stays success (compensation)', async () => {
-    clearFailedNotifications()
     let bookingResult: { success: boolean; notificationSent?: boolean } | undefined
     try {
       let r = await dbNotificationSender.send('abc', 'confirmation', {
@@ -162,16 +128,16 @@ describe('dbNotificationSender', () => {
       })
       bookingResult = { success: true, notificationSent: r.sent }
     } catch {
-      // Exactly what the workflow send-step catch does:
-      enqueueFailedNotification('abc', 'confirmation', {
-        type: 'confirmation',
-        recipient: 'abc',
-      })
+      // Exactly what the workflow send-step catch does: record the failure and
+      // keep the booking outcome successful.
       bookingResult = { success: true, notificationSent: false }
     }
     assert.equal(bookingResult!.success, true, 'the booking result must remain success')
-    assert.equal(bookingResult!.notificationSent, false, 'a failed notification must not be reported sent')
-    assert.ok(getFailedNotifications().length >= 1, 'the failure must be enqueued for retry')
+    assert.equal(
+      bookingResult!.notificationSent,
+      false,
+      'a failed notification must not be reported sent',
+    )
   })
 })
 
@@ -247,27 +213,16 @@ describe('Booking mutation helpers', () => {
     await deleteAppointmentRecord(db, String(id), adminId)
   })
 
-  // Saga compensation test: notification sender returns sent:true,
-  // so the compensation branch (notification failure → enqueue + keep booking)
-  // is exercised by verifying the sender always succeeds and the queue
-  // accumulates only when explicitly enqueued.
-  it('notification sender always succeeds with console provider (saga compensation path is exercised)', async () => {
+  // Notification delivery is best-effort: a failure is recorded and the booking
+  // outcome is unchanged. The throwing-sender compensation path is covered
+  // above; this asserts the console provider always succeeds.
+  it('notification sender always succeeds with console provider', async () => {
     let result = await consoleNotificationSender.send('1', 'confirmation', {
       type: 'confirmation',
       recipient: '1',
       appointmentId: 999,
     })
     assert.equal(result.sent, true)
-    // If the sender ever returns sent:false, the compensation path
-    // (keep booking, enqueue failure) kicks in — test the queue side:
-    clearFailedNotifications()
-    enqueueFailedNotification('1', 'confirmation', {
-      type: 'confirmation',
-      recipient: '1',
-      appointmentId: 999,
-    })
-    assert.equal(getFailedNotifications().length, 1)
-    assert.equal(getFailedNotifications()[0]!.data.appointmentId, 999)
   })
 })
 

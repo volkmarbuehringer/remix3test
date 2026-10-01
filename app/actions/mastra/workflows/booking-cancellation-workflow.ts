@@ -2,8 +2,7 @@ import { createStep, createWorkflow } from '@mastra/core/workflows'
 import { z } from 'zod/v4'
 import { db } from '../../../db.ts'
 import { deleteAppointmentRecord } from '../../../data/appointments.ts'
-import { dbNotificationSender } from '../notifications/sender.ts'
-import { enqueueFailedNotification } from '../notifications/queue.ts'
+import { dbNotificationSender, reportNotificationFailure } from '../notifications/sender.ts'
 
 const verifyOwnershipStep = createStep({
   id: 'verify-ownership',
@@ -123,21 +122,25 @@ const sendCancellationNotificationStep = createStep({
         recipient,
       })
       if (!result.sent) {
-        enqueueFailedNotification(recipient, 'cancellation', {
-          type: 'cancellation',
+        reportNotificationFailure(
           recipient,
-        })
+          'cancellation',
+          { type: 'cancellation', recipient },
+          result.error,
+        )
       }
       return {
         success: true,
         appointmentId: inputData.appointmentId,
         notificationSent: result.sent,
       }
-    } catch {
-      enqueueFailedNotification(recipient, 'cancellation', {
-        type: 'cancellation',
+    } catch (error) {
+      reportNotificationFailure(
         recipient,
-      })
+        'cancellation',
+        { type: 'cancellation', recipient },
+        error,
+      )
       return { success: true, appointmentId: inputData.appointmentId, notificationSent: false }
     }
   },
