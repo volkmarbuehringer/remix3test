@@ -10,7 +10,7 @@ import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 // ---------------------------------------------------------------------------
 // /lists deferred client-entry regression (Firefox single import map).
 //
-// The remix/ui runtime renders the initial document's combined <ImportMap>,
+// The remix/component runtime renders the initial document's combined <ImportMap>,
 // but deferred client entries (ListsClient, ListsRowActions, ListNameEdit,
 // ListsSidebarKeyboard, ListsSearch) discovered in a frame response are loaded
 // later via a SECOND import map appended at runtime. Firefox honors only one

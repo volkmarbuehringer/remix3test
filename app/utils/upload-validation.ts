@@ -4,7 +4,7 @@
  * entries so browser-side validation never drifts from what the server enforces.
  *
  * Everything here is pure (no Node or DOM APIs) so it can be imported from a
- * remix/ui clientEntry.
+ * remix/component clientEntry.
  */
 
 import { ContentType } from 'remix/headers/content-type'

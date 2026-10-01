@@ -2,7 +2,7 @@ import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { validateUploadFiles, formatBytes } from '../../../utils/upload-validation.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 
-// Inline-style objects. remix/ui `css()` mixins cannot be applied to elements
+// Inline-style objects. remix/component `css()` mixins cannot be applied to elements
 // created at runtime (no frame render handle), so the dynamically-rendered
 // pending-file chips use plain styles instead. The typed `theme` tokens already
 // carry their `var()` wrapper, so assign them directly: wrapping them again
