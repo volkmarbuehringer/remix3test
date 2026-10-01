@@ -1,5 +1,44 @@
 # Code Deletion Log
 
+## [2026-10-01] Durable customer chat — gate-store reconnect retired (code retained)
+
+The feature-flagged durable customer chat (`CUSTOMER_CHAT_DURABLE=1`,
+`app/utils/agent-chat-durable.ts`) no longer reads the customer
+`chat_pending_gates` pointer for reconnect, and no longer calls
+`approveToolCallGenerate` / `declineToolCallGenerate` / `resumeStream`.
+Reconnect re-attaches with `durableAgent.observe(runId)` + `detach()` and reads
+the gate from durable workflow snapshot storage (`listSuspendedRuns`);
+tool-approval and `ask_user` resumes go through durable `resume()`.
+
+**No code was deleted in this pass.** The hand-rolled engine
+(`app/utils/agent-chat.ts`), `app/utils/agent-gate-store.ts` and
+`app/actions/chat/gate-store.ts` are retained unchanged as the default fallback
+until parity is proven and the flag is made permanent; the support surface still
+uses them. When the fallback is removed, the deletion set is
+`app/actions/chat/gate-store.ts`, the `chatGateStore` wiring in
+`app/actions/chat/controller.tsx`, and the gate-store branches of
+`app/utils/agent-chat.ts`.
+
+### Added
+
+- `app/utils/agent-chat-durable.ts` — durable customer chat engine.
+- `findLatestChatRun()` in `app/actions/chat/run-store.ts` — reconnect pointer.
+- `durableCustomerAgent` registration (lazy `mastra.addAgent()`) in
+  `app/actions/mastra/index.ts`.
+
+### Retained (not dead)
+
+- `app/actions/chat/gate-store.ts`, `app/utils/agent-gate-store.ts`,
+  `app/utils/agent-chat.ts` — fallback engine (flag off) and the support surface.
+- `recordChatRun` / `findChatRunOwner` / `clearChatRun` — the durable path's
+  ownership boundary (must not be dropped).
+
+### Impact
+
+- Files added: 1; files modified: 6 (no deletions).
+- Verification: `npm run typecheck`, `npm run lint`, the full server suite
+  (`remix test --type server`) and the chat browser suite.
+
 ## [2026-10-01] Remove the write-only failed-notification queue
 
 `app/actions/mastra/notifications/queue.ts` was an in-memory array with four

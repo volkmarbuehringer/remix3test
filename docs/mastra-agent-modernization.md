@@ -10,8 +10,10 @@ Sources of truth: the embedded docs in `node_modules/@mastra/core/dist/docs/refe
 > **Status (2026-10-01):** P0 item 3 (`RequestContext` instead of
 > `AsyncLocalStorage`) and the `CostGuardProcessor` → `TokenCostControl`
 > rename are implemented. Native `requireApproval` (item 2) and workflow
-> `schedule` (item 10) are **already in place** in the codebase, so no work
-> remains there. Everything else below is still a proposal.
+> `schedule` (item 10) are **already in place** in the codebase. P0 item 1
+> (durable agents) is **implemented for the customer chat behind the
+> `CUSTOMER_CHAT_DURABLE` flag** (§3.1); the support surface and the hand-rolled
+> engine remain as the fallback. Everything else below is still a proposal.
 
 ## 1. Current baseline
 
@@ -68,63 +70,117 @@ local build artifact — rebuild it with `npm run dev:mastra` after upgrading.)
 
 ### 3.1 Durable agents
 
+_Implemented for the customer chat, feature-flagged (2026-10-01)._
 `createDurableAgent()` (`@mastra/core/agent/durable`, added 1.45.0) runs the
 agentic loop inside a workflow, publishes chunks over PubSub, persists run
-state, and gives you `observe()` for reconnect, `resume()` for HITL, and
-crash recovery. That is exactly what `app/utils/agent-chat.ts` + the two gate
-stores implement by hand.
+state, and gives you `observe()` for reconnect and `resume()` for HITL. That is
+what `app/utils/agent-chat.ts` + the two gate stores implemented by hand.
+
+**What shipped**
+
+- `app/actions/mastra/index.ts` wraps `customerAgent` with
+  `createDurableAgent({ agent, id: 'customer-agent-durable' })` and registers it
+  on `mastra` as `durableCustomerAgent` via `mastra.addAgent(...)`. The support
+  surface keeps the raw agent until parity is proven.
+- `app/utils/agent-chat-durable.ts` (`createDurableAgentChat`) is the durable
+  customer engine. It keeps the legacy engine's four entry points
+  (`messageStream` / `toolDecision` / `answer` / `reconnect`) and the exact SSE
+  event vocabulary, so `app/assets/streams/public/customer-chat-stream.tsx` is
+  unchanged and `app/utils/agent-sse.ts` is reused as-is (the durable tool-call
+  step publishes the same `tool-call-approval` / `tool-call-suspended` chunks).
+- `app/actions/chat/controller.tsx` selects the durable engine behind
+  `CUSTOMER_CHAT_DURABLE=1` (or the `__setTestDurableChat` /
+  `__setTestDurableAgent` test seams). The hand-rolled engine is still the
+  default fallback.
 
 ```ts
-// app/actions/mastra/agent-config.ts
-import { createDurableAgent } from '@mastra/core/agent/durable'
-
-export function makeDurable<T extends Agent>(agent: T) {
-  return createDurableAgent({ agent /*, cache, shouldPersistSnapshot */ })
-}
-```
-
-```ts
-// index.ts
-export const mastra = new Mastra({
-  agents: { supportAgent: durableSupportAgent, customerAgent: durableCustomerAgent },
-  storage: mastraStorage,
-  recovery: { durableAgents: 'auto' }, // re-drive orphaned runs on boot
-  // ...
+// app/actions/mastra/index.ts — lazy registration
+durableCustomerAgent = createDurableAgent({
+  agent: customerAgent as unknown as Agent,
+  id: 'customer-agent-durable', // distinct, so getAgentById() resolves the wrapper
 })
-```
+mastra.addAgent(durableCustomerAgent, 'durableCustomerAgent')
 
-Streaming + reconnect replace most of the engine:
-
-```ts
-const { output, runId, cleanup } = await durableAgent.stream(message, {
+// app/utils/agent-chat-durable.ts
+const { output, runId, cleanup } = await agent.stream(message, {
+  maxSteps: 10,
+  abortSignal: run.signal,
   memory: { thread: threadId, resource: String(actorId) },
-  requestContext, // see 3.3
-  requireToolApproval: true, // durable agents accept boolean only
-  onSuspended: ({ toolCallId, toolName, args }) => {
-    /* surface gate */
-  },
+  requestContext: createActorRequestContext(actorId), // see 3.3
+  onSuspended: (data) => log('suspended:', data.type),
 })
-// later, after a reload:
-const { output, detach } = await durableAgent.observe(runId)
-request.signal.addEventListener('abort', detach, { once: true })
+// reconnect (detach, never cleanup):
+const { output, detach } = await agent.observe(runId, { onSuspended })
+// approval / question:
+await agent.resume(runId, { approved: decision === 'approve' }) // tool approval
+await agent.resume(runId, resumeData, { toolCallId }) // ask_user
 ```
 
-Impact: delete/retire `recordRun`/`findChatRunOwner`/`clearChatRun`,
-the `reconnect` verification seam, and the `clearGateOn` branching; keep the
-SSE event shape the browser already understands by adapting the new stream
-chunks in `app/utils/agent-sse.ts`.
+**Decisions that differ from the original sketch**
 
-Caveats:
+- **`requireToolApproval` is intentionally not passed.** The embedded
+  `docs-agents-human-in-the-loop.md` is explicit that call-site
+  `requireToolApproval: true` pauses **every** tool call, and durable agents
+  accept only a boolean (a predicate can't be serialized). The customer agent's
+  read-only tools (`search_resources_by_capability`,
+  `find_next_available_slots`, `list_my_appointments`) must keep running
+  without a click, while `cancel_booking` / `cancel_all_appointments` already
+  set tool-level `requireApproval: true`, which the durable tool-call step
+  honors. Passing `true` would break parity with the fallback engine.
+- **Crash recovery stays off.** `recovery.durableAgents` is left unset
+  (`'off'`), so no `running` checkpoints are written and nothing is re-driven at
+  boot. Recovery replays the agentic loop and can re-run tool side effects;
+  `trigger_booking_workflow`, `cancel_booking`, `cancel_all_appointments`
+  and the notification senders are not idempotent yet. Do not enable it until
+  they are, or gate `recoverActiveRuns()` behind a single-replica leader.
+- **Reconnect drops the gate store.** The durable path no longer reads or writes
+  `chat_pending_gates`. Reconnect resolves the actor's newest `chat_runs`
+  pointer, re-authorizes with `findChatRunOwner`, then re-attaches with
+  `observe(runId)` and `detach()` (never `cleanup()`, which would destroy a run
+  the user is about to resume). The gate payload comes from durable storage via
+  `listSuspendedRuns({ resourceId })`, which survives a server restart; the
+  in-memory `observe()` replay is a bounded best-effort confirmation. The
+  client-facing JSON contract is unchanged.
+- **Cleanup ownership.** `cleanup()` runs only on a terminal
+  (`complete`/`error`/`aborted`) from the process that started the run. A
+  suspension skips it, so a later `resume()` still finds the in-process registry
+  entry. `observe()` never calls `cleanup()`.
+- **Lazy registration.** `DurableAgent`'s constructor resolves the wrapped
+  agent's model eagerly (`model: agent.__model ?? agent.getModel()`), so wrapping
+  at module load would make a missing `OPENCODE_API_KEY` fail app startup instead
+  of the AI route — the opposite of this app's lazy-model design. The wrapper is
+  created and registered on first durable use.
 
-- In-memory event cache is single-process; for the production/multi-replica path
-  pass a persistent `cache` (Redis/Valkey) and a shared PubSub. The app already
-  runs a dedicated observability Postgres pool, so infra exists.
+**Retained / retired**
+
+`recordChatRun` / `findChatRunOwner` / `clearChatRun` are retained — they are
+the ownership boundary the durable path must never drop — and are joined by
+`findLatestChatRun` for reconnect. When the flag is on, the customer surface no
+longer touches `chat_pending_gates` and no longer calls
+`approveToolCallGenerate` / `declineToolCallGenerate` / `resumeStream`. Both
+the gate store and the legacy engine remain until parity is proven and the
+fallback is removed.
+
+Caveats (unchanged):
+
+- The default event cache is in-memory and single-process; a multi-replica
+  deployment needs a persistent `cache` (Redis/Valkey) plus a shared PubSub.
+  Reconnect's `listSuspendedRuns` fallback is storage-backed, so it still works
+  across a restart; `observe()` replay does not.
 - Snapshot recovery can **replay tool side effects** (booking, cancellation,
-  notification). Make those tools idempotent or keep
-  `recovery.durableAgents: 'off'` and call `recoverActiveRuns()` manually
-  behind a single-replica gate.
+  notification).
 - `shouldPersistSnapshot` defaults are fine for HITL (always persists
   `suspended`/`paused`).
+- A suspended run intentionally keeps its in-process registry entries and cached
+  events — that is what `resume()` reads — and Mastra's auto-cleanup timer does
+  not fire on `suspended`. The existing `chat_runs` TTL sweep reclaims the
+  ownership row, but the registry/cache entry for a run the customer abandons
+  lives until the process restarts. Resolve (approve/decline/answer) or abort
+  abandoned runs to release it.
+
+**Verified:** `npm run typecheck`, `npm run lint`, the full server suite
+(`remix test --type server`) and the chat browser suite
+(`app/assets/streams/streams.test.browser.tsx`).
 
 ### 3.2 Native tool approval
 
