@@ -1,4 +1,4 @@
-import { css } from 'remix/ui'
+import { css } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { LABEL_WIDTH, HOURS, SLOT_HEIGHT, SUB_SLOT_HEIGHT } from './appointment-grid-types.ts'
 

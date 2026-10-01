@@ -1,4 +1,4 @@
-import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 export const ListsRowActions = clientEntry(
   import.meta.url + '#ListsRowActions',

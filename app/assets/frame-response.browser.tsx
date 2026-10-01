@@ -1,4 +1,4 @@
-import type { FrameContent, ResolveFrameOptions } from 'remix/ui'
+import type { FrameContent, ResolveFrameOptions } from 'remix/component'
 import { Accept, SuperHeaders } from 'remix/headers'
 
 import { routes } from '../routes.ts'

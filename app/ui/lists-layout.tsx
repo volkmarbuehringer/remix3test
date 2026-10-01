@@ -1,4 +1,4 @@
-import { type RemixNode, type Handle, css, Frame } from 'remix/ui'
+import { type RemixNode, type Handle, css, Frame } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
 import { theme } from '../ui/theme/theme.ts'
 

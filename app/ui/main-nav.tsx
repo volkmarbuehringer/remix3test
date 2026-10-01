@@ -1,4 +1,4 @@
-import { css } from 'remix/ui'
+import { css } from 'remix/component'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
 import { getContext } from 'remix/middleware/async-context'

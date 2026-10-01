@@ -1,4 +1,4 @@
-import type { css, Handle, RemixElement } from 'remix/ui'
+import type { css, Handle, RemixElement } from 'remix/component'
 
 export interface ThemeVariableTree {
   [key: string]: string | ThemeVariableTree

@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 
 const SIDEBAR_ID = 'sidebar-shell-nav'
 const TOGGLE_ID = 'sidebar-shell-toggle'

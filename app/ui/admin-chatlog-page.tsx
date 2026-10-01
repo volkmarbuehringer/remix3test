@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css, Fragment, Frame } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css, Fragment, Frame } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { rotatedGlyphCss } from './mixins/icon.ts'

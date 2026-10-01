@@ -1,10 +1,10 @@
-import { clientEntry, css, on, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, on, ref, type Handle } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 import { Separator } from '../ui/theme/separator/separator.ts'
-import * as menu from 'remix/ui/menu/primitives'
-import { onMenuSelect } from 'remix/ui/menu/primitives'
-import { MenuItem, MenuList } from 'remix/ui/menu'
+import * as menu from '@remix-run/ui/menu'
+import { onMenuSelect } from '@remix-run/ui/menu'
+import { MenuItem, MenuList } from './theme/menu/index.tsx'
 
 import {
   getTypeDragState,

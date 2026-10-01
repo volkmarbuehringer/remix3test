@@ -1,6 +1,6 @@
 import { createAssetServer } from 'remix/assets'
 import { loadConfig } from 'remix/cli'
-import { uiHmr } from 'remix/ui-hmr/assets'
+import { componentHmr } from 'remix/component-hmr/assets'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isHmr = Boolean(isDevelopment && process.env.REMIX_NODE_HMR)
@@ -21,7 +21,7 @@ export const assetServer = createAssetServer({
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'development'),
     },
-    ...(isHmr ? { loaders: [uiHmr()] } : {}),
+    ...(isHmr ? { loaders: [componentHmr()] } : {}),
   },
   minify: !isDevelopment,
 })

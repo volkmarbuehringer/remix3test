@@ -1,4 +1,4 @@
-import type { Handle, RemixNode, MixValue, ElementProps } from 'remix/ui'
+import type { Handle, RemixNode, MixValue, ElementProps } from 'remix/component'
 
 type NavLinkProps = {
   href?: string | undefined

@@ -1,4 +1,4 @@
-import { clientEntry, on, ref, type Handle } from 'remix/ui'
+import { clientEntry, on, ref, type Handle } from 'remix/component'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import {

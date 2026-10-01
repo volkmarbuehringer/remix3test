@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css, Frame } from 'remix/component'
 import { Glyph, type GlyphName } from './theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
 

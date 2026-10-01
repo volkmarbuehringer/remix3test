@@ -1,4 +1,4 @@
-import { Fragment, type Handle } from 'remix/ui'
+import { Fragment, type Handle } from 'remix/component'
 import { theme } from './theme/theme.ts'
 import { parseMarkdown, type InlineToken, type MarkdownBlock } from '../utils/markdown.ts'
 

@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 import button from './theme/button.ts'
 import { table } from './mixins/admin-table.ts'
 

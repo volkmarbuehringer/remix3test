@@ -1,4 +1,4 @@
-import { clientEntry, css, navigate, on, type Handle } from 'remix/ui'
+import { clientEntry, css, navigate, on, type Handle } from 'remix/component'
 import { rotatedGlyphCss } from './mixins/icon.ts'
 import { theme } from '../ui/theme/theme.ts'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'

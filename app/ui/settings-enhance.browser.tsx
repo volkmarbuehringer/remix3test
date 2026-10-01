@@ -1,4 +1,4 @@
-import { clientEntry, css, type Handle } from 'remix/ui'
+import { clientEntry, css, type Handle } from 'remix/component'
 
 /**
  * Client-side UX enhancement for /settings. Rendered as a `clientEntry` so it

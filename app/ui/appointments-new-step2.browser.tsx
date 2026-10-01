@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 import { formatMinOption, formatDateDE } from '../utils/date-utils.ts'
 
 function syncSelection(form: HTMLFormElement): void {

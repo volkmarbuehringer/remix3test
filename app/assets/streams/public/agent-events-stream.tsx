@@ -1,4 +1,4 @@
-import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { routes } from '../../../routes.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 import { MAX_MESSAGE_LENGTH } from '../../../utils/message-limits.ts'

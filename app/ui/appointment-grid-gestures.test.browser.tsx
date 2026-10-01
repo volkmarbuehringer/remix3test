@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { render } from 'remix/ui/test'
+import { render } from 'remix/component/test'
 
 import {
   previewMoveBlock,

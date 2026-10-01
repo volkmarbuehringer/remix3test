@@ -1,4 +1,4 @@
-import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
 
 import { theme } from '../../../ui/theme/theme.ts'
 import { setupAutoGrowTextarea } from '../../../ui/auto-grow-textarea.ts'

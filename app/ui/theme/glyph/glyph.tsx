@@ -1,5 +1,5 @@
-import { createElement } from 'remix/ui'
-import type { Handle, Props, RemixElement } from 'remix/ui'
+import { createElement } from 'remix/component'
+import type { Handle, Props, RemixElement } from 'remix/component'
 
 import { glyphContract, glyphNames, type GlyphName, type GlyphValues } from '../glyph-contract.ts'
 

@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { css, type Handle } from 'remix/ui'
+import { css, type Handle } from 'remix/component'
 import { SuperHeaders } from 'remix/headers'
 import { redirect } from 'remix/response/redirect'
 import {

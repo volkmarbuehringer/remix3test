@@ -4,7 +4,7 @@ import type { RequestContext } from 'remix/router'
 import { Auth } from 'remix/middleware/auth'
 import type { AuthState } from 'remix/middleware/auth'
 import { Renderer } from 'remix/middleware/render'
-import type { RemixNode } from 'remix/ui'
+import type { RemixNode } from 'remix/component'
 
 import type { User } from '../data/schema.ts'
 import { requireAdmin } from './admin.ts'

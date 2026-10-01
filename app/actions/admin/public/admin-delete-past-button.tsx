@@ -1,4 +1,4 @@
-import { clientEntry, on, type Handle } from 'remix/ui'
+import { clientEntry, on, type Handle } from 'remix/component'
 import button from '../../../ui/theme/button.ts'
 
 interface DeletePastButtonProps {

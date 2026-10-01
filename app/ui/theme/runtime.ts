@@ -1,4 +1,4 @@
-import { createElement, unsafeHTML, type Handle } from 'remix/ui'
+import { createElement, unsafeHTML, type Handle } from 'remix/component'
 
 import { REMIX_UI_RESET_LAYER, REMIX_UI_STYLE_LAYER } from './layers.ts'
 import {

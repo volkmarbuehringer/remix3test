@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import { ClientEditPage } from './edit-page.tsx'
 
 // ---------------------------------------------------------------------------

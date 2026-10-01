@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 
 const COOKIE_META = 'path=/; max-age=31536000; SameSite=Lax'
 

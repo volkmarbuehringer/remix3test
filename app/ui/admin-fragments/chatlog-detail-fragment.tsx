@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css, Fragment } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css, Fragment } from 'remix/component'
 import { theme } from '../../ui/theme/theme.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 import type { ChatMessage } from '../../types/chatlog.ts'

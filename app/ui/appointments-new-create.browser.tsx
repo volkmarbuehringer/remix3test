@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 
 // The create/delete panel can load scrolled past its header: a frame navigation
 // can carry a stale scroll offset into the new step, and the sticky column only

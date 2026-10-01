@@ -1,6 +1,6 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { render } from 'remix/ui/test'
+import { render } from 'remix/component/test'
 
 import { ResourceCards } from './appointments-new-resource-cards.tsx'
 import { CreatePanelScrollLive } from './appointments-new-create.browser.tsx'

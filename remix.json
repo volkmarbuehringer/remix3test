@@ -16,7 +16,7 @@
       "app/routes.ts",
       "app/utils/**"
     ],
-    "allowPackages": ["remix"],
+    "allowPackages": ["@remix-run/ui", "remix"],
     "denyFiles": ["app/**/*.server.*", "app/**/*.test.*"]
   },
   "db": {

@@ -1,4 +1,4 @@
-import type { Handle, Props } from 'remix/ui'
+import type { Handle, Props } from 'remix/component'
 import { getContext } from 'remix/middleware/async-context'
 import { getCsrfToken } from 'remix/middleware/csrf'
 

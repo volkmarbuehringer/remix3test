@@ -1,6 +1,6 @@
 import { describe, it, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { type Handle } from 'remix/ui'
+import { type Handle } from 'remix/component'
 
 import { NavToggle } from './nav-toggle.browser.tsx'
 

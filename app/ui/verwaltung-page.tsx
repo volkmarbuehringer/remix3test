@@ -1,4 +1,4 @@
-import { css, type Handle } from 'remix/ui'
+import { css, type Handle } from 'remix/component'
 import { Glyph, type GlyphName } from '../ui/theme/glyph/glyph.tsx'
 import { theme } from '../ui/theme/theme.ts'
 

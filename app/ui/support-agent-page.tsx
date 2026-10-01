@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css, Frame } from 'remix/component'
 import { theme } from './theme/theme.ts'
 import { routes, frames } from '../routes.ts'
 import { SupportAgentStream } from '../assets/streams/public/support-agent-stream.tsx'

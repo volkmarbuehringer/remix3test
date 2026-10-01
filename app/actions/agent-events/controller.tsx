@@ -1,5 +1,5 @@
 import { createController } from 'remix/router'
-import { css, type Handle } from 'remix/ui'
+import { css, type Handle } from 'remix/component'
 import { requireAdmin } from '../../middleware/admin.ts'
 import { sseHeaders, sseErrorResponse, sseEvent, safeClose } from '../../utils/agent-sse.ts'
 import { renderAdminPage } from '../../ui/admin-layout.tsx'

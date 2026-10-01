@@ -1,4 +1,4 @@
-import { clientEntry, css, on, type Handle } from 'remix/ui'
+import { clientEntry, css, on, type Handle } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
 
 const refreshBtnStyle = css({

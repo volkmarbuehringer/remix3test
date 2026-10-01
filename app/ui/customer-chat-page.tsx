@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css } from 'remix/component'
 import { theme } from './theme/theme.ts'
 import { routes } from '../routes.ts'
 import { CustomerChatStream } from '../assets/streams/public/customer-chat-stream.tsx'

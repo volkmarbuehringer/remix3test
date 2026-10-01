@@ -1,5 +1,5 @@
-import { createElement, css, type CSSMixinDescriptor } from 'remix/ui'
-import type { Handle, RemixNode } from 'remix/ui'
+import { createElement, css, type CSSMixinDescriptor } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/component'
 
 import { theme } from '../contract.ts'
 

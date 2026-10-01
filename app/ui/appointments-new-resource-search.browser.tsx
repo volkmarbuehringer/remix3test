@@ -1,4 +1,4 @@
-import { clientEntry, type Handle } from 'remix/ui'
+import { clientEntry, type Handle } from 'remix/component'
 
 function normalize(value: string): string {
   return value.trim().toLocaleLowerCase('de-DE')

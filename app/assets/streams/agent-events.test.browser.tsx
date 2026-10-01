@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'remix/test'
 import * as assert from 'remix/assert'
-import { Frame } from 'remix/ui'
-import { render } from 'remix/ui/test'
+import { Frame } from 'remix/component'
+import { render } from 'remix/component/test'
 
 import { AgentEventsStream } from './public/agent-events-stream.tsx'
 import { routes } from '../../routes.ts'

@@ -1,4 +1,4 @@
-import { type RemixNode, css, on, ref } from 'remix/ui'
+import { type RemixNode, css, on, ref } from 'remix/component'
 import { theme } from '../../../ui/theme/theme.ts'
 import { frames } from '../../../routes.ts'
 import button from '../../../ui/theme/button.ts'

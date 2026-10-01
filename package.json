@@ -29,8 +29,9 @@
     "date-holidays": "^3.37.0",
     "nodemailer": "^10.0.13",
     "pdfmake": "^0.3.11",
-    "pg": "^8.23.0",
+    "pg": "^8.23.1",
     "remix": "github:remix-run/remix#preview/main&path:packages/remix",
+    "@remix-run/ui": "github:remix-run/remix#preview/main&path:packages/ui",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -54,5 +55,3 @@
   },
   "packageManager": "pnpm@11.25.0"
 }
-
-

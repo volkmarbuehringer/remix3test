@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import type { Client } from '../../data/schema.ts'
 import { ClientGridPage } from './grid-page.tsx'
 import { ClientEditPage } from './edit-page.tsx'

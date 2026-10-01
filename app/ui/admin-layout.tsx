@@ -1,4 +1,4 @@
-import type { RemixNode } from 'remix/ui'
+import type { RemixNode } from 'remix/component'
 import { Glyph } from '../ui/theme/glyph/glyph.tsx'
 
 import { routes, frames } from '../routes.ts'

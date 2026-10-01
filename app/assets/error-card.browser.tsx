@@ -1,6 +1,6 @@
-import type { Handle, RemixNode } from 'remix/ui'
-import { createRoot, css, on } from 'remix/ui'
-import { animateEntrance, spring } from 'remix/ui/animation'
+import type { Handle, RemixNode } from 'remix/component'
+import { createRoot, css, on } from 'remix/component'
+import { animateEntrance, spring } from '@remix-run/ui/animation'
 import { entrance } from '../utils/motion.ts'
 import { theme } from '../ui/theme/theme.ts'
 

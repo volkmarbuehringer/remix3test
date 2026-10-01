@@ -1,4 +1,4 @@
-import { clientEntry, css, ref, type Handle } from 'remix/ui'
+import { clientEntry, css, ref, type Handle } from 'remix/component'
 import { validateUploadFiles, formatBytes } from '../../../utils/upload-validation.ts'
 import { theme } from '../../../ui/theme/theme.ts'
 

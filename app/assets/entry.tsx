@@ -1,5 +1,5 @@
-import { run } from 'remix/ui'
-import { spring } from 'remix/ui/animation'
+import { run } from 'remix/component'
+import { spring } from '@remix-run/ui/animation'
 import {
   detectMultipleImportMapSupport,
   importModule,

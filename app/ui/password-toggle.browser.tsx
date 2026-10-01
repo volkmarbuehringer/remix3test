@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import { getCspNonce } from '../middleware/security-headers.ts'
 
 export function PasswordToggle(_handle: Handle) {

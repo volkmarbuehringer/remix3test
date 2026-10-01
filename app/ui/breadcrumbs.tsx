@@ -1,10 +1,15 @@
-import { css, type Handle, type RemixNode } from 'remix/ui'
-import type { BreadcrumbItem } from 'remix/ui/breadcrumbs'
+import { css, type Handle, type RemixNode } from 'remix/component'
 
 import { theme } from '../ui/theme/theme.ts'
 import { ROUTE_LABELS } from '../route-labels.ts'
 
-// App-owned breadcrumb renderer. The vendor `remix/ui/breadcrumbs` component
+export interface BreadcrumbItem {
+  current?: boolean
+  href?: string
+  label: RemixNode
+}
+
+// App-owned breadcrumb renderer. The vendor `@remix-run/ui/breadcrumbs` component
 // styles its items with hardcoded `light-dark(...)` pixel values that resolve
 // from the OS `prefers-color-scheme` (via `color-scheme`) rather than the app's
 // `data-theme` toggle, so its text becomes unreadable whenever the app theme

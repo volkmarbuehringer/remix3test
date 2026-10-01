@@ -1,5 +1,5 @@
-import type { Handle } from 'remix/ui'
-import { css, Frame } from 'remix/ui'
+import type { Handle } from 'remix/component'
+import { css, Frame } from 'remix/component'
 import { theme } from './theme/theme.ts'
 import { routes, frames } from '../routes.ts'
 import { MAX_MESSAGE_LENGTH } from '../utils/message-limits.ts'
