@@ -372,7 +372,7 @@ export const shellResponsiveStyle = css({
 })
 
 /** On phones the sidebar is a drawer: hidden until the toggle opens it. */
-export const sidebarResponsiveStyle = css({
+const sidebarResponsiveStyle = css({
   '@media (max-width: 768px)': {
     display: 'none',
     position: 'static',

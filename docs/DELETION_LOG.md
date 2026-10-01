@@ -1,5 +1,63 @@
 # Code Deletion Log
 
+## [2026-10-01] Post-drift Dead-Code & Export-Hygiene Pass
+
+Fresh knip (6.38), depcheck, ts-prune, tsc, and oxlint pass after the
+2026-09-27 → 2026-10-01 commit series. The repo remains clean: knip's 156
+"unused files" are all test files (remix.json `test.files` globs), browser
+assets (remix.json `assets.allowFiles`), test utilities, and manually-run
+scripts — none are dead. The 54 "unused exports" / 6 "unused types" are
+likewise test-only seams and Mastra-registry / asset-graph consumers knip
+cannot follow; each was grep-verified against every production, test,
+browser-asset, and script file. The only unused devDeps are the `openspec` CLI
+tools (binary-invoked, not import-tracked) — kept.
+
+### Unused Exports Privatized (removed `export` keyword)
+
+- `app/data/offering-configs-queries.ts` — `OFFERING_CONFIGS_ORDER_BY_COLUMNS`.
+  Knip flagged it as an unused export; grep confirmed zero references outside
+  the module (it feeds `OFFERING_CONFIGS_SORTABLE_FIELDS` and the
+  `listOfferingConfigs` order-by lookup in the same file). The whitelist map
+  stays module-private; `OFFERING_CONFIGS_SORTABLE_FIELDS` remains the public
+  surface.
+- `app/ui/sidebar-layout.tsx` — `sidebarResponsiveStyle`. Knip flagged it as
+  an unused export; grep confirmed zero references outside the module (it is
+  only applied at the sidebar-shell `<aside mix={...}>` in the same file).
+
+### Kept Deliberately (with reason)
+
+- All knip "unused files": test files, browser assets (`*.browser.*`,
+  `app/assets/streams/public/*`), test utilities (`test/setup.ts`,
+  `app/test-utils*`, `app/data/test-pool.ts`, `playwright.config.ts`), and
+  manually-run scripts (`scripts/convert-ecc-skills.ts`,
+  `scripts/seed-demo-appointments.ts`, `scripts/validate-appointments-mobile.mjs`).
+- Test-only exports (`__set*` seams, `findRunOwner`, `writeEvent`,
+  `chatRateLimiter`, `consoleNotificationSender`, `getFailedNotifications`,
+  `clearFailedNotifications`, `findNotification`, `listDaysWithOfferings`,
+  `deleteExpired*`, `skipAssetsLogger`, `serializeSessionCookie`,
+  `readSessionId`, `isAllowedCsrfOrigin`, `uploadLimitErrorCode`, `AdminLayout`,
+  `pipelineRowHtml`, `tryGetCsrfToken`, `ForbiddenPage`, `defaultLayoutPolicy`,
+  `previewDeleteBlock`, `errorToText`, `parseInline`, `listChatThreads`, types
+  `PendingGateRow`/`AgentStreamOutput`/`PgErr`/`KeyboardListItem`/
+  `SendEmailOptions`) — imported by `*.test.*` files; removing would break the
+  suite. `PendingGateRow` is a re-export (not a duplicate) shared from
+  `app/utils/agent-gate-store.ts`.
+- Mastra-registry exports (agents, workflows, scorers, tools) — wired in
+  `app/actions/mastra/index.ts` and consumed via the Mastra registry, which
+  knip/ts-prune cannot follow.
+- `openspec` + `@fission-ai/openspec` devDependencies — CLI tools invoked as
+  the `openspec` binary by `.opencode/commands/opsx-*`; not import-tracked by
+  knip/depcheck.
+
+### Impact
+
+- Files touched: 2 (export-keyword removal only)
+- Lines changed: 2 insertions / 2 deletions (net 0)
+- Verification: `npm run typecheck` (clean), `npm run lint` (oxlint
+  `--max-warnings=0` + theme conformance OK), `npm run format` (clean on all
+  touched files), `npm test` (1900 tests: 1897 pass / 0 fail / 2 skipped /
+  1 todo)
+
 ## [2026-09-27] Drift Cleanup + Grid-Helper Consolidation
 
 Full-repo audit after the Sep-19 → Sep-26 remix/security commit series. knip,

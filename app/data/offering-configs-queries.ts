@@ -77,7 +77,7 @@ export function toOfferingConfigRow(row: Record<string, unknown>): OfferingConfi
  * can never reach the SQL text: the caller picks a key, the data layer picks
  * the expression.
  */
-export const OFFERING_CONFIGS_ORDER_BY_COLUMNS: Record<string, string> = {
+const OFFERING_CONFIGS_ORDER_BY_COLUMNS: Record<string, string> = {
   id: 'oc.id',
   resource_description: 'r.name',
   created_at: 'oc.created_at',
