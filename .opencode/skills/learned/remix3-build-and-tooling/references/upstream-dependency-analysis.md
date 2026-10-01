@@ -54,3 +54,33 @@ Key focus areas when reviewing diffs:
 - Upstream commits have landed on that branch
 - Before running `pnpm update <dep>` or `npm update <dep>`
 - When debugging regressions after a dependency update
+
+## Version Lines After the Component/UI Split (#11948)
+
+As of 2026-10-01 the repo carries **three independent version lines**, so a single "remix version" no longer describes the dependency set. At the `Release` commit (`79b435003` on `release-pr/main`, which is what a `preview/main` install resolves to) they are:
+
+| package | version | notes |
+| --- | --- | --- |
+| `remix` | `3.0.0-rc.5` | stable `3.0.0` is pending the `chore: prepare Remix 3 stable release` branch; in prerelease mode changesets bumps the prerelease counter, not the minor |
+| `@remix-run/component` | `0.8.0` | runtime; aliased as `remix/component*` |
+| `@remix-run/component-hmr` | `0.1.0` | aliased as `remix/component-hmr*` |
+| `@remix-run/ui` | `0.12.0` | primitives + animation; **not** aliased into `remix`, must be a direct dependency |
+
+`3.0.0-rc.4` with `ui 0.11.0` / `component 0.7.0` / `component-hmr 0.0.0` is the pre-release state at the split commit itself (`7513dae`).
+
+**Release-day `package.json` pair.** Only two top-level entries are needed — `remix` and `@remix-run/ui`. Do not declare `@remix-run/component`(-hmr) directly; they arrive transitively and dedupe to one copy:
+
+```jsonc
+"remix": "^3.0.0",          // "^3.0.0-rc.5" while still on the release candidate
+"@remix-run/ui": "^0.12.0"
+```
+
+**`0.x` caret caveat.** On a `0.x` package, `^0.12.0` means `>=0.12.0 <0.13.0` — it locks the minor and allows only patches. That is the correct pin: a `0.x` minor can be breaking (0.11 -> 0.12 deleted the styled `button`/`breadcrumbs`/`checkbox`/`input`/`radio` modules plus the package-root runtime and JSX exports). Do not widen it to `>=0.12.0`.
+
+**Git-spec equivalent.** If the app keeps `github:` specs instead of npm versions there is no number to write — pin **both** `path:` entries to the same ref/SHA so only one `@remix-run/component` resolves:
+
+```jsonc
+"remix":         "github:remix-run/remix#<ref-or-sha>&path:packages/remix",
+"@remix-run/ui": "github:remix-run/remix#<ref-or-sha>&path:packages/ui"
+```
+
