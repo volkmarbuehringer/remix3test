@@ -1,6 +1,6 @@
 ---
 name: mastra-tools
-description: 'Use when designing or hard-gating Mastra agent tools — requireApproval + generate(), suspension detection, sequential approval chaining, single-job tool separation, parameter self-lookup, and offset pagination.'
+description: 'Use when designing or hard-gating Mastra agent tools — requireApproval + generate(), suspension detection, sequential approval chaining, single-job tool separation, parameter self-lookup, reading the current actor via RequestContext, and offset pagination.'
 origin: consolidated
 ---
 
@@ -16,13 +16,14 @@ This skill is the **index** for tool-design deltas. For the base approval API (`
 | --- | --- |
 | Hard-gating a destructive tool with `agent.generate()`; the detached-`this` trap; sequential multiple-`requireApproval` chaining; inferring which tool suspended from the payload | `references/approval-gating.md` |
 | Designing tools: one job per tool, internal parameter self-lookup instead of asking the LLM, offset pagination for "show more" | `references/tool-design.md` |
+| Reading the current user/admin id in `execute`; `RequestContext` vs old `AsyncLocalStorage`; `TS2322` on a typed context | `references/actor-request-context.md` |
 
 ## Core Rules
 
 - Call `agent.approveToolCallGenerate(...)` / `declineToolCallGenerate(...)` directly on the agent (or `.call(agent, ...)`) — extracting the method drops `this` and crashes in `resumeGenerate`.
 - `approveToolCallGenerate` returns a `FullOutput` with **no** `runId`/`fullStream`; emit a `start` SSE event with the known `runId` first or the client's `currentRunId` stays null and later decisions silently no-op.
 - A `requireApproval` suspension payload has `toolCallId`/`toolName`/`args` (not `question`); `askUserTool` has `question`. Branch on the payload shape.
-- Look up session/context parameters (admin id/email, IP, tenant, timestamp) inside `execute`, not in the input schema — otherwise the LLM asks the user, confabulates, or skips the tool.
+- Look up session/context parameters (admin id/email, IP, tenant, timestamp) inside `execute` from the second `{ requestContext }` argument, not in the input schema — otherwise the LLM asks the user, confabulates, or skips the tool.
 - Give each phase its own single-job tool (lookup → navigate → ask_user → execute) rather than a `confirmed` state flag.
 
 ## Related Skills

@@ -1,5 +1,80 @@
 # Code Deletion Log
 
+## [2026-10-01] Remove the write-only failed-notification queue
+
+`app/actions/mastra/notifications/queue.ts` was an in-memory array with four
+production callers (`booking-reminder`, `customer-booking`,
+`booking-cancellation`, `cancel-user` workflows) and **no production reader**:
+`getFailedNotifications` / `clearFailedNotifications` were imported only by
+`workflows.test.ts`. Failed deliveries accumulated unbounded, were never
+retried, and vanished on restart. `sender.ts` documented a "retry queue" that
+did not exist.
+
+Replaced with `reportNotificationFailure(recipient, type, data, error)` in
+`notifications/sender.ts`, which logs the failure (recipient, type,
+appointment id, error message) through the shared logger. The workflows keep
+their existing best-effort contract — a delivery failure still never fails the
+booking — but it is now observable instead of silently retained in a queue
+nobody drains.
+
+Note: a durable retry (a `failed_notifications` table drained by the scheduled
+reminder workflow) remains available if real retry semantics are wanted; it was
+not added because it would not help when the database is the failure cause and
+would need poison-pill handling for permanent failures such as an invalid
+recipient.
+
+### Removed
+
+- `app/actions/mastra/notifications/queue.ts`.
+
+### Added
+
+- `reportNotificationFailure()` in `app/actions/mastra/notifications/sender.ts`.
+
+### Migrated
+
+- `app/actions/mastra/workflows/{booking-reminder,customer-booking,booking-cancellation,cancel-user}-workflow.ts`
+  and `app/actions/mastra/workflows.test.ts`.
+
+## [2026-10-01] Mastra RequestContext migration
+
+Replaced the per-surface `AsyncLocalStorage` actor scope with Mastra's native
+`RequestContext`, and migrated the deprecated `CostGuardProcessor` alias to its
+current `TokenCostControl` name.
+
+### Removed
+
+- `app/utils/async-storage.ts` — the `AsyncLocalStorage<number>` factory behind
+  both actor scopes. Tools now read the authenticated actor from the
+  `RequestContext` that the shared chat engine passes into `agent.stream()`,
+  `resumeStream()` and `approveToolCallGenerate()`.
+- `app/actions/mastra/tools/admin-context.ts` — `runWithAdminId` /
+  `requireAdminId` ALS helpers. No support tool called `requireAdminId`; the
+  admin id now travels in the same shared request context as the customer id.
+- `app/actions/mastra/tools/admin-context.test.ts` — tests for the removed ALS
+  helpers, superseded by `app/actions/mastra/actor-context.test.ts`.
+
+### Added
+
+- `app/actions/mastra/actor-context.ts` — `createActorRequestContext()` /
+  `requireActorId()`.
+- `app/actions/mastra/actor-context.test.ts`.
+
+### Migrated
+
+- `app/actions/mastra/agents/customer-agent.ts` — `CostGuardProcessor` →
+  `TokenCostControl` (same class, new name).
+- `app/actions/mastra/tools/customer-tools.ts`, `app/utils/agent-chat.ts`,
+  `app/actions/chat/controller.tsx`, `app/actions/support-agent/controller.tsx`,
+  `app/actions/mastra/tools/customer-tools.test.ts` — actor id now flows through
+  `RequestContext`.
+
+### Impact
+
+- Files touched: 12 (2 added, 3 removed, 7 modified)
+- Verification: `npm run typecheck` (clean), `npm run lint` (clean), full server
+  suite `remix test --type server` (1589 tests: 1588 pass / 0 fail / 1 todo)
+
 ## [2026-10-01] Post-drift Dead-Code & Export-Hygiene Pass
 
 Fresh knip (6.38), depcheck, ts-prune, tsc, and oxlint pass after the

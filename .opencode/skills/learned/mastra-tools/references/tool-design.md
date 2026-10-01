@@ -102,7 +102,7 @@ The result is one of three failure modes:
 - **LLM confabulates**: generates fake values and calls the tool with wrong data
 - **LLM skips the tool**: mentions "PDF report was generated" in text without ever calling the underlying tool, because it lacks the required parameters
 
-Look up context-dependent data inside the tool's `execute` function instead of requiring it as an input parameter. Use a module-level context provider (e.g., `AsyncLocalStorage`, `requireAdminId()`) to access the current request/session context.
+Look up context-dependent data inside the tool's `execute` function instead of requiring it as an input parameter. Read it from the Mastra `RequestContext` the run carries — the second `execute` argument — not from an input field. See `actor-request-context.md`.
 
 ```typescript
 // ❌ BAD: Forces the LLM to provide admin info it doesn't know
@@ -124,8 +124,8 @@ const myTool = createTool({
   inputSchema: z.object({
     targetUserId: z.number().describe('The target user ID'),
   }),
-  execute: async ({ targetUserId }) => {
-    let adminUserId = requireAdminId()
+  execute: async ({ targetUserId }, { requestContext }) => {
+    let adminUserId = requireActorId(requestContext)
     let admin = await db.query('SELECT name, email FROM users WHERE id = $1', [adminUserId])
     // admin info available without requiring LLM to pass it
   },
@@ -138,7 +138,7 @@ Any parameter that can be derived from the current execution context should be l
 
 | Parameter | Lookup strategy |
 |-----------|----------------|
-| Current admin/user ID | AsyncLocalStorage / context provider (`requireAdminId()`) |
+| Current admin/user ID | `RequestContext` (`requireActorId(requestContext)`) |
 | Current admin email | Query DB using admin ID |
 | Request IP | Request context headers |
 | Session/tenant ID | Request-scoped context |
