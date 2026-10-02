@@ -39,36 +39,73 @@ function streamOf(...chunks: unknown[]): AsyncIterable<unknown> {
 // test messages. Explicit per-message table — deterministic and
 // drift-free, rather than re-deriving intent from keywords.
 
-const FAKE_CLASSIFY_TABLE: Record<string, string> = {
-  'cancel user 42': '{"type":"user-action","action":"cancel","targetQuery":"42"}',
-  'lock user 5': '{"type":"user-action","action":"lock","targetQuery":"5"}',
-  'show appointments for admin@test.com':
-    '{"type":"appointment","action":"check","targetQuery":"admin@test.com"}',
-  'ich will john doe sperren': '{"type":"user-action","action":"lock","targetQuery":"john doe"}',
-  'ich will max mustermann kündigen':
-    '{"type":"user-action","action":"cancel","targetQuery":"max mustermann"}',
-  'i want to cancel john doe': '{"type":"user-action","action":"cancel","targetQuery":"john doe"}',
-  'sperre benutzer jane@example.com':
-    '{"type":"user-action","action":"lock","targetQuery":"jane@example.com"}',
-  'cancel admin@newapp.com':
-    '{"type":"user-action","action":"cancel","targetQuery":"admin@newapp.com"}',
-  'delete all appointments for user@newapp.com in raum 1':
-    '{"type":"appointment","action":"delete-resource","targetQuery":"user@newapp.com","resourceQuery":"raum 1"}',
-  'delete appointments for nobody@example.com in no-such-room':
-    '{"type":"appointment","action":"delete-resource","targetQuery":"nobody@example.com","resourceQuery":"no-such-room"}',
-  'cancel user 999999': '{"type":"user-action","action":"cancel","targetQuery":"999999"}',
-  'find user admin@newapp.com':
-    '{"type":"user-action","action":"lookup","targetQuery":"admin@newapp.com"}',
-  'find user 999999': '{"type":"user-action","action":"lookup","targetQuery":"999999"}',
-  'show appointments next month':
-    '{"type":"appointment","action":"check","period":"next-month","status":"pending"}',
-  'show pending appointments for admin@test.com next week':
-    '{"type":"appointment","action":"check","targetQuery":"admin@test.com","period":"next-week","status":"pending"}',
+const FAKE_CLASSIFY_TABLE: Record<string, object> = {
+  'cancel user 42': { type: 'user-action', action: 'cancel', targetQuery: '42' },
+  'lock user 5': { type: 'user-action', action: 'lock', targetQuery: '5' },
+  'show appointments for admin@test.com': {
+    type: 'appointment',
+    action: 'check',
+    targetQuery: 'admin@test.com',
+  },
+  'ich will john doe sperren': { type: 'user-action', action: 'lock', targetQuery: 'john doe' },
+  'ich will max mustermann kündigen': {
+    type: 'user-action',
+    action: 'cancel',
+    targetQuery: 'max mustermann',
+  },
+  'i want to cancel john doe': { type: 'user-action', action: 'cancel', targetQuery: 'john doe' },
+  'sperre benutzer jane@example.com': {
+    type: 'user-action',
+    action: 'lock',
+    targetQuery: 'jane@example.com',
+  },
+  'cancel admin@newapp.com': {
+    type: 'user-action',
+    action: 'cancel',
+    targetQuery: 'admin@newapp.com',
+  },
+  'delete all appointments for user@newapp.com in raum 1': {
+    type: 'appointment',
+    action: 'delete-resource',
+    targetQuery: 'user@newapp.com',
+    resourceQuery: 'raum 1',
+  },
+  'delete appointments for nobody@example.com in no-such-room': {
+    type: 'appointment',
+    action: 'delete-resource',
+    targetQuery: 'nobody@example.com',
+    resourceQuery: 'no-such-room',
+  },
+  'cancel user 999999': { type: 'user-action', action: 'cancel', targetQuery: '999999' },
+  'find user admin@newapp.com': {
+    type: 'user-action',
+    action: 'lookup',
+    targetQuery: 'admin@newapp.com',
+  },
+  'find user 999999': { type: 'user-action', action: 'lookup', targetQuery: '999999' },
+  'show appointments next month': {
+    type: 'appointment',
+    action: 'check',
+    period: 'next-month',
+    status: 'pending',
+  },
+  'show pending appointments for admin@test.com next week': {
+    type: 'appointment',
+    action: 'check',
+    targetQuery: 'admin@test.com',
+    period: 'next-week',
+    status: 'pending',
+  },
 }
 
 const FAKE_CLASSIFY_AGENT = {
   async generate(message: string) {
-    return { text: FAKE_CLASSIFY_TABLE[message.trim()] ?? 'Could you clarify what you want to do?' }
+    return {
+      object: FAKE_CLASSIFY_TABLE[message.trim()] ?? {
+        type: 'unclear',
+        question: 'Could you clarify what you want to do?',
+      },
+    }
   },
 }
 
@@ -399,7 +436,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"user-action","action":"cancel","targetQuery":42}' }
+          return { object: { type: 'user-action', action: 'cancel', targetQuery: 42 } }
         },
       },
       'cancel user 42',
@@ -413,7 +450,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"user-action","action":"lock"}' }
+          return { object: { type: 'user-action', action: 'lock' } }
         },
       },
       'lock someone',
@@ -425,7 +462,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"appointment","action":"check"}' }
+          return { object: { type: 'appointment', action: 'check' } }
         },
       },
       'show all appointments',
@@ -440,7 +477,12 @@ describe('classify handler', () => {
       {
         async generate() {
           return {
-            text: '{"type":"appointment","action":"check","period":"this-week","status":"pending"}',
+            object: {
+              type: 'appointment',
+              action: 'check',
+              period: 'this-week',
+              status: 'pending',
+            },
           }
         },
       },
@@ -456,7 +498,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"appointment","action":"check","targetQuery":"42"}' }
+          return { object: { type: 'appointment', action: 'check', targetQuery: '42' } }
         },
       },
       'show appointments for 42',
@@ -494,7 +536,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"appointment","action":"delete-resource","targetQuery":"42"}' }
+          return { object: { type: 'appointment', action: 'delete-resource', targetQuery: '42' } }
         },
       },
       'delete appointments',
@@ -506,7 +548,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"user-action","action":"lookup","targetQuery":"42"}' }
+          return { object: { type: 'user-action', action: 'lookup', targetQuery: '42' } }
         },
       },
       'find user 42',
@@ -520,7 +562,7 @@ describe('classify handler', () => {
     let result = await classifyWithAgent(
       {
         async generate() {
-          return { text: '{"type":"user-action","action":"lookup"}' }
+          return { object: { type: 'user-action', action: 'lookup' } }
         },
       },
       'find someone',
@@ -1066,12 +1108,12 @@ describe('AgentEvents route (POST validation)', () => {
     if (!resourceRow) return // skip if no resources seeded
 
     let message = `delete all appointments for user@newapp.com in ${resourceRow.name}`
-    FAKE_CLASSIFY_TABLE[message] = JSON.stringify({
+    FAKE_CLASSIFY_TABLE[message] = {
       type: 'appointment',
       action: 'delete-resource',
       targetQuery: 'user@newapp.com',
       resourceQuery: resourceRow.name,
-    })
+    }
 
     let calls: Array<{ workflowId: string; runId?: string | undefined; confirmed?: boolean | undefined }> = []
     __setRunFactory(async (workflowId, opts) => {

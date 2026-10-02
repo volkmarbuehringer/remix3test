@@ -16,7 +16,7 @@ describe('classify_intent tool', () => {
   it('resolves a user mutation into an intent and target', async () => {
     __setWorkflowAgent({
       generate: async () => ({
-        text: '{"type":"user-action","action":"cancel","targetQuery":"alice@example.com"}',
+        object: { type: 'user-action', action: 'cancel', targetQuery: 'alice@example.com' },
       }),
     })
     let result = await execTool({ message: 'kündige alice@example.com' })
@@ -28,13 +28,30 @@ describe('classify_intent tool', () => {
   it('carries the resource query for appointment deletion', async () => {
     __setWorkflowAgent({
       generate: async () => ({
-        text: '{"type":"appointment","action":"delete-resource","targetQuery":"bob","resourceQuery":"Raum A"}',
+        object: {
+          type: 'appointment',
+          action: 'delete-resource',
+          targetQuery: 'bob',
+          resourceQuery: 'Raum A',
+        },
       }),
     })
     let result = await execTool({ message: 'delete all appointments for bob in Raum A' })
     assert.equal(result.resolved, true)
     assert.equal(result.intent, 'delete-appointments')
     assert.equal(result.resourceQuery, 'Raum A')
+  })
+
+  it('coerces a numeric targetQuery from the structured object', async () => {
+    __setWorkflowAgent({
+      generate: async () => ({
+        object: { type: 'user-action', action: 'lock', targetQuery: 42 },
+      }),
+    })
+    let result = await execTool({ message: 'sperre 42' })
+    assert.equal(result.resolved, true)
+    assert.equal(result.intent, 'lock-user')
+    assert.equal(result.targetQuery, '42')
   })
 
   it('accepts an admin request up to the shared message limit', () => {
@@ -46,10 +63,56 @@ describe('classify_intent tool', () => {
     assert.equal(parsed.message.length, MAX_MESSAGE_LENGTH)
   })
 
-  it('reports unresolved when the classifier cannot parse an intent', async () => {
-    __setWorkflowAgent({ generate: async () => ({ text: 'Das verstehe ich nicht.' }) })
+  it('reports unresolved when the classifier returns an unclear object', async () => {
+    __setWorkflowAgent({
+      generate: async () => ({ object: { type: 'unclear', question: 'Das verstehe ich nicht.' } }),
+    })
+    let result = await execTool({ message: 'hmm' })
+    assert.equal(result.resolved, false)
+    assert.equal(result.unclear, 'Das verstehe ich nicht.')
+  })
+
+  it('reports unresolved when the structured object does not match the schema', async () => {
+    __setWorkflowAgent({ generate: async () => ({ object: { foo: 'bar' } }) })
     let result = await execTool({ message: 'hmm' })
     assert.equal(result.resolved, false)
     assert.ok(typeof result.unclear === 'string' && result.unclear.length > 0)
+  })
+
+  it('accepts null for a field the model left unset', async () => {
+    // Regression: a stricter schema rejected `null` for optional fields and
+    // degraded "show all appointments" (null target) to a generic unclear,
+    // losing a valid request.
+    __setWorkflowAgent({
+      generate: async () => ({
+        object: {
+          type: 'appointment',
+          action: 'check',
+          targetQuery: null,
+          period: null,
+          status: null,
+        },
+      }),
+    })
+    let result = await execTool({ message: 'zeig mir alle Termine' })
+    assert.equal(result.resolved, true)
+    assert.equal(result.intent, 'show-appointments')
+    assert.equal(result.targetQuery, '')
+  })
+
+  it('keeps the clarifying question when unused fields are null', async () => {
+    __setWorkflowAgent({
+      generate: async () => ({
+        object: {
+          type: 'unclear',
+          question: 'Welchen Benutzer meinst du?',
+          action: null,
+          targetQuery: null,
+        },
+      }),
+    })
+    let result = await execTool({ message: 'hmm' })
+    assert.equal(result.resolved, false)
+    assert.equal(result.unclear, 'Welchen Benutzer meinst du?')
   })
 })

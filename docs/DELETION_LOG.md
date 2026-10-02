@@ -1,5 +1,96 @@
 # Code Deletion Log
 
+## [2026-10-02] Eval gate harness (no deletions)
+
+Added `runEvals` gates over support-agent journeys, runnable with
+`npm run eval:mastra` and guarded by an always-on gate-drift test.
+
+### Added
+
+- `app/actions/mastra/evals/journeys.ts` — journey contracts (`mustCall` /
+  `mustNotCall`, runtime tool keys).
+- `app/actions/mastra/evals/gates.ts` — `runEvals` wiring + verdict handling.
+- `app/actions/mastra/evals/gates.test.ts` — locks every gate name to a real
+  `agent.listTools()` key; runs without a model key.
+- `scripts/eval-mastra.ts` + the `eval:mastra` package script — exits non-zero
+  on a `failed` verdict, or exit 2 when `OPENCODE_API_KEY` is unset.
+- `docs/mastra-agent-modernization.md` §4.5 — corrected the sketch's gate names
+  from `createTool` ids to runtime tool keys.
+
+### Notes
+
+- `runEvals` requires a real `Agent`/`Workflow` target (a fake target throws
+  "Error generating result from target"), and it omits `requestContext`, so the
+  customer agent (whose tools call `requireActorId`) is out of scope for now.
+- The repo's CI workflow is disabled and has no model secret, so the live gate is
+  a local/manual step; the drift test is what runs in `npm test`.
+
+### Impact
+
+- Files added: 4; files modified: 2 (package.json, modernization doc).
+- Verification: `npm run typecheck`, `npm run lint`, the drift test (2 pass), and
+  the full server suite. The live gate was not run (no `OPENCODE_API_KEY`); the
+  script's fail-fast path was verified (exit 2).
+
+## [2026-10-02] Support-agent guardrails (no deletions)
+
+Wired input/output/error processors onto the admin agent and taught
+`defineAppAgent` to forward `outputProcessors` / `errorProcessors`.
+
+### Added
+
+- `app/actions/mastra/agent-config.test.ts` — asserts each processor lane stays
+  wired.
+- `inputProcessors` on `support-agent.ts`: `UnicodeNormalizer`, a secrets-only
+  `RegexFilterProcessor` (block), `PromptInjectionDetector`,
+  `TokenLimiterProcessor`, `TokenCostControl`.
+- `outputProcessors`: a secrets-only `RegexFilterProcessor` (redact).
+- `errorProcessors`: `StreamErrorRetryProcessor`.
+
+### Notes
+
+- The `pii`/`urls` presets are intentionally not enabled on input: the admin
+  agent's primary handle is a user's email address, so PII blocking would break
+  `lookup_user`.
+- All processors construct lazily; none resolves the model at module load
+  (verified before wiring, since eager resolution would break app startup).
+
+### Impact
+
+- Files touched: 3 (2 source, 1 test) plus docs.
+- Verification: `npm run typecheck`, `npm run lint`, the guardrail test, and the
+  full server suite.
+
+## [2026-10-02] Structured-output intent classification
+
+Replaced the classifier's raw-JSON contract with Mastra `structuredOutput`.
+`workflow-classifier.ts` now defines a Zod `intentClassificationSchema` and
+passes it via
+`generate({ structuredOutput: { schema, jsonPromptInjection: 'system' } })`;
+`classifyWithAgent()` consumes the validated `result.object`.
+
+### Removed
+
+- `parseIntentJson()` in `app/actions/mastra/intent-classifier.ts` — brace
+  slicing between the first `{` and last `}`. Schema validation replaces it.
+- The `ClassifyAgent.generate()` `{ text }` return contract — the seam now
+  returns `{ object }`.
+
+### Migrated
+
+- `app/actions/mastra/workflow-classifier.ts` — output schema + structured
+  generation.
+- `app/actions/agent-events/controller.test.ts`,
+  `app/actions/agent-events/agent-events-frame-redirect.test.e2e.ts`,
+  `app/actions/mastra/tools/classify-intent.test.ts` — test doubles now return
+  the structured object.
+
+### Impact
+
+- Files modified: 5 (2 source, 3 tests) plus docs and one skill delta.
+- Verification: `npm run typecheck`, `npm run lint`, the focused classifier /
+  agent-events suites (75 pass), and the full server suite.
+
 ## [2026-10-01] Durable customer chat — gate-store reconnect retired (code retained)
 
 The feature-flagged durable customer chat (`CUSTOMER_CHAT_DURABLE=1`,

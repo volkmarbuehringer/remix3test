@@ -76,6 +76,8 @@ interface AppAgentDefinition<TTools extends ToolsInput> {
   /** Defaults to working memory; pass {@link createMemory} for other options. */
   memory?: Memory | undefined
   inputProcessors?: AgentConfig['inputProcessors']
+  outputProcessors?: AgentConfig['outputProcessors']
+  errorProcessors?: AgentConfig['errorProcessors']
   scorers?: AgentConfig['scorers']
 }
 
@@ -97,6 +99,12 @@ export function defineAppAgent<TTools extends ToolsInput>(definition: AppAgentDe
     memory: definition.memory ?? createMemory(),
     ...(definition.inputProcessors !== undefined
       ? { inputProcessors: definition.inputProcessors }
+      : {}),
+    ...(definition.outputProcessors !== undefined
+      ? { outputProcessors: definition.outputProcessors }
+      : {}),
+    ...(definition.errorProcessors !== undefined
+      ? { errorProcessors: definition.errorProcessors }
       : {}),
     ...(definition.scorers !== undefined ? { scorers: definition.scorers } : {}),
   })

@@ -1,4 +1,5 @@
 import { Agent } from '@mastra/core/agent'
+import { z } from 'zod/v4'
 import { agentModelSettings, createMemory, createModel } from './agent-config.ts'
 
 // ── Headless intent classifier ─────────────────────────────────────
@@ -7,32 +8,59 @@ import { agentModelSettings, createMemory, createModel } from './agent-config.ts
 // persona, and it is deliberately kept out of the Mastra `agents` registry in
 // `index.ts`. It exists only so the Agent-Events pipeline and the support
 // agent's `classify_intent` tool can turn a free-text admin request into the
-// structured JSON that `intent-classifier.ts` parses. Mastra's `Agent` class is
-// used purely as the LLM-call primitive.
+// structured JSON that `intent-classifier.ts` consumes. Mastra's `Agent` class
+// is used purely as the LLM-call primitive.
 
-const WORKFLOW_CLASSIFIER_INSTRUCTIONS = `You are an intent resolver for an admin panel. Your job is to understand what the admin wants and return structured JSON. Return ONLY the JSON object — no markdown, no explanations, no natural language.
+/**
+ * Output contract for the classifier.
+ *
+ * The classifier runs with `structuredOutput`, so this schema — not brace
+ * slicing of model prose — defines the result. ID-like fields accept
+ * `string | number | null`: models emit a bare number for "user 42" and fill
+ * unused optional fields with `null`, and either value would fail a stricter
+ * schema and degrade a valid request to `unclear`.
+ *
+ * Coercion to a trimmed string lives in `classifyWithAgent()`, **not** in a
+ * `.transform()` here: an applied transform serializes to `{}` in the schema
+ * the model is shown, so it drops the type information and invites exactly the
+ * `null` this schema now has to tolerate.
+ *
+ * `type: 'unclear'` gives the model a place to ask a clarifying question
+ * instead of inventing an intent.
+ */
+const queryField = z.union([z.string(), z.number(), z.null()])
 
-APPOINTMENT ACTIONS (keywords: appointment, Termin, booking, Buchung, etc.):
-Two sub-actions:
+export const intentClassificationSchema = z.object({
+  type: z.enum(['user-action', 'appointment', 'unclear']),
+  action: z
+    .enum(['check', 'delete-resource', 'cancel', 'lock', 'unlock', 'lookup'])
+    .nullable()
+    .optional(),
+  targetQuery: queryField.optional(),
+  resourceQuery: queryField.optional(),
+  period: queryField.optional(),
+  status: queryField.optional(),
+  question: z.string().nullable().optional(),
+})
 
-1. Check appointments:
-    {"type":"appointment","action":"check","targetQuery":"<user name, email, or ID or empty>","period":"<today|this-week|this-month|next-week|next-month or empty>","status":"<pending|expired or empty>"}
-   Use targetQuery when the admin names a specific user. Leave empty for general queries like "show all appointments". status and period are optional.
+export type IntentClassification = z.infer<typeof intentClassificationSchema>
 
-2. Delete appointments for a user on a resource:
-   {"type":"appointment","action":"delete-resource","targetQuery":"<user name, email, or ID>","resourceQuery":"<resource name>"}
-   Use when the admin wants to delete all upcoming appointments for a named user on a named resource (e.g. "delete all appointments for John in Raum A").
+const WORKFLOW_CLASSIFIER_INSTRUCTIONS = `You are an intent resolver for an admin panel. Read the admin's request and fill the required structured-output fields from it.
 
-If the admin wants to manage a user account (cancel, lock, unlock, lookup, find, disable, delete, activate, enable, sperren, kündigen, stornieren, löschen, deaktivieren, entsperren, freischalten):
-{"type":"user-action","action":"<cancel|lock|unlock|lookup>","targetQuery":"<user id, name, or email from the admin's message>"}
+APPOINTMENT requests (keywords: appointment, Termin, booking, Buchung):
+- action "check" for lookup/list requests. Include targetQuery when the admin names a specific user, and period/status when the message references a date range (today, this-week, this-month, next-week, next-month) or a status (pending, expired).
+- action "delete-resource" when the admin wants to delete all upcoming appointments for a named user on a named resource. Include targetQuery (the user) and resourceQuery (the resource).
 
-The "action" field must ALWAYS be one of the English values cancel|lock|unlock|lookup, even when the admin writes in German. German verb → action mapping:
-- kündigen, kündige, Kündigung, stornieren, Stornierung, löschen (account), delete, cancel → "cancel"
-- sperren, sperre, Sperrung, blockieren, deaktivieren, disable, lock → "lock"
-- entsperren, entsperre, freischalten, aktivieren, enable, unlock → "unlock"
-- suchen, finden, anzeigen, show, find, lookup → "lookup"
+USER ACCOUNT requests (cancel, lock, unlock, lookup, find, disable, delete, activate, enable, sperren, kündigen, stornieren, löschen, deaktivieren, entsperren, freischalten):
+- type "user-action". The action is ALWAYS one of the English values cancel|lock|unlock|lookup, even when the admin writes in German.
+- German verb -> action mapping:
+  - kündigen, kündige, Kündigung, stornieren, Stornierung, löschen (account), delete, cancel -> "cancel"
+  - sperren, sperre, Sperrung, blockieren, deaktivieren, disable, lock -> "lock"
+  - entsperren, entsperre, freischalten, aktivieren, enable, unlock -> "unlock"
+  - suchen, finden, anzeigen, show, find, lookup -> "lookup"
+- targetQuery is the user id, name, or email named in the message.
 
-If the admin is asking about something else or the intent is unclear, ask one clarifying question. Keep it brief. Do NOT add any text before or after the JSON.`
+If the request does not map to any of the above, set type "unclear" and put one brief clarifying question in "question". Never invent an intent.`
 
 let _classifier: Agent | undefined
 
@@ -51,10 +79,28 @@ function getClassifier(): Agent {
   return _classifier
 }
 
-/** Runs one classification turn against the headless classifier. */
+/**
+ * Runs one classification turn against the headless classifier.
+ *
+ * `jsonPromptInjection: 'system'` embeds the schema in the system prompt rather
+ * than relying on the provider's native `response_format`. This provider is a
+ * custom OpenAI-compatible gateway (`opencode-go`) absent from Mastra's
+ * capability registry, and `'auto'` resolves to native `json_schema` for it —
+ * a mode the upstream model may reject. A rejected request degrades *every*
+ * classification to `unclear` instead of failing loudly, so injection (which
+ * works with any chat model) is the safer default. The response is still
+ * validated against the schema; flip to `'auto'` only after confirming native
+ * support against the real provider.
+ */
 export function generateWorkflowIntent(
   message: string,
   opts?: { abortSignal?: AbortSignal },
-): Promise<{ text?: string }> {
-  return getClassifier().generate(message, opts ?? {})
+): Promise<{ object?: unknown }> {
+  return getClassifier().generate(message, {
+    ...opts,
+    structuredOutput: {
+      schema: intentClassificationSchema,
+      jsonPromptInjection: 'system',
+    },
+  })
 }

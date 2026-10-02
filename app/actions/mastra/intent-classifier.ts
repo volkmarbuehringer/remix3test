@@ -1,9 +1,9 @@
 import { AGENT_TIMEOUT_MS } from './shared-agent.ts'
 import { INTENTS } from '../agent-events/intents.ts'
-import { generateWorkflowIntent } from './workflow-classifier.ts'
+import { generateWorkflowIntent, intentClassificationSchema } from './workflow-classifier.ts'
 
 export type ClassifyAgent = {
-  generate: (message: string, opts?: { abortSignal?: AbortSignal }) => Promise<{ text?: string }>
+  generate: (message: string, opts?: { abortSignal?: AbortSignal }) => Promise<{ object?: unknown }>
 }
 
 // ── Workflow (intent) classifier resolution ────────────────────────
@@ -56,24 +56,13 @@ const AGENT_ACTION_TO_INTENT: Record<string, string> = {
   'appointment:delete-resource': INTENTS.DELETE_APPOINTMENTS,
 }
 
-function parseIntentJson(text: string): {
-  type?: unknown
-  action?: unknown
-  targetQuery?: unknown
-  resourceQuery?: unknown
-  period?: unknown
-  status?: unknown
-} | null {
-  let start = text.indexOf('{')
-  let end = text.lastIndexOf('}')
-  if (start !== -1 && end !== -1 && end > start) {
-    try {
-      return JSON.parse(text.slice(start, end + 1))
-    } catch {
-      /* fall through */
-    }
-  }
-  return null
+/**
+ * Normalizes an optional ID-like field. The model may return a string, a bare
+ * number ("user 42"), or `null` for a field it left unset; all three must map
+ * to a trimmed string so a valid request never degrades to `unclear`.
+ */
+function toQueryText(value: string | number | null | undefined): string {
+  return value == null ? '' : String(value).trim()
 }
 
 export async function classifyWithAgent(
@@ -92,41 +81,45 @@ export async function classifyWithAgent(
     return { unclear: `Could not resolve intent from: "${message}"` }
   }
 
-  let text = (result?.text ?? '').trim()
-  if (!text) {
+  // `structuredOutput` already validated the object, so this guard only catches
+  // an injected test double or a provider that ignored the schema. It keeps the
+  // "never execute on garbage" property without slicing model prose.
+  let parsed = intentClassificationSchema.safeParse(result?.object)
+  if (!parsed.success) {
+    return { unclear: `Could not resolve intent from: "${message}"` }
+  }
+  let classification = parsed.data
+
+  if (classification.type === 'unclear') {
+    return {
+      unclear:
+        classification.question?.trim() || `Could not resolve intent from: "${message}"`,
+    }
+  }
+
+  let intent = AGENT_ACTION_TO_INTENT[`${classification.type}:${classification.action}`]
+  if (!intent) {
     return { unclear: `Could not resolve intent from: "${message}"` }
   }
 
-  let parsed = parseIntentJson(text)
-  if (!parsed) {
-    return { unclear: text }
-  }
-
-  let intent = AGENT_ACTION_TO_INTENT[`${String(parsed.type)}:${String(parsed.action)}`]
-  if (!intent) {
-    return { unclear: text }
-  }
-
-  let raw = parsed.targetQuery
-  let targetQuery = (typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '').trim()
-
-  let rawResource = parsed.resourceQuery
-  let resourceQuery = (
-    typeof rawResource === 'string' || typeof rawResource === 'number' ? String(rawResource) : ''
-  ).trim()
+  let targetQuery = toQueryText(classification.targetQuery)
+  let resourceQuery = toQueryText(classification.resourceQuery)
 
   if (!targetQuery && intent !== INTENTS.SHOW_APPOINTMENTS) {
-    return { unclear: text }
+    return { unclear: `Could not resolve intent from: "${message}"` }
   }
   if (intent === INTENTS.DELETE_APPOINTMENTS && !resourceQuery) {
-    return { unclear: text }
+    return { unclear: `Could not resolve intent from: "${message}"` }
   }
 
-  let rawPeriod = parsed.period
-  let period = (typeof rawPeriod === 'string' ? rawPeriod : '').trim() || undefined
+  let period = toQueryText(classification.period) || undefined
+  let status = toQueryText(classification.status) || undefined
 
-  let rawStatus = parsed.status
-  let status = (typeof rawStatus === 'string' ? rawStatus : '').trim() || undefined
-
-  return { intent, targetQuery, resourceQuery, period, status }
+  return {
+    intent,
+    targetQuery,
+    ...(resourceQuery ? { resourceQuery } : {}),
+    ...(period ? { period } : {}),
+    ...(status ? { status } : {}),
+  }
 }

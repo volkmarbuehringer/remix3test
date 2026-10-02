@@ -33,14 +33,22 @@ import { __setRunFactory } from './controller.tsx'
 // incompatibility; revisit when the vendor fixes frame rendering in Firefox.
 // ---------------------------------------------------------------------------
 
-const FAKE_CLASSIFY_TABLE: Record<string, string> = {
-  'cancel user@newapp.com':
-    '{"type":"user-action","action":"cancel","targetQuery":"user@newapp.com"}',
+const FAKE_CLASSIFY_TABLE: Record<string, object> = {
+  'cancel user@newapp.com': {
+    type: 'user-action',
+    action: 'cancel',
+    targetQuery: 'user@newapp.com',
+  },
 }
 
 const FAKE_CLASSIFY_AGENT = {
   async generate(message: string) {
-    return { text: FAKE_CLASSIFY_TABLE[message.trim()] ?? 'Could you clarify what you want to do?' }
+    return {
+      object: FAKE_CLASSIFY_TABLE[message.trim()] ?? {
+        type: 'unclear',
+        question: 'Could you clarify what you want to do?',
+      },
+    }
   },
 }
 

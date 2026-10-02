@@ -25,6 +25,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 | Approve/decline/answer returns 403 after restart/scale or on a re-suspended run | `references/durable-run-ownership.md` |
 | A library internally consumes a `ReadableStream` getter before you store it, and the stored stream yields ~2 bytes/empty | `references/drain-and-rebuild-stream-race.md` |
 | Parsing `agent.generate()` JSON for intent/classification — numeric `targetQuery`, markdown-wrapped/noisy output, or a required safe fallback | `references/llm-classification-json-parsing.md` |
+| Adding `runEvals` gates over the app agents; a gate target, tool name, or runner script that will not work | `references/evals-gates.md` |
 
 ## Core Rules
 

@@ -54,3 +54,31 @@ Key discipline points:
 - Parsing `agent.generate()` text into structured actions with a fallback state
 - Any LLM JSON field that holds an ID or number but is typed as string
 - Event/agent pipelines where unparseable model output must degrade safely (never execute on garbage)
+
+## Superseded by structured output (when available)
+
+As of 2026-10-02 this app runs its intent classifier with Mastra
+`structuredOutput` instead of reading `agent.generate().text`, so the
+tolerant-extraction half of this pattern (`parseIntentJson`) is gone. The
+discipline worth keeping:
+
+- **Make the schema tolerant, then coerce**: accept
+  `z.union([z.string(), z.number(), z.null()])` for ID-like fields and normalize
+  to a trimmed string in the consumer
+  (`value == null ? '' : String(value).trim()`). A `.transform()` on the schema
+  looks tidier but serializes the field to `{}` in the prompt-injected JSON
+  schema, which drops the type guidance and invites the `null` you then have to
+  handle.
+- **Give "unclear" a schema slot** (`type: 'unclear'` + a `question` field)
+  instead of relying on prose the parser cannot read. Make the field
+  `.nullable()`: a model filling unused fields with `null` otherwise fails
+  validation and loses the clarifying question.
+- **Keep the discriminated `{ unclear }` fallback**: a schema mismatch or a
+  thrown provider error must still degrade safely, never execute.
+- **Force `jsonPromptInjection: 'system'`** for providers missing from Mastra's
+  capability registry. Verified by smoke test (2026-10-02): `'auto'` resolves to
+  native `response_format: { type: 'json_schema' }` even for a custom
+  OpenAI-compatible gateway, with no schema in the prompt — so a provider that
+  rejects `json_schema` degrades *every* classification to `unclear`. Injection
+  is provider-agnostic and the response is still schema-validated; use `'auto'`
+  only after confirming native support against the real provider.
