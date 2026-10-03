@@ -200,6 +200,7 @@ if (!stopped && !pendingQuestion) {
 | `tool-error`   | `{ toolCallId, toolName, error }`                         | Show error                                              |
 | `complete`     | `{}`                                                      | Stream ended, re-enable form                            |
 | `agent-error`  | `{ error }`                                               | Show error                                              |
+| `tripwire`     | `{ reason, processorId }`                                 | Show the reason and emit `complete` (see `references/evaluation-model-classifier.md`) |
 | `stream-error` | `{ error }`                                               | Show error                                              |
 
 ### Keep the client's handlers and `filterAndForward` in sync

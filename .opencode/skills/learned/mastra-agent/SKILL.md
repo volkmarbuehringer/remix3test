@@ -26,6 +26,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 | A library internally consumes a `ReadableStream` getter before you store it, and the stored stream yields ~2 bytes/empty | `references/drain-and-rebuild-stream-race.md` |
 | Parsing `agent.generate()` JSON for intent/classification — numeric `targetQuery`, markdown-wrapped/noisy output, or a required safe fallback | `references/llm-classification-json-parsing.md` |
 | Adding `runEvals` gates over the app agents; a gate target, tool name, or runner script that will not work | `references/evals-gates.md` |
+| Using `Classifier`/`ClassifierProcessor` with a custom provider; typed intent vs free-text extraction; a guardrail turn that returns an empty reply | `references/evaluation-model-classifier.md` |
 
 ## Core Rules
 
@@ -44,6 +45,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 - **A headless LLM helper is a utility, not a registered agent**: the workflow intent classifier lives in `app/actions/mastra/workflow-classifier.ts` (`generateWorkflowIntent`) and constructs an **unregistered** `Agent` used only as the LLM-call primitive (no `defineAppAgent`, no `ask_user`, no UI). `Mastra.agents` holds only the conversational app agents (`supportAgent`, `customerAgent`); resolve the classifier through `resolveWorkflowAgent()` in `intent-classifier.ts`, which both the Agent-Events classify handler and the support agent's `classify_intent` tool share.
 - **Demoting a registered agent to a utility keeps the seam but changes two hidden things**: keep `resolveWorkflowAgent()` / `__setWorkflowAgent()` and delete only the agent file + registry entry, so both consumers and their tests are untouched. Two consequences are silent: an unregistered `Agent` emits **no Mastra observability spans**, and swapping the dynamic `await import('./index.ts')` registry lookup for a static utility import pulls the utility's transitive imports (e.g. `storage.ts`, which throws without `DATABASE_URL`) into the import graph at module load.
 - **Consolidating a multi-agent registry: separate personas from headless helpers.** Inventory each agent by surface, tool set, mutation capability, and consumers. A headless JSON classifier is a utility, not a persona. Never merge conversational agents that differ in trust domain (read-only admin vs. customer mutation) or input processors (PII/cost guards).
+- **A `Classifier` returns choice/score/boolean only** — it cannot extract free text, so pair it with a structured-output agent rather than replacing one. A `ClassifierProcessor` abort is a `tripwire` chunk, not `error`; map it to a visible event **and** `complete`. Set an explicit agent-level `maxProcessorRetries` when configuring `errorProcessors` (default backstop 3 = up to 4 model calls/turn).
 
 **Drain-and-rebuild a raced stream (`references/drain-and-rebuild-stream-race.md`)**
 

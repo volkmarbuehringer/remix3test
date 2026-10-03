@@ -28,14 +28,13 @@ always-on CI substitute is a **gate-definition drift test**: assert every
 and catches the failure that would otherwise fail silently (a gate name that
 scores 0 forever).
 
-### 2. `runEvals` omits `requestContext`
+### 2. `requestContext` is per data item, not a top-level option
 
-`RunEvalsAgentOptions = Omit<AgentExecutionOptions, 'scorers' | 'returnScorerData'
-| 'requestContext' | 'memory'>` — there is no way to pass an actor. Any agent
-whose tools call a `RequestContext`-backed guard
-(`requireActorId(requestContext)`) fails under `runEvals`. Scope eval journeys to
-agents whose tools take everything as arguments (here: the read-only support
-agent, not the customer agent).
+`targetOptions` omits `requestContext`, but each `RunEvalsDataItem` accepts its
+own `requestContext?: RequestContext` (`@mastra/core/dist/evals/run/index.d.ts`).
+Build one per journey (`createActorRequestContext(actorId)`) and actor-scoped
+tools (`requireActorId(requestContext)`) run under `runEvals` — the harness
+covers the customer agent, not just the support agent.
 
 ### 3. Gate names are runtime tool keys
 
@@ -63,7 +62,7 @@ gates passed" and then hangs reads as a timeout, not a pass.
 ## When to Use
 
 - Adding `runEvals` gates over the app agents, or wiring them into CI
-- Deciding which agent a journey can target (actor-scoped tools cannot)
+- Deciding which agent a journey can target (actor-scoped tools need a per-item requestContext)
 - A gate never passes and the tool name looks right (check the runtime key)
 - A Node script or test using the app's Postgres-backed Mastra storage hangs after
   printing its result
