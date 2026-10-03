@@ -1,7 +1,7 @@
 import { describe, it } from 'remix/test'
 import * as assert from 'remix/assert'
 
-import { createRunSignal, errorToText } from './agent-sse.ts'
+import { createRunSignal, errorToText, pipeStream } from './agent-sse.ts'
 import { delay } from './async.ts'
 
 describe('createRunSignal', () => {
@@ -64,5 +64,40 @@ describe('errorToText', () => {
   it('falls back to a readable default for nullish errors', () => {
     assert.equal(errorToText(null), 'Unbekannter Fehler')
     assert.equal(errorToText(undefined), 'Unbekannter Fehler')
+  })
+})
+
+describe('pipeStream tripwire handling', () => {
+  it('forwards the caller-supplied reason and closes the turn', async () => {
+    let source = new ReadableStream({
+      start(controller) {
+        controller.enqueue({
+          type: 'tripwire',
+          payload: { reason: 'Kein Zugriff.', processorId: 'admin-mutation-gate' },
+        })
+        controller.close()
+      },
+    })
+
+    let controller!: ReadableStreamDefaultController<Uint8Array>
+    let sink = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c
+      },
+    })
+
+    await pipeStream(source, controller, new AbortController().signal)
+
+    let text = ''
+    let reader = sink.getReader()
+    while (true) {
+      let { done, value } = await reader.read()
+      if (done) break
+      if (value) text += new TextDecoder().decode(value)
+    }
+
+    assert.match(text, /event: message/)
+    assert.match(text, /Kein Zugriff\./)
+    assert.match(text, /event: complete/)
   })
 })

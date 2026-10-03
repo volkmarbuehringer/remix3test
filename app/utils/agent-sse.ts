@@ -248,6 +248,16 @@ async function filterAndForward(
     })
   } else if (type === 'error') {
     fwd('agent-error', { error: errorToText(p?.error) })
+  } else if (type === 'tripwire') {
+    // Input/output processors (PromptInjectionDetector, ClassifierProcessor)
+    // stop a run with a `tripwire` chunk carrying the caller-supplied reason.
+    // Without this branch the chunk was dropped and the turn ended silently.
+    // Forward the reason as assistant text, then close the turn: a tripwire has
+    // no `finish` chunk of its own, so the browser would never finalize it.
+    fwd('message', {
+      text: errorToText(p?.reason ?? 'Diese Anfrage wurde durch eine Schutzregel blockiert.'),
+    })
+    fwd('complete', {})
   }
 }
 

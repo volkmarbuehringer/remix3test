@@ -5,6 +5,7 @@ import { PinoLogger } from '@mastra/loggers'
 import { Observability, MastraStorageExporter, SensitiveDataFilter } from '@mastra/observability'
 import { supportAgent } from './agents/support-agent.ts'
 import { customerAgent } from './agents/customer-agent.ts'
+import { adminIntentClassifier } from './workflow-classifier.ts'
 import { bookingWorkflow } from './workflows/booking-workflow.ts'
 import { customerBookingWorkflow } from './workflows/customer-booking-workflow.ts'
 import { bookingCancellationWorkflow } from './workflows/booking-cancellation-workflow.ts'
@@ -23,6 +24,9 @@ import { setMastra } from './workflow-executor.ts'
 
 export const mastra = new Mastra({
   agents: { supportAgent, customerAgent },
+  // Typed admin-intent decision; also usable as a workflow step via
+  // `.classifier('adminIntent')` or `mastra.getClassifierById('admin-intent')`.
+  classifiers: { adminIntent: adminIntentClassifier },
   workflows: {
     bookingWorkflow,
     customerBookingWorkflow,

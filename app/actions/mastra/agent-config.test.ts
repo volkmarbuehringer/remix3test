@@ -13,6 +13,7 @@ describe('support agent guardrails', () => {
       'unicode-normalizer',
       'regex-filter',
       'prompt-injection-detector',
+      'admin-mutation-gate',
       'token-limiter',
       'token-cost-control',
     ]) {

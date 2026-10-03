@@ -4,7 +4,13 @@ import type { AgentExecutionOptions } from '@mastra/core/agent'
 import { Memory } from '@mastra/memory'
 import { mastraStorage } from './storage.ts'
 import { AGENT_FIRST_CHUNK_TIMEOUT_MS } from './shared-agent.ts'
-import { OPENCODE_API_URL, getOpenCodeSessionId } from '../../utils/ai-provider.ts'
+import { OPENCODE_API_URL } from '../../utils/ai-provider.ts'
+import {
+  OPENCODE_MODEL_ID,
+  OPENCODE_PROVIDER_ID,
+  opencodeRequestHeaders,
+  requireOpenCodeApiKey,
+} from './model-config.ts'
 
 // ── Shared agent scaffolding ───────────────────────────────────────
 
@@ -21,29 +27,14 @@ export const agentModelSettings = {
   timeout: { firstChunkMs: AGENT_FIRST_CHUNK_TIMEOUT_MS },
 } satisfies NonNullable<AgentExecutionOptions['modelSettings']>
 
-function requireApiKey(): string {
-  let key = process.env.OPENCODE_API_KEY
-  if (!key) {
-    throw new Error(
-      'OPENCODE_API_KEY environment variable is required. Set it before starting the server.',
-    )
-  }
-  return key
-}
-
 export function createModel() {
   return {
-    providerId: 'opencode-go',
-    // DeepSeek V4.1 Flash. OpenCode Go also still serves `deepseek-v4-flash`
-    // as a separate model id with separate monthly usage limits, so this id is
-    // what selects the quota, not a cosmetic rename.
-    modelId: 'deepseek-v4.1-flash',
+    providerId: OPENCODE_PROVIDER_ID,
+    modelId: OPENCODE_MODEL_ID,
     url: OPENCODE_API_URL,
-    headers: {
-      'X-Opencode-Session': getOpenCodeSessionId(),
-    },
+    headers: opencodeRequestHeaders(),
     get apiKey(): string {
-      return requireApiKey()
+      return requireOpenCodeApiKey()
     },
   }
 }
@@ -78,6 +69,12 @@ interface AppAgentDefinition<TTools extends ToolsInput> {
   inputProcessors?: AgentConfig['inputProcessors']
   outputProcessors?: AgentConfig['outputProcessors']
   errorProcessors?: AgentConfig['errorProcessors']
+  /**
+   * Agent-level cap on error-processor retries. Defaults to 2. Each retry is a
+   * full model call, so this is set explicitly rather than left to Mastra's
+   * implicit backstop (3), which logs a warning on every run when unset.
+   */
+  maxProcessorRetries?: number | undefined
   scorers?: AgentConfig['scorers']
 }
 
@@ -95,6 +92,10 @@ export function defineAppAgent<TTools extends ToolsInput>(definition: AppAgentDe
     instructions: definition.instructions,
     model: createModel(),
     defaultOptions: { modelSettings: agentModelSettings },
+    // Each error-processor retry re-runs the model call. Bound it explicitly so
+    // a retrying processor cannot silently cost up to four calls per turn; the
+    // framework's own backstop is 3 and warns when this is unset.
+    maxProcessorRetries: definition.maxProcessorRetries ?? 2,
     tools: withUserTools(definition.tools),
     memory: definition.memory ?? createMemory(),
     ...(definition.inputProcessors !== undefined

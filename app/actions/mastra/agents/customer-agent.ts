@@ -1,11 +1,14 @@
 import {
   UnicodeNormalizer,
   RegexFilterProcessor,
+  PromptInjectionDetector,
   TokenLimiterProcessor,
   TokenCostControl,
+  StreamErrorRetryProcessor,
+  BatchPartsProcessor,
 } from '@mastra/core/processors'
 import { customerTools } from '../tools/customer-tools.ts'
-import { defineAppAgent } from '../agent-config.ts'
+import { createModel, defineAppAgent } from '../agent-config.ts'
 
 export const customerAgent = defineAppAgent({
   id: 'customer-agent',
@@ -49,6 +52,16 @@ Regeln:
       presets: ['pii', 'secrets', 'urls'],
       strategy: 'block',
     }),
+    // The customer surface is reachable by untrusted members of the public, so
+    // it runs the same injection tripwire as the admin agent. A detector-model
+    // failure must not take the chat down, hence errorStrategy 'warn'.
+    new PromptInjectionDetector({
+      model: createModel(),
+      threshold: 0.7,
+      strategy: 'block',
+      errorStrategy: 'warn',
+      structuredOutputOptions: { jsonPromptInjection: true },
+    }),
     new TokenLimiterProcessor({ limit: 10000 }),
     new TokenCostControl({
       maxCost: 0.5,
@@ -57,5 +70,14 @@ Regeln:
       strategy: 'block',
     }),
   ],
+  // Input already rejects secrets. Redact them on the way out as defence in
+  // depth, but keep the `secrets` preset only: the customer's own name, email
+  // and appointment data are the answer, and a `pii` output preset would
+  // redact them.
+  outputProcessors: [
+    new RegexFilterProcessor({ presets: ['secrets'], strategy: 'redact', phase: 'output' }),
+    new BatchPartsProcessor({ batchSize: 5, maxWaitTime: 100, emitOnNonText: true }),
+  ],
+  errorProcessors: [new StreamErrorRetryProcessor({ maxRetries: 2, delayMs: 500 })],
   tools: customerTools,
 })

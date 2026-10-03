@@ -2,6 +2,7 @@ import { runEvals } from '@mastra/core/evals'
 import { checks } from '@mastra/evals/checks'
 import type { Agent } from '@mastra/core/agent'
 import { mastra } from '../index.ts'
+import { createActorRequestContext } from '../actor-context.ts'
 import { EVAL_JOURNEYS, type EvalJourney } from './journeys.ts'
 
 function agentFor(journey: EvalJourney): Agent {
@@ -30,7 +31,16 @@ export interface JourneyResult {
 /** Runs one journey's gates against its agent through `runEvals`. */
 export async function runJourney(journey: EvalJourney): Promise<JourneyResult> {
   let result = await runEvals({
-    data: [{ input: journey.input }],
+    data: [
+      {
+        input: journey.input,
+        // The customer tools read the authenticated actor from the request
+        // context; `runEvals` forwards this per item to the target run.
+        ...(journey.actorId !== undefined
+          ? { requestContext: createActorRequestContext(journey.actorId) }
+          : {}),
+      },
+    ],
     target: agentFor(journey),
     gates: gatesFor(journey),
   })
