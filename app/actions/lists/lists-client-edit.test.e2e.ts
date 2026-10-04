@@ -27,7 +27,9 @@ function itemsJson(rows: Array<{ id: string; label: string; done?: boolean }>): 
   return JSON.stringify(rows)
 }
 
-async function listItems(listId: number): Promise<Array<{ id: string; label: string; done?: boolean }>> {
+async function listItems(
+  listId: number,
+): Promise<Array<{ id: string; label: string; done?: boolean }>> {
   let row = await pool.query('SELECT list FROM lists WHERE id = $1', [listId])
   return row.rows[0]!.list as Array<{ id: string; label: string; done?: boolean }>
 }
@@ -40,7 +42,9 @@ async function readListTitle(listId: number): Promise<string | null> {
 // Ordered item ids as rendered by the editor (DOM order).
 async function readItemIds(page: { evaluate: Function }): Promise<string[]> {
   return (await page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-item-id]')).map((r) => r.getAttribute('data-item-id')),
+    Array.from(document.querySelectorAll('[data-item-id]')).map((r) =>
+      r.getAttribute('data-item-id'),
+    ),
   )) as string[]
 }
 
@@ -107,9 +111,15 @@ describe('lists new-list creation', () => {
 
     // The frame reloads onto /lists?load=<newId>; wait for the new list's title
     // to hydrate and the status pill to flip to saved.
+    // The typed title is already in the input before the create POST resolves, so
+    // waiting on it alone does not prove the frame reloaded. Wait for the saved
+    // pill too, otherwise the assertion races the editor's re-hydration.
     await page.waitForFunction(
-      (expected) =>
-        (document.querySelector('#lists-title') as HTMLInputElement)?.value === expected,
+      (expected) => {
+        let titleInput = document.querySelector('#lists-title') as HTMLInputElement | null
+        let pill = document.querySelector('span[role="status"]')
+        return titleInput?.value === expected && pill?.textContent?.trim() === 'Gespeichert'
+      },
       title,
       { timeout: 15_000 },
     )
@@ -120,10 +130,12 @@ describe('lists new-list creation', () => {
     )
 
     // The row must exist in the database and show up in the sidebar.
-    let rows = (await pool.query('SELECT id FROM lists WHERE user_id = $1 AND title = $2', [
-      adminUserId,
-      title,
-    ])).rows as { id: number }[]
+    let rows = (
+      await pool.query('SELECT id FROM lists WHERE user_id = $1 AND title = $2', [
+        adminUserId,
+        title,
+      ])
+    ).rows as { id: number }[]
     assert.equal(rows.length, 1, 'exactly one list row must be created')
     let newId = Number(rows[0]!.id)
     try {
@@ -376,17 +388,17 @@ describe('lists sort control', () => {
           await page.selectOption('select[aria-label="Sortieren"]', 'az')
         }
       }
-      assert.deepEqual(
-        domIds,
-        ['sort-a', 'sort-b', 'sort-c'],
-        'A–Z must reorder the rows by label',
-      )
+      assert.deepEqual(domIds, ['sort-a', 'sort-b', 'sort-c'], 'A–Z must reorder the rows by label')
       assert.ok((await page.locator('button:has-text("Rückgängig")').count()) === 1)
       assert.ok((await page.getByText('Reihenfolge geändert.').count()) >= 1)
 
       // The reorder is a real mutation: it autosaves into the database.
       let items = await listItems(listId)
-      for (let attempt = 0; attempt < 40 && items.map((i) => i.id).join(',') !== 'sort-a,sort-b,sort-c'; attempt++) {
+      for (
+        let attempt = 0;
+        attempt < 40 && items.map((i) => i.id).join(',') !== 'sort-a,sort-b,sort-c';
+        attempt++
+      ) {
         await page.waitForTimeout(250)
         items = await listItems(listId)
       }
