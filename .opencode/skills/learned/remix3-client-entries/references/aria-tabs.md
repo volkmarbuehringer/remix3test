@@ -2,6 +2,10 @@
 
 **Source:** `remix3-aria-tabs`
 
+> **Server alternative:** if each section is URL-addressable and server-renderable,
+> skip this `clientEntry` pattern entirely — see `remix3-frame-cliententry` →
+> `references/frame-server-view-switching.md`.
+
 **Extracted:** 2026-09-17
 **Context:** Converting a single app page (four stacked panels + an anchor "jump"
 nav) into real tabs in a React-free Remix 3 app: one panel visible at a time, the
