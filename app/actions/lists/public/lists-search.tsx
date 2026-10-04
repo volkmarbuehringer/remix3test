@@ -1,70 +1,82 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
-import { buildListsSearchHref } from './lists-search-url.ts'
 
+/**
+ * Progressive enhancement for the sidebar list search.
+ *
+ * The search is a plain GET form targeting the lists-content frame (the browser
+ * serializes `filter` and the hidden open-list `load` id into the URL), so it
+ * works without JS and no longer builds URLs in the client. This entry only
+ * restores the live behaviour: debounce typing into a submit, clear + resubmit
+ * on Escape, and refocus after a frame reload when a filter is active.
+ */
 export const ListsSearch = clientEntry(
   import.meta.url + '#ListsSearch',
   function ListsSearch(handle: Handle) {
+    let controllers: AbortController[] = []
+
+    function init() {
+      // The sidebar DOM can be reused or replaced by a frame reload; drop the
+      // previous listeners first so a re-init cannot stack them.
+      for (let ac of controllers) ac.abort()
+      controllers = []
+
+      let input = document.getElementById('lists-sidebar-search') as HTMLInputElement | null
+      let form = input?.closest('form') as HTMLFormElement | null
+      if (!input || !form) return
+
+      // Refocus after a reload so continued typing keeps working.
+      if (input.value.trim()) input.focus()
+
+      let ac = new AbortController()
+      controllers.push(ac)
+      let timer: ReturnType<typeof setTimeout> | null = null
+      let submit = () => form.requestSubmit()
+
+      input.addEventListener(
+        'input',
+        () => {
+          if (timer) clearTimeout(timer)
+          timer = setTimeout(() => {
+            timer = null
+            submit()
+          }, 400)
+        },
+        { signal: ac.signal },
+      )
+
+      input.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key === 'Escape' && input.value) {
+            event.preventDefault()
+            if (timer) {
+              clearTimeout(timer)
+              timer = null
+            }
+            input.value = ''
+            submit()
+            input.focus()
+          }
+        },
+        { signal: ac.signal },
+      )
+
+      ac.signal.addEventListener('abort', () => {
+        if (timer) clearTimeout(timer)
+      })
+    }
+
+    if (handle.frame) {
+      handle.frame.addEventListener('reloadComplete', init, { signal: handle.signal })
+    }
+
     return () => (
       <div
         mix={[
           css({ display: 'none' }),
-          ref((el: HTMLElement) => {
-            let input = document.getElementById('lists-sidebar-search') as HTMLInputElement | null
-            if (!input) return
-
-            // Refocus the input after reload if it has content
-            if (input.value.trim()) {
-              input.focus()
-            }
-
-            let timer: ReturnType<typeof setTimeout> | null = null
-
-            function doSearch(value: string) {
-              // A list opened by the default "most recent" rule has no load
-              // param in the URL; read the id the editor rendered so typing a
-              // search does not swap the open list for the new-list form.
-              let activeListId =
-                document
-                  .querySelector('[data-lists-active-id]')
-                  ?.getAttribute('data-lists-active-id') ?? null
-              let href = buildListsSearchHref(handle.frame.src, activeListId, value)
-              handle.frame.src = href
-              handle.frame.reload().catch(() => {})
-            }
-
-            input.addEventListener(
-              'input',
-              () => {
-                if (timer) clearTimeout(timer)
-                timer = setTimeout(() => {
-                  timer = null
-                  doSearch(input!.value)
-                }, 400)
-              },
-              { signal: handle.signal },
-            )
-
-            // Escape clears the filter and restores the full list immediately.
-            input.addEventListener(
-              'keydown',
-              (e) => {
-                if (e.key === 'Escape' && input!.value) {
-                  e.preventDefault()
-                  if (timer) {
-                    clearTimeout(timer)
-                    timer = null
-                  }
-                  input!.value = ''
-                  doSearch('')
-                  input!.focus()
-                }
-              },
-              { signal: handle.signal },
-            )
-
-            return () => {
-              if (timer) clearTimeout(timer)
-            }
+          ref(() => {
+            if (typeof document === 'undefined') return
+            init()
           }),
         ]}
       />

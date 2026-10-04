@@ -242,6 +242,46 @@ describe('Lists controller', () => {
     assert.equal(response.status, 200)
     assert.ok(!text.includes('rmx-frame'), 'fragment should not include an outer rmx-frame element')
     assert.ok(text.includes('Neue Liste'), 'fragment should contain sidebar layout content')
+    assert.ok(text.includes('data-lists-search="true"'), 'the sidebar search form is rendered')
+    assert.ok(text.includes('name="filter"'), 'the search field is named filter')
+    assert.ok(
+      text.includes('data-rmx-target="lists-content"'),
+      'the search form targets the lists frame',
+    )
+  })
+
+  it('GET /lists renders the search as a normal GET form', async () => {
+    let response = await router.fetch(`${LISTS_URL}?filter=abc`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': 'lists-content' },
+    })
+    let text = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(text.includes('method="get"'), 'search is a normal GET form')
+    assert.ok(text.includes('action="/lists"'), 'search posts to /lists')
+    assert.ok(text.includes('value="abc"'), 'the active filter is preserved')
+  })
+
+  it('GET /lists carries the open list into the search form as hidden load', async () => {
+    let create = await router.fetch(LISTS_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Csrf-Token': userCsrfToken,
+        Cookie: userCookie,
+      },
+      body: JSON.stringify({ title: `Search load ${Date.now()}`, description: '', items: [] }),
+    })
+    let created = (await create.json()) as { id: number }
+
+    let response = await router.fetch(`${LISTS_URL}?load=${created.id}`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': 'lists-content' },
+    })
+    let text = await response.text()
+    assert.equal(response.status, 200)
+    assert.ok(
+      new RegExp(`name="load" value="${created.id}"`).test(text),
+      'the open list id is carried into the search form',
+    )
   })
 
   // -----------------------------------------------------------------------

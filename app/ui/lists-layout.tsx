@@ -112,6 +112,52 @@ const navScrollStyle = css({
   overflowY: 'auto',
 })
 
+const searchFormStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.space.xs,
+  marginBottom: theme.space.xs,
+})
+
+const searchInputStyle = css({
+  flex: 1,
+  minWidth: 0,
+  padding: `${theme.space.xs} ${theme.space.sm}`,
+  borderRadius: theme.radius.sm,
+  border: `1px solid ${theme.colors.border.default}`,
+  fontSize: theme.fontSize.xs,
+  outline: 'none',
+  fontFamily: theme.fontFamily.sans,
+  boxSizing: 'border-box',
+  backgroundColor: theme.surface.lvl0,
+  color: theme.colors.text.primary,
+  '&:focus': {
+    borderColor: theme.colors.focus.ring,
+  },
+  '&::placeholder': {
+    color: theme.colors.text.muted,
+  },
+})
+
+const searchButtonStyle = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  width: '28px',
+  height: '28px',
+  padding: 0,
+  border: `1px solid ${theme.colors.border.default}`,
+  borderRadius: theme.radius.sm,
+  background: theme.surface.lvl0,
+  color: theme.colors.text.secondary,
+  cursor: 'pointer',
+  '&:hover': {
+    background: theme.surface.lvl2,
+    color: theme.colors.text.primary,
+  },
+})
+
 function isFrameRequest(): boolean {
   return getContext().request.headers.get('X-Remix-Target') === frameTarget
 }
@@ -263,33 +309,40 @@ function ListsLayout(
           ]}
         >
           <nav mix={[navStyle, navScrollStyle]}>
-            <input
-              id="lists-sidebar-search"
-              type="search"
-              defaultValue={new URL(getContext().request.url).searchParams.get('filter') ?? ''}
-              placeholder="Listen suchen…"
-              aria-label="Listen suchen"
-              mix={css({
-                width: '100%',
-                padding: `${theme.space.xs} ${theme.space.sm}`,
-                marginBottom: theme.space.xs,
-                borderRadius: theme.radius.sm,
-                border: `1px solid ${theme.colors.border.default}`,
-                fontSize: theme.fontSize.xs,
-                outline: 'none',
-                fontFamily: theme.fontFamily.sans,
-                boxSizing: 'border-box',
-                backgroundColor: theme.surface.lvl0,
-                color: theme.colors.text.primary,
-                '&:focus': {
-                  borderColor: theme.colors.focus.ring,
-                },
-                '&::placeholder': {
-                  color: theme.colors.text.muted,
-                },
-              })}
-            />
-            <ListsSearch />
+            {/*
+              A real GET form (not a JS-driven URL builder): the browser
+              serializes `filter` and the hidden `load` id into /lists, so search
+              works without JS. The lists frame reloads on submit with JS.
+            */}
+            <form
+              method="get"
+              action={routes.lists.index.href()}
+              data-rmx-target={frameTarget}
+              data-lists-search="true"
+              mix={searchFormStyle}
+            >
+              <input
+                id="lists-sidebar-search"
+                type="search"
+                name="filter"
+                defaultValue={new URL(getContext().request.url).searchParams.get('filter') ?? ''}
+                placeholder="Listen suchen…"
+                aria-label="Listen suchen"
+                mix={searchInputStyle}
+              />
+              {activeListId !== null ? (
+                <input type="hidden" name="load" value={activeListId} />
+              ) : null}
+              <ListsSearch />
+              <button
+                type="submit"
+                aria-label="Listen suchen"
+                title="Suchen"
+                mix={searchButtonStyle}
+              >
+                <Glyph name="search" width={14} height={14} />
+              </button>
+            </form>
             <NavLink
               key="new"
               href={routes.lists.index.href() + '?new=1'}
