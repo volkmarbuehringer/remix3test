@@ -2,7 +2,7 @@ import { css, Frame, type Handle } from 'remix/component'
 import { theme } from '../ui/theme/theme.ts'
 
 import { Layout } from './layout.tsx'
-import { AppointmentSidebar } from './appointment-sidebar.browser.tsx'
+import { AppointmentSidebar } from './appointment-sidebar.tsx'
 import { AppointmentGrid } from './appointment-grid.browser.tsx'
 import { ConnectionIndicator } from '../ui/connection-indicator.browser.tsx'
 import { frames, routes } from '../routes.ts'
@@ -21,6 +21,8 @@ interface AppointmentPageProps {
   csrfToken: string
   currentUserId: number
   isAdmin: boolean
+  /** True when the request carries the appointment-content frame header. */
+  isFrame: boolean
 }
 
 export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
@@ -36,6 +38,7 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
       csrfToken,
       currentUserId,
       isAdmin,
+      isFrame,
     } = handle.props
     let mondayMs = days[0]?.date ?? 0
 
@@ -73,14 +76,27 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
       appointmentTypesHref,
     })
 
-    return (
-      <Layout title="Termine">
+    // Canonical frame URL: the frame resolves this exact week/resource even
+    // when the browser address bar still shows the bare /appointment path.
+    let frameSrc = `${routes.appointment.index.href()}?year=${year}&week=${week}&resource_id=${selectedResourceId}`
+
+    // Everything below the title changes with year/week/resource, so it all
+    // lives inside the appointmentContent frame. The embedded JSON script must
+    // travel with the fragment: the grid re-reads it after each frame swap.
+    let content = (
+      <>
         <script id="appointment-data" type="application/json" nonce={getCspNonce()}>
           {data}
         </script>
         <div mix={shellStyle}>
           <div data-sidebar-col="true" mix={sidebarColumnStyle}>
-            <AppointmentSidebar />
+            <AppointmentSidebar
+              year={year}
+              week={week}
+              weekStart={mondayMs}
+              selectedResourceId={selectedResourceId}
+              resources={resources}
+            />
             <Frame
               name={frames.appointTypes}
               src={routes.appointment.types.index.href()}
@@ -94,6 +110,16 @@ export function AppointmentPage(handle: Handle<AppointmentPageProps>) {
             <AppointmentGrid />
           </div>
         </div>
+      </>
+    )
+
+    // Frame-fragment requests must not re-render the document shell (or a
+    // nested appointmentContent frame): that is the frame-in-frame double load.
+    if (isFrame) return content
+
+    return (
+      <Layout title="Termine">
+        <Frame name={frames.appointmentContent} src={frameSrc} />
       </Layout>
     )
   }
