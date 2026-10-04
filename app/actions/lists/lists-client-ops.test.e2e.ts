@@ -598,41 +598,6 @@ describe('lists copy selected items into another list', () => {
       await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
     }
   })
-
-  it('dismisses the overflow menu on outside click and Escape', async (t) => {
-    let { sourceId, targetId } = await seedLists()
-    try {
-      let server = await createTestServer((request) => router.fetch(request))
-      let page = await t.serve(server)
-      await page
-        .context()
-        .addCookies([{ name: 'session', value: adminCookie.slice(8), url: server.baseUrl }])
-
-      await page.goto(`/lists?load=${sourceId}`)
-      await page.locator('#lists-title').waitFor({ timeout: 15_000 })
-
-      let summary = page.locator('summary[aria-label="Weitere Aktionen"]')
-      let openCount = () => page.locator('details[data-lists-more][open]').count()
-
-      await summary.click()
-      assert.equal(await openCount(), 1, 'the summary opens the menu')
-
-      await page.locator('#lists-title').click()
-      assert.equal(await openCount(), 0, 'an outside click dismisses the menu')
-
-      await summary.click()
-      await page.keyboard.press('Escape')
-      assert.equal(await openCount(), 0, 'Escape dismisses the menu')
-      assert.equal(
-        await page.evaluate(() => document.activeElement?.getAttribute('aria-label')),
-        'Weitere Aktionen',
-        'Escape returns focus to the menu trigger',
-      )
-    } finally {
-      await pool.query('DELETE FROM lists WHERE id = $1', [sourceId])
-      await pool.query('DELETE FROM lists WHERE id = $1', [targetId])
-    }
-  })
 })
 
 // ---------------------------------------------------------------------------

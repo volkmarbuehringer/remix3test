@@ -1,4 +1,5 @@
 import { clientEntry, css, ref, type Handle } from 'remix/component'
+import { buildListsSearchHref } from './lists-search-url.ts'
 
 export const ListsSearch = clientEntry(
   import.meta.url + '#ListsSearch',
@@ -19,25 +20,14 @@ export const ListsSearch = clientEntry(
             let timer: ReturnType<typeof setTimeout> | null = null
 
             function doSearch(value: string) {
-              let currentUrl = new URL(handle.frame.src, location.origin)
-              let load = currentUrl.searchParams.get('load')
               // A list opened by the default "most recent" rule has no load
               // param in the URL; read the id the editor rendered so typing a
               // search does not swap the open list for the new-list form.
-              if (!load) {
-                load =
-                  document
-                    .querySelector('[data-lists-active-id]')
-                    ?.getAttribute('data-lists-active-id') ?? null
-              }
-              let params = new URLSearchParams()
-              if (value.trim()) {
-                params.set('filter', value.trim())
-              }
-              if (load) {
-                params.set('load', load)
-              }
-              let href = '/lists' + (params.toString() ? '?' + params.toString() : '')
+              let activeListId =
+                document
+                  .querySelector('[data-lists-active-id]')
+                  ?.getAttribute('data-lists-active-id') ?? null
+              let href = buildListsSearchHref(handle.frame.src, activeListId, value)
               handle.frame.src = href
               handle.frame.reload().catch(() => {})
             }

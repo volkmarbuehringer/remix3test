@@ -18,15 +18,20 @@ export const ListNameEdit = clientEntry(
 
             function cancelEdit() {
               if (errorTimer) clearTimeout(errorTimer)
-              if (activeInput && originalSpan) {
-                originalSpan.style.display = ''
-                activeInput.remove()
-              }
-              renameController = null
+              // Detach the refs before removing the input: Chromium fires
+              // `blur` when a focused element is removed, which would otherwise
+              // re-enter finishEdit() and issue a second PUT for the same rename.
+              let input = activeInput
+              let span = originalSpan
               activeInput = null
               originalSpan = null
               originalText = ''
               currentListId = null
+              renameController = null
+              if (input && span) {
+                span.style.display = ''
+                input.remove()
+              }
             }
 
             function finishEdit(newDescription: string) {

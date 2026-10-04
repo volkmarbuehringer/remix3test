@@ -9,13 +9,13 @@ import { routes } from '../../routes.ts'
 import { __resetAuthRateLimits } from './controller.tsx'
 
 // ---------------------------------------------------------------------------
-// Auth End-to-End tests
+// Auth multi-request journey tests (server runner).
 // Requires a running PostgreSQL database seeded with demo users.
 // See newapp/app/db.ts for seed data.
 //
-// These tests chain multiple requests with session cookies to simulate
-// real user journeys, unlike the isolated integration tests in the
-// actions/ directory.
+// These tests chain multiple requests with session cookies to simulate real user
+// journeys, unlike the isolated integration tests in the actions/ directory.
+// They use only `router.fetch` — no browser — so they run on the server runner.
 // ---------------------------------------------------------------------------
 
 await initializeAppDatabase()
@@ -38,10 +38,10 @@ function extractSessionCookie(response: Response): string | null {
 
 describe('auth e2e', () => {
   // These server-side login tests log in as shared seed users. The login rate
-  // limiter is in-process and per-email, so parallel e2e workers in the same
-  // fork (this file runs once per browser project) can exhaust it and flake the
-  // seed-user login assertions. Reset the per-email state so the tests are
-  // deterministic regardless of what else runs alongside them.
+  // limiter is in-process and per-email, so parallel server workers in the same
+  // fork can exhaust it and flake the seed-user login assertions. Reset the
+  // per-email state so the tests are deterministic regardless of what else runs
+  // alongside them.
   before(async () => {
     __resetAuthRateLimits('admin@newapp.com')
     __resetAuthRateLimits('user@newapp.com')
