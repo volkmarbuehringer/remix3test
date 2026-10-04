@@ -16,6 +16,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 | Task involves... | Start with |
 | --- | --- |
 | A `*.test.browser.tsx` must assert a `clientEntry` side effect driven by `getBoundingClientRect`, `matchMedia`, or `scrollTo` that `render`/`act` alone cannot drive | `references/cliententry-browser-test-stubs.md` |
+| A `*.test.browser.tsx` for a **full-page** `clientEntry` that queries `document`/`window` and registers delegated listeners, or that writes the URL hash; browser tests pass alone but fail together | `references/document-scoped-cliententry-browser-tests.md` |
 | Parallel tests interfere despite ephemeral per-run DBs; a test passes in isolation but fails in the full suite; a shared-DB test fails even alone (`LIMIT 1` without `ORDER BY`, seed rows relative to today); another suite's unscoped `afterEach` `DELETE` removed your live fixture; a background retention/cleanup timer swept the old row your test just inserted | `references/parallel-test-interference.md` |
 | `waitFor(() => !!getElementById(x))` passes instantly and the next assertion fails on empty content | `references/waitfor-static-element.md` |
 | Mocking an external HTTP service in a test; the real service is running locally on the same port (`EADDRINUSE`) | `references/mock-external-http-service.md` |
@@ -36,6 +37,12 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 - Build a controlled DOM fixture the entry queries, then stub the platform APIs with `Object.defineProperty(el, 'scrollTo'|'scrollHeight'|'clientHeight', { configurable: true })` (preferred over assignment: the properties are inherited/read-only and `scrollTo` is overloaded, so a plain assignment needs an `as unknown as` cast); stub `matchMedia` per test and restore it in `afterEach`.
 - Pair every "not called" case with a positive case that proves the entry ran — a stub that is never called makes an "assert zero calls" test pass vacuously. Module-scoped delegated listeners outlive a test, so scope queries to `result.container` and remove fixtures in `afterEach` even when an assertion throws.
 - Run explicitly with `NODE_ENV=test npx remix test app/ui/<name>.test.browser.tsx` to execute every configured project (here `chromium` + `firefox`); for the production counterpart (once per frame navigation, keyed on a server-rendered `data-*` attribute + `handle.queueTask`) see `remix3-frame-cliententry`.
+
+**Document-scoped `clientEntry` browser tests (`references/document-scoped-cliententry-browser-tests.md`)**
+
+- The guide's example mounts a self-contained component, but most full-page entries here render only a hidden marker and work through `document`/`window` in a `ref` callback. Append the fixture to `document.body` (not `result.container`) and assert against the fixture; `result.container` holds none of the UI.
+- Remove the fixture in `afterEach` even when an assertion throws — module-scoped delegated listeners (`let listenersRegistered = false`) persist across tests and `cleanup()` does not remove them. If the entry writes `location.hash`/`history.replaceState` (ARIA tabs, deep links), reset the hash in `beforeEach` or one test deep-links the next.
+- `render()` supplies a root frame, so entries that only listen for `handle.frame` events mount without setup; stub `frameInit.resolveFrame` only when the test triggers `handle.frame.reload()`. Mirror the server-rendered markup exactly (`Glyph` emits only `xlink:href` — see `remix3-theme-conformance → references/glyph-add.md`).
 
 **Parallel test interference (`references/parallel-test-interference.md`)**
 
@@ -81,6 +88,7 @@ This skill is the **index** for Remix 3 test-suite deltas. For the vendor test r
 
 - You are writing or debugging a Remix 3 `remix test` suite (server-render or `*.test.browser.tsx`) and an assertion fails for a reason the test code does not explain.
 - A browser test must drive a measurement/geometry/media-driven `clientEntry` side effect that `render`/`act` cannot reach.
+- A `*.test.browser.tsx` targets a full-page `clientEntry` that queries `document`, and tests interfere (leftover fixtures, an unexpected active tab) or one test's hash deep-links another.
 - Tests interfere when run in parallel, or a shared-DB test fails intermittently or even in isolation.
 - A `waitFor` existence check passes but the content assertion that follows fails.
 - You need to mock an external HTTP service or match escaped markup in rendered output.
