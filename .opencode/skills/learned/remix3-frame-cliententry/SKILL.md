@@ -18,7 +18,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | Form interception in frames (post-#11668), `resolveFrame`, frame direct render, `data-rmx-document`/`data-rmx-history`, nested-frame PRG redirects | `references/frame-navigation.md` |
 | `clientEntry` cascade limits, `mounted` guards after reload, reload-driven data loading, global document listeners, SSR-safety/authoring constraints | `references/cliententry-lifecycle.md` |
 | Styling clientEntry children, joined button groups, inline-edit table cells, `on` mixin hydration, drag-and-drop, fragment scrolling | `references/cliententry-dom-and-styling.md` |
-| Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests | `references/frame-layout-and-testing.md` |
+| Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests, timing an e2e click after named-frame registration | `references/frame-layout-and-testing.md` |
 | Deferring frames until visible (LazyFrame/IntersectionObserver), collapsed or offscreen frame content, measuring frame fan-out | `references/lazy-frames.md` |
 | A frame-targeted form POSTs to a method-only route (frame GETs it → 404), or a racing SSE invalidate-reload crashes with `Node.insertBefore` | `references/frame-form-action-get-route.md` |
 | Converting a clientEntry tab/panel switcher to server-rendered frame navigation, or a POST validation/success message vanishes because the frame content came from a separate GET | `references/frame-server-view-switching.md` |
@@ -54,6 +54,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 
 - `app/assets/entry.tsx` (`run({ resolveFrame })`) is the always-loaded client runtime, not per-page user code. Removing it does not make a page "more SSR" — it removes enhancement and falls back to full-document navigation.
 - A frame that has not mounted cannot be addressed — defer only frames that nothing points at, or navigation to them silently becomes a full frame reload.
+- A `<Frame>` present in the server HTML is registered synchronously during hydration *before* any `clientEntry` module hydrates (`hydrateContainer` runs `createSubFrames` before `scheduleHydrationMarker`), so a `data-rmx-target` link to it is already addressable once any shell clientEntry has run — see `references/frame-layout-and-testing.md`.
 - Make the server route correct before layering `clientEntry`/frame interactivity on top.
 - `handle.update()` only from an event handler or `handle.queueTask()` — never from setup, render, or a `dragover`/resize/scroll handler.
 - The factory closure of a `clientEntry` persists across frame DOM replacement; only the render function re-runs. State a "did I mount?" fact in the closure only if the render function cannot observe the new DOM.

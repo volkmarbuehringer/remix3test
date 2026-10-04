@@ -15,6 +15,7 @@ import {
   buildCancelUrl,
 } from './mixins/admin-urls.ts'
 import { formatDateDE } from '../utils/date-utils.ts'
+import { frames } from '../routes.ts'
 import { RestfulForm } from './restful-form.tsx'
 import { GridStateHiddenInputs } from './grid-state-hidden.tsx'
 import { AppointmentsNewCreatePage } from './appointments-new-create-page.tsx'
@@ -252,7 +253,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     )
                   }
                   return (
-                    <a href={href}>
+                    <a
+                      href={href}
+                      data-rmx-target={frames.appointmentsNewContent}
+                      aria-current={active ? 'true' : undefined}
+                    >
                       <button
                         mix={[
                           button({ tone: active ? 'primary' : 'secondary' }),
@@ -291,7 +296,11 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                 if (!active) params.set('status', value)
                 let href = BASE + '?' + params.toString()
                 return (
-                  <a href={href}>
+                  <a
+                    href={href}
+                    data-rmx-target={frames.appointmentsNewContent}
+                    aria-current={active ? 'true' : undefined}
+                  >
                     <button
                       mix={[
                         button({ tone: active ? 'primary' : 'secondary' }),
@@ -366,6 +375,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         period,
                         status,
                       )}
+                      data-rmx-target={frames.appointmentsNewContent}
                       mix={table.sortLink}
                     >
                       Titel
@@ -388,6 +398,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         period,
                         status,
                       )}
+                      data-rmx-target={frames.appointmentsNewContent}
                       mix={table.sortLink}
                     >
                       Ressource
@@ -412,6 +423,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         period,
                         status,
                       )}
+                      data-rmx-target={frames.appointmentsNewContent}
                       mix={table.sortLink}
                     >
                       Datum
@@ -432,6 +444,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                         period,
                         status,
                       )}
+                      data-rmx-target={frames.appointmentsNewContent}
                       mix={table.sortLink}
                     >
                       Zeit
@@ -518,6 +531,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     period,
                     status,
                   )}
+                  data-rmx-target={frames.appointmentsNewContent}
                   mix={table.pageLink}
                 >
                   <Glyph name="chevronRight" width={14} height={14} mix={rotatedGlyphCss} /> Zurück
@@ -538,6 +552,7 @@ export function AppointmentsNewPage(handle: Handle<AppointmentsNewPageProps>) {
                     period,
                     status,
                   )}
+                  data-rmx-target={frames.appointmentsNewContent}
                   mix={table.pageLink}
                 >
                   Weiter <Glyph name="chevronRight" width={14} height={14} />

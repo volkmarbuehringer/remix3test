@@ -5,6 +5,7 @@ export const frames = {
   listsContent: 'lists-content',
 
   appointmentContent: 'appointment-content',
+  appointmentsNewContent: 'appointments-new-content',
   appointTypes: 'appoint-types',
   settingsPanel: 'settings-panel',
 

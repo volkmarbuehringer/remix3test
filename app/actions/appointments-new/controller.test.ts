@@ -6,7 +6,7 @@ import { db, initializeAppDatabase } from '../../db.ts'
 import { pool } from '../../data/test-pool.ts'
 import { createAuthCookieWithCsrfForUser } from '../../test-utils.ts'
 import { listResources } from '../../data/resources.ts'
-import { routes } from '../../routes.ts'
+import { frames, routes } from '../../routes.ts'
 
 const BASE = 'https://remix.run'
 const APPT_URL = `${BASE}${routes.appointmentsNew.index.href()}`
@@ -655,5 +655,132 @@ describe('Appointments New Controller', () => {
     let html = await response.text()
     assert.ok(html.includes('Termin löschen'))
     assert.ok(html.includes('To Confirm Delete'))
+  })
+})
+
+// ── Server-rendered frame navigation ──
+//
+// The period/status segments used to be plain links on an unframed page. They
+// now reload a blocking appointments-new-content frame, so the view state lives
+// in the URL and the page body is the frame fragment.
+describe('Appointments new frame navigation', () => {
+  let userCookie: string
+  let userCsrfToken: string
+
+  before(async () => {
+    await initializeAppDatabase()
+    let auth = await createAuthCookieWithCsrfForUser('user@newapp.com')
+    if (!auth) throw new Error('user@newapp.com not found in seed')
+    userCookie = auth.cookie
+    userCsrfToken = auth.csrfToken
+  })
+
+  it('full GET renders the document shell plus a blocking appointments-new-content frame', async () => {
+    let response = await router.fetch(APPT_URL, { headers: { Cookie: userCookie } })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(html.includes('<html'), 'full page keeps the document shell')
+    assert.ok(html.includes('rmx:f:'), 'a frame is mounted in the shell')
+    assert.ok(
+      html.includes('data-rmx-target="appointments-new-content"'),
+      'the period/status links target the frame',
+    )
+    // The blocking frame resolves its src during SSR, so the page body is part
+    // of the initial HTML (and the no-JS first paint).
+    assert.ok(html.includes('Meine Termine'), 'the frame content is inlined')
+    assert.equal(
+      (html.match(/Meine Termine/g) ?? []).length,
+      1,
+      'the shell must not nest the page body',
+    )
+  })
+
+  it('frame request returns only the page body', async () => {
+    let response = await router.fetch(`${APPT_URL}?period=this-week`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent },
+    })
+    assert.equal(response.status, 200)
+    let html = await response.text()
+    assert.ok(!html.includes('<html'), 'the fragment must not contain the document shell')
+    assert.ok(html.includes('Meine Termine'), 'the fragment carries the list')
+    assert.ok(
+      html.includes('data-rmx-target="appointments-new-content"'),
+      'links inside the fragment keep targeting the frame',
+    )
+  })
+
+  it('marks the active period and status segments with aria-current', async () => {
+    let response = await router.fetch(`${APPT_URL}?period=next-week`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent },
+    })
+    let html = await response.text()
+    assert.equal(
+      (html.match(/aria-current="true"/g) ?? []).length,
+      2,
+      'the active period and the active (default pending) status are marked current',
+    )
+    assert.ok(html.includes('period=next-week'), 'the period link keeps its filter in the URL')
+  })
+
+  it('targets the frame from the sort and pagination links', async () => {
+    let response = await router.fetch(`${APPT_URL}?offset=1&sort=a.date&order=asc`, {
+      headers: { Cookie: userCookie, 'X-Remix-Target': frames.appointmentsNewContent },
+    })
+    let html = await response.text()
+    assert.ok(
+      /href="[^"]*sort=a\.title[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(html),
+      'a sort header link targets the frame',
+    )
+    assert.ok(
+      /href="[^"]*offset=0[^"]*sort=a\.date[^"]*"[^>]*data-rmx-target="appointments-new-content"/.test(
+        html,
+      ),
+      'the previous-page link targets the frame',
+    )
+  })
+
+  it('full-document POST validation error renders the page inline, not as a frame', async () => {
+    let response = await router.fetch(APPT_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+      },
+      body: new URLSearchParams({
+        resource_id: '1',
+        day_start: '',
+        title: 'Test',
+        step: '2',
+      }).toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(html.includes('<html'), 'the inline POST response keeps the document shell')
+    assert.ok(html.includes('Bitte wählen Sie eine Uhrzeit aus'), 'the field error survives')
+  })
+
+  it('frame-targeted POST validation error returns a fragment with no shell', async () => {
+    let response = await router.fetch(APPT_URL, {
+      method: 'POST',
+      headers: {
+        Cookie: userCookie,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Csrf-Token': userCsrfToken,
+        'X-Remix-Target': frames.appointmentsNewContent,
+      },
+      body: new URLSearchParams({
+        resource_id: '1',
+        day_start: '',
+        title: 'Test',
+        step: '2',
+      }).toString(),
+      redirect: 'manual',
+    })
+    assert.equal(response.status, 400)
+    let html = await response.text()
+    assert.ok(!html.includes('<html'), 'the frame POST response is a fragment')
+    assert.ok(html.includes('Bitte wählen Sie eine Uhrzeit aus'), 'the field error survives')
   })
 })

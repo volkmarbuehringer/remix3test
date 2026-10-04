@@ -8,6 +8,7 @@ Frame layout wiring and how to verify frame-rendered output. Read this when the 
 - Registering frame targets as content-only vs full-shell
 - A `<Frame>` reload ignoring a server-rendered `<input defaultValue>`
 - Asserting on a frame-rendered fragment in a server test without a browser
+- Timing an e2e click so it lands after the named frame is registered
 
 For the navigation/forms contract, see `frame-navigation.md`. For the entry lifecycle, see `cliententry-lifecycle.md`.
 
@@ -223,3 +224,39 @@ Key facts:
 - Run a single file quickly with `npm test -- <glob>`; delete throwaway verification tests afterwards.
 
 Use when verifying a layout/CSS change to an admin (sidebar-shell) page landed without booting a browser, writing a regression assertion that a page no longer contains a specific style, or confirming `fullHeightTargets`/content-only frame targets take effect for a route.
+
+## Hydration Ordering — Frames Register Before Client Entries
+
+**Context:** Writing an e2e test for a frame-targeted control on a page whose body is a *blocking* frame. Server tests can assert the `data-rmx-target` attributes and the fragment/shell split, but they cannot prove the click is intercepted — that needs a browser. The test must not click before the named frame is registered, or the click falls back to a full document navigation and the test flakes.
+
+**Verified fact (2026-10-04):** in the pinned `@remix-run/component` **1.0.0** (with `remix` 3.0.0, `remix/component` re-exports `@remix-run/component`), `hydrateContainer` in `src/runtime/frame.ts` runs the synchronous `createSubFrames(container.childNodes, context, options)` pass **before** it schedules any client-entry hydration:
+
+```ts
+// @remix-run/component/src/runtime/frame.ts (installed 1.0.0), hydrateContainer
+let subFramesReady = createSubFrames(container.childNodes, context, options) // line 1249
+for (let { marker, entry, complete } of hydrations) {
+  scheduleHydrationMarker(marker, entry, context, complete, ...)             // line 1251
+}
+```
+
+So once **any** `clientEntry` on the page has hydrated, every `<Frame>` present in the server HTML is already registered in the `NamedFrameRegistry` and is addressable by `data-rmx-target`.
+
+**Practical e2e readiness signal:** wait for a client-side side effect of a known `clientEntry` in the outer shell, then click the frame-target link. `MainNav`'s `NotificationBell` fetches `/notifications/unread-count` from `queueTask` on hydration:
+
+```ts
+// Register the waiter BEFORE goto: the fetch fires during hydration.
+let hydrated = page.waitForResponse(
+  (res) => res.url().includes('/notifications/unread-count'),
+  { timeout: 15_000 },
+)
+await page.goto('/appointments/new') // blocking frame: body already inlined in SSR HTML
+await hydrated                        // named frame registered by now
+
+await page.locator('a[data-rmx-target="appointments-new-content"]', { hasText: 'Nächste Woche' }).click()
+```
+
+Then prove it was a same-document frame swap, not a reload: count `page.on('load')` events. A full document navigation fires `load`; a frame swap does not, and the two are otherwise indistinguishable by URL alone. Assert the count is still 1 after the click.
+
+**Caveat:** this signal only covers frames present in the **server-rendered** HTML. A nested pane that is mounted conditionally or arrives in a later fragment hydrate is not guaranteed by this ordering — wait for its own content instead. This is vendor code; re-check `hydrateContainer` in the installed `frame.ts` before relying on the line numbers.
+
+**Validated:** 2026-10-04 in `/home/lucky/remix3test` against `remix` 3.0.0 / `@remix-run/component` 1.0.0 (installed `frame.ts` `hydrateContainer`); `app/actions/appointments-new/appointments-new-frame-nav.test.e2e.ts` passes in Chromium and Firefox.

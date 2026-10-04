@@ -1,8 +1,9 @@
+import { Frame } from 'remix/component'
 import { createController } from 'remix/router'
 import * as s from 'remix/data-schema'
 import { redirect } from 'remix/response/redirect'
 
-import { routes } from '../../routes.ts'
+import { frames, routes } from '../../routes.ts'
 import type { AppContext } from '../../types/context.ts'
 import { getCurrentWeekMonday, getTodayUtcMidnight, isWithinHours } from '../../utils/date-utils.ts'
 import {
@@ -94,9 +95,9 @@ interface AppointmentsNewPageData {
   daysWithSlots?: DayWithSlots[] | undefined
 }
 
-type AppointmentsNewPageOverrides = Partial<
-  {
-    [K in
+type AppointmentsNewPageOverrides = Partial<{
+  [
+    K in
       | 'creating'
       | 'deletingRow'
       | 'error'
@@ -111,9 +112,9 @@ type AppointmentsNewPageOverrides = Partial<
       | 'status'
       | 'step'
       | 'wizardResourceId'
-      | 'weekStart']: AppointmentsNewPageData[K] | undefined
-  }
->
+      | 'weekStart'
+  ]: AppointmentsNewPageData[K] | undefined
+}>
 
 // Computes the bookable per-day full-hour slots for a resource in a single week,
 // after removing booked ranges and past days/past times. Shared by the default
@@ -343,42 +344,58 @@ async function loadAppointmentsNewPageData(
   }
 }
 
+/** True when the request addresses the appointments-new content frame. */
+function isAppointmentsNewFrameRequest(context: Pick<AppContext, 'request'>): boolean {
+  return context.request.headers.get('X-Remix-Target') === frames.appointmentsNewContent
+}
+
+/**
+ * Renders the page body. A frame request gets the fragment alone (no `Layout`
+ * and no nested frame); any other response wraps the body in the document shell.
+ *
+ * The inline shape matters for a full-document POST: the frame's content is
+ * resolved by a separate GET that never sees the POST's validation state, so
+ * rendering a `<Frame>` here would silently drop field errors on a no-JS submit.
+ */
 function renderAppointmentsNewPage(
-  context: { render: AppContext['render'] },
+  context: Pick<AppContext, 'request' | 'render'>,
   data: AppointmentsNewPageData,
   init?: ResponseInit,
 ): Response {
-  return context.render(
-    <Layout>
-      <AppointmentsNewPage
-        rows={data.rows}
-        offset={data.offset}
-        hasMore={data.hasMore}
-        prevOffset={data.prevOffset}
-        nextOffset={data.nextOffset}
-        sortColumn={data.sortColumn}
-        sortDirection={data.sortDirection}
-        filter={data.filter}
-        period={data.period}
-        status={data.status}
-        deletingRow={data.deletingRow}
-        creating={data.creating}
-        resources={data.resources}
-        error={data.error}
-        defaultStartMin={data.defaultStartMin}
-        formValues={data.formValues}
-        fieldErrors={data.fieldErrors}
-        formError={data.formError}
-        step={data.step}
-        wizardResourceId={data.wizardResourceId}
-        wizardResourceName={data.wizardResourceName}
-        wizardResourceDescription={data.wizardResourceDescription}
-        weekStart={data.weekStart}
-        daysWithSlots={data.daysWithSlots}
-      />
-    </Layout>,
-    init,
+  let page = (
+    <AppointmentsNewPage
+      rows={data.rows}
+      offset={data.offset}
+      hasMore={data.hasMore}
+      prevOffset={data.prevOffset}
+      nextOffset={data.nextOffset}
+      sortColumn={data.sortColumn}
+      sortDirection={data.sortDirection}
+      filter={data.filter}
+      period={data.period}
+      status={data.status}
+      deletingRow={data.deletingRow}
+      creating={data.creating}
+      resources={data.resources}
+      error={data.error}
+      defaultStartMin={data.defaultStartMin}
+      formValues={data.formValues}
+      fieldErrors={data.fieldErrors}
+      formError={data.formError}
+      step={data.step}
+      wizardResourceId={data.wizardResourceId}
+      wizardResourceName={data.wizardResourceName}
+      wizardResourceDescription={data.wizardResourceDescription}
+      weekStart={data.weekStart}
+      daysWithSlots={data.daysWithSlots}
+    />
   )
+
+  if (isAppointmentsNewFrameRequest(context)) {
+    return context.render(page, init)
+  }
+
+  return context.render(<Layout>{page}</Layout>, init)
 }
 
 export default createController(routes.appointmentsNew, {
@@ -386,6 +403,18 @@ export default createController(routes.appointmentsNew, {
 
   actions: {
     async index(context) {
+      // A full page renders only the shell and defers the body to the blocking
+      // frame, so the frame's own GET is the only place that loads page data
+      // (no double query on first paint).
+      if (!isAppointmentsNewFrameRequest(context)) {
+        let frameSrc = context.url.pathname + context.url.search
+        return context.render(
+          <Layout>
+            <Frame name={frames.appointmentsNewContent} src={frameSrc} />
+          </Layout>,
+        )
+      }
+
       let auth = context.auth
       let userId = auth.identity.id
       let data = await loadAppointmentsNewPageData(context, userId)
