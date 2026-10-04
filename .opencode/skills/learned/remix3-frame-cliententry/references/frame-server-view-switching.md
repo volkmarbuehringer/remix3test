@@ -108,6 +108,36 @@ Without the keyboard JS you cannot implement the APG tabs pattern (roving
 `role="tab"`. See `remix3-client-entries` → `references/aria-tabs.md` for the
 clientEntry version this replaces.
 
+## Profitability — a conversion only *reduces* code if it deletes a `clientEntry`
+
+**Context:** `/appointments/new`, 2026-10-04. A follow-up framed the
+period/status/sort/pagination controls, then the create/delete panel + wizard.
+Net result: production **+95**, tests **+430**, client **+14** (`AppointmentsNewStep2Live`
+hardening), and **no** `.browser.*`/`clientEntry` file deleted.
+
+Cause: the controls were already server-rendered `<a href>`/`<form>` elements —
+there was no URL-building/toggling JS left to delete. The pattern's cost
+(`data-rmx-target` attributes, `isFrame`/`inline` render branches, tests) has
+nothing to offset it.
+
+**Rule before starting:** the reduction in this pattern is the deleted
+`clientEntry` (the settings case removed 283 production + 376 test lines). If the
+candidate is already a server link/form, the conversion is **capability, not
+reduction** — it removes full-document navigations, it does not shrink code.
+
+1. Check whether a `clientEntry`/`.browser.*` file will actually be deleted. No
+   deletion ⇒ expect a net LOC increase; say so before starting.
+2. Estimate: added `data-rmx-target` attributes + controller `isFrame`/`inline`
+   branches + server/browser/e2e tests **vs** the deleted client entry + its tests.
+3. Genuine client code (live filter, pre-submit feedback, scroll lock/reveal) stays:
+   converting it adds server code *and* keeps the enhancement, so it is never a reduction.
+4. For a smaller client bundle, the real levers are deleting the enhancement
+   (server-rendered confirm may already cover its value) or making the filter a
+   server GET form — not wrapping an already-server page in a frame.
+
+**Report wording:** distinguish "moved view state into the URL + Frame" from
+"reduced client-side code". They are not the same claim.
+
 ## When to Use
 
 - Two or more mutually exclusive sections, each server-renderable and

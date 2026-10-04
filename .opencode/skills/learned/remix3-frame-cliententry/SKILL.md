@@ -21,7 +21,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 | Frame target registration/content-only panels, nested-frame registration inside a fragment-hydrated frame, `<input>` `defaultValue` preservation, asserting on frame-rendered HTML in tests, timing an e2e click after named-frame registration | `references/frame-layout-and-testing.md` |
 | Deferring frames until visible (LazyFrame/IntersectionObserver), collapsed or offscreen frame content, measuring frame fan-out | `references/lazy-frames.md` |
 | A frame-targeted form POSTs to a method-only route (frame GETs it → 404), or a racing SSE invalidate-reload crashes with `Node.insertBefore` | `references/frame-form-action-get-route.md` |
-| Converting a clientEntry tab/panel switcher to server-rendered frame navigation, or a POST validation/success message vanishes because the frame content came from a separate GET | `references/frame-server-view-switching.md` |
+| Converting a clientEntry tab/panel switcher to server-rendered frame navigation, a POST validation/success message vanishes because the frame content came from a separate GET, or deciding whether a frame conversion is actually a code reduction | `references/frame-server-view-switching.md` |
 | A frame-shell page shows the breadcrumb/page name twice on a full GET (top-level Layout also renders one) | `references/frame-shell-duplicate-breadcrumb.md` |
 | A frame editor's "create new" mode has no server id and navigation would lose typed content | `references/frame-unsaved-draft.md` |
 | A `session.flash` PRG message never appears in a frame fragment, or a test reads an empty session | `references/session-flash-frames.md` |
@@ -34,7 +34,7 @@ This skill is the **index** for the version-pinned deltas. For the framework API
 - `references/frame-layout-and-testing.md` — layout wiring and verification.
 - `references/lazy-frames.md` — the eager/lazy decision rule, the `name`/auth trap, and how to measure and verify frame fan-out.
 - `references/frame-form-action-get-route.md` — the action-path-must-resolve-as-GET contract (404 vs `Node.insertBefore` crash).
-- `references/frame-server-view-switching.md` — server-rendered view switching (tabs/steps) and the POST-state-must-render-inline trap.
+- `references/frame-server-view-switching.md` — server-rendered view switching (tabs/steps), the POST-state-must-render-inline trap, and the profitability check.
 - `references/frame-shell-duplicate-breadcrumb.md` — suppressing the top-level Layout's breadcrumb for shell pages.
 - `references/frame-unsaved-draft.md` — `sessionStorage` draft persistence for id-less "create new" editors.
 - `references/session-flash-frames.md` — flash banner in fragment render paths + parsing the signed session cookie in tests.
