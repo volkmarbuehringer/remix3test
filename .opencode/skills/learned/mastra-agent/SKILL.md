@@ -1,12 +1,12 @@
 ---
 name: mastra-agent
-description: 'Use when building or debugging Mastra agents in Remix — inline model config, single-POST SSE streaming/pipeStream, askUserTool/requireToolApproval suspension (including restoring a pending gate after reload and durable run ownership), tool-result and message-content handling, PostgresStore-backed observability, a shared `ReadableStream` a library consumed before you stored it, and parsing `agent.generate()` JSON output safely.'
+description: 'Use when building or debugging Mastra agents in Remix — inline model config, single-POST SSE streaming/pipeStream, askUserTool/requireToolApproval suspension (including restoring a pending gate after reload and durable run ownership), tool-result and message-content handling, PostgresStore-backed observability, a shared `ReadableStream` a library consumed before you stored it, parsing `agent.generate()` JSON output safely, and awaiting a suspension/terminal hook's durable write before the SSE body closes so a follow-up read is not stale.'
 origin: consolidated
 ---
 
 # Mastra Agent Patterns
 
-**Consolidated from:** `mastra-agent-inline-model-config`, `mastra-agent-streaming-sse`, `mastra-agent-toolresult-chunk-format`, `mastra-message-content-normalization`, `mastra-observability-postgres-store`, `mastra-storage-api-vs-raw-sql`, `mastra-agent-pending-gate-restore`, `mastra-durable-run-ownership`, `drain-and-rebuild-stream-race`, `llm-classification-json-parsing`
+**Consolidated from:** `mastra-agent-inline-model-config`, `mastra-agent-streaming-sse`, `mastra-agent-toolresult-chunk-format`, `mastra-message-content-normalization`, `mastra-observability-postgres-store`, `mastra-storage-api-vs-raw-sql`, `mastra-agent-pending-gate-restore`, `mastra-durable-run-ownership`, `drain-and-rebuild-stream-race`, `llm-classification-json-parsing`, `mastra-sse-pipestream-write-race`
 
 This skill is the **index** for Mastra agent deltas. For the framework API, use the vendor `mastra` skill (`.opencode/skills/mastra/SKILL.md`) and its `references/`.
 
@@ -24,6 +24,7 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 | A suspended `ask_user`/approval card is missing after reload and the user must retype | `references/pending-gate-restore.md` |
 | Approve/decline/answer returns 403 after restart/scale or on a re-suspended run | `references/durable-run-ownership.md` |
 | A library internally consumes a `ReadableStream` getter before you store it, and the stored stream yields ~2 bytes/empty | `references/drain-and-rebuild-stream-race.md` |
+| A `pipeStream` suspension/terminal hook fire-and-forgets a durable write, so the body closes and a follow-up read/reconnect sees stale state | `references/sse-pipestream-write-race.md` |
 | Parsing `agent.generate()` JSON for intent/classification — numeric `targetQuery`, markdown-wrapped/noisy output, or a required safe fallback | `references/llm-classification-json-parsing.md` |
 | Adding `runEvals` gates over the app agents; a gate target, tool name, or runner script that will not work | `references/evals-gates.md` |
 | Using `Classifier`/`ClassifierProcessor` with a custom provider; typed intent vs free-text extraction; a guardrail turn that returns an empty reply | `references/evaluation-model-classifier.md` |
@@ -50,6 +51,10 @@ This skill is the **index** for Mastra agent deltas. For the framework API, use 
 **Drain-and-rebuild a raced stream (`references/drain-and-rebuild-stream-race.md`)**
 
 - When a library's `fullStream` getter wraps a shared base stream and its internal broadcast races your `setStream`, the loser gets an empty (~2-byte) stream. Drain the stream into an array synchronously (before the library's microtask) and rebuild a fresh `ReadableStream`; or use `tee()` where supported. Trades streaming latency for deterministic delivery.
+
+**Await the durable write before the SSE body closes (`references/sse-pipestream-write-race.md`)**
+
+- `pipeStream`'s settle path calls `closeOnce()`, which can end the response before a fire-and-forget hook write commits; a read right after the stream, or a reconnect, then sees the pre-write state (`running` instead of `suspended`) — timing-dependent and easy to misread as a data bug. Return the write promise from the suspension/terminal hook and have the stream-settle path **await it before closing**; the test must fully consume the response body (`await parseSSEResponse(response)`) before reading the durable row.
 
 **Parse LLM classification JSON (`references/llm-classification-json-parsing.md`)**
 

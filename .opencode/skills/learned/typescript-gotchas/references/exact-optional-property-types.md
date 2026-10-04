@@ -1,11 +1,6 @@
----
-name: exact-optional-property-types-migration
-description: "Use when TypeScript reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 with 'exactOptionalPropertyTypes: true', or when enabling that flag causes object literals passing `T | undefined` into `x?: T` — widen the target optional type to `| undefined` (read-side-neutral), using `!== undefined` conditional spreads for vendor targets"
-metadata:
-  origin: auto-extracted
----
-
 # Enabling exactOptionalPropertyTypes Without Breakage
+
+**Source:** `exact-optional-property-types-migration`
 
 **Extracted:** 2026-09-04
 **Context:** Migrating a TypeScript codebase to the `exactOptionalPropertyTypes` compiler flag (part of a stricter-TS adoption).

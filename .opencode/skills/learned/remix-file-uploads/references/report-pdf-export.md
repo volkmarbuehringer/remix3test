@@ -1,11 +1,6 @@
----
-name: remix3-report-pdf-export
-description: "Use when adding a PDF/CSV export or download to an existing server-rendered list or report page in this app — share the page's period/filter/sort parser with the export action, generate with the pdfmake helpers, wire a static child route, and avoid the data-rmx-document / X-Remix-Frame download traps."
-metadata:
-  origin: auto-extracted
----
-
 # Report Export Sharing the Page's Query Parser
+
+**Source:** `remix3-report-pdf-export`
 
 **Extracted:** 2026-09-20
 **Context:** `/verwaltung/report1` (Monatsauswertung) already rendered from `year/month/user_id/filter/sort/order`; a PDF export had to return exactly the view the page shows.

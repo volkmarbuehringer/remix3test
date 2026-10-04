@@ -26,13 +26,12 @@
 
 ## Learned skills not tied to a guide chapter
 
-- `remix3-client-entry-decomposition` — decomposing a large `clientEntry` / `.browser.tsx` into styles/state/API/drag/view modules. Cross-cutting practice for chapters 04 (rendering-ui) and 05 (interactivity), so it is not a pointer to a single guide section.
+- `remix3-client-entries` → `references/client-entry-decomposition.md` — decomposing a large `clientEntry` / `.browser.tsx` into styles/state/API/drag/view modules. A cross-cutting practice for chapters 04 (rendering-ui) and 05 (interactivity), now contained by the chapter-05 owner skill.
 
 - The **Mastra** family are learned deltas for the vendor `mastra` framework (`.agents/skills/mastra` is vendor-supplied), not pointers to a Remix guide chapter:
-  - `mastra-agent` — agent construction and inline model config, single-POST SSE `pipeStream`, HITL suspension and durable run ownership, and the typed `Classifier` / `EvaluationModelV4` + `ClassifierProcessor` path.
+  - `mastra-agent` — agent construction and inline model config, single-POST SSE `pipeStream` (including the suspension/terminal-hook durable-write race), HITL suspension and durable run ownership, and the typed `Classifier` / `EvaluationModelV4` + `ClassifierProcessor` path.
   - `mastra-tools` — tool design, approval gating, suspension detection, and the actor `RequestContext`.
   - `mastra-workflow` — Workflow resume/abort race and strict step typing.
-  - `mastra-sse-pipestream-write-race` — a `pipeStream` suspension/terminal hook that writes durable state the next read then misses.
 
 ## Unfinished chapters — re-audit on authoring
 

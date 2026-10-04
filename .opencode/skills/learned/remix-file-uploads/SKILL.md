@@ -1,13 +1,21 @@
 ---
 name: remix-file-uploads
-description: Use when building upload endpoints or bulk downloads in Remix 3 — multipart parsing, fs/S3/bytea storage, the bytea upload-handler delta, and ZIP archives via node:zlib.
+description: Use when building upload or download endpoints in Remix 3 — multipart parsing, fs/S3/bytea storage, the bytea upload-handler delta, ZIP archives via node:zlib, and sharing a report/list page's query parser with a PDF/CSV export route (including the data-rmx-document / X-Remix-Frame download guard).
 ---
 
-# Remix File Uploads — PostgreSQL bytea Backend
+# Remix File Uploads & Report Exports
 
 For the streaming multipart parser, size limits, and the pluggable storage backends (`remix/file-storage/fs`, `s3`, `memory`), see the vendor READMEs: `node_modules/remix/src/multipart-parser/README.md`, `node_modules/remix/src/form-data-parser/README.md`, `node_modules/remix/src/file-storage/README.md`, and `node_modules/remix/src/form-data-middleware/README.md`.
 
-This skill only documents the hard-won delta: storing files directly in a PostgreSQL `bytea` column, the middleware-ordering gotcha it exposes, and the streaming-parser error-handling pattern (reject-without-throwing + wrapping `formData()` for never-suppressed limit errors).
+This skill only documents the hard-won deltas: storing files directly in a PostgreSQL `bytea` column, the middleware-ordering gotcha it exposes, the streaming-parser error-handling pattern (reject-without-throwing + wrapping `formData()` for never-suppressed limit errors), and the report-export pattern.
+
+## Load Only The References You Need
+
+| Task involves... | Start with |
+| --- | --- |
+| Upload endpoints, storage, ordering, rejection handling (the deltas below) | this file, §1–§4 |
+| Bulk ZIP download without a dependency | this file, §6 |
+| Adding a PDF/CSV export to an existing list/report page — sharing the page's parser, a static child route, and the `data-rmx-document` / `X-Remix-Frame` traps | `references/report-pdf-export.md` |
 
 ## Working implementations in this repo
 
@@ -84,3 +92,4 @@ Gotchas:
 - vendor `remix` skill (`.agents/skills/remix/`) — upload examples and middleware patterns
 - `remix3-frame-cliententry` (`references/frame-navigation.md`) — serving binary downloads through Frame navigation
 - `app/middleware/uploads.ts`, `app/middleware/upload-claim.ts`, `app/data/uploads.ts`, `app/utils/zip.ts`, `app/actions/admin/uploads/controller.tsx` — working implementations in this repo
+- `references/report-pdf-export.md` — sharing a report page's query parser with a PDF/CSV export, and the `data-rmx-document` / `X-Remix-Frame` download traps

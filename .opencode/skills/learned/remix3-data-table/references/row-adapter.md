@@ -58,4 +58,4 @@ Adjacent gotchas this fixes in the same stroke:
 ## Related
 
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas, the raw-SQL sibling of this adapter (`references/raw-sql-wire-honest-rows.md`)
-- `exact-optional-property-types-migration` — building optional fields under `exactOptionalPropertyTypes`
+- `typescript-gotchas` (`references/exact-optional-property-types.md`) — building optional fields under `exactOptionalPropertyTypes`

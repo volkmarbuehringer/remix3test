@@ -35,4 +35,4 @@ The vendor guide `node_modules/remix/guides/08-data-and-validation.md` (authored
 
 - `database-gotchas` — decoding `db.exec` rows with wire-honest zod schemas (`references/raw-sql-wire-honest-rows.md`)
 - `database-gotchas` — `DataTableDatabaseError` cause unwrapping and PG error codes (`references/database-errors.md`)
-- `exact-optional-property-types-migration` — the general `exactOptionalPropertyTypes` widening pattern
+- `typescript-gotchas` (`references/exact-optional-property-types.md`) — the general `exactOptionalPropertyTypes` widening pattern

@@ -137,7 +137,7 @@ function appointmentsGridUrl(formData: FormData): string {
 /**
  * Reads the grid's filter/period/status from the request URL. Shared by the
  * grid page loader and the ICS export so the download always matches the view
- * the page shows (see `remix3-report-pdf-export`).
+ * the page shows (see `remix-file-uploads` → `references/report-pdf-export.md`).
  */
 function readAppointmentGridFilter(context: Pick<AppContext, 'url'>) {
   return {

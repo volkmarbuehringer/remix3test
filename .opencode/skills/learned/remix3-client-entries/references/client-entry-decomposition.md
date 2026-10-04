@@ -1,11 +1,6 @@
----
-name: remix3-client-entry-decomposition
-description: "Use when a Remix 3 `clientEntry` / `.browser.tsx` file grows past ~1,000 lines and must be split without behavior change — extract pure styles/state/API/drag modules, then split controller from view with a typed view model of setter and ref callbacks."
-metadata:
-  origin: auto-extracted
----
-
 # Decomposing a Large Remix 3 clientEntry
+
+**Source:** `remix3-client-entry-decomposition`
 
 **Extracted:** 2026-09-29
 **Context:** `app/actions/lists/public/lists-client.tsx` reached 3,523 lines — one closure, ~95 nested functions, a ~1,100-line JSX return. Split into `lists-styles.ts`, `lists-state.ts`, `lists-api.ts`, `lists-drag.ts`, and `lists-view.tsx` (client 3,523 → 1,321) with zero behavior change, verified by typecheck + 148 unit + 22 e2e tests.

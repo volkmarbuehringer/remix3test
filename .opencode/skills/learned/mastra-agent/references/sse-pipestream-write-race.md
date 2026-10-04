@@ -1,11 +1,6 @@
----
-name: mastra-sse-pipestream-write-race
-description: "Use when a Remix/Mastra SSE pipeStream endpoint writes durable state from a suspension or terminal hook and a follow-up read (or reconnect) sees stale pre-write state, or when a test passes in isolation but fails under load with a stale status — make the fire-and-forget hook awaitable and let the stream settle only after the write commits."
-metadata:
-  origin: auto-extracted
----
-
 # SSE stream closes the body before an async durable write lands
+
+**Source:** `mastra-sse-pipestream-write-race`
 
 **Extracted:** 2026-08-31
 **Context:** Remix 3 + Mastra agent SSE endpoints (`app/utils/agent-sse.ts` `pipeStream`) that fork a durable DB write from a suspension/terminal hook while streaming the SSE body to the client.

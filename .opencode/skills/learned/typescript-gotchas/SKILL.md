@@ -1,13 +1,13 @@
 ---
 name: typescript-gotchas
-description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, or the same multi-line object block is copy-pasted across many call sites."
+description: "Use when a TypeScript/JavaScript pattern behaves unexpectedly — an async function returning void resolves before its work completes, TS7 recursive assignability flipping with module ordering, `typeof import()` rejected by `consistent-type-imports`, ES-module imports that tests cannot substitute, a vendor validator that validates or throws where a hand-rolled coercion used to be, a re-entrant async action sets its `busy`/`inFlight` guard after an `await` so a double-click duplicates the write, spreading a large array throws `Maximum call stack size exceeded`, the same multi-line object block is copy-pasted across many call sites, or `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object passes `T | undefined` into an `x?: T`."
 user-invocable: false
 origin: consolidated
 ---
 
 # TypeScript Gotchas
 
-**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`
+**Consolidated from:** `async-void-return-type-race`, `ts7-order-sensitive-type-relations`, `ts-typeof-import-module-namespace`, `mutable-executor-setter-testable-imports`, `vendor-validator-cast-audit`, `async-guard-before-await`, `js-array-spread-argument-limit`, `repeated-block-collapse-refactor`, `typescript-eventbus-bfs-async-generator`, `exact-optional-property-types-migration`
 
 This skill is the **index** for TypeScript/JavaScript deltas that bite at runtime or at the lint/type boundary. For the language and compiler APIs themselves, use the official TypeScript docs; for Remix-specific type wiring, use the vendor `remix` skill (`.opencode/skills/remix/SKILL.md`) and the package READMEs it points at.
 
@@ -24,6 +24,7 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 | Spreading a large array (`push(...arr)`, `Math.max(...arr)`) throws `RangeError: Maximum call stack size exceeded` on a shallow call tree | `references/array-spread-argument-limit.md` |
 | The same multi-line object-literal fragment is copy-pasted across many call sites and one composite helper + spread should replace it | `references/repeated-block-collapse-refactor.md` |
 | Building a typed in-process event pipeline consumed as an async iterable (SSE/log stream) with breadth-first traversal and cycle protection | `references/eventbus-bfs-async-generator.md` |
+| `exactOptionalPropertyTypes: true` reports TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 because an object literal passes `T | undefined` into `x?: T` | `references/exact-optional-property-types.md` |
 
 ## Core Rules
 
@@ -69,6 +70,10 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 
 - Typed discriminated-union events + a `Map` of handlers + an async generator that `shift()`s a FIFO queue (breadth-first) and `push()`es emitted events; guard cycles with a `maxDepth` and accept an `AbortSignal` for cancellation. Parameterize `EventHandler<T>` to avoid per-handler casts. Not for persistence/replay or strictly linear pipelines.
 
+**`exactOptionalPropertyTypes` widening (`references/exact-optional-property-types.md`)**
+
+- With `exactOptionalPropertyTypes`, `{ x: T | undefined }` is no longer assignable to `{ x?: T }` (TS2379/TS2375/TS2345/TS2322/TS2412/TS2769). Widening an app-owned target to `x?: T | undefined` is **read-side-neutral** (reads already yield `T | undefined`) and fixes every call site at once. For a vendor/third-party target, guard at the call site with `...(filter !== undefined ? { filter } : {})`, never truthiness (an empty string or `0` is falsy but must pass). A derived `let` boolean does not narrow — inline the guard.
+
 ## When to Use
 
 - A TypeScript/JavaScript behavior is surprising: an await returns too early, a recursive type check flips with ordering, a type-import lint rule fights the annotation you need, a test cannot control an imported dependency, or a vendor helper now throws where a coercion used to default.
@@ -78,10 +83,10 @@ This skill is the **index** for TypeScript/JavaScript deltas that bite at runtim
 - A shallow call tree throws `Maximum call stack size exceeded` — suspect a large-array spread/`apply` before recursion depth.
 - A repetitive bulk refactor copies the same multi-line object fragment across many call sites.
 - You are building an in-process typed event pipeline consumed as a stream.
+- You enable `exactOptionalPropertyTypes` (or a dependency bump starts passing `T | undefined` into an `x?: T`) and see TS2379/TS2375/TS2345/TS2322/TS2412/TS2769 — see `references/exact-optional-property-types.md`.
 
 ## Related Skills
 
-- `exact-optional-property-types-migration` — the other TypeScript compiler-flag gotcha cluster (`exactOptionalPropertyTypes` errors and widening optional targets)
 - `remix3-frame-cliententry` — the frame/theme host-binding context that hits the TS7 order-sensitive `MixinDescriptor` relation
 - `remix3-build-and-tooling` (`references/upstream-dependency-analysis.md`) — deciding whether a branch-pinned dependency update's new runtime validation affects your project
 - `remix3-testing` — Remix 3 test-suite patterns that consume the mutable-setter import seam
