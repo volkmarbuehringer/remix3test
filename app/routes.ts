@@ -6,6 +6,7 @@ export const frames = {
 
   appointmentContent: 'appointment-content',
   appointTypes: 'appoint-types',
+  settingsPanel: 'settings-panel',
 
   agentEventsPanel: 'agent-events-panel',
   supportAgentPanel: 'support-agent-panel',

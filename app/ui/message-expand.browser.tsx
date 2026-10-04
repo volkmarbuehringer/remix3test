@@ -10,7 +10,7 @@ import { clientEntry, css, type Handle } from 'remix/component'
  * no state to reconcile on navigation (a fresh frame render collapses again).
  *
  * A single document-level delegated listener is registered once per page load
- * (module-scoped guard, matching settings-enhance), so it survives frame swaps.
+ * (module-scoped guard), so it survives frame swaps.
  * After every render a `queueTask` re-scans the cells: it resets each cell to
  * its collapsed default and hides the toggle on messages that already fit
  * within the clamp, so short messages never show a pointless button.

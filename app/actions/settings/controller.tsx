@@ -2,13 +2,13 @@ import * as s from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
 import * as f from 'remix/data-schema/form-data'
 import type { Handle, RemixNode } from 'remix/component'
-import { css } from 'remix/component'
+import { css, Frame } from 'remix/component'
 import { theme } from '../../ui/theme/theme.ts'
 import { Glyph } from '../../ui/theme/glyph/glyph.tsx'
 import { createController } from 'remix/router'
 import { redirect } from 'remix/response/redirect'
 
-import { routes } from '../../routes.ts'
+import { frames, routes } from '../../routes.ts'
 
 import { requireAuth } from '../../middleware/auth.ts'
 import { users, type User } from '../../data/schema.ts'
@@ -34,7 +34,9 @@ import { sendAccountDeletionEmail } from '../../utils/send-email.ts'
 import { input } from '../../ui/mixins/input.ts'
 import { CsrfTokenInput } from '../../ui/csrf-token-input.tsx'
 import { ConfirmDelete } from '../../ui/confirm-delete.browser.tsx'
-import { SettingsEnhance } from '../../ui/settings-enhance.browser.tsx'
+import { PasswordToggle } from '../../ui/password-toggle.browser.tsx'
+import { buttonLink } from '../../ui/theme/button.ts'
+import { segmentedButton } from '../../ui/mixins/segmented.ts'
 
 const changePasswordLimiter = createRateLimiter({ windowMs: 15_000, perUser: true, maxAttempts: 5 })
 
@@ -52,12 +54,21 @@ export default createController(routes.settings, {
     index(context) {
       let user = getCurrentUser()
       let pageSize = getPageSize(context.session, 15)
-      return context.render(<SettingsPage user={user} pageSize={pageSize} />)
+      let isFrame = context.request.headers.get('X-Remix-Target') === frames.settingsPanel
+      return context.render(
+        <SettingsView
+          isFrame={isFrame}
+          user={user}
+          pageSize={pageSize}
+          activeTab={resolveSettingsTab(context.url)}
+        />,
+      )
     },
 
     async action(context) {
       let user = getCurrentUser()
       let pageSize = getPageSize(context.session, 15)
+      let isFrame = context.request.headers.get('X-Remix-Target') === frames.settingsPanel
       let _action =
         typeof context.formData.get('_action') === 'string'
           ? (context.formData.get('_action') as string)
@@ -66,10 +77,12 @@ export default createController(routes.settings, {
       if (_action === 'delete-account') {
         if (user.role === 'admin') {
           return context.render(
-            <SettingsPage
+            <SettingsView
+              isFrame={isFrame}
+              inline
               user={user}
               pageSize={pageSize}
-              activeTab="settings-account"
+              activeTab="account"
               deleteError="Administratoren können ihr Konto nicht selbst löschen."
             />,
             { status: 403 },
@@ -78,10 +91,12 @@ export default createController(routes.settings, {
 
         if (!deleteAccountLimiter.attempt(user.id)) {
           return context.render(
-            <SettingsPage
+            <SettingsView
+              isFrame={isFrame}
+              inline
               user={user}
               pageSize={pageSize}
-              activeTab="settings-account"
+              activeTab="account"
               deleteError="Zu viele Versuche. Bitte versuchen Sie es in einer Minute erneut."
             />,
             { status: 429 },
@@ -95,10 +110,12 @@ export default createController(routes.settings, {
         let passwordValid = await verifyPassword(inputPassword, user.password_hash)
         if (!passwordValid) {
           return context.render(
-            <SettingsPage
+            <SettingsView
+              isFrame={isFrame}
+              inline
               user={user}
               pageSize={pageSize}
-              activeTab="settings-account"
+              activeTab="account"
               deleteError="Aktuelles Passwort ist falsch."
             />,
             { status: 400 },
@@ -118,10 +135,12 @@ export default createController(routes.settings, {
         } catch (err) {
           deleteAccountLimiter.reset(user.id)
           return context.render(
-            <SettingsPage
+            <SettingsView
+              isFrame={isFrame}
+              inline
               user={user}
               pageSize={pageSize}
-              activeTab="settings-account"
+              activeTab="account"
               deleteError="Konto konnte nicht gelöscht werden. Bitte versuchen Sie es später erneut."
             />,
             { status: 500 },
@@ -158,15 +177,17 @@ export default createController(routes.settings, {
             session.flash('success', 'Einträge pro Seite gespeichert.')
           }
         }
-        return redirect(`${routes.settings.index.href()}#settings-display`)
+        return redirect(`${routes.settings.index.href()}?tab=display`)
       }
 
       if (!changePasswordLimiter.attempt(user.id)) {
         return context.render(
-          <SettingsPage
+          <SettingsView
+            isFrame={isFrame}
+            inline
             user={user}
             pageSize={pageSize}
-            activeTab="settings-password"
+            activeTab="password"
             passwordError="Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."
           />,
           { status: 429 },
@@ -176,10 +197,12 @@ export default createController(routes.settings, {
       let parsed = s.parseSafe(changePasswordSchema, context.formData)
       if (!parsed.success) {
         return context.render(
-          <SettingsPage
+          <SettingsView
+            isFrame={isFrame}
+            inline
             user={user}
             pageSize={pageSize}
-            activeTab="settings-password"
+            activeTab="password"
             passwordError="Bitte überprüfen Sie Ihre Eingabe."
             passwordErrors={issuesToFieldErrors(parsed.issues)}
           />,
@@ -192,10 +215,12 @@ export default createController(routes.settings, {
       let valid = await verifyPassword(currentPassword, user.password_hash)
       if (!valid) {
         return context.render(
-          <SettingsPage
+          <SettingsView
+            isFrame={isFrame}
+            inline
             user={user}
             pageSize={pageSize}
-            activeTab="settings-password"
+            activeTab="password"
             passwordError="Aktuelles Passwort ist falsch."
             passwordErrors={{ currentPassword: 'Falsches Passwort' }}
           />,
@@ -205,10 +230,12 @@ export default createController(routes.settings, {
 
       if (newPassword !== confirmPassword) {
         return context.render(
-          <SettingsPage
+          <SettingsView
+            isFrame={isFrame}
+            inline
             user={user}
             pageSize={pageSize}
-            activeTab="settings-password"
+            activeTab="password"
             passwordError="Passwörter stimmen nicht überein."
             passwordErrors={{ confirmPassword: 'Passwörter stimmen nicht überein' }}
           />,
@@ -219,10 +246,12 @@ export default createController(routes.settings, {
       let complexityError = validatePasswordComplexity(newPassword)
       if (complexityError) {
         return context.render(
-          <SettingsPage
+          <SettingsView
+            isFrame={isFrame}
+            inline
             user={user}
             pageSize={pageSize}
-            activeTab="settings-password"
+            activeTab="password"
             passwordError={complexityError}
             passwordErrors={{ newPassword: complexityError }}
           />,
@@ -246,10 +275,12 @@ export default createController(routes.settings, {
       changePasswordLimiter.reset(user.id)
 
       return context.render(
-        <SettingsPage
+        <SettingsView
+          isFrame={isFrame}
+          inline
           user={user}
           pageSize={pageSize}
-          activeTab="settings-password"
+          activeTab="password"
           passwordSuccess="Passwort erfolgreich aktualisiert. Andere Geräte wurden abgemeldet."
         />,
       )
@@ -269,27 +300,24 @@ function roleLabelDE(role: User['role']): string {
   return role === 'admin' ? 'Administrator' : 'Kunde'
 }
 
-// CSS-only no-JS fallback for the tab panels. Inactive panels are server-rendered
-// with `hidden` so they stay out of the first paint. The `scripting` media
-// feature is evaluated by the browser against the real scripting setting and is
-// immune to the client runtime's DOM patching, so the reveal rule only ever
-// applies when scripting is disabled — letting the tab anchors fall back to
-// plain in-page links.
-const PANEL_REVEAL_CSS =
-  '@media (scripting: none) { [data-settings-tabpanel][hidden] { display: flex !important; } }'
-
-// The settings panels are presented as ARIA tabs. The order here is the tab
-// order, and each id doubles as the panel's DOM id and the URL fragment that
-// deep-links it (e.g. /settings#settings-password).
+// The settings sections are server-rendered one at a time inside the
+// `settings-panel` frame. `id` is both the `?tab=` value and the panel's DOM
+// id; the order is the tab order. Deep links are real URLs
+// (e.g. /settings?tab=password) because a hash-only change does not reload a frame.
 const SETTINGS_TABS = [
-  { id: 'settings-profile', label: 'Profil' },
-  { id: 'settings-display', label: 'Anzeige' },
-  { id: 'settings-password', label: 'Passwort' },
-  { id: 'settings-account', label: 'Konto' },
+  { id: 'profile', label: 'Profil' },
+  { id: 'display', label: 'Anzeige' },
+  { id: 'password', label: 'Passwort' },
+  { id: 'account', label: 'Konto' },
 ] as const
 
-type SettingsTabId = (typeof SETTINGS_TABS)[number]['id']
-const DEFAULT_SETTINGS_TAB: SettingsTabId = 'settings-profile'
+type SettingsTab = (typeof SETTINGS_TABS)[number]['id']
+const DEFAULT_SETTINGS_TAB: SettingsTab = 'profile'
+
+function resolveSettingsTab(url: URL): SettingsTab {
+  let raw = url.searchParams.get('tab')
+  return SETTINGS_TABS.some((tab) => tab.id === raw) ? (raw as SettingsTab) : DEFAULT_SETTINGS_TAB
+}
 
 type SettingsPageProps = {
   user: User
@@ -298,21 +326,42 @@ type SettingsPageProps = {
   passwordErrors?: Record<string, string | undefined>
   passwordSuccess?: string
   deleteError?: string
-  /** Tab to mark selected on the server render; defaults to the profile tab. */
-  activeTab?: SettingsTabId
+  /** Section rendered into the frame; defaults to the profile tab. */
+  activeTab?: SettingsTab
+}
+
+type SettingsViewProps = SettingsPageProps & { isFrame: boolean; inline?: boolean }
+
+function SettingsView(handle: Handle<SettingsViewProps>) {
+  return () => {
+    let { isFrame, inline, ...props } = handle.props
+    if (isFrame) return <SettingsTabs {...props} />
+    if (inline) {
+      // A full-document POST response cannot rely on the frame: the frame's
+      // content comes from a separate GET that never sees this action's
+      // validation state. Render the section inline so errors survive no-JS
+      // and non-frame submissions.
+      return (
+        <Layout title="Einstellungen">
+          <PageSection
+            title="Einstellungen"
+            titleHidden
+            description="Verwalten Sie Ihre Kontoeinstellungen."
+          >
+            <SettingsTabs {...props} />
+            <PasswordToggle />
+            <ConfirmDelete />
+          </PageSection>
+        </Layout>
+      )
+    }
+    return <SettingsPage {...props} />
+  }
 }
 
 function SettingsPage(handle: Handle<SettingsPageProps>) {
   return () => {
-    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
-      handle.props
     let activeTab = handle.props.activeTab ?? DEFAULT_SETTINGS_TAB
-    // Inactive panels are hidden in the initial server HTML so the whole page
-    // never flashes before the client entry applies tab visibility. The
-    // @media (scripting: none) rule below reveals them again when JS is
-    // unavailable.
-    let panelHidden = (tabId: SettingsTabId) => (tabId === activeTab ? undefined : true)
-
     return (
       <Layout title="Einstellungen">
         <PageSection
@@ -320,47 +369,50 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
           titleHidden
           description="Verwalten Sie Ihre Kontoeinstellungen."
         >
-          <SettingsEnhance />
-          {/*
-            Inactive panels are server-rendered with the `hidden` attribute so
-            the full page cannot flash before SettingsEnhance runs. When JS is
-            disabled the panels must all be visible again so the tab anchors keep
-            working as plain in-page links.
+          <Frame
+            name={frames.settingsPanel}
+            src={`${routes.settings.index.href()}?tab=${activeTab}`}
+          />
+          <PasswordToggle />
+          <ConfirmDelete />
+        </PageSection>
+      </Layout>
+    )
+  }
+}
 
-            A <noscript> element cannot carry that rule: after the first
-            client-side patch the Remix UI runtime re-parses the noscript body
-            into a live <style>, which would un-hide every panel. A `data-js`
-            flag on <html> is also unreliable — the runtime reconciles the
-            document element against the server HTML and drops the flag. The
-            `@media (scripting: none)` rule below is immune to both.
-          */}
-          <style>{PANEL_REVEAL_CSS}</style>
-          <div mix={sectionTabListCss} role="tablist" aria-label="Bereiche der Einstellungen">
-            {SETTINGS_TABS.map((tab) => (
+function SettingsTabs(handle: Handle<SettingsPageProps>) {
+  return () => {
+    let { user, pageSize, passwordError, passwordErrors, passwordSuccess, deleteError } =
+      handle.props
+    let activeTab = handle.props.activeTab ?? DEFAULT_SETTINGS_TAB
+
+    return (
+      <>
+        <nav mix={sectionTabListCss} aria-label="Bereiche der Einstellungen">
+          {SETTINGS_TABS.map((tab, index) => {
+            let isFirst = index === 0
+            let isLast = index === SETTINGS_TABS.length - 1
+            let active = tab.id === activeTab
+            return (
               <a
-                mix={sectionTabCss}
-                href={`#${tab.id}`}
-                id={`${tab.id}-tab`}
-                role="tab"
-                aria-controls={tab.id}
-                aria-selected={tab.id === activeTab ? 'true' : 'false'}
-                tabindex={tab.id === activeTab ? 0 : -1}
-                data-settings-tab
+                mix={[
+                  buttonLink({ tone: active ? 'primary' : 'secondary' }),
+                  segmentedButton({ isFirst, isLast }),
+                ]}
+                href={`${routes.settings.index.href()}?tab=${tab.id}`}
+                aria-current={active ? 'page' : undefined}
+                data-rmx-target={frames.settingsPanel}
+                id={`settings-${tab.id}-tab`}
               >
                 {tab.label}
               </a>
-            ))}
-          </div>
-          <div mix={settingsGridCss} data-settings-active-tab={activeTab}>
-            <div
-              mix={[panelCss, panelAnchorCss]}
-              id="settings-profile"
-              role="tabpanel"
-              aria-labelledby="settings-profile-tab"
-              tabindex={0}
-              data-settings-tabpanel
-              hidden={panelHidden('settings-profile')}
-            >
+            )
+          })}
+        </nav>
+        <div mix={settingsGridCss}>
+          {activeTab === 'profile' ? (
+            <div mix={[panelCss, panelAnchorCss]} id="settings-profile">
               <h2 id="settings-profile-title" mix={sectionTitleCss}>
                 Profil
               </h2>
@@ -406,21 +458,18 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 Um Name oder E-Mail zu ändern, kontaktieren Sie Ihren Administrator.
               </p>
             </div>
-
-            <div
-              mix={[panelCss, panelAnchorCss]}
-              id="settings-display"
-              role="tabpanel"
-              aria-labelledby="settings-display-tab"
-              tabindex={0}
-              data-settings-tabpanel
-              hidden={panelHidden('settings-display')}
-            >
+          ) : null}
+          {activeTab === 'display' ? (
+            <div mix={[panelCss, panelAnchorCss]} id="settings-display">
               <h2 id="settings-display-title" mix={sectionTitleCss}>
                 Anzeige
               </h2>
               <p mix={hintTextCss}>Gilt für alle Listen während dieser Sitzung.</p>
-              <form action={routes.settings.action.href()} method="POST">
+              <form
+                action={routes.settings.action.href()}
+                method="POST"
+                data-rmx-target={frames.settingsPanel}
+              >
                 <input type="hidden" name="_action" value="set-page-size" />
                 <CsrfTokenInput />
                 <div mix={pageSizeRowCss}>
@@ -453,31 +502,28 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 </div>
               </form>
             </div>
-
-            <div
-              mix={[panelCss, fullSpanCss, panelAnchorCss]}
-              id="settings-password"
-              role="tabpanel"
-              aria-labelledby="settings-password-tab"
-              tabindex={0}
-              data-settings-panel
-              data-settings-tabpanel
-              hidden={panelHidden('settings-password')}
-            >
+          ) : null}
+          {activeTab === 'password' ? (
+            <div mix={[panelCss, fullSpanCss, panelAnchorCss]} id="settings-password">
               <h2 id="settings-password-title" mix={sectionTitleCss}>
                 Passwort ändern
               </h2>
               {passwordError ? (
-                <p role="alert" data-settings-alert mix={errorBanner}>
+                <p role="alert" mix={errorBanner}>
                   {passwordError}
                 </p>
               ) : null}
               {passwordSuccess ? (
-                <p role="status" data-settings-status mix={successBanner}>
+                <p role="status" mix={successBanner}>
                   {passwordSuccess}
                 </p>
               ) : null}
-              <form action={routes.settings.action.href()} method="POST" mix={formWidthCss}>
+              <form
+                action={routes.settings.action.href()}
+                method="POST"
+                data-rmx-target={frames.settingsPanel}
+                mix={formWidthCss}
+              >
                 <CsrfTokenInput />
                 <div mix={formContainer}>
                   <PasswordField
@@ -500,12 +546,11 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                     <ul
                       id="password-rules"
                       mix={complexityListCss}
-                      data-pw-complexity
                       aria-label="Passwort-Anforderungen"
                     >
-                      <li data-complexity-rule="length">Mindestens 10 Zeichen</li>
-                      <li data-complexity-rule="digit">Mindestens eine Zahl (0-9)</li>
-                      <li data-complexity-rule="special">Mindestens ein Sonderzeichen</li>
+                      <li>Mindestens 10 Zeichen</li>
+                      <li>Mindestens eine Zahl (0-9)</li>
+                      <li>Mindestens ein Sonderzeichen</li>
                     </ul>
                   </PasswordField>
                   <PasswordField
@@ -515,9 +560,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                     autoComplete="new-password"
                     error={passwordErrors?.confirmPassword}
                     errorId="confirm-password-error"
-                  >
-                    <p data-pw-match role="status" aria-live="polite" mix={matchFeedbackCss}></p>
-                  </PasswordField>
+                  />
 
                   <button type="submit" mix={submitButton} aria-label="Passwort speichern">
                     Speichern
@@ -525,16 +568,9 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                 </div>
               </form>
             </div>
-
-            <div
-              mix={[panelCss, dangerZoneCss, fullSpanCss, panelAnchorCss]}
-              id="settings-account"
-              role="tabpanel"
-              aria-labelledby="settings-account-tab"
-              tabindex={0}
-              data-settings-tabpanel
-              hidden={panelHidden('settings-account')}
-            >
+          ) : null}
+          {activeTab === 'account' ? (
+            <div mix={[panelCss, dangerZoneCss, fullSpanCss, panelAnchorCss]} id="settings-account">
               <h2 id="settings-account-title" mix={[sectionTitleCss, dangerTitleCss]}>
                 Konto löschen
               </h2>
@@ -550,6 +586,7 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
               <form
                 action={routes.settings.action.href()}
                 method="POST"
+                data-rmx-target={frames.settingsPanel}
                 mix={formWidthCss}
                 data-confirm="Möchten Sie Ihr Konto wirklich dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden."
               >
@@ -572,21 +609,19 @@ function SettingsPage(handle: Handle<SettingsPageProps>) {
                       name="confirmDelete"
                       required
                       defaultChecked={deleteError ? true : undefined}
-                      data-delete-confirm
                       mix={confirmCheckboxCss}
                     />
                     <span>Ich möchte mein Konto dauerhaft löschen</span>
                   </label>
-                  <button type="submit" data-delete-submit mix={deleteButtonCss}>
+                  <button type="submit" mix={deleteButtonCss}>
                     Konto dauerhaft löschen
                   </button>
                 </div>
               </form>
             </div>
-          </div>
-          <ConfirmDelete />
-        </PageSection>
-      </Layout>
+          ) : null}
+        </div>
+      </>
     )
   }
 }
@@ -669,47 +704,15 @@ const settingsGridCss = css({
   alignItems: 'start',
 })
 
-// ARIA tab list for the four settings panels. Anchors (not buttons) keep the
-// URL fragment meaningful and give a no-JavaScript fallback: the
-// @media (scripting: none) rule above reveals every panel and each link scrolls
-// to its own panel. With JS the inactive panels start hidden server-side so the
-// full page never flashes before the client entry applies tab visibility.
+// Settings section navigation, styled as a joined button group. Each item is a
+// real link (?tab=…) that reloads the settings-panel frame through
+// data-rmx-target; without the frame runtime they are ordinary same-origin
+// navigations, so no client entry is involved.
 const sectionTabListCss = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: theme.space.sm,
-})
-
-const sectionTabCss = css({
   display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: '36px',
-  padding: `0 ${theme.space.md}`,
-  border: `1px solid ${theme.colors.border.subtle}`,
-  borderRadius: theme.radius.full,
-  backgroundColor: theme.surface.lvl0,
-  color: theme.colors.text.secondary,
-  fontSize: theme.fontSize.sm,
-  fontWeight: theme.fontWeight.medium,
-  textDecoration: 'none',
-  cursor: 'pointer',
-  transition: 'background-color 150ms ease, color 150ms ease, border-color 150ms ease',
-  '&:hover': {
-    backgroundColor: theme.surface.lvl1,
-    borderColor: theme.colors.border.default,
-    color: theme.colors.text.primary,
-  },
-  '&:focus-visible': {
-    outline: `2px solid ${theme.colors.focus.ring}`,
-    outlineOffset: 2,
-  },
-  // Declared after :hover in the same descriptor so the selected tab stays
-  // visually selected even while it is hovered.
-  '&[aria-selected="true"]': {
-    backgroundColor: theme.colors.action.primary.background,
-    borderColor: theme.colors.action.primary.border,
-    color: theme.colors.action.primary.foreground,
-  },
+  alignItems: 'stretch',
+  flexWrap: 'wrap',
+  maxWidth: '100%',
 })
 
 // Keeps an anchored panel clear of the viewport edge when the fragment scrolls.
@@ -731,18 +734,6 @@ const dangerTitleCss = css({
 // sitting next to a normal settings panel.
 const fullSpanCss = css({
   gridColumn: '1 / -1',
-})
-
-const matchFeedbackCss = css({
-  minHeight: '1.25rem',
-  marginTop: theme.space.xs,
-  fontSize: theme.fontSize.xs,
-  '&[data-match="ok"]': {
-    color: theme.colors.success.foreground,
-  },
-  '&[data-match="bad"]': {
-    color: theme.colors.action.danger.background,
-  },
 })
 
 const profileHeaderCss = css({
@@ -895,14 +886,7 @@ const complexityListCss = css({
   fontSize: theme.fontSize.xs,
   color: theme.colors.text.secondary,
   '& li::before': {
-    content: '"○ "',
-    color: theme.colors.text.secondary,
-  },
-  '& li[data-ok="true"]::before': {
-    content: '"✓ "',
-    color: theme.colors.success.foreground,
-  },
-  '& li[data-ok="true"]': {
+    content: '"• "',
     color: theme.colors.text.secondary,
   },
 })

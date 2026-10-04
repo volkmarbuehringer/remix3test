@@ -10,17 +10,6 @@ import { hashPassword } from '../../utils/password-hash.ts'
 
 const BASE = 'https://remix.run'
 
-/** Opening tag of the settings panel with the given id, attributes in any order. */
-function panelOpeningTag(html: string, id: string): string {
-  return html.match(new RegExp(`<div[^>]*id="${id}"[^>]*>`))?.[0] ?? ''
-}
-
-function isPanelHidden(html: string, id: string): boolean {
-  let tag = panelOpeningTag(html, id)
-  if (!tag) throw new Error(`panel ${id} not found in HTML`)
-  return /\shidden(?:[\s=>]|$)/.test(tag)
-}
-
 const TEST_PREFIX = `sett-${Date.now()}-`
 const INITIAL_PASSWORD = 'password123'
 const NEW_PASSWORD = 'NewSecure1!pass'
@@ -56,16 +45,11 @@ describe('Settings controller', () => {
         1,
         'should render exactly one h1 (the breadcrumb carries the visible page title)',
       )
-      assert.ok(html.includes('Passwort ändern'), 'page should contain password section')
-      assert.ok(html.includes('name="currentPassword"'), 'should have current password input')
-      assert.ok(html.includes('name="newPassword"'), 'should have new password input')
-      assert.ok(html.includes('name="confirmPassword"'), 'should have confirm password input')
-      assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
-      assert.ok(html.includes('role="tablist"'), 'should render the settings tab list')
-      assert.ok(
-        html.includes('data-settings-active-tab="settings-profile"'),
-        'profile tab should be selected by default',
-      )
+      assert.ok(html.includes('aria-label="Bereiche der Einstellungen"'), 'tab nav present')
+      assert.ok(html.includes('data-rmx-target="settings-panel"'), 'tabs target the settings frame')
+      assert.ok(html.includes('href="/settings?tab=profile"'), 'profile is the default tab')
+      assert.ok(html.includes('id="settings-profile"'), 'profile panel is rendered by default')
+      assert.ok(!html.includes('id="settings-password"'), 'inactive panels are not rendered')
     })
 
     it('renders the profile summary with role and membership date', async () => {
@@ -83,64 +67,78 @@ describe('Settings controller', () => {
       assert.ok(html.includes('data-settings-member-since'), 'should render the membership date')
     })
 
-    it('renders an ARIA tab and tabpanel for every settings section', async () => {
+    it('renders one tab link per settings section and only the active panel', async () => {
       let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
       if (!session) throw new Error('Could not create auth session')
 
-      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+      let response = await router.fetch(BASE + routes.settings.index.href(), {
         headers: { Cookie: session.cookie },
       })
 
       assert.equal(response.status, 200)
       let html = await response.text()
       for (let section of ['profile', 'display', 'password', 'account']) {
-        assert.ok(html.includes(`id="settings-${section}"`), `should render the ${section} panel`)
         assert.ok(
-          html.includes(`href="#settings-${section}"`),
-          `should link to the ${section} panel`,
+          html.includes('href="/settings?tab=' + section + '"'),
+          'should link to the ' + section + ' section',
         )
         assert.ok(
-          html.includes(`aria-controls="settings-${section}"`),
-          `tab should control the ${section} panel`,
+          html.includes('id="settings-' + section + '-tab"'),
+          'should render the ' + section + ' tab',
         )
-        assert.ok(html.includes(`id="settings-${section}-tab"`), `should render the ${section} tab`)
       }
-      assert.equal((html.match(/role="tab"/g) ?? []).length, 4, 'should render one tab per section')
+      assert.ok(
+        html.includes('href="/settings?tab=profile" aria-current="page"'),
+        'the profile section is current',
+      )
+      assert.ok(
+        !html.includes('href="/settings?tab=password" aria-current="page"'),
+        'inactive sections are not current',
+      )
+      assert.ok(html.includes('id="settings-profile"'), 'the active panel is rendered')
       assert.equal(
-        (html.match(/role="tabpanel"/g) ?? []).length,
-        4,
-        'should render one tabpanel per section',
+        (html.match(/id="settings-(profile|display|password|account)"/g) ?? []).length,
+        1,
+        'only one panel is rendered',
       )
     })
 
-    it('server-renders only the active panel visible to avoid a full-page flash', async () => {
+    it('renders the panel for the tab named in the URL query', async () => {
       let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
       if (!session) throw new Error('Could not create auth session')
 
-      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+      let response = await router.fetch(BASE + routes.settings.index.href() + '?tab=password', {
         headers: { Cookie: session.cookie },
       })
 
       assert.equal(response.status, 200)
       let html = await response.text()
-      assert.equal(
-        isPanelHidden(html, 'settings-profile'),
-        false,
-        'the default profile panel must be visible in the initial HTML',
-      )
-      for (let section of ['display', 'password', 'account']) {
-        assert.equal(
-          isPanelHidden(html, `settings-${section}`),
-          true,
-          `the inactive ${section} panel must be hidden in the initial HTML`,
-        )
-      }
+      assert.ok(html.includes('id="settings-password"'), 'password panel is rendered')
+      assert.ok(!html.includes('id="settings-profile"'), 'profile panel is not rendered')
+      assert.ok(html.includes('name="currentPassword"'), 'should have current password input')
+      assert.ok(html.includes('name="newPassword"'), 'should have new password input')
+      assert.ok(html.includes('name="confirmPassword"'), 'should have confirm password input')
+      assert.ok(html.includes('name="_csrf"'), 'form should include CSRF token input')
+      assert.ok(html.includes('href="/settings?tab=password"'), 'password tab link present')
       assert.ok(
-        html.includes(
-          '@media (scripting: none) { [data-settings-tabpanel][hidden] { display: flex !important; } }',
-        ),
-        'should reveal every panel again when scripting is disabled',
+        html.includes('href="/settings?tab=password" aria-current="page"'),
+        'the password section is current',
       )
+    })
+
+    it('returns only the section fragment for a settings frame request', async () => {
+      let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
+      if (!session) throw new Error('Could not create auth session')
+
+      let response = await router.fetch(BASE + routes.settings.index.href() + '?tab=display', {
+        headers: { Cookie: session.cookie, 'X-Remix-Target': 'settings-panel' },
+      })
+
+      assert.equal(response.status, 200)
+      let html = await response.text()
+      assert.ok(!html.includes('<html'), 'frame fragment must not contain the document shell')
+      assert.ok(html.includes('id="settings-display"'), 'renders the requested panel')
+      assert.ok(!html.includes('id="settings-profile"'), 'renders no other panel')
     })
 
     it('shows the administrator badge for admin accounts', async () => {
@@ -229,20 +227,9 @@ describe('Settings controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show error')
-      assert.ok(
-        html.includes('data-settings-active-tab="settings-password"'),
-        'should keep the password tab active after a failed change',
-      )
-      assert.equal(
-        isPanelHidden(html, 'settings-password'),
-        false,
-        'the re-rendered password panel must be visible in the initial HTML',
-      )
-      assert.equal(
-        isPanelHidden(html, 'settings-profile'),
-        true,
-        'the other panels must stay hidden in the initial HTML',
-      )
+      assert.ok(html.includes('id="settings-password"'), 'password panel is rendered')
+      assert.ok(!html.includes('id="settings-profile"'), 'other panels are not rendered')
+      assert.ok(html.includes('href="/settings?tab=password"'), 'password tab link present')
     })
 
     it('rejects password that is too short', async () => {
@@ -347,18 +334,18 @@ describe('Settings controller', () => {
       assert.equal(response.status, 302)
       let location = response.headers.get('Location')
       assert.ok(
-        location?.endsWith('#settings-display'),
+        location === routes.settings.index.href() + '?tab=display',
         'should keep the display tab active after saving',
       )
     })
   })
 
   describe('DELETE ACCOUNT', () => {
-    it('renders delete account section on settings page', async () => {
+    it('renders delete account section on the account tab', async () => {
       let session = await createAuthCookieWithCsrfForUser('user@newapp.com')
       if (!session) throw new Error('Could not create auth session')
 
-      let response = await router.fetch(`${BASE}${routes.settings.index.href()}`, {
+      let response = await router.fetch(BASE + routes.settings.index.href() + '?tab=account', {
         headers: { Cookie: session.cookie },
       })
 
@@ -371,14 +358,7 @@ describe('Settings controller', () => {
         'should show confirmation checkbox',
       )
       assert.ok(html.includes('name="_action"'), 'should have action routing hidden field')
-      assert.ok(
-        html.includes('data-delete-confirm'),
-        'confirmation checkbox should carry the client gate hook',
-      )
-      assert.ok(
-        html.includes('data-delete-submit'),
-        'destructive submit button should carry the client gate hook',
-      )
+      assert.ok(html.includes('data-confirm='), 'delete form keeps the confirm dialog hook')
     })
 
     it('rejects delete account for admin users', async () => {
@@ -432,10 +412,8 @@ describe('Settings controller', () => {
       assert.equal(response.status, 400)
       let html = await response.text()
       assert.ok(html.includes('Aktuelles Passwort ist falsch'), 'should show password error')
-      assert.ok(
-        html.includes('data-settings-active-tab="settings-account"'),
-        'should keep the account tab active after a failed delete',
-      )
+      assert.ok(html.includes('id="settings-account"'), 'account panel is rendered')
+      assert.ok(!html.includes('id="settings-profile"'), 'other panels are not rendered')
     })
 
     it('successfully deletes account and redirects to login', async () => {
